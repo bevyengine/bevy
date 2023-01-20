@@ -52,8 +52,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                         fetch_struct_attributes.is_mutable = true;
                     } else {
                         panic!(
-                            "The `{}` attribute is expected to have no value or arguments",
-                            MUTABLE_ATTRIBUTE_NAME
+                            "The `{MUTABLE_ATTRIBUTE_NAME}` attribute is expected to have no value or arguments",
                         );
                     }
                 } else if ident == DERIVE_ATTRIBUTE_NAME {
@@ -63,8 +62,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             .extend(meta_list.nested.iter().cloned());
                     } else {
                         panic!(
-                            "Expected a structured list within the `{}` attribute",
-                            DERIVE_ATTRIBUTE_NAME
+                            "Expected a structured list within the `{DERIVE_ATTRIBUTE_NAME}` attribute",
                         );
                     }
                 } else {

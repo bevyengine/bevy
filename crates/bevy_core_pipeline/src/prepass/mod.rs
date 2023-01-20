@@ -1,4 +1,4 @@
-//! Run a prepass before the main pass to generate depth, normals, or velocities textures, sometimes called a thin g-buffer.
+//! Run a prepass before the main pass to generate depth, normals, and/or velocity texture, sometimes called a thin g-buffer.
 //! These textures are useful for various screen-space effects and reducing overdraw in the main pass.
 //!
 //! The prepass only runs for opaque meshes or meshes with an alpha mask. Transparent meshes are ignored.
@@ -16,9 +16,9 @@
 //! to a separate texture unless the [`DepthPrepass`] is activated. This means that if any prepass component is present
 //! it will always create a depth buffer that will be used by the main pass.
 //!
-//! When using the default mesh view bindings you can use the `prepass_depth()`
-//! `prepass_normal()`, and `prepass_velocity()` functions to load the related textures.
-//! These functions are defined in `bevy_pbr::utils`. See the `shader_prepass` example that shows how to use it.
+//! When using the default mesh view bindings you should be able to use `prepass_depth()`,
+//! `prepass_normal`, and `prepass_velocity()` to load the related textures.
+//! These functions are defined in `bevy_pbr::utils`. See the `shader_prepass` example that shows how to use them.
 //!
 //! The prepass runs for each `Material`. You can control if the prepass should run per-material by setting the `prepass_enabled`
 //! flag on the `MaterialPlugin`.
@@ -30,7 +30,7 @@ pub mod node;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, EntityPhaseItem, PhaseItem},
+    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
@@ -44,7 +44,8 @@ pub const VELOCITY_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg32Float;
 #[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass. Normals will have normal map textures already applied.
+/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
+/// Normals will have normal map textures already applied.
 #[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 
@@ -87,6 +88,10 @@ pub struct Opaque3dPrepass {
 impl PhaseItem for Opaque3dPrepass {
     type SortKey = FloatOrd;
 
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
@@ -100,12 +105,6 @@ impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Opaque3dPrepass {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -131,6 +130,10 @@ pub struct AlphaMask3dPrepass {
 impl PhaseItem for AlphaMask3dPrepass {
     type SortKey = FloatOrd;
 
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
@@ -144,12 +147,6 @@ impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for AlphaMask3dPrepass {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 

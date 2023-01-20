@@ -8,6 +8,7 @@ use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{
     prelude::*,
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat3A, Mat4, Vec2};
@@ -21,7 +22,7 @@ use bevy_render::{
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -286,7 +287,7 @@ impl FromWorld for MeshPipeline {
             clustered_forward_buffer_binding_type: BufferBindingType,
             multisampled: bool,
         ) -> Vec<BindGroupLayoutEntry> {
-            vec![
+            let mut entries = vec![
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -405,8 +406,11 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+            ];
+
+            if cfg!(not(feature = "webgl")) {
                 // Depth texture
-                BindGroupLayoutEntry {
+                entries.push(BindGroupLayoutEntry {
                     binding: 10,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
@@ -415,9 +419,9 @@ impl FromWorld for MeshPipeline {
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
-                },
+                });
                 // Normal texture
-                BindGroupLayoutEntry {
+                entries.push(BindGroupLayoutEntry {
                     binding: 11,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
@@ -426,9 +430,9 @@ impl FromWorld for MeshPipeline {
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
-                },
+                });
                 // Velocity texture
-                BindGroupLayoutEntry {
+                entries.push(BindGroupLayoutEntry {
                     binding: 12,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
@@ -437,8 +441,10 @@ impl FromWorld for MeshPipeline {
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
-                },
-            ]
+                });
+            }
+
+            entries
         }
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -890,95 +896,101 @@ pub fn queue_mesh_view_bind_groups(
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        let fallback_depth = &fallback_depths
-            .image_for_samplecount(msaa.samples)
-            .texture_view;
-        let fallback_view = fallback_images
-            .image_for_samplecount(msaa.samples)
-            .texture_view
-            .clone();
-
         for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
-            let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
-                Some(texture) => &texture.default_view,
-                None => fallback_depth,
-            };
-            let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
-                Some(texture) => &texture.default_view,
-                None => &fallback_view,
-            };
-            let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
-                Some(texture) => &texture.default_view,
-                None => &fallback_view,
-            };
-
             let layout = if msaa.samples > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
                 &mesh_pipeline.view_layout
             };
 
+            let mut entries = vec![
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.point_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.directional_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(&shadow_pipeline.directional_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: point_light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: globals.clone(),
+                },
+            ];
+
+            // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
+            // When using WebGL, and MSAA is disabled, we can't bind the textures either
+            if cfg!(not(feature = "webgl")) {
+                let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
+                    Some(texture) => &texture.default_view,
+                    None => {
+                        &fallback_depths
+                            .image_for_samplecount(msaa.samples)
+                            .texture_view
+                    }
+                };
+                entries.push(BindGroupEntry {
+                    binding: 10,
+                    resource: BindingResource::TextureView(depth_view),
+                });
+
+                let normal_velocity_fallback = &fallback_images
+                    .image_for_samplecount(msaa.samples)
+                    .texture_view;
+
+                let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
+                    Some(texture) => &texture.default_view,
+                    None => normal_velocity_fallback,
+                };
+                entries.push(BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::TextureView(normal_view),
+                });
+
+                let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
+                    Some(texture) => &texture.default_view,
+                    None => normal_velocity_fallback,
+                };
+                entries.push(BindGroupEntry {
+                    binding: 12,
+                    resource: BindingResource::TextureView(velocity_view),
+                });
+            }
+
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.point_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 3,
-                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 4,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.directional_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 5,
-                        resource: BindingResource::Sampler(
-                            &shadow_pipeline.directional_light_sampler,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 6,
-                        resource: point_light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 7,
-                        resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 8,
-                        resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 9,
-                        resource: globals.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 10,
-                        resource: BindingResource::TextureView(depth_view),
-                    },
-                    BindGroupEntry {
-                        binding: 11,
-                        resource: BindingResource::TextureView(normal_view),
-                    },
-                    BindGroupEntry {
-                        binding: 12,
-                        resource: BindingResource::TextureView(velocity_view),
-                    },
-                ],
+                entries: &entries,
                 label: Some("mesh_view_bind_group"),
                 layout,
             });
@@ -991,20 +1003,23 @@ pub fn queue_mesh_view_bind_groups(
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
-    type Param = SQuery<(
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
+    type Param = ();
+    type ViewWorldQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<MeshViewBindGroup>,
-    )>;
+    );
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        (view_uniform, view_lights, mesh_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        _entity: (),
+        _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
@@ -1016,22 +1031,21 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
 }
 
 pub struct SetMeshBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
-    type Param = (
-        SRes<MeshBindGroup>,
-        SQuery<(
-            Read<DynamicUniformIndex<MeshUniform>>,
-            Option<Read<SkinnedMeshJoints>>,
-        )>,
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
+    type Param = SRes<MeshBindGroup>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = (
+        Read<DynamicUniformIndex<MeshUniform>>,
+        Option<Read<SkinnedMeshJoints>>,
     );
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        (mesh_index, skinned_mesh_joints): ROQueryItem<'_, Self::ItemWorldQuery>,
+        mesh_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (mesh_index, skinned_mesh_joints) = mesh_query.get(item).unwrap();
         if let Some(joints) = skinned_mesh_joints {
             pass.set_bind_group(
                 I,
@@ -1050,16 +1064,18 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
 }
 
 pub struct DrawMesh;
-impl EntityRenderCommand for DrawMesh {
-    type Param = (SRes<RenderAssets<Mesh>>, SQuery<Read<Handle<Mesh>>>);
+impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
+    type Param = SRes<RenderAssets<Mesh>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<Mesh>>;
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        mesh_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).unwrap();
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {

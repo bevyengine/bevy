@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
@@ -29,7 +30,6 @@ use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
-use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -176,7 +176,6 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub scale_factor: f32,
 }
 
 #[derive(Resource, Default)]
@@ -188,7 +187,6 @@ pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
-    windows: Extract<Res<Windows>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -200,28 +198,25 @@ pub fn extract_uinodes(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
                 continue;
             }
+
             let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                // Skip loading images
+                if !images.contains(&image.texture) {
+                    continue;
+                }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-            // Skip completely transparent nodes
-            if color.0.a() == 0.0 {
-                continue;
-            }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
@@ -236,7 +231,6 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
-                scale_factor,
             });
         }
     }
@@ -301,7 +295,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    windows: Extract<Res<Windows>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
@@ -314,7 +308,12 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor() as f32)
+        .unwrap_or(1.0);
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
@@ -364,7 +363,6 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    scale_factor,
                 });
             }
         }
@@ -500,20 +498,20 @@ pub fn prepare_uinodes(
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let mut uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
-                uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
+                uinode_rect.min.x + positions_diff[0].x,
+                uinode_rect.min.y + positions_diff[0].y,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x * extracted_uinode.scale_factor,
-                uinode_rect.min.y + positions_diff[1].y * extracted_uinode.scale_factor,
+                uinode_rect.max.x + positions_diff[1].x,
+                uinode_rect.min.y + positions_diff[1].y,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x * extracted_uinode.scale_factor,
-                uinode_rect.max.y + positions_diff[2].y * extracted_uinode.scale_factor,
+                uinode_rect.max.x + positions_diff[2].x,
+                uinode_rect.max.y + positions_diff[2].y,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x * extracted_uinode.scale_factor,
-                uinode_rect.max.y + positions_diff[3].y * extracted_uinode.scale_factor,
+                uinode_rect.min.x + positions_diff[3].x,
+                uinode_rect.max.y + positions_diff[3].y,
             ),
         ]
         .map(|pos| pos / atlas_extent);
@@ -562,7 +560,7 @@ pub fn queue_uinodes(
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
@@ -591,7 +589,7 @@ pub fn queue_uinodes(
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey { hdr: view.hdr },
             );

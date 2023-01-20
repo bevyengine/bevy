@@ -417,7 +417,7 @@ macro_rules! load_internal_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static str>(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -455,7 +455,7 @@ macro_rules! load_internal_binary_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static [u8]>(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -493,7 +493,8 @@ mod tests {
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
-        app.add_plugin(bevy_core::CorePlugin::default())
+        app.add_plugin(bevy_core::TaskPoolPlugin::default())
+            .add_plugin(bevy_core::TypeRegistrationPlugin::default())
             .add_plugin(crate::AssetPlugin::default());
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();

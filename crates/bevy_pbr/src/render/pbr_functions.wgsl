@@ -4,6 +4,7 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u {
@@ -28,8 +29,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-    #ifndef VERTEX_TANGENTS
-    #ifndef STANDARDMATERIAL_NORMAL_MAP
+#ifndef VERTEX_TANGENTS
+#ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -117,8 +118,7 @@ fn calculate_view(
 
 struct PbrInput {
     material: StandardMaterial,
-    diffuse_occlusion: vec3<f32>,
-    specular_occlusion: vec3<f32>,
+    occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -137,8 +137,7 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.diffuse_occlusion = vec3<f32>(1.0, 1.0, 1.0);
-    pbr_input.specular_occlusion = vec3<f32>(1.0, 1.0, 1.0);
+    pbr_input.occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -152,7 +151,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
-#ifndef PREPASS_FRAGMENT
+#ifndef NORMAL_PREPASS
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -166,8 +165,7 @@ fn pbr(
     let perceptual_roughness = in.material.perceptual_roughness;
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
-    let diffuse_occlusion = in.diffuse_occlusion;
-    let specular_occlusion = in.specular_occlusion;
+    let occlusion = in.occlusion;
 
     output_color = alpha_discard(in.material, output_color);
 
@@ -199,46 +197,45 @@ fn pbr(
     // point lights
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
-        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        let light_contrib = point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
     // spot lights
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
-        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        let light_contrib = spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        let light = lights.directional_lights[i];
         var shadow: f32 = 1.0;
-        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
-        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        let light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    // TODO: Diffuse/specular occlusion should apply to indirect lighting from global illumination solutions
-
-    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV) * diffuse_occlusion;
-    let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV) * specular_occlusion;
-    let light_ambient = (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb;
+    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
+    let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
     output_color = vec4<f32>(
-        light_accum + light_ambient + emissive.rgb * output_color.a,
+        light_accum
+            + (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion
+            + emissive.rgb * output_color.a,
         output_color.a
     );
 
@@ -252,7 +249,7 @@ fn pbr(
 
     return output_color;
 }
-#endif // PREPASS_FRAGMENT
+#endif // NORMAL_PREPASS
 
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
@@ -270,3 +267,4 @@ fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
 }
 #endif // DEBAND_DITHER
+

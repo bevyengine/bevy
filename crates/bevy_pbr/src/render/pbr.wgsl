@@ -8,10 +8,6 @@
 #import bevy_pbr::shadows
 #import bevy_pbr::pbr_functions
 
-#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-#import bevy_pbr::gtao_multibounce
-#endif
-
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
@@ -25,13 +21,13 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     output_color = output_color * in.color;
 #endif
 #ifdef VERTEX_UVS
-    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
 #endif
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
         // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
         // the material members
         var pbr_input: PbrInput;
@@ -44,7 +40,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = material.emissive;
 #ifdef VERTEX_UVS
-        if (material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u {
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, in.uv).rgb, 1.0);
         }
 #endif
@@ -53,7 +49,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var metallic: f32 = material.metallic;
         var perceptual_roughness: f32 = material.perceptual_roughness;
 #ifdef VERTEX_UVS
-        if (material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u {
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
             let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
@@ -63,14 +59,13 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var diffuse_occlusion = vec3<f32>(1.0, 1.0, 1.0);
+        var occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
-        if (material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u {
-            diffuse_occlusion = vec3<f32>(textureSample(occlusion_texture, occlusion_sampler, in.uv).r);
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+            occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 #endif
-        pbr_input.diffuse_occlusion = diffuse_occlusion;
-        pbr_input.specular_occlusion = vec3<f32>(1.0, 1.0, 1.0);
+        pbr_input.occlusion = occlusion;
 
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
@@ -101,7 +96,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
 
 #ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color);
+        output_color = tone_mapping(output_color);
 #endif
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;

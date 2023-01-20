@@ -1,7 +1,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 // For a total of 110 * 110 = 12100 buttons with text
@@ -12,10 +12,10 @@ const FONT_SIZE: f32 = 7.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())

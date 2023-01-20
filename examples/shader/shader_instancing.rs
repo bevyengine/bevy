@@ -13,8 +13,8 @@ use bevy::{
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-            SetItemPipeline, TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+            RenderPhase, SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -104,7 +104,7 @@ fn queue_custom(
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
@@ -121,7 +121,7 @@ fn queue_custom(
                 let key =
                     view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
-                    .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                    .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                     .unwrap();
                 transparent_phase.add(Transparent3d {
                     entity,
@@ -223,22 +223,19 @@ type DrawCustom = (
 
 pub struct DrawMeshInstanced;
 
-impl EntityRenderCommand for DrawMeshInstanced {
-    type Param = (
-        SRes<RenderAssets<Mesh>>,
-        SQuery<Read<Handle<Mesh>>>,
-        SQuery<Read<InstanceBuffer>>,
-    );
+impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
+    type Param = SRes<RenderAssets<Mesh>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (meshes, mesh_query, instance_buffer_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        (mesh_handle, instance_buffer): (&'w Handle<Mesh>, &'w InstanceBuffer),
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get_inner(item).unwrap();
-
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,
             None => return RenderCommandResult::Failure,

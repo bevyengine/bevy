@@ -2,7 +2,9 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins:
 /// * [`LogPlugin`](crate::log::LogPlugin)
-/// * [`CorePlugin`](crate::core::CorePlugin)
+/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
+/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
+/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`TransformPlugin`](crate::transform::TransformPlugin)
 /// * [`HierarchyPlugin`](crate::hierarchy::HierarchyPlugin)
@@ -29,7 +31,9 @@ impl PluginGroup for DefaultPlugins {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
             .add(bevy_log::LogPlugin::default())
-            .add(bevy_core::CorePlugin::default())
+            .add(bevy_core::TaskPoolPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin::default())
+            .add(bevy_core::FrameCountPlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_transform::TransformPlugin::default())
             .add(bevy_hierarchy::HierarchyPlugin::default())
@@ -64,6 +68,12 @@ impl PluginGroup for DefaultPlugins {
                 // NOTE: Load this after renderer initialization so that it knows about the supported
                 // compressed texture formats
                 .add(bevy_render::texture::ImagePlugin::default());
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                group = group
+                    .add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin::default());
+            }
         }
 
         #[cfg(feature = "bevy_core_pipeline")]
@@ -118,7 +128,9 @@ impl PluginGroup for DefaultPlugins {
 }
 
 /// Minimal plugin group that will add the following plugins:
-/// * [`CorePlugin`](crate::core::CorePlugin)
+/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
+/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
+/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
 ///
@@ -128,7 +140,9 @@ pub struct MinimalPlugins;
 impl PluginGroup for MinimalPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(bevy_core::CorePlugin::default())
+            .add(bevy_core::TaskPoolPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin::default())
+            .add(bevy_core::FrameCountPlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_app::ScheduleRunnerPlugin::default())
     }

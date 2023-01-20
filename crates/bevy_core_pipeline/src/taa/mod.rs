@@ -200,8 +200,9 @@ impl Node for TAANode {
             });
 
         {
-            let mut taa_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
+            let mut taa_pass = TrackedRenderPass::new(
+                &render_context.render_device,
+                render_context.command_encoder.begin_render_pass(
                     &(RenderPassDescriptor {
                         label: Some("taa_pass"),
                         color_attachments: &[
@@ -218,7 +219,8 @@ impl Node for TAANode {
                         ],
                         depth_stencil_attachment: None,
                     }),
-                ));
+                ),
+            );
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
             if let Some(viewport) = camera.viewport.as_ref() {

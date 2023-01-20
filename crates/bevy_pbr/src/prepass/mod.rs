@@ -11,7 +11,7 @@ use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::{FromWorld, World},
@@ -24,7 +24,7 @@ use bevy_render::{
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, DrawFunctions, EntityRenderCommand,
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
@@ -392,6 +392,7 @@ where
     }
 }
 
+// Extract the render phases for the prepass
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
     cameras_3d: Extract<
@@ -492,7 +493,6 @@ pub fn prepare_prepass_textures(
         (
             Entity,
             &ExtractedCamera,
-            &Camera3d,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&VelocityPrepass>,
@@ -506,15 +506,15 @@ pub fn prepare_prepass_textures(
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
     let mut velocity_textures = HashMap::default();
-    for (entity, camera, camera_3d, depth_prepass, normal_prepass, velocity_prepass) in &views_3d {
+    for (entity, camera, depth_prepass, normal_prepass, velocity_prepass) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
-        let texture_size = camera_3d.render_resolution.unwrap_or(physical_target_size);
+
         let size = Extent3d {
             depth_or_array_layers: 1,
-            width: texture_size.x,
-            height: texture_size.y,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
         };
 
         let cached_depth_texture = depth_prepass.is_some().then(|| {
@@ -629,7 +629,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
@@ -699,7 +699,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             }
 
             let pipeline_id = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
@@ -741,33 +741,34 @@ pub fn queue_prepass_material_meshes<M: Material>(
 }
 
 pub struct SetPrepassViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
-    type Param = (
-        SRes<PrepassViewBindGroup>,
-        SQuery<(
-            Read<ViewUniformOffset>,
-            Read<PreviousViewProjectionUniformOffset>,
-        )>,
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewWorldQuery = (
+        Read<ViewUniformOffset>,
+        Read<PreviousViewProjectionUniformOffset>,
     );
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        (view_uniform_offset, previous_view_projection_uniform_offset): (
+            &'_ ViewUniformOffset,
+            &'_ PreviousViewProjectionUniformOffset,
+        ),
+        _entity: (),
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform_offset, previous_view_proj_uniform_offset) =
-            view_query.get(view).unwrap();
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
         pass.set_bind_group(
             I,
             prepass_view_bind_group.bind_group.as_ref().unwrap(),
             &[
                 view_uniform_offset.offset,
-                previous_view_proj_uniform_offset.offset,
+                previous_view_projection_uniform_offset.offset,
             ],
         );
-
         RenderCommandResult::Success
     }
 }

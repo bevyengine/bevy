@@ -18,9 +18,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
-        TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
+        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -214,7 +213,7 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -1191,7 +1190,7 @@ pub fn prepare_lights(
                 .spawn((
                     ShadowView {
                         depth_texture_view,
-                        pass_name: format!("shadow pass directional light {}", light_index),
+                        pass_name: format!("shadow pass directional light {light_index}"),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1627,7 +1626,7 @@ pub fn queue_shadows(
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1662,7 +1661,7 @@ pub fn queue_shadows(
                         let key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &shadow_pipeline,
                             key,
                             &mesh.layout,
@@ -1700,6 +1699,11 @@ impl PhaseItem for Shadow {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
     }
@@ -1712,12 +1716,6 @@ impl PhaseItem for Shadow {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Shadow {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -1772,26 +1770,21 @@ impl Node for ShadowPassNode {
                     continue;
                 }
 
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some(&view_light.pass_name),
-                    color_attachments: &[],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_light.depth_texture_view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
-                            store: true,
+                let mut render_pass =
+                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                        label: Some(&view_light.pass_name),
+                        color_attachments: &[],
+                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                            view: &view_light.depth_texture_view,
+                            depth_ops: Some(Operations {
+                                load: LoadOp::Clear(0.0),
+                                store: true,
+                            }),
+                            stencil_ops: None,
                         }),
-                        stencil_ops: None,
-                    }),
-                };
+                    });
 
-                shadow_phase.render(
-                    world,
-                    render_context,
-                    view_light_entity,
-                    None,
-                    pass_descriptor,
-                );
+                shadow_phase.render(&mut render_pass, world, view_light_entity);
             }
         }
 
@@ -1807,16 +1800,19 @@ pub type DrawShadowMesh = (
 );
 
 pub struct SetShadowViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
-    type Param = (SRes<LightMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
+    type Param = SRes<LightMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &Shadow,
+        view_uniform_offset: &'_ ViewUniformOffset,
+        _entity: (),
+        light_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             light_meta

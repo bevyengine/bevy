@@ -1,6 +1,9 @@
 //! Bevy has an optional prepass that is controlled per-material. A prepass is a rendering pass that runs before the main pass.
 //! It will optionally generate various view textures. Currently it supports depth and normal textures.
 //! The textures are not generated for any material using alpha blending.
+//!
+//! # WARNING
+//! The prepass currently doesn't work on `WebGL`.
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},

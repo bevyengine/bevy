@@ -2,11 +2,12 @@
 //! animation to stress test skinned meshes.
 
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 #[derive(Resource)]
@@ -19,11 +20,11 @@ struct Foxes {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
+            primary_window: Some(Window {
+                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -266,7 +267,10 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Return) {
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play_with_transition(
+                    animations.0[*current_animation].clone_weak(),
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }
