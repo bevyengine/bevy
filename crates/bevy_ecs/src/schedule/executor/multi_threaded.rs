@@ -1,4 +1,6 @@
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+use std::sync::Arc;
+
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
@@ -9,6 +11,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     archetype::ArchetypeComponentId,
+    prelude::Resource,
     query::Access,
     schedule::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
@@ -16,6 +19,8 @@ use crate::{
     system::BoxedSystem,
     world::World,
 };
+
+use crate as bevy_ecs;
 
 /// A funky borrow split of [`SystemSchedule`] required by the [`MultiThreadedExecutor`].
 struct SyncUnsafeSchedule<'a> {
@@ -572,4 +577,14 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
             unsafe { condition.run_unsafe((), world) }
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
+#[derive(Resource, Default, Clone)]
+pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+
+impl MainThreadExecutor {
+    pub fn new() -> Self {
+        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+    }
 }
