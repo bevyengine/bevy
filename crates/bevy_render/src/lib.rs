@@ -149,9 +149,6 @@ struct RenderExtraction;
 ///
 /// This schedule is stored as a resource on the render world,
 /// which is mutable accessed from the main world via the borrow splitting enabled by [`App::add_subapp`].
-///
-/// When adding systems to this schedule, be careful not to add any copies of [`apply_system_buffers`],
-/// as that system will attempt to extract the data into the main world pre-emptively!
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct ExtractSchedule(pub Schedule);
 

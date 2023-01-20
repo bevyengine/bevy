@@ -230,6 +230,22 @@ impl Schedule {
             }
         }
     }
+
+    /// Directly applies any accumulated system buffers (like [`Commands`](crate::prelude::Commands)) to the `world`.
+    ///
+    /// Like always, system buffers are applied in the "topological sort order" of the schedule graph.
+    /// As a result, buffers from one system are only guaranteed to be applied before those of other systems
+    /// if there is an explicit system ordering between the two systems.
+    ///
+    /// This is used in rendering to extract data from the main world, storing the data in system buffers,
+    /// before applying their buffers in a different world.
+    pub fn apply_system_buffers(&mut self, world: &mut World) {
+        for system in &mut self.executable.systems {
+            #[cfg(feature = "trace")]
+            let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
+            system.apply_buffers(world);
+        }
+    }
 }
 
 /// A directed acylic graph structure.
