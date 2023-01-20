@@ -568,7 +568,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_velocity_texture"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples,
+                            sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: VELOCITY_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT

@@ -54,7 +54,7 @@ impl Plugin for TemporalAntialiasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa { samples: 1 })
+        app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntialiasSettings>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
