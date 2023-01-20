@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin,
+    SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -133,6 +133,19 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         0.0
     }
 
+    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
+    /// will be used.
+    fn prepass_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
+    /// will be used.
+    #[allow(unused_variables)]
+    fn prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]
@@ -149,11 +162,22 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
-pub struct MaterialPlugin<M: Material>(PhantomData<M>);
+pub struct MaterialPlugin<M: Material> {
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    ///
+    /// When it is enabled, it will automatically add the [`PrepassPlugin`]
+    /// required to make the prepass work on this Material.
+    pub prepass_enabled: bool,
+    pub _marker: PhantomData<M>,
+}
 
 impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            prepass_enabled: true,
+            _marker: Default::default(),
+        }
     }
 }
 
@@ -164,6 +188,7 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -179,6 +204,10 @@ where
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
                 )
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+        }
+
+        if self.prepass_enabled {
+            app.add_plugin(PrepassPlugin::<M>::default());
         }
     }
 }
