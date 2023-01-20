@@ -56,6 +56,14 @@ impl Plugin for ViewPlugin {
 
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
+/// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
+/// smoother edges.
+/// Defaults to 4.
+///
+/// Note that WGPU currently only supports 1 or 4 samples.
+/// Ultimately we plan on supporting whatever is natively supported on a given device.
+/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+/// 
 /// # Example
 /// ```
 /// # use bevy_app::prelude::App;
@@ -64,17 +72,11 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
+#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
 #[reflect(Resource)]
 pub enum Msaa {
-    /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
-    /// smoother edges.
-    /// Defaults to 4.
-    ///
-    /// Note that WGPU currently only supports 1 or 4 samples.
-    /// Ultimately we plan on supporting whatever is natively supported on a given device.
-    /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
     Off = 1,
+    #[default]
     Sample4 = 4,
 }
 
@@ -82,12 +84,6 @@ impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
         *self as u32
-    }
-}
-
-impl Default for Msaa {
-    fn default() -> Self {
-        Self::Sample4
     }
 }
 
