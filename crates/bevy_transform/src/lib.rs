@@ -82,12 +82,13 @@ pub enum TransformSystem {
     TransformPropagate,
 }
 
-/// Transform propagation system set for third party plugins use
-pub fn transform_propagate_system_set() -> impl IntoSystemConfigs<P> {
-    (
-        systems::sync_simple_transforms,
-        systems::propagate_transforms,
-    )
+/// A [`Schedule`] that contains correctly ordered transform propagation systems for third party plugin use
+pub fn transform_propagate_schedule() -> Schedule {
+    let mut schedule = Schedule::new();
+    schedule
+        .add_system(systems::sync_simple_transforms.before(systems::propagate_transforms))
+        .add_system(systems::propagate_transforms);
+    schedule
 }
 
 /// The base plugin for handling [`Transform`] components
