@@ -1,7 +1,9 @@
 //! A scene showcasing temporal antialiasing.
 
 use bevy::{
-    pbr::{TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings},
+    core_pipeline::taa::{
+        TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings,
+    },
     prelude::*,
 };
 

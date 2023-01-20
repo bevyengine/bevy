@@ -1,11 +1,11 @@
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_core::FrameCount;
-use bevy_core_pipeline::{
+use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
 };
+use bevy_app::{App, Plugin};
+use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
@@ -67,27 +67,24 @@ impl Plugin for TemporalAntialiasPlugin {
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
+            .get_sub_graph_mut(crate::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::TAA, taa_node);
         draw_3d_graph.add_slot_edge(
             draw_3d_graph.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+            crate::core_3d::graph::input::VIEW_ENTITY,
             draw_3d_graph::node::TAA,
             TAANode::IN_VIEW,
         );
         // MAIN_PASS -> TAA -> BLOOM -> TONEMAPPING
         draw_3d_graph.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            crate::core_3d::graph::node::MAIN_PASS,
             draw_3d_graph::node::TAA,
         );
+        draw_3d_graph.add_node_edge(draw_3d_graph::node::TAA, crate::core_3d::graph::node::BLOOM);
         draw_3d_graph.add_node_edge(
             draw_3d_graph::node::TAA,
-            bevy_core_pipeline::core_3d::graph::node::BLOOM,
-        );
-        draw_3d_graph.add_node_edge(
-            draw_3d_graph::node::TAA,
-            bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+            crate::core_3d::graph::node::TONEMAPPING,
         );
     }
 }

@@ -7,7 +7,6 @@ mod material;
 mod pbr_material;
 mod prepass;
 mod render;
-mod taa;
 
 pub use alpha::*;
 use bevy_utils::default;
@@ -17,7 +16,6 @@ pub use material::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
-pub use taa::*;
 
 use bevy_window::ModifiesWindows;
 
