@@ -66,15 +66,15 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif // SKINNED
 
-#ifdef VELOCITY_PREPASS
-    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
-#endif // VELOCITY_PREPASS
-
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
+
+#ifdef VELOCITY_PREPASS
+    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
+#endif // VELOCITY_PREPASS
 
     return out;
 }
