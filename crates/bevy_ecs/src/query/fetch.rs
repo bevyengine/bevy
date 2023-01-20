@@ -1115,7 +1115,7 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
-#[deprecated = "`ChangeTrackers<T>` will be removed in bevy 0.10. Use `bevy_ecs::prelude::Ref<T>` instead."]
+#[deprecated = "`ChangeTrackers<T>` will be removed in bevy 0.11. Use `bevy_ecs::prelude::Ref<T>` instead."]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
