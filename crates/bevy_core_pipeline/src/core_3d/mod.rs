@@ -277,7 +277,7 @@ pub fn prepare_core_3d_depth_textures(
                                 height: physical_target_size.y,
                             },
                             mip_level_count: 1,
-                            sample_count: msaa.samples,
+                            sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                                   * bit depth for better performance */

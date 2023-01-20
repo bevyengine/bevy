@@ -2,11 +2,11 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::view::MultiSampleLevel};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::from(MultiSampleLevel::Sample4))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(fade_transparency)
