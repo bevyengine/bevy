@@ -106,6 +106,8 @@ pub struct TemporalAntialiasBundle {
 /// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA). TAA works by
 /// blending (averaging) each frame with the past few frames.
 ///
+/// # Tradeoffs
+///
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
 /// * Filters more types of aliasing than MSAA, such as textures and bright single pixels
@@ -118,8 +120,13 @@ pub struct TemporalAntialiasBundle {
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
 ///
+/// # Usage Notes
+///
 /// Requires that you add the [`TemporalAntialiasPlugin`] to your app,
 /// and enable the depth and velocity prepass on the camera.
+///
+/// It is recommended that you use TAA with an HDR camera. Using an SDR camera
+/// will result in slight banding artifacts and shifted brightness.
 ///
 /// Cannot be used with `OrthographicProjection`.
 #[derive(Component, Reflect, Clone, Default)]
