@@ -106,14 +106,6 @@ impl Text {
         self.alignment = alignment;
         self
     }
-
-    pub const fn with_linebreak_behaviour(
-        mut self,
-        linebreak_behaviour: TextLineBreakBehaviour,
-    ) -> Self {
-        self.linebreak_behaviour = linebreak_behaviour;
-        self
-    }
 }
 
 #[derive(Debug, Default, Clone, FromReflect, Reflect)]

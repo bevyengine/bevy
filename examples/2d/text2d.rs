@@ -84,12 +84,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
-                text: Text::from_section(
-                    "this text wraps in the box\n(Unicode linebreaks)",
-                    slightly_smaller_text_style.clone(),
-                )
-                .with_alignment(TextAlignment::Left)
-                .with_linebreak_behaviour(TextLineBreakBehaviour::Unicode),
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "this text wraps in the box\n(Unicode linebreaks)",
+                        slightly_smaller_text_style.clone(),
+                    )],
+                    alignment: TextAlignment::Left,
+                    linebreak_behaviour: TextLineBreakBehaviour::Unicode,
+                },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: box_size,
@@ -114,12 +116,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
-                text: Text::from_section(
-                    "this text wraps in the box\n(AnyCharacter linebreaks)",
-                    slightly_smaller_text_style,
-                )
-                .with_alignment(TextAlignment::Left)
-                .with_linebreak_behaviour(TextLineBreakBehaviour::AnyCharacter),
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "this text wraps in the box\n(AnyCharacter linebreaks)",
+                        slightly_smaller_text_style.clone(),
+                    )],
+                    alignment: TextAlignment::Left,
+                    linebreak_behaviour: TextLineBreakBehaviour::AnyCharacter,
+                },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: other_box_size,
