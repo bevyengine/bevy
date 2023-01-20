@@ -245,7 +245,7 @@ fn prepare_view_uniforms(
     for (entity, camera, temporal_jitter) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
-        let mut projection = unjittered_projection.clone();
+        let mut projection = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
             temporal_jitter.jitter_projection(&mut projection, viewport.zw());

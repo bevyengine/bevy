@@ -579,7 +579,7 @@ pub fn extract_cameras(
 ///
 /// Useful for temporal rendering techniques.
 ///
-/// Do not use with OrthographicProjection.
+/// Do not use with [`OrthographicProjection`].
 #[derive(Component, Default)]
 pub struct TemporalJitter {
     pub offset: Vec2,
