@@ -76,37 +76,66 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 
 ### Classifying PRs
 
-Our merge strategy relies on the classification of PRs into three categories: **trivial**, **uncontroversial** and **controversial**.
+Our merge strategy relies on the classification of PRs on two axes:
+
+* How controversial are the design decisions
+* How complex is the implementation
+
+PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
+the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
+
+PRs that are non-trivial to review are given the [`D-Complex`] label. This indicates that the PR
+should be reviewed more thoroughly and by people with experience in the area that the PR touches.
+
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
-PRs that are deemed controversial will receive the [`S-Controversial`](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Controversial) label, and will have to go through the more thorough review process.
+It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for then to be reviewed together.
 
-PRs are trivial if there is no reasonable argument against them. This might include:
+Some things that are reason to apply the [`S-Controversial`] label to a PR:
 
-* Fixing dead links.
-* Removing dead code or dependencies.
-* Typo and grammar fixes.
-
-PRs are controversial if there is serious design discussion required, or a large impact to contributors or users. Factors that increase controversy include:
-
-1. Changes to project-wide workflow or style.
+1. Changes to a project-wide workflow or style.
 2. New architecture for a large feature.
-3. PRs where a serious tradeoff must be made.
+3. Serious tradeoffs were made.
 4. Heavy user impact.
 5. New ways for users to make mistakes (footguns).
-6. Introductions of `unsafe` code.
-7. Large-scale code reorganization.
-8. High levels of technical complexity.
-9. Adding a dependency.
-10. Touching licensing information (due to the level of precision required).
-11. Adding root-level files (due to the high level of visibility).
+6. Adding a dependency
+7. Touching licensing information (due to level of precision required).
+8. Adding root-level files (due to the high level of visibility)
 
-Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
-Most PRs should fall into this category.
+Some things that are reason to apply the [`D-Complex`] label to a PR:
 
-Here are some useful pull request queries:
+1. Introduction or modification of soundness relevent code (for example `unsafe` code)
+2. High levels of technical complexity.
+3. Large-scale code reorganization
 
-* [Uncontroversial pull requests which have been reviewed and are ready for maintainers to merge](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
-* [Controversial pull requests which have been reviewed and are ready for final input from a Project Lead or SME](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
+Examples of PRs that are not [`S-Controversial`] or [`D-Complex`]:
+
+* Fixing dead links.
+* Removing dead code or unused dependencies.
+* Typo and grammar fixes.
+* [Add `Mut::reborrow`](https://github.com/bevyengine/bevy/pull/7114)
+* [Add `Res::clone`](https://github.com/bevyengine/bevy/pull/4109)
+
+Examples of PRs that are [`S-Controversial`] but not [`D-Complex`]:
+
+* [Implement and require `#[derive(Component)]` on all component structs](https://github.com/bevyengine/bevy/pull/2254)
+* [Use default serde impls for Entity](https://github.com/bevyengine/bevy/pull/6194)
+
+Examples of PRs that are not [`S-Controversial`] but are [`D-Complex`]:
+
+* [Ensure `Ptr`/`PtrMut`/`OwningPtr` are aligned in debug builds](https://github.com/bevyengine/bevy/pull/7117)
+* [Replace `BlobVec`'s `swap_scratch` with a `swap_nonoverlapping`](https://github.com/bevyengine/bevy/pull/4853)
+
+Examples of PRs that are both [`S-Controversial`] and [`D-Complex`]:
+
+* [bevy_reflect: Binary formats](https://github.com/bevyengine/bevy/pull/6140)
+
+Some useful pull request queries:
+
+* [PRs which need reviews and are not `D-Complex`](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+-label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked++)
+* [`D-Complex` PRs which need reviews](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked)
+
+[`S-Controversial`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Controversial
+[`D-Complex`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AD-Complex
 
 ### Preparing Releases
 

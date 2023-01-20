@@ -233,6 +233,8 @@ impl BlobVec {
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
         debug_assert!(index < self.len());
+        // Since `index` must be strictly less than `self.len` and `index` is at least zero,
+        // `self.len` must be at least one. Thus, this cannot underflow.
         let new_len = self.len - 1;
         let size = self.item_layout.size();
         if index != new_len {
@@ -244,6 +246,10 @@ impl BlobVec {
         }
         self.len = new_len;
         // Cannot use get_unchecked here as this is technically out of bounds after changing len.
+        // SAFETY:
+        // - `new_len` is less than the old len, so it must fit in this vector's allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //   so adding a multiple of `size` will preserve alignment.
         self.get_ptr_mut().byte_add(new_len * size).promote()
     }
 
@@ -285,7 +291,13 @@ impl BlobVec {
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
         debug_assert!(index < self.len());
-        self.get_ptr().byte_add(index * self.item_layout.size())
+        let size = self.item_layout.size();
+        // SAFETY:
+        // - The caller ensures that `index` fits in this vector,
+        //   so this operation will not overflow the original allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //  so adding a multiple of `size` will preserve alignment.
+        self.get_ptr().byte_add(index * size)
     }
 
     /// # Safety
@@ -293,8 +305,13 @@ impl BlobVec {
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
         debug_assert!(index < self.len());
-        let layout_size = self.item_layout.size();
-        self.get_ptr_mut().byte_add(index * layout_size)
+        let size = self.item_layout.size();
+        // SAFETY:
+        // - The caller ensures that `index` fits in this vector,
+        //   so this operation will not overflow the original allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //  so adding a multiple of `size` will preserve alignment.
+        self.get_ptr_mut().byte_add(index * size)
     }
 
     /// Gets a [`Ptr`] to the start of the vec
@@ -326,15 +343,18 @@ impl BlobVec {
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
         if let Some(drop) = self.drop {
-            let layout_size = self.item_layout.size();
+            let size = self.item_layout.size();
             for i in 0..len {
-                // SAFETY: `i * layout_size` is inbounds for the allocation, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
-                unsafe {
-                    // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
-                    // will panic here due to self.len being set to 0
-                    let ptr = self.get_ptr_mut().byte_add(i * layout_size).promote();
-                    (drop)(ptr);
-                }
+                // SAFETY:
+                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
+                // * `size` is a multiple of the erased type's alignment,
+                //   so adding a multiple of `size` will preserve alignment.
+                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
+                // would panic due to `self.len` being set to 0.
+                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
+                // SAFETY: `item` was obtained from this `BlobVec`, so its underlying type must match `drop`.
+                unsafe { drop(item) };
             }
         }
     }
