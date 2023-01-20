@@ -1,2 +1,2 @@
-mod edges;
-pub use edges::*;
+mod edges_by_idx;
+pub use edges_by_idx::*;

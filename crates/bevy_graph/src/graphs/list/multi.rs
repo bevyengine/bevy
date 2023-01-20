@@ -8,7 +8,7 @@ use crate::{
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
-    iters::Edges,
+    iters,
     utils::{vecmap::VecMap, vecset::VecSet},
 };
 
@@ -218,13 +218,13 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.edges.values_mut()
     }
 
-    type IncomingEdgesOf<'e> = Edges<'e, N, E, Self, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        Edges::new(self.adjacencies[index].incoming().values().flatten(), self)
+        iters::EdgesByIdx::new(self.adjacencies[index].incoming().values().flatten(), self)
     }
 
-    type OutgoingEdgesOf<'e> = Edges<'e, N, E, Self, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        Edges::new(self.adjacencies[index].outgoing().values().flatten(), self)
+        iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values().flatten(), self)
     }
 }

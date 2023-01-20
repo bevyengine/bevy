@@ -9,7 +9,7 @@ use crate::{
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
-    iters::Edges,
+    iters,
 };
 
 /// Implementation of a `SimpleGraph` which uses `HashMap<NodeIdx, EdgeIdx>` for adjacencies
@@ -213,13 +213,13 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         self.edges.values_mut()
     }
 
-    type IncomingEdgesOf<'e> = Edges<'e, N, E, Self, hashbrown::hash_map::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, hashbrown::hash_map::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        Edges::new(self.adjacencies[index].incoming().values(), self)
+        iters::EdgesByIdx::new(self.adjacencies[index].incoming().values(), self)
     }
 
-    type OutgoingEdgesOf<'e> = Edges<'e, N, E, Self, hashbrown::hash_map::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, hashbrown::hash_map::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        Edges::new(self.adjacencies[index].outgoing().values(), self)
+        iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values(), self)
     }
 }
