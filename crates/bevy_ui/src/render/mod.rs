@@ -203,22 +203,20 @@ pub fn extract_uinodes(
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
                 continue;
             }
+
             let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                // Skip loading images
+                if !images.contains(&image.texture) {
+                    continue;
+                }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-            // Skip completely transparent nodes
-            if color.0.a() == 0.0 {
-                continue;
-            }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
