@@ -182,7 +182,7 @@ pub fn ui_focus_system(
         .find_map(|window_ref| {
             windows.get(window_ref.entity()).ok().and_then(|window| {
                 window.cursor_position().map(|mut cursor_pos| {
-                    cursor_pos.y = window.height() as f32 - cursor_pos.y;
+                    cursor_pos.y = window.height() - cursor_pos.y;
                     cursor_pos
                 })
             })
