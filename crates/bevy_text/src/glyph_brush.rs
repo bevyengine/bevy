@@ -41,8 +41,7 @@ impl GlyphBrush {
             ..Default::default()
         };
         let section_glyphs = Layout::default()
-            .h_align(text_alignment.horizontal.into())
-            .v_align(text_alignment.vertical.into())
+            .h_align(text_alignment.into())
             .calculate_glyphs(&self.fonts, &geom, sections);
         Ok(section_glyphs)
     }

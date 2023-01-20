@@ -765,6 +765,16 @@ description = "Shows how to load and play an audio file, and control how it's pl
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "decodable"
+path = "examples/audio/decodable.rs"
+
+[package.metadata.example.decodable]
+name = "Decodable"
+description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -1211,6 +1221,17 @@ name = "Material"
 description = "A shader and a material that uses it"
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "shader_prepass"
+path = "examples/shader/shader_prepass.rs"
+
+[package.metadata.example.shader_prepass]
+name = "Material Prepass"
+description = "A shader that uses the depth texture generated in a prepass"
+category = "Shaders"
+wasm = false
+
 
 [[example]]
 name = "shader_material_screenspace_texture"

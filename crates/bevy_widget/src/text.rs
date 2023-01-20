@@ -1,26 +1,20 @@
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{CoreStage, Plugin, App};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
-    prelude::Bundle,
     query::{Changed, Or, With},
-    schedule::IntoSystemDescriptor,
-    system::{Commands, Local, ParamSet, Query, Res, ResMut},
+    system::{Commands, Local, ParamSet, Query, Res, ResMut}, prelude::Bundle, schedule::IntoSystemDescriptor,
 };
 use bevy_math::Vec2;
-use bevy_render::{
-    camera::CameraUpdateSystem,
-    texture::Image,
-    view::{ComputedVisibility, Visibility},
-};
+use bevy_render::{texture::Image, camera::CameraUpdateSystem, view::{Visibility, ComputedVisibility}};
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextAlignment, TextError, TextLayoutInfo,
-    TextPipeline, TextSection, TextSettings, TextStyle, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
+    TextSettings, YAxisOrientation, TextStyle, TextSection, TextAlignment,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_ui::{CalculatedSize, FocusPolicy, Node, Size, Style, UiScale, UiSystem, Val, ZIndex};
-use bevy_window::{ModifiesWindows, Windows};
+use bevy_transform::prelude::{Transform, GlobalTransform};
+use bevy_ui::{CalculatedSize, Size, Style, UiScale, Val, UiSystem, Node, FocusPolicy, ZIndex};
+use bevy_window::{PrimaryWindow, Window, ModifiesWindows};
 
 /// Text entities queued for further processing
 #[derive(Debug, Default)]
@@ -60,7 +54,7 @@ pub fn text_system(
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Res<Windows>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
@@ -78,13 +72,11 @@ pub fn text_system(
         )>,
     )>,
 ) {
-    // TODO: This should support window-independent scale settings.
-    // See https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() * ui_scale.scale
-    } else {
-        ui_scale.scale
-    };
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(ui_scale.scale);
 
     let inv_scale_factor = 1. / scale_factor;
 

@@ -5,6 +5,7 @@ struct BloomUniforms {
     knee: f32,
     scale: f32,
     intensity: f32,
+    viewport: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -87,7 +88,8 @@ fn sample_original_3x3_tent(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
 }
 
 @fragment
-fn downsample_prefilter(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn downsample_prefilter(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
+    let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
     let texel_size = 1.0 / vec2<f32>(textureDimensions(original));
 
     let scale = texel_size;
@@ -98,7 +100,7 @@ fn downsample_prefilter(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         0.25 / uniforms.knee,
     );
 
-    var o: vec4<f32> = sample_13_tap(uv, scale);
+    var o: vec4<f32> = sample_13_tap(sample_uv, scale);
 
     o = quadratic_threshold(o, uniforms.threshold, curve);
     o = max(o, vec4<f32>(0.00001));
