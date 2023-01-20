@@ -91,11 +91,7 @@ impl<K: PartialEq + Ord, V> VecMap<K, V> for Vec<(K, V)> {
     }
 
     fn remove_by_key(&mut self, key: K) -> Option<V> {
-        if let Some(index) = self.index_by_key(&key) {
-            Some(self.remove(index).1)
-        } else {
-            None
-        }
+        self.index_by_key(&key).map(|index| self.remove(index).1)
     }
 
     fn values(&self) -> Values<K, V> {

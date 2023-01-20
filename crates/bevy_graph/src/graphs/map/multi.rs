@@ -190,20 +190,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
 
     #[inline]
     fn get_edge(&self, index: EdgeIdx) -> Option<EdgeRef<E>> {
-        if let Some(edge) = self.edges.get(index) {
-            Some(edge.as_ref_edge())
-        } else {
-            None
-        }
+        self.edges.get(index).map(|edge| edge.as_ref_edge())
     }
 
     #[inline]
     fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<EdgeMut<E>> {
-        if let Some(edge) = self.edges.get_mut(index) {
-            Some(edge.as_mut_edge())
-        } else {
-            None
-        }
+        self.edges.get_mut(index).map(|edge| edge.as_mut_edge())
     }
 
     fn degree(&self, _index: NodeIdx) -> usize {
@@ -212,12 +204,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
 
     type Nodes<'n> = slotmap::hop::Values<'n, NodeIdx, N> where Self: 'n;
     fn nodes(&self) -> Self::Nodes<'_> {
-        self.nodes.values().into_iter()
+        self.nodes.values()
     }
 
     type NodesMut<'n> = slotmap::hop::ValuesMut<'n, NodeIdx, N> where Self: 'n;
     fn nodes_mut(&mut self) -> Self::NodesMut<'_> {
-        self.nodes.values_mut().into_iter()
+        self.nodes.values_mut()
     }
 
     type Edges<'e> = slotmap::hop::Values<'e, EdgeIdx, Edge<E>> where Self: 'e;
