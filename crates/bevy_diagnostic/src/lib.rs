@@ -1,9 +1,11 @@
+mod apply_commands;
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
 mod system_information_diagnostics_plugin;
 
+pub use apply_commands::ApplyCommands;
 use bevy_app::prelude::*;
 pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
