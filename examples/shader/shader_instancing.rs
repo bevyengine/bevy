@@ -205,11 +205,6 @@ impl SpecializedMeshPipeline for CustomPipeline {
             ],
         });
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
-        descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
-        ]);
-
         Ok(descriptor)
     }
 }
