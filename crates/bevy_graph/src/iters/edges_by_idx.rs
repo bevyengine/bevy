@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::graphs::{edge::EdgeRef, keys::EdgeIdx, Graph};
 
-/// An iterator which converts `&EdgeIdx` to a `EdgeRef` of the graph
+/// An iterator which converts `&EdgeIdx` to a `EdgeRef<E>` of the graph
 pub struct EdgesByIdx<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> {
     graph: &'g G,
     inner: I,
