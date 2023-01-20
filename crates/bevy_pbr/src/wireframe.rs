@@ -6,7 +6,6 @@ use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::Extract;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -19,6 +18,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderSet,
 };
+use bevy_render::{Extract, RenderingAppExtension};
 use bevy_utils::tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
@@ -41,12 +41,13 @@ impl Plugin for WireframePlugin {
             .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
+        app.add_extract_system(extract_wireframes);
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system(extract_wireframes.in_set(RenderSet::Extract))
                 .add_system(queue_wireframes.in_set(RenderSet::Queue));
         }
     }

@@ -40,7 +40,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    Extract, RenderApp, RenderSet,
+    Extract, RenderApp, RenderSet, RenderingAppExtension,
 };
 use bevy_utils::{FloatOrd, HashMap};
 
@@ -58,6 +58,8 @@ impl Plugin for Core3dPlugin {
             .register_type::<Camera3dDepthLoadOp>()
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
+        app.add_extract_system(extract_core_3d_camera_phases);
+
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -67,7 +69,6 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_system(extract_core_3d_camera_phases.in_set(RenderSet::Extract))
             .add_system(prepare_core_3d_depth_textures.in_set(RenderSet::Prepare))
             .add_system(sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort))

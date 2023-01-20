@@ -80,6 +80,7 @@ impl Plugin for TextPlugin {
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
+            .add_extract_system(extract_text2d_sprite.after(SpriteSystem::ExtractSprites))
             .add_system(
                 update_text2d_layout
                     .in_set(CoreSet::PostUpdate)
@@ -90,13 +91,5 @@ impl Plugin for TextPlugin {
                     // will never modify a pre-existing `Image` asset.
                     .ambiguous_with(CameraUpdateSystem),
             );
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(
-                extract_text2d_sprite
-                    .after(SpriteSystem::ExtractSprites)
-                    .in_set(RenderSet::Extract),
-            );
-        }
     }
 }

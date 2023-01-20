@@ -153,6 +153,9 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+
+        app.add_extract_system(extract_materials_2d::<M>);
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
@@ -160,7 +163,6 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system(extract_materials_2d::<M>.in_set(RenderSet::Extract))
                 .add_system(
                     prepare_materials_2d::<M>
                         .after(PrepareAssetLabel::PreAssetPrepare)

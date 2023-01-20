@@ -36,6 +36,7 @@ pub mod prelude {
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
+        RenderingAppExtension,
     };
 }
 
@@ -337,4 +338,22 @@ fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, extract_schedule: Mut<ExtractSchedule>| {
         extract_schedule.apply_system_buffers(render_world);
     });
+}
+
+/// Rendering-focused methods that extend [`App`].
+pub trait RenderingAppExtension {
+    /// Adds a system to the [`ExtractSchedule`], to transfer data from the main world to the rendering world.
+    ///
+    /// This is only a convenience method: you can access the [`ExtractSchedule`] as a resource yourself
+    /// if you need more advanced control.
+    fn add_extract_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self;
+}
+
+impl RenderingAppExtension for App {
+    fn add_extract_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+        let rendering_subapp = self.get_sub_app_mut(RenderApp).unwrap();
+        let extract_schedule = rendering_subapp.world.resource_mut::<ExtractSchedule>();
+        extract_schedule.add_system(system);
+        self
+    }
 }

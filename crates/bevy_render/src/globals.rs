@@ -2,7 +2,7 @@ use crate::{
     extract_resource::ExtractResource,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, RenderApp, RenderSet,
+    Extract, RenderApp, RenderSet, RenderingAppExtension,
 };
 use bevy_app::{App, Plugin};
 use bevy_core::FrameCount;
@@ -14,13 +14,14 @@ pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<GlobalsUniform>();
+        app.register_type::<GlobalsUniform>()
+            .add_extract_system(extract_frame_count)
+            .add_extract_system(extract_time);
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
-                .add_system(extract_frame_count.in_set(RenderSet::Extract))
-                .add_system(extract_time.in_set(RenderSet::Extract))
                 .add_system(prepare_globals_buffer.in_set(RenderSet::Prepare));
         }
     }

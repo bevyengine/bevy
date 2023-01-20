@@ -276,13 +276,14 @@ impl Plugin for ColoredMesh2dPlugin {
             Shader::from_wgsl(COLORED_MESH2D_SHADER),
         );
 
+        app.add_extract_system(extract_colored_mesh2d);
+
         // Register our custom draw function and pipeline, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
-            .add_system_to_stage(RenderSet::Extract, extract_colored_mesh2d)
             .add_system_to_stage(RenderSet::Queue, queue_colored_mesh2d);
     }
 }

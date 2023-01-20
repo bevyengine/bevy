@@ -58,6 +58,11 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
+    app.add_extract_system(extract_default_ui_camera_view::<Camera2d>)
+        .add_extract_system(extract_default_ui_camera_view::<Camera3d>)
+        .add_extract_system(extract_uinodes.in_set(RenderUiSystem::ExtractNode))
+        .add_extract_system(extract_text_uinodes.after(RenderUiSystem::ExtractNode));
+
     let render_app = match app.get_sub_app_mut(RenderApp) {
         Ok(render_app) => render_app,
         Err(_) => return,
@@ -71,18 +76,6 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system(extract_default_ui_camera_view::<Camera2d>.in_set(RenderSet::Extract))
-        .add_system(extract_default_ui_camera_view::<Camera3d>.in_set(RenderSet::Extract))
-        .add_system(
-            extract_uinodes
-                .in_set(RenderUiSystem::ExtractNode)
-                .in_set(RenderSet::Extract),
-        )
-        .add_system(
-            extract_text_uinodes
-                .after(RenderUiSystem::ExtractNode)
-                .in_set(RenderSet::Extract),
-        )
         .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
         .add_system(queue_uinodes.in_set(RenderSet::Queue))
         .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));

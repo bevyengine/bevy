@@ -44,6 +44,8 @@ impl Plugin for Core2dPlugin {
         app.register_type::<Camera2d>()
             .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
 
+        app.add_extract_system(extract_core_2d_camera_phases);
+
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -51,7 +53,6 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system(extract_core_2d_camera_phases.in_set(RenderSet::Extract))
             .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
             .add_system(
                 batch_phase_system::<Transparent2d>
