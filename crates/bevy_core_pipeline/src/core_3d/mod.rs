@@ -277,34 +277,46 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in &views_3d {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let cached_texture = textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("view_depth_texture"),
-                            size: Extent3d {
-                                depth_or_array_layers: 1,
-                                width: physical_target_size.x,
-                                height: physical_target_size.y,
-                            },
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                                                  * bit depth for better performance */
-                            usage: TextureUsages::RENDER_ATTACHMENT,
-                        },
-                    )
-                })
-                .clone();
-            commands.entity(entity).insert(ViewDepthTexture {
-                texture: cached_texture.texture,
-                view: cached_texture.default_view,
-            });
-        }
+    for (entity, camera, depth_prepass) in &views_3d {
+        let Some(physical_target_size) = camera.physical_target_size else {
+            continue;
+        };
+
+        let cached_texture = textures
+            .entry(camera.target.clone())
+            .or_insert_with(|| {
+                // Default usage required to write to the depth texture
+                let mut usage = TextureUsages::RENDER_ATTACHMENT;
+                if depth_prepass.is_some() {
+                    // Required to read the output of the prepass
+                    usage |= TextureUsages::COPY_SRC;
+                }
+
+                // The size of the depth texture
+                let size = Extent3d {
+                    depth_or_array_layers: 1,
+                    width: physical_target_size.x,
+                    height: physical_target_size.y,
+                };
+
+                let descriptor = TextureDescriptor {
+                    label: Some("view_depth_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: msaa.samples(),
+                    dimension: TextureDimension::D2,
+                    // PERF: vulkan docs recommend using 24 bit depth for better performance
+                    format: TextureFormat::Depth32Float,
+                    usage,
+                };
+
+                texture_cache.get(&render_device, descriptor)
+            })
+            .clone();
+
+        commands.entity(entity).insert(ViewDepthTexture {
+            texture: cached_texture.texture,
+            view: cached_texture.default_view,
+        });
     }
 }
