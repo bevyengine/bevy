@@ -93,16 +93,16 @@ impl Plugin for WindowPlugin {
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_system(exit_on_primary_closed);
+                app.add_system_to_stage(CoreStage::PostUpdate, exit_on_primary_closed);
             }
             ExitCondition::OnAllClosed => {
-                app.add_system(exit_on_all_closed);
+                app.add_system_to_stage(CoreStage::PostUpdate, exit_on_all_closed);
             }
             ExitCondition::DontExit => {}
         }
 
         if self.close_when_requested {
-            app.add_system_to_stage(CoreStage::First, close_when_requested);
+            app.add_system(close_when_requested);
         }
 
         // Register event types
