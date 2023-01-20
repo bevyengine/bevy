@@ -12,7 +12,7 @@ use crate::{
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -147,7 +147,7 @@ impl ViewTarget {
         match &self.main_textures.sampled {
             Some(sampled_texture) => RenderPassColorAttachment {
                 view: sampled_texture,
-                resolve_target: Some(&self.main_texture().default_view),
+                resolve_target: Some(self.main_texture()),
                 ops,
             },
             None => self.get_unsampled_color_attachment(ops),
@@ -160,14 +160,14 @@ impl ViewTarget {
         ops: Operations<Color>,
     ) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
-            view: &self.main_texture().default_view,
+            view: self.main_texture(),
             resolve_target: None,
             ops,
         }
     }
 
     /// The "main" unsampled texture.
-    pub fn main_texture(&self) -> &CachedTexture {
+    pub fn main_texture(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a
         } else {
@@ -215,13 +215,13 @@ impl ViewTarget {
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
             PostProcessWrite {
-                source: &self.main_textures.a.default_view,
-                destination: &self.main_textures.b.default_view,
+                source: &self.main_textures.a,
+                destination: &self.main_textures.b,
             }
         } else {
             PostProcessWrite {
-                source: &self.main_textures.b.default_view,
-                destination: &self.main_textures.a.default_view,
+                source: &self.main_textures.b,
+                destination: &self.main_textures.a,
             }
         }
     }
@@ -279,8 +279,8 @@ fn prepare_view_uniforms(
 
 #[derive(Clone)]
 struct MainTargetTextures {
-    a: CachedTexture,
-    b: CachedTexture,
+    a: TextureView,
+    b: TextureView,
     sampled: Option<TextureView>,
 }
 
@@ -327,20 +327,24 @@ fn prepare_view_targets(
                                 | TextureUsages::TEXTURE_BINDING,
                         };
                         MainTargetTextures {
-                            a: texture_cache.get(
-                                &render_device,
-                                TextureDescriptor {
-                                    label: Some("main_texture_a"),
-                                    ..descriptor
-                                },
-                            ),
-                            b: texture_cache.get(
-                                &render_device,
-                                TextureDescriptor {
-                                    label: Some("main_texture_b"),
-                                    ..descriptor
-                                },
-                            ),
+                            a: texture_cache
+                                .get(
+                                    &render_device,
+                                    TextureDescriptor {
+                                        label: Some("main_texture_a"),
+                                        ..descriptor
+                                    },
+                                )
+                                .default_view,
+                            b: texture_cache
+                                .get(
+                                    &render_device,
+                                    TextureDescriptor {
+                                        label: Some("main_texture_b"),
+                                        ..descriptor
+                                    },
+                                )
+                                .default_view,
                             sampled: (msaa.samples > 1).then(|| {
                                 texture_cache
                                     .get(

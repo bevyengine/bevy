@@ -9,7 +9,6 @@ pub mod graph {
     pub mod node {
         pub const PREPASS: &str = "prepass";
         pub const MAIN_PASS: &str = "main_pass";
-        pub const FSR2: &str = "fsr2";
         pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";
@@ -39,7 +38,7 @@ use bevy_render::{
         TextureUsages,
     },
     renderer::RenderDevice,
-    texture::{CachedTexture, TextureCache},
+    texture::TextureCache,
     view::ViewDepthTexture,
     Extract, RenderApp, RenderStage,
 };
@@ -69,7 +68,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
@@ -263,13 +262,7 @@ pub fn extract_core_3d_camera_phases(
     }
 }
 
-/// Texture rendered to by the main 3d pass if Camera3d::render_resolution is Some.
-#[derive(Component)]
-pub struct MainPass3dTexture {
-    pub texture: CachedTexture,
-}
-
-pub fn prepare_core_3d_textures(
+pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,

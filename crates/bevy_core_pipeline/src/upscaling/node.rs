@@ -56,7 +56,7 @@ impl Node for UpscalingNode {
             Err(_) => return Ok(()),
         };
 
-        let upscaled_texture = &target.main_texture().default_view;
+        let upscaled_texture = target.main_texture();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {

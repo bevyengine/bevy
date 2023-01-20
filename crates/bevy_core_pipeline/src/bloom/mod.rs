@@ -638,9 +638,7 @@ fn queue_bloom_bind_groups(
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(
-                            &view_target.main_texture().default_view,
-                        ),
+                        resource: BindingResource::TextureView(view_target.main_texture()),
                     },
                     BindGroupEntry {
                         binding: 1,
