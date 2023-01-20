@@ -32,6 +32,7 @@ use crate::{
     RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
+use bevy_ecs::prelude::*;
 use bevy_asset::{AddAsset, Assets};
 
 // TODO: replace Texture names with Image names?

@@ -42,6 +42,7 @@ pub use rodio::Sample;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Asset};
+use bevy_ecs::prelude::*;
 
 /// Adds support for audio playback to a Bevy Application
 ///
