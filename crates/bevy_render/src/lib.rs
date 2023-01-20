@@ -10,6 +10,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod mesh;
+pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
@@ -71,6 +72,9 @@ pub enum RenderSet {
     /// This step should be kept as short as possible to increase the "pipelining potential" for
     /// running the next frame while rendering the current frame.
     Extract,
+
+    /// A stage for applying the commands from the [`Extract`] stage
+    ExtractCommands,
 
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
@@ -191,11 +195,17 @@ impl Plugin for RenderPlugin {
             // after access to the main world is removed
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
+
+            // This stage applies the commands from the extract stage while the render schedule
+            // is running in parallel with the main app.
+            let mut extract_commands_stage = SystemStage::parallel();
+            extract_commands_stage.add_system(apply_extract_commands.at_start());
             render_app
-                .add_stage(RenderSet::Extract, extract_stage)
-                .add_stage(RenderSet::Prepare, SystemStage::parallel())
-                .add_stage(RenderSet::Queue, SystemStage::parallel())
-                .add_stage(RenderSet::PhaseSort, SystemStage::parallel())
+                .add_stage(RenderStage::Extract, extract_stage)
+                .add_stage(RenderStage::ExtractCommands, extract_commands_stage)
+                .add_stage(RenderStage::Prepare, SystemStage::parallel())
+                .add_stage(RenderStage::Queue, SystemStage::parallel())
+                .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
                 .add_stage(
                     RenderSet::Render,
                     SystemStage::parallel()
@@ -223,7 +233,7 @@ impl Plugin for RenderPlugin {
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
+                let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
@@ -309,10 +319,12 @@ fn extract(app_world: &mut World, render_app: &mut App) {
             let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
             let scratch_world = std::mem::replace(app_world, inserted_world.0);
             app_world.insert_resource(ScratchMainWorld(scratch_world));
-
-            // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
-            // so that in future, pipelining will be able to do this too without any code relying on it.
-            // see <https://github.com/bevyengine/bevy/issues/5082>
-            extract_stage.0.apply_buffers(render_world);
         });
+}
+
+// system for render app to apply the extract commands
+fn apply_extract_commands(world: &mut World) {
+    world.resource_scope(|world, mut extract_stage: Mut<ExtractStage>| {
+        extract_stage.0.apply_buffers(world);
+    });
 }

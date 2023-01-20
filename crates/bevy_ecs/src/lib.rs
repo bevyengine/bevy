@@ -400,7 +400,8 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &A)>()
-            .par_for_each(&world, 2, |(e, &A(i))| {
+            .par_iter(&world)
+            .for_each(|(e, &A(i))| {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
@@ -420,11 +421,10 @@ mod tests {
         let e4 = world.spawn((SparseStored(4), A(1))).id();
         let e5 = world.spawn((SparseStored(5), A(1))).id();
         let results = Arc::new(Mutex::new(Vec::new()));
-        world.query::<(Entity, &SparseStored)>().par_for_each(
-            &world,
-            2,
-            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
-        );
+        world
+            .query::<(Entity, &SparseStored)>()
+            .par_iter(&world)
+            .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
         assert_eq!(
             &*results.lock().unwrap(),

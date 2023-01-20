@@ -124,8 +124,11 @@ use std::{
 ///
 /// # Safety
 ///
-/// The implementor must ensure that [`SystemParam::init_state`] correctly registers all
-/// [`World`] accesses used by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
+/// The implementor must ensure the following is true.
+/// - [`SystemParam::init_state`] correctly registers all [`World`] accesses used
+///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered
+///   on `system_meta`.
 pub unsafe trait SystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
@@ -158,7 +161,9 @@ pub unsafe trait SystemParam: Sized {
     /// # Safety
     ///
     /// This call might use any of the [`World`] accesses that were registered in [`Self::init_state`].
-    /// You must ensure that none of those accesses conflict with any other [`SystemParam`]s running in parallel with this one.
+    /// - None of those accesses may conflict with any other [`SystemParam`]s
+    ///   that exist at the same time, including those on other threads.
+    /// - `world` must be the same `World` that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -589,7 +594,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
 // SAFETY: Commands only accesses internal state
 unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
 
-// SAFETY: only local state is accessed
+// SAFETY: `Commands::get_param` does not access the world.
 unsafe impl SystemParam for Commands<'_, '_> {
     type State = CommandQueue;
     type Item<'w, 's> = Commands<'w, 's>;
@@ -1305,7 +1310,6 @@ unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
 
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
-
         // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 

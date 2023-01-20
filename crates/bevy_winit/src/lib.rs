@@ -397,7 +397,7 @@ pub fn winit_runner(mut app: App) {
                             window.resolution.physical_height() as f64 - position.y,
                         );
 
-                        window.cursor.position = Some(physical_position);
+                        window.set_physical_cursor_position(Some(physical_position));
 
                         cursor_events.cursor_moved.send(CursorMoved {
                             window: window_entity,
@@ -413,7 +413,7 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::CursorLeft { .. } => {
                         // Component
                         if let Ok((mut window, _)) = window_query.get_mut(window_entity) {
-                            window.cursor.position = None;
+                            window.set_physical_cursor_position(None);
                         }
 
                         cursor_events.cursor_left.send(CursorLeft {

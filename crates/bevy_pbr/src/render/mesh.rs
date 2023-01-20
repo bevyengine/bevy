@@ -877,7 +877,7 @@ pub fn queue_mesh_view_bind_groups(
         globals_buffer.buffer.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
-            let layout = if msaa.samples > 1 {
+            let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
                 &mesh_pipeline.view_layout
@@ -937,7 +937,7 @@ pub fn queue_mesh_view_bind_groups(
                     Some(texture) => &texture.default_view,
                     None => {
                         &fallback_depths
-                            .image_for_samplecount(msaa.samples)
+                            .image_for_samplecount(msaa.samples())
                             .texture_view
                     }
                 };
@@ -950,7 +950,7 @@ pub fn queue_mesh_view_bind_groups(
                     Some(texture) => &texture.default_view,
                     None => {
                         &fallback_images
-                            .image_for_samplecount(msaa.samples)
+                            .image_for_samplecount(msaa.samples())
                             .texture_view
                     }
                 };

@@ -15,9 +15,11 @@ pub fn sync_simple_transforms(
         (Changed<Transform>, Without<Parent>, Without<Children>),
     >,
 ) {
-    query.par_for_each_mut(1024, |(transform, mut global_transform)| {
-        *global_transform = GlobalTransform::from(*transform);
-    });
+    query
+        .par_iter_mut()
+        .for_each_mut(|(transform, mut global_transform)| {
+            *global_transform = GlobalTransform::from(*transform);
+        });
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
@@ -33,11 +35,7 @@ pub fn propagate_transforms(
     transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
     parent_query: Query<(Entity, Ref<Parent>)>,
 ) {
-    root_query.par_for_each_mut(
-        // The differing depths and sizes of hierarchy trees causes the work for each root to be
-        // different. A batch size of 1 ensures that each tree gets it's own task and multiple
-        // large trees are not clumped together.
-        1,
+    root_query.par_iter_mut().for_each_mut(
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed();
             if changed {
