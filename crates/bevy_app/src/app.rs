@@ -61,7 +61,7 @@ pub struct App {
     /// The main ECS [`World`] of the [`App`].
     /// This stores and provides access to all the main data of the application.
     /// The systems of the [`App`] will run using this [`World`].
-    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::add_sub_app)s.
+    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::insert_sub_app)s.
     pub world: World,
     /// The [runner function](Self::set_runner) is primarily responsible for managing
     /// the application's event loop and advancing the [`Schedule`].
@@ -94,7 +94,7 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel};
+/// # use bevy_app::{App, AppLabel, SubApp};
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Resource, Default)]
@@ -122,9 +122,9 @@ impl Debug for App {
 /// sub_app.add_stage(ExampleStage, example_stage);
 ///
 /// // add the sub_app to the app
-/// app.add_sub_app(ExampleApp, sub_app, |main_world, sub_app| {
+/// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
 ///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
-/// });
+/// }));
 ///
 /// // This will run the schedules once, since we're using the default runner
 /// app.run();
@@ -212,7 +212,7 @@ impl App {
     ///
     /// This method also updates sub apps.
     ///
-    /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    /// See [`insert_sub_app`](Self::insert_sub_app) and [`run_once`](Schedule::run_once) for more details.
     pub fn update(&mut self) {
         {
             #[cfg(feature = "trace")]
