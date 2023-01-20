@@ -1,6 +1,5 @@
-use bevy_app::App;
-use bevy_ecs::system::{CommandQueue, Commands};
-use bevy_ecs::world::World;
+use crate::system::{CommandQueue, Commands};
+use crate::world::World;
 
 /// Extension trait used to apply [`Commands`] immediately on a [`World`].
 pub trait ApplyCommands {
@@ -36,12 +35,5 @@ impl ApplyCommands for &mut World {
         let result = f(self, commands);
         command_queue.apply(self);
         result
-    }
-}
-
-impl ApplyCommands for &mut App {
-    /// Applies some [`Commands`] on the [`World`] of this [`App`] immediately.
-    fn apply_commands<R, F: FnOnce(&World, Commands) -> R>(self, f: F) -> R {
-        self.world.apply_commands(f)
     }
 }

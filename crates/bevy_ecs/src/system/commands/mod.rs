@@ -1,3 +1,4 @@
+mod apply_commands;
 mod command_queue;
 mod parallel_scope;
 
@@ -6,6 +7,7 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
+pub use apply_commands::ApplyCommands;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
@@ -72,6 +74,9 @@ pub trait Command: Send + 'static {
 /// }
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
+/// Alternatively, use [`ApplyCommands`] to apply commands to a `&mut World` immediately.
+/// Note that this method of applying commands is inefficient and is mainly used for testing or diagnostics.
 ///
 /// # Implementing
 ///

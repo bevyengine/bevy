@@ -1,4 +1,3 @@
-use bevy::diagnostic::ApplyCommands;
 use bevy::ecs::system::Command;
 use bevy::prelude::*;
 
@@ -36,6 +35,8 @@ impl Command for InsertOrAddRequest {
 
 #[test]
 fn add_request() {
+    use bevy::ecs::system::ApplyCommands;
+
     let mut world = World::new();
     let entity = world.spawn_empty().id();
     world.apply_commands(|_, mut commands| {

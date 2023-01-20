@@ -7,7 +7,7 @@ use bevy_ecs::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
     },
-    system::Resource,
+    system::{ApplyCommands, Commands, Resource},
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -1154,6 +1154,13 @@ impl App {
             .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+}
+
+impl ApplyCommands for &mut App {
+    /// Applies some [`Commands`] on the [`World`] of this [`App`] immediately.
+    fn apply_commands<R, F: FnOnce(&World, Commands) -> R>(self, f: F) -> R {
+        self.world.apply_commands(f)
     }
 }
 
