@@ -158,6 +158,13 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Whether or not to stop events from propagating out of the canvas element
+    ///
+    /// This will prevent common browser hotkeys like F5, F12, Ctrl+R, tab, etc.
+    /// from performing their default behavior while the bevy app has focus.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub prevent_default_event_handling: bool,
     /// Stores internal state that isn't directly accessible.
     pub internal: InternalWindowState,
 }
@@ -180,6 +187,7 @@ impl Default for Window {
             focused: true,
             always_on_top: false,
             fit_canvas_to_parent: false,
+            prevent_default_event_handling: true,
             canvas: None,
         }
     }
