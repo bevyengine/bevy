@@ -118,7 +118,10 @@ pub struct TemporalAntialiasBundle {
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
 ///
-/// Requires the depth and velocity prepass. Cannot be used with OrthographicProjection.
+/// Requires that you add the [`TemporalAntialiasPlugin`] to your app,
+/// and enable the depth and velocity prepass on the camera.
+///
+/// Cannot be used with OrthographicProjection.
 #[derive(Component, Reflect, Clone, Default)]
 pub struct TemporalAntialiasSettings {}
 
