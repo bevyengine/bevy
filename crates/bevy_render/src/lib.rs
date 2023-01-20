@@ -106,12 +106,14 @@ impl RenderSet {
     pub fn base_schedule() -> Schedule {
         let mut schedule = Schedule::new();
 
+        // Don't apply buffers when the Extract stage finishes running
+        // This runs on the render world, but buffers are applied
+        // after access to the main world is removed
+        // See also https://github.com/bevyengine/bevy/issues/5082
+        schedule.configure_set(RenderSet::Extract.before(RenderSet::ExtractCommands));
+
         // Buffer flushes + induced ordering
-        schedule.add_system(
-            apply_system_buffers
-                .after(RenderSet::Extract)
-                .before(RenderSet::ExtractCommands),
-        );
+
         schedule.add_system(
             apply_system_buffers
                 .after(RenderSet::ExtractCommands)
@@ -238,11 +240,6 @@ impl Plugin for RenderPlugin {
             // `Extract` systems must read from the main world. We want to emit an error when that doesn't occur
             // Safe to unwrap: Ensured it existed just above
             extract_stage.set_must_read_resource(main_world_in_render.unwrap());
-            // don't apply buffers when the stage finishes running
-            // extract stage runs on the render world, but buffers are applied
-            // after access to the main world is removed
-            // See also https://github.com/bevyengine/bevy/issues/5082
-            extract_stage.set_apply_buffers(false);
 
             // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
