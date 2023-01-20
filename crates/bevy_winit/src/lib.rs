@@ -12,7 +12,6 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreSet, Plugin};
-use bevy_app::{App, AppExit, CoreStage, Plugin};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{
