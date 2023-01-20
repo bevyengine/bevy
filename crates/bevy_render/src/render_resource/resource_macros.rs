@@ -10,7 +10,7 @@
 macro_rules! render_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[derive(Debug)]
-        // safety invariant: when self.0 is Some(ptr), it comes from `into_raw` of an Arc<$wgpu_type> with a strong ref.
+        // SAFETY: when self.0 is Some(ptr), it comes from `into_raw` of an Arc<$wgpu_type> with a strong ref.
         pub struct $wrapper_type(Option<*const ()>);
 
         impl $wrapper_type {
@@ -26,7 +26,7 @@ macro_rules! render_resource_wrapper {
                     .take()
                     .and_then(|unit_ptr| {
                         let value_ptr = unit_ptr.cast::<$wgpu_type>();
-                        // SAFETY: pointer refers to a valid arc by invariant.
+                        // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
                         // we take the pointer here, and this reconstructed arc is dropped/decremented within this scope.
                         let arc = unsafe { std::sync::Arc::from_raw(value_ptr) };
                         std::sync::Arc::try_unwrap(arc).ok()
