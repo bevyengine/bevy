@@ -382,12 +382,7 @@ fn extract_taa_settings(
     cameras_3d: Extract<
         Query<
             (Entity, &Camera, &Projection, &TemporalAntialiasSettings),
-            (
-                With<Camera3d>,
-                With<TemporalJitter>,
-                With<DepthPrepass>,
-                With<VelocityPrepass>,
-            ),
+            (With<Camera3d>, With<DepthPrepass>, With<VelocityPrepass>),
         >,
     >,
 ) {
@@ -405,24 +400,26 @@ fn prepare_taa_jitter(
     frame_count: Res<FrameCount>,
     mut query: Query<&mut TemporalJitter, With<TemporalAntialiasSettings>>,
 ) {
+    // Halton sequence (2, 3)
     let halton_sequence = [
-        vec2(0.0, -0.16666666),
-        vec2(-0.25, 0.16666669),
-        vec2(0.25, -0.3888889),
-        vec2(-0.375, -0.055555552),
-        vec2(0.125, 0.2777778),
-        vec2(-0.125, -0.2777778),
-        vec2(0.375, 0.055555582),
-        vec2(-0.4375, 0.3888889),
-        vec2(0.0625, -0.46296296),
-        vec2(-0.1875, -0.12962961),
-        vec2(0.3125, 0.2037037),
-        vec2(-0.3125, -0.35185185),
+        vec2(0.5, 0.33333334),
+        vec2(0.25, 0.6666667),
+        vec2(0.75, 0.111111104),
+        vec2(0.125, 0.44444445),
+        vec2(0.625, 0.7777778),
+        vec2(0.375, 0.22222221),
+        vec2(0.875, 0.5555556),
+        vec2(0.0625, 0.8888889),
+        vec2(0.5625, 0.037037045),
+        vec2(0.3125, 0.3703704),
+        vec2(0.8125, 0.7037037),
+        vec2(0.1875, 0.14814815),
     ];
+
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
     for mut jitter in &mut query {
-        jitter.offset = offset + 0.5; // TODO
+        jitter.offset = offset;
     }
 }
 
