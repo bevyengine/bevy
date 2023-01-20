@@ -19,15 +19,14 @@ impl ApplyCommands for &mut World {
     ///
     /// # Example
     /// ```
-    /// use bevy_ecs::prelude::*;
-    /// use bevy_diagnostic::ApplyCommands;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::ApplyCommands;
     ///
     /// let mut world = World::default();
     /// let entity = world.apply_commands(|_world, mut commands| {
     ///     commands.spawn_empty().id()
     /// });
-    ///
-    /// assert!(world.get_entity(entity).is_some());
+    /// # assert!(world.get_entity(entity).is_some());
     /// ```
     fn apply_commands<R, F: FnOnce(&World, Commands) -> R>(self, f: F) -> R {
         let mut command_queue = CommandQueue::default();
