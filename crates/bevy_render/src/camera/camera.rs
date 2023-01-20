@@ -531,15 +531,19 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            Option<&TemporalJitter>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
 ) {
     let primary_window = primary_window.iter().next();
-    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
+    for (entity, camera, camera_render_graph, transform, visible_entities, temporal_jitter) in
+        query.iter()
+    {
         if !camera.is_active {
             continue;
         }
+
         if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -549,7 +553,9 @@ pub fn extract_cameras(
                 continue;
             }
 
-            commands.get_or_spawn(entity).insert((
+            let mut commands = commands.get_or_spawn(entity);
+
+            commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -571,6 +577,10 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
             ));
+
+            if let Some(temporal_jitter) = temporal_jitter {
+                commands.insert(temporal_jitter.clone());
+            }
         }
     }
 }
@@ -580,7 +590,7 @@ pub fn extract_cameras(
 /// Useful for temporal rendering techniques.
 ///
 /// Do not use with [`OrthographicProjection`].
-#[derive(Component, Default)]
+#[derive(Component, Clone, Default)]
 pub struct TemporalJitter {
     pub offset: Vec2,
 }

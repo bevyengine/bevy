@@ -92,10 +92,11 @@ impl Plugin for TemporalAntialiasPlugin {
     }
 }
 
-/// Bundle to apply temporal antialiasing ([`TemporalAntialiasSettings`], `DepthPrepass`, `VelocityPrepass`).
+/// Bundle to apply temporal antialiasing.
 #[derive(Bundle, Default)]
 pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
+    pub jitter: TemporalJitter,
     pub depth_prepass: DepthPrepass,
     pub velocity_prepass: VelocityPrepass,
 }
@@ -122,8 +123,9 @@ pub struct TemporalAntialiasBundle {
 ///
 /// # Usage Notes
 ///
-/// Requires that you add the [`TemporalAntialiasPlugin`] to your app,
-/// and enable the depth and velocity prepass on the camera.
+/// Requires that you add [`TemporalAntialiasPlugin`] to your app,
+/// and add the [`DepthPrepass`], [`VelocityPrepass`], and [`TemporalJitter`]
+/// components to your camera.
 ///
 /// It is recommended that you use TAA with an HDR camera. Using an SDR camera
 /// will result in slight banding artifacts and shifted brightness.
@@ -414,16 +416,19 @@ fn extract_taa_settings(
     cameras_3d: Extract<
         Query<
             (Entity, &Camera, &Projection, &TemporalAntialiasSettings),
-            (With<Camera3d>, With<DepthPrepass>, With<VelocityPrepass>),
+            (
+                With<Camera3d>,
+                With<TemporalJitter>,
+                With<DepthPrepass>,
+                With<VelocityPrepass>,
+            ),
         >,
     >,
 ) {
     for (entity, camera, camera_projection, taa_settings) in &cameras_3d {
         let perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && perspective_projection {
-            commands
-                .get_or_spawn(entity)
-                .insert((taa_settings.clone(), TemporalJitter::default()));
+            commands.get_or_spawn(entity).insert(taa_settings.clone());
         }
     }
 }
