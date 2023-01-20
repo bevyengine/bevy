@@ -10,27 +10,26 @@
 macro_rules! render_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[derive(Debug)]
-        // SAFETY: when self.0 is Some(ptr), it comes from `into_raw` of an Arc<$wgpu_type> with a strong ref.
-        pub struct $wrapper_type(Option<*const ()>);
+        // SAFETY: while self is live, self.0 comes from `into_raw` of an Arc<$wgpu_type> with a strong ref.
+        pub struct $wrapper_type(*const ());
 
         impl $wrapper_type {
             pub fn new(value: $wgpu_type) -> Self {
                 let arc = std::sync::Arc::new(value);
                 let value_ptr = std::sync::Arc::into_raw(arc);
-                let unit_ptr = value_ptr.cast();
-                Self(Some(unit_ptr))
+                let unit_ptr = value_ptr.cast::<()>();
+                Self(unit_ptr)
             }
 
-            pub fn try_unwrap(mut self) -> Option<$wgpu_type> {
-                self.0
-                    .take()
-                    .and_then(|unit_ptr| {
-                        let value_ptr = unit_ptr.cast::<$wgpu_type>();
-                        // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
-                        // we take the pointer here, and this reconstructed arc is dropped/decremented within this scope.
-                        let arc = unsafe { std::sync::Arc::from_raw(value_ptr) };
-                        std::sync::Arc::try_unwrap(arc).ok()
-                    })
+            pub fn try_unwrap(self) -> Option<$wgpu_type> {
+                let value_ptr = self.0.cast::<$wgpu_type>();
+                // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
+                let arc = unsafe { std::sync::Arc::from_raw(value_ptr) };
+
+                // we forget ourselves here since the reconstructed arc will be dropped/decremented within this scope
+                std::mem::forget(self);
+
+                std::sync::Arc::try_unwrap(arc).ok()
             }
         }
 
@@ -38,8 +37,7 @@ macro_rules! render_resource_wrapper {
             type Target = $wgpu_type;
 
             fn deref(&self) -> &Self::Target {
-                let unit_ptr = self.0.as_ref().expect("render_resource_wrapper inner value has already been taken (via drop or try_unwrap");
-                let value_ptr = unit_ptr.cast::<$wgpu_type>();
+                let value_ptr = self.0.cast::<$wgpu_type>();
                 // SAFETY: the arc lives for 'self, so the ref lives for 'self
                 let value_ref = unsafe { value_ptr.as_ref() };
                 value_ref.unwrap()
@@ -48,13 +46,10 @@ macro_rules! render_resource_wrapper {
 
         impl Drop for $wrapper_type {
             fn drop(&mut self) {
-                self.0
-                .map(|unit_ptr| {
-                    let value_ptr = unit_ptr.cast::<$wgpu_type>();
-                    // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
-                    // we take the pointer here, and this reconstructed arc is dropped/decremented within this scope.
-                    unsafe { std::sync::Arc::from_raw(value_ptr) };
-                });
+                let value_ptr = self.0.cast::<$wgpu_type>();
+                // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
+                // this reconstructed arc is dropped/decremented within this scope.
+                unsafe { std::sync::Arc::from_raw(value_ptr) };
             }
         }
 
@@ -71,17 +66,15 @@ macro_rules! render_resource_wrapper {
 
         impl Clone for $wrapper_type {
             fn clone(&self) -> Self {
-                let inner = self.0.map(|unit_ptr| {
-                    let value_ptr = unit_ptr.cast::<$wgpu_type>();
-                    // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
-                    let arc = unsafe { std::sync::Arc::from_raw(value_ptr.cast::<$wgpu_type>()) };
-                    let cloned = std::sync::Arc::clone(&arc);
-                    // we have not taken the pointer, so we must forget the Arc to avoid decrementing the ref counter.
-                    std::mem::forget(arc);
-                    std::sync::Arc::into_raw(cloned).cast()
-                });
-
-                Self(inner)
+                let value_ptr = self.0.cast::<$wgpu_type>();
+                // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
+                let arc = unsafe { std::sync::Arc::from_raw(value_ptr.cast::<$wgpu_type>()) };
+                let cloned = std::sync::Arc::clone(&arc);
+                // we forget the reconstructed Arc to avoid decrementing the ref counter, as self is still live.
+                std::mem::forget(arc);
+                let cloned_value_ptr = std::sync::Arc::into_raw(cloned);
+                let cloned_unit_ptr = cloned_value_ptr.cast::<()>();
+                Self(cloned_unit_ptr)
             }
         }
     };
