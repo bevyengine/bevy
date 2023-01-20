@@ -123,6 +123,7 @@ Example | Description
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
+[Temporal Antialiasing](../examples/3d/taa.rs) | A scene showcasing temporal antialiasing
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives

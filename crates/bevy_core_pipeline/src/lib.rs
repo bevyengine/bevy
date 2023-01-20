@@ -5,8 +5,8 @@ pub mod core_3d;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod prepass;
-pub mod tonemapping;
 pub mod taa;
+pub mod tonemapping;
 pub mod upscaling;
 
 pub mod prelude {

@@ -34,6 +34,8 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     Extract, RenderApp, RenderStage,
 };
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 
 mod draw_3d_graph {
     pub mod node {
