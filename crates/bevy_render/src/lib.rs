@@ -50,7 +50,7 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, CoreSchedule, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_utils::tracing::debug;
@@ -65,7 +65,9 @@ pub struct RenderPlugin {
     pub wgpu_settings: WgpuSettings,
 }
 
-/// The labels of the default App rendering stages.
+/// The labels of the default App rendering sets.
+///
+/// The sets run in the order listed, with [`apply_system_buffers`] inserted between each set.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
     /// Extract data from the "app world" and insert it into the "render world".
@@ -94,6 +96,51 @@ pub enum RenderSet {
 
     /// Cleanup render resources here.
     Cleanup,
+}
+
+impl RenderSet {
+    /// Sets up the base structure of the rendering [`Schedule`].
+    ///
+    /// The sets in [`RenderSet`] are configured to run in order.
+    /// A copy of [`apply_system_buffers`] is inserted between each of the sets defined in [`RenderSet`].
+    pub fn base_schedule() -> Schedule {
+        let mut schedule = Schedule::new();
+
+        // Buffer flushes + induced ordering
+        schedule.add_system(
+            apply_system_buffers
+                .after(RenderSet::Extract)
+                .before(RenderSet::ExtractCommands),
+        );
+        schedule.add_system(
+            apply_system_buffers
+                .after(RenderSet::ExtractCommands)
+                .before(RenderSet::Prepare),
+        );
+        schedule.add_system(
+            apply_system_buffers
+                .after(RenderSet::Prepare)
+                .before(RenderSet::Queue),
+        );
+        schedule.add_system(
+            apply_system_buffers
+                .after(RenderSet::Queue)
+                .before(RenderSet::PhaseSort),
+        );
+        schedule.add_system(
+            apply_system_buffers
+                .after(RenderSet::PhaseSort)
+                .before(RenderSet::Render),
+        );
+        schedule.add_system(
+            apply_system_buffers
+                .after(RenderSet::Render)
+                .before(RenderSet::Cleanup),
+        );
+        schedule.add_system(apply_system_buffers.after(RenderSet::Cleanup));
+
+        schedule
+    }
 }
 
 /// Resource for holding the extract stage of the rendering schedule.
@@ -178,8 +225,9 @@ impl Plugin for RenderPlugin {
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
-            let mut extract_stage =
-                SystemStage::parallel().with_system(PipelineCache::extract_shaders);
+            let mut render_schedule = RenderSet::base_schedule();
+
+            render_schedule.add_system(PipelineCache::extract_shaders.in_set(RenderSet::Extract));
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
             render_app.init_resource::<MainWorld>();
             render_app.world.remove_resource::<MainWorld>();
@@ -196,28 +244,21 @@ impl Plugin for RenderPlugin {
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
 
-            // This stage applies the commands from the extract stage while the render schedule
+            // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
-            let mut extract_commands_stage = SystemStage::parallel();
-            extract_commands_stage.add_system(apply_extract_commands.at_start());
+            render_schedule.add_system(apply_extract_commands.in_set(RenderSet::ExtractCommands));
+
+            render_schedule.add_system(
+                PipelineCache::process_pipeline_queue_system
+                    .before(render_system)
+                    .in_set(RenderSet::Render),
+            );
+            render_schedule.add_system(render_system.in_set(RenderSet::Render));
+
+            render_schedule.add_system(World::clear_entities.in_set(RenderSet::Cleanup));
+
             render_app
-                .add_stage(RenderStage::Extract, extract_stage)
-                .add_stage(RenderStage::ExtractCommands, extract_commands_stage)
-                .add_stage(RenderStage::Prepare, SystemStage::parallel())
-                .add_stage(RenderStage::Queue, SystemStage::parallel())
-                .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
-                .add_stage(
-                    RenderSet::Render,
-                    SystemStage::parallel()
-                        // Note: Must run before `render_system` in order to
-                        // processed newly queued pipelines.
-                        .with_system(PipelineCache::process_pipeline_queue_system)
-                        .with_system(render_system.at_end()),
-                )
-                .add_stage(
-                    RenderSet::Cleanup,
-                    SystemStage::parallel().with_system(World::clear_entities.at_end()),
-                )
+                .add_schedule(CoreSchedule::Main, render_schedule)
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
