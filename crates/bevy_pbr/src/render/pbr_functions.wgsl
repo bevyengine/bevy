@@ -151,7 +151,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
-#ifndef NORMAL_PREPASS
+#ifndef PREPASS_FRAGMENT
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -249,7 +249,7 @@ fn pbr(
 
     return output_color;
 }
-#endif // NORMAL_PREPASS
+#endif // PREPASS_FRAGMENT
 
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {

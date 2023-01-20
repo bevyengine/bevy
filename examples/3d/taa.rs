@@ -29,7 +29,8 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        TemporalAntialiasBundle::default(), // 2. Add TemporalAntialiasBundle to the camera
+        // 2. Add TemporalAntialiasBundle to the camera (must use a perspective projection)
+        TemporalAntialiasBundle::default(),
     ));
 
     // TODO: Add moving object and camera
