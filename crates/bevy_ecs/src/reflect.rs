@@ -45,11 +45,11 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut World, Entity, &dyn Reflect),
+    pub insert: fn(&mut EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
     pub apply: fn(&mut EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut World, Entity, &dyn Reflect),
+    pub apply_or_insert: fn(&mut EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -57,7 +57,7 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: for<'a> fn(&'a mut EntityMut) -> Option<Mut<'a, dyn Reflect>>,
+    pub reflect_mut: for<'a> fn(&'a mut EntityMut<'_>) -> Option<Mut<'a, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -81,12 +81,8 @@ impl ReflectComponentFns {
 
 impl ReflectComponent {
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
-    ///
-    /// # Panics
-    ///
-    /// Panics if there is no such entity.
-    pub fn insert(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
-        (self.0.insert)(world, entity, component);
+    pub fn insert(&self, entity: &mut EntityMut, component: &dyn Reflect) {
+        (self.0.insert)(entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value.
@@ -99,12 +95,8 @@ impl ReflectComponent {
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `entity` does not exist.
-    pub fn apply_or_insert(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
-        (self.0.apply_or_insert)(world, entity, component);
+    pub fn apply_or_insert(&self, entity: &mut EntityMut, component: &dyn Reflect) {
+        (self.0.apply_or_insert)(entity, component);
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
@@ -184,22 +176,22 @@ impl ReflectComponent {
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
-            insert: |world, entity, reflected_component| {
-                let mut component = C::from_world(world);
+            insert: |entity, reflected_component| {
+                let mut component = entity.world_scope(|world| C::from_world(world));
                 component.apply(reflected_component);
-                world.entity_mut(entity).insert(component);
+                entity.insert(component);
             },
             apply: |entity, reflected_component| {
                 let mut component = entity.get_mut::<C>().unwrap();
                 component.apply(reflected_component);
             },
-            apply_or_insert: |world, entity, reflected_component| {
-                if let Some(mut component) = world.get_mut::<C>(entity) {
+            apply_or_insert: |entity, reflected_component| {
+                if let Some(mut component) = entity.get_mut::<C>() {
                     component.apply(reflected_component);
                 } else {
-                    let mut component = C::from_world(world);
+                    let mut component = entity.world_scope(|world| C::from_world(world));
                     component.apply(reflected_component);
-                    world.entity_mut(entity).insert(component);
+                    entity.insert(component);
                 }
             },
             remove: |entity| {
