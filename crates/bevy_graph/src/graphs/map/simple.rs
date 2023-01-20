@@ -208,9 +208,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         iters::EdgesRef::new(self.edges.values())
     }
 
-    type EdgesMut<'e> = slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>> where Self: 'e;
+    type EdgesMut<'e> = iters::EdgesMut<'e, E, slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>>> where Self: 'e;
     fn edges_mut(&mut self) -> Self::EdgesMut<'_> {
-        self.edges.values_mut()
+        iters::EdgesMut::new(self.edges.values_mut())
     }
 
     type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, hashbrown::hash_map::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;

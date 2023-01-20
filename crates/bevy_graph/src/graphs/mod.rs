@@ -13,7 +13,7 @@ pub mod keys;
 use crate::error::GraphError;
 
 use self::{
-    edge::{Edge, EdgeMut, EdgeRef},
+    edge::{EdgeMut, EdgeRef},
     keys::{EdgeIdx, NodeIdx},
 };
 
@@ -39,7 +39,7 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type EdgesMut<'e>: Iterator<Item = &'e mut Edge<E>>
+    type EdgesMut<'e>: Iterator<Item = EdgeMut<'e, E>>
     where
         Self: 'e,
         E: 'e;
