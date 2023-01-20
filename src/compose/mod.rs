@@ -1709,11 +1709,7 @@ impl Composer {
                     &module_decoration,
                     &owned_types,
                 )
-                .map_err(|e| {
-                    println!("source: {:#?}", source_ir);
-                    println!("header: {}", header);
-                    wrap_err(e)
-                })?;
+                .map_err(wrap_err)?;
             }
         }
 
