@@ -69,7 +69,6 @@ macro_rules! render_resource_wrapper {
             impl AssertSendSyncBound for $wgpu_type {}
         };
 
-
         impl Clone for $wrapper_type {
             fn clone(&self) -> Self {
                 let inner = self.0.map(|unit_ptr| {
