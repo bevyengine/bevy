@@ -2,7 +2,7 @@ use async_channel::{Receiver, Sender};
 
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
-    schedule::{MainThreadExecutor, StageLabel, SystemStage},
+    schedule::MainThreadExecutor,
     system::Resource,
     world::{Mut, World},
 };
@@ -15,7 +15,7 @@ use crate::RenderApp;
 pub struct RenderExtractApp;
 
 /// Labels for stages in the [`RenderExtractApp`] sub app. These will run after rendering has started.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum RenderExtractStage {
     /// When pipelined rendering is enabled this stage runs after the render schedule starts, but
     /// before I/O processing and the main app schedule. This can be useful for something like
