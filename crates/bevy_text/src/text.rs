@@ -178,13 +178,13 @@ impl Default for TextStyle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum BreakLineOn {
-    /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).<br/>
-    /// Lines will be broken up at the nearest suitable word boundary, usually a space.<br/>
-    /// This behaviour suits most cases, as it keeps words intact across linebreaks.<br/>
+    /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
+    /// Lines will be broken up at the nearest suitable word boundary, usually a space.
+    /// This behaviour suits most cases, as it keeps words intact across linebreaks.
     WordBoundary,
-    /// Lines will be broken without discrimination on any character that would leave bounds.<br/>
-    /// This is closer to the behaviour one might expect from text in a terminal. <br/>
-    /// However it may lead to words being broken up across linebreaks<br />
+    /// Lines will be broken without discrimination on any character that would leave bounds.
+    /// This is closer to the behaviour one might expect from text in a terminal.
+    /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
 }
 
