@@ -321,8 +321,8 @@ impl CameraRenderGraph {
         Self(name.into())
     }
 
-    #[inline]
     /// Sets the graph name.
+    #[inline]
     pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
         self.0 = name.into();
     }
@@ -575,6 +575,11 @@ pub fn extract_cameras(
     }
 }
 
+/// A subpixel offset to jitter a perspective camera's fustrum by.
+///
+/// Useful for temporal rendering techniques.
+///
+/// Do not use with OrthographicProjection.
 #[derive(Component, Default)]
 pub struct TemporalJitter {
     pub offset: Vec2,

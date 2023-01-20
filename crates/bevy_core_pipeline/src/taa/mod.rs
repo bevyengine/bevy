@@ -45,6 +45,7 @@ mod draw_3d_graph {
 const TAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
 
+/// Plugin for temporal antialiasing. Disables multisample antialiasing (MSAA).
 pub struct TemporalAntialiasPlugin;
 
 impl Plugin for TemporalAntialiasPlugin {
@@ -89,6 +90,7 @@ impl Plugin for TemporalAntialiasPlugin {
     }
 }
 
+/// Bundle to apply temporal antialiasing (TemporalAntialiasSettings, DepthPrepass, VelocityPrepass).
 #[derive(Bundle, Default)]
 pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
@@ -96,6 +98,25 @@ pub struct TemporalAntialiasBundle {
     pub velocity_prepass: VelocityPrepass,
 }
 
+/// Component to apply temporal antialiasing to a 3d perspective camera.
+///
+/// Temporal antialiasing (TAA) is a form of post-processing image smoothing/filtering, like
+/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA). TAA works by
+/// blending (averaging) each frame with the past few frames.
+///
+/// Pros:
+/// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
+/// * Filters more types of aliasing than MSAA, such as textures and bright single pixels
+/// * Greatly increases quality of stochastic rendering techniques, such as SSAO and SSR
+///
+/// Cons:
+/// * Chance of "ghosting" - ghostly trails left behind moving objects
+/// * Slightly blurs the image, leading to a softer look
+///
+/// Because TAA blends past frames with the current frame, when the frames differ too much
+/// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
+///
+/// Requires the depth and velocity prepass. Cannot be used with OrthographicProjection.
 #[derive(Component, Reflect, Clone, Default)]
 pub struct TemporalAntialiasSettings {}
 
