@@ -1172,8 +1172,8 @@ pub struct ChangeTrackersFetch<'w, T> {
     change_tick: u32,
 }
 
-// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 #[allow(deprecated)]
+// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type Fetch<'w> = ChangeTrackersFetch<'w, T>;
     type Item<'w> = ChangeTrackers<T>;
@@ -1319,8 +1319,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     }
 }
 
-/// SAFETY: access is read only
 #[allow(deprecated)]
+/// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyWorldQuery for ChangeTrackers<T> {}
 
 macro_rules! impl_tuple_fetch {
