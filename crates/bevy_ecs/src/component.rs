@@ -508,7 +508,7 @@ impl Components {
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
     ///
-    /// The returned `ComponentId` is specific to the `Components instance`
+    /// The returned `ComponentId` is specific to the `Components` instance
     /// it was retrieved from and should not be used with another `Components`
     /// instance.
     ///
