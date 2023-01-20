@@ -135,10 +135,18 @@ pub struct SubApp {
 
     /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
     /// useful for moving data between the sub app and the main app.
-    pub extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+    extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
 
 impl SubApp {
+    /// Creates a new [`SubApp`].
+    pub fn new(app: App, extract: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
+        Self {
+            app,
+            extract: Box::new(extract),
+        }
+    }
+
     /// Runs the `SubApp`'s schedule.
     pub fn run(&mut self) {
         self.app.schedule.run(&mut self.app.world);
@@ -1078,28 +1086,6 @@ impl App {
             let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register_type_data::<T, D>();
         }
-        self
-    }
-
-    /// Adds an [`App`] as a child of the current one.
-    ///
-    /// The provided function `extract` is normally called by the [`update`](Self::update) method.
-    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
-    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
-    /// reference to the `SubApp` itself.
-    pub fn add_sub_app(
-        &mut self,
-        label: impl AppLabel,
-        app: App,
-        extract: impl Fn(&mut World, &mut App) + 'static + Send,
-    ) -> &mut Self {
-        self.sub_apps.insert(
-            label.as_label(),
-            SubApp {
-                app,
-                extract: Box::new(extract),
-            },
-        );
         self
     }
 
