@@ -50,12 +50,10 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::new()
-                    .label(ModifiesWindows)
-                    .with_system(changed_window)
-                    .with_system(despawn_window),
+            .add_systems(
+                (changed_window, despawn_window)
+                    .in_set(ModifiesWindows)
+                    .in_set(CoreSet::PostUpdate),
             );
 
         #[cfg(target_arch = "wasm32")]
