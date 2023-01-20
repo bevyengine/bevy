@@ -128,9 +128,7 @@ pub fn update_slider_value(
     )>,
     slider_handle_query: Query<&Node, With<SliderHandle>>,
 ) {
-    for (mut slider, interaction, cursor_position, node, children) in
-        slider_query.iter_mut()
-    {
+    for (mut slider, interaction, cursor_position, node, children) in slider_query.iter_mut() {
         if *interaction == Interaction::Clicked {
             let max = slider.max();
             let min = slider.min();
