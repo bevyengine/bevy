@@ -63,7 +63,7 @@ impl Plugin for ViewPlugin {
 /// Note that WGPU currently only supports 1 or 4 samples.
 /// Ultimately we plan on supporting whatever is natively supported on a given device.
 /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
-/// 
+///
 /// # Example
 /// ```
 /// # use bevy_app::prelude::App;
