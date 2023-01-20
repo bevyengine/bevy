@@ -1,3 +1,4 @@
+use bevy_ecs::prelude::Component;
 use raw_window_handle::{
     HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
 };
@@ -7,7 +8,7 @@ use raw_window_handle::{
 /// Depending on the platform, the underlying pointer-containing handle cannot be used on all threads,
 /// and so we cannot simply make it (or any type that has a safe operation to get a [`RawWindowHandle`] or [`RawDisplayHandle`])
 /// thread-safe.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
     pub window_handle: RawWindowHandle,
     pub display_handle: RawDisplayHandle,

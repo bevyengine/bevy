@@ -334,6 +334,15 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
         unsafe { PtrMut::new(self.0) }
     }
 }
+impl<'a> OwningPtr<'a, Unaligned> {
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    pub unsafe fn read_unaligned<T>(self) -> T {
+        self.as_ptr().cast::<T>().read_unaligned()
+    }
+}
 
 /// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
 pub struct ThinSlicePtr<'a, T> {

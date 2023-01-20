@@ -827,7 +827,7 @@ impl World {
         let component_id = self.components.init_non_send::<R>();
         if self
             .storages
-            .resources
+            .non_send_resources
             .get(component_id)
             .map_or(true, |data| !data.is_present())
         {
@@ -2008,7 +2008,7 @@ impl<T: Default> FromWorld for T {
 
 #[cfg(test)]
 mod tests {
-    use super::World;
+    use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
@@ -2228,6 +2228,41 @@ mod tests {
         assert!(world.remove_resource_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[derive(Resource)]
+    struct TestFromWorld(u32);
+    impl FromWorld for TestFromWorld {
+        fn from_world(world: &mut World) -> Self {
+            let b = world.resource::<TestResource>();
+            Self(b.0)
+        }
+    }
+
+    #[test]
+    fn init_resource_does_not_overwrite() {
+        let mut world = World::new();
+        world.insert_resource(TestResource(0));
+        world.init_resource::<TestFromWorld>();
+        world.insert_resource(TestResource(1));
+        world.init_resource::<TestFromWorld>();
+
+        let resource = world.resource::<TestFromWorld>();
+
+        assert_eq!(resource.0, 0);
+    }
+
+    #[test]
+    fn init_non_send_resource_does_not_overwrite() {
+        let mut world = World::new();
+        world.insert_resource(TestResource(0));
+        world.init_non_send_resource::<TestFromWorld>();
+        world.insert_resource(TestResource(1));
+        world.init_non_send_resource::<TestFromWorld>();
+
+        let resource = world.non_send_resource::<TestFromWorld>();
+
+        assert_eq!(resource.0, 0);
     }
 
     #[derive(Component)]

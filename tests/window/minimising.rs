@@ -7,10 +7,10 @@ fn main() {
     // it is currently.
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "Minimising".into(),
-                ..Default::default()
-            },
+                ..default()
+            }),
             ..default()
         }))
         .add_system(minimise_automatically)
@@ -19,9 +19,10 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
+fn minimise_automatically(mut windows: Query<&mut Window>, mut frames: Local<u32>) {
     if *frames == 60 {
-        windows.primary_mut().set_minimized(true);
+        let mut window = windows.single_mut();
+        window.set_minimized(true);
     } else {
         *frames += 1;
     }
