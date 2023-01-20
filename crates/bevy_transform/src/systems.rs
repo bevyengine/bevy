@@ -167,20 +167,14 @@ mod test {
     use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
-    #[derive(StageLabel)]
-    struct Update;
-
     #[test]
     fn did_propagate() {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(sync_simple_transforms);
-        update_stage.add_system(propagate_transforms);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        let mut schedule = Schedule::new();
+        schedule.add_system(sync_simple_transforms);
+        schedule.add_system(propagate_transforms);
 
         // Root entity
         world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
@@ -217,12 +211,9 @@ mod test {
     fn did_propagate_command_buffer() {
         let mut world = World::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(sync_simple_transforms);
-        update_stage.add_system(propagate_transforms);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        let mut schedule = Schedule::new();
+        schedule.add_system(sync_simple_transforms);
+        schedule.add_system(propagate_transforms);
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -261,12 +252,9 @@ mod test {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(sync_simple_transforms);
-        update_stage.add_system(propagate_transforms);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        let mut schedule = Schedule::new();
+        schedule.add_system(sync_simple_transforms);
+        schedule.add_system(propagate_transforms);
 
         // Add parent entities
         let mut children = Vec::new();
