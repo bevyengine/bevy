@@ -111,8 +111,8 @@ impl WinitWindows {
                 }
             }
 
-            winit_window_builder = winit_window_builder
-                .with_prevent_default(window.prevent_default_event_handling)
+            winit_window_builder =
+                winit_window_builder.with_prevent_default(window.prevent_default_event_handling)
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
