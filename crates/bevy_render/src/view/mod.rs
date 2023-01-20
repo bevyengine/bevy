@@ -91,8 +91,6 @@ impl Default for Msaa {
     }
 }
 
-
-
 #[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
