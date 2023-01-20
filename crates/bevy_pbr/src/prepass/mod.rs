@@ -395,7 +395,7 @@ pub fn prepare_prepass_textures(
                         label: Some("prepass_depth_texture"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples,
+                        sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
                         format: DEPTH_PREPASS_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -417,7 +417,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_normal_texture"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples,
+                            sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
@@ -499,7 +499,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         normal_prepass,
     ) in &mut views
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
