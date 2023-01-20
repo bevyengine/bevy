@@ -520,7 +520,7 @@ impl Components {
     ///
     /// let mut world = World::new();
     ///
-    /// #[derive(Resource)]
+    /// #[derive(Resource, Default)]
     /// struct ResourceA;
     ///
     /// let resource_a_id = world.init_resource::<ResourceA>();

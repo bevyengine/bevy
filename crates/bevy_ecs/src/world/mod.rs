@@ -777,7 +777,7 @@ impl World {
     /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
     /// and those default values will be here instead.
     #[inline]
-    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
         if self
             .storages
@@ -793,6 +793,7 @@ impl World {
                 }
             });
         }
+        component_id
     }
 
     /// Inserts a new resource with the given `value`.
