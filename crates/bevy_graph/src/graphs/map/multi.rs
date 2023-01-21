@@ -36,7 +36,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         Self {
             nodes: HopSlotMap::with_capacity_and_key(node_capacity),
             edges: HopSlotMap::with_capacity_and_key(edge_capacity),
-            adjacencies: SecondaryMap::new(),
+            adjacencies: SecondaryMap::with_capacity(node_capacity),
         }
     }
 
