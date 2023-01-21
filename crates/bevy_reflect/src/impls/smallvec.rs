@@ -170,8 +170,16 @@ where
     fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
+            for (idx, field) in ref_list.iter().enumerate() {
+                new_list.push(<T as smallvec::Array>::Item::from_reflect(field).map_err(
+                    |err| FromReflectError::IndexError {
+                        from_type: reflect.get_type_info(),
+                        from_kind: reflect.reflect_kind(),
+                        to_type: Self::type_info(),
+                        index: idx,
+                        source: Box::new(err),
+                    },
+                )?);
             }
             Ok(new_list)
         } else {
