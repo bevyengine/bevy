@@ -557,16 +557,16 @@ bitflags::bitflags! {
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
-        const BLEND_RESERVED_BITS         = 0b11; // ← Bitmask reserving two bits for the blend state
-        const BLEND_OPAQUE                = 0;    // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA   = 1;    //
-        const BLEND_MULTIPLY              = 2;    // ← We still have room for one more value without adding more bits
-        const HDR                         = (1 << 2);
-        const TONEMAP_IN_SHADER           = (1 << 3);
-        const DEBAND_DITHER               = (1 << 4);
-        const DEPTH_PREPASS               = (1 << 5);
-        const NORMAL_PREPASS              = (1 << 6);
-        const ALPHA_MASK                  = (1 << 7);
+        const HDR                         = (1 << 0);
+        const TONEMAP_IN_SHADER           = (1 << 1);
+        const DEBAND_DITHER               = (1 << 2);
+        const DEPTH_PREPASS               = (1 << 3);
+        const NORMAL_PREPASS              = (1 << 4);
+        const ALPHA_MASK                  = (1 << 5);
+        const BLEND_RESERVED_BITS         = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA   = (1 << Self::BLEND_SHIFT_BITS);                   //
+        const BLEND_MULTIPLY              = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -576,7 +576,11 @@ impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
+        Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+    const BLEND_MASK_BITS: u32 = 0b11;
+    const BLEND_SHIFT_BITS: u32 =
+        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
