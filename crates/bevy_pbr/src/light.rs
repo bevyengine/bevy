@@ -278,7 +278,16 @@ impl CascadeShadowConfig {
         shadow_maximum_distance: f32,
         overlap_proportion: f32,
     ) -> Self {
-        assert!(num_cascades > 0, "num_cascades must be positive");
+        assert!(
+            num_cascades > 0,
+            "num_cascades must be positive, but was {}",
+            num_cascades
+        );
+        assert!(
+            overlap_proportion >= 0.0 && overlap_proportion < 1.0,
+            "overlap_proportion must be in [0.0, 1.0) but was {}",
+            overlap_proportion
+        );
         Self {
             bounds: calculate_cascade_bounds(num_cascades, nearest_bound, shadow_maximum_distance),
             overlap_proportion,

@@ -166,7 +166,7 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
 
     var shadow = sample_cascade(light_id, cascade_index, frag_position, surface_normal);
 
-    // Blend with the next cascade, if there's one.
+    // Blend with the next cascade, if there is one.
     let next_cascade_index = cascade_index + 1u;
     if (next_cascade_index < (*light).num_cascades) {
         let this_far_bound = (*light).cascades[cascade_index].far_bound;
