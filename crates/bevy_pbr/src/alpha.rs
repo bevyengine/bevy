@@ -40,7 +40,7 @@ pub enum AlphaMode {
     ///
     /// Useful for effects like holograms, ghosts, lasers and other energy beams.
     Add,
-    /// Combines the color of the fragments with the colors behind them in an
+    /// Combines the color of the fragments with the colors behind them in a
     /// multiplicative process, (i.e. like pigments) producing darker results.
     ///
     /// White produces no effect. Alpha values can be used to modulate the result.
