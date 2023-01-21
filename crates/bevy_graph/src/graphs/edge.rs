@@ -20,7 +20,7 @@ impl<E> Edge<E> {
     }
 }
 
-/// An util container which holds Edge<E> data with an immutable reference to the edge value
+/// An util container which holds `Edge<E>` data with an immutable reference to the edge value
 pub struct EdgeRef<'v, E>(pub NodeIdx, pub NodeIdx, pub &'v E);
 
 impl<'v, E> Deref for EdgeRef<'v, E> {
@@ -31,7 +31,7 @@ impl<'v, E> Deref for EdgeRef<'v, E> {
     }
 }
 
-/// An util container which holds Edge<E> data with a mutable reference to the edge value
+/// An util container which holds `Edge<E>` data with a mutable reference to the edge value
 pub struct EdgeMut<'v, E>(pub NodeIdx, pub NodeIdx, pub &'v mut E);
 
 impl<'v, E> Deref for EdgeMut<'v, E> {
