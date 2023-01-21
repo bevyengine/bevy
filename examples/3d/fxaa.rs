@@ -13,8 +13,8 @@ use bevy::{
 
 fn main() {
     App::new()
-        // Disable MSAA be default
-        .insert_resource(Msaa { samples: 1 })
+        // Disable MSAA by default
+        .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(toggle_fxaa)
@@ -118,19 +118,20 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
     let fxaa_ultra = keys.just_pressed(KeyCode::Key9);
     let fxaa_extreme = keys.just_pressed(KeyCode::Key0);
     let set_fxaa = set_fxaa | fxaa_low | fxaa_med | fxaa_high | fxaa_ultra | fxaa_extreme;
+
     for mut fxaa in &mut query {
         if set_msaa {
             fxaa.enabled = false;
-            msaa.samples = 4;
+            *msaa = Msaa::Sample4;
             info!("MSAA 4x");
         }
         if set_no_aa {
             fxaa.enabled = false;
-            msaa.samples = 1;
+            *msaa = Msaa::Off;
             info!("NO AA");
         }
         if set_no_aa | set_fxaa {
-            msaa.samples = 1;
+            *msaa = Msaa::Off;
         }
         if fxaa_low {
             fxaa.edge_threshold = Sensitivity::Low;
@@ -150,7 +151,7 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
         }
         if set_fxaa {
             fxaa.enabled = true;
-            msaa.samples = 1;
+            *msaa = Msaa::Off;
             info!("FXAA {}", fxaa.edge_threshold.get_str());
         }
     }

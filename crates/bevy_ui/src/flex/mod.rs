@@ -13,7 +13,7 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
+use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},
@@ -23,7 +23,7 @@ use taffy::{
 #[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_nodes: HashMap<WindowId, taffy::node::Node>,
+    window_nodes: HashMap<Entity, taffy::node::Node>,
     taffy: Taffy,
 }
 
@@ -36,7 +36,6 @@ unsafe impl Sync for FlexSurface {}
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
-    _assert_send_sync::<HashMap<WindowId, taffy::node::Node>>();
     // FIXME https://github.com/DioxusLabs/taffy/issues/146
     // _assert_send_sync::<Taffy>();
 }
@@ -145,11 +144,11 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn update_window(&mut self, window: &Window) {
+    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
         let taffy = &mut self.taffy;
         let node = self
             .window_nodes
-            .entry(window.id())
+            .entry(window)
             .or_insert_with(|| taffy.new_leaf(taffy::style::Style::default()).unwrap());
 
         taffy
@@ -157,8 +156,12 @@ without UI components as a child of an entity with UI components, results may be
                 *node,
                 taffy::style::Style {
                     size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(window.physical_width() as f32),
-                        height: taffy::style::Dimension::Points(window.physical_height() as f32),
+                        width: taffy::style::Dimension::Points(
+                            window_resolution.physical_width() as f32
+                        ),
+                        height: taffy::style::Dimension::Points(
+                            window_resolution.physical_height() as f32,
+                        ),
                     },
                     ..Default::default()
                 },
@@ -168,10 +171,10 @@ without UI components as a child of an entity with UI components, results may be
 
     pub fn set_window_children(
         &mut self,
-        window_id: WindowId,
+        parent_window: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let taffy_node = self.window_nodes.get(&window_id).unwrap();
+        let taffy_node = self.window_nodes.get(&parent_window).unwrap();
         let child_nodes = children
             .map(|e| *self.entity_to_taffy.get(&e).unwrap())
             .collect::<Vec<taffy::node::Node>>();
@@ -218,7 +221,8 @@ pub enum FlexError {
 
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
-    windows: Res<Windows>,
+    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    windows: Query<(Entity, &Window)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
@@ -234,13 +238,20 @@ pub fn flex_node_system(
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     removed_nodes: RemovedComponents<Node>,
 ) {
+    // assume one window for time being...
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let (primary_window_entity, logical_to_physical_factor) =
+        if let Ok((entity, primary_window)) = primary_window.get_single() {
+            (entity, primary_window.resolution.scale_factor())
+        } else {
+            return;
+        };
+
     // update window root nodes
-    for window in windows.iter() {
-        flex_surface.update_window(window);
+    for (entity, window) in windows.iter() {
+        flex_surface.update_window(entity, &window.resolution);
     }
 
-    // assume one window for time being...
-    let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     fn update_changed<F: ReadOnlyWorldQuery>(
@@ -273,9 +284,7 @@ pub fn flex_node_system(
     flex_surface.remove_entities(&removed_nodes);
 
     // update window children (for now assuming all Nodes live in the primary window)
-    if let Some(primary_window) = windows.get_primary() {
-        flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
-    }
+    flex_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
     for entity in &removed_children {

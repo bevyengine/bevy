@@ -784,6 +784,16 @@ description = "Shows how to load and play an audio file, and control how it's pl
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "decodable"
+path = "examples/audio/decodable.rs"
+
+[package.metadata.example.decodable]
+name = "Decodable"
+description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -1232,6 +1242,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_prepass"
+path = "examples/shader/shader_prepass.rs"
+
+[package.metadata.example.shader_prepass]
+name = "Material Prepass"
+description = "A shader that uses the depth texture generated in a prepass"
+category = "Shaders"
+wasm = false
+
+
+[[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
 
@@ -1473,6 +1494,16 @@ path = "examples/ui/font_atlas_debug.rs"
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
 description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
 category = "UI (User Interface)"
 wasm = true
 

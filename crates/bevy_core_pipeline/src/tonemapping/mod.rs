@@ -126,7 +126,7 @@ pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
 pub fn queue_view_tonemapping_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
     view_targets: Query<(Entity, &Tonemapping)>,
@@ -136,7 +136,7 @@ pub fn queue_view_tonemapping_pipelines(
             let key = TonemappingPipelineKey {
                 deband_dither: *deband_dither,
             };
-            let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
+            let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
             commands
                 .entity(entity)
