@@ -798,6 +798,7 @@ pub fn prepare_lights(
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut max_directional_lights_warning_emitted: Local<bool>,
+    mut max_cascades_per_light_warning_emitted: Local<bool>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
@@ -833,6 +834,18 @@ pub fn prepare_lights(
             MAX_DIRECTIONAL_LIGHTS
         );
         *max_directional_lights_warning_emitted = true;
+    }
+
+    if !*max_cascades_per_light_warning_emitted
+        && directional_lights
+            .iter()
+            .any(|(_, light)| light.cascade_shadow_config.bounds.len() > MAX_CASCADES_PER_LIGHT)
+    {
+        warn!(
+            "The number of cascades configured for a directional light exceeds the supported limit of {}.",
+            MAX_CASCADES_PER_LIGHT
+        );
+        *max_cascades_per_light_warning_emitted = true;
     }
 
     let point_light_count = point_lights
