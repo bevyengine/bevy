@@ -281,15 +281,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         self.adjacencies[index].outgoing().len()
     }
 
-    type Sources<'n> = iters::NodesByIdx<'n, N, iters::Sources<iters::ZipInDegree<'n, MultiMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
+    type Sources<'n> = iters::Sources<&'n N, iters::ZipInDegree<'n, MultiMapStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
     fn sources(&self) -> Self::Sources<'_> {
-        iters::NodesByIdx::new(
-            iters::Sources::new(iters::ZipInDegree::new(
-                self.nodes.keys(),
-                &self.adjacencies,
-            )),
-            &self.nodes,
-        )
+        iters::Sources::new(iters::ZipInDegree::new(
+            self.nodes.iter(),
+            &self.adjacencies,
+        ))
     }
 
     /*type SourcesMut<'n> = iters::NodesByIdxMut<'n, N, iters::Sources<iters::ZipInDegree<'n, MultiMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
