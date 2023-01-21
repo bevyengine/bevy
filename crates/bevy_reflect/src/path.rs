@@ -45,32 +45,145 @@ pub enum ReflectPathError<'a> {
     InvalidDowncast,
 }
 
-/// A trait which allows nested values to be retrieved with path strings.
+/// A trait which allows nested [`Reflect`] values to be retrieved with path strings.
 ///
-/// Path strings use Rust syntax:
-/// - [`Struct`] items are accessed with a dot and a field name: `.field_name`
-/// - [`TupleStruct`] and [`Tuple`] items are accessed with a dot and a number: `.0`
-/// - [`List`] items are accessed with brackets: `[0]`
-/// - Field indexes within [`Struct`] can also be optionally used instead: `#0` for
-///   the first field. This can speed up fetches at runtime (no string matching)
-///   but can be much more fragile as code and string paths must be kept in sync since
-///   the order of fields could be easily changed. Storing these paths in persistent
-///   storage (i.e. game assets) is strongly discouraged.
+/// Using these functions repeatedly with the same string requires parsing the string every time.
+/// To avoid this cost, it's recommended to construct a [`FieldPath`] instead.
 ///
-/// If the initial path element is a field of a struct, tuple struct, or tuple,
-/// the initial '.' may be omitted.
+/// # Syntax
 ///
-/// For example, given a struct with a field `foo` which is a reflected list of
-/// 2-tuples (like a `Vec<(T, U)>`), the path string `foo[3].0` would access tuple
-/// element 0 of element 3 of `foo`.
+/// ## Structs
 ///
-/// Using these functions repeatedly with the same string requires parsing the
-/// string every time. To avoid this cost, construct a [`FieldPath`] instead.
+/// Field paths for [`Struct`] items use the standard Rust field access syntax of
+/// dot and field name: `.field_name`.
+///
+/// Additionally, struct fields may be accessed by their index within the struct's definition.
+/// This is accomplished by using the hash symbol (`#`) in place of the standard dot: `#0`.
+///
+/// Accessing a struct's field by index can speed up fetches at runtime due to the removed
+/// need for string matching.
+/// And while this can be more performant, it's best to keep in mind the tradeoffs when
+/// utilizing such optimizations.
+/// For example, this can result in fairly fragile code as the string paths will need to be
+/// kept in sync with the struct definitions since the order of fields could be easily changed.
+/// Because of this, storing these kinds of paths in persistent storage (i.e. game assets)
+/// is strongly discouraged.
+///
+/// Note that a leading dot (`.`) or hash (`#`) token is implied for the first item in a path,
+/// and may therefore be omitted.
+///
+/// ### Example
+/// ```
+/// # use bevy_reflect::{GetPath, Reflect};
+/// #[derive(Reflect)]
+/// struct MyStruct {
+///   value: u32
+/// }
+///
+/// let my_struct = MyStruct { value: 123 };
+/// // Access via field name
+/// assert_eq!(my_struct.get_path::<u32>(".value").unwrap(), &123);
+/// // Access via field index
+/// assert_eq!(my_struct.get_path::<u32>("#0").unwrap(), &123);
+/// ```
+///
+/// ## Tuples and Tuple Structs
+///
+/// [`Tuple`] and [`TupleStruct`] items also follow a conventional Rust syntax.
+/// Fields are accessed with a dot and the field index: `.0`.
+///
+/// Note that a leading dot (`.`) token is implied for the first item in a path,
+/// and may therefore be omitted.
+///
+/// ### Example
+/// ```
+/// # use bevy_reflect::{GetPath, Reflect};
+/// #[derive(Reflect)]
+/// struct MyTupleStruct(u32);
+///
+/// let my_tuple_struct = MyTupleStruct(123);
+/// assert_eq!(my_tuple_struct.get_path::<u32>(".0").unwrap(), &123);
+/// ```
+///
+/// ## Lists and Arrays
+///
+/// [`List`] and [`Array`] items are accessed with brackets: `[0]`.
+///
+/// ### Example
+/// ```
+/// # use bevy_reflect::{GetPath};
+/// let my_list: Vec<u32> = vec![1, 2, 3];
+/// assert_eq!(my_list.get_path::<u32>("[2]").unwrap(), &3);
+/// ```
+///
+/// ## Enums
+///
+/// Pathing for [`Enum`] items works a bit differently than in normal Rust.
+/// Usually, you would need to pattern match an enum, branching off on the desired variants.
+/// Paths used by this trait do not have any pattern matching capabilities;
+/// instead, they assume the variant is already known ahead of time.
+///
+/// The syntax used, therefore, depends on the variant being accessed:
+/// - Struct variants use the struct syntax (outlined above)
+/// - Tuple variants use the tuple syntax (outlined above)
+/// - Unit variants have no fields to access
+///
+/// If the variant cannot be known ahead of time, the path will need to be split up
+/// and proper enum pattern matching will need to be handled manually.
+///
+/// ### Example
+/// ```
+/// # use bevy_reflect::{GetPath, Reflect};
+/// #[derive(Reflect)]
+/// enum MyEnum {
+///   Unit,
+///   Tuple(bool),
+///   Struct {
+///     value: u32
+///   }
+/// }
+///
+/// let tuple_variant = MyEnum::Tuple(true);
+/// assert_eq!(tuple_variant.get_path::<bool>(".0").unwrap(), &true);
+///
+/// let struct_variant = MyEnum::Struct { value: 123 };
+/// // Access via field name
+/// assert_eq!(struct_variant.get_path::<u32>(".value").unwrap(), &123);
+/// // Access via field index
+/// assert_eq!(struct_variant.get_path::<u32>("#0").unwrap(), &123);
+///
+/// // Error: Expected struct variant
+/// assert!(matches!(tuple_variant.get_path::<u32>(".value"), Err(_)));
+/// ```
+///
+/// # Chaining
+///
+/// Using the aforementioned syntax, path items may be chained one after another
+/// to create a full path to a nested element.
+///
+/// ## Example
+/// ```
+/// # use bevy_reflect::{GetPath, Reflect};
+/// #[derive(Reflect)]
+/// struct MyStruct {
+///   value: Vec<Option<u32>>
+/// }
+///
+/// let my_struct = MyStruct {
+///   value: vec![None, None, Some(123)],
+/// };
+/// assert_eq!(
+///   my_struct.get_path::<u32>(".value[2].0").unwrap(),
+///   &123,
+/// );
+/// ```
 ///
 /// [`Struct`]: crate::Struct
-/// [`TupleStruct`]: crate::TupleStruct
 /// [`Tuple`]: crate::Tuple
+/// [`TupleStruct`]: crate::TupleStruct
 /// [`List`]: crate::List
+/// [`Array`]: crate::Array
+/// [`Enum`]: crate::Enum
 pub trait GetPath {
     /// Returns a reference to the value specified by `path`.
     ///
@@ -88,6 +201,12 @@ pub trait GetPath {
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a statically typed reference to the value specified by `path`.
+    ///
+    /// This will automatically handle downcasting to type `T`.
+    /// The downcast will fail if this value is not of type `T`
+    /// (which may be the case when using dynamic types like [`DynamicStruct`]).
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
     fn get_path<'r, 'p, T: Reflect>(
         &'r self,
         path: &'p str,
@@ -98,8 +217,13 @@ pub trait GetPath {
         })
     }
 
-    /// Returns a statically typed mutable reference to the value specified by
-    /// `path`.
+    /// Returns a statically typed mutable reference to the value specified by `path`.
+    ///
+    /// This will automatically handle downcasting to type `T`.
+    /// The downcast will fail if this value is not of type `T`
+    /// (which may be the case when using dynamic types like [`DynamicStruct`]).
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
     fn get_path_mut<'r, 'p, T: Reflect>(
         &'r mut self,
         path: &'p str,
@@ -145,15 +269,29 @@ impl GetPath for dyn Reflect {
     }
 }
 
-// This stores an access and a start index for the identity. The index is only really
-// used for errors.
-/// A path to a field within a type. Can be used like [`GetPath`] functions to get
-/// references to the inner fields of a type.
+/// A pre-parsed path to a field within a type.
+///
+/// This struct may be used like [`GetPath`] but removes the cost of parsing the path
+/// string at each element access.
+///
+/// It's recommended to use this in place of `GetPath` when the path string is
+/// unlikely to be changed and will be accessed repeatedly.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-pub struct FieldPath(Box<[(Access, usize)]>);
+pub struct FieldPath(
+    /// This is the boxed slice of pre-parsed accesses.
+    ///
+    /// Each item in the slice contains the access along with the character
+    /// index of the start of the access within the parsed path string.
+    ///
+    /// The index is mainly used for more helpful error reporting.
+    Box<[(Access, usize)]>,
+);
 
 impl FieldPath {
-    /// Parses a [`FieldPath`] from a string. For the exact format, see [`GetPath`].
+    /// Parses a [`FieldPath`] from a string.
+    ///
+    /// See [`GetPath`] for the exact path format.
+    ///
     /// Returns an error if the string does not represent a valid path to a field.
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
@@ -163,9 +301,11 @@ impl FieldPath {
         Ok(Self(parts.into_boxed_slice()))
     }
 
-    /// Gets a read-only reference to a given field.
+    /// Gets a read-only reference to the specified field on the given [`Reflect`] object.
     ///
     /// Returns an error if the path is invalid for the provided type.
+    ///
+    /// See [`field_mut`](Self::field_mut) for a typed version of this method.
     pub fn field<'r, 'p>(
         &'p self,
         root: &'r dyn Reflect,
@@ -177,9 +317,11 @@ impl FieldPath {
         Ok(current)
     }
 
-    /// Gets a mutable reference to a given field.
+    /// Gets a mutable reference to the specified field on the given [`Reflect`] object.
     ///
     /// Returns an error if the path is invalid for the provided type.
+    ///
+    /// See [`get_field_mut`](Self::get_field_mut) for a typed version of this method.
     pub fn field_mut<'r, 'p>(
         &'p mut self,
         root: &'r mut dyn Reflect,
@@ -191,6 +333,11 @@ impl FieldPath {
         Ok(current)
     }
 
+    /// Gets a typed, read-only reference to the specified field on the given [`Reflect`] object.
+    ///
+    /// Returns an error if the path is invalid for the provided type.
+    ///
+    /// See [`field`](Self::field) for an untyped version of this method.
     pub fn get_field<'r, 'p, T: Reflect>(
         &'p self,
         root: &'r dyn Reflect,
@@ -201,6 +348,11 @@ impl FieldPath {
         })
     }
 
+    /// Gets a typed, read-only reference to the specified field on the given [`Reflect`] object.
+    ///
+    /// Returns an error if the path is invalid for the provided type.
+    ///
+    /// See [`field_mut`](Self::field_mut) for an untyped version of this method.
     pub fn get_field_mut<'r, 'p, T: Reflect>(
         &'p mut self,
         root: &'r mut dyn Reflect,
@@ -243,8 +395,9 @@ impl fmt::Display for FieldPath {
     }
 }
 
-/// A singular owned field access within a path. Can be applied
-/// to a `dyn Reflect` to get a reference to the targetted field.
+/// A singular owned field access within a path.
+///
+/// Can be applied to a `dyn Reflect` to get a reference to the targeted field.
 ///
 /// A path is composed of multiple accesses in sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -266,11 +419,12 @@ impl Access {
     }
 }
 
-/// A singular borrowed field access within a path. Can be applied
-/// to a `dyn Reflect` to get a reference to the targetted field.
+/// A singular borrowed field access within a path.
 ///
-/// Does not own the backing store it's sourced from. For an owned
-/// version, you can convert one to an [`Access`].
+/// Can be applied to a `dyn Reflect` to get a reference to the targeted field.
+///
+/// Does not own the backing store it's sourced from.
+/// For an owned version, you can convert one to an [`Access`].
 #[derive(Debug)]
 enum AccessRef<'a> {
     Field(&'a str),
