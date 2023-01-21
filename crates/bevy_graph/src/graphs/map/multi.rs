@@ -13,6 +13,8 @@ use crate::{
     utils::vecset::VecSet,
 };
 
+type MultiMapStorage = HashMap<NodeIdx, Vec<EdgeIdx>>;
+
 /// Implementation of a `MultiGraph` which uses `HashMap<NodeIdx, Vec<EdgeIdx>>` for adjacencies
 ///
 /// `MultiGraph`s can hold multiple edges between two nodes and edges between the same node
@@ -20,7 +22,7 @@ use crate::{
 pub struct MultiMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
-    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<HashMap<NodeIdx, Vec<EdgeIdx>>>>,
+    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<MultiMapStorage>>,
 }
 
 impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
@@ -278,6 +280,28 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     fn out_degree(&self, index: NodeIdx) -> usize {
         self.adjacencies[index].outgoing().len()
     }
+
+    type Sources<'n> = iters::NodesByIdx<'n, N, iters::Sources<iters::ZipInDegree<'n, MultiMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
+    fn sources(&self) -> Self::Sources<'_> {
+        iters::NodesByIdx::new(
+            iters::Sources::new(iters::ZipInDegree::new(
+                self.nodes.keys(),
+                &self.adjacencies,
+            )),
+            &self.nodes,
+        )
+    }
+
+    /*type SourcesMut<'n> = iters::NodesByIdxMut<'n, N, iters::Sources<iters::ZipInDegree<'n, MultiMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
+    fn sources_mut(&mut self) -> Self::SourcesMut<'_> {
+        iters::NodesByIdxMut::new(
+            iters::Sources::new(iters::ZipInDegree::new(
+                self.nodes.keys(),
+                &self.adjacencies,
+            )),
+            &mut self.nodes,
+        )
+    }*/
 }
 
 impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {

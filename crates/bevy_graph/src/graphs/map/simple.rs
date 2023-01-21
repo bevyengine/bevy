@@ -12,6 +12,8 @@ use crate::{
     iters,
 };
 
+type SimpleMapStorage = HashMap<NodeIdx, EdgeIdx>;
+
 /// Implementation of a `SimpleGraph` which uses `HashMap<NodeIdx, EdgeIdx>` for adjacencies
 ///
 /// `SimpleGraph`s can only hold one edge between two nodes and can't have edges between the same node
@@ -19,7 +21,7 @@ use crate::{
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
-    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<HashMap<NodeIdx, EdgeIdx>>>,
+    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<SimpleMapStorage>>,
 }
 
 impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> {
@@ -257,6 +259,28 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     fn out_degree(&self, index: NodeIdx) -> usize {
         self.adjacencies[index].outgoing().len()
     }
+
+    type Sources<'n> = iters::NodesByIdx<'n, N, iters::Sources<iters::ZipInDegree<'n, SimpleMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
+    fn sources(&self) -> Self::Sources<'_> {
+        iters::NodesByIdx::new(
+            iters::Sources::new(iters::ZipInDegree::new(
+                self.nodes.keys(),
+                &self.adjacencies,
+            )),
+            &self.nodes,
+        )
+    }
+
+    /*type SourcesMut<'n> = iters::NodesByIdxMut<'n, N, iters::Sources<iters::ZipInDegree<'n, SimpleMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
+    fn sources_mut(&mut self) -> Self::SourcesMut<'_> {
+        iters::NodesByIdxMut::new(
+            iters::Sources::new(iters::ZipInDegree::new(
+                self.nodes.keys(),
+                &self.adjacencies,
+            )),
+            &mut self.nodes,
+        )
+    }*/
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {

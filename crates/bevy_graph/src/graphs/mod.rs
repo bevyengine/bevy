@@ -73,13 +73,13 @@ pub trait Graph<N, E> {
     where
         Self: 'e,
         E: 'e;
-    /*
-
     /// Iterator fix because TAIT not available
     type Sources<'n>: Iterator<Item = &'n N>
     where
         Self: 'n,
         N: 'n;
+
+    /*
     /// Iterator fix because TAIT not available
     type SourcesMut<'n>: Iterator<Item = &'n mut N>
     where
@@ -262,10 +262,10 @@ pub trait Graph<N, E> {
     /// Returns the number of edges coming out of the specified node.
     fn out_degree(&self, index: NodeIdx) -> usize;
 
-    /*
     /// Returns an iterator over all nodes with zero in-degree.
     fn sources(&self) -> Self::Sources<'_>;
 
+    /*
     /// Returns a mutable iterator over all nodes with zero in-degree.
     fn sources_mut(&mut self) -> Self::SourcesMut<'_>;
 
