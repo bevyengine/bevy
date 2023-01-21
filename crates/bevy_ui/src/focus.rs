@@ -65,7 +65,7 @@ impl Default for Interaction {
 )]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum InteractionPolicy {
-    /// Keep the node clicked after it stopped being hovered
+    /// Keep the node clicked after it stops being hovered
     #[default]
     Hold,
     /// Release the node if the cursor stops hovering
