@@ -82,9 +82,9 @@ pub enum ReflectPathError<'a> {
 ///
 /// let my_struct = MyStruct { value: 123 };
 /// // Access via field name
-/// assert_eq!(my_struct.get_path::<u32>(".value").unwrap(), &123);
+/// assert_eq!(my_struct.path::<u32>(".value").unwrap(), &123);
 /// // Access via field index
-/// assert_eq!(my_struct.get_path::<u32>("#0").unwrap(), &123);
+/// assert_eq!(my_struct.path::<u32>("#0").unwrap(), &123);
 /// ```
 ///
 /// ## Tuples and Tuple Structs
@@ -102,7 +102,7 @@ pub enum ReflectPathError<'a> {
 /// struct MyTupleStruct(u32);
 ///
 /// let my_tuple_struct = MyTupleStruct(123);
-/// assert_eq!(my_tuple_struct.get_path::<u32>(".0").unwrap(), &123);
+/// assert_eq!(my_tuple_struct.path::<u32>(".0").unwrap(), &123);
 /// ```
 ///
 /// ## Lists and Arrays
@@ -113,7 +113,7 @@ pub enum ReflectPathError<'a> {
 /// ```
 /// # use bevy_reflect::{GetPath};
 /// let my_list: Vec<u32> = vec![1, 2, 3];
-/// assert_eq!(my_list.get_path::<u32>("[2]").unwrap(), &3);
+/// assert_eq!(my_list.path::<u32>("[2]").unwrap(), &3);
 /// ```
 ///
 /// ## Enums
@@ -144,16 +144,16 @@ pub enum ReflectPathError<'a> {
 /// }
 ///
 /// let tuple_variant = MyEnum::Tuple(true);
-/// assert_eq!(tuple_variant.get_path::<bool>(".0").unwrap(), &true);
+/// assert_eq!(tuple_variant.path::<bool>(".0").unwrap(), &true);
 ///
 /// let struct_variant = MyEnum::Struct { value: 123 };
 /// // Access via field name
-/// assert_eq!(struct_variant.get_path::<u32>(".value").unwrap(), &123);
+/// assert_eq!(struct_variant.path::<u32>(".value").unwrap(), &123);
 /// // Access via field index
-/// assert_eq!(struct_variant.get_path::<u32>("#0").unwrap(), &123);
+/// assert_eq!(struct_variant.path::<u32>("#0").unwrap(), &123);
 ///
 /// // Error: Expected struct variant
-/// assert!(matches!(tuple_variant.get_path::<u32>(".value"), Err(_)));
+/// assert!(matches!(tuple_variant.path::<u32>(".value"), Err(_)));
 /// ```
 ///
 /// # Chaining
@@ -173,7 +173,7 @@ pub enum ReflectPathError<'a> {
 ///   value: vec![None, None, Some(123)],
 /// };
 /// assert_eq!(
-///   my_struct.get_path::<u32>(".value[2].0").unwrap(),
+///   my_struct.path::<u32>(".value[2].0").unwrap(),
 ///   &123,
 /// );
 /// ```
@@ -188,14 +188,17 @@ pub trait GetPath {
     /// Returns a reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed reference, use
-    /// [`get_path`][GetPath::get_path].
-    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
+    /// [`path`][GetPath::path].
+    fn reflect_path<'r, 'p>(
+        &'r self,
+        path: &'p str,
+    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a mutable reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed mutable reference, use
-    /// [`get_path_mut`][GetPath::get_path_mut].
-    fn path_mut<'r, 'p>(
+    /// [`path_mut`][GetPath::path_mut].
+    fn reflect_path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
@@ -207,11 +210,8 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn get_path<'r, 'p, T: Reflect>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r T, ReflectPathError<'p>> {
-        self.path(path).and_then(|p| {
+    fn path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError<'p>> {
+        self.reflect_path(path).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
@@ -224,11 +224,11 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn get_path_mut<'r, 'p, T: Reflect>(
+    fn path_mut<'r, 'p, T: Reflect>(
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut T, ReflectPathError<'p>> {
-        self.path_mut(path).and_then(|p| {
+        self.reflect_path_mut(path).and_then(|p| {
             p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
@@ -236,20 +236,26 @@ pub trait GetPath {
 }
 
 impl<T: Reflect> GetPath for T {
-    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
-        (self as &dyn Reflect).path(path)
+    fn reflect_path<'r, 'p>(
+        &'r self,
+        path: &'p str,
+    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+        (self as &dyn Reflect).reflect_path(path)
     }
 
-    fn path_mut<'r, 'p>(
+    fn reflect_path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
-        (self as &mut dyn Reflect).path_mut(path)
+        (self as &mut dyn Reflect).reflect_path_mut(path)
     }
 }
 
 impl GetPath for dyn Reflect {
-    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+    fn reflect_path<'r, 'p>(
+        &'r self,
+        path: &'p str,
+    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current: &dyn Reflect = self;
         for (access, current_index) in PathParser::new(path) {
             current = access?.read_element(current, current_index)?;
@@ -257,7 +263,7 @@ impl GetPath for dyn Reflect {
         Ok(current)
     }
 
-    fn path_mut<'r, 'p>(
+    fn reflect_path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
@@ -305,8 +311,8 @@ impl ParsedPath {
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`element_mut`](Self::element_mut) for a typed version of this method.
-    pub fn element<'r, 'p>(
+    /// See [`element_mut`](Self::reflect_element_mut) for a typed version of this method.
+    pub fn reflect_element<'r, 'p>(
         &'p self,
         root: &'r dyn Reflect,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
@@ -321,8 +327,8 @@ impl ParsedPath {
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`get_element_mut`](Self::get_element_mut) for a typed version of this method.
-    pub fn element_mut<'r, 'p>(
+    /// See [`element_mut`](Self::element_mut) for a typed version of this method.
+    pub fn reflect_element_mut<'r, 'p>(
         &'p mut self,
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
@@ -337,12 +343,12 @@ impl ParsedPath {
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`element`](Self::element) for an untyped version of this method.
-    pub fn get_element<'r, 'p, T: Reflect>(
+    /// See [`reflect_element`](Self::reflect_element) for an untyped version of this method.
+    pub fn element<'r, 'p, T: Reflect>(
         &'p self,
         root: &'r dyn Reflect,
     ) -> Result<&'r T, ReflectPathError<'p>> {
-        self.element(root).and_then(|p| {
+        self.reflect_element(root).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
@@ -352,12 +358,12 @@ impl ParsedPath {
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`element_mut`](Self::element_mut) for an untyped version of this method.
-    pub fn get_element_mut<'r, 'p, T: Reflect>(
+    /// See [`reflect_element_mut`](Self::reflect_element_mut) for an untyped version of this method.
+    pub fn element_mut<'r, 'p, T: Reflect>(
         &'p mut self,
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut T, ReflectPathError<'p>> {
-        self.element_mut(root).and_then(|p| {
+        self.reflect_element_mut(root).and_then(|p| {
             p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
@@ -879,18 +885,18 @@ mod tests {
         let m = ParsedPath::parse("array[2]").unwrap();
 
         for _ in 0..30 {
-            assert_eq!(*b.get_element::<usize>(&a).unwrap(), 1);
-            assert_eq!(*c.get_element::<usize>(&a).unwrap(), 10);
-            assert_eq!(*d.get_element::<f32>(&a).unwrap(), 3.14);
-            assert_eq!(*e.get_element::<f32>(&a).unwrap(), 2.0);
-            assert_eq!(*f.get_element::<usize>(&a).unwrap(), 42);
-            assert_eq!(*g.get_element::<usize>(&a).unwrap(), 10);
-            assert_eq!(*h.get_element::<f32>(&a).unwrap(), 3.14);
-            assert_eq!(*i.get_element::<F>(&a).unwrap(), F::Unit);
-            assert_eq!(*j.get_element::<u32>(&a).unwrap(), 321);
-            assert_eq!(*k.get_element::<char>(&a).unwrap(), 'm');
-            assert_eq!(*l.get_element::<char>(&a).unwrap(), 'm');
-            assert_eq!(*m.get_element::<i32>(&a).unwrap(), 309);
+            assert_eq!(*b.element::<usize>(&a).unwrap(), 1);
+            assert_eq!(*c.element::<usize>(&a).unwrap(), 10);
+            assert_eq!(*d.element::<f32>(&a).unwrap(), 3.14);
+            assert_eq!(*e.element::<f32>(&a).unwrap(), 2.0);
+            assert_eq!(*f.element::<usize>(&a).unwrap(), 42);
+            assert_eq!(*g.element::<usize>(&a).unwrap(), 10);
+            assert_eq!(*h.element::<f32>(&a).unwrap(), 3.14);
+            assert_eq!(*i.element::<F>(&a).unwrap(), F::Unit);
+            assert_eq!(*j.element::<u32>(&a).unwrap(), 321);
+            assert_eq!(*k.element::<char>(&a).unwrap(), 'm');
+            assert_eq!(*l.element::<char>(&a).unwrap(), 'm');
+            assert_eq!(*m.element::<i32>(&a).unwrap(), 309);
         }
     }
 
@@ -907,10 +913,10 @@ mod tests {
             array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         };
 
-        assert_eq!(*a.get_path::<u8>("list[5]").unwrap(), 5);
-        assert_eq!(*a.get_path::<u8>("array[5]").unwrap(), 5);
-        assert_eq!(*a.get_path::<u8>("list[0]").unwrap(), 0);
-        assert_eq!(*a.get_path::<u8>("array[0]").unwrap(), 0);
+        assert_eq!(*a.path::<u8>("list[5]").unwrap(), 5);
+        assert_eq!(*a.path::<u8>("array[5]").unwrap(), 5);
+        assert_eq!(*a.path::<u8>("list[0]").unwrap(), 0);
+        assert_eq!(*a.path::<u8>("array[0]").unwrap(), 0);
     }
 
     #[test]
@@ -926,14 +932,14 @@ mod tests {
             array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         };
 
-        assert_eq!(*a.get_path_mut::<u8>("list[5]").unwrap(), 5);
-        assert_eq!(*a.get_path_mut::<u8>("array[5]").unwrap(), 5);
+        assert_eq!(*a.path_mut::<u8>("list[5]").unwrap(), 5);
+        assert_eq!(*a.path_mut::<u8>("array[5]").unwrap(), 5);
 
-        *a.get_path_mut::<u8>("list[5]").unwrap() = 10;
-        *a.get_path_mut::<u8>("array[5]").unwrap() = 10;
+        *a.path_mut::<u8>("list[5]").unwrap() = 10;
+        *a.path_mut::<u8>("array[5]").unwrap() = 10;
 
-        assert_eq!(*a.get_path_mut::<u8>("list[5]").unwrap(), 10);
-        assert_eq!(*a.get_path_mut::<u8>("array[5]").unwrap(), 10);
+        assert_eq!(*a.path_mut::<u8>("list[5]").unwrap(), 10);
+        assert_eq!(*a.path_mut::<u8>("array[5]").unwrap(), 10);
     }
 
     #[test]
@@ -952,29 +958,29 @@ mod tests {
             array: [86, 75, 309],
         };
 
-        assert_eq!(*a.get_path::<usize>("w").unwrap(), 1);
-        assert_eq!(*a.get_path::<usize>("x.foo").unwrap(), 10);
-        assert_eq!(*a.get_path::<f32>("x.bar.baz").unwrap(), 3.14);
-        assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
-        assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
-        assert_eq!(*a.get_path::<usize>("x#0").unwrap(), 10);
-        assert_eq!(*a.get_path::<f32>("x#1#0").unwrap(), 3.14);
+        assert_eq!(*a.path::<usize>("w").unwrap(), 1);
+        assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
+        assert_eq!(*a.path::<f32>("x.bar.baz").unwrap(), 3.14);
+        assert_eq!(*a.path::<f32>("y[1].baz").unwrap(), 2.0);
+        assert_eq!(*a.path::<usize>("z.0.1").unwrap(), 42);
+        assert_eq!(*a.path::<usize>("x#0").unwrap(), 10);
+        assert_eq!(*a.path::<f32>("x#1#0").unwrap(), 3.14);
 
-        assert_eq!(*a.get_path::<F>("unit_variant").unwrap(), F::Unit);
-        assert_eq!(*a.get_path::<u32>("tuple_variant.1").unwrap(), 321);
-        assert_eq!(*a.get_path::<char>("struct_variant.value").unwrap(), 'm');
-        assert_eq!(*a.get_path::<char>("struct_variant#0").unwrap(), 'm');
+        assert_eq!(*a.path::<F>("unit_variant").unwrap(), F::Unit);
+        assert_eq!(*a.path::<u32>("tuple_variant.1").unwrap(), 321);
+        assert_eq!(*a.path::<char>("struct_variant.value").unwrap(), 'm');
+        assert_eq!(*a.path::<char>("struct_variant#0").unwrap(), 'm');
 
-        assert_eq!(*a.get_path::<i32>("array[2]").unwrap(), 309);
+        assert_eq!(*a.path::<i32>("array[2]").unwrap(), 309);
 
-        *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
+        *a.path_mut::<f32>("y[1].baz").unwrap() = 3.0;
         assert_eq!(a.y[1].baz, 3.0);
 
-        *a.get_path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
+        *a.path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
         assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
 
         assert_eq!(
-            a.path("x.notreal").err().unwrap(),
+            a.reflect_path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidField {
                 index: 2,
                 field: "notreal"
@@ -982,27 +988,27 @@ mod tests {
         );
 
         assert_eq!(
-            a.path("unit_variant.0").err().unwrap(),
+            a.reflect_path("unit_variant.0").err().unwrap(),
             ReflectPathError::ExpectedTupleVariant { index: 13 }
         );
 
         assert_eq!(
-            a.path("x..").err().unwrap(),
+            a.reflect_path("x..").err().unwrap(),
             ReflectPathError::ExpectedIdent { index: 2 }
         );
 
         assert_eq!(
-            a.path("x[0]").err().unwrap(),
+            a.reflect_path("x[0]").err().unwrap(),
             ReflectPathError::ExpectedList { index: 2 }
         );
 
         assert_eq!(
-            a.path("y.x").err().unwrap(),
+            a.reflect_path("y.x").err().unwrap(),
             ReflectPathError::ExpectedStruct { index: 2 }
         );
 
         assert!(matches!(
-            a.path("y[badindex]"),
+            a.reflect_path("y[badindex]"),
             Err(ReflectPathError::IndexParseError(_))
         ));
     }
