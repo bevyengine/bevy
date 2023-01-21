@@ -43,7 +43,9 @@ impl TraitLikeImpl {
     /// Otherwise, an error is returned if neither value is [`TraitLikeImpl::NotImplemented`].
     pub fn merge(self, other: TraitLikeImpl) -> Result<TraitLikeImpl, syn::Error> {
         match (self, other) {
-            (TraitLikeImpl::NotImplemented, value) | (value, TraitLikeImpl::NotImplemented) => Ok(value),
+            (TraitLikeImpl::NotImplemented, value) | (value, TraitLikeImpl::NotImplemented) => {
+                Ok(value)
+            }
             (_, TraitLikeImpl::Implemented(span) | TraitLikeImpl::Custom(_, span)) => {
                 Err(syn::Error::new(span, "conflicting type data registration"))
             }
