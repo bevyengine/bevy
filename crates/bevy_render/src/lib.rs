@@ -56,9 +56,7 @@ use bevy_app::{App, AppLabel, CoreSchedule, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
-use std::{
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -157,11 +155,6 @@ pub struct ExtractSchedule(pub Schedule);
 /// See [`Extract`] for more details.
 #[derive(Resource, Default)]
 pub struct MainWorld(World);
-
-/// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
-#[derive(Resource, Default)]
-struct ScratchMainWorld(World);
 
 impl Deref for MainWorld {
     type Target = World;
@@ -303,23 +296,7 @@ impl Plugin for RenderPlugin {
                     let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "extract").entered();
 
-
-                    render_app
-                        .world
-                        .resource_scope(|render_world, mut extract_schedule: Mut<ExtractSchedule>| {
-                            
-                            // temporarily add the app world to the render world as a resource
-                            let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
-                            let inserted_world = std::mem::replace(main_world, scratch_world.0);
-                            render_world.insert_resource(MainWorld(inserted_world));
-
-                            extract_schedule.run(render_world);
-
-                            // move the app world back, as if nothing happened.
-                            let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
-                            let scratch_world = std::mem::replace(main_world, inserted_world.0);
-                            main_world.insert_resource(ScratchMainWorld(scratch_world));
-                        });
+                    extract(main_world, render_app);
                 }
             });
         }
@@ -338,7 +315,34 @@ impl Plugin for RenderPlugin {
     }
 }
 
-/// Applies the
+/// A "scratch" world used to avoid allocating new worlds every frame when
+/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
+#[derive(Resource, Default)]
+struct ScratchMainWorld(World);
+
+/// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
+/// This updates the render world with the extracted ECS data of the current frame.
+fn extract(main_world: &mut World, render_app: &mut App) {
+    render_app
+        .world
+        .resource_scope(|render_world, mut extract_schedule: Mut<ExtractSchedule>| {
+            // temporarily add the app world to the render world as a resource
+            let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
+            let inserted_world = std::mem::replace(main_world, scratch_world.0);
+            render_world.insert_resource(MainWorld(inserted_world));
+
+            extract_schedule.run(render_world);
+
+            // move the app world back, as if nothing happened.
+            let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
+            let scratch_world = std::mem::replace(main_world, inserted_world.0);
+            main_world.insert_resource(ScratchMainWorld(scratch_world));
+        });
+}
+
+/// Applies the commands from the extract schedule. This happens during
+/// the render schedule rather than during extraction to allow the commands to run in parallel with the
+/// main app when pipelined rendering is enabled.
 fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, mut extract_schedule: Mut<ExtractSchedule>| {
         extract_schedule.apply_system_buffers(render_world);
