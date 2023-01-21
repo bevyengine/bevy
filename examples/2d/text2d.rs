@@ -5,7 +5,10 @@
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
 
-use bevy::{prelude::*, text::Text2dBounds};
+use bevy::{
+    prelude::*,
+    text::{BreakLineOn, Text2dBounds},
+};
 
 fn main() {
     App::new()
@@ -29,7 +32,7 @@ struct AnimateScale;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
-        font,
+        font: font.clone(),
         font_size: 60.0,
         color: Color::WHITE,
     };
@@ -56,12 +59,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
+            text: Text::from_section("scale", text_style).with_alignment(text_alignment),
             ..default()
         },
         AnimateScale,
     ));
     // Demonstrate text wrapping
+    let slightly_smaller_text_style = TextStyle {
+        font,
+        font_size: 42.0,
+        color: Color::WHITE,
+    };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
     commands
@@ -76,11 +84,49 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
-                text: Text::from_section("this text wraps in the box", text_style)
-                    .with_alignment(TextAlignment::Left),
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "this text wraps in the box\n(Unicode linebreaks)",
+                        slightly_smaller_text_style.clone(),
+                    )],
+                    alignment: TextAlignment::Left,
+                    linebreak_behaviour: BreakLineOn::WordBoundary,
+                },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: box_size,
+                },
+                // ensure the text is drawn on top of the box
+                transform: Transform::from_translation(Vec3::Z),
+                ..default()
+            });
+        });
+
+    let other_box_size = Vec2::new(300.0, 200.0);
+    let other_box_position = Vec2::new(320.0, -250.0);
+    commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.20, 0.3, 0.70),
+                custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
+                ..default()
+            },
+            transform: Transform::from_translation(other_box_position.extend(0.0)),
+            ..default()
+        })
+        .with_children(|builder| {
+            builder.spawn(Text2dBundle {
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "this text wraps in the box\n(AnyCharacter linebreaks)",
+                        slightly_smaller_text_style.clone(),
+                    )],
+                    alignment: TextAlignment::Left,
+                    linebreak_behaviour: BreakLineOn::AnyCharacter,
+                },
+                text_2d_bounds: Text2dBounds {
+                    // Wrap text in the rectangle
+                    size: other_box_size,
                 },
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),
