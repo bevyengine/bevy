@@ -12,10 +12,10 @@ use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
 /// A simple enumeration of [kinds](ReflectKind) of type, without any associated object.
-/// 
+///
 /// All types implementing [`Reflect`] are categorized into "kinds". They help to group types that
 /// behave similarly and provide methods specific to its kind. These kinds directly correspond to
-/// the traits [`Struct`], [`TupleStruct`], [`Tuple`], [`List`], [`Array`], [`Map`] and [`Enum`]; 
+/// the traits [`Struct`], [`TupleStruct`], [`Tuple`], [`List`], [`Array`], [`Map`] and [`Enum`];
 /// which means that a type implementing any one of the above traits will be of the corresponding
 /// kind. All the remaining types will be `ReflectKind::Value`.
 ///
@@ -86,7 +86,7 @@ pub enum ReflectOwned {
 /// A reflected Rust type.
 ///
 /// Methods for working with particular [kinds](ReflectKind) of Rust type are available using
-/// the [`Array`], [`List`], [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits. 
+/// the [`Array`], [`List`], [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
 ///
 /// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
 /// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.

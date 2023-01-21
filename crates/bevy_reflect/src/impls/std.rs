@@ -706,7 +706,7 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
             let temp_vec_len = temp_vec.len();
             temp_vec
                 .try_into()
-                .map_err(|_| FromReflectError::InvalidSize {
+                .map_err(|_| FromReflectError::InvalidLength {
                     from_type: reflect.get_type_info(),
                     from_kind: reflect.reflect_kind(),
                     to_type: Self::type_info(),
@@ -967,12 +967,14 @@ impl<T: FromReflect> FromReflect for Option<T> {
                                 })?
                                 .clone_value(),
                         )
-                        .map_err(|(_, err)| FromReflectError::UnnamedFieldError {
-                            from_type: reflect.get_type_info(),
-                            from_kind: reflect.reflect_kind(),
-                            to_type: Self::type_info(),
-                            index: 0,
-                            source: Box::new(err),
+                        .map_err(|(_, err)| {
+                            FromReflectError::UnnamedFieldError {
+                                from_type: reflect.get_type_info(),
+                                from_kind: reflect.reflect_kind(),
+                                to_type: Self::type_info(),
+                                index: 0,
+                                source: Box::new(err),
+                            }
                         })
                     })()
                     .map_err(|err| FromReflectError::VariantError {

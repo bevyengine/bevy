@@ -116,7 +116,7 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
 
 /// An Error for failed conversion of reflected type to original type in [`FromReflect::from_reflect`].
 ///
-/// In the error message, the kind of the source type may have a prefix "(Dynamic)" indicating that the 
+/// In the error message, the kind of the source type may have a prefix "(Dynamic)" indicating that the
 /// source is dynamic, i.e., [`DynamicStruct`], [`DynamicList`], etc.
 ///
 /// Within variants `NamedFieldError`, `UnnamedFieldError`, `IndexError`, `VariantError`, `KeyError` and
@@ -146,13 +146,13 @@ pub enum FromReflectError {
     /// This error is given by types of [kind](ReflectKind) [`Array`](crate::Array).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to source type having length of {} and target type having length of {}",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .from_len, .to_len)]
-    InvalidSize {
+    InvalidLength {
         /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
 
         /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
-        
+
         /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
 
@@ -192,7 +192,7 @@ pub enum FromReflectError {
     MissingUnnamedField {
         /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
-        
+
         /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
 
@@ -230,7 +230,7 @@ pub enum FromReflectError {
     MissingVariant {
         /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
-        
+
         /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
 
@@ -280,7 +280,7 @@ pub enum FromReflectError {
 
         /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
-        
+
         /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
 
@@ -295,7 +295,7 @@ pub enum FromReflectError {
     ///
     /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
     ///
-    /// This error is given by types of [kind](ReflectKind) [`List`](crate::List) and 
+    /// This error is given by types of [kind](ReflectKind) [`List`](crate::List) and
     /// [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the value at index `{}`",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
@@ -326,7 +326,7 @@ pub enum FromReflectError {
     VariantError {
         /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
-        
+
         /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
 
@@ -371,7 +371,7 @@ pub enum FromReflectError {
     ValueError {
         /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
-        
+
         /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
 
@@ -388,7 +388,7 @@ impl FromReflectError {
     pub fn from_type(&self) -> &'static TypeInfo {
         match self {
             Self::InvalidType { from_type, .. }
-            | Self::InvalidSize { from_type, .. }
+            | Self::InvalidLength { from_type, .. }
             | Self::MissingNamedField { from_type, .. }
             | Self::MissingUnnamedField { from_type, .. }
             | Self::MissingIndex { from_type, .. }
@@ -406,7 +406,7 @@ impl FromReflectError {
     pub fn to_type(&self) -> &'static TypeInfo {
         match self {
             Self::InvalidType { to_type, .. }
-            | Self::InvalidSize { to_type, .. }
+            | Self::InvalidLength { to_type, .. }
             | Self::MissingNamedField { to_type, .. }
             | Self::MissingUnnamedField { to_type, .. }
             | Self::MissingIndex { to_type, .. }
@@ -424,7 +424,7 @@ impl FromReflectError {
     pub fn from_kind(&self) -> ReflectKind {
         *match self {
             Self::InvalidType { from_kind, .. }
-            | Self::InvalidSize { from_kind, .. }
+            | Self::InvalidLength { from_kind, .. }
             | Self::MissingNamedField { from_kind, .. }
             | Self::MissingUnnamedField { from_kind, .. }
             | Self::MissingIndex { from_kind, .. }
