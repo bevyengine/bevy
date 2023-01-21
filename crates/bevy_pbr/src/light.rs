@@ -284,7 +284,7 @@ impl CascadeShadowConfig {
             num_cascades
         );
         assert!(
-            overlap_proportion >= 0.0 && overlap_proportion < 1.0,
+            (0.0..1.0).contains(&overlap_proportion),
             "overlap_proportion must be in [0.0, 1.0) but was {}",
             overlap_proportion
         );
