@@ -2,7 +2,7 @@ use crate::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token, Path};
+use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Path, Token};
 
 pub(crate) struct TraitInfo {
     item_trait: ItemTrait,

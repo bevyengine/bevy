@@ -137,7 +137,10 @@ enum ReflectMode {
 }
 
 impl<'a> ReflectDerive<'a> {
-    pub fn from_input(input: &'a DeriveInput, impl_source: ReflectImplSource) -> Result<Self, syn::Error> {
+    pub fn from_input(
+        input: &'a DeriveInput,
+        impl_source: ReflectImplSource,
+    ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used
         let mut reflect_mode = None;
@@ -288,7 +291,12 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_name: &'a Ident, generics: &'a Generics, traits: ReflectTraits, impl_source: ReflectImplSource) -> Self {
+    pub fn new(
+        type_name: &'a Ident,
+        generics: &'a Generics,
+        traits: ReflectTraits,
+        impl_source: ReflectImplSource,
+    ) -> Self {
         Self {
             traits,
             type_name,

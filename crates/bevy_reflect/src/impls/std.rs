@@ -43,9 +43,30 @@ impl_reflect_value!(char(
     Default
 ));
 impl_reflect_value!(u8(debug, hash, partial_eq, Serialize, Deserialize, Default));
-impl_reflect_value!(u16(debug, hash, partial_eq, Serialize, Deserialize, Default));
-impl_reflect_value!(u32(debug, hash, partial_eq, Serialize, Deserialize, Default));
-impl_reflect_value!(u64(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(u16(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(u32(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(u64(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_value!(u128(
     debug,
     hash,
@@ -63,9 +84,30 @@ impl_reflect_value!(usize(
     Default
 ));
 impl_reflect_value!(i8(debug, hash, partial_eq, Serialize, Deserialize, Default));
-impl_reflect_value!(i16(debug, hash, partial_eq, Serialize, Deserialize, Default));
-impl_reflect_value!(i32(debug, hash, partial_eq, Serialize, Deserialize, Default));
-impl_reflect_value!(i64(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(i16(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(i32(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(i64(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_value!(i128(
     debug,
     hash,
@@ -119,8 +161,20 @@ impl_reflect_value!(Duration(
 impl_reflect_value!(Instant(debug, hash, partial_eq));
 impl_reflect_value!(NonZeroI128(debug, hash, partial_eq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU128(debug, hash, partial_eq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroIsize(debug, hash, partial_eq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroUsize(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroIsize(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(NonZeroUsize(
+    debug,
+    hash,
+    partial_eq,
+    Serialize,
+    Deserialize
+));
 impl_reflect_value!(NonZeroI64(debug, hash, partial_eq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU64(debug, hash, partial_eq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU32(debug, hash, partial_eq, Serialize, Deserialize));

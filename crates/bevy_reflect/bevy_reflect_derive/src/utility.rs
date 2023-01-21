@@ -4,7 +4,7 @@ use crate::field_attributes::ReflectIgnoreBehavior;
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::Ident;
-use syn::{Member, Path, spanned::Spanned};
+use syn::{spanned::Spanned, Member, Path};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -21,7 +21,10 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 /// ```
 pub(crate) fn into_reflected_path(mut path: Path) -> Path {
     let last = path.segments.last_mut().unwrap();
-    let ident = Ident::new(&format!("Reflect{name}", name = last.ident.to_string()), last.span());
+    let ident = Ident::new(
+        &format!("Reflect{name}", name = last.ident.to_string()),
+        last.span(),
+    );
     last.ident = ident;
     path
 }

@@ -103,7 +103,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-        ReflectImplSource::ImplValue
+        ReflectImplSource::ImplValue,
     );
 
     #[cfg(feature = "documentation")]

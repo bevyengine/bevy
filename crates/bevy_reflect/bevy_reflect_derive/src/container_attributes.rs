@@ -13,7 +13,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Meta, NestedMeta, Path, Lit, parse_str};
+use syn::{parse_str, Lit, Meta, NestedMeta, Path};
 
 // The "special" idents that are used internally for reflection.
 // Received via attributes like `#[reflect(partial_eq, hash, ...)]`
@@ -136,7 +136,12 @@ impl ReflectTraits {
                         // Track the span where the trait is implemented for future errors
                         let span = lit.span();
                         let trait_func_ident = TraitImpl::Custom(path, span);
-                        match name_value.path.get_ident().map(ToString::to_string).as_deref() {
+                        match name_value
+                            .path
+                            .get_ident()
+                            .map(ToString::to_string)
+                            .as_deref()
+                        {
                             Some(DEBUG_ATTR) => {
                                 traits.debug = traits.debug.merge(trait_func_ident)?;
                             }
@@ -147,11 +152,14 @@ impl ReflectTraits {
                                 traits.hash = traits.hash.merge(trait_func_ident)?;
                             }
                             _ => {
-                                return Err(syn::Error::new(span, "custom path literals can only be used for \"special\" idents."))
+                                return Err(syn::Error::new(
+                                    span,
+                                    "custom path literals can only be used for \"special\" idents.",
+                                ))
                             }
                         }
                     }
-                },
+                }
                 // Handles `#[reflect( hash, Default, ... )]`
                 NestedMeta::Meta(Meta::Path(path)) => {
                     // Track the span where the trait is implemented for future errors

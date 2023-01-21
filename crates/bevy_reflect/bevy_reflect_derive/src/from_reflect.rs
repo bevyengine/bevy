@@ -91,7 +91,7 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
 
     let MemberValuePair(ignored_members, ignored_values) =
         get_ignored_fields(reflect_struct, is_tuple);
-    
+
     let constructor = match reflect_struct.meta().impl_source() {
         ReflectImplSource::ImplStruct => {
             quote!(
@@ -107,9 +107,8 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
                 )*
                 #FQOption::Some(__this)
             )
-        },
+        }
         _ => {
-
             quote!(
                 #FQOption::Some(
                     Self {
