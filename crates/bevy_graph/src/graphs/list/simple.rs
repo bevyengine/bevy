@@ -264,6 +264,18 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
+    fn reverse(&mut self) {
+        self.adjacencies
+            .values_mut()
+            .for_each(|list| list.for_each_mut(Vec::clear));
+
+        for (index, Edge(src, dst, _)) in &mut self.edges {
+            std::mem::swap(src, dst);
+            self.adjacencies[*dst].outgoing_mut().push((*src, index));
+            self.adjacencies[*src].incoming_mut().push((*dst, index));
+        }
+    }
+
     fn reverse_edge(&mut self, index: EdgeIdx) {
         if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
             self.adjacencies[*src].outgoing_mut().remove_by_key(*dst);

@@ -281,6 +281,26 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
 }
 
 impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
+    fn reverse(&mut self) {
+        self.adjacencies
+            .values_mut()
+            .for_each(|map| map.for_each_mut(HashMap::clear));
+
+        for (index, Edge(src, dst, _)) in &mut self.edges {
+            std::mem::swap(src, dst);
+            self.adjacencies[*dst]
+                .outgoing_mut()
+                .get_mut(src)
+                .unwrap()
+                .push(index);
+            self.adjacencies[*src]
+                .incoming_mut()
+                .get_mut(dst)
+                .unwrap()
+                .push(index);
+        }
+    }
+
     fn reverse_edge(&mut self, index: EdgeIdx) {
         if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
             self.adjacencies[*src]

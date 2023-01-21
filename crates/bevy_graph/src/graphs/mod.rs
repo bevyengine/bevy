@@ -292,6 +292,9 @@ pub trait SimpleGraph<N, E>: Graph<N, E> {
 
 /// A more precise trait with functions special for directed graphs
 pub trait DirectedGraph<N, E>: Graph<N, E> {
+    /// Reverse the direction of all edges in the graph.
+    fn reverse(&mut self);
+
     /// Reverse the direction of the specified edge.
     fn reverse_edge(&mut self, index: EdgeIdx);
 }
