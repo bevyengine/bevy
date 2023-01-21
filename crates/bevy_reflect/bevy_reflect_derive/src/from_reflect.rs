@@ -220,14 +220,14 @@ fn get_active_fields(
                 let ty = field.data.ty.clone();
 
                 let missing_error = if is_tuple {
-                    quote!(|| #bevy_reflect_path::FromReflectError::MissingIndex {
+                    quote!(|| #bevy_reflect_path::FromReflectError::MissingUnnamedField {
                         from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
                         from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
                         to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
                         index: #accessor,
                     })
                 } else {
-                    quote!(|| #bevy_reflect_path::FromReflectError::MissingField {
+                    quote!(|| #bevy_reflect_path::FromReflectError::MissingNamedField {
                         from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
                         from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
                         to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
@@ -240,7 +240,7 @@ fn get_active_fields(
                 };
 
                 let error = if is_tuple {
-                    quote!(|err| #bevy_reflect_path::FromReflectError::IndexError {
+                    quote!(|err| #bevy_reflect_path::FromReflectError::UnnamedFieldError {
                         from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
                         from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
                         to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
@@ -248,7 +248,7 @@ fn get_active_fields(
                         source: #FQBox::new(err),
                     })
                 } else {
-                    quote!(|err| #bevy_reflect_path::FromReflectError::FieldError {
+                    quote!(|err| #bevy_reflect_path::FromReflectError::NamedFieldError {
                         from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
                         from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
                         to_type: <Self as #bevy_reflect_path::Typed>::type_info(),

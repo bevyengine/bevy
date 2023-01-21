@@ -959,7 +959,7 @@ impl<T: FromReflect> FromReflect for Option<T> {
                         T::take_from_reflect(
                             dyn_enum
                                 .field_at(0)
-                                .ok_or_else(|| FromReflectError::MissingIndex {
+                                .ok_or_else(|| FromReflectError::MissingUnnamedField {
                                     from_type: reflect.get_type_info(),
                                     from_kind: reflect.reflect_kind(),
                                     to_type: Self::type_info(),
@@ -967,7 +967,7 @@ impl<T: FromReflect> FromReflect for Option<T> {
                                 })?
                                 .clone_value(),
                         )
-                        .map_err(|(_, err)| FromReflectError::IndexError {
+                        .map_err(|(_, err)| FromReflectError::UnnamedFieldError {
                             from_type: reflect.get_type_info(),
                             from_kind: reflect.reflect_kind(),
                             to_type: Self::type_info(),

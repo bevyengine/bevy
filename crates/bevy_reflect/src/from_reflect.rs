@@ -140,11 +140,19 @@ pub enum FromReflectError {
     },
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing field `{}`", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
-    MissingField {
+    MissingNamedField {
         from_type: &'static TypeInfo,
         from_kind: ReflectKind,
         to_type: &'static TypeInfo,
         field: &'static str,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing field at index {}", 
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
+    MissingUnnamedField {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        index: usize,
     },
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing value at index {}",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
@@ -164,11 +172,20 @@ pub enum FromReflectError {
     },
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field `{}`", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
-    FieldError {
+    NamedFieldError {
         from_type: &'static TypeInfo,
         from_kind: ReflectKind,
         to_type: &'static TypeInfo,
         field: &'static str,
+        source: Box<FromReflectError>,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field at index {}", 
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
+    UnnamedFieldError {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        index: usize,
         source: Box<FromReflectError>,
     },
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the value at index `{}`",
@@ -213,10 +230,12 @@ impl FromReflectError {
         match self {
             Self::InvalidType { from_type, .. }
             | Self::InvalidSize { from_type, .. }
-            | Self::MissingField { from_type, .. }
+            | Self::MissingNamedField { from_type, .. }
+            | Self::MissingUnnamedField { from_type, .. }
             | Self::MissingIndex { from_type, .. }
             | Self::MissingVariant { from_type, .. }
-            | Self::FieldError { from_type, .. }
+            | Self::NamedFieldError { from_type, .. }
+            | Self::UnnamedFieldError { from_type, .. }
             | Self::IndexError { from_type, .. }
             | Self::VariantError { from_type, .. }
             | Self::KeyError { from_type, .. }
@@ -229,10 +248,12 @@ impl FromReflectError {
         match self {
             Self::InvalidType { to_type, .. }
             | Self::InvalidSize { to_type, .. }
-            | Self::MissingField { to_type, .. }
+            | Self::MissingNamedField { to_type, .. }
+            | Self::MissingUnnamedField { to_type, .. }
             | Self::MissingIndex { to_type, .. }
             | Self::MissingVariant { to_type, .. }
-            | Self::FieldError { to_type, .. }
+            | Self::NamedFieldError { to_type, .. }
+            | Self::UnnamedFieldError { to_type, .. }
             | Self::IndexError { to_type, .. }
             | Self::VariantError { to_type, .. }
             | Self::KeyError { to_type, .. }
@@ -245,10 +266,12 @@ impl FromReflectError {
         *match self {
             Self::InvalidType { from_kind, .. }
             | Self::InvalidSize { from_kind, .. }
-            | Self::MissingField { from_kind, .. }
+            | Self::MissingNamedField { from_kind, .. }
+            | Self::MissingUnnamedField { from_kind, .. }
             | Self::MissingIndex { from_kind, .. }
             | Self::MissingVariant { from_kind, .. }
-            | Self::FieldError { from_kind, .. }
+            | Self::NamedFieldError { from_kind, .. }
+            | Self::UnnamedFieldError { from_kind, .. }
             | Self::IndexError { from_kind, .. }
             | Self::VariantError { from_kind, .. }
             | Self::KeyError { from_kind, .. }

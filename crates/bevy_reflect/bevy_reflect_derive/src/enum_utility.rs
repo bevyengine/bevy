@@ -56,7 +56,7 @@ pub(crate) fn get_variant_constructors(
                     match &field.data.ident {
                         Some(ident) => {
                             let name = ident.to_string();
-                            quote!(.map_err(|err| #bevy_reflect_path::FromReflectError::FieldError {
+                            quote!(.map_err(|err| #bevy_reflect_path::FromReflectError::NamedFieldError {
                                 from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
                                 from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
                                 to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
@@ -64,7 +64,7 @@ pub(crate) fn get_variant_constructors(
                                 source: #FQBox::new(err),
                             })?)
                         },
-                        None => quote!(.map_err(|err| #bevy_reflect_path::FromReflectError::IndexError {
+                        None => quote!(.map_err(|err| #bevy_reflect_path::FromReflectError::UnnamedFieldError {
                             from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
                             from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
                             to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
@@ -80,7 +80,7 @@ pub(crate) fn get_variant_constructors(
                             quote!(.field(#name))
                         } else {
                             quote!(.field(#name)
-                                   .ok_or_else(|| #bevy_reflect_path::FromReflectError::MissingField {
+                                   .ok_or_else(|| #bevy_reflect_path::FromReflectError::MissingNamedField {
                                        from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
                                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
                                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
@@ -93,7 +93,7 @@ pub(crate) fn get_variant_constructors(
                         quote!(.field_at(#reflect_index))
                     } else {
                         quote!(.field_at(#reflect_index)
-                               .ok_or_else(|| #bevy_reflect_path::FromReflectError::MissingIndex {
+                               .ok_or_else(|| #bevy_reflect_path::FromReflectError::MissingUnnamedField {
                                    from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
                                    from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
                                    to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
