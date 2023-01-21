@@ -298,6 +298,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "blend_modes"
+path = "examples/3d/blend_modes.rs"
+
+[package.metadata.example.blend_modes]
+name = "Blend Modes"
+description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 

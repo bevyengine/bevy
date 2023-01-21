@@ -7,10 +7,11 @@
 
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u {
+    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u {
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
@@ -268,3 +269,66 @@ fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
 }
 #endif // DEBAND_DITHER
 
+#ifdef PREMULTIPLY_ALPHA
+fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
+// `Blend`, `Premultiplied` and `Alpha` all share the same `BlendState`. Depending
+// on the alpha mode, we premultiply the color channels by the alpha channel value,
+// (and also optionally replace the alpha value with 0.0) so that the result produces
+// the desired blend mode when sent to the blending operation.
+#ifdef BLEND_PREMULTIPLIED_ALPHA
+    // For `BlendState::PREMULTIPLIED_ALPHA_BLENDING` the blend function is:
+    //
+    //     result = 1 * src_color + (1 - src_alpha) * dst_color
+    let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) {
+        // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
+        //
+        //     src_color *= src_alpha
+        //
+        // We end up with:
+        //
+        //     result = 1 * (src_alpha * src_color) + (1 - src_alpha) * dst_color
+        //     result = src_alpha * src_color + (1 - src_alpha) * dst_color
+        //
+        // Which is the blend operation for regular alpha blending `BlendState::ALPHA_BLENDING`
+        return vec4<f32>(color.rgb * color.a, color.a);
+    } else if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+        // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
+        //
+        //     src_color *= src_alpha
+        //     src_alpha = 0.0
+        //
+        // We end up with:
+        //
+        //     result = 1 * (src_alpha * src_color) + (1 - 0) * dst_color
+        //     result = src_alpha * src_color + 1 * dst_color
+        //
+        // Which is the blend operation for additive blending
+        return vec4<f32>(color.rgb * color.a, 0.0);
+    } else {
+        // Here, we don't do anything, so that we get premultiplied alpha blending. (As expected)
+        return color.rgba;
+    }
+#endif
+// `Multiply` uses its own `BlendState`, but we still need to premultiply here in the
+// shader so that we get correct results as we tweak the alpha channel
+#ifdef BLEND_MULTIPLY
+    // The blend function is:
+    //
+    //     result = dst_color * src_color + (1 - src_alpha) * dst_color
+    //
+    // We premultiply `src_color` by `src_alpha`:
+    //
+    //     src_color *= src_alpha
+    //
+    // We end up with:
+    //
+    //     result = dst_color * (src_color * src_alpha) + (1 - src_alpha) * dst_color
+    //     result = src_alpha * (src_color * dst_color) + (1 - src_alpha) * dst_color
+    //
+    // Which is the blend operation for multiplicative blending with arbitrary mixing
+    // controlled by the source alpha channel
+    return vec4<f32>(color.rgb * color.a, color.a);
+#endif
+}
+#endif
