@@ -120,7 +120,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(partial_eq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,
@@ -330,7 +330,7 @@ impl Default for UiRect {
 ///
 /// It is commonly used to define the size of a text or UI element.
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(partial_eq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
     pub width: Val,

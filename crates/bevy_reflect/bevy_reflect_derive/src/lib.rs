@@ -30,6 +30,7 @@ mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
+use derive_data::ReflectImplSource;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
@@ -43,7 +44,7 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -69,7 +70,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -102,6 +103,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
+        ReflectImplSource::ImplValue
     );
 
     #[cfg(feature = "documentation")]
@@ -130,7 +132,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// use bevy::prelude::Vec3;
 ///
 /// impl_reflect_struct!(
-///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
+///    #[reflect(partial_eq, Serialize, Deserialize, Default)]
 ///    struct Vec3 {
 ///        x: f32,
 ///        y: f32,
@@ -141,7 +143,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDerive::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast, ReflectImplSource::ImplStruct) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -183,5 +185,6 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
+        ReflectImplSource::ImplValue,
     ))
 }

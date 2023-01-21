@@ -3,8 +3,8 @@
 use crate::field_attributes::ReflectIgnoreBehavior;
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
-use proc_macro2::{Ident, Span};
-use syn::{Member, Path};
+use proc_macro2::Ident;
+use syn::{Member, Path, spanned::Spanned};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -19,9 +19,11 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 /// let reflected: Ident = get_reflect_ident("Hash");
 /// assert_eq!("ReflectHash", reflected.to_string());
 /// ```
-pub(crate) fn get_reflect_ident(name: &str) -> Ident {
-    let reflected = format!("Reflect{name}");
-    Ident::new(&reflected, Span::call_site())
+pub(crate) fn into_reflected_path(mut path: Path) -> Path {
+    let last = path.segments.last_mut().unwrap();
+    let ident = Ident::new(&format!("Reflect{name}", name = last.ident.to_string()), last.span());
+    last.ident = ident;
+    path
 }
 
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,

@@ -45,7 +45,7 @@ pub enum D {
 /// `Reflect::serializable()`. You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
 #[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
-#[reflect(Hash, Serialize, PartialEq)]
+#[reflect(hash, partial_eq, Serialize)]
 pub struct E {
     x: usize,
 }
@@ -56,7 +56,7 @@ pub struct E {
 /// the `PartialEq`, `Serialize`, and `Deserialize` traits on `reflect_value` types to ensure
 /// that these values behave as expected when nested underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect_value(partial_eq, Serialize, Deserialize)]
 pub enum F {
     X,
     Y,

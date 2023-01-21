@@ -15,7 +15,7 @@ use std::ops::Deref;
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
 #[derive(Component, Debug, Eq, PartialEq, Reflect)]
-#[reflect(Component, MapEntities, PartialEq)]
+#[reflect(partial_eq, Component, MapEntities)]
 pub struct Parent(pub(crate) Entity);
 
 impl Parent {

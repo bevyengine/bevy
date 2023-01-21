@@ -27,75 +27,75 @@ use std::{
 };
 
 impl_reflect_value!(bool(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
 impl_reflect_value!(char(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
-impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u8(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(u16(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(u32(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(u64(debug, hash, partial_eq, Serialize, Deserialize, Default));
 impl_reflect_value!(u128(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
 impl_reflect_value!(usize(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
-impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i8(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(i16(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(i32(debug, hash, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(i64(debug, hash, partial_eq, Serialize, Deserialize, Default));
 impl_reflect_value!(i128(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
 impl_reflect_value!(isize(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
-impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(f32(debug, partial_eq, Serialize, Deserialize, Default));
+impl_reflect_value!(f64(debug, partial_eq, Serialize, Deserialize, Default));
 impl_reflect_value!(String(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
 impl_reflect_value!(PathBuf(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
@@ -109,33 +109,33 @@ impl_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeFull());
 impl_reflect_value!(Duration(
-    Debug,
-    Hash,
-    PartialEq,
+    debug,
+    hash,
+    partial_eq,
     Serialize,
     Deserialize,
     Default
 ));
-impl_reflect_value!(Instant(Debug, Hash, PartialEq));
-impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Instant(debug, hash, partial_eq));
+impl_reflect_value!(NonZeroI128(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU128(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroIsize(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroUsize(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI64(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU64(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU32(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI32(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI16(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU16(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU8(debug, hash, partial_eq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI8(debug, hash, partial_eq, Serialize, Deserialize));
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
 #[cfg(any(unix, windows))]
-impl_reflect_value!(OsString(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(OsString(debug, hash, partial_eq, Serialize, Deserialize));
 #[cfg(not(any(unix, windows)))]
-impl_reflect_value!(OsString(Debug, Hash, PartialEq));
+impl_reflect_value!(OsString(debug, hash, partial_eq));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);

@@ -19,7 +19,7 @@ use bevy_render::{
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
-#[reflect(Default, Debug)]
+#[reflect(debug, Default)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///

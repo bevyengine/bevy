@@ -38,7 +38,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(partial_eq, Component, Default)]
 pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {

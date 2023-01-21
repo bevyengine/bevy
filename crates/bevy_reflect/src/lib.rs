@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn reflect_map() {
         #[derive(Reflect, Hash)]
-        #[reflect(Hash)]
+        #[reflect(hash)]
         struct Foo {
             a: u32,
             b: String,
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
-        #[reflect(PartialEq)]
+        #[reflect(partial_eq)]
         struct Foo {
             a: u32,
             #[reflect(ignore)]
@@ -360,7 +360,7 @@ mod tests {
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
-        #[reflect(PartialEq)]
+        #[reflect(partial_eq)]
         struct Bar {
             x: u32,
         }
@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
-        #[reflect(PartialEq)]
+        #[reflect(partial_eq)]
         struct Bar {
             x: u32,
         }
@@ -1093,7 +1093,7 @@ mod tests {
         struct SomeTupleStruct(String);
 
         #[derive(Reflect)]
-        #[reflect(Debug)]
+        #[reflect(debug)]
         struct CustomDebug;
         impl Debug for CustomDebug {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1159,8 +1159,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[test]
     fn multiple_reflect_lists() {
         #[derive(Hash, PartialEq, Reflect)]
-        #[reflect(Debug, Hash)]
-        #[reflect(PartialEq)]
+        #[reflect(debug, hash)]
+        #[reflect(partial_eq)]
         struct Foo(i32);
 
         impl Debug for Foo {
@@ -1180,8 +1180,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[test]
     fn multiple_reflect_value_lists() {
         #[derive(Clone, Hash, PartialEq, Reflect)]
-        #[reflect_value(Debug, Hash)]
-        #[reflect_value(PartialEq)]
+        #[reflect_value(debug, hash, partial_eq)]
         struct Foo(i32);
 
         impl Debug for Foo {

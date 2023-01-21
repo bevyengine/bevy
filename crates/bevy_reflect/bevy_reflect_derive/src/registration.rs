@@ -9,7 +9,7 @@ use syn::{Generics, Path};
 pub(crate) fn impl_get_type_registration(
     type_name: &Ident,
     bevy_reflect_path: &Path,
-    registration_data: &[Ident],
+    registration_data: &[Path],
     generics: &Generics,
     serialization_denylist: Option<&BitSet<u32>>,
 ) -> proc_macro2::TokenStream {

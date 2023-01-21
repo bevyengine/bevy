@@ -9,7 +9,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A window event that is sent whenever a window's logical size has changed.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -28,7 +28,7 @@ pub struct WindowResized {
 /// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
 /// there have been no window events.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -40,7 +40,7 @@ pub struct RequestRedraw;
 ///
 /// To create a new window, spawn an entity with a [`crate::Window`] on it.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -62,7 +62,7 @@ pub struct WindowCreated {
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -76,7 +76,7 @@ pub struct WindowCloseRequested {
 /// An event that is sent whenever a window is closed. This will be sent when
 /// the window entity loses its `Window` component or is despawned.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -99,7 +99,7 @@ pub struct WindowClosed {
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 /// [`MouseMotion`]: bevy_input::mouse::MouseMotion
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -114,7 +114,7 @@ pub struct CursorMoved {
 
 /// An event that is sent whenever the user's cursor enters a window.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -127,7 +127,7 @@ pub struct CursorEntered {
 
 /// An event that is sent whenever the user's cursor leaves a window.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -140,7 +140,7 @@ pub struct CursorLeft {
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -155,7 +155,7 @@ pub struct ReceivedCharacter {
 
 /// An event that indicates a window has received or lost focus.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -170,7 +170,7 @@ pub struct WindowFocused {
 
 /// An event that indicates a window's scale factor has changed.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -185,7 +185,7 @@ pub struct WindowScaleFactorChanged {
 
 /// An event that indicates a window's OS-reported scale factor has changed.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -200,7 +200,7 @@ pub struct WindowBackendScaleFactorChanged {
 
 /// Events related to files being dragged and dropped on a window.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -232,7 +232,7 @@ pub enum FileDragAndDrop {
 
 /// An event that is sent when a window is repositioned in physical pixels.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

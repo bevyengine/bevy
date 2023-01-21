@@ -15,7 +15,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -72,7 +72,7 @@ pub fn keyboard_input_system(
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(debug, hash, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -439,7 +439,7 @@ pub enum KeyCode {
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(debug, hash, partial_eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
