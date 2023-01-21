@@ -184,6 +184,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
+    unsafe fn get_edge_raw(&mut self, index: EdgeIdx) -> Option<&mut Edge<E>> {
+        self.edges.get_mut(index)
+    }
+
+    #[inline]
     fn get_edge(&self, index: EdgeIdx) -> Option<EdgeRef<E>> {
         self.edges.get(index).map(|edge| edge.as_ref_edge())
     }
@@ -232,9 +237,19 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesByIdx::new(self.adjacencies[index].incoming().values(), self)
     }
 
+    type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, N, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    fn incoming_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
+        iters::EdgesByIdxMut::new(self.adjacencies[index].incoming().values(), &mut self.edges)
+    }
+
     type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values(), self)
+    }
+
+    type OutgoingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, N, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    fn outgoing_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
+        iters::EdgesByIdxMut::new(self.adjacencies[index].outgoing().values(), &mut self.edges)
     }
 
     #[inline]

@@ -13,7 +13,7 @@ pub mod keys;
 use crate::error::GraphError;
 
 use self::{
-    edge::{EdgeMut, EdgeRef},
+    edge::{Edge, EdgeMut, EdgeRef},
     keys::{EdgeIdx, NodeIdx},
 };
 
@@ -59,7 +59,17 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
+    type IncomingEdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>>
+    where
+        Self: 'e,
+        E: 'e;
+    /// Iterator fix because TAIT not available
     type OutgoingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>>
+    where
+        Self: 'e,
+        E: 'e;
+    /// Iterator fix because TAIT not available
+    type OutgoingEdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>>
     where
         Self: 'e,
         E: 'e;
@@ -198,6 +208,13 @@ pub trait Graph<N, E> {
     /// Returns a mutable reference to the specified node.
     fn get_node_mut(&mut self, index: NodeIdx) -> Option<&mut N>;
 
+    /// Returns a raw edge handle to the specified edge.
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called when you really know what you are doing.
+    unsafe fn get_edge_raw(&mut self, index: EdgeIdx) -> Option<&mut Edge<E>>;
+
     /// Returns a reference to the specified edge.
     fn get_edge(&self, index: EdgeIdx) -> Option<EdgeRef<E>>;
 
@@ -230,8 +247,14 @@ pub trait Graph<N, E> {
     /// Returns an iterator over the edge indices going into the specified node.
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_>;
 
+    /// Returns a mutable iterator over the edges going into the specified node.
+    fn incoming_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_>;
+
     /// Returns an iterator over the edge indices coming out of the specified node.
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::OutgoingEdgesOf<'_>;
+
+    /// Returns a mutable iterator over the edges coming out of the specified node.
+    fn outgoing_edges_of_mut(&mut self, index: NodeIdx) -> Self::OutgoingEdgesOfMut<'_>;
 
     /// Returns the number of edges going into the specified node.
     fn in_degree(&self, index: NodeIdx) -> usize;

@@ -189,6 +189,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     #[inline]
+    unsafe fn get_edge_raw(&mut self, index: EdgeIdx) -> Option<&mut Edge<E>> {
+        self.edges.get_mut(index)
+    }
+
+    #[inline]
     fn get_edge(&self, index: EdgeIdx) -> Option<EdgeRef<E>> {
         self.edges.get(index).map(|edge| edge.as_ref_edge())
     }
@@ -237,9 +242,25 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         iters::EdgesByIdx::new(self.adjacencies[index].incoming().values().flatten(), self)
     }
 
+    type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, N, E, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    fn incoming_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
+        iters::EdgesByIdxMut::new(
+            self.adjacencies[index].incoming().values().flatten(),
+            &mut self.edges,
+        )
+    }
+
     type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values().flatten(), self)
+    }
+
+    type OutgoingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, N, E, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    fn outgoing_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
+        iters::EdgesByIdxMut::new(
+            self.adjacencies[index].outgoing().values().flatten(),
+            &mut self.edges,
+        )
     }
 
     #[inline]
