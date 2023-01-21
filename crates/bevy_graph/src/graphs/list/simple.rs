@@ -232,22 +232,22 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        iters::EdgesByIdx::new(self.adjacencies[index].incoming().values(), self)
+        iters::EdgesByIdx::new(self.adjacencies[index].incoming().values(), &self.edges)
     }
 
-    type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, N, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn incoming_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
         iters::EdgesByIdxMut::new(self.adjacencies[index].incoming().values(), &mut self.edges)
     }
 
-    type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, N, E, Self, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values(), self)
+        iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values(), &self.edges)
     }
 
-    type OutgoingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, N, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
+    type OutgoingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn outgoing_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
         iters::EdgesByIdxMut::new(self.adjacencies[index].outgoing().values(), &mut self.edges)
     }

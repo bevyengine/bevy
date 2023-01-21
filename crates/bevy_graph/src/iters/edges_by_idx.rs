@@ -1,22 +1,20 @@
-use std::marker::PhantomData;
+use slotmap::HopSlotMap;
 
-use crate::graphs::{edge::EdgeRef, keys::EdgeIdx, Graph};
+use crate::graphs::{
+    edge::{Edge, EdgeRef},
+    keys::EdgeIdx,
+};
 
 /// An iterator which converts `&EdgeIdx` to a `EdgeRef<E>` of the graph
-pub struct EdgesByIdx<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> {
-    graph: &'g G,
+pub struct EdgesByIdx<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> {
+    edges: &'g HopSlotMap<EdgeIdx, Edge<E>>,
     inner: I,
-    phantom: PhantomData<(N, E)>,
 }
 
-impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdx<'g, N, E, G, I> {
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdx<'g, E, I> {
     /// Creates a new `EdgesByIdx` iterator over a graph with the provided `inner` iterator
-    pub fn new(inner: I, graph: &'g G) -> Self {
-        Self {
-            graph,
-            inner,
-            phantom: PhantomData,
-        }
+    pub fn new(inner: I, edges: &'g HopSlotMap<EdgeIdx, Edge<E>>) -> Self {
+        Self { edges, inner }
     }
 
     /// Returns the inner iterator which yields `EdgeIdx`
@@ -26,14 +24,12 @@ impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdx<'
     }
 }
 
-impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> Iterator
-    for EdgesByIdx<'g, N, E, G, I>
-{
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> Iterator for EdgesByIdx<'g, E, I> {
     type Item = EdgeRef<'g, E>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(index) = self.inner.next() {
-            self.graph.get_edge(*index)
+            self.edges.get(*index).map(|edge| edge.as_ref_edge())
         } else {
             None
         }

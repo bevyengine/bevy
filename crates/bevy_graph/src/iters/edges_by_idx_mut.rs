@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use slotmap::HopSlotMap;
 
 use crate::graphs::{
@@ -8,24 +6,19 @@ use crate::graphs::{
 };
 
 /// An iterator which converts `&EdgeIdx` to a `EdgeMut<E>` of the graph
-pub struct EdgesByIdxMut<'g, N, E: 'g, I: Iterator<Item = &'g EdgeIdx>> {
+pub struct EdgesByIdxMut<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> {
     edges: &'g mut HopSlotMap<EdgeIdx, Edge<E>>,
     inner: I,
-    phantom: PhantomData<(N, E)>,
 }
 
-impl<'g, N, E: 'g, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdxMut<'g, N, E, I> {
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdxMut<'g, E, I> {
     /// Creates a new `EdgesByIdxMut` iterator over a graph with the provided `inner` iterator
     pub fn new(inner: I, edges: &'g mut HopSlotMap<EdgeIdx, Edge<E>>) -> Self {
-        Self {
-            edges,
-            inner,
-            phantom: PhantomData,
-        }
+        Self { edges, inner }
     }
 }
 
-impl<'g, N, E: 'g, I: Iterator<Item = &'g EdgeIdx>> Iterator for EdgesByIdxMut<'g, N, E, I> {
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> Iterator for EdgesByIdxMut<'g, E, I> {
     type Item = EdgeMut<'g, E>;
 
     fn next(&mut self) -> Option<Self::Item> {
