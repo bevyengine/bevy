@@ -115,7 +115,7 @@ impl From<&'static str> for SlotLabel {
 
 impl From<Cow<'static, str>> for SlotLabel {
     fn from(value: Cow<'static, str>) -> Self {
-        SlotLabel::Name(value.clone())
+        SlotLabel::Name(value)
     }
 }
 

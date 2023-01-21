@@ -688,9 +688,7 @@ mod tests {
                     expected
                         .reflect_partial_eq(received.as_ref())
                         .unwrap_or_default(),
-                    "components did not match: (expected: `{:?}`, received: `{:?}`)",
-                    expected,
-                    received
+                    "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
                 );
             }
         }
