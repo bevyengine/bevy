@@ -11,7 +11,13 @@ use std::{
 use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
-/// A simple enumeration of "kinds" of type, without any associated object.
+/// A simple enumeration of [kinds](ReflectKind) of type, without any associated object.
+/// 
+/// All types implementing [`Reflect`] are categorized into "kinds". They help to group types that
+/// behave similarly and provide methods specific to its kind. These kinds directly correspond to
+/// the traits [`Struct`], [`TupleStruct`], [`Tuple`], [`List`], [`Array`], [`Map`] and [`Enum`]; 
+/// which means that a type implementing any one of the above traits will be of the corresponding
+/// kind. All the remaining types will be `ReflectKind::Value`.
 ///
 /// A `ReflectKind` is obtained via [`Reflect::reflect_kind`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -26,7 +32,7 @@ pub enum ReflectKind {
     Value,
 }
 
-/// An immutable enumeration of "kinds" of reflected type.
+/// An immutable enumeration of [kinds](ReflectKind) of reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
@@ -43,7 +49,7 @@ pub enum ReflectRef<'a> {
     Value(&'a dyn Reflect),
 }
 
-/// A mutable enumeration of "kinds" of reflected type.
+/// A mutable enumeration of [kinds](ReflectKind) of reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
@@ -60,7 +66,7 @@ pub enum ReflectMut<'a> {
     Value(&'a mut dyn Reflect),
 }
 
-/// An owned enumeration of "kinds" of reflected type.
+/// An owned enumeration of [kinds](ReflectKind) of reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
@@ -79,8 +85,8 @@ pub enum ReflectOwned {
 
 /// A reflected Rust type.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
-/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
+/// Methods for working with particular [kinds](ReflectKind) of Rust type are available using
+/// the [`Array`], [`List`], [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits. 
 ///
 /// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
 /// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
@@ -142,7 +148,7 @@ pub trait Reflect: Any + Send + Sync {
     /// Note that `Reflect` must be implemented manually for [`List`]s and
     /// [`Map`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
-    /// or none of the above depending on the kind of type. For lists and maps, use the
+    /// or none of the above depending on the [kind] of type. For lists and maps, use the
     /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
     /// [`list_apply`]: crate::list_apply
@@ -151,11 +157,13 @@ pub trait Reflect: Any + Send + Sync {
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
+    /// - If the type of `value` is not of the same [kind] as `T` (e.g. if `T` is
     ///   a `List`, while `value` is a `Struct`).
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
+    ///
+    /// [kind]: ReflectKind
     fn apply(&mut self, value: &dyn Reflect);
 
     /// Performs a type-checked assignment of a reflected value to this value.
@@ -164,22 +172,23 @@ pub trait Reflect: Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns a simple enumeration of "kinds" of type, without any associated object.
+    /// Returns a simple enumeration of [kinds](ReflectKind) of type, without any
+    /// associated object.
     ///
     /// See [`ReflectKind`].
     fn reflect_kind(&self) -> ReflectKind;
 
-    /// Returns an immutable enumeration of "kinds" of type.
+    /// Returns an immutable enumeration of [kinds](ReflectKind) of type.
     ///
     /// See [`ReflectRef`].
     fn reflect_ref(&self) -> ReflectRef;
 
-    /// Returns a mutable enumeration of "kinds" of type.
+    /// Returns a mutable enumeration of [kinds](ReflectKind) of type.
     ///
     /// See [`ReflectMut`].
     fn reflect_mut(&mut self) -> ReflectMut;
 
-    /// Returns an owned enumeration of "kinds" of type.
+    /// Returns an owned enumeration of [kinds](ReflectKind) of type.
     ///
     /// See [`ReflectOwned`].
     fn reflect_owned(self: Box<Self>) -> ReflectOwned;

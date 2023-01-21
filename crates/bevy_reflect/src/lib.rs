@@ -207,7 +207,7 @@ impl FromReflectError {
         }
     }
 
-    /// Returns the "kind" of source type for display purposes.
+    /// Returns the [kind](ReflectKind) of source type for display purposes.
     fn display_from_kind(&self) -> String {
         let prefix = if let TypeInfo::Dynamic(_) = self.from_type() {
             "(Dynamic)"
@@ -218,7 +218,7 @@ impl FromReflectError {
         format!("{}{:?}", prefix, self.from_kind())
     }
 
-    /// Returns the "kind" of target type for display purposes.
+    /// Returns the [kind](ReflectKind) of target type for display purposes.
     fn display_to_kind(&self) -> &str {
         match self.to_type() {
             TypeInfo::Struct(_) => "Struct",
