@@ -245,7 +245,7 @@ impl fmt::Display for FieldPath {
 
 /// A singular owned field access within a path. Can be applied
 /// to a `dyn Reflect` to get a reference to the targetted field.
-/// 
+///
 /// A path is composed of multiple accesses in sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Access {
@@ -268,7 +268,7 @@ impl Access {
 
 /// A singular borrowed field access within a path. Can be applied
 /// to a `dyn Reflect` to get a reference to the targetted field.
-/// 
+///
 /// Does not own the backing store it's sourced from. For an owned
 /// version, you can convert one to an [`Access`].
 #[derive(Debug)]
@@ -614,6 +614,7 @@ mod tests {
         unit_variant: F,
         tuple_variant: F,
         struct_variant: F,
+        array: [i32; 3],
     }
 
     #[derive(Reflect)]
@@ -707,6 +708,7 @@ mod tests {
             unit_variant: F::Unit,
             tuple_variant: F::Tuple(123, 321),
             struct_variant: F::Struct { value: 'm' },
+            array: [86, 75, 309],
         };
 
         let b = FieldPath::parse("w").unwrap();
@@ -720,6 +722,7 @@ mod tests {
         let j = FieldPath::parse("tuple_variant.1").unwrap();
         let k = FieldPath::parse("struct_variant.value").unwrap();
         let l = FieldPath::parse("struct_variant#0").unwrap();
+        let m = FieldPath::parse("array[2]").unwrap();
 
         for _ in 0..30 {
             assert_eq!(*b.get_field::<usize>(&a).unwrap(), 1);
@@ -733,6 +736,7 @@ mod tests {
             assert_eq!(*j.get_field::<u32>(&a).unwrap(), 321);
             assert_eq!(*k.get_field::<char>(&a).unwrap(), 'm');
             assert_eq!(*l.get_field::<char>(&a).unwrap(), 'm');
+            assert_eq!(*m.get_field::<i32>(&a).unwrap(), 309);
         }
     }
 
@@ -791,6 +795,7 @@ mod tests {
             unit_variant: F::Unit,
             tuple_variant: F::Tuple(123, 321),
             struct_variant: F::Struct { value: 'm' },
+            array: [86, 75, 309],
         };
 
         assert_eq!(*a.get_path::<usize>("w").unwrap(), 1);
@@ -805,6 +810,8 @@ mod tests {
         assert_eq!(*a.get_path::<u32>("tuple_variant.1").unwrap(), 321);
         assert_eq!(*a.get_path::<char>("struct_variant.value").unwrap(), 'm');
         assert_eq!(*a.get_path::<char>("struct_variant#0").unwrap(), 'm');
+
+        assert_eq!(*a.get_path::<i32>("array[2]").unwrap(), 309);
 
         *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
         assert_eq!(a.y[1].baz, 3.0);
