@@ -172,8 +172,7 @@ pub trait Reflect: Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns a simple enumeration of [kinds](ReflectKind) of type, without any
-    /// associated object.
+    /// Returns the value's [kind](ReflectKind).
     ///
     /// See [`ReflectKind`].
     fn reflect_kind(&self) -> ReflectKind;
