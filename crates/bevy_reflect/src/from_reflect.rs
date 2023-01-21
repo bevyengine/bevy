@@ -116,110 +116,269 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
 
 /// An Error for failed conversion of reflected type to original type in [`FromReflect::from_reflect`].
 ///
-/// Within variants `FieldError`, `IndexError`, `VariantError`, `KeyError` and `ValueError`;
-/// [`Error::source`] must be used to trace the underlying error.
+/// In the error message, the kind of the source type may have a prefix "(Dynamic)" indicating that the 
+/// source is dynamic, i.e., [`DynamicStruct`], [`DynamicList`], etc.
 ///
+/// Within variants `NamedFieldError`, `UnnamedFieldError`, `IndexError`, `VariantError`, `KeyError` and
+/// `ValueError`; [`Error::source`] must be used to trace the underlying error.
+///
+/// [`DynamicStruct`]: crate::DynamicStruct
+/// [`DynamicList`]: crate::DynamicList
 /// [`Error::source`]: std::error::Error::source
 #[derive(Error, Debug)]
 pub enum FromReflectError {
+    /// The source and target types are of different types or [kinds](ReflectKind).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` of kind {} due to mismatched types or kinds", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), self.display_to_kind())]
     InvalidType {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
     },
+
+    /// The source and target types have different lengths.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Array`](crate::Array).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to source type having length of {} and target type having length of {}",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .from_len, .to_len)]
     InvalidSize {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+        
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Length of the source type.
         from_len: usize,
+
+        /// Length of the target type.
         to_len: usize,
     },
+
+    /// The source type did not have a field with name given by the parameter `field`.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Struct`](crate::Struct) and
+    /// [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing field `{}`", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
     MissingNamedField {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Name of missing field in source type.
         field: &'static str,
     },
+
+    /// The source type did not have a field at index given by the parameter `index`.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`TupleStruct`](crate::TupleStruct) and
+    /// [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing field at index {}", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     MissingUnnamedField {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+        
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Index of missing field in source type.
         index: usize,
     },
+
+    /// The source type did not have a value at index given by the parameter `index`.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Tuple`](crate::Tuple).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing value at index {}",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     MissingIndex {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Index of missing value in source type.
         index: usize,
     },
+
+    /// The target type did not have a variant with name given by the parameter `variant`.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing variant `{}`",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .variant)]
     MissingVariant {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+        
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Name of missing variant in target type.
         variant: Cow<'static, str>,
     },
+
+    /// An error has occurred in conversion of a field with name given by the parameter `field`.
+    ///
+    /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Struct`](crate::Struct) and
+    /// [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field `{}`", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
     NamedFieldError {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Name of field where error occurred.
         field: &'static str,
+
+        /// Underlying error in conversion of field.
         source: Box<FromReflectError>,
     },
+
+    /// An error has occurred in conversion of a field at index given by the parameter `index`.
+    ///
+    /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`TupleStruct`](crate::TupleStruct)
+    /// and [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field at index {}", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     UnnamedFieldError {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+        
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Index of field where error occurred.
         index: usize,
+
+        /// Underlying error in conversion of field.
         source: Box<FromReflectError>,
     },
+
+    /// An error has occurred in conversion of a value at index given by the parameter `index`.
+    ///
+    /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`List`](crate::List) and 
+    /// [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the value at index `{}`",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     IndexError {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Index of value where error occurred.
         index: usize,
+
+        /// Underlying error in conversion of value at the index.
         source: Box<FromReflectError>,
     },
+
+    /// An error has occurred in conversion of a variant with name given by the parameter `variant`.
+    ///
+    /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the variant `{}`", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .variant)]
     VariantError {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+        
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Name of variant where error occurred.
         variant: Cow<'static, str>,
+
+        /// Underlying error in conversion of variant.
         source: Box<FromReflectError>,
     },
+
+    /// An error has occurred in conversion of a key of Map.
+    ///
+    /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Map`](crate::Map).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in a key of the Map",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name())]
     KeyError {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Underlying error in conversion of a key of Map.
         source: Box<FromReflectError>,
     },
+
+    /// An error has occurred in conversion of a value of Map.
+    ///
+    /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
+    ///
+    /// This error is given by types of [kind](ReflectKind) [`Map`](crate::Map).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in a value of the Map",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name())]
     ValueError {
+        /// [`TypeInfo`] of the source type.
         from_type: &'static TypeInfo,
+        
+        /// [`ReflectKind`] of the source type.
         from_kind: ReflectKind,
+
+        /// [`TypeInfo`] of the target type.
         to_type: &'static TypeInfo,
+
+        /// Underlying error in conversion of a value of Map.
         source: Box<FromReflectError>,
     },
 }
