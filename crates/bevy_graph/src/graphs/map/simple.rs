@@ -268,16 +268,13 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         ))
     }
 
-    /*type SourcesMut<'n> = iters::NodesByIdxMut<'n, N, iters::Sources<iters::ZipInDegree<'n, SimpleMapStorage, slotmap::hop::Keys<'n, NodeIdx, N>>>> where Self: 'n;
+    type SourcesMut<'n> = iters::Sources<&'n mut N, iters::ZipInDegree<'n, SimpleMapStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
     fn sources_mut(&mut self) -> Self::SourcesMut<'_> {
-        iters::NodesByIdxMut::new(
-            iters::Sources::new(iters::ZipInDegree::new(
-                self.nodes.keys(),
-                &self.adjacencies,
-            )),
-            &mut self.nodes,
-        )
-    }*/
+        iters::Sources::new(iters::ZipInDegree::new(
+            self.nodes.iter_mut(),
+            &self.adjacencies,
+        ))
+    }
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
