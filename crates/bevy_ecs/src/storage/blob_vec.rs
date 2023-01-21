@@ -466,7 +466,7 @@ impl BlobBox {
         self.is_present = true;
     }
 
-    /// Performs a remove the data stored in the `BlobBox`, if present.
+    /// Remove the data stored in the `BlobBox`, if present.
     /// It is the caller's responsibility to drop the returned pointer, if that is desirable.
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed element"]
