@@ -289,3 +289,9 @@ pub trait SimpleGraph<N, E>: Graph<N, E> {
     /// This function should only be called when the nodes and the edge between exists.
     unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
 }
+
+/// A more precise trait with functions special for directed graphs
+pub trait DirectedGraph<N, E>: Graph<N, E> {
+    /// Reverse the direction of the specified edge.
+    fn reverse_edge(&mut self, index: EdgeIdx);
+}

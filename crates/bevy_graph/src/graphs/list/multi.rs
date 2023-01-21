@@ -6,7 +6,7 @@ use crate::{
         adjacency_storage::AdjacencyStorage,
         edge::{Edge, EdgeMut, EdgeRef},
         keys::{EdgeIdx, NodeIdx},
-        Graph,
+        DirectedGraph, Graph,
     },
     iters,
     utils::{vecmap::VecMap, vecset::VecSet},
@@ -273,5 +273,33 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     #[inline]
     fn out_degree(&self, index: NodeIdx) -> usize {
         self.adjacencies[index].outgoing().len()
+    }
+}
+
+impl<N, E> DirectedGraph<N, E> for MultiListGraph<N, E, true> {
+    fn reverse_edge(&mut self, index: EdgeIdx) {
+        if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
+            self.adjacencies[*src]
+                .outgoing_mut()
+                .get_value_mut(*dst)
+                .unwrap()
+                .remove_by_value(&index);
+            self.adjacencies[*dst]
+                .incoming_mut()
+                .get_value_mut(*src)
+                .unwrap()
+                .remove_by_value(&index);
+            std::mem::swap(src, dst);
+            self.adjacencies[*dst]
+                .outgoing_mut()
+                .get_value_mut(*src)
+                .unwrap()
+                .push(index);
+            self.adjacencies[*src]
+                .incoming_mut()
+                .get_value_mut(*dst)
+                .unwrap()
+                .push(index);
+        }
     }
 }

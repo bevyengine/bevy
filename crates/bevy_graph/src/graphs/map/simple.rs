@@ -7,7 +7,7 @@ use crate::{
         adjacency_storage::AdjacencyStorage,
         edge::{Edge, EdgeMut, EdgeRef},
         keys::{EdgeIdx, NodeIdx},
-        Graph,
+        DirectedGraph, Graph,
     },
     iters,
 };
@@ -256,5 +256,17 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     #[inline]
     fn out_degree(&self, index: NodeIdx) -> usize {
         self.adjacencies[index].outgoing().len()
+    }
+}
+
+impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
+    fn reverse_edge(&mut self, index: EdgeIdx) {
+        if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
+            self.adjacencies[*src].outgoing_mut().remove(dst);
+            self.adjacencies[*dst].incoming_mut().remove(src);
+            std::mem::swap(src, dst);
+            self.adjacencies[*dst].outgoing_mut().insert(*src, index);
+            self.adjacencies[*src].incoming_mut().insert(*dst, index);
+        }
     }
 }
