@@ -1075,11 +1075,10 @@ pub fn prepare_lights(
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
-            // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
+            // spotlight shadow maps are stored in the directional light array, starting at num_directional_cascades_enabled.
             // the spot lights themselves start in the light array at point_light_count. so to go from light
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
-            spot_light_shadowmap_offset: (directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT)
-                as i32
+            spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
         };
 
