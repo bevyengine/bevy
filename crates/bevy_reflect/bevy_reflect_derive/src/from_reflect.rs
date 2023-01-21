@@ -94,7 +94,7 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
 
     let constructor = match reflect_struct.meta().impl_source() {
         ReflectImplSource::ImplStruct => {
-            quote!(
+            quote! {
                 // This is necessary for `impl_reflect_struct` on types like `Vec4`
                 // because on some targets field access is implemented using `Deref(Mut)`.
                 let mut __this: Self = #FQDefault::default();
@@ -106,17 +106,17 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
                     __this.#ignored_members = #ignored_values;
                 )*
                 #FQOption::Some(__this)
-            )
+            }
         }
         _ => {
-            quote!(
+            quote! {
                 #FQOption::Some(
                     Self {
                         #(#active_members: #active_values()?,)*
                         #(#ignored_members: #ignored_values,)*
                     }
                 )
-            )
+            }
         }
     };
 

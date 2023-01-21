@@ -11,20 +11,17 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
     BevyManifest::get_path_direct("bevy_reflect")
 }
 
-/// Returns the "reflected" ident for a given string.
+/// Returns the "reflected" path for a given path.
 ///
 /// # Example
 ///
 /// ```ignore
-/// let reflected: Ident = get_reflect_ident("Hash");
-/// assert_eq!("ReflectHash", reflected.to_string());
+/// let path: Path = parse_str("my_crate::MyTrait");
+/// let reflected = into_reflect_path(path); // == "my_crate::ReflectMyTrait"
 /// ```
 pub(crate) fn into_reflected_path(mut path: Path) -> Path {
     let last = path.segments.last_mut().unwrap();
-    let ident = Ident::new(
-        &format!("Reflect{name}", name = last.ident.to_string()),
-        last.span(),
-    );
+    let ident = Ident::new(&format!("Reflect{name}", name = last.ident), last.span());
     last.ident = ident;
     path
 }

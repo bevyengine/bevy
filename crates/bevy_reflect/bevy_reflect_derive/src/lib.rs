@@ -121,11 +121,6 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// which have greater functionality. The type being reflected must be in scope, as you cannot
 /// qualify it in the macro as e.g. `bevy::prelude::Vec3`.
 ///
-/// It may be necessary to add `#[reflect(Default)]` for some types, specifically non-constructible
-/// foreign types. Without `Default` reflected for such types, you will usually get an arcane
-/// error message and fail to compile. If the type does not implement `Default`, it may not
-/// be possible to reflect without extending the macro.
-///
 /// # Example
 /// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
 /// ```ignore
