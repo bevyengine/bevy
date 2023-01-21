@@ -108,6 +108,7 @@ Example | Description
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
+[Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Bloom](../examples/3d/bloom.rs) | Illustrates bloom configuration using HDR and emissive materials
 [FXAA](../examples/3d/fxaa.rs) | Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
