@@ -4,7 +4,8 @@ use crate::{
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery,
+        Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
+        QueryIter, QueryParIter, WorldQuery,
     },
     storage::{TableId, TableRow},
     world::{World, WorldId},
@@ -140,7 +141,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Takes a query for the given [`World`], checks if the given world is the same as the query, and
-    /// generates new archetypes for the given world.
+    /// updates the [`QueryState`]'s view of the [`World`] with any newly-added archetypes.
     ///
     /// # Panics
     ///
@@ -166,7 +167,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Creates a new [`Archetype`].
+    /// Update the current [`QueryState`] with information from the provided [`Archetype`]
+    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if Q::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
@@ -812,87 +814,34 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Runs `func` on each query result in parallel.
+    /// Returns a parallel iterator over the query results for the given [`World`].
     ///
-    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
-    /// write-queries.
+    /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
+    /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
-    pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
-        &mut self,
-        world: &'w World,
-        batch_size: usize,
-        func: FN,
-    ) {
-        // SAFETY: query is read only
-        unsafe {
-            self.update_archetypes(world);
-            self.as_readonly().par_for_each_unchecked_manual(
-                world,
-                batch_size,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    #[inline]
-    pub fn par_for_each_mut<'w, FN: Fn(Q::Item<'w>) + Send + Sync + Clone>(
-        &mut self,
-        world: &'w mut World,
-        batch_size: usize,
-        func: FN,
-    ) {
-        let change_tick = world.change_tick();
-        // SAFETY: query has unique world access
-        unsafe {
-            self.update_archetypes(world);
-            self.par_for_each_unchecked_manual(
-                world,
-                batch_size,
-                func,
-                world.last_change_tick(),
-                change_tick,
-            );
-        }
-    }
-
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// This can only be called for read-only queries.
-    ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    #[inline]
-    pub unsafe fn par_for_each_unchecked<'w, FN: Fn(Q::Item<'w>) + Send + Sync + Clone>(
-        &mut self,
-        world: &'w World,
-        batch_size: usize,
-        func: FN,
-    ) {
+    pub fn par_iter<'w, 's>(&'s mut self, world: &'w World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
-        self.par_for_each_unchecked_manual(
+        QueryParIter {
             world,
-            batch_size,
-            func,
-            world.last_change_tick(),
-            world.read_change_tick(),
-        );
+            state: self,
+            batching_strategy: BatchingStrategy::new(),
+        }
+    }
+
+    /// Returns a parallel iterator over the query results for the given [`World`].
+    ///
+    /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
+    ///
+    /// [`par_iter`]: Self::par_iter
+    #[inline]
+    pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, Q, F> {
+        self.update_archetypes(world);
+        QueryParIter {
+            world,
+            state: self,
+            batching_strategy: BatchingStrategy::new(),
+        }
     }
 
     /// Runs `func` on each query result for the given [`World`], where the last change and

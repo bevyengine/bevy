@@ -107,6 +107,7 @@ Example | Description
 --- | ---
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
+[Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Bloom](../examples/3d/bloom.rs) | Illustrates bloom configuration using HDR and emissive materials
 [FXAA](../examples/3d/fxaa.rs) | Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
@@ -267,6 +268,7 @@ Example | Description
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the depth texture generated in a prepass
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 

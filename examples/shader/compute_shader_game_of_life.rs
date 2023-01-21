@@ -13,6 +13,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
+    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
@@ -23,11 +24,11 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 // uncomment for unthrottled FPS
                 // present_mode: bevy::window::PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(GameOfLifeComputePlugin)

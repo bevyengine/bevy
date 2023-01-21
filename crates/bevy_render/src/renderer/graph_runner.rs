@@ -109,7 +109,7 @@ impl RenderGraphRunner {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
                         slot_name: input_slot.name.clone(),
-                        graph_name: graph_name.clone(),
+                        graph_name,
                     });
                 }
             }
