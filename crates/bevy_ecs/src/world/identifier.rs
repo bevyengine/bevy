@@ -28,6 +28,9 @@ impl WorldId {
 }
 
 impl SparseSetIndex for WorldId {
+    type Repr = usize;
+    const MAX_SIZE: usize = usize::MAX;
+
     #[inline]
     fn sparse_set_index(&self) -> usize {
         self.0
@@ -35,6 +38,14 @@ impl SparseSetIndex for WorldId {
 
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
+    }
+
+    unsafe fn repr_from_index(index: usize) -> Self::Repr {
+        index
+    }
+
+    fn repr_to_index(repr: &usize) -> usize {
+        *repr
     }
 }
 
