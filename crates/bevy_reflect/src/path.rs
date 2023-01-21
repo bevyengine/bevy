@@ -48,13 +48,13 @@ pub enum ReflectPathError<'a> {
 /// A trait which allows nested [`Reflect`] values to be retrieved with path strings.
 ///
 /// Using these functions repeatedly with the same string requires parsing the string every time.
-/// To avoid this cost, it's recommended to construct a [`FieldPath`] instead.
+/// To avoid this cost, it's recommended to construct a [`ParsedPath`] instead.
 ///
 /// # Syntax
 ///
 /// ## Structs
 ///
-/// Field paths for [`Struct`] items use the standard Rust field access syntax of
+/// Field paths for [`Struct`] elements use the standard Rust field access syntax of
 /// dot and field name: `.field_name`.
 ///
 /// Additionally, struct fields may be accessed by their index within the struct's definition.
@@ -89,7 +89,7 @@ pub enum ReflectPathError<'a> {
 ///
 /// ## Tuples and Tuple Structs
 ///
-/// [`Tuple`] and [`TupleStruct`] items also follow a conventional Rust syntax.
+/// [`Tuple`] and [`TupleStruct`] elements also follow a conventional Rust syntax.
 /// Fields are accessed with a dot and the field index: `.0`.
 ///
 /// Note that a leading dot (`.`) token is implied for the first item in a path,
@@ -107,7 +107,7 @@ pub enum ReflectPathError<'a> {
 ///
 /// ## Lists and Arrays
 ///
-/// [`List`] and [`Array`] items are accessed with brackets: `[0]`.
+/// [`List`] and [`Array`] elements are accessed with brackets: `[0]`.
 ///
 /// ### Example
 /// ```
@@ -118,7 +118,7 @@ pub enum ReflectPathError<'a> {
 ///
 /// ## Enums
 ///
-/// Pathing for [`Enum`] items works a bit differently than in normal Rust.
+/// Pathing for [`Enum`] elements works a bit differently than in normal Rust.
 /// Usually, you would need to pattern match an enum, branching off on the desired variants.
 /// Paths used by this trait do not have any pattern matching capabilities;
 /// instead, they assume the variant is already known ahead of time.
@@ -252,7 +252,7 @@ impl GetPath for dyn Reflect {
     fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current: &dyn Reflect = self;
         for (access, current_index) in PathParser::new(path) {
-            current = access?.read_field(current, current_index)?;
+            current = access?.read_element(current, current_index)?;
         }
         Ok(current)
     }
@@ -263,13 +263,13 @@ impl GetPath for dyn Reflect {
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current: &mut dyn Reflect = self;
         for (access, current_index) in PathParser::new(path) {
-            current = access?.read_field_mut(current, current_index)?;
+            current = access?.read_element_mut(current, current_index)?;
         }
         Ok(current)
     }
 }
 
-/// A pre-parsed path to a field within a type.
+/// A pre-parsed path to an element within a type.
 ///
 /// This struct may be used like [`GetPath`] but removes the cost of parsing the path
 /// string at each element access.
@@ -277,7 +277,7 @@ impl GetPath for dyn Reflect {
 /// It's recommended to use this in place of `GetPath` when the path string is
 /// unlikely to be changed and will be accessed repeatedly.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-pub struct FieldPath(
+pub struct ParsedPath(
     /// This is the boxed slice of pre-parsed accesses.
     ///
     /// Each item in the slice contains the access along with the character
@@ -287,12 +287,12 @@ pub struct FieldPath(
     Box<[(Access, usize)]>,
 );
 
-impl FieldPath {
-    /// Parses a [`FieldPath`] from a string.
+impl ParsedPath {
+    /// Parses a [`ParsedPath`] from a string.
     ///
     /// See [`GetPath`] for the exact path format.
     ///
-    /// Returns an error if the string does not represent a valid path to a field.
+    /// Returns an error if the string does not represent a valid path to an element.
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
         for (access, idx) in PathParser::new(string) {
@@ -301,70 +301,70 @@ impl FieldPath {
         Ok(Self(parts.into_boxed_slice()))
     }
 
-    /// Gets a read-only reference to the specified field on the given [`Reflect`] object.
+    /// Gets a read-only reference to the specified element on the given [`Reflect`] object.
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`field_mut`](Self::field_mut) for a typed version of this method.
-    pub fn field<'r, 'p>(
+    /// See [`element_mut`](Self::element_mut) for a typed version of this method.
+    pub fn element<'r, 'p>(
         &'p self,
         root: &'r dyn Reflect,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
         for (access, current_index) in self.0.iter() {
-            current = access.to_ref().read_field(current, *current_index)?;
+            current = access.to_ref().read_element(current, *current_index)?;
         }
         Ok(current)
     }
 
-    /// Gets a mutable reference to the specified field on the given [`Reflect`] object.
+    /// Gets a mutable reference to the specified element on the given [`Reflect`] object.
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`get_field_mut`](Self::get_field_mut) for a typed version of this method.
-    pub fn field_mut<'r, 'p>(
+    /// See [`get_element_mut`](Self::get_element_mut) for a typed version of this method.
+    pub fn element_mut<'r, 'p>(
         &'p mut self,
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
         for (access, current_index) in self.0.iter() {
-            current = access.to_ref().read_field_mut(current, *current_index)?;
+            current = access.to_ref().read_element_mut(current, *current_index)?;
         }
         Ok(current)
     }
 
-    /// Gets a typed, read-only reference to the specified field on the given [`Reflect`] object.
+    /// Gets a typed, read-only reference to the specified element on the given [`Reflect`] object.
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`field`](Self::field) for an untyped version of this method.
-    pub fn get_field<'r, 'p, T: Reflect>(
+    /// See [`element`](Self::element) for an untyped version of this method.
+    pub fn get_element<'r, 'p, T: Reflect>(
         &'p self,
         root: &'r dyn Reflect,
     ) -> Result<&'r T, ReflectPathError<'p>> {
-        self.field(root).and_then(|p| {
+        self.element(root).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
 
-    /// Gets a typed, read-only reference to the specified field on the given [`Reflect`] object.
+    /// Gets a typed, read-only reference to the specified element on the given [`Reflect`] object.
     ///
     /// Returns an error if the path is invalid for the provided type.
     ///
-    /// See [`field_mut`](Self::field_mut) for an untyped version of this method.
-    pub fn get_field_mut<'r, 'p, T: Reflect>(
+    /// See [`element_mut`](Self::element_mut) for an untyped version of this method.
+    pub fn get_element_mut<'r, 'p, T: Reflect>(
         &'p mut self,
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut T, ReflectPathError<'p>> {
-        self.field_mut(root).and_then(|p| {
+        self.element_mut(root).and_then(|p| {
             p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
 }
 
-impl fmt::Display for FieldPath {
+impl fmt::Display for ParsedPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (idx, (access, _)) in self.0.iter().enumerate() {
             match access {
@@ -395,9 +395,9 @@ impl fmt::Display for FieldPath {
     }
 }
 
-/// A singular owned field access within a path.
+/// A singular owned element access within a path.
 ///
-/// Can be applied to a `dyn Reflect` to get a reference to the targeted field.
+/// Can be applied to a `dyn Reflect` to get a reference to the targeted element.
 ///
 /// A path is composed of multiple accesses in sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -419,9 +419,9 @@ impl Access {
     }
 }
 
-/// A singular borrowed field access within a path.
+/// A singular borrowed element access within a path.
 ///
-/// Can be applied to a `dyn Reflect` to get a reference to the targeted field.
+/// Can be applied to a `dyn Reflect` to get a reference to the targeted element.
 ///
 /// Does not own the backing store it's sourced from.
 /// For an owned version, you can convert one to an [`Access`].
@@ -443,7 +443,7 @@ impl<'a> AccessRef<'a> {
         }
     }
 
-    fn read_field<'r>(
+    fn read_element<'r>(
         &self,
         current: &'r dyn Reflect,
         current_index: usize,
@@ -531,7 +531,7 @@ impl<'a> AccessRef<'a> {
         }
     }
 
-    fn read_field_mut<'r>(
+    fn read_element_mut<'r>(
         &self,
         current: &'r mut dyn Reflect,
         current_index: usize,
@@ -796,20 +796,20 @@ mod tests {
     }
 
     #[test]
-    fn field_path_parse() {
+    fn parsed_path_parse() {
         assert_eq!(
-            &*FieldPath::parse("w").unwrap().0,
+            &*ParsedPath::parse("w").unwrap().0,
             &[(Access::Field("w".to_string()), 1)]
         );
         assert_eq!(
-            &*FieldPath::parse("x.foo").unwrap().0,
+            &*ParsedPath::parse("x.foo").unwrap().0,
             &[
                 (Access::Field("x".to_string()), 1),
                 (Access::Field("foo".to_string()), 2)
             ]
         );
         assert_eq!(
-            &*FieldPath::parse("x.bar.baz").unwrap().0,
+            &*ParsedPath::parse("x.bar.baz").unwrap().0,
             &[
                 (Access::Field("x".to_string()), 1),
                 (Access::Field("bar".to_string()), 2),
@@ -817,7 +817,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            &*FieldPath::parse("y[1].baz").unwrap().0,
+            &*ParsedPath::parse("y[1].baz").unwrap().0,
             &[
                 (Access::Field("y".to_string()), 1),
                 (Access::ListIndex(1), 2),
@@ -825,7 +825,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            &*FieldPath::parse("z.0.1").unwrap().0,
+            &*ParsedPath::parse("z.0.1").unwrap().0,
             &[
                 (Access::Field("z".to_string()), 1),
                 (Access::TupleIndex(0), 2),
@@ -833,14 +833,14 @@ mod tests {
             ]
         );
         assert_eq!(
-            &*FieldPath::parse("x#0").unwrap().0,
+            &*ParsedPath::parse("x#0").unwrap().0,
             &[
                 (Access::Field("x".to_string()), 1),
                 (Access::FieldIndex(0), 2),
             ]
         );
         assert_eq!(
-            &*FieldPath::parse("x#0#1").unwrap().0,
+            &*ParsedPath::parse("x#0#1").unwrap().0,
             &[
                 (Access::Field("x".to_string()), 1),
                 (Access::FieldIndex(0), 2),
@@ -850,7 +850,7 @@ mod tests {
     }
 
     #[test]
-    fn field_path_get_field() {
+    fn parsed_path_get_field() {
         let a = A {
             w: 1,
             x: B {
@@ -865,32 +865,32 @@ mod tests {
             array: [86, 75, 309],
         };
 
-        let b = FieldPath::parse("w").unwrap();
-        let c = FieldPath::parse("x.foo").unwrap();
-        let d = FieldPath::parse("x.bar.baz").unwrap();
-        let e = FieldPath::parse("y[1].baz").unwrap();
-        let f = FieldPath::parse("z.0.1").unwrap();
-        let g = FieldPath::parse("x#0").unwrap();
-        let h = FieldPath::parse("x#1#0").unwrap();
-        let i = FieldPath::parse("unit_variant").unwrap();
-        let j = FieldPath::parse("tuple_variant.1").unwrap();
-        let k = FieldPath::parse("struct_variant.value").unwrap();
-        let l = FieldPath::parse("struct_variant#0").unwrap();
-        let m = FieldPath::parse("array[2]").unwrap();
+        let b = ParsedPath::parse("w").unwrap();
+        let c = ParsedPath::parse("x.foo").unwrap();
+        let d = ParsedPath::parse("x.bar.baz").unwrap();
+        let e = ParsedPath::parse("y[1].baz").unwrap();
+        let f = ParsedPath::parse("z.0.1").unwrap();
+        let g = ParsedPath::parse("x#0").unwrap();
+        let h = ParsedPath::parse("x#1#0").unwrap();
+        let i = ParsedPath::parse("unit_variant").unwrap();
+        let j = ParsedPath::parse("tuple_variant.1").unwrap();
+        let k = ParsedPath::parse("struct_variant.value").unwrap();
+        let l = ParsedPath::parse("struct_variant#0").unwrap();
+        let m = ParsedPath::parse("array[2]").unwrap();
 
         for _ in 0..30 {
-            assert_eq!(*b.get_field::<usize>(&a).unwrap(), 1);
-            assert_eq!(*c.get_field::<usize>(&a).unwrap(), 10);
-            assert_eq!(*d.get_field::<f32>(&a).unwrap(), 3.14);
-            assert_eq!(*e.get_field::<f32>(&a).unwrap(), 2.0);
-            assert_eq!(*f.get_field::<usize>(&a).unwrap(), 42);
-            assert_eq!(*g.get_field::<usize>(&a).unwrap(), 10);
-            assert_eq!(*h.get_field::<f32>(&a).unwrap(), 3.14);
-            assert_eq!(*i.get_field::<F>(&a).unwrap(), F::Unit);
-            assert_eq!(*j.get_field::<u32>(&a).unwrap(), 321);
-            assert_eq!(*k.get_field::<char>(&a).unwrap(), 'm');
-            assert_eq!(*l.get_field::<char>(&a).unwrap(), 'm');
-            assert_eq!(*m.get_field::<i32>(&a).unwrap(), 309);
+            assert_eq!(*b.get_element::<usize>(&a).unwrap(), 1);
+            assert_eq!(*c.get_element::<usize>(&a).unwrap(), 10);
+            assert_eq!(*d.get_element::<f32>(&a).unwrap(), 3.14);
+            assert_eq!(*e.get_element::<f32>(&a).unwrap(), 2.0);
+            assert_eq!(*f.get_element::<usize>(&a).unwrap(), 42);
+            assert_eq!(*g.get_element::<usize>(&a).unwrap(), 10);
+            assert_eq!(*h.get_element::<f32>(&a).unwrap(), 3.14);
+            assert_eq!(*i.get_element::<F>(&a).unwrap(), F::Unit);
+            assert_eq!(*j.get_element::<u32>(&a).unwrap(), 321);
+            assert_eq!(*k.get_element::<char>(&a).unwrap(), 'm');
+            assert_eq!(*l.get_element::<char>(&a).unwrap(), 'm');
+            assert_eq!(*m.get_element::<i32>(&a).unwrap(), 309);
         }
     }
 
