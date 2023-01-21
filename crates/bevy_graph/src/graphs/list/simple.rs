@@ -264,17 +264,33 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         self.adjacencies[index].outgoing().len()
     }
 
-    type Sources<'n> = iters::Sources<&'n N, iters::ZipInDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
+    type Sources<'n> = iters::SourcesSinks<&'n N, iters::ZipInDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
     fn sources(&self) -> Self::Sources<'_> {
-        iters::Sources::new(iters::ZipInDegree::new(
+        iters::SourcesSinks::new(iters::ZipInDegree::new(
             self.nodes.iter(),
             &self.adjacencies,
         ))
     }
 
-    type SourcesMut<'n> = iters::Sources<&'n mut N, iters::ZipInDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
+    type SourcesMut<'n> = iters::SourcesSinks<&'n mut N, iters::ZipInDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
     fn sources_mut(&mut self) -> Self::SourcesMut<'_> {
-        iters::Sources::new(iters::ZipInDegree::new(
+        iters::SourcesSinks::new(iters::ZipInDegree::new(
+            self.nodes.iter_mut(),
+            &self.adjacencies,
+        ))
+    }
+
+    type Sinks<'n> = iters::SourcesSinks<&'n N, iters::ZipOutDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
+    fn sinks(&self) -> Self::Sinks<'_> {
+        iters::SourcesSinks::new(iters::ZipOutDegree::new(
+            self.nodes.iter(),
+            &self.adjacencies,
+        ))
+    }
+
+    type SinksMut<'n> = iters::SourcesSinks<&'n mut N, iters::ZipOutDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
+    fn sinks_mut(&mut self) -> Self::SinksMut<'_> {
+        iters::SourcesSinks::new(iters::ZipOutDegree::new(
             self.nodes.iter_mut(),
             &self.adjacencies,
         ))

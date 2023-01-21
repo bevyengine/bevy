@@ -19,5 +19,8 @@ pub use edges_mut::*;
 mod zip_in_degree;
 pub use zip_in_degree::*;
 
-mod sources;
-pub use sources::*;
+mod zip_out_degree;
+pub use zip_out_degree::*;
+
+mod sources_sinks;
+pub use sources_sinks::*;

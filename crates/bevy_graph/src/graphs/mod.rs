@@ -83,8 +83,6 @@ pub trait Graph<N, E> {
     where
         Self: 'n,
         N: 'n;
-
-    /*
     /// Iterator fix because TAIT not available
     type Sinks<'n>: Iterator<Item = &'n N>
     where
@@ -95,8 +93,6 @@ pub trait Graph<N, E> {
     where
         Self: 'n,
         N: 'n;
-
-    */
 
     /// Creates a new graph
     fn new() -> Self
@@ -268,13 +264,11 @@ pub trait Graph<N, E> {
     /// Returns a mutable iterator over all nodes with zero in-degree.
     fn sources_mut(&mut self) -> Self::SourcesMut<'_>;
 
-    /*
     /// Returns an iterator over all nodes with zero out-degree.
     fn sinks(&self) -> Self::Sinks<'_>;
 
     /// Returns a mutable iterator over all nodes with zero out-degree.
     fn sinks_mut(&mut self) -> Self::SinksMut<'_>;
-    */
 }
 
 /// A more precise trait with functions special for simple graphs
