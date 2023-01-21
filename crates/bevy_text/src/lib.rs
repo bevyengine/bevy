@@ -20,10 +20,7 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
-        TextStyle, VerticalAlign,
-    };
+    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
 }
 
 use bevy_app::prelude::*;
@@ -77,9 +74,8 @@ impl Plugin for TextPlugin {
             .register_type::<TextSection>()
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
+            .register_type::<Text>()
             .register_type::<TextAlignment>()
-            .register_type::<VerticalAlign>()
-            .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()

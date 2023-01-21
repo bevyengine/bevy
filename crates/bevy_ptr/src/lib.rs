@@ -78,6 +78,12 @@ macro_rules! impl_ptr {
             }
         }
 
+        impl<'a, A: IsAligned> From<$ptr<'a, A>> for NonNull<u8> {
+            fn from(ptr: $ptr<'a, A>) -> Self {
+                ptr.0
+            }
+        }
+
         impl<A: IsAligned> $ptr<'_, A> {
             /// Calculates the offset from a pointer.
             /// As the pointer is type-erased, there is no size information available. The provided
@@ -326,6 +332,15 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     pub fn as_mut(&mut self) -> PtrMut<'_, A> {
         // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
+    }
+}
+impl<'a> OwningPtr<'a, Unaligned> {
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    pub unsafe fn read_unaligned<T>(self) -> T {
+        self.as_ptr().cast::<T>().read_unaligned()
     }
 }
 

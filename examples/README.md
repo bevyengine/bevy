@@ -179,6 +179,7 @@ Example | Description
 --- | ---
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
+[Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
 
 ## Diagnostics
 
@@ -267,6 +268,7 @@ Example | Description
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the depth texture generated in a prepass
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 
@@ -313,6 +315,7 @@ Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
