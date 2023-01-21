@@ -1,3 +1,17 @@
+//! This module serves as an example, and test-case, for how to automatically test full bevy apps.
+//!
+//! The way it works, is by substituting the [`DefaultPlugins`] with [`MinimalPlugins`], which
+//! allows bevy to run completely headless.
+//!
+//! The list of minimal plugins does not include things like window or input handling.
+//! This has as downside that the resources / entities associated with those systems
+//! (for example: `Input::<KeyCode>`) need to be manually added.
+//! The upside however, is that the test has complete control over these resources, meaning
+//! we can fake user input, fake the window being moved around, and more.
+//!
+//! The benefit of having this set of example tests be run by the CI system, is that we ensure
+//! these full-app tests keep working during bevy's development.
+
 use bevy::prelude::*;
 
 const DEFAULT_MANA: u32 = 10;
@@ -29,6 +43,20 @@ fn spell_casting(mut player: Query<&mut Player>, keyboard_input: Res<Input<KeyCo
     }
 }
 
+/// This struct would normally be defined somewhere in the game code.
+/// It could be the plugin that sets up the entire game (except for the [`DefaultPlugins`]).
+/// Or the game could be split into multiple smaller plugins, allowing one to write tests
+/// for each of the games' parts in isolation (on top of some tests for the entire game).
+pub struct GamePlugin;
+
+impl Plugin for GamePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(spawn_player)
+            .add_startup_system(window_title_system)
+            .add_system(spell_casting);
+    }
+}
+
 fn create_test_app() -> App {
     let mut app = App::new();
 
@@ -45,19 +73,10 @@ fn create_test_app() -> App {
     app
 }
 
-fn add_game_systems(app: &mut App) {
-    // This could be a subset of your game's systems, or the entire app.
-    // As long as you make sure to add a fake version of inputs, windows, and any
-    // other things that your game's systems rely on.
-    app.add_startup_system(spawn_player)
-        .add_startup_system(window_title_system)
-        .add_system(spell_casting);
-}
-
 #[test]
 fn test_player_spawn() {
     let mut app = create_test_app();
-    add_game_systems(&mut app);
+    app.add_plugin(GamePlugin);
 
     // The `update` function needs to be called at least once for the startup
     // systems to run.
@@ -77,7 +96,7 @@ fn test_player_spawn() {
 #[test]
 fn test_spell_casting() {
     let mut app = create_test_app();
-    add_game_systems(&mut app);
+    app.add_plugin(GamePlugin);
 
     // We simulate pressing `space` to trigger the spell casting system.
     app.world
@@ -102,7 +121,7 @@ fn test_spell_casting() {
 #[test]
 fn test_faking_windows() {
     let mut app = create_test_app();
-    add_game_systems(&mut app);
+    app.add_plugin(GamePlugin);
 
     // The `update` function needs to be called at least once for the startup
     // systems to run.
