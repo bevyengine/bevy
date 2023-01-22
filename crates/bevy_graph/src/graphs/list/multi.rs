@@ -108,7 +108,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             Err(GraphError::NodeNotFound(dst))
         } else {
             unsafe {
-                let idx = self.edges.insert(Edge(src, dst, value));
+                let idx = self
+                    .edges
+                    .insert_with_key(|index| Edge(src, dst, value, index));
                 self.adjacencies
                     .get_unchecked_mut(src)
                     .outgoing_mut()
@@ -142,7 +144,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     }
 
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
-        if let Some(Edge(src, dst, value)) = self.edges.remove(index) {
+        if let Some(Edge(src, dst, value, _)) = self.edges.remove(index) {
             unsafe {
                 self.adjacencies
                     .get_unchecked_mut(src)
@@ -343,7 +345,7 @@ impl<N, E> DirectedGraph<N, E> for MultiListGraph<N, E, true> {
             .values_mut()
             .for_each(|list| list.for_each_mut(Vec::clear));
 
-        for (index, Edge(src, dst, _)) in &mut self.edges {
+        for (index, Edge(src, dst, _, _)) in &mut self.edges {
             std::mem::swap(src, dst);
             self.adjacencies[*dst]
                 .outgoing_mut()
@@ -359,7 +361,7 @@ impl<N, E> DirectedGraph<N, E> for MultiListGraph<N, E, true> {
     }
 
     fn reverse_edge(&mut self, index: EdgeIdx) {
-        if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
+        if let Some(Edge(src, dst, _, _)) = self.edges.get_mut(index) {
             self.adjacencies[*src]
                 .outgoing_mut()
                 .get_value_mut(*dst)

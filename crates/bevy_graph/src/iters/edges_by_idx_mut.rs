@@ -28,7 +28,7 @@ impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> Iterator for EdgesByIdxMut<'g, 
             unsafe {
                 self.edges.get_mut(*index).map(|edge| {
                     let ptr: *mut E = &mut edge.2;
-                    EdgeMut(edge.0, edge.1, &mut *ptr)
+                    EdgeMut(edge.0, edge.1, &mut *ptr, edge.3)
                 })
             }
         } else {
