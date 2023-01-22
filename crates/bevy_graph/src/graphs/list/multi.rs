@@ -201,8 +201,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.edges.get_mut(index).map(|edge| edge.as_mut_edge())
     }
 
-    fn degree(&self, _index: NodeIdx) -> usize {
-        todo!()
+    fn degree(&self, index: NodeIdx) -> usize {
+        if DIRECTED {
+            self.in_degree(index) + self.out_degree(index)
+        } else {
+            todo!()
+        }
     }
 
     type NodeIndices<'n> = slotmap::hop::Keys<'n, NodeIdx, N> where Self: 'n;
