@@ -48,7 +48,7 @@ default = [
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic = ["bevy_dylib", "bevy_internal/dynamic"]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
