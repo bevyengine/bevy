@@ -54,6 +54,16 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
+    type EdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>>
+    where
+        Self: 'e,
+        E: 'e;
+    /// Iterator fix because TAIT not available
+    type EdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>>
+    where
+        Self: 'e,
+        E: 'e;
+    /// Iterator fix because TAIT not available
     type IncomingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>>
     where
         Self: 'e,
@@ -259,6 +269,12 @@ pub trait Graph<N, E> {
 
     /// Returns a mutable iterator over all edges.
     fn edges_mut(&mut self) -> Self::EdgesMut<'_>;
+
+    /// Returns an iterator over the edges of the specified node.
+    fn edges_of(&self, index: NodeIdx) -> Self::EdgesOf<'_>;
+
+    /// Returns a mutable iterator over the edges of the specified node.
+    fn edges_of_mut(&mut self, index: NodeIdx) -> Self::EdgesOfMut<'_>;
 
     /// Returns the number of edges going into the specified node.
     fn in_degree(&self, index: NodeIdx) -> usize;

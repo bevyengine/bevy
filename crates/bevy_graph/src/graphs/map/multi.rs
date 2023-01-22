@@ -245,6 +245,16 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
+    type EdgesOf<'e> = std::iter::Empty<EdgeRef<'e, E>> where Self: 'e;
+    fn edges_of(&self, _index: NodeIdx) -> Self::EdgesOf<'_> {
+        todo!()
+    }
+
+    type EdgesOfMut<'e> = std::iter::Empty<EdgeMut<'e, E>> where Self: 'e;
+    fn edges_of_mut(&mut self, _index: NodeIdx) -> Self::EdgesOfMut<'_> {
+        todo!()
+    }
+
     type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, E, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(

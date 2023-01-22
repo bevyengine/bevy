@@ -240,6 +240,16 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
+    type EdgesOf<'e> = std::iter::Empty<EdgeRef<'e, E>> where Self: 'e;
+    fn edges_of(&self, _index: NodeIdx) -> Self::EdgesOf<'_> {
+        todo!()
+    }
+
+    type EdgesOfMut<'e> = std::iter::Empty<EdgeMut<'e, E>> where Self: 'e;
+    fn edges_of_mut(&mut self, _index: NodeIdx) -> Self::EdgesOfMut<'_> {
+        todo!()
+    }
+
     #[inline]
     fn in_degree(&self, index: NodeIdx) -> usize {
         self.adjacencies[index].incoming().len()
