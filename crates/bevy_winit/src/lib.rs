@@ -396,7 +396,11 @@ pub fn winit_runner(mut app: App) {
                             window.resolution.physical_height() as f64 - position.y,
                         );
 
-                        window.set_physical_cursor_position(Some(physical_position));
+                        // bypassing change detection to not trigger feedback loop with system `changed_window`
+                        // this system change the cursor position in winit
+                        window
+                            .bypass_change_detection()
+                            .set_physical_cursor_position(Some(physical_position));
 
                         cursor_events.cursor_moved.send(CursorMoved {
                             window: window_entity,
@@ -412,7 +416,11 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::CursorLeft { .. } => {
                         // Component
                         if let Ok((mut window, _)) = window_query.get_mut(window_entity) {
-                            window.set_physical_cursor_position(None);
+                            // bypassing change detection to not trigger feedback loop with system `changed_window`
+                            // this system change the cursor position in winit
+                            window
+                                .bypass_change_detection()
+                                .set_physical_cursor_position(None);
                         }
 
                         cursor_events.cursor_left.send(CursorLeft {
