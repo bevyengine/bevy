@@ -608,6 +608,22 @@ impl World {
         }
     }
 
+    /// Despawns the given `entity`, if it exists, and reserves a number of subsequent generations.
+    ///
+    /// This function serves an extremely narrow use case of allocating a series of entity IDs that are
+    /// guaranteed to never refer to a live entity. This functionality is useful primarily for mapping references
+    /// to dead entities into a new world alongside a [`crate::entity::MapEntities`] implementation.
+    ///
+    /// See [`Self::despawn()`] for usage.
+    pub(crate) fn reserve_generations(&mut self, entity: Entity, generations: u32) -> bool {
+        if self.despawn(entity) {
+            self.entities
+                .reserve_generations(entity.index(), generations)
+        } else {
+            false
+        }
+    }
+
     /// Clears the internal component tracker state.
     ///
     /// The world maintains some internal state about changed and removed components. This state
@@ -946,8 +962,8 @@ impl World {
         match self.get_resource() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -970,8 +986,8 @@ impl World {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -1050,8 +1066,8 @@ impl World {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -1072,8 +1088,8 @@ impl World {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),

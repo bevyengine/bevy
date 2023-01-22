@@ -590,6 +590,22 @@ impl Entities {
         self.meta.get_unchecked_mut(index as usize).location = location;
     }
 
+    /// Increments the generation of a despawned [`Entity`]. This may only be called on an entity
+    /// index corresponding to an entity that once existed and has since been freed.
+    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
+        if (index as usize) >= self.meta.len() {
+            return false;
+        }
+
+        let meta = &mut self.meta[index as usize];
+        if meta.location.archetype_id == ArchetypeId::INVALID {
+            meta.generation += generations;
+            true
+        } else {
+            false
+        }
+    }
+
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
     /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
     ///

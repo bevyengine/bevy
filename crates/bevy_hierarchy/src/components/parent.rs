@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities, MapEntitiesError},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
@@ -36,12 +36,8 @@ impl FromWorld for Parent {
 }
 
 impl MapEntities for Parent {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        // Parent of an entity in the new world can be in outside world, in which case it
-        // should not be mapped.
-        if let Ok(mapped_entity) = entity_map.get(self.0) {
-            self.0 = mapped_entity;
-        }
+    fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError> {
+        self.0 = entity_map.get_or_alloc(self.0);
         Ok(())
     }
 }

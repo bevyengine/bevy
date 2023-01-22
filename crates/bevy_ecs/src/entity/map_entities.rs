@@ -1,4 +1,4 @@
-use crate::entity::Entity;
+use crate::{entity::Entity, world::World};
 use bevy_utils::{Entry, HashMap};
 use std::fmt;
 
@@ -33,7 +33,7 @@ impl fmt::Display for MapEntitiesError {
 ///
 /// ```rust
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::{EntityMap, MapEntities, MapEntitiesError};
+/// use bevy_ecs::entity::{EntityMapper, MapEntities, MapEntitiesError};
 ///
 /// #[derive(Component)]
 /// struct Spring {
@@ -42,7 +42,7 @@ impl fmt::Display for MapEntitiesError {
 /// }
 ///
 /// impl MapEntities for Spring {
-///     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+///     fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError> {
 ///         self.a = entity_map.get(self.a)?;
 ///         self.b = entity_map.get(self.b)?;
 ///         Ok(())
@@ -56,7 +56,7 @@ pub trait MapEntities {
     ///
     /// Implementors should look up any and all [`Entity`] values stored within and
     /// update them to the mapped values via `entity_map`.
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
+    fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError>;
 }
 
 /// A mapping from one set of entities to another.
@@ -68,6 +68,55 @@ pub trait MapEntities {
 #[derive(Default, Debug)]
 pub struct EntityMap {
     map: HashMap<Entity, Entity>,
+}
+
+pub struct EntityMapper<'m> {
+    map: &'m mut EntityMap,
+    dead_start: Entity,
+    generations: u32,
+}
+
+impl<'m> EntityMapper<'m> {
+    /// Reserves the allocated dead entities within the world.
+    pub fn save(mut self, world: &mut World) {
+        if self.generations == 0 {
+            return;
+        }
+
+        assert!(world.reserve_generations(self.dead_start, self.generations));
+        self.generations = 0;
+    }
+
+    /// Returns the corresponding mapped entity.
+    pub fn get(&self, entity: Entity) -> Result<Entity, MapEntitiesError> {
+        self.map.get(entity)
+    }
+
+    /// Returns the corresponding mapped entity or allocates a new dead entity if it is absent.
+    pub fn get_or_alloc(&mut self, entity: Entity) -> Entity {
+        if let Ok(mapped) = self.map.get(entity) {
+            return mapped;
+        }
+
+        let new = Entity {
+            generation: self.dead_start.generation + self.generations,
+            index: self.dead_start.index,
+        };
+        self.generations += 1;
+
+        self.map.insert(entity, new);
+
+        new
+    }
+}
+
+impl<'m> Drop for EntityMapper<'m> {
+    fn drop(&mut self) {
+        assert_eq!(
+            0, self.generations,
+            "EntityMapper not saved before being dropped"
+        );
+    }
 }
 
 impl EntityMap {
@@ -121,5 +170,18 @@ impl EntityMap {
     /// An iterator visiting all (key, value) pairs in arbitrary order.
     pub fn iter(&self) -> impl Iterator<Item = (Entity, Entity)> + '_ {
         self.map.iter().map(|(from, to)| (*from, *to))
+    }
+
+    /// Gets an [`EntityMapper`] for allocating new dead entities.
+    ///
+    /// # Safety
+    /// If this function is called, [`EntityMapper::save()`] _must_ be subsequently called after mapping.
+    /// Otherwise, a panic may occur when the [`EntityMapper`] is dropped.
+    pub unsafe fn get_mapper<'m>(&'m mut self, world: &mut World) -> EntityMapper<'m> {
+        EntityMapper {
+            map: self,
+            dead_start: world.spawn_empty().id(),
+            generations: 0,
+        }
     }
 }

@@ -1,7 +1,7 @@
 use bevy_asset::Handle;
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities, MapEntitiesError},
     prelude::ReflectComponent,
     reflect::ReflectMapEntities,
 };
@@ -17,9 +17,9 @@ pub struct SkinnedMesh {
 }
 
 impl MapEntities for SkinnedMesh {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+    fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError> {
         for joint in &mut self.joints {
-            *joint = entity_map.get(*joint)?;
+            *joint = entity_map.get_or_alloc(*joint);
         }
 
         Ok(())
