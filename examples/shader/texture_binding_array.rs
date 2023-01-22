@@ -1,3 +1,6 @@
+//! A shader that binds several textures onto one
+//! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
+
 use bevy::{
     prelude::*,
     reflect::TypeUuid,
@@ -10,8 +13,6 @@ use bevy::{
 };
 use std::num::NonZeroU32;
 
-/// This example illustrates how to bind several textures in one
-/// `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
