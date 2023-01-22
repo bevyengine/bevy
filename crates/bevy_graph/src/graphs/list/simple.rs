@@ -234,6 +234,16 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
+    #[inline]
+    fn in_degree(&self, index: NodeIdx) -> usize {
+        self.adjacencies[index].incoming().len()
+    }
+
+    #[inline]
+    fn out_degree(&self, index: NodeIdx) -> usize {
+        self.adjacencies[index].outgoing().len()
+    }
+
     type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, E, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(self.adjacencies[index].incoming().values(), &self.edges)
@@ -254,14 +264,27 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesByIdxMut::new(self.adjacencies[index].outgoing().values(), &mut self.edges)
     }
 
-    #[inline]
-    fn in_degree(&self, index: NodeIdx) -> usize {
-        self.adjacencies[index].incoming().len()
+    type InNeighbors<'n> = iters::NodesByIdx<'n, N, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    fn in_neighbors(&self, index: NodeIdx) -> Self::InNeighbors<'_> {
+        iters::NodesByIdx::new(self.adjacencies[index].incoming().keys(), &self.nodes)
     }
 
-    #[inline]
-    fn out_degree(&self, index: NodeIdx) -> usize {
-        self.adjacencies[index].outgoing().len()
+    type InNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    fn in_neighbors_mut(&mut self, index: NodeIdx) -> Self::InNeighborsMut<'_> {
+        iters::NodesByIdxMut::new(self.adjacencies[index].incoming().keys(), &mut self.nodes)
+    }
+
+    type OutNeighbors<'n> = iters::NodesByIdx<'n, N, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    fn out_neighbors(&self, index: NodeIdx) -> Self::OutNeighbors<'_> {
+        iters::NodesByIdx::new(self.adjacencies[index].outgoing().keys(), &self.nodes)
+    }
+
+    type OutNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    fn out_neighbors_mut(&mut self, index: NodeIdx) -> Self::OutNeighborsMut<'_> {
+        iters::NodesByIdxMut::new(
+            self.adjacencies[index].outgoing_mut().keys(),
+            &mut self.nodes,
+        )
     }
 
     type Sources<'n> = iters::SourcesSinks<&'n N, iters::ZipInDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;

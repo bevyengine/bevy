@@ -247,6 +247,16 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         )
     }
 
+    #[inline]
+    fn in_degree(&self, index: NodeIdx) -> usize {
+        self.adjacencies[index].incoming().len()
+    }
+
+    #[inline]
+    fn out_degree(&self, index: NodeIdx) -> usize {
+        self.adjacencies[index].outgoing().len()
+    }
+
     type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn incoming_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
         iters::EdgesByIdxMut::new(
@@ -271,14 +281,27 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         )
     }
 
-    #[inline]
-    fn in_degree(&self, index: NodeIdx) -> usize {
-        self.adjacencies[index].incoming().len()
+    type InNeighbors<'n> = iters::NodesByIdx<'n, N, hashbrown::hash_map::Keys<'n, NodeIdx, Vec<EdgeIdx>>> where Self: 'n;
+    fn in_neighbors(&self, index: NodeIdx) -> Self::InNeighbors<'_> {
+        iters::NodesByIdx::new(self.adjacencies[index].incoming().keys(), &self.nodes)
     }
 
-    #[inline]
-    fn out_degree(&self, index: NodeIdx) -> usize {
-        self.adjacencies[index].outgoing().len()
+    type InNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, hashbrown::hash_map::Keys<'n, NodeIdx, Vec<EdgeIdx>>> where Self: 'n;
+    fn in_neighbors_mut(&mut self, index: NodeIdx) -> Self::InNeighborsMut<'_> {
+        iters::NodesByIdxMut::new(self.adjacencies[index].incoming().keys(), &mut self.nodes)
+    }
+
+    type OutNeighbors<'n> = iters::NodesByIdx<'n, N, hashbrown::hash_map::Keys<'n, NodeIdx, Vec<EdgeIdx>>> where Self: 'n;
+    fn out_neighbors(&self, index: NodeIdx) -> Self::OutNeighbors<'_> {
+        iters::NodesByIdx::new(self.adjacencies[index].outgoing().keys(), &self.nodes)
+    }
+
+    type OutNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, hashbrown::hash_map::Keys<'n, NodeIdx, Vec<EdgeIdx>>> where Self: 'n;
+    fn out_neighbors_mut(&mut self, index: NodeIdx) -> Self::OutNeighborsMut<'_> {
+        iters::NodesByIdxMut::new(
+            self.adjacencies[index].outgoing_mut().keys(),
+            &mut self.nodes,
+        )
     }
 
     type Sources<'n> = iters::SourcesSinks<&'n N, iters::ZipInDegree<'n, MultiMapStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;

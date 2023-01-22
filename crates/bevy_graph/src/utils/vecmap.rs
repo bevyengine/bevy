@@ -39,6 +39,9 @@ pub trait VecMap<K: PartialEq + Ord, V> {
     /// Removes the entry by the key
     fn remove_by_key(&mut self, key: K) -> Option<V>;
 
+    /// Returns an iterator over the keys
+    fn keys(&self) -> Keys<K, V>;
+
     /// Returns an iterator over the values
     fn values(&self) -> Values<K, V>;
 }
@@ -94,8 +97,25 @@ impl<K: PartialEq + Ord, V> VecMap<K, V> for Vec<(K, V)> {
         self.index_by_key(&key).map(|index| self.remove(index).1)
     }
 
+    fn keys(&self) -> Keys<K, V> {
+        Keys { inner: self.iter() }
+    }
+
     fn values(&self) -> Values<K, V> {
         Values { inner: self.iter() }
+    }
+}
+
+/// Iterator over all keys in a `VecMap`
+pub struct Keys<'s, K: PartialEq, V> {
+    inner: slice::Iter<'s, (K, V)>,
+}
+
+impl<'s, K: PartialEq, V> Iterator for Keys<'s, K, V> {
+    type Item = &'s K;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|l| &l.0)
     }
 }
 

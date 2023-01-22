@@ -74,6 +74,26 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
+    type InNeighbors<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type InNeighborsMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type OutNeighbors<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type OutNeighborsMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
     type Sources<'n>: Iterator<Item = &'n N>
     where
         Self: 'n,
@@ -240,6 +260,12 @@ pub trait Graph<N, E> {
     /// Returns a mutable iterator over all edges.
     fn edges_mut(&mut self) -> Self::EdgesMut<'_>;
 
+    /// Returns the number of edges going into the specified node.
+    fn in_degree(&self, index: NodeIdx) -> usize;
+
+    /// Returns the number of edges coming out of the specified node.
+    fn out_degree(&self, index: NodeIdx) -> usize;
+
     /// Returns an iterator over the edge indices going into the specified node.
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_>;
 
@@ -252,11 +278,17 @@ pub trait Graph<N, E> {
     /// Returns a mutable iterator over the edges coming out of the specified node.
     fn outgoing_edges_of_mut(&mut self, index: NodeIdx) -> Self::OutgoingEdgesOfMut<'_>;
 
-    /// Returns the number of edges going into the specified node.
-    fn in_degree(&self, index: NodeIdx) -> usize;
+    /// Returns an iterator over the the specified node's direct predecessors.
+    fn in_neighbors(&self, index: NodeIdx) -> Self::InNeighbors<'_>;
 
-    /// Returns the number of edges coming out of the specified node.
-    fn out_degree(&self, index: NodeIdx) -> usize;
+    /// Returns a mutable iterator over the the specified node's direct predecessors.
+    fn in_neighbors_mut(&mut self, index: NodeIdx) -> Self::InNeighborsMut<'_>;
+
+    /// Returns an iterator over the the specified node's direct successors.
+    fn out_neighbors(&self, index: NodeIdx) -> Self::OutNeighbors<'_>;
+
+    /// Returns a mutable iterator over the the specified node's direct successors.
+    fn out_neighbors_mut(&mut self, index: NodeIdx) -> Self::OutNeighborsMut<'_>;
 
     /// Returns an iterator over all nodes with zero in-degree.
     fn sources(&self) -> Self::Sources<'_>;
