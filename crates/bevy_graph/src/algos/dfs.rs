@@ -36,7 +36,7 @@ impl DepthFirstSearch {
     /// Gets a reference to the value of the next node from the algorithm.
     pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
         if let Some(node) = self.stack.pop() {
-            for EdgeRef(_, dst, _, _) in graph.outgoing_edges_of(node) {
+            for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
                     self.visited.insert(dst);
                     self.stack.push(dst);
@@ -51,7 +51,7 @@ impl DepthFirstSearch {
     /// Gets a mutable reference to the value of the next node from the algorithm.
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
         if let Some(node) = self.stack.pop() {
-            for EdgeRef(_, dst, _, _) in graph.outgoing_edges_of(node) {
+            for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
                     self.visited.insert(dst);
                     self.stack.push(dst);
