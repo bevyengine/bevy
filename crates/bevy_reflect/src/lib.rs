@@ -107,7 +107,7 @@ mod tests {
     };
     use std::any::TypeId;
     use std::fmt::{Debug, Formatter};
-    
+
     use super::*;
     use crate as bevy_reflect;
     use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
