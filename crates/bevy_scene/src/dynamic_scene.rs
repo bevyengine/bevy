@@ -29,7 +29,7 @@ pub struct DynamicScene {
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
     /// The transiently unique identifier of a corresponding `Entity`.
-    pub entity: u32,
+    pub entity: u64,
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
     pub components: Vec<Box<dyn Reflect>>,
@@ -69,7 +69,7 @@ impl DynamicScene {
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
             let entity = *entity_map
-                .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
+                .entry(bevy_ecs::entity::Entity::from_bits(scene_entity.entity))
                 .or_insert_with(|| world.spawn_empty().id());
 
             // Apply/ add each component to the given entity.

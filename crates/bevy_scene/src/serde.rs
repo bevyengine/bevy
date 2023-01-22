@@ -229,7 +229,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut entities = Vec::new();
-        while let Some(id) = map.next_key::<u32>()? {
+        while let Some(id) = map.next_key::<u64>()? {
             let entity = map.next_value_seed(SceneEntityDeserializer {
                 id,
                 type_registry: self.type_registry,
@@ -242,7 +242,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
 }
 
 pub struct SceneEntityDeserializer<'a> {
-    pub id: u32,
+    pub id: u64,
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -265,7 +265,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 }
 
 struct SceneEntityVisitor<'a> {
-    pub id: u32,
+    pub id: u64,
     pub registry: &'a TypeRegistry,
 }
 
@@ -393,8 +393,11 @@ mod tests {
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
     use bevy_app::AppTypeRegistry;
-    use bevy_ecs::entity::EntityMap;
+    use bevy_ecs::entity::{Entity, EntityMap, EntityMapper, MapEntities, MapEntitiesError};
     use bevy_ecs::prelude::{Component, ReflectComponent, World};
+    use bevy_ecs::query::{With, Without};
+    use bevy_ecs::reflect::ReflectMapEntities;
+    use bevy_ecs::world::FromWorld;
     use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
@@ -429,6 +432,23 @@ mod tests {
         },
     }
 
+    #[derive(Component, Reflect, PartialEq)]
+    #[reflect(Component, MapEntities, PartialEq)]
+    struct MyEntityRef(Entity);
+
+    impl MapEntities for MyEntityRef {
+        fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError> {
+            self.0 = entity_map.get_or_alloc(self.0);
+            Ok(())
+        }
+    }
+
+    impl FromWorld for MyEntityRef {
+        fn from_world(_world: &mut World) -> Self {
+            Self(Entity::PLACEHOLDER)
+        }
+    }
+
     fn create_world() -> World {
         let mut world = World::new();
         let registry = AppTypeRegistry::default();
@@ -443,6 +463,8 @@ mod tests {
             registry.register_type_data::<String, ReflectSerialize>();
             registry.register::<[usize; 3]>();
             registry.register::<(f32, f32)>();
+            registry.register::<MyEntityRef>();
+            registry.register::<Entity>();
         }
         world.insert_resource(registry);
         world
@@ -533,6 +555,57 @@ mod tests {
         assert_eq!(3, dst_world.query::<&Foo>().iter(&dst_world).count());
         assert_eq!(2, dst_world.query::<&Bar>().iter(&dst_world).count());
         assert_eq!(1, dst_world.query::<&Baz>().iter(&dst_world).count());
+    }
+
+    #[test]
+    fn should_roundtrip_with_later_generations_and_obsolete_references() {
+        let mut world = create_world();
+
+        world.spawn_empty().despawn();
+
+        let a = world.spawn_empty().id();
+        let foo = world.spawn(MyEntityRef(a)).insert(Foo(123)).id();
+        world.despawn(a);
+        world.spawn(MyEntityRef(foo)).insert(Bar(123));
+
+        let registry = world.resource::<AppTypeRegistry>();
+
+        let scene = DynamicScene::from_world(&world, registry);
+
+        let serialized = scene
+            .serialize_ron(&world.resource::<AppTypeRegistry>().0)
+            .unwrap();
+        let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
+        let scene_deserializer = SceneDeserializer {
+            type_registry: &registry.0.read(),
+        };
+
+        let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let mut map = EntityMap::default();
+        let mut dst_world = create_world();
+        deserialized_scene
+            .write_to_world(&mut dst_world, &mut map)
+            .unwrap();
+
+        assert_eq!(2, deserialized_scene.entities.len());
+        assert_scene_eq(&scene, &deserialized_scene);
+
+        let bar_to_foo = dst_world
+            .query_filtered::<&MyEntityRef, Without<Foo>>()
+            .get_single(&dst_world)
+            .unwrap()
+            .0;
+        let foo = dst_world
+            .query_filtered::<Entity, With<Foo>>()
+            .get_single(&dst_world)
+            .unwrap();
+
+        assert_eq!(foo, bar_to_foo);
+        assert!(dst_world
+            .query_filtered::<&MyEntityRef, With<Foo>>()
+            .iter(&dst_world)
+            .all(|r| world.get_entity(r.0).is_none()));
     }
 
     #[test]
@@ -635,12 +708,12 @@ mod tests {
 
         assert_eq!(
             vec![
-                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0,
-                0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101,
-                58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101,
-                110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0,
-                102, 102, 166, 63, 205, 204, 108, 64, 1, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 72, 101,
-                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 37, 0, 0,
+                0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101,
+                114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112,
+                111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0,
+                0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1, 0, 0, 0, 12, 0, 0, 0, 0, 0,
+                0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );

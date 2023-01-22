@@ -31,7 +31,7 @@ use std::collections::BTreeMap;
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
-    extracted_scene: BTreeMap<u32, DynamicEntity>,
+    extracted_scene: BTreeMap<u64, DynamicEntity>,
     type_registry: AppTypeRegistry,
     original_world: &'w World,
 }
@@ -113,14 +113,14 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            let index = entity.index();
+            let index = entity.to_bits();
 
             if self.extracted_scene.contains_key(&index) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: index,
+                entity: entity.to_bits(),
                 components: Vec::new(),
             };
 
@@ -180,7 +180,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.index());
+        assert_eq!(scene.entities[0].entity, entity.to_bits());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -201,7 +201,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.index());
+        assert_eq!(scene.entities[0].entity, entity.to_bits());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -225,7 +225,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.index());
+        assert_eq!(scene.entities[0].entity, entity.to_bits());
         assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
         assert!(scene.entities[0].components[1].represents::<ComponentB>());
@@ -252,10 +252,22 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a.index(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b.index(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c.index(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_d.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(
+            entity_a.to_bits(),
+            entities.next().map(|e| e.entity).unwrap()
+        );
+        assert_eq!(
+            entity_b.to_bits(),
+            entities.next().map(|e| e.entity).unwrap()
+        );
+        assert_eq!(
+            entity_c.to_bits(),
+            entities.next().map(|e| e.entity).unwrap()
+        );
+        assert_eq!(
+            entity_d.to_bits(),
+            entities.next().map(|e| e.entity).unwrap()
+        );
     }
 
     #[test]
@@ -282,7 +294,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b.index(), entity_a.index()]);
+        assert_eq!(scene_entities, [entity_a_b.to_bits(), entity_a.to_bits()]);
     }
 
     #[test]
@@ -302,6 +314,6 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity_a.index());
+        assert_eq!(scene.entities[0].entity, entity_a.to_bits());
     }
 }
