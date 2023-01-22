@@ -618,22 +618,22 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             #(#ignored_field_types,)*
             ::std::marker::PhantomData<&'w ()>,
             ::std::marker::PhantomData<&'s ()>,
-        )}
+        );}
     };
 
     let readonly_struct_construction = if is_named {
         quote! {{
             #(#fields: #field_locals,)*
             #(#ignored_fields: <#ignored_field_types>::default(),)*
-            #penultimate_field: ::std::marker::PhantomData<&'w ()>,
-            #ultimate_field: ::std::marker::PhantomData<&'s ()>,
+            #penultimate_field: ::std::marker::PhantomData,
+            #ultimate_field: ::std::marker::PhantomData,
         }}
     } else {
         quote! {(
             #(#field_locals,)*
             #(<#ignored_field_types>::default(),)*
-            ::std::marker::PhantomData<&'w ()>,
-            ::std::marker::PhantomData<&'s ()>,
+            ::std::marker::PhantomData,
+            ::std::marker::PhantomData,
         )}
     };
 
@@ -652,6 +652,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 )>,
             }
 
+            #[allow(dead_code)]
             #state_struct_visibility struct #readonly_struct <'w, 's, #(#type_params,)* #(#const_params,)*> #where_clause #readonly_struct_definition
 
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #readonly_struct <'w, 's, #punctuated_generic_idents> #where_clause {
