@@ -415,8 +415,14 @@ pub fn queue_material_meshes<M: Material>(
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | view_key;
                         let alpha_mode = material.properties.alpha_mode;
-                        if let AlphaMode::Blend = alpha_mode {
-                            mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
+                        if let AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add =
+                            alpha_mode
+                        {
+                            // Blend, Premultiplied and Add all share the same pipeline key
+                            // They're made distinct in the PBR shader, via `premultiply_alpha()`
+                            mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                        } else if let AlphaMode::Multiply = alpha_mode {
+                            mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
                         }
 
                         let pipeline_id = pipelines.specialize(
@@ -455,7 +461,10 @@ pub fn queue_material_meshes<M: Material>(
                                     distance,
                                 });
                             }
-                            AlphaMode::Blend => {
+                            AlphaMode::Blend
+                            | AlphaMode::Premultiplied
+                            | AlphaMode::Add
+                            | AlphaMode::Multiply => {
                                 transparent_phase.add(Transparent3d {
                                     entity: *visible_entity,
                                     draw_function: draw_transparent_pbr,

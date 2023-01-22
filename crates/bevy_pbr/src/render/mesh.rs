@@ -557,13 +557,16 @@ bitflags::bitflags! {
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
-        const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
-        const DEPTH_PREPASS               = (1 << 4);
-        const NORMAL_PREPASS              = (1 << 5);
-        const ALPHA_MASK                  = (1 << 6);
+        const HDR                         = (1 << 0);
+        const TONEMAP_IN_SHADER           = (1 << 1);
+        const DEBAND_DITHER               = (1 << 2);
+        const DEPTH_PREPASS               = (1 << 3);
+        const NORMAL_PREPASS              = (1 << 4);
+        const ALPHA_MASK                  = (1 << 5);
+        const BLEND_RESERVED_BITS         = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA   = (1 << Self::BLEND_SHIFT_BITS);                   //
+        const BLEND_MULTIPLY              = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -573,7 +576,11 @@ impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
+        Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+    const BLEND_MASK_BITS: u32 = 0b11;
+    const BLEND_SHIFT_BITS: u32 =
+        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -677,10 +684,28 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
-        if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
-            label = "transparent_mesh_pipeline".into();
-            blend = Some(BlendState::ALPHA_BLENDING);
+        let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+            label = "premultiplied_alpha_mesh_pipeline".into();
+            blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+            shader_defs.push("PREMULTIPLY_ALPHA".into());
+            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
             // For the transparent pass, fragments that are closer will be alpha blended
+            // but their depth is not written to the depth buffer
+            depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_MULTIPLY {
+            label = "multiply_mesh_pipeline".into();
+            blend = Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::Dst,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::OVER,
+            });
+            shader_defs.push("PREMULTIPLY_ALPHA".into());
+            shader_defs.push("BLEND_MULTIPLY".into());
+            // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
         } else {
