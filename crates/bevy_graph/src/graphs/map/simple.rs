@@ -138,8 +138,32 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         self.adjacencies[src].outgoing().contains_key(&dst)
     }
 
-    fn remove_node(&mut self, _index: NodeIdx) -> Option<N> {
-        todo!()
+    fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
+        if self.has_node(index) {
+            let edges_to_remove = self
+                .edges_of(index)
+                .map(|edge| edge.3)
+                .collect::<Vec<EdgeIdx>>();
+            for edge_idx in edges_to_remove {
+                unsafe {
+                    let Edge(src, dst, _, _) = self.edges.remove(edge_idx).unwrap_unchecked();
+                    self.adjacencies
+                        .get_unchecked_mut(src)
+                        .outgoing_mut()
+                        .remove(&dst);
+                    self.adjacencies
+                        .get_unchecked_mut(dst)
+                        .incoming_mut()
+                        .remove(&src);
+                }
+            }
+            unsafe {
+                self.adjacencies.remove(index).unwrap_unchecked();
+            }
+            self.nodes.remove(index)
+        } else {
+            None
+        }
     }
 
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {

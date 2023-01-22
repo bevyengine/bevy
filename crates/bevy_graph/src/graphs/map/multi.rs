@@ -143,8 +143,36 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
             .contains_key(&dst)
     }
 
-    fn remove_node(&mut self, _index: NodeIdx) -> Option<N> {
-        todo!()
+    fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
+        if self.has_node(index) {
+            let edges_to_remove = self
+                .edges_of(index)
+                .map(|edge| edge.3)
+                .collect::<Vec<EdgeIdx>>();
+            for edge_idx in edges_to_remove {
+                unsafe {
+                    let Edge(src, dst, _, _) = self.edges.remove(edge_idx).unwrap_unchecked();
+                    self.adjacencies
+                        .get_unchecked_mut(src)
+                        .outgoing_mut()
+                        .get_mut(&dst)
+                        .unwrap()
+                        .remove_by_value(&edge_idx);
+                    self.adjacencies
+                        .get_unchecked_mut(dst)
+                        .incoming_mut()
+                        .get_mut(&src)
+                        .unwrap()
+                        .remove_by_value(&edge_idx);
+                }
+            }
+            unsafe {
+                self.adjacencies.remove(index).unwrap_unchecked();
+            }
+            self.nodes.remove(index)
+        } else {
+            None
+        }
     }
 
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
