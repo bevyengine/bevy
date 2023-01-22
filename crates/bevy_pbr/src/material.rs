@@ -37,7 +37,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -189,8 +189,6 @@ where
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
-        app.add_extract_system(extract_materials::<M>);
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -200,6 +198,9 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
+                .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                    extract_schedule.add_system(extract_materials::<M>);
+                })
                 .add_system(
                     prepare_materials::<M>
                         .after(PrepareAssetLabel::PreAssetPrepare)

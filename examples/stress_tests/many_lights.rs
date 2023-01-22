@@ -153,13 +153,16 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        app.add_extract_system(extract_time);
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
         };
 
-        render_app.add_system(print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app
+            .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                extract_schedule.add_system(extract_time);
+            })
+            .add_system(print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 

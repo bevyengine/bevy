@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 #[cfg(debug_assertions)]
 pub use bevy_render_macros::ExtractResource;
 
-use crate::{Extract, RenderingAppExtension};
+use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how a resource gets extracted for rendering.
 ///
@@ -32,7 +32,11 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        app.add_extract_system(extract_resource::<R>);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.edit_schedule(&ExtractSchedule, |extract_schedule| {
+                extract_schedule.add_system(extract_resource::<R>);
+            });
+        }
     }
 }
 

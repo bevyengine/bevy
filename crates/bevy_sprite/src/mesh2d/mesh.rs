@@ -97,12 +97,14 @@ impl Plugin for Mesh2dRenderPlugin {
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
-        app.add_extract_system(extract_mesh2d);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
+                .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                    extract_schedule.add_system(extract_mesh2d);
+                })
                 .add_system(queue_mesh2d_bind_group.in_set(RenderSet::Queue))
                 .add_system(queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue));
         }

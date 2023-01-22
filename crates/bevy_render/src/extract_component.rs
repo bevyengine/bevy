@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
-    Extract, RenderApp, RenderSet, RenderingAppExtension,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
@@ -176,10 +176,14 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        if self.only_extract_visible {
-            app.add_extract_system(extract_visible_components::<C>);
-        } else {
-            app.add_extract_system(extract_components::<C>);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.edit_schedule(&ExtractSchedule, |extract_schedule| {
+                if self.only_extract_visible {
+                    extract_schedule.add_system(extract_visible_components::<C>);
+                } else {
+                    extract_schedule.add_system(extract_components::<C>);
+                }
+            });
         }
     }
 }
