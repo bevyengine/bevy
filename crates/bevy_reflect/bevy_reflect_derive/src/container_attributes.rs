@@ -15,13 +15,13 @@ use syn::spanned::Spanned;
 use syn::token::Comma;
 use syn::{parse_str, Lit, Meta, NestedMeta, Path};
 
-// The "special" trait-like idents that are used internally for reflection.
+// The "special" trait-like attributes that are used internally for reflection.
 // Received via attributes like `#[reflect(partial_eq, hash, ...)]`
 const DEBUG_ATTR: &str = "debug";
 const PARTIAL_EQ_ATTR: &str = "partial_eq";
 const HASH_ATTR: &str = "hash";
 
-/// A marker for special trait-like ident implementations registered via the `Reflect` derive macro.
+/// A marker for special trait-like attribute implementations registered via the `Reflect` derive macro.
 #[derive(Clone, Default)]
 pub(crate) enum TraitLikeImpl {
     /// The ident is not registered as implemented.
@@ -56,11 +56,11 @@ impl TraitLikeImpl {
 /// A collection of traits that have been registered for a reflected type.
 ///
 /// This keeps track of a few traits that are utilized internally for reflection
-/// (we'll call these traits _special trait-like idents_ within this context), but it
+/// (we'll call these traits _special trait-like attributes_ within this context), but it
 /// will also keep track of all registered traits. Traits are registered as part of the
 /// `Reflect` derive macro using the helper attribute: `#[reflect(...)]`.
 ///
-/// The list of special trait-like idents are as follows:
+/// The list of special trait-like attributes are as follows:
 /// * `debug`
 /// * `hash`
 /// * `partial_eq`

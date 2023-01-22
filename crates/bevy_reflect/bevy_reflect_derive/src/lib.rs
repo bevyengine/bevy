@@ -40,6 +40,29 @@ use syn::{parse_macro_input, DeriveInput};
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 
+/// Derives the `Reflect` trait.
+///
+/// This macro supports the following container attributes (attributes on the item itself):
+/// * `#[reflect(MyTrait)]`: Adds `ReflectMyTrait` into the `TypeRegistration` for this type.
+///   * There are three "special" trait-like attributes: `#[reflect(debug, partial_eq, hash)]`.
+///     These tell this macro to use [`Debug::fmt`], [`PartialEq::eq`] and [`Hash::hash`] respectivel
+///     for its implementation of `reflect_debug`, `reflect_partial_eq` and `reflect_hash`.
+/// * `#[reflect_value(...)]`: Supports all the same syntax as `#[reflect(...)]`
+///   but tells this macro to treat this type as a basic value which cannot be broken down
+///   into individual fields or variants.
+///   * `reflect_value` and `reflect` are mutually exclusive.
+///
+/// This macro also supports the following field attributes (on items without a `#[reflect_value]` attribute):
+/// * `#[reflect(ignore)]`: Do not include this field in reflection
+///   so it will never be read or written from a `dyn Reflect`.
+///   The type of the field must implement [`Default`] for use in deserialization.
+/// * `#[reflect(skip_serializing)]`: Include the field in reflection
+///   so it can be read and written with a `dyn Reflect` but never (de)serialized.
+///   The type of the field must implement [`Default`] for use in deserialization.
+///
+/// [`Debug::fmt`]: core::fmt::Debug::fmt
+/// [`PartialEq::eq`]: PartialEq::eq
+/// [`Hash::hash`]: core::hash::Hash::hash
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
