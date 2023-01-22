@@ -1,16 +1,12 @@
 //! This module serves as an example, and test-case, for how to automatically test full bevy apps.
 //!
-//! The way it works, is by substituting the [`DefaultPlugins`] with [`MinimalPlugins`], which
-//! allows bevy to run completely headless.
+//! By substituting [`DefaultPlugins`] with [`MinimalPlugins`], Bevy can run completely headless.
 //!
 //! The list of minimal plugins does not include things like window or input handling.
 //! This has as downside that the resources / entities associated with those systems
-//! (for example: `Input::<KeyCode>`) need to be manually added.
+//! (for example: `Input::<KeyCode>`) need to be manually added, either directly or via e.g. [`InputPlugin`].
 //! The upside however, is that the test has complete control over these resources, meaning
 //! we can fake user input, fake the window being moved around, and more.
-//!
-//! The benefit of having this set of example tests be run by the CI system, is that we ensure
-//! these full-app tests keep working during bevy's development.
 
 use bevy::prelude::*;
 
