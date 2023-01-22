@@ -28,48 +28,48 @@ use std::any::{Any, TypeId};
 /// use bevy_reflect::Typed;
 ///
 /// struct MyStruct {
-///   foo: usize,
-///   bar: (f32, f32)
+///     foo: usize,
+///     bar: (f32, f32)
 /// }
 ///
 /// impl Typed for MyStruct {
-///   fn type_info() -> &'static TypeInfo {
-///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-///     CELL.get_or_set(|| {
-///       let fields = [
-///         NamedField::new::<usize >("foo"),
-///         NamedField::new::<(f32, f32) >("bar"),
-///       ];
-///       let info = StructInfo::new::<Self>("MyStruct", &fields);
-///       TypeInfo::Struct(info)
-///     })
-///   }
+///     fn type_info() -> &'static TypeInfo {
+///         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+///         CELL.get_or_set(|| {
+///             let fields = [
+///                 NamedField::new::<usize >("foo"),
+///                 NamedField::new::<(f32, f32) >("bar"),
+///             ];
+///             let info = StructInfo::new::<Self>("MyStruct", &fields);
+///             TypeInfo::Struct(info)
+///         })
+///     }
 /// }
 ///
 /// # impl PartialReflect for MyStruct {
-/// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #   fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
-/// #   fn as_full(&self) -> Option<&dyn Reflect> { todo!() }
-/// #   fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
-/// #   fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #   fn as_partial(&self) -> &dyn PartialReflect { todo!() }
-/// #   fn as_partial_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn PartialReflect) { todo!() }
-/// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #   fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn type_name(&self) -> &str { todo!() }
+/// #     fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #     fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
+/// #     fn as_full(&self) -> Option<&dyn Reflect> { todo!() }
+/// #     fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
+/// #     fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn as_partial(&self) -> &dyn PartialReflect { todo!() }
+/// #     fn as_partial_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
+/// #     fn apply(&mut self, value: &dyn PartialReflect) { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// #
 /// # impl Reflect for MyStruct {
-/// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
-/// #   fn as_any(&self) -> &dyn Any { todo!() }
-/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> { todo!() }
+/// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #     fn as_any(&self) -> &dyn Any { todo!() }
+/// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
+/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
+/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
+/// #     fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> { todo!() }
 /// # }
 /// ```
 ///

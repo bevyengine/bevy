@@ -341,7 +341,7 @@ mod sealed {
 ///
 /// `Reflect` is a [subtrait] of [`PartialReflect`].
 /// [`PartialReflect`] provides basic reflection functionality ([`reflect_ref`], [`apply`] etc.)
-/// and `Reflect` provides downcasting behavior.
+/// and `Reflect` provides additional downcasting behavior.
 ///
 /// The reason for this split is that [certain types] used for reflection may represent many Rust types.
 /// Downcasting a value that may represent multiple types is conceptually undefined
@@ -350,7 +350,7 @@ mod sealed {
 /// Conversion between the two is provided by [`PartialReflect::as_full`] (fallible)
 /// and [`PartialReflect::as_partial`] (infallible) et al.
 ///
-/// The `Reflect` trait also adds the requirement that the type must implement [`Typed`] and [`GetTypeRegistration`].
+/// The `Reflect` trait also adds the requirement that the type must implement [`Typed`].
 ///
 /// [subtrait]: https://doc.rust-lang.org/rust-by-example/trait/supertraits.html
 /// [`reflect_ref`]: PartialReflect::reflect_ref
@@ -386,5 +386,12 @@ pub trait Reflect: PartialReflect + Reflectable {
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl Typed for dyn Reflect {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }

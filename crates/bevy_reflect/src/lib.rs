@@ -191,9 +191,7 @@ mod tests {
         assert!(map.get(&key_c).is_none());
         *map.get_mut(&key_b)
             .unwrap()
-            .as_full_mut()
-            .unwrap()
-            .downcast_mut::<u32>()
+            .try_downcast_mut::<u32>()
             .unwrap() = 20;
         assert_eq!(
             20,
@@ -581,7 +579,7 @@ mod tests {
 
         let foo2: Box<dyn PartialReflect> = Box::new(foo.clone());
 
-        assert_eq!(foo, *foo2.into_full().unwrap().downcast::<Foo>().unwrap());
+        assert_eq!(foo, *foo2.try_downcast::<Foo>().unwrap());
     }
 
     #[test]
@@ -616,7 +614,7 @@ mod tests {
         }
 
         let x: Box<dyn PartialReflect> = Box::new(Bar { x: 2 });
-        let y = x.into_full().unwrap().take::<Bar>().unwrap();
+        let y = x.try_take::<Bar>().unwrap();
         assert_eq!(y, Bar { x: 2 });
     }
 

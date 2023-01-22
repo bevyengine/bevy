@@ -380,15 +380,13 @@ impl_reflect_for_veclike!(
 
 impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Map for HashMap<K, V> {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
-        key.as_full()?
-            .downcast_ref::<K>()
+        key.try_downcast_ref::<K>()
             .and_then(|key| HashMap::get(self, key))
             .map(|value| value as &dyn PartialReflect)
     }
 
     fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
-        key.as_full()?
-            .downcast_ref::<K>()
+        key.try_downcast_ref::<K>()
             .and_then(move |key| HashMap::get_mut(self, key))
             .map(|value| value as &mut dyn PartialReflect)
     }
@@ -453,8 +451,7 @@ impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Map for Has
 
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
         let mut from_reflect = None;
-        key.as_full()?
-            .downcast_ref::<K>()
+        key.try_downcast_ref::<K>()
             .or_else(|| {
                 from_reflect = K::from_reflect(key);
                 from_reflect.as_ref()

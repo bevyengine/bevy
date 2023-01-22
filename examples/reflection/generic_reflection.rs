@@ -1,6 +1,6 @@
 //! Demonstrates how reflection is used with generic Rust types.
 
-use bevy::{prelude::*, reflect::Reflect};
+use bevy::prelude::*;
 use std::any::TypeId;
 
 fn main() {
@@ -13,7 +13,7 @@ fn main() {
 }
 
 #[derive(Reflect)]
-struct MyType<T: PartialReflect> {
+struct MyType<T: Reflect> {
     value: T,
 }
 

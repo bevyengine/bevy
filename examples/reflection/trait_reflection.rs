@@ -1,6 +1,6 @@
 //! Allows reflection with trait objects.
 
-use bevy::{prelude::*, reflect::Reflect};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

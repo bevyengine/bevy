@@ -158,7 +158,7 @@ impl DynamicList {
         self.values.push(Box::new(value));
     }
 
-    /// Appends a [`Reflect`](crate::Reflect) trait object to the list.
+    /// Appends a [`PartialReflect`] trait object to the list.
     pub fn push_box(&mut self, value: Box<dyn PartialReflect>) {
         self.values.push(value);
     }
@@ -418,9 +418,7 @@ mod tests {
         let items = list.into_iter();
         for (index, item) in items.into_iter().enumerate() {
             let value = item
-                .into_full()
-                .unwrap()
-                .take::<usize>()
+                .try_take::<usize>()
                 .expect("couldn't downcast to usize");
             assert_eq!(index, value);
         }

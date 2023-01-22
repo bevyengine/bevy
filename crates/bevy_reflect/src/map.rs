@@ -474,15 +474,11 @@ mod tests {
         for (index, item) in map.into_iter().enumerate() {
             let key = item
                 .0
-                .into_full()
-                .unwrap()
-                .take::<usize>()
+                .try_take::<usize>()
                 .expect("couldn't downcast to usize");
             let value = item
                 .1
-                .into_full()
-                .unwrap()
-                .take::<String>()
+                .try_take::<String>()
                 .expect("couldn't downcast to String");
             assert_eq!(index, key);
             assert_eq!(expected[index], value);
