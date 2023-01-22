@@ -1235,8 +1235,7 @@ impl PartialReflect for &'static Path {
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>()
-        {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
             Some(std::cmp::PartialEq::eq(self, value))
         } else {
             Some(false)

@@ -464,7 +464,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 mod tests {
     use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
-    use crate::{FromReflect, ReflectSerialize, TypeRegistry, Reflect};
+    use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
