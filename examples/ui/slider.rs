@@ -162,9 +162,9 @@ fn update_slider_handle_color(
         for child in slider_children.iter() {
             if let Ok(mut handle_color) = slider_handle_query.get_mut(*child) {
                 handle_color.0 = if *slider_interaction == Interaction::Clicked {
-                    DRAGGED_HANDLE_COLOR.into()
+                    DRAGGED_HANDLE_COLOR
                 } else {
-                    DEFAULT_HANDLE_COLOR.into()
+                    DEFAULT_HANDLE_COLOR
                 };
             }
         }
