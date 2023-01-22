@@ -523,11 +523,12 @@ pub fn prepare_uinodes(
             uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
         }
 
+        let color = extracted_uinode.background_color.as_linear_rgba_f32();
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color: extracted_uinode.background_color.as_linear_rgba_f32(),
+                color,
             });
         }
 
