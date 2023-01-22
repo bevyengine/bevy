@@ -464,3 +464,320 @@ impl FromReflectError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::{
+        DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
+        DynamicVariant, FromReflect, FromReflectError, Reflect, ReflectKind, TypeInfo,
+    };
+    use bevy_utils::HashMap;
+    use std::borrow::Cow;
+
+    #[test]
+    fn check_invalid_type() {
+        #[derive(Reflect, FromReflect)]
+        struct Rectangle {
+            height: i32,
+            width: i32,
+        }
+
+        let result = Rectangle::from_reflect(&vec![1, 2, 3, 4, 5]);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::InvalidType {
+                    from_type: TypeInfo::List(_),
+                    from_kind: ReflectKind::List,
+                    to_type: TypeInfo::Struct(_),
+                })
+            ),
+            "Incorrect error handling of FromReflectError::InvalidType"
+        );
+    }
+
+    #[test]
+    fn check_invalid_length() {
+        let result = <[i32; 10]>::from_reflect(&[1, 2, 3, 4, 5]);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::InvalidLength {
+                    from_type: TypeInfo::Array(_),
+                    from_kind: ReflectKind::Array,
+                    to_type: TypeInfo::Array(_),
+                    from_len: 5,
+                    to_len: 10,
+                })
+            ),
+            "Incorrect error handling of FromReflectError::InvalidLength"
+        );
+    }
+
+    #[test]
+    fn check_missing_named_field() {
+        #[derive(Reflect, FromReflect)]
+        struct Rectangle {
+            height: i32,
+            width: i32,
+        }
+
+        let mut dyn_struct = DynamicStruct::default();
+        dyn_struct.insert("height", 5);
+
+        let result = Rectangle::from_reflect(&dyn_struct);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::MissingNamedField {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Struct,
+                    to_type: TypeInfo::Struct(_),
+                    field: "width",
+                })
+            ),
+            "Incorrect error handling of FromReflectError::MissingNamedField"
+        );
+    }
+
+    #[test]
+    fn check_missing_unnamed_field() {
+        #[derive(Reflect, FromReflect)]
+        struct Rectangle(i32, i32);
+
+        let mut dyn_tuple_struct = DynamicTupleStruct::default();
+        dyn_tuple_struct.insert(5);
+
+        let result = Rectangle::from_reflect(&dyn_tuple_struct);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::MissingUnnamedField {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::TupleStruct,
+                    to_type: TypeInfo::TupleStruct(_),
+                    index: 1,
+                })
+            ),
+            "Incorrect error handling of FromReflectError::MissingUnnamedField"
+        );
+    }
+
+    #[test]
+    fn check_missing_index() {
+        let mut dyn_tuple = DynamicTuple::default();
+        dyn_tuple.insert(5);
+
+        let result = <(i32, i32)>::from_reflect(&dyn_tuple);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::MissingIndex {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Tuple,
+                    to_type: TypeInfo::Tuple(_),
+                    index: 1,
+                })
+            ),
+            "Incorrect error handling of FromReflectError::MissingIndex"
+        );
+    }
+
+    #[test]
+    fn check_missing_variant() {
+        #[derive(Reflect, FromReflect)]
+        enum Shape {
+            Point,
+            Circle(i32),
+            Rectangle { height: i32, width: i32 },
+        }
+
+        let dyn_enum = DynamicEnum::new("Shape", "None", DynamicVariant::Unit);
+        let result = Shape::from_reflect(&dyn_enum);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::MissingVariant {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Enum,
+                    to_type: TypeInfo::Enum(_),
+                    variant: Cow::Owned(x),
+                }) if x.as_str() == "None"
+            ),
+            "Incorrect error handling of FromReflectError::MissingVariant"
+        );
+    }
+
+    #[test]
+    fn check_named_field_error() {
+        #[derive(Reflect, FromReflect)]
+        struct Rectangle {
+            height: i32,
+            width: i32,
+        }
+
+        let mut dyn_struct = DynamicStruct::default();
+        dyn_struct.insert("height", 5);
+        dyn_struct.insert("width", 3.2);
+
+        let result = Rectangle::from_reflect(&dyn_struct);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::NamedFieldError {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Struct,
+                    to_type: TypeInfo::Struct(_),
+                    field: "width",
+                    source,
+                }) if matches!(*source, FromReflectError::InvalidType { .. })
+            ),
+            "Incorrect error handling of FromReflectError::NamedFieldError"
+        );
+    }
+
+    #[test]
+    fn check_unnamed_field_error() {
+        #[derive(Reflect, FromReflect)]
+        struct Rectangle(i32, i32);
+
+        let mut dyn_tuple_struct = DynamicTupleStruct::default();
+        dyn_tuple_struct.insert(5);
+        dyn_tuple_struct.insert(3.2);
+
+        let result = Rectangle::from_reflect(&dyn_tuple_struct);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::UnnamedFieldError {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::TupleStruct,
+                    to_type: TypeInfo::TupleStruct(_),
+                    index: 1,
+                    source,
+                }) if matches!(*source, FromReflectError::InvalidType { .. })
+            ),
+            "Incorrect error handling of FromReflectError::UnnamedFieldError"
+        );
+    }
+
+    #[test]
+    fn check_index_error() {
+        #[derive(Reflect, FromReflect)]
+        struct Rectangle(i32, i32);
+
+        let mut dyn_list = DynamicList::default();
+        dyn_list.push(1);
+        dyn_list.push(2);
+        dyn_list.push(3.2);
+
+        let result = Vec::<i32>::from_reflect(&dyn_list);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::IndexError {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::List,
+                    to_type: TypeInfo::List(_),
+                    index: 2,
+                    source,
+                }) if matches!(*source, FromReflectError::InvalidType { .. })
+            ),
+            "Incorrect error handling of FromReflectError::IndexError"
+        );
+    }
+
+    #[test]
+    fn check_variant_error() {
+        #[derive(Reflect, FromReflect)]
+        enum Shape {
+            Point,
+            Circle(i32),
+            Rectangle { height: i32, width: i32 },
+        }
+
+        let mut dyn_struct = DynamicStruct::default();
+        dyn_struct.insert("height", 5);
+        dyn_struct.insert("width", 3.2);
+        let dyn_enum = DynamicEnum::new("Shape", "Rectangle", DynamicVariant::Struct(dyn_struct));
+
+        let result = Shape::from_reflect(&dyn_enum);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::VariantError {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Enum,
+                    to_type: TypeInfo::Enum(_),
+                    variant: Cow::Borrowed("Rectangle"),
+                    source,
+                }) if matches!(
+                    &*source,
+                    FromReflectError::NamedFieldError {
+                        from_type: TypeInfo::Dynamic(_),
+                        from_kind: ReflectKind::Enum,
+                        to_type: TypeInfo::Enum(_),
+                        field: "width",
+                        source: inner_source,
+                    } if matches!(**inner_source, FromReflectError::InvalidType { .. })
+                )
+            ),
+            "Incorrect error handling of FromReflectError::VariantError"
+        );
+    }
+
+    #[test]
+    fn check_key_error() {
+        let mut dyn_map = DynamicMap::default();
+        dyn_map.insert(String::from("a"), 5);
+        dyn_map.insert(9, 2);
+
+        let result = HashMap::<String, i32>::from_reflect(&dyn_map);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::KeyError {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Map,
+                    to_type: TypeInfo::Map(_),
+                    source,
+                }) if matches!(*source, FromReflectError::InvalidType { .. })
+            ),
+            "Incorrect error handling of FromReflectError::KeyError"
+        );
+    }
+
+    #[test]
+    fn check_value_error() {
+        let mut dyn_map = DynamicMap::default();
+        dyn_map.insert(String::from("a"), 5);
+        dyn_map.insert(String::from("b"), 3.2);
+
+        let result = HashMap::<String, i32>::from_reflect(&dyn_map);
+
+        assert!(
+            matches!(
+                result,
+                Err(FromReflectError::ValueError {
+                    from_type: TypeInfo::Dynamic(_),
+                    from_kind: ReflectKind::Map,
+                    to_type: TypeInfo::Map(_),
+                    source,
+                }) if matches!(*source, FromReflectError::InvalidType { .. })
+            ),
+            "Incorrect error handling of FromReflectError::ValueError"
+        );
+    }
+}
