@@ -160,6 +160,24 @@ pub struct Window {
     pub fit_canvas_to_parent: bool,
     /// Stores internal state that isn't directly accessible.
     pub internal: InternalWindowState,
+    /// Should the window use Input Method Editor?
+    ///
+    /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
+    /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
+    /// [`KeyboardInput`](bevy_input::keyboard::KeyboardInput).
+    ///
+    /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
+    ///
+    ///  ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub ime_enabled: bool,
+    /// Sets location of IME candidate box in client area coordinates relative to the top left.
+    ///
+    ///  ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub ime_position: Vec2,
 }
 
 impl Default for Window {
@@ -174,6 +192,8 @@ impl Default for Window {
             internal: Default::default(),
             composite_alpha_mode: Default::default(),
             resize_constraints: Default::default(),
+            ime_enabled: Default::default(),
+            ime_position: Default::default(),
             resizable: true,
             decorations: true,
             transparent: false,
