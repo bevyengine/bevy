@@ -1,6 +1,6 @@
 use slotmap::HopSlotMap;
 
-use crate::graphs::keys::NodeIdx;
+use crate::{graphs::keys::NodeIdx, utils::wrapped_iterator::WrappedIterator};
 
 /// An iterator which converts `&NodeIdx` to a `&'g N` of the graph
 pub struct NodesByIdx<'g, N: 'g, I: Iterator<Item = &'g NodeIdx>> {
@@ -13,10 +13,13 @@ impl<'g, N: 'g, I: Iterator<Item = &'g NodeIdx>> NodesByIdx<'g, N, I> {
     pub fn new(inner: I, nodes: &'g HopSlotMap<NodeIdx, N>) -> Self {
         Self { nodes, inner }
     }
+}
 
-    /// Returns the inner iterator which yields `NodeIdx`
+impl<'g, N: 'g, I: Iterator<Item = &'g NodeIdx>> WrappedIterator<Self, &'g N, I>
+    for NodesByIdx<'g, N, I>
+{
     #[inline]
-    pub fn into_indices_iter(self) -> I {
+    fn into_inner(self) -> I {
         self.inner
     }
 }

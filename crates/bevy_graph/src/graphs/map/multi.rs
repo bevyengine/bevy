@@ -10,7 +10,7 @@ use crate::{
         DirectedGraph, Graph,
     },
     iters,
-    utils::vecset::VecSet,
+    utils::{vecset::VecSet, wrapped_iterator::WrappedIterator},
 };
 
 type MultiMapStorage = HashMap<NodeIdx, Vec<EdgeIdx>>;
@@ -110,9 +110,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
             Err(GraphError::NodeNotFound(dst))
         } else {
             unsafe {
-                let idx = self
-                    .edges
-                    .insert_with_key(|index| Edge(src, dst, value, index));
+                let idx = self.edges.insert(Edge(src, dst, value));
                 self.adjacencies
                     .get_unchecked_mut(src)
                     .outgoing_mut()
@@ -147,11 +145,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         if self.has_node(index) {
             let edges_to_remove = self
                 .edges_of(index)
-                .map(|edge| edge.3)
+                .into_inner()
+                .cloned()
                 .collect::<Vec<EdgeIdx>>();
             for edge_idx in edges_to_remove {
                 unsafe {
-                    let Edge(src, dst, _, _) = self.edges.remove(edge_idx).unwrap_unchecked();
+                    let Edge(src, dst, _) = self.edges.remove(edge_idx).unwrap_unchecked();
                     self.adjacencies
                         .get_unchecked_mut(src)
                         .outgoing_mut()
@@ -176,7 +175,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
-        if let Some(Edge(src, dst, value, _)) = self.edges.remove(index) {
+        if let Some(Edge(src, dst, value)) = self.edges.remove(index) {
             unsafe {
                 self.adjacencies
                     .get_unchecked_mut(src)
@@ -273,12 +272,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type EdgesOf<'e> = std::iter::Empty<EdgeRef<'e, E>> where Self: 'e;
+    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
     fn edges_of(&self, _index: NodeIdx) -> Self::EdgesOf<'_> {
         todo!()
     }
 
-    type EdgesOfMut<'e> = std::iter::Empty<EdgeMut<'e, E>> where Self: 'e;
+    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
     fn edges_of_mut(&mut self, _index: NodeIdx) -> Self::EdgesOfMut<'_> {
         todo!()
     }
@@ -387,7 +386,7 @@ impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
             .values_mut()
             .for_each(|map| map.for_each_mut(HashMap::clear));
 
-        for (index, Edge(src, dst, _, _)) in &mut self.edges {
+        for (index, Edge(src, dst, _)) in &mut self.edges {
             std::mem::swap(src, dst);
             self.adjacencies[*dst]
                 .outgoing_mut()
@@ -403,7 +402,7 @@ impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
     }
 
     fn reverse_edge(&mut self, index: EdgeIdx) {
-        if let Some(Edge(src, dst, _, _)) = self.edges.get_mut(index) {
+        if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
             self.adjacencies[*src]
                 .outgoing_mut()
                 .get_mut(dst)

@@ -1,8 +1,11 @@
 use slotmap::HopSlotMap;
 
-use crate::graphs::{
-    edge::{Edge, EdgeMut},
-    keys::EdgeIdx,
+use crate::{
+    graphs::{
+        edge::{Edge, EdgeMut},
+        keys::EdgeIdx,
+    },
+    utils::wrapped_iterator::WrappedIterator,
 };
 
 /// An iterator which converts `&EdgeIdx` to a `EdgeMut<E>` of the graph
@@ -18,6 +21,15 @@ impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdxMut<'g, E, I> {
     }
 }
 
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> WrappedIterator<Self, EdgeMut<'g, E>, I>
+    for EdgesByIdxMut<'g, E, I>
+{
+    #[inline]
+    fn into_inner(self) -> I {
+        self.inner
+    }
+}
+
 impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> Iterator for EdgesByIdxMut<'g, E, I> {
     type Item = EdgeMut<'g, E>;
 
@@ -28,7 +40,7 @@ impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> Iterator for EdgesByIdxMut<'g, 
             unsafe {
                 self.edges.get_mut(*index).map(|edge| {
                     let ptr: *mut E = &mut edge.2;
-                    EdgeMut(edge.0, edge.1, &mut *ptr, edge.3)
+                    EdgeMut(edge.0, edge.1, &mut *ptr)
                 })
             }
         } else {

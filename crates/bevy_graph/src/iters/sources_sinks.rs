@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
-use crate::graphs::keys::NodeIdx;
+use crate::{graphs::keys::NodeIdx, utils::wrapped_iterator::WrappedIterator};
 
 /// An iterator which iterates every source / sink node of a graph
-pub struct SourcesSinks<N, I: Iterator<Item = ((NodeIdx, N), usize)>> {
+pub struct SourcesSinks<T, I: Iterator<Item = ((NodeIdx, T), usize)>> {
     inner: I,
-    phantom: PhantomData<N>,
+    phantom: PhantomData<T>,
 }
 
-impl<N, I: Iterator<Item = ((NodeIdx, N), usize)>> SourcesSinks<N, I> {
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> SourcesSinks<T, I> {
     /// An iterator which iterates every source / sink node of a graph
     pub fn new(inner: I) -> Self {
         Self {
@@ -18,8 +18,17 @@ impl<N, I: Iterator<Item = ((NodeIdx, N), usize)>> SourcesSinks<N, I> {
     }
 }
 
-impl<N, I: Iterator<Item = ((NodeIdx, N), usize)>> Iterator for SourcesSinks<N, I> {
-    type Item = N;
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> WrappedIterator<Self, T, I>
+    for SourcesSinks<T, I>
+{
+    #[inline]
+    fn into_inner(self) -> I {
+        self.inner
+    }
+}
+
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> Iterator for SourcesSinks<T, I> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner

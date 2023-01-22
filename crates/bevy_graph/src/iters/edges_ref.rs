@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::graphs::edge::{Edge, EdgeRef};
+use crate::{
+    graphs::edge::{Edge, EdgeRef},
+    utils::wrapped_iterator::WrappedIterator,
+};
 
 /// An iterator which converts `&'g Edge<E>` to a `EdgeRef<'g, E>`
 pub struct EdgesRef<'g, E: 'g, I: Iterator<Item = &'g Edge<E>>> {
@@ -15,6 +18,15 @@ impl<'g, E: 'g, I: Iterator<Item = &'g Edge<E>>> EdgesRef<'g, E, I> {
             inner,
             phantom: PhantomData,
         }
+    }
+}
+
+impl<'g, E: 'g, I: Iterator<Item = &'g Edge<E>>> WrappedIterator<Self, EdgeRef<'g, E>, I>
+    for EdgesRef<'g, E, I>
+{
+    #[inline]
+    fn into_inner(self) -> I {
+        self.inner
     }
 }
 

@@ -1,8 +1,11 @@
 use slotmap::HopSlotMap;
 
-use crate::graphs::{
-    edge::{Edge, EdgeRef},
-    keys::EdgeIdx,
+use crate::{
+    graphs::{
+        edge::{Edge, EdgeRef},
+        keys::EdgeIdx,
+    },
+    utils::wrapped_iterator::WrappedIterator,
 };
 
 /// An iterator which converts `&EdgeIdx` to a `EdgeRef<E>` of the graph
@@ -16,10 +19,13 @@ impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdx<'g, E, I> {
     pub fn new(inner: I, edges: &'g HopSlotMap<EdgeIdx, Edge<E>>) -> Self {
         Self { edges, inner }
     }
+}
 
-    /// Returns the inner iterator which yields `EdgeIdx`
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> WrappedIterator<Self, EdgeRef<'g, E>, I>
+    for EdgesByIdx<'g, E, I>
+{
     #[inline]
-    pub fn into_indices_iter(self) -> I {
+    fn into_inner(self) -> I {
         self.inner
     }
 }
