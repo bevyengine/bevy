@@ -2,7 +2,7 @@
 
 use std::f32::consts::*;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, pbr::CascadeShadowConfig};
 
 fn main() {
     App::new()
@@ -26,6 +26,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             shadows_enabled: true,
             ..default()
         },
+        // This is a relatively small scene, so use tighter shadow
+        // cascade bounds than the default for better quality.
+        cascade_shadow_config: CascadeShadowConfig::new(1, 1.1, 1.5, 0.3),
         ..default()
     });
     commands.spawn(SceneBundle {
