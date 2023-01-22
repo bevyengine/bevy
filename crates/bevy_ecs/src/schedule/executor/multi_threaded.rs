@@ -156,53 +156,59 @@ impl SystemExecutor for MultiThreadedExecutor {
             mut conditions,
         } = SyncUnsafeSchedule::new(schedule);
 
-        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
-            // the executor itself is a `Send` future so that it can run
-            // alongside systems that claim the local thread
-            let executor = async {
-                while self.num_completed_systems < num_systems {
-                    // SAFETY: self.ready_systems does not contain running systems
-                    unsafe {
-                        self.spawn_system_tasks(scope, systems, &mut conditions, world);
-                    }
+        let thread_executor = world.get_resource::<MainThreadExecutor>().map(|e| &*e.0);
 
-                    if self.num_running_systems > 0 {
-                        // wait for systems to complete
-                        let index = self
-                            .receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
-
-                        self.finish_system_and_signal_dependents(index);
-
-                        while let Ok(index) = self.receiver.try_recv() {
-                            self.finish_system_and_signal_dependents(index);
+        ComputeTaskPool::init(TaskPool::default).scope_with_executor(
+            false,
+            thread_executor,
+            |scope| {
+                // the executor itself is a `Send` future so that it can run
+                // alongside systems that claim the local thread
+                let executor = async {
+                    while self.num_completed_systems < num_systems {
+                        // SAFETY: self.ready_systems does not contain running systems
+                        unsafe {
+                            self.spawn_system_tasks(scope, systems, &mut conditions, world);
                         }
 
-                        self.rebuild_active_access();
+                        if self.num_running_systems > 0 {
+                            // wait for systems to complete
+                            let index = self
+                                .receiver
+                                .recv()
+                                .await
+                                .unwrap_or_else(|error| unreachable!("{}", error));
+
+                            self.finish_system_and_signal_dependents(index);
+
+                            while let Ok(index) = self.receiver.try_recv() {
+                                self.finish_system_and_signal_dependents(index);
+                            }
+
+                            self.rebuild_active_access();
+                        }
                     }
-                }
 
-                // SAFETY: all systems have completed
-                let world = unsafe { &mut *world.get() };
-                apply_system_buffers(&mut self.unapplied_systems, systems, world);
+                    // SAFETY: all systems have completed
+                    let world = unsafe { &mut *world.get() };
+                    apply_system_buffers(&mut self.unapplied_systems, systems, world);
 
-                debug_assert!(self.ready_systems.is_clear());
-                debug_assert!(self.running_systems.is_clear());
-                debug_assert!(self.unapplied_systems.is_clear());
-                self.active_access.clear();
-                self.evaluated_sets.clear();
-                self.skipped_systems.clear();
-                self.completed_systems.clear();
-            };
+                    debug_assert!(self.ready_systems.is_clear());
+                    debug_assert!(self.running_systems.is_clear());
+                    debug_assert!(self.unapplied_systems.is_clear());
+                    self.active_access.clear();
+                    self.evaluated_sets.clear();
+                    self.skipped_systems.clear();
+                    self.completed_systems.clear();
+                };
 
-            #[cfg(feature = "trace")]
-            let executor_span = info_span!("schedule_task");
-            #[cfg(feature = "trace")]
-            let executor = executor.instrument(executor_span);
-            scope.spawn(executor);
-        });
+                #[cfg(feature = "trace")]
+                let executor_span = info_span!("schedule_task");
+                #[cfg(feature = "trace")]
+                let executor = executor.instrument(executor_span);
+                scope.spawn(executor);
+            },
+        );
     }
 }
 
