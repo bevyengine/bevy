@@ -1127,6 +1127,16 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
+[[example]]
+name = "text_input"
+path = "examples/input/text_input.rs"
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Simple text input with IME support"
+category = "Input"
+wasm = false
+
 # Reflection
 [[example]]
 name = "reflection"
