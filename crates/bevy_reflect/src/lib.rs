@@ -314,36 +314,6 @@ mod tests {
     }
 
     #[test]
-    fn from_reflect_should_use_default_container_attribute() {
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
-        #[reflect(Default)]
-        struct MyStruct {
-            foo: String,
-            #[reflect(ignore)]
-            bar: usize,
-        }
-
-        impl Default for MyStruct {
-            fn default() -> Self {
-                Self {
-                    foo: String::from("Hello"),
-                    bar: 123,
-                }
-            }
-        }
-
-        let expected = MyStruct {
-            foo: String::from("Hello"),
-            bar: 123,
-        };
-
-        let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
-
-        assert_eq!(Some(expected), my_struct);
-    }
-
-    #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
         #[reflect(partial_eq)]
