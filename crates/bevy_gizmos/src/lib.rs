@@ -21,19 +21,19 @@ use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
-pub mod gizmo_draw;
+pub mod draw;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::gizmo_draw::DrawGizmoStorage;
+use crate::draw::DrawGizmoStorage;
 
-/// The `bevy_debug_draw` prelude.
+/// The `bevy_gizmos` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{gizmo_draw::DrawGizmo, GizmoConfig};
+    pub use crate::{draw::DrawGizmo, GizmoConfig};
 }
 
 const SHADER_HANDLE: HandleUntyped =

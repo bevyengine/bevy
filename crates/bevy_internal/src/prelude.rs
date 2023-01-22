@@ -52,8 +52,8 @@ pub use crate::ui::prelude::*;
 pub use crate::dynamic_plugin::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_debug_draw")]
-pub use crate::debug_draw::prelude::*;
+#[cfg(feature = "bevy_gizmos")]
+pub use crate::gizmos::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]

@@ -167,10 +167,10 @@ pub mod winit {
     pub use bevy_winit::*;
 }
 
-#[cfg(feature = "bevy_debug_draw")]
-pub mod debug_draw {
+#[cfg(feature = "bevy_gizmos")]
+pub mod gizmos {
     //! Immediate mode debug drawing.
-    pub use bevy_debug_draw::*;
+    pub use bevy_gizmos::*;
 }
 
 #[cfg(feature = "bevy_dynamic_plugin")]

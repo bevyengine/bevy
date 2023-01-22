@@ -38,7 +38,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
-  "bevy_debug_draw",
+  "bevy_gizmos",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -70,7 +70,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
-bevy_debug_draw = ["bevy_internal/bevy_debug_draw"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
 # Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -206,10 +206,10 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "2d_debug_draw"
-path = "examples/2d/2d_debug_draw.rs"
+name = "2d_gizmos"
+path = "examples/2d/2d_gizmos.rs"
 
-[package.metadata.example.2d_debug_draw]
+[package.metadata.example.2d_gizmos]
 name = "2D Debug Drawing"
 description = "Simple 2D scene with basic shapes and lighting"
 category = "2D Rendering"
@@ -307,10 +307,10 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "3d_debug_draw"
-path = "examples/3d/3d_debug_draw.rs"
+name = "3d_gizmos"
+path = "examples/3d/3d_gizmos.rs"
 
-[package.metadata.example.3d_debug_draw]
+[package.metadata.example.3d_gizmos]
 name = "3D Debug Drawing"
 description = "Simple 3D scene with basic shapes and lighting"
 category = "3D Rendering"

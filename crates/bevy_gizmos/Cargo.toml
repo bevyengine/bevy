@@ -1,8 +1,8 @@
 [package]
-name = "bevy_debug_draw"
+name = "bevy_gizmos"
 version = "0.9.0"
 edition = "2021"
-description = "Provides debug drawing for Bevy Engine"
+description = "Provides gizmos for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"

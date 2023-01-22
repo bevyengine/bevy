@@ -34,9 +34,13 @@ fn system(mut draw: DrawGizmo, time: Res<Time>) {
     );
 
     draw.sphere(Vec3::new(1., 0.5, 0.), 0.5, Color::RED);
-    let vector = Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.);
-    for f in [0., 0.5, 1.] {
-        draw.ray(Vec3::new(1., f, 0.), vector, Color::BLUE);
+    
+    for y in [0., 0.5, 1.] {
+        draw.ray(
+            Vec3::new(1., y, 0.),
+            Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.),
+            Color::BLUE,
+        );
     }
 
     // Circles have 32 line-segments by default.
