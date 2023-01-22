@@ -25,7 +25,7 @@ pub enum ReflectRef<'a> {
     Array(&'a dyn Array),
     Map(&'a dyn Map),
     Enum(&'a dyn Enum),
-    Value(&'a dyn PartialReflect),
+    Value(&'a dyn Reflect),
 }
 
 /// A mutable enumeration of "kinds" of reflected type.
@@ -42,7 +42,7 @@ pub enum ReflectMut<'a> {
     Array(&'a mut dyn Array),
     Map(&'a mut dyn Map),
     Enum(&'a mut dyn Enum),
-    Value(&'a mut dyn PartialReflect),
+    Value(&'a mut dyn Reflect),
 }
 
 /// An owned enumeration of "kinds" of reflected type.
@@ -59,7 +59,7 @@ pub enum ReflectOwned {
     Array(Box<dyn Array>),
     Map(Box<dyn Map>),
     Enum(Box<dyn Enum>),
-    Value(Box<dyn PartialReflect>),
+    Value(Box<dyn Reflect>),
 }
 
 /// A partially reflected Rust type. See [`Reflect`] for fully reflected types.
@@ -98,10 +98,10 @@ pub trait PartialReflect: Any + Send + Sync {
     /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
     fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect>;
 
-    /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
+    /// Returns the value as a [`&dyn PartialReflect`](PartialReflect).
     fn as_partial(&self) -> &dyn PartialReflect;
 
-    /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
+    /// Returns the value as a [`&mut dyn PartialReflect`](PartialReflect).
     fn as_partial_mut(&mut self) -> &mut dyn PartialReflect;
 
     /// Applies a reflected value to this value.
@@ -344,7 +344,7 @@ mod sealed {
 /// and `Reflect` provides downcasting behavior.
 ///
 /// The reason for this split is that [certain types] used for reflection may represent many Rust types.
-/// Downcasting a value that may represent multiple types is conceptually undefined and may cause ,
+/// Downcasting a value that may represent multiple types is conceptually undefined
 /// so those types impement [`PartialReflect`] but not `Reflect`.
 ///
 /// Conversion between the two is provided by [`PartialReflect::as_full`] (fallible)

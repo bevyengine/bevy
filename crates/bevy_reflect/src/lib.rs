@@ -40,7 +40,7 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetTupleStructField, PartialReflect,
+        reflect_trait, FromReflect, GetField, GetTupleStructField, PartialReflect, Reflect,
         ReflectDeserialize, ReflectSerialize, Struct, TupleStruct,
     };
 }

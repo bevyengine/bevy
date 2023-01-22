@@ -4,8 +4,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
 

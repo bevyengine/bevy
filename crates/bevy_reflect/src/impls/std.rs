@@ -758,25 +758,6 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 }
 
-// // TODO:
-// // `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
-// // Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
-// // This can be changed to use const generics once serde utilizes const generics for arrays.
-// // Tracking issue: https://github.com/serde-rs/serde/issues/1937
-// macro_rules! impl_array_get_type_registration {
-//     ($($N:expr)+) => {
-//         $(
-//         )+
-//     };
-// }
-
-// impl_array_get_type_registration! {
-//      0  1  2  3  4  5  6  7  8  9
-//     10 11 12 13 14 15 16 17 18 19
-//     20 21 22 23 24 25 26 27 28 29
-//     30 31 32
-// }
-
 impl<T: FromReflect> GetTypeRegistration for Option<T> {
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<Option<T>>()
@@ -1257,9 +1238,7 @@ impl PartialReflect for &'static Path {
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value
-            .as_full()
-            .and_then(<dyn Reflect>::downcast_ref::<Self>)
+        if let Some(value) = value.try_downcast_ref::<Self>()
         {
             Some(std::cmp::PartialEq::eq(self, value))
         } else {
