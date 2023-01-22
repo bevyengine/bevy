@@ -9,14 +9,17 @@ use bevy_internal::log::LogPlugin;
 use bevy_internal::render::mesh::MeshPlugin;
 use bevy_internal::render::render_resource::ShaderLoader;
 use bevy_internal::scene::SceneLoader;
+use std::time::Instant;
+
+const ASSET_LOADER_TIMEOUT: u128 = 500;
 
 #[cfg(feature = "png")]
 #[test]
 fn load_png() {
     let mut app = setup_test_app();
 
-    let image: &Image = assert_asset_loads(&mut app, "load_tests/bevy_pixel.png");
-    assert_eq!(image.size(), Vec2::new(128., 96.));
+    let image: &Image = assert_asset_loads(&mut app, "load_tests/colors.png");
+    assert_image_loaded_properly(image);
 }
 
 #[cfg(feature = "jpeg")]
@@ -24,8 +27,8 @@ fn load_png() {
 fn load_jpeg() {
     let mut app = setup_test_app();
 
-    let image: &Image = assert_asset_loads(&mut app, "load_tests/bevy_pixel.jpg");
-    assert_eq!(image.size(), Vec2::new(128., 96.));
+    let image: &Image = assert_asset_loads(&mut app, "load_tests/colors.jpg");
+    assert_image_loaded_properly(image);
 }
 
 #[cfg(feature = "bmp")]
@@ -33,8 +36,8 @@ fn load_jpeg() {
 fn load_bmp() {
     let mut app = setup_test_app();
 
-    let image: &Image = assert_asset_loads(&mut app, "load_tests/bevy_pixel.bmp");
-    assert_eq!(image.size(), Vec2::new(128., 96.));
+    let image: &Image = assert_asset_loads(&mut app, "load_tests/colors.bmp");
+    assert_image_loaded_properly(image);
 }
 
 #[cfg(feature = "tga")]
@@ -42,8 +45,12 @@ fn load_bmp() {
 fn load_tga() {
     let mut app = setup_test_app();
 
-    let image: &Image = assert_asset_loads(&mut app, "load_tests/bevy_pixel.tga");
-    assert_eq!(image.size(), Vec2::new(128., 96.));
+    let image: &Image = assert_asset_loads(&mut app, "load_tests/colors.tga");
+    assert_image_loaded_properly(image);
+}
+
+fn assert_image_loaded_properly(image: &Image) {
+    assert_eq!(image.size(), Vec2::new(100., 50.));
 }
 
 #[cfg(feature = "bevy_gltf")]
@@ -82,10 +89,16 @@ fn setup_test_app() -> App {
 /// Convenience function that will return once the desired asset is loaded.
 /// Panics if the asset loading fails for any reason.
 fn assert_asset_loads<'a, T: Asset>(app: &'a mut App, path: &str) -> &'a T {
+    let start = Instant::now();
+
     let asset_server: &AssetServer = app.world.resource();
     let handle: Handle<T> = asset_server.load(path);
 
     loop {
+        if start.elapsed().as_millis() > ASSET_LOADER_TIMEOUT {
+            panic!("Loading asset with path `{path}` timed out.");
+        }
+
         app.update();
 
         let asset_server: &AssetServer = app.world.resource();
