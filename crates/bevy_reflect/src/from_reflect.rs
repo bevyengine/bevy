@@ -185,8 +185,8 @@ pub enum FromReflectError {
 
     /// The source type did not have a field at index given by the parameter `index`.
     ///
-    /// This error is given by types of [kind](ReflectKind) [`TupleStruct`](crate::TupleStruct) and
-    /// [`Enum`](crate::Enum).
+    /// This error is given by types of [kind](ReflectKind) [`TupleStruct`](crate::TupleStruct),
+    /// [`Tuple`](crate::Tuple) and [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing field at index {}", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     MissingUnnamedField {
@@ -200,25 +200,6 @@ pub enum FromReflectError {
         to_type: &'static TypeInfo,
 
         /// Index of missing field in source type.
-        index: usize,
-    },
-
-    /// The source type did not have a value at index given by the parameter `index`.
-    ///
-    /// This error is given by types of [kind](ReflectKind) [`Tuple`](crate::Tuple).
-    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing value at index {}",
-            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
-    MissingIndex {
-        /// [`TypeInfo`] of the source type.
-        from_type: &'static TypeInfo,
-
-        /// [`ReflectKind`] of the source type.
-        from_kind: ReflectKind,
-
-        /// [`TypeInfo`] of the target type.
-        to_type: &'static TypeInfo,
-
-        /// Index of missing value in source type.
         index: usize,
     },
 
@@ -270,8 +251,8 @@ pub enum FromReflectError {
     ///
     /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
     ///
-    /// This error is given by types of [kind](ReflectKind) [`TupleStruct`](crate::TupleStruct)
-    /// and [`Enum`](crate::Enum).
+    /// This error is given by types of [kind](ReflectKind) [`TupleStruct`](crate::TupleStruct),
+    /// [`Tuple`](crate::Tuple) and [`Enum`](crate::Enum).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field at index {}", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     UnnamedFieldError {
@@ -296,7 +277,7 @@ pub enum FromReflectError {
     /// Use [`Error::source`](std::error::Error::source) to get the underlying error.
     ///
     /// This error is given by types of [kind](ReflectKind) [`List`](crate::List) and
-    /// [`Enum`](crate::Enum).
+    /// [`Array`](crate::Array).
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the value at index `{}`",
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
     IndexError {
@@ -391,7 +372,6 @@ impl FromReflectError {
             | Self::InvalidLength { from_type, .. }
             | Self::MissingNamedField { from_type, .. }
             | Self::MissingUnnamedField { from_type, .. }
-            | Self::MissingIndex { from_type, .. }
             | Self::MissingVariant { from_type, .. }
             | Self::NamedFieldError { from_type, .. }
             | Self::UnnamedFieldError { from_type, .. }
@@ -409,7 +389,6 @@ impl FromReflectError {
             | Self::InvalidLength { to_type, .. }
             | Self::MissingNamedField { to_type, .. }
             | Self::MissingUnnamedField { to_type, .. }
-            | Self::MissingIndex { to_type, .. }
             | Self::MissingVariant { to_type, .. }
             | Self::NamedFieldError { to_type, .. }
             | Self::UnnamedFieldError { to_type, .. }
@@ -427,7 +406,6 @@ impl FromReflectError {
             | Self::InvalidLength { from_kind, .. }
             | Self::MissingNamedField { from_kind, .. }
             | Self::MissingUnnamedField { from_kind, .. }
-            | Self::MissingIndex { from_kind, .. }
             | Self::MissingVariant { from_kind, .. }
             | Self::NamedFieldError { from_kind, .. }
             | Self::UnnamedFieldError { from_kind, .. }
@@ -469,8 +447,8 @@ impl FromReflectError {
 mod tests {
     use crate as bevy_reflect;
     use crate::{
-        DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
-        DynamicVariant, FromReflect, FromReflectError, Reflect, ReflectKind, TypeInfo,
+        DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTupleStruct, DynamicVariant,
+        FromReflect, FromReflectError, Reflect, ReflectKind, TypeInfo,
     };
     use bevy_utils::HashMap;
     use std::borrow::Cow;
@@ -565,27 +543,6 @@ mod tests {
                 })
             ),
             "Incorrect error handling of FromReflectError::MissingUnnamedField"
-        );
-    }
-
-    #[test]
-    fn check_missing_index() {
-        let mut dyn_tuple = DynamicTuple::default();
-        dyn_tuple.insert(5);
-
-        let result = <(i32, i32)>::from_reflect(&dyn_tuple);
-
-        assert!(
-            matches!(
-                result,
-                Err(FromReflectError::MissingIndex {
-                    from_type: TypeInfo::Dynamic(_),
-                    from_kind: ReflectKind::Tuple,
-                    to_type: TypeInfo::Tuple(_),
-                    index: 1,
-                })
-            ),
-            "Incorrect error handling of FromReflectError::MissingIndex"
         );
     }
 

@@ -604,13 +604,13 @@ macro_rules! impl_reflect_tuple {
                             $(
                                 <$name as FromReflect>::from_reflect(
                                     _ref_tuple.field($index)
-                                    .ok_or_else(|| FromReflectError::MissingIndex {
+                                    .ok_or_else(|| FromReflectError::MissingUnnamedField {
                                         from_type: reflect.get_type_info(),
                                         from_kind: reflect.reflect_kind(),
                                         to_type: Self::type_info(),
                                         index: $index,
                                     })?
-                                ).map_err(|err| FromReflectError::IndexError {
+                                ).map_err(|err| FromReflectError::UnnamedFieldError {
                                     from_type: reflect.get_type_info(),
                                     from_kind: reflect.reflect_kind(),
                                     to_type: Self::type_info(),
