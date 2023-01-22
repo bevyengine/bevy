@@ -9,15 +9,16 @@ use bevy_macro_utils::{
 };
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
-    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
-    Result, Token, TypeParam,
+    AngleBracketedGenericArguments, ConstParam, DeriveInput, Field, GenericArgument, GenericParam,
+    Ident, Index, Lifetime, LitInt, Meta, MetaList, NestedMeta, Path, PathArguments, PathSegment,
+    QSelf, Result, Token, Type, TypeParam, TypePath,
 };
 
 struct AllTuples {
@@ -261,6 +262,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
+                type ReadOnly<'w, 's> = ParamSet<'w, 's, (#(<#param as SystemParam>::ReadOnly::<'w, 's>,)*)>;
 
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
@@ -461,11 +463,233 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
 
+    let readonly_struct = format!("{}ReadOnly", struct_name);
+    let readonly_struct = Ident::new(&readonly_struct, struct_name.span());
+
+    let mut readonly_fields = Vec::new();
+
+    for (&(field, _), &ty) in field_attributes.iter().zip(field_types.iter()) {
+        let mut readonly_path = Punctuated::new();
+        readonly_path.extend(path.segments.clone());
+        let mut lifetime_generics = Punctuated::<_, Comma>::new();
+        lifetime_generics.extend([
+            GenericArgument::Lifetime(Lifetime {
+                apostrophe: field.span(),
+                ident: Ident::new("w", field.span()),
+            }),
+            GenericArgument::Lifetime(Lifetime {
+                apostrophe: field.span(),
+                ident: Ident::new("s", field.span()),
+            }),
+        ]);
+        readonly_path.extend([
+            PathSegment {
+                ident: Ident::new("system", field.span()),
+                arguments: PathArguments::None,
+            },
+            PathSegment {
+                ident: Ident::new("SystemParam", field.span()),
+                arguments: PathArguments::None,
+            },
+            PathSegment {
+                ident: Ident::new("ReadOnly", field.span()),
+                arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                    colon2_token: Some(Token![::](field.span())),
+                    lt_token: Token![<](field.span()),
+                    args: lifetime_generics,
+                    gt_token: Token![>](field.span()),
+                }),
+            },
+        ]);
+        readonly_fields.push(Type::Path(TypePath {
+            qself: Some(QSelf {
+                lt_token: Token![<](field.span()),
+                ty: Box::new(ty.clone()),
+                // #path::system::SystemParam
+                position: path.segments.len() + 2,
+                as_token: Some(Token![as](field.span())),
+                gt_token: Token![>](field.span()),
+            }),
+            path: Path {
+                leading_colon: None,
+                segments: readonly_path,
+            },
+        }));
+    }
+
+    let is_named = field_attributes
+        .get(0)
+        .and_then(|&(field, _)| field.ident.clone())
+        .is_some();
+
+    let readonly_field_names: Vec<_> = field_attributes
+        .iter()
+        .enumerate()
+        .map(|(i, (field, _))| {
+            field
+                .ident
+                .clone()
+                .map(ToTokens::into_token_stream)
+                .unwrap_or_else(|| Index::from(i).into_token_stream())
+        })
+        .collect();
+
+    let fields_length = readonly_field_names.len();
+    let (penultimate_index, ultimate_index) =
+        (Index::from(fields_length), Index::from(fields_length + 1));
+    // let lifetime_helper = |lifetime: &str| -> Type {
+    //     let ty = Type::Path(TypePath {
+    //         qself: None,
+    //         path: Path {
+    //             leading_colon: Some(Token![::](Span::call_site())),
+    //             segments: {
+    //                 let mut punctuated_path = Punctuated::new();
+
+    //                 punctuated_path.extend([
+    //                     PathSegment {
+    //                         ident: Ident::new("std", Span::call_site()),
+    //                         arguments: PathArguments::None,
+    //                     },
+    //                     PathSegment {
+    //                         ident: Ident::new("marker", Span::call_site()),
+    //                         arguments: PathArguments::None,
+    //                     },
+    //                     PathSegment {
+    //                         ident: Ident::new("PhantomData", Span::call_site()),
+    //                         arguments: PathArguments::Parenthesized(
+    //                             ParenthesizedGenericArguments {
+    //                                 paren_token: Paren(Span::call_site()),
+    //                                 inputs: {
+    //                                     let mut tys = Punctuated::new();
+    //                                     tys.extend([Type::Reference(TypeReference {
+    //                                         and_token: Token![&](Span::call_site()),
+    //                                         lifetime: Some(Lifetime {
+    //                                             apostrophe: Span::call_site(),
+    //                                             ident: Ident::new(lifetime, Span::call_site()),
+    //                                         }),
+    //                                         mutability: None,
+    //                                         elem: Box::new(Type::Tuple(TypeTuple {
+    //                                             paren_token: Paren(Span::call_site()),
+    //                                             elems: Punctuated::new(),
+    //                                         })),
+    //                                     })]);
+    //                                     tys
+    //                                 },
+    //                                 output: ReturnType::Default,
+    //                             },
+    //                         ),
+    //                     },
+    //                 ]);
+
+    //                 punctuated_path
+    //             },
+    //         },
+    //     });
+    //     ty
+    // };
+    // let penultimate_ty = lifetime_helper("w");
+    // let ultimate_ty = lifetime_helper("s");
+
+    let penultimate_field = if is_named {
+        Ident::new("__lifetime_bevy_world", Span::call_site()).into_token_stream()
+    } else {
+        penultimate_index.into_token_stream()
+    };
+
+    let ultimate_field = if is_named {
+        Ident::new("__lifetime_bevy_state", Span::call_site()).into_token_stream()
+    } else {
+        ultimate_index.into_token_stream()
+    };
+
+    let type_params = generics.type_params();
+    let const_params = generics.const_params();
+
+    let readonly_struct_definition = if is_named {
+        quote! {{
+            #(#readonly_field_names: #readonly_fields,)*
+            #(#ignored_fields: #ignored_field_types,)*
+            #penultimate_field: ::std::marker::PhantomData<&'w ()>,
+            #ultimate_field: ::std::marker::PhantomData<&'s ()>,
+        }}
+    } else {
+        quote! {(
+            #(#readonly_fields,)*
+            #(#ignored_field_types,)*
+            ::std::marker::PhantomData<&'w ()>,
+            ::std::marker::PhantomData<&'s ()>,
+        )}
+    };
+
+    let readonly_struct_construction = if is_named {
+        quote! {{
+            #(#fields: #field_locals,)*
+            #(#ignored_fields: <#ignored_field_types>::default(),)*
+            #penultimate_field: ::std::marker::PhantomData<&'w ()>,
+            #ultimate_field: ::std::marker::PhantomData<&'s ()>,
+        }}
+    } else {
+        quote! {(
+            #(#field_locals,)*
+            #(<#ignored_field_types>::default(),)*
+            ::std::marker::PhantomData<&'w ()>,
+            ::std::marker::PhantomData<&'s ()>,
+        )}
+    };
+
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
+            #[doc(hidden)]
+            #state_struct_visibility struct ReadOnlyFetchState <'w, 's, #(#lifetimeless_generics,)*>
+            #where_clause {
+                state: (#(<<#tuple_types as #path::system::SystemParam>::ReadOnly::<'w, 's> as #path::system::SystemParam>::State,)*),
+                marker: std::marker::PhantomData<(
+                    <<#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::ReadOnly::<'w, 's> as #path::system::SystemParam>::State,
+                    #(fn() -> #ignored_field_types,)*
+                )>,
+            }
+
+            #state_struct_visibility struct #readonly_struct <'w, 's, #(#type_params,)* #(#const_params,)*> #where_clause #readonly_struct_definition
+
+            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #readonly_struct <'w, 's, #punctuated_generic_idents> #where_clause {
+                type State = ReadOnlyFetchState<'static, 'static, #punctuated_generic_idents>;
+                type Item<'_w, '_s> = #readonly_struct <'_w, '_s, #punctuated_generic_idents>;
+                type ReadOnly<'_w, '_s> = #readonly_struct  <'_w, '_s, #punctuated_generic_idents> ;
+
+                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                    ReadOnlyFetchState {
+                        state: <<(#(#tuple_types,)*) as #path::system::SystemParam>::ReadOnly::<'w, 's> as #path::system::SystemParam>::init_state(world, system_meta),
+                        marker: std::marker::PhantomData,
+                    }
+                }
+
+                fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                    <<(#(#tuple_types,)*) as #path::system::SystemParam>::ReadOnly::<'w, 's> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
+                }
+
+                fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
+                    <<(#(#tuple_types,)*) as #path::system::SystemParam>::ReadOnly::<'w, 's> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                }
+
+                unsafe fn get_param<'w2, 's2>(
+                    state: &'s2 mut Self::State,
+                    system_meta: &#path::system::SystemMeta,
+                    world: &'w2 #path::world::World,
+                    change_tick: u32,
+                ) -> Self::Item<'w2, 's2> {
+                    let (#(#tuple_patterns,)*) = <<
+                        (#(#tuple_types,)*) as #path::system::SystemParam
+                    >::ReadOnly::<'w, 's> as #path::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
+                    #readonly_struct #readonly_struct_construction
+                }
+            }
+
+            // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
+            unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #readonly_struct <'w, 's, #punctuated_generic_idents> #where_clause {}
+
             #[doc(hidden)]
             #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*>
             #where_clause {
@@ -476,9 +700,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 )>,
             }
 
+
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
                 type State = FetchState<'static, 'static, #punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
+                type ReadOnly<'_w, '_s> = #readonly_struct  <'_w, '_s, #punctuated_generic_idents> ;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     FetchState {
