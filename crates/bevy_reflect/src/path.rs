@@ -296,9 +296,49 @@ pub struct ParsedPath(
 impl ParsedPath {
     /// Parses a [`ParsedPath`] from a string.
     ///
-    /// See [`GetPath`] for the exact path format.
-    ///
     /// Returns an error if the string does not represent a valid path to an element.
+    ///
+    /// The exact format for path strings can be found in the documentation for [`GetPath`].
+    /// In short, though, a path consists of one or more chained accessor strings.
+    /// These are:
+    /// - Named field access (`.field`)
+    /// - Unnamed field access (`.1`)
+    /// - Field index access (`#0`)
+    /// - Sequence access (`[2]`)
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect};
+    /// #[derive(Reflect)]
+    /// struct Foo {
+    ///   bar: Bar,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Bar {
+    ///   baz: Baz,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Baz(f32, Vec<Option<u32>>);
+    ///
+    /// let foo = Foo {
+    ///   bar: Bar {
+    ///     baz: Baz(3.14, vec![None, None, Some(123)])
+    ///   },
+    /// };
+    ///
+    /// let parsed_path = ParsedPath::parse("bar#0.1[2].0").unwrap();
+    /// // Breakdown:
+    /// //   "bar" - Access struct field named "bar"
+    /// //   "#0" - Access struct field at index 0
+    /// //   ".1" - Access tuple struct field at index 1
+    /// //   "[2]" - Access list element at index 2
+    /// //   ".0" - Access tuple variant field at index 0
+    ///
+    /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
+    /// ```
+    ///
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
         for (access, idx) in PathParser::new(string) {
