@@ -56,7 +56,7 @@ pub trait MapEntities {
     ///
     /// Implementors should look up any and all [`Entity`] values stored within and
     /// update them to the mapped values via `entity_map`.
-    fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError>;
+    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) -> Result<(), MapEntitiesError>;
 }
 
 /// A mapping from one set of entities to another.
@@ -70,23 +70,22 @@ pub struct EntityMap {
     map: HashMap<Entity, Entity>,
 }
 
+/// A wrapper for [`EntityMap`], augmenting it with the ability to allocate new [`Entity`] references in a destination
+/// world. These newly allocated references are guaranteed to never point to any living entity in that world.
+///
+/// References are allocated by returning increasing generations starting from an internally initialized base
+/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
+/// requisite number of generations reserved.
 pub struct EntityMapper<'m> {
+    /// The wrapped [`EntityMap`].
     map: &'m mut EntityMap,
+    /// A base [`Entity`] used to allocate new references.
     dead_start: Entity,
+    /// The number of generations this mapper has allocated thus far.
     generations: u32,
 }
 
 impl<'m> EntityMapper<'m> {
-    /// Reserves the allocated dead entities within the world.
-    pub fn save(mut self, world: &mut World) {
-        if self.generations == 0 {
-            return;
-        }
-
-        assert!(world.reserve_generations(self.dead_start, self.generations));
-        self.generations = 0;
-    }
-
     /// Returns the corresponding mapped entity.
     pub fn get(&self, entity: Entity) -> Result<Entity, MapEntitiesError> {
         self.map.get(entity)
@@ -108,14 +107,37 @@ impl<'m> EntityMapper<'m> {
 
         new
     }
-}
 
-impl<'m> Drop for EntityMapper<'m> {
-    fn drop(&mut self) {
-        assert_eq!(
-            0, self.generations,
-            "EntityMapper not saved before being dropped"
-        );
+    /// Gets a reference to the underlying [`EntityMap`].
+    pub fn get_map(&'m self) -> &'m EntityMap {
+        self.map
+    }
+
+    /// Gets a mutable reference to the underlying [`EntityMap`]
+    pub fn get_map_mut(&'m mut self) -> &'m mut EntityMap {
+        self.map
+    }
+
+    /// Creates a new [`EntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
+    fn new(map: &'m mut EntityMap, world: &mut World) -> Self {
+        Self {
+            map,
+            dead_start: world.spawn_empty().id(),
+            generations: 0,
+        }
+    }
+
+    /// Reserves the allocated references to dead entities within the world. This despawns the temporary base
+    /// [`Entity`] while reserving extra generations via [`World::reserve_generations`]. Because this renders the
+    /// [`EntityMapper`] unable to safely allocate any more references, this method takes ownership of `self` in order
+    /// to render it unusable.
+    fn save(self, world: &mut World) {
+        if self.generations == 0 {
+            assert!(world.despawn(self.dead_start));
+            return;
+        }
+
+        assert!(world.reserve_generations(self.dead_start, self.generations));
     }
 }
 
@@ -172,16 +194,16 @@ impl EntityMap {
         self.map.iter().map(|(from, to)| (*from, *to))
     }
 
-    /// Gets an [`EntityMapper`] for allocating new dead entities.
-    ///
-    /// # Safety
-    /// If this function is called, [`EntityMapper::save()`] _must_ be subsequently called after mapping.
-    /// Otherwise, a panic may occur when the [`EntityMapper`] is dropped.
-    pub unsafe fn get_mapper<'m>(&'m mut self, world: &mut World) -> EntityMapper<'m> {
-        EntityMapper {
-            map: self,
-            dead_start: world.spawn_empty().id(),
-            generations: 0,
-        }
+    /// Calls the provided closure with an [`EntityMapper`] created from this [`EntityMap`]. This allows the closure
+    /// to allocate new entity references in the provided [`World`] that will never point at a living entity.
+    pub fn with_mapper<R>(
+        &mut self,
+        world: &mut World,
+        f: impl FnOnce(&mut World, &mut EntityMapper) -> R,
+    ) -> R {
+        let mut mapper = EntityMapper::new(self, world);
+        let result = f(world, &mut mapper);
+        mapper.save(world);
+        result
     }
 }

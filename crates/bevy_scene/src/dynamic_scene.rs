@@ -28,7 +28,8 @@ pub struct DynamicScene {
 
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
-    /// The transiently unique identifier of a corresponding `Entity`.
+    /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
+    /// Components containing entitiy references will identify their referant via this identifier.
     pub entity: u64,
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
