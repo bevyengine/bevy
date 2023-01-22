@@ -769,15 +769,15 @@ impl World {
         }
     }
 
-    /// Inserts a new resource with standard starting values.
+    /// Initializes a new resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
     /// The value given by the [`FromWorld::from_world`] method will be used.
-    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
     /// and those default values will be here instead.
     #[inline]
-    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
         if self
             .storages
@@ -793,6 +793,7 @@ impl World {
                 }
             });
         }
+        component_id
     }
 
     /// Inserts a new resource with the given `value`.
@@ -811,7 +812,7 @@ impl World {
         });
     }
 
-    /// Inserts a new non-send resource with standard starting values.
+    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
@@ -823,7 +824,7 @@ impl World {
     ///
     /// Panics if called from a thread other than the main thread.
     #[inline]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
         let component_id = self.components.init_non_send::<R>();
         if self
             .storages
@@ -839,6 +840,7 @@ impl World {
                 }
             });
         }
+        component_id
     }
 
     /// Inserts a new non-send resource with the given `value`.
