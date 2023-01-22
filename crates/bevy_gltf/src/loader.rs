@@ -329,12 +329,20 @@ async fn load_gltf<'a, 'b>(
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
+                material_extras: primitive.extras().as_ref().map(|extras| super::GltfExtras {
+                    value: extras.get().to_string(),
+                }),
             });
         }
 
         let handle = load_context.set_labeled_asset(
             &mesh_label(&mesh),
-            LoadedAsset::new(super::GltfMesh { primitives }),
+            LoadedAsset::new(super::GltfMesh {
+                primitives,
+                extras: mesh.extras().as_ref().map(|extras| super::GltfExtras {
+                    value: extras.get().to_string(),
+                }),
+            }),
         );
         if let Some(name) = mesh.name() {
             named_meshes.insert(name.to_string(), handle.clone());
@@ -368,12 +376,9 @@ async fn load_gltf<'a, 'b>(
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
-                extras: node
-                    .mesh()
-                    .and_then(|mesh| mesh.extras().as_ref())
-                    .map(|extras| super::GltfExtras {
-                        value: extras.get().to_string(),
-                    }),
+                extras: node.extras().as_ref().map(|extras| super::GltfExtras {
+                    value: extras.get().to_string(),
+                }),
             },
             node.children()
                 .map(|child| child.index())
