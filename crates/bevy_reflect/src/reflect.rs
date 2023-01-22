@@ -332,7 +332,7 @@ pub mod reflectable {
     ///
     /// This trait can only be implemented automatically.
     /// Implemented if and only if a type implements [`Typed`].
-    /// 
+    ///
     /// [`Reflect`]: crate::Reflect
     pub trait Reflectable: sealed::Sealed {
         /// See [`Typed::type_info`].
