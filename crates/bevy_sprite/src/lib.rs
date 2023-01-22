@@ -61,9 +61,6 @@ impl Plugin for SpritePlugin {
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin);
 
-        app.add_extract_system(extract_sprites.in_set(SpriteSystem::ExtractSprites));
-        app.add_extract_system(extract_sprite_events);
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
@@ -73,6 +70,11 @@ impl Plugin for SpritePlugin {
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
+                .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                    extract_schedule
+                        .add_system(extract_sprites.in_set(SpriteSystem::ExtractSprites))
+                        .add_system(extract_sprite_events);
+                })
                 .add_system(queue_sprites.in_set(RenderSet::Queue));
         };
     }

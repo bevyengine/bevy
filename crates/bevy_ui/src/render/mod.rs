@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_render::ExtractSchedule;
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -58,11 +59,6 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    app.add_extract_system(extract_default_ui_camera_view::<Camera2d>)
-        .add_extract_system(extract_default_ui_camera_view::<Camera3d>)
-        .add_extract_system(extract_uinodes.in_set(RenderUiSystem::ExtractNode))
-        .add_extract_system(extract_text_uinodes.after(RenderUiSystem::ExtractNode));
-
     let render_app = match app.get_sub_app_mut(RenderApp) {
         Ok(render_app) => render_app,
         Err(_) => return,
@@ -76,6 +72,13 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
+        .edit_schedule(&ExtractSchedule, |extract_schedule| {
+            extract_schedule
+                .add_system(extract_default_ui_camera_view::<Camera2d>)
+                .add_system(extract_default_ui_camera_view::<Camera3d>)
+                .add_system(extract_uinodes.in_set(RenderUiSystem::ExtractNode))
+                .add_system(extract_text_uinodes.after(RenderUiSystem::ExtractNode));
+        })
         .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
         .add_system(queue_uinodes.in_set(RenderSet::Queue))
         .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));

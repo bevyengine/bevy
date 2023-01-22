@@ -1,7 +1,7 @@
 use crate::{
     render_resource::TextureView,
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, RenderApp, RenderSet, RenderingAppExtension,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -25,13 +25,14 @@ pub enum WindowSystem {
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_extract_system(extract_windows);
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
+                .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                    extract_schedule.add_system(extract_windows);
+                })
                 .add_system(
                     prepare_windows
                         .in_set(WindowSystem::Prepare)

@@ -30,7 +30,7 @@ use bevy_render::{
         ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -96,13 +96,16 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
-        app.add_extract_system(extract_meshes);
-        app.add_extract_system(extract_skinned_meshes);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
+                .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                    extract_schedule
+                        .add_extract_system(extract_meshes)
+                        .add_extract_system(extract_skinned_meshes);
+                })
                 .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
                 .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
                 .add_system(queue_mesh_view_bind_groups.in_set(RenderSet::Queue));

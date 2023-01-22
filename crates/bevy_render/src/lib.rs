@@ -36,7 +36,7 @@ pub mod prelude {
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
-        RenderingAppExtension,
+        ExtractSchedule,
     };
 }
 
@@ -146,8 +146,8 @@ struct RenderExtraction;
 ///
 /// This schedule is stored as a resource on the render world,
 /// which is mutable accessed from the main world via the borrow splitting enabled by [`App::add_subapp`].
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct ExtractSchedule(pub Schedule);
+#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
+pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
 /// This resource is only available during [`RenderStage::Extract`] and not
@@ -226,10 +226,14 @@ impl Plugin for RenderPlugin {
             let mut render_schedule = RenderSet::base_schedule();
 
             // Prepare the schedule which extracts data from the main world to the render world
-            let mut extract_schedule = ExtractSchedule::default();
-            extract_schedule.add_system(PipelineCache::extract_shaders);
-            render_app.insert_resource(extract_schedule);
+            render_app.init_schedule(ExtractSchedule).edit_schedule(
+                &ExtractSchedule,
+                |extract_schedule| {
+                    extract_schedule.add_system(PipelineCache::extract_shaders);
+                },
+            );
 
+            // TODO: look closer at the next 2 lines. something looks weird here
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
             render_app.init_resource::<MainWorld>();
             render_app.world.remove_resource::<MainWorld>();
@@ -323,46 +327,27 @@ struct ScratchMainWorld(World);
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
 fn extract(main_world: &mut World, render_app: &mut App) {
-    render_app
-        .world
-        .resource_scope(|render_world, mut extract_schedule: Mut<ExtractSchedule>| {
-            // temporarily add the app world to the render world as a resource
-            let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
-            let inserted_world = std::mem::replace(main_world, scratch_world.0);
-            render_world.insert_resource(MainWorld(inserted_world));
+    // temporarily add the app world to the render world as a resource
+    let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
+    let inserted_world = std::mem::replace(main_world, scratch_world.0);
+    render_app.world.insert_resource(MainWorld(inserted_world));
 
-            extract_schedule.run(render_world);
+    render_app.run_schedule(&ExtractSchedule);
 
-            // move the app world back, as if nothing happened.
-            let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
-            let scratch_world = std::mem::replace(main_world, inserted_world.0);
-            main_world.insert_resource(ScratchMainWorld(scratch_world));
-        });
+    // move the app world back, as if nothing happened.
+    let inserted_world = render_app.world.remove_resource::<MainWorld>().unwrap();
+    let scratch_world = std::mem::replace(main_world, inserted_world.0);
+    main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
 
 /// Applies the commands from the extract schedule. This happens during
 /// the render schedule rather than during extraction to allow the commands to run in parallel with the
 /// main app when pipelined rendering is enabled.
 fn apply_extract_commands(render_world: &mut World) {
-    render_world.resource_scope(|render_world, mut extract_schedule: Mut<ExtractSchedule>| {
-        extract_schedule.apply_system_buffers(render_world);
+    render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
+        schedules
+            .get_mut(&ExtractSchedule)
+            .unwrap()
+            .apply_system_buffers(render_world);
     });
-}
-
-/// Rendering-focused methods that extend [`App`].
-pub trait RenderingAppExtension {
-    /// Adds a system to the [`ExtractSchedule`], to transfer data from the main world to the rendering world.
-    ///
-    /// This is only a convenience method: you can access the [`ExtractSchedule`] as a resource yourself
-    /// if you need more advanced control.
-    fn add_extract_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self;
-}
-
-impl RenderingAppExtension for App {
-    fn add_extract_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
-        let rendering_subapp = self.get_sub_app_mut(RenderApp).unwrap();
-        let mut extract_schedule = rendering_subapp.world.resource_mut::<ExtractSchedule>();
-        extract_schedule.add_system(system);
-        self
-    }
 }

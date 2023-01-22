@@ -52,7 +52,7 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedMeshPipelines},
     view::VisibilitySystems,
-    RenderApp, RenderSet,
+    ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 
@@ -232,18 +232,20 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        // Extract the required data from the main world
-        app.add_extract_system(
-            render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
-        )
-        .add_extract_system(render::extract_lights.in_set(RenderLightSystems::ExtractLights));
-
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
         };
 
+        // Extract the required data from the main world
         render_app
+            .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                extract_schedule
+                    .add_system(
+                        render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
+                    )
+                    .add_system(render::extract_lights.in_set(RenderLightSystems::ExtractLights));
+            })
             .add_system(
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out

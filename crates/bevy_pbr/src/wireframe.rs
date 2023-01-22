@@ -16,9 +16,9 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     view::{ExtractedView, Msaa, VisibleEntities},
-    RenderApp, RenderSet,
+    ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_render::{Extract, RenderingAppExtension};
+use bevy_render::{Extract, ExtractSchedule, RenderingAppExtension};
 use bevy_utils::tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
@@ -41,13 +41,14 @@ impl Plugin for WireframePlugin {
             .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
-        app.add_extract_system(extract_wireframes);
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
+                .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                    extract_schedule.add_system(extract_wireframes);
+                })
                 .add_system(queue_wireframes.in_set(RenderSet::Queue));
         }
     }
