@@ -63,12 +63,12 @@ impl Node for UpscalingNode {
             Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .render_device
+                    .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
                 let bind_group =
                     render_context
-                        .render_device
+                        .render_device()
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
                             layout: &upscaling_pipeline.texture_bind_group,
@@ -108,7 +108,7 @@ impl Node for UpscalingNode {
         };
 
         let mut render_pass = render_context
-            .command_encoder
+            .command_encoder()
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
