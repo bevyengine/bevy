@@ -41,7 +41,7 @@ impl BevyManifest {
             if dep.as_str().is_some() {
                 None
             } else {
-                dep.get("package").map(|name| name.as_str().expect("2"))
+                dep.get("package").map(|name| name.as_str().unwrap())
             }
         }
 
