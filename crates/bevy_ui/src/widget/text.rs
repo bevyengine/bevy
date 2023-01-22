@@ -14,7 +14,7 @@ use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
     TextSettings, YAxisOrientation,
 };
-use bevy_window::{PrimaryWindow, ModifiesWindows, Window};
+use bevy_window::{ModifiesWindows, PrimaryWindow, Window};
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
