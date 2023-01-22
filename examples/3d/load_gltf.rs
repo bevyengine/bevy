@@ -2,7 +2,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{prelude::*, pbr::CascadeShadowConfig};
+use bevy::{pbr::CascadeShadowConfig, prelude::*};
 
 fn main() {
     App::new()
