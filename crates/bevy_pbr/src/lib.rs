@@ -167,12 +167,10 @@ impl Plugin for PbrPlugin {
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
             .add_system(
-                // NOTE: Clusters need to have been added before update_clusters is run so
-                // add as an exclusive system
                 add_clusters
-                    .at_start()
                     .in_set(SimulationLightSystems::AddClusters)
-                    .in_set(CoreSet::PostUpdate),
+                    .in_set(CoreSet::PostUpdate)
+                    .before(assign_lights_to_clusters),
             )
             .add_system(
                 assign_lights_to_clusters
