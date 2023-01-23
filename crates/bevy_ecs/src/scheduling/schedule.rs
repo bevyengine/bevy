@@ -18,7 +18,7 @@ use fixedbitset::FixedBitSet;
 use crate::{
     self as bevy_ecs,
     component::ComponentId,
-    schedule::*,
+    scheduling::*,
     system::{BoxedSystem, Resource},
     world::World,
 };

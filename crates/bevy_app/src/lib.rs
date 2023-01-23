@@ -28,7 +28,7 @@ pub mod prelude {
 }
 
 use bevy_ecs::{
-    schedule::{Schedule, ScheduleLabel, SystemSet},
+    scheduling::{Schedule, ScheduleLabel, SystemSet},
     system::Local,
     world::World,
 };

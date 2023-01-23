@@ -21,7 +21,7 @@
 //!
 //! Lastly a system with run criteria  _done_ is used to exit the app.
 
-use bevy::{app::AppExit, ecs::schedule::ShouldRun, prelude::*};
+use bevy::{app::AppExit, ecs::scheduling::ShouldRun, prelude::*};
 
 /// A [`SystemLabel`] can be applied as a label to systems and system sets,
 /// which can then be referred to from other systems.

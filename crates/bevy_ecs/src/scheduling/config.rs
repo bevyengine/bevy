@@ -2,7 +2,7 @@ use bevy_ecs_macros::all_tuples;
 use bevy_utils::default;
 
 use crate::{
-    schedule::{
+    scheduling::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
@@ -358,7 +358,7 @@ impl IntoSystemConfig<()> for SystemConfig {
 // only `System<In=(), Out=()>` system objects can be scheduled
 mod sealed {
     use crate::{
-        schedule::{BoxedSystemSet, SystemSet},
+        scheduling::{BoxedSystemSet, SystemSet},
         system::{BoxedSystem, IntoSystem},
     };
 

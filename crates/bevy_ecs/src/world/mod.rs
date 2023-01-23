@@ -19,7 +19,7 @@ use crate::{
     event::{Event, Events},
     ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
-    schedule::{Schedule, ScheduleLabel, Schedules},
+    scheduling::{Schedule, ScheduleLabel, Schedules},
     storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
     system::Resource,
 };
@@ -1620,7 +1620,7 @@ impl World {
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 
-        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule::Schedules>() {
+        if let Some(mut schedules) = self.get_resource_mut::<crate::scheduling::Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
 

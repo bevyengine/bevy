@@ -105,7 +105,7 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
 mod tests {
     use bevy_ecs::{
         component::Component,
-        schedule::Schedule,
+        scheduling::Schedule,
         system::{CommandQueue, Commands},
         world::World,
     };

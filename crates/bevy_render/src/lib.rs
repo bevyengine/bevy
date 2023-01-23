@@ -53,7 +53,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, CoreSchedule, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
+use bevy_ecs::{prelude::*, scheduling::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
 

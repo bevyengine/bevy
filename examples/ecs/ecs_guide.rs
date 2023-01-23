@@ -26,7 +26,7 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    ecs::schedule::ReportExecutionOrderAmbiguities,
+    ecs::scheduling::ReportExecutionOrderAmbiguities,
     log::LogPlugin,
     prelude::*,
     utils::Duration,

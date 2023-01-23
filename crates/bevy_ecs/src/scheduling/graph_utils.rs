@@ -6,7 +6,7 @@ use bevy_utils::{
 };
 use fixedbitset::FixedBitSet;
 
-use crate::schedule::set::*;
+use crate::scheduling::set::*;
 
 /// Unique identifier for a system or system set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

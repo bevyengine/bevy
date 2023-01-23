@@ -5,7 +5,7 @@
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
-    schedule::SystemSet,
+    scheduling::SystemSet,
     system::{NonSendMut, Res, ResMut, Resource, SystemState},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};

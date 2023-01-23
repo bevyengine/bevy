@@ -13,7 +13,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
-    schedule::{
+    scheduling::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     system::BoxedSystem,

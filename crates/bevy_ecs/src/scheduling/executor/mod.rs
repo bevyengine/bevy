@@ -9,7 +9,7 @@ pub use self::single_threaded::SingleThreadedExecutor;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule::{BoxedCondition, NodeId},
+    scheduling::{BoxedCondition, NodeId},
     system::BoxedSystem,
     world::World,
 };

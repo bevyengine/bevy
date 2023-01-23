@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{ecs::schedule::SystemSet, prelude::*};
+use bevy::{ecs::scheduling::SystemSet, prelude::*};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]

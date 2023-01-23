@@ -2,7 +2,7 @@ use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
-    schedule::{apply_state_transition, BoxedScheduleLabel, ScheduleLabel},
+    scheduling::{apply_state_transition, BoxedScheduleLabel, ScheduleLabel},
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
