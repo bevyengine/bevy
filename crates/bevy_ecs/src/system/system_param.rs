@@ -1538,6 +1538,7 @@ mod tests {
         crate::system::assert_is_system(long_system);
     }
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/6919.
     #[derive(SystemParam)]
     struct MyParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
