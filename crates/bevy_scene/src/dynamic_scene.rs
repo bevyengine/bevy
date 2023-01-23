@@ -2,7 +2,7 @@ use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
-    entity::EntityMap,
+    entity::{Entity, EntityMap},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -30,7 +30,7 @@ pub struct DynamicScene {
 pub struct DynamicEntity {
     /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
     /// Components containing entitiy references will identify their referant via this identifier.
-    pub entity: u64,
+    pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
     pub components: Vec<Box<dyn Reflect>>,
@@ -70,7 +70,7 @@ impl DynamicScene {
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
             let entity = *entity_map
-                .entry(bevy_ecs::entity::Entity::from_bits(scene_entity.entity))
+                .entry(scene_entity.entity)
                 .or_insert_with(|| world.spawn_empty().id());
 
             // Apply/ add each component to the given entity.

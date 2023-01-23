@@ -1,5 +1,6 @@
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
+use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
     serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
@@ -229,7 +230,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut entities = Vec::new();
-        while let Some(id) = map.next_key::<u64>()? {
+        while let Some(id) = map.next_key::<Entity>()? {
             let entity = map.next_value_seed(SceneEntityDeserializer {
                 id,
                 type_registry: self.type_registry,
@@ -242,7 +243,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
 }
 
 pub struct SceneEntityDeserializer<'a> {
-    pub id: u64,
+    pub id: Entity,
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -265,7 +266,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 }
 
 struct SceneEntityVisitor<'a> {
-    pub id: u64,
+    pub id: Entity,
     pub registry: &'a TypeRegistry,
 }
 
@@ -484,18 +485,27 @@ mod tests {
 
         let expected = r#"(
   entities: {
-    0: (
+    (
+      generation: 0,
+      index: 0,
+    ): (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    1: (
+    (
+      generation: 0,
+      index: 1,
+    ): (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    2: (
+    (
+      generation: 0,
+      index: 2,
+    ): (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -516,18 +526,27 @@ mod tests {
 
         let input = r#"(
   entities: {
-    0: (
+    (
+      generation: 0,
+      index: 0,
+    ): (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    1: (
+    (
+      generation: 0,
+      index: 1,
+    ): (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    2: (
+    (
+      generation: 0,
+      index: 2,
+    ): (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -627,10 +646,10 @@ mod tests {
 
         assert_eq!(
             vec![
-                1, 0, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114,
-                100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111,
-                110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72, 101,
-                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                1, 0, 0, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101,
+                114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112,
+                111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72,
+                101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );
@@ -667,11 +686,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                145, 129, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58,
-                58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67,
-                111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166, 102,
-                102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101, 108,
-                108, 111, 32, 87, 111, 114, 108, 100, 33
+                145, 129, 146, 0, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110,
+                101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77,
+                121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63,
+                166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72,
+                101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf
         );
@@ -744,7 +763,7 @@ mod tests {
                 .entities
                 .iter()
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
-                .unwrap_or_else(|| panic!("missing entity (expected: `{}`)", expected.entity));
+                .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
 
             assert_eq!(expected.entity, received.entity, "entities did not match",);
 
