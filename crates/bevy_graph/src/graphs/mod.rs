@@ -364,9 +364,42 @@ pub trait SimpleGraph<N, E>: Graph<N, E> {
 
 /// A more precise trait with functions special for directed graphs
 pub trait DirectedGraph<N, E>: Graph<N, E> {
+    /// Iterator fix because TAIT not available
+    type Ancestors<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type AncestorsMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type Descendants<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type DescendantsMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+
     /// Reverse the direction of all edges in the graph.
     fn reverse(&mut self);
 
     /// Reverse the direction of the specified edge.
     fn reverse_edge(&mut self, index: EdgeIdx);
+
+    /// Returns an iterator that visits all nodes that can reach the specified node.
+    fn ancestors(&self, index: NodeIdx) -> Self::Ancestors<'_>;
+
+    /// Returns a mutable iterator that visits all nodes that can reach the specifed node.
+    fn ancestors_mut(&mut self, index: NodeIdx) -> Self::AncestorsMut<'_>;
+
+    /// Returns iterator that visits all nodes that are reachable from the specified node.
+    fn descendants(&self, index: NodeIdx) -> Self::Descendants<'_>;
+
+    /// Returns a mutable iterator that visits all nodes that are reachable from the specified node.
+    fn descendants_mut(&mut self, index: NodeIdx) -> Self::DescendantsMut<'_>;
 }

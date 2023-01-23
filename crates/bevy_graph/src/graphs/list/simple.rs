@@ -1,6 +1,7 @@
 use slotmap::{HopSlotMap, SecondaryMap};
 
 use crate::{
+    algos::dfs::DepthFirstSearch,
     error::GraphError,
     graphs::{
         adjacency_storage::AdjacencyStorage,
@@ -396,5 +397,29 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
             self.adjacencies[*dst].outgoing_mut().push((*src, index));
             self.adjacencies[*src].incoming_mut().push((*dst, index));
         }
+    }
+
+    type Ancestors<'n> = iters::NodesByIdx<'n, N, NodeIdx, DepthFirstSearch<'n, N, E, Self, Self::IncomingEdgesOf<'n>>> where Self: 'n;
+    fn ancestors(&self, index: NodeIdx) -> Self::Ancestors<'_> {
+        // use DFS here, Vec should be faster than VecDeque
+        DepthFirstSearch::custom_ref(self, index, |graph, node| graph.incoming_edges_of(node))
+    }
+
+    type AncestorsMut<'n> = iters::NodesByIdxMut<'n, N, NodeIdx, DepthFirstSearch<'n, N, E, Self, Self::IncomingEdgesOf<'n>>> where Self: 'n;
+    fn ancestors_mut(&mut self, index: NodeIdx) -> Self::AncestorsMut<'_> {
+        // use DFS here, Vec should be faster than VecDeque
+        DepthFirstSearch::custom_mut(self, index, |graph, node| graph.incoming_edges_of(node))
+    }
+
+    type Descendants<'n> = iters::NodesByIdx<'n, N, NodeIdx, DepthFirstSearch<'n, N, E, Self, Self::OutgoingEdgesOf<'n>>> where Self: 'n;
+    fn descendants(&self, index: NodeIdx) -> Self::Descendants<'_> {
+        // use DFS here, Vec should be faster than VecDeque
+        DepthFirstSearch::custom_ref(self, index, |graph, node| graph.outgoing_edges_of(node))
+    }
+
+    type DescendantsMut<'n> = iters::NodesByIdxMut<'n, N, NodeIdx, DepthFirstSearch<'n, N, E, Self, Self::OutgoingEdgesOf<'n>>> where Self: 'n;
+    fn descendants_mut(&mut self, index: NodeIdx) -> Self::DescendantsMut<'_> {
+        // use DFS here, Vec should be faster than VecDeque
+        DepthFirstSearch::custom_mut(self, index, |graph, node| graph.outgoing_edges_of(node))
     }
 }
