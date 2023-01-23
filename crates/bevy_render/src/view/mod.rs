@@ -178,6 +178,19 @@ impl ViewTarget {
         }
     }
 
+    /// The _other_ "main" unsampled texture.
+    /// In most cases you should use [`Self::main_texture`] instead.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b
+        } else {
+            &self.main_textures.a
+        }
+    }
+
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&TextureView> {
         self.main_textures.sampled.as_ref()
