@@ -216,7 +216,7 @@ impl App {
     ///
     /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
     /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]
-    /// the first time the app is run, and [`CoreSchedule::Main`] afterwards.
+    /// the first time the app is run, then [`CoreSchedule::Main`] on every call of this method.
     ///
     /// # Panics
     ///
