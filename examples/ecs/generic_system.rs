@@ -32,20 +32,16 @@ struct LevelUnload;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state(AppState::MainMenu)
+        .add_state::<AppState>()
         .add_startup_system(setup_system)
         .add_system(print_text_system)
-        .add_systems(
-            SystemSet::on_update(AppState::MainMenu).with_system(transition_to_in_game_system),
-        )
+        .add_system(transition_to_in_game_system.on_update(AppState::MainMenu))
         // add the cleanup systems
-        .add_systems(
+        .add_system(
             // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
-            SystemSet::on_exit(AppState::MainMenu).with_system(cleanup_system::<MenuClose>),
+            cleanup_system::<MenuClose>.on_exit(AppState::MainMenu),
         )
-        .add_systems(
-            SystemSet::on_exit(AppState::InGame).with_system(cleanup_system::<LevelUnload>),
-        )
+        .add_systems(cleanup_system::<LevelUnload>.on_exit(AppState::InGame))
         .run();
 }
 

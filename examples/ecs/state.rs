@@ -6,17 +6,13 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state(AppState::Menu)
+        .add_state::<AppState>()
         .add_startup_system(setup)
-        .add_systems(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
-        .add_systems(SystemSet::on_update(AppState::Menu).with_system(menu))
-        .add_systems(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
-        .add_systems(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
-        .add_systems(
-            SystemSet::on_update(AppState::InGame)
-                .with_system(movement)
-                .with_system(change_color),
-        )
+        .add_systems(setup_menu.on_enter(AppState::Menu))
+        .add_systems(menu.on_update(AppState::Menu))
+        .add_systems(cleanup_menu.on_exit(AppState::Menu))
+        .add_systems(setup_game.on_enter(AppState::InGame))
+        .add_systems((movement, change_color).on_update(AppState::InGame))
         .run();
 }
 

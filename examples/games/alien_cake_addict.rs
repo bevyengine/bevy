@@ -11,6 +11,14 @@ enum GameState {
     GameOver,
 }
 
+impl States for GameState {
+    type Iter = [GameState; 2];
+
+    fn variants() -> Self::Iter {
+        [GameState::Playing, GameState::GameOver]
+    }
+}
+
 #[derive(Resource)]
 struct BonusSpawnTimer(Timer);
 
@@ -22,21 +30,23 @@ fn main() {
             TimerMode::Repeating,
         )))
         .add_plugins(DefaultPlugins)
-        .add_state(GameState::Playing)
+        .add_state::<GameState>()
         .add_startup_system(setup_cameras)
-        .add_systems(SystemSet::on_enter(GameState::Playing).with_system(setup))
+        .add_system(setup.on_enter(GameState::Playing))
         .add_systems(
-            SystemSet::on_update(GameState::Playing)
-                .with_system(move_player)
-                .with_system(focus_camera)
-                .with_system(rotate_bonus)
-                .with_system(scoreboard_system)
-                .with_system(spawn_bonus),
+            (
+                move_player,
+                focus_camera,
+                rotate_bonus,
+                scoreboard_system,
+                spawn_bonus,
+            )
+                .on_update(GameState::Playing),
         )
-        .add_systems(SystemSet::on_exit(GameState::Playing).with_system(teardown))
-        .add_systems(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
-        .add_systems(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
-        .add_systems(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
+        .add_system(teardown.on_exit(GameState::Playing))
+        .add_systems(display_score.on_enter(GameState::GameOver))
+        .add_systems(gameover_keyboard.on_update(GameState::GameOver))
+        .add_systems(teardown.on_exit(GameState::GameOver))
         .add_system(bevy::window::close_on_esc)
         .run();
 }

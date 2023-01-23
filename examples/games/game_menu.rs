@@ -33,8 +33,8 @@ fn main() {
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         .add_startup_system(setup)
-        // Declare the game state, and set its startup value
-        .add_state(GameState::Splash)
+        // Declare the game state, whose starting value is determined by the `Default` trait
+        .add_state::<GameState>()
         // Adds the plugins for each state
         .add_plugin(splash::SplashPlugin)
         .add_plugin(menu::MenuPlugin)
@@ -59,14 +59,11 @@ mod splash {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
             app
                 // When entering the state, spawn everything needed for this screen
-                .add_systems(SystemSet::on_enter(GameState::Splash).with_system(splash_setup))
+                .add_system(splash_setup.on_enter(GameState::Splash))
                 // While in this state, run the `countdown` system
-                .add_systems(SystemSet::on_update(GameState::Splash).with_system(countdown))
+                .add_system(countdown.on_update(GameState::Splash))
                 // When exiting the state, despawn everything that was spawned for this screen
-                .add_systems(
-                    SystemSet::on_exit(GameState::Splash)
-                        .with_system(despawn_screen::<OnSplashScreen>),
-                );
+                .add_system(despawn_screen::<OnSplashScreen>.on_exit(GameState::Splash));
         }
     }
 
@@ -132,11 +129,9 @@ mod game {
 
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
-            app.add_systems(SystemSet::on_enter(GameState::Game).with_system(game_setup))
-                .add_systems(SystemSet::on_update(GameState::Game).with_system(game))
-                .add_systems(
-                    SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
-                );
+            app.add_system(game_setup.on_enter(GameState::Game))
+                .add_system(game.on_update(GameState::Game))
+                .add_system(despawn_screen.on_exit(GameState::Game));
         }
     }
 
@@ -268,54 +263,29 @@ mod menu {
                 // At start, the menu is not enabled. This will be changed in `menu_setup` when
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an independent state from `GameState`
-                .add_state(MenuState::Disabled)
-                .add_systems(SystemSet::on_enter(GameState::Menu).with_system(menu_setup))
+                .add_state::<MenuState>()
+                .add_system(menu_setup.on_enter(GameState::Menu))
                 // Systems to handle the main menu screen
-                .add_systems(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
-                .add_systems(
-                    SystemSet::on_exit(MenuState::Main)
-                        .with_system(despawn_screen::<OnMainMenuScreen>),
-                )
+                .add_system(main_menu_setup.on_enter(MenuState::Main))
+                .add_system(despawn_screen::<OnMainMenuScreen>.on_exit(MenuState::Main))
                 // Systems to handle the settings menu screen
-                .add_systems(
-                    SystemSet::on_enter(MenuState::Settings).with_system(settings_menu_setup),
-                )
-                .add_systems(
-                    SystemSet::on_exit(MenuState::Settings)
-                        .with_system(despawn_screen::<OnSettingsMenuScreen>),
-                )
+                .add_system(settings_menu_setup.on_enter(MenuState::Settings))
+                .add_system(despawn_screen::<OnSettingsMenuScreen>.on_exit(MenuState::Settings))
                 // Systems to handle the display settings screen
-                .add_systems(
-                    SystemSet::on_enter(MenuState::SettingsDisplay)
-                        .with_system(display_settings_menu_setup),
-                )
-                .add_systems(
-                    SystemSet::on_update(MenuState::SettingsDisplay)
-                        .with_system(setting_button::<DisplayQuality>),
-                )
-                .add_systems(
-                    SystemSet::on_exit(MenuState::SettingsDisplay)
-                        .with_system(despawn_screen::<OnDisplaySettingsMenuScreen>),
+                .add_system(display_settings_menu_setup.on_enter(MenuState::SettingsDisplay))
+                .add_system(setting_button::<DisplayQuality>.on_update(MenuState::SettingsDisplay))
+                .add_system(
+                    despawn_screen::<OnDisplaySettingsMenuScreen>
+                        .on_exit(MenuState::SettingsDisplay),
                 )
                 // Systems to handle the sound settings screen
-                .add_systems(
-                    SystemSet::on_enter(MenuState::SettingsSound)
-                        .with_system(sound_settings_menu_setup),
-                )
-                .add_systems(
-                    SystemSet::on_update(MenuState::SettingsSound)
-                        .with_system(setting_button::<Volume>),
-                )
-                .add_systems(
-                    SystemSet::on_exit(MenuState::SettingsSound)
-                        .with_system(despawn_screen::<OnSoundSettingsMenuScreen>),
+                .add_system(sound_settings_menu_setup.on_enter(MenuState::SettingsSound))
+                .add_system(setting_button::<Volume>.on_update(MenuState::SettingsSound))
+                .add_system(
+                    despawn_screen::<OnSoundSettingsMenuScreen>.on_exit(MenuState::SettingsSound),
                 )
                 // Common systems to all screens that handles buttons behaviour
-                .add_systems(
-                    SystemSet::on_update(GameState::Menu)
-                        .with_system(menu_action)
-                        .with_system(button_system),
-                );
+                .add_systems((menu_action, button_system).on_update(GameState::Menu));
         }
     }
 

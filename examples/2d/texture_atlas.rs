@@ -7,10 +7,10 @@ fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
-        .add_state(AppState::Setup)
-        .add_systems(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
-        .add_systems(SystemSet::on_update(AppState::Setup).with_system(check_textures))
-        .add_systems(SystemSet::on_enter(AppState::Finished).with_system(setup))
+        .add_state::<AppState>()
+        .add_system(load_textures.on_enter(AppState::Setup))
+        .add_system(check_textures.on_update(AppState::Setup))
+        .add_system(setup.on_enter(AppState::Finished))
         .run();
 }
 
@@ -18,6 +18,14 @@ fn main() {
 enum AppState {
     Setup,
     Finished,
+}
+
+impl States for AppState {
+    type Iter = [AppState; 2];
+
+    fn variants() -> Self::Iter {
+        [AppState::Setup, AppState::Finished]
+    }
 }
 
 #[derive(Resource, Default)]

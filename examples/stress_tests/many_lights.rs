@@ -9,7 +9,6 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Extract, RenderApp, RenderSet},
-    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
     window::PresentMode,
     window::{PresentMode, WindowPlugin},
 };
