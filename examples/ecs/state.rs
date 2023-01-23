@@ -16,10 +16,19 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
 enum AppState {
+    #[default]
     Menu,
     InGame,
+}
+
+impl States for AppState {
+    type Iter = [AppState; 2];
+
+    fn variants() -> Self::Iter {
+        [AppState::Menu, AppState::InGame]
+    }
 }
 
 #[derive(Resource)]

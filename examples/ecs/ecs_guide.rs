@@ -239,7 +239,8 @@ fn print_at_end_round(mut counter: Local<u32>) {
     println!();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+/// A group of related system sets, used for controlling the order of systems
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 enum MySet {
     BeforeRound,
     AfterRound,

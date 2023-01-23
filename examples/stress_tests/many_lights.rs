@@ -8,8 +8,7 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, Extract, RenderApp, RenderSet},
-    window::PresentMode,
+    render::{camera::ScalingMode, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin},
 };
 use rand::{thread_rng, Rng};

@@ -14,8 +14,9 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 enum AppState {
+    #[default]
     Setup,
     Finished,
 }

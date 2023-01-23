@@ -7,8 +7,9 @@ use bevy::prelude::*;
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
 enum GameState {
+    #[default]
     Splash,
     Menu,
     Game,
@@ -290,8 +291,9 @@ mod menu {
     }
 
     // State used for the current menu screen
-    #[derive(Clone, Eq, PartialEq, Debug, Hash)]
+    #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
     enum MenuState {
+        #[default]
         Main,
         Settings,
         SettingsDisplay,
