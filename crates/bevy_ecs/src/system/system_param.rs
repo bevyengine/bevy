@@ -844,7 +844,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// stage.run(&mut world);
 /// assert_eq!(world.resource::<Alarm>().0, true);
 ///
-/// // Reset the alarm.
+/// // Remove the monster and reset the alarm.
+/// world.clear_entities();
 /// world.resource_mut::<Alarm>().0 = false;
 ///
 /// // Spawn a criminal, which will cause the alarm to be sounded.
