@@ -141,7 +141,7 @@ pub struct SubApp {
 impl SubApp {
     /// Creates a new [`SubApp`].
     ///
-    /// The provided function `extract` is normally called by the [`update`](Self::update) method.
+    /// The provided function `extract` is normally called by the [`update`](App::update) method.
     /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
