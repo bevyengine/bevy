@@ -10,7 +10,9 @@ use crate::{
         DirectedGraph, Graph,
     },
     iters,
-    utils::{vecmap::VecMap, vecset::VecSet, wrapped_iterator::WrappedIterator},
+    utils::{
+        iter_choice::IterChoice, vecmap::VecMap, vecset::VecSet, wrapped_iterator::WrappedIterator,
+    },
 };
 
 type MultiListStorage = Vec<(NodeIdx, Vec<EdgeIdx>)>;
@@ -285,14 +287,40 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
-    fn edges_of(&self, _index: NodeIdx) -> Self::EdgesOf<'_> {
-        todo!()
+    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, iters::LoopSafetyIter<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Flatten<std::iter::Chain<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>>> where Self: 'e;
+    fn edges_of(&self, index: NodeIdx) -> Self::EdgesOf<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .values()
+                    .chain(self.adjacencies[index].outgoing().values())
+                    .flatten(),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().values().flatten())
+        };
+        iters::EdgesByIdx::new(iters::LoopSafetyIter::new(inner, &self.edges), &self.edges)
     }
 
-    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
-    fn edges_of_mut(&mut self, _index: NodeIdx) -> Self::EdgesOfMut<'_> {
-        todo!()
+    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, iters::LoopSafetyIter<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Flatten<std::iter::Chain<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>>> where Self: 'e;
+    fn edges_of_mut(&mut self, index: NodeIdx) -> Self::EdgesOfMut<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .values()
+                    .chain(self.adjacencies[index].outgoing().values())
+                    .flatten(),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().values().flatten())
+        };
+        unsafe {
+            // SAFETY: EdgesByIdxMut should'nt be able to do any bad stuff for LoopSafetyIter
+            let ptr: *mut HopSlotMap<EdgeIdx, Edge<E>> = &mut self.edges;
+            iters::EdgesByIdxMut::new(iters::LoopSafetyIter::new(inner, &*ptr), &mut self.edges)
+        }
     }
 
     #[inline]
