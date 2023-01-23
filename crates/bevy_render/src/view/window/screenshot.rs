@@ -7,7 +7,6 @@ use bevy_log::{error, info_span};
 use bevy_reflect::TypeUuid;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
-use bevy_window::WindowId;
 use parking_lot::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -34,7 +33,7 @@ pub type ScreenshotFn = Box<dyn FnOnce(Image) + Send + Sync>;
 #[derive(Resource, Default)]
 pub struct ScreenshotManager {
     // this is in a mutex to enable extraction with only an immutable reference
-    pub(crate) callbacks: Mutex<HashMap<WindowId, ScreenshotFn>>,
+    pub(crate) callbacks: Mutex<HashMap<Entity, ScreenshotFn>>,
 }
 
 #[derive(Error, Debug)]
@@ -47,7 +46,7 @@ impl ScreenshotManager {
     /// The given callback will eventually be called on one of the [`AsyncComputeTaskPool`]s threads.
     pub fn take_screenshot(
         &mut self,
-        window: WindowId,
+        window: Entity,
         callback: impl FnOnce(Image) + Send + Sync + 'static,
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         self.callbacks
@@ -62,7 +61,7 @@ impl ScreenshotManager {
     /// The screenshot will eventually be saved to the given path, and the format will be derived from the extension.
     pub fn save_screenshot_to_disk(
         &mut self,
-        window: WindowId,
+        window: Entity,
         path: impl AsRef<Path>,
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         let path = path.as_ref().to_owned();

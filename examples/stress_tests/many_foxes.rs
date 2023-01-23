@@ -7,7 +7,7 @@ use std::time::Duration;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 #[derive(Resource)]
@@ -20,11 +20,11 @@ struct Foxes {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
+            primary_window: Some(Window {
+                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)

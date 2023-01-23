@@ -218,6 +218,18 @@ where
     }
 }
 
+impl<M: Material2d> Clone for Material2dPipeline<M> {
+    fn clone(&self) -> Self {
+        Self {
+            mesh2d_pipeline: self.mesh2d_pipeline.clone(),
+            material2d_layout: self.material2d_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -307,7 +319,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials2d<M>>,
@@ -328,7 +340,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
@@ -351,7 +363,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &material2d_pipeline,
                             Material2dKey {
                                 mesh_key,

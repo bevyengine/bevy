@@ -7,7 +7,7 @@ use bevy::{
         GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
     },
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -342,8 +342,8 @@ fn setup_sticks(
                                 value: format!("{:.3}", 0.),
                                 style,
                             },
-                        ])
-                        .with_alignment(TextAlignment::BOTTOM_CENTER),
+                        ]),
+                        text_anchor: Anchor::BottomCenter,
                         ..default()
                     },
                     TextWithAxes { x_axis, y_axis },
@@ -409,8 +409,7 @@ fn setup_triggers(
                                 font_size: 16.,
                                 color: TEXT_COLOR,
                             },
-                        )
-                        .with_alignment(TextAlignment::CENTER),
+                        ),
                         ..default()
                     },
                     TextWithButtonValue(button_type),

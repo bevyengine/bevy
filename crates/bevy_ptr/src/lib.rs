@@ -78,6 +78,12 @@ macro_rules! impl_ptr {
             }
         }
 
+        impl<'a, A: IsAligned> From<$ptr<'a, A>> for NonNull<u8> {
+            fn from(ptr: $ptr<'a, A>) -> Self {
+                ptr.0
+            }
+        }
+
         impl<A: IsAligned> $ptr<'_, A> {
             /// Calculates the offset from a pointer.
             /// As the pointer is type-erased, there is no size information available. The provided
@@ -164,7 +170,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.as_ptr().cast()
+        &*self.as_ptr().cast::<T>().debug_ensure_aligned()
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -218,7 +224,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.as_ptr().cast()
+        &mut *self.as_ptr().cast::<T>().debug_ensure_aligned()
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -287,7 +293,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.as_ptr().cast::<T>().read()
+        self.as_ptr().cast::<T>().debug_ensure_aligned().read()
     }
 
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
@@ -298,7 +304,10 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().drop_in_place();
+        self.as_ptr()
+            .cast::<T>()
+            .debug_ensure_aligned()
+            .drop_in_place();
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -323,6 +332,15 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     pub fn as_mut(&mut self) -> PtrMut<'_, A> {
         // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
+    }
+}
+impl<'a> OwningPtr<'a, Unaligned> {
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    pub unsafe fn read_unaligned<T>(self) -> T {
+        self.as_ptr().cast::<T>().read_unaligned()
     }
 }
 
@@ -364,9 +382,10 @@ impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
+        let ptr = slice.as_ptr() as *mut T;
         Self {
             // SAFETY: a reference can never be null
-            ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
+            ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },
             #[cfg(debug_assertions)]
             len: slice.len(),
             _marker: PhantomData,
@@ -377,6 +396,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 /// Creates a dangling pointer with specified alignment.
 /// See [`NonNull::dangling`].
 pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
+    debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZeroUsize`.
     unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
@@ -427,5 +447,39 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
         T: Copy,
     {
         self.get().read()
+    }
+}
+
+trait DebugEnsureAligned {
+    fn debug_ensure_aligned(self) -> Self;
+}
+
+// Disable this for miri runs as it already checks if pointer to reference
+// casts are properly aligned.
+#[cfg(all(debug_assertions, not(miri)))]
+impl<T: Sized> DebugEnsureAligned for *mut T {
+    #[track_caller]
+    fn debug_ensure_aligned(self) -> Self {
+        let align = core::mem::align_of::<T>();
+        // Implemenation shamelessly borrowed from the currently unstable
+        // ptr.is_aligned_to.
+        //
+        // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
+        assert!(
+            self as usize & (align - 1) == 0,
+            "pointer is not aligned. Address {:p} does not have alignemnt {} for type {}",
+            self,
+            align,
+            core::any::type_name::<T>(),
+        );
+        self
+    }
+}
+
+#[cfg(any(not(debug_assertions), miri))]
+impl<T: Sized> DebugEnsureAligned for *mut T {
+    #[inline(always)]
+    fn debug_ensure_aligned(self) -> Self {
+        self
     }
 }

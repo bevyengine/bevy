@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::render::view::screenshot::ScreenshotManager;
+use bevy::window::PrimaryWindow;
 
 fn main() {
     App::new()
@@ -13,6 +14,7 @@ fn main() {
 
 fn screenshot_on_f12(
     input: Res<Input<KeyCode>>,
+    main_window: Query<Entity, With<PrimaryWindow>>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,
 ) {
@@ -20,7 +22,7 @@ fn screenshot_on_f12(
         let path = format!("./screenshot-{}.png", *counter);
         *counter += 1;
         screenshot_manager
-            .save_screenshot_to_disk(bevy::window::WindowId::primary(), path)
+            .save_screenshot_to_disk(main_window.single(), path)
             .unwrap();
     }
 }

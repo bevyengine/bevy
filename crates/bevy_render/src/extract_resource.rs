@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::change_detection::DetectChanges;
+#[cfg(debug_assertions)]
 use bevy_ecs::system::Local;
 use bevy_ecs::system::{Commands, Res, ResMut, Resource};
 pub use bevy_render_macros::ExtractResource;

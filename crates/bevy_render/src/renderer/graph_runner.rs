@@ -59,19 +59,13 @@ impl RenderGraphRunner {
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
     ) -> Result<(), RenderGraphRunnerError> {
-        let command_encoder =
-            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        let mut render_context = RenderContext {
-            render_device,
-            command_encoder,
-        };
-
+        let mut render_context = RenderContext::new(render_device);
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
-        finalizer(&mut render_context.command_encoder);
+        finalizer(render_context.command_encoder());
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(vec![render_context.command_encoder.finish()]);
+            queue.submit(render_context.finish());
         }
         Ok(())
     }
@@ -117,7 +111,7 @@ impl RenderGraphRunner {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
                         slot_name: input_slot.name.clone(),
-                        graph_name: graph_name.clone(),
+                        graph_name,
                     });
                 }
             }
