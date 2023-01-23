@@ -26,7 +26,7 @@ thread_local = "1.1.4"
 fixedbitset = "0.4.2"
 fxhash = "0.2"
 downcast-rs = "1.2"
-serde = { version = "1", features = ["derive"] }
+serde = "1"
 
 [dev-dependencies]
 rand = "0.8"
