@@ -266,9 +266,17 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.edges.keys()
     }
 
+    unsafe fn edges_raw(&self) -> &HopSlotMap<EdgeIdx, Edge<E>> {
+        &self.edges
+    }
+
     type Edges<'e> = iters::EdgesRef<'e, E, slotmap::hop::Values<'e, EdgeIdx, Edge<E>>> where Self: 'e;
     fn edges(&self) -> Self::Edges<'_> {
         iters::EdgesRef::new(self.edges.values())
+    }
+
+    unsafe fn edges_mut_raw(&mut self) -> &mut HopSlotMap<EdgeIdx, Edge<E>> {
+        &mut self.edges
     }
 
     type EdgesMut<'e> = iters::EdgesMut<'e, E, slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>>> where Self: 'e;
@@ -276,12 +284,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
+    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
     fn edges_of(&self, _index: NodeIdx) -> Self::EdgesOf<'_> {
         todo!()
     }
 
-    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
+    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
     fn edges_of_mut(&mut self, _index: NodeIdx) -> Self::EdgesOfMut<'_> {
         todo!()
     }
@@ -296,7 +304,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.adjacencies[index].outgoing().len()
     }
 
-    type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, E, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(
             self.adjacencies[index].incoming().values().flatten(),
@@ -304,7 +312,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         )
     }
 
-    type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type IncomingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn incoming_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
         iters::EdgesByIdxMut::new(
             self.adjacencies[index].incoming().values().flatten(),
@@ -312,7 +320,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         )
     }
 
-    type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, E, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type OutgoingEdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(
             self.adjacencies[index].outgoing().values().flatten(),
@@ -320,7 +328,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         )
     }
 
-    type OutgoingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type OutgoingEdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn outgoing_edges_of_mut(&mut self, index: NodeIdx) -> Self::IncomingEdgesOfMut<'_> {
         iters::EdgesByIdxMut::new(
             self.adjacencies[index].outgoing().values().flatten(),

@@ -280,8 +280,22 @@ pub trait Graph<N, E> {
     /// Returns an iterator over all `EdgeIdx`s.
     fn edge_indices(&self) -> Self::EdgeIndices<'_>;
 
+    /// Returns a immutable raw handle to the edges slotmap.
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called when you really know what you are doing.
+    unsafe fn edges_raw(&self) -> &HopSlotMap<EdgeIdx, Edge<E>>;
+
     /// Returns an iterator over all edges.
     fn edges(&self) -> Self::Edges<'_>;
+
+    /// Returns a mutable raw handle to the edges slotmap.
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called when you really know what you are doing.
+    unsafe fn edges_mut_raw(&mut self) -> &mut HopSlotMap<EdgeIdx, Edge<E>>;
 
     /// Returns a mutable iterator over all edges.
     fn edges_mut(&mut self) -> Self::EdgesMut<'_>;
