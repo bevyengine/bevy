@@ -240,7 +240,7 @@ fn print_at_end_round(mut counter: Local<u32>) {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-enum MyStage {
+enum MySet {
     BeforeRound,
     AfterRound,
 }
@@ -281,35 +281,23 @@ fn main() {
         // add_system(system) adds systems to the Update system set by default
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_system_to_stage(CoreSet::Update, score_system)
+        .add_system(score_system.in_set(CoreSet::Update))
         // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
-        .add_system_to_stage(CoreSet::Last, print_at_end_round)
+        .add_system(print_at_end_round.in_set(CoreSet::Last))
         // We can also create new system sets. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(
-            CoreSet::Update,
-            MyStage::BeforeRound,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            CoreSet::Update,
-            MyStage::AfterRound,
-            SystemStage::parallel(),
-        )
-        .add_system_to_stage(MyStage::BeforeRound, new_round_system)
-        .add_system_to_stage(
-            MyStage::BeforeRound,
-            new_player_system.after(new_round_system),
-        )
-        .add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-        .add_system_to_stage(MyStage::AfterRound, score_check_system)
-        .add_system_to_stage(
+        .add_stage_before(CoreSet::Update, MySet::BeforeRound, SystemStage::parallel())
+        .add_stage_after(CoreSet::Update, MySet::AfterRound, SystemStage::parallel())
+        .add_system(new_round_system.in_set(MySet::BeforeRound))
+        .add_system(new_player_system.after(new_round_system.in_set(MySet::BeforeRound)))
+        .add_system(exclusive_player_system.in_set(MySet::BeforeRound))
+        .add_system(score_check_system.in_set(MySet::AfterRound))
+        .add_system(
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
             // To do this we use either `.before` or `.after` to describe the order we want the relationship
             // Since we are using `after`, `game_over_system` runs after `score_check_system`
-            MyStage::AfterRound,
             game_over_system.after(score_check_system),
         )
         // We can check our systems for execution order ambiguities by examining the output produced

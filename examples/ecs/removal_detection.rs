@@ -15,8 +15,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system_to_stage(CoreSet::Update, remove_component)
-        .add_system_to_stage(CoreSet::PostUpdate, react_on_removal)
+        .add_system(remove_component.in_set(CoreSet::Update))
+        .add_system(react_on_removal.in_set(CoreSet::PostUpdate))
         .run();
 }
 
