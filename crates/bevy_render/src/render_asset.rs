@@ -51,8 +51,8 @@ pub enum PrepareAssetLabel {
 /// This plugin extracts the changed assets from the "app world" into the "render world"
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
-/// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) and
-/// [`RenderStage::Prepare`](crate::RenderStage::Prepare) steps for the specified [`RenderAsset`].
+/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
+/// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset> {
     prepare_asset_label: PrepareAssetLabel,
     phantom: PhantomData<fn() -> A>,

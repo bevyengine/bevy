@@ -385,15 +385,10 @@ pub mod adapter {
     /// // Marker component for an enemy entity.
     /// #[derive(Component)]
     /// struct Monster;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     ///     .add_system(
-    ///         CoreStage::Update,
     ///         // If the system fails, just move on and try again next frame.
     ///         fallible_system.pipe(system_adapter::ignore)
     ///     )
