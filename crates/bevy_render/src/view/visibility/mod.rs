@@ -91,8 +91,8 @@ impl ComputedVisibility {
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
-    /// This value is updated in [`CoreStage::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label. Reading it from the
-    /// [`CoreStage::Update`] stage will yield the value from the previous frame.
+    /// This value is updated in [`CoreSet::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label.
+    /// Reading it during [`CoreSet::Update`] will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
         self.flags.bits == ComputedVisibilityFlags::all().bits
@@ -100,8 +100,7 @@ impl ComputedVisibility {
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
     /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`]) are hidden, this entity
-    /// will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
-    /// [`VisibilitySystems::VisibilityPropagate`] system label.
+    /// will be hidden as well. This value is updated in the [`VisibilitySystems::VisibilityPropagate`], which lives under the [`CoreSet::PostUpdate`] set.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
         self.flags
@@ -111,9 +110,9 @@ impl ComputedVisibility {
     /// Whether this entity is visible in _any_ view (Cameras, Lights, etc). Each entity type (and view type) should choose how to set this
     /// value. For cameras and drawn entities, this will take into account [`RenderLayers`].
     ///
-    /// This value is reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] during [`CoreStage::PostUpdate`].
-    /// Each entity type then chooses how to set this field in the [`CoreStage::PostUpdate`] stage in the
-    /// [`VisibilitySystems::CheckVisibility`] system label. Meshes might use frustum culling to decide if they are visible in a view.
+    /// This value is reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] during [`CoreSet::PostUpdate`].
+    /// Each entity type then chooses how to set this field in the [`VisibilitySystems::CheckVisibility`] system set, under [`CoreSet::PostUpdate`].
+    /// Meshes might use frustum culling to decide if they are visible in a view.
     /// Other entities might just set this to `true` every frame.
     #[inline]
     pub fn is_visible_in_view(&self) -> bool {

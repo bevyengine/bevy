@@ -68,15 +68,15 @@ pub struct RenderPlugin {
 /// The sets run in the order listed, with [`apply_system_buffers`] inserted between each set.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// A stage for applying the commands from the [`Extract`] stage
+    /// A system set for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
 
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
 
     /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
-    /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
-    /// [`Render`](RenderStage::Render) stage.
+    /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
+    /// [`Render`](RenderSet::Render) step.
     Queue,
 
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
@@ -149,8 +149,8 @@ struct RenderExtraction;
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
-/// This resource is only available during [`RenderStage::Extract`] and not
-/// during command application of that stage.
+/// This resource is only available during [`ExtractSchedule`] and not
+/// during command application of that schedule.
 /// See [`Extract`] for more details.
 #[derive(Resource, Default)]
 pub struct MainWorld(World);
@@ -180,7 +180,7 @@ pub mod main_graph {
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {
-    /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
+    /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
@@ -281,7 +281,7 @@ impl Plugin for RenderPlugin {
                     assert_eq!(
                         render_app.world.entities().len(),
                         0,
-                        "An entity was spawned after the entity list was cleared last frame and before the extract stage began. This is not supported",
+                        "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
                     );
 
                     // This is safe given the clear_entities call in the past frame and the assert above
@@ -319,11 +319,11 @@ impl Plugin for RenderPlugin {
 }
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
+/// swapping out the [`MainWorld`] for [`RenderSet::Extract`].
 #[derive(Resource, Default)]
 struct ScratchMainWorld(World);
 
-/// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
+/// Executes the [`ExtractSchedule`] step of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
 fn extract(main_world: &mut World, render_app: &mut App) {
     // temporarily add the app world to the render world as a resource

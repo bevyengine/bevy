@@ -81,7 +81,7 @@ impl CoreSchedule {
 /// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum CoreSet {
-    /// Runs before all other app stages.
+    /// Runs before all other members of this set.
     First,
     /// Runs systems that should only occur after a fixed period of time.
     ///
@@ -95,11 +95,11 @@ pub enum CoreSet {
     Update,
     /// Runs after [`CoreSet::Update`].
     PostUpdate,
-    /// Runs after all other app stages.
+    /// Runs after all other members of this set.
     Last,
 }
 
-/// The names of the default [`App`] startup stages.
+/// The names of the default [`App`] startup sets, which live in [`CoreSchedule::Startup`].
 ///
 /// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

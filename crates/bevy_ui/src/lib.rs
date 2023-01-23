@@ -107,7 +107,7 @@ impl Plugin for UiPlugin {
                     .in_set(CoreSet::PreUpdate)
                     .after(InputSystem),
             )
-            // add these stages to front because these must run before transform update systems
+            // add these systems to front because these must run before transform update systems
             .add_system(
                 widget::text_system
                     .in_set(CoreSet::PostUpdate)

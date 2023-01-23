@@ -15,12 +15,12 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
-/// In the [`RenderStage::Extract`](crate::RenderStage::Extract) step the asset is transferred
-/// from the "app world" into the "render world".
+/// In the [`ExtractSchedule`](crate::ExtractSchedule) step the asset is transferred
+/// from the "main world" into the "render world".
 /// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
 /// as the render asset itself.
 ///
-/// After that in the [`RenderStage::Prepare`](crate::RenderStage::Prepare) step the extracted asset
+/// After that in the [`RenderSet::Prepare`](crate::RenderSet::Prepare) step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
     /// The representation of the asset in the "render world".

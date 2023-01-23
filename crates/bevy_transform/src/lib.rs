@@ -38,7 +38,7 @@ use prelude::{GlobalTransform, Transform};
 /// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
+/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
@@ -59,7 +59,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate) stage.
+    /// [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate) stage.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {

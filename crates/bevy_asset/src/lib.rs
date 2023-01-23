@@ -49,16 +49,16 @@ pub use reflect::*;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 
-/// The names of asset stages in an [`App`] schedule.
+/// [`SystemSet`]s for asset loading in an [`App`] schedule.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum AssetSet {
-    /// The stage where asset storages are updated.
+    /// Asset storages are updated.
     LoadAssets,
-    /// The stage where asset events are generated.
+    /// Asset events are generated.
     AssetEvents,
 }
 
-/// Adds support for Assets to an App.
+/// Adds support for [`Assets`] to an App.
 ///
 /// Assets are typed collections with change tracking, which are added as App Resources. Examples of
 /// assets: textures, sounds, 3d models, maps, scenes

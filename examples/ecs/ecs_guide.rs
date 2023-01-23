@@ -265,39 +265,26 @@ fn main() {
         .add_system(print_message_system)
         // SYSTEM EXECUTION ORDER
         //
-        // Each system belongs to a `Stage`, which controls the execution strategy and broad order
-        // of the systems within each tick. Startup stages (which startup systems are
-        // registered in) will always complete before ordinary stages begin,
-        // and every system in a stage must complete before the next stage advances.
-        // Once every stage has concluded, the main loop is complete and begins again.
+        // Each system belongs to a `Schedule`, which controls the execution strategy and broad order
+        // of the systems within each tick. The [`CoreSchedule::Startup`] schedule holds
+        // startup systems, which are run a single time before the [`CoreSchedule::Main`] runs.
         //
         // By default, all systems run in parallel, except when they require mutable access to a
         // piece of data. This is efficient, but sometimes order matters.
         // For example, we want our "game over" system to execute after all other systems to ensure
         // we don't accidentally run the game for an extra round.
         //
-        // Rather than splitting each of your systems into separate stages, you should force an
-        // explicit ordering between them by giving the relevant systems a label with
-        // `.label`, then using the `.before` or `.after` methods. Systems will not be
-        // scheduled until all of the systems that they have an "ordering dependency" on have
+        // You can force an explicit ordering between systems using the `.before` or `.after` methods.
+        // Systems will not be scheduled until all of the systems that they have an "ordering dependency" on have
         // completed.
         //
-        // Doing that will, in just about all cases, lead to better performance compared to
-        // splitting systems between stages, because it gives the scheduling algorithm more
-        // opportunities to run systems in parallel.
-        // Stages are still necessary, however: end of a stage is a hard sync point
-        // (meaning, no systems are running) where `Commands` issued by systems are processed.
-        // This is required because commands can perform operations that are incompatible with
-        // having systems in flight, such as spawning or deleting entities,
-        // adding or removing resources, etc.
-        //
-        // add_system(system) adds systems to the UPDATE stage by default
+        // add_system(system) adds systems to the Update system set by default
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
         .add_system_to_stage(CoreSet::Update, score_system)
-        // There are other `CoreStages`, such as `Last` which runs at the very end of each run.
+        // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
         .add_system_to_stage(CoreSet::Last, print_at_end_round)
-        // We can also create new stages. Here is what our games stage order will look like:
+        // We can also create new system sets. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system

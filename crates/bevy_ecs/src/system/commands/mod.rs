@@ -48,10 +48,11 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// only after each system in a [stage] has completed.
+/// when the [`apply_system_buffers`] system runs.
 ///
-/// The command queue of a system can also be manually applied
+/// The command queue of an individual system can also be manually applied
 /// by calling [`System::apply_buffers`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -61,7 +62,7 @@ pub trait Command: Send + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -93,8 +94,9 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [stage]: crate::schedule::SystemStage
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
+/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
+/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,

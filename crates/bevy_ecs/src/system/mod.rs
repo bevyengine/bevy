@@ -1,8 +1,8 @@
 //! Tools for controlling behavior in an ECS application.
 //!
-//! Systems define how an ECS based application behaves. They have to be registered to a
-//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually
-//! written as a normal function that will be automatically converted into a system.
+//! Systems define how an ECS based application behaves.
+//! Systems are added to a [`Schedule`](crate::schedule::Schedule), which is then run.
+//! A system is usually written as a normal function, which is automatically converted into a system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
 //! Only types that implement [`SystemParam`] can be used, automatically fetching data from
@@ -36,14 +36,18 @@
 //!
 //! # System ordering
 //!
-//! While the execution of systems is usually parallel and not deterministic, there are two
-//! ways to determine a certain degree of execution order:
+//! By default, the execution of systems is parallel and not deterministic.
+//! Not all systems can run together: if a system mutably accesses data,
+//! no other system that reads or writes that data can be run at the same time.
+//! These systems are said to be **incompatible**.
 //!
-//! - **System Stages:** They determine hard execution synchronization boundaries inside of
-//!   which systems run in parallel by default.
-//! - **Labels:** Systems may be ordered within a stage using the methods `.before()` and `.after()`,
-//!   which order systems based on their [`SystemSet`]s. Each system is implicitly labeled with
-//!   its `fn` type, and custom labels may be added by calling `.in_set()`.
+//! The relative order in which incompatible systems are run matters.
+//! When this is not specified, a **system order ambiguity** exists in your schedule.
+//! You can **explicitly order** systems:
+//!
+//! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to your schedule
+//! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
+//! - through the use of `.add_systems((system_a, system_b, system_c).chain())
 //!
 //! [`SystemSet`]: crate::schedule::SystemSet
 //!

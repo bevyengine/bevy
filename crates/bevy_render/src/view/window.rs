@@ -152,7 +152,7 @@ pub struct WindowSurfaces {
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
-/// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
+/// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
 /// `prepare_windows` system. Improvements in bevy are planned to avoid this happening when it
 /// should not but it will still happen as it is easy for a user to create a large GPU workload
