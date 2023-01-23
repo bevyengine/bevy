@@ -104,6 +104,9 @@ impl WinitWindows {
                 winit_window_builder.with_min_inner_size(min_inner_size)
             };
 
+        #[allow(unused_mut)]
+        let mut winit_window_builder = winit_window_builder.with_title(window.title.as_str());
+
         #[cfg(target_arch = "wasm32")]
         {
             use wasm_bindgen::JsCast;
