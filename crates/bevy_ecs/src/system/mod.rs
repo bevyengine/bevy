@@ -47,7 +47,7 @@
 //!
 //! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to your schedule
 //! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
-//! - through the use of `.add_systems((system_a, system_b, system_c).chain())
+//! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
 //!
 //! [`SystemSet`]: crate::schedule::SystemSet
 //!

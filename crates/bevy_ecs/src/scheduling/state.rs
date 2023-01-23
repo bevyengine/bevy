@@ -60,10 +60,7 @@ pub struct NextState<S: States>(pub Option<S>);
 pub fn apply_state_transition<S: States>(world: &mut World) {
     if world.resource::<NextState<S>>().0.is_some() {
         let entered_state = world.resource_mut::<NextState<S>>().0.take().unwrap();
-        let exited_state = mem::replace(
-            &mut world.resource_mut::<State<S>>().0,
-            entered_state.clone(),
-        );
+        let exited_state = mem::replace(&mut world.resource_mut::<State<S>>().0, entered_state);
         world.run_schedule(&OnExit(exited_state));
         world.run_schedule(&OnEnter(entered_state));
     }
