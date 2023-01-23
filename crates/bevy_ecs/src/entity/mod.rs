@@ -110,7 +110,7 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     generation: u32,
     index: u32,
@@ -219,6 +219,25 @@ impl Entity {
     #[inline]
     pub const fn generation(self) -> u32 {
         self.generation
+    }
+}
+
+impl Serialize for Entity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.to_bits())
+    }
+}
+
+impl<'de> Deserialize<'de> for Entity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
+        Ok(Entity::from_bits(id))
     }
 }
 
