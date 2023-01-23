@@ -282,16 +282,6 @@ wasm = true
 
 # 3D Rendering
 [[example]]
-name = "taa"
-path = "examples/3d/taa.rs"
-
-[package.metadata.example.taa]
-name = "Temporal Antialiasing"
-description = "A scene showcasing temporal antialiasing"
-category = "3D Rendering"
-wasm = false
-
-[[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
@@ -310,6 +300,16 @@ name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "anti_aliasing"
+path = "examples/3d/anti_aliasing.rs"
+
+[package.metadata.example.anti_aliasing]
+name = "Anti Aliasing"
+description = "Compares different anti aliasing methods"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "blend_modes"
@@ -370,16 +370,6 @@ name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
 category = "3D Rendering"
 wasm = true
-
-[[example]]
-name = "anti_aliasing"
-path = "examples/3d/anti_aliasing.rs"
-
-[package.metadata.example.anti_aliasing]
-name = "Anti Aliasing"
-description = "Compares different anti aliasing methods"
-category = "3D Rendering"
-wasm = false
 
 [[example]]
 name = "orthographic"
