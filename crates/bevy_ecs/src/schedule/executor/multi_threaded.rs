@@ -150,13 +150,16 @@ impl SystemExecutor for MultiThreadedExecutor {
             }
         }
 
+        let thread_executor = world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+        let thread_executor = thread_executor.as_deref();
+
         let world = SyncUnsafeCell::from_mut(world);
         let SyncUnsafeSchedule {
             systems,
             mut conditions,
         } = SyncUnsafeSchedule::new(schedule);
-
-        let thread_executor = world.get_resource::<MainThreadExecutor>().map(|e| &*e.0);
 
         ComputeTaskPool::init(TaskPool::default).scope_with_executor(
             false,
