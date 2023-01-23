@@ -216,7 +216,7 @@ pub fn prepare_windows(
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
 ) {
     for window in windows.windows.values_mut() {
@@ -347,7 +347,7 @@ pub fn prepare_windows(
                 }],
             });
             let pipeline_id = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &screenshot_pipeline,
                 surface_configuration.format,
             );
