@@ -12,8 +12,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         gamepad::{
-            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
-            GamepadEventType, Gamepads,
+            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, Gamepads,
         },
         keyboard::{KeyCode, ScanCode},
         mouse::MouseButton,
@@ -23,7 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel, SystemSet};
 use bevy_reflect::{FromReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
@@ -33,9 +32,11 @@ use mouse::{
 use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
 
 use gamepad::{
-    gamepad_connection_system, gamepad_event_system, AxisSettings, ButtonAxisSettings,
-    ButtonSettings, Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType,
-    GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings, Gamepads,
+    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
+    gamepad_event_system, AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
+    GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
+    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent, GamepadSettings,
+    Gamepads,
 };
 
 #[cfg(feature = "serialize")]
@@ -69,20 +70,23 @@ impl Plugin for InputPlugin {
                 mouse_button_input_system.label(InputSystem),
             )
             // gamepad
+            .add_event::<GamepadConnectionEvent>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_event::<GamepadEvent>()
-            .add_event::<GamepadEventRaw>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_to_stage(
+            .add_system_set_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_event_system.label(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_connection_system.after(InputSystem),
+                SystemSet::new()
+                    .with_system(gamepad_event_system)
+                    .with_system(gamepad_button_event_system.after(gamepad_event_system))
+                    .with_system(gamepad_axis_event_system.after(gamepad_event_system))
+                    .with_system(gamepad_connection_system.after(gamepad_event_system))
+                    .label(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
@@ -114,9 +118,7 @@ impl Plugin for InputPlugin {
 
         // Register gamepad types
         app.register_type::<Gamepad>()
-            .register_type::<GamepadEventType>()
-            .register_type::<GamepadEvent>()
-            .register_type::<GamepadEventRaw>()
+            .register_type::<GamepadConnection>()
             .register_type::<GamepadButtonType>()
             .register_type::<GamepadButton>()
             .register_type::<GamepadAxisType>()

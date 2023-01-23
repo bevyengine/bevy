@@ -67,7 +67,7 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App)>,
+    pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
@@ -87,10 +87,68 @@ impl Debug for App {
     }
 }
 
-/// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
-struct SubApp {
-    app: App,
-    runner: Box<dyn Fn(&mut World, &mut App)>,
+/// A [`SubApp`] contains its own [`Schedule`] and [`World`] separate from the main [`App`].
+/// This is useful for situations where data and data processing should be kept completely separate
+/// from the main application. The primary use of this feature in bevy is to enable pipelined rendering.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy_app::{App, AppLabel};
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Resource, Default)]
+/// struct Val(pub i32);
+///
+/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// struct ExampleApp;
+///
+/// #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+/// struct ExampleStage;
+///
+/// let mut app = App::empty();
+/// // initialize the main app with a value of 0;
+/// app.insert_resource(Val(10));
+///
+/// // create a app with a resource and a single stage
+/// let mut sub_app = App::empty();
+/// sub_app.insert_resource(Val(100));
+/// let mut example_stage = SystemStage::single_threaded();
+/// example_stage.add_system(|counter: Res<Val>| {
+///     // since we assigned the value from the main world in extract
+///     // we see that value instead of 100
+///     assert_eq!(counter.0, 10);
+/// });
+/// sub_app.add_stage(ExampleStage, example_stage);
+///
+/// // add the sub_app to the app
+/// app.add_sub_app(ExampleApp, sub_app, |main_world, sub_app| {
+///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
+/// });
+///
+/// // This will run the schedules once, since we're using the default runner
+/// app.run();
+/// ```
+pub struct SubApp {
+    /// The [`SubApp`]'s instance of [`App`]
+    pub app: App,
+
+    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
+    /// useful for moving data between the sub app and the main app.
+    pub extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+}
+
+impl SubApp {
+    /// Runs the `SubApp`'s schedule.
+    pub fn run(&mut self) {
+        self.app.schedule.run(&mut self.app.world);
+        self.app.world.clear_trackers();
+    }
+
+    /// Extracts data from main world to this sub-app.
+    pub fn extract(&mut self, main_world: &mut World) {
+        (self.extract)(main_world, &mut self.app);
+    }
 }
 
 impl Debug for SubApp {
@@ -148,13 +206,16 @@ impl App {
     ///
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
     pub fn update(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_frame_update_span = info_span!("frame").entered();
-        self.schedule.run(&mut self.world);
-
-        for sub_app in self.sub_apps.values_mut() {
-            (sub_app.runner)(&mut self.world, &mut sub_app.app);
-            sub_app.app.world.clear_trackers();
+        {
+            #[cfg(feature = "trace")]
+            let _bevy_frame_update_span = info_span!("main app").entered();
+            self.schedule.run(&mut self.world);
+        }
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            #[cfg(feature = "trace")]
+            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
+            sub_app.extract(&mut self.world);
+            sub_app.run();
         }
 
         self.world.clear_trackers();
@@ -164,6 +225,24 @@ impl App {
     ///
     /// Finalizes the [`App`] configuration. For general usage, see the example on the item
     /// level documentation.
+    ///
+    /// # `run()` might not return
+    ///
+    /// Calls to [`App::run()`] might never return.
+    ///
+    /// In simple and *headless* applications, one can expect that execution will
+    /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
+    /// windowed applications.
+    ///
+    /// Windowed apps are typically driven by an *event loop* or *message loop* and
+    /// some window-manager APIs expect programs to terminate when their primary
+    /// window is closed and that event loop terminates – behaviour of processes that
+    /// do not is often platform dependent or undocumented.
+    ///
+    /// By default, *Bevy* uses the `winit` crate for window creation. See
+    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
+    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
+    /// *does* return – albeit one that carries its own caveats and disclaimers.
     ///
     /// # Panics
     ///
@@ -176,6 +255,14 @@ impl App {
         if app.is_building_plugin {
             panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
         }
+
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(&mut app);
+        }
+        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -811,7 +898,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send) -> &mut Self {
         self.runner = Box::new(run_fn);
         self
     }
@@ -851,8 +938,7 @@ impl App {
         match self.add_boxed_plugin(Box::new(plugin)) {
             Ok(app) => app,
             Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
-                "Error adding plugin {}: : plugin was already added in application",
-                plugin_name
+                "Error adding plugin {plugin_name}: : plugin was already added in application"
             ),
         }
     }
@@ -997,20 +1083,21 @@ impl App {
 
     /// Adds an [`App`] as a child of the current one.
     ///
-    /// The provided function `f` is called by the [`update`](Self::update) method. The [`World`]
+    /// The provided function `extract` is normally called by the [`update`](Self::update) method.
+    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
         app: App,
-        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
+        extract: impl Fn(&mut World, &mut App) + 'static + Send,
     ) -> &mut Self {
         self.sub_apps.insert(
             label.as_label(),
             SubApp {
                 app,
-                runner: Box::new(sub_app_runner),
+                extract: Box::new(extract),
             },
         );
         self
@@ -1048,6 +1135,16 @@ impl App {
             Ok(app) => app,
             Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
+    }
+
+    /// Inserts an existing sub app into the app
+    pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
+        self.sub_apps.insert(label.as_label(), sub_app);
+    }
+
+    /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
+    pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
+        self.sub_apps.remove(&label.as_label())
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns

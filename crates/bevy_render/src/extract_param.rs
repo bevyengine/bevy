@@ -52,8 +52,11 @@ pub struct ExtractState<P: SystemParam + 'static> {
     main_world_state: <Res<'static, MainWorld> as SystemParam>::State,
 }
 
-// SAFETY: only accesses MainWorld resource with read only system params using Res,
-// which is initialized in init()
+// SAFETY: The only `World` access (`Res<MainWorld>`) is read-only.
+unsafe impl<P> ReadOnlySystemParam for Extract<'_, '_, P> where P: ReadOnlySystemParam {}
+
+// SAFETY: The only `World` access is properly registered by `Res<MainWorld>::init_state`.
+// This call will also ensure that there are no conflicts with prior params.
 unsafe impl<P> SystemParam for Extract<'_, '_, P>
 where
     P: ReadOnlySystemParam,
@@ -75,6 +78,9 @@ where
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
+        // SAFETY:
+        // - The caller ensures that `world` is the same one that `init_state` was called with.
+        // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
         let main_world = Res::<MainWorld>::get_param(
             &mut state.main_world_state,
             system_meta,

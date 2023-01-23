@@ -9,7 +9,7 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, borrow::Cow, fmt::Debug, marker::PhantomData};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -106,6 +106,9 @@ impl SystemMeta {
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+///
+/// // If you are using [`Commands`], you can choose when you want to apply them to the world.
+/// // You need to manually call `.apply(world)` on the [`SystemState`] to apply them.
 /// ```
 /// Caching:
 /// ```rust
@@ -167,7 +170,8 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param: ReadOnlySystemParam,
     {
-        self.validate_world_and_update_archetypes(world);
+        self.validate_world(world);
+        self.update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
@@ -175,7 +179,8 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
-        self.validate_world_and_update_archetypes(world);
+        self.validate_world(world);
+        self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
@@ -193,8 +198,20 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
-    fn validate_world_and_update_archetypes(&mut self, world: &World) {
+    /// Asserts that the [`SystemState`] matches the provided [`World`].
+    #[inline]
+    fn validate_world(&self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+    }
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    #[inline]
+    pub fn update_archetypes(&mut self, world: &World) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -209,6 +226,43 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    /// This will not update the state's view of the world's archetypes automatically nor increment the
+    /// world's change tick.
+    ///
+    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
+    /// function.
+    ///
+    /// Users should strongly prefer to use [`SystemState::get`] over this function.
+    #[inline]
+    pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    where
+        Param: ReadOnlySystemParam,
+    {
+        self.validate_world(world);
+        let change_tick = world.read_change_tick();
+        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        unsafe { self.fetch(world, change_tick) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes
+    /// automatically nor increment the world's change tick.
+    ///
+    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
+    /// function.
+    ///
+    /// Users should strongly prefer to use [`SystemState::get_mut`] over this function.
+    #[inline]
+    pub fn get_manual_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> SystemParamItem<'w, 's, Param> {
+        self.validate_world(world);
+        let change_tick = world.change_tick();
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.fetch(world, change_tick) }
+    }
+
     /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
     ///
     /// # Safety
@@ -221,6 +275,19 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
+        self.fetch(world, change_tick)
+    }
+
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    unsafe fn fetch<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+        change_tick: u32,
+    ) -> SystemParamItem<'w, 's, Param> {
         let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
         self.meta.last_change_tick = change_tick;
         param
@@ -313,7 +380,7 @@ where
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (In, Out, Marker)>,
+    marker: PhantomData<fn(In) -> (Out, Marker)>,
 }
 
 pub struct IsFunctionSystem;
@@ -363,6 +430,11 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
+    }
+
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<F>()
     }
 
     #[inline]
@@ -450,8 +522,14 @@ where
             self.system_meta.name.as_ref(),
         );
     }
+
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        let set = crate::schedule_v3::SystemTypeSet::<F>::new();
+        vec![Box::new(set)]
     }
 }
 

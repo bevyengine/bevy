@@ -4,6 +4,7 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
+pub mod prepass;
 pub mod tonemapping;
 pub mod upscaling;
 
@@ -23,6 +24,7 @@ use crate::{
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
+    prepass::{DepthPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
@@ -44,6 +46,8 @@ impl Plugin for CorePipelinePlugin {
 
         app.register_type::<ClearColor>()
             .register_type::<ClearColorConfig>()
+            .register_type::<DepthPrepass>()
+            .register_type::<NormalPrepass>()
             .init_resource::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
             .add_plugin(Core2dPlugin)

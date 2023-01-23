@@ -68,6 +68,12 @@ impl PluginGroup for DefaultPlugins {
                 // NOTE: Load this after renderer initialization so that it knows about the supported
                 // compressed texture formats
                 .add(bevy_render::texture::ImagePlugin::default());
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                group = group
+                    .add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin::default());
+            }
         }
 
         #[cfg(feature = "bevy_core_pipeline")]
