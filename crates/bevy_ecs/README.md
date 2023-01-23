@@ -149,11 +149,8 @@ fn main() {
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
 
-    // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
-    // before moving on to the next Stage
-    schedule.add_stage(UpdateLabel, SystemStage::parallel()
-        .with_system(movement)
-    );
+    // Add our system to the schedule
+    schedule.add_system(movement);
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop
     schedule.run(&mut world);

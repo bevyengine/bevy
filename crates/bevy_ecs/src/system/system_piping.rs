@@ -227,7 +227,6 @@ pub mod adapter {
     /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     ///     .add_system(
     ///         // Panic if the load system returns an error.
@@ -262,7 +261,6 @@ pub mod adapter {
     /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     ///     .add_system(
     ///         // Prints system information.
@@ -293,7 +291,6 @@ pub mod adapter {
     /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     ///     .add_system(
     ///         CoreStage::Update,
@@ -325,7 +322,6 @@ pub mod adapter {
     /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     ///     .add_system(
     ///         // Prints system warning if system returns an error.
@@ -353,12 +349,7 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
-    ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     ///     .add_system(
     ///         CoreStage::Update,

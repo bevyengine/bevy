@@ -46,13 +46,13 @@ pub fn schedule(c: &mut Criterion) {
 
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
-        let mut stage = SystemStage::parallel();
-        stage.add_system(ab);
-        stage.add_system(cd);
-        stage.add_system(ce);
-        stage.run(&mut world);
+        let mut schedule = Schedule::parallel();
+        schedule.add_system(ab);
+        schedule.add_system(cd);
+        schedule.add_system(ce);
+        schedule.run(&mut world);
 
-        b.iter(move || stage.run(&mut world));
+        b.iter(move || schedule.run(&mut world));
     });
     group.finish();
 }
@@ -80,7 +80,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(15));
 
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
-    // Add system to the stage with full constraints. Hopefully this should be maximimally
+    // Add system to the schedule with full constraints. Hopefully this should be maximimally
     // difficult for bevy to figure out.
     // Also, we are performing the `as_label` operation outside of the loop since that
     // requires an allocation and a leak. This is not something that would be necessary in a

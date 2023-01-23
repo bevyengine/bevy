@@ -55,7 +55,7 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut app = SystemStage::single_threaded();
+//! # let mut app = Schedule::new();
 //! // Prints "Hello, World!" each frame.
 //! app
 //!     .add_system(print_first.before(print_mid))

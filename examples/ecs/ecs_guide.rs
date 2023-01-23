@@ -288,8 +288,8 @@ fn main() {
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(CoreSet::Update, MySet::BeforeRound, SystemStage::parallel())
-        .add_stage_after(CoreSet::Update, MySet::AfterRound, SystemStage::parallel())
+        .configure_set(MySet::BeforeRound.before(CoreSet::Update))
+        .add_stage_after(MySet::AfterRound.after(CoreSet::Update))
         .add_system(new_round_system.in_set(MySet::BeforeRound))
         .add_system(new_player_system.after(new_round_system.in_set(MySet::BeforeRound)))
         .add_system(exclusive_player_system.in_set(MySet::BeforeRound))

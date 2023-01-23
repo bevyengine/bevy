@@ -567,11 +567,11 @@ impl<'w, 's> Commands<'w, 's> {
 /// # let mut world = World::new();
 /// # world.init_resource::<Counter>();
 /// #
-/// # let mut setup_stage = SystemStage::single_threaded().with_system(setup);
-/// # let mut assert_stage = SystemStage::single_threaded().with_system(assert_names);
+/// # let mut setup_schedule = Schedule::new().add_system(setup);
+/// # let mut assert_schedule = Schedule::new().add_system(assert_names);
 /// #
-/// # setup_stage.run(&mut world);
-/// # assert_stage.run(&mut world);
+/// # setup_schedule.run(&mut world);
+/// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
 ///     commands.spawn_empty().add(CountName);

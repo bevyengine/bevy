@@ -103,23 +103,23 @@ impl Debug for App {
 /// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 /// struct ExampleApp;
 ///
-/// #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-/// struct ExampleStage;
+/// #[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+/// struct ExampleSchedule;
 ///
 /// let mut app = App::empty();
 /// // initialize the main app with a value of 0;
 /// app.insert_resource(Val(10));
 ///
-/// // create a app with a resource and a single stage
+/// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
 /// sub_app.insert_resource(Val(100));
-/// let mut example_stage = SystemStage::single_threaded();
-/// example_stage.add_system(|counter: Res<Val>| {
+/// let mut example_schedule = Schedule::single_threaded();
+/// example_schedule.add_system(|counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
 /// });
-/// sub_app.add_stage(ExampleStage, example_stage);
+/// sub_app.add_schedule(ExampleSchedule, example_schedule);
 ///
 /// // add the sub_app to the app
 /// app.add_sub_app(ExampleApp, sub_app, |main_world, sub_app| {

@@ -1,9 +1,5 @@
-use bevy_ecs::{prelude::*, schedule::ShouldRun};
+use bevy_ecs::prelude::*;
 use criterion::Criterion;
-
-fn run_stage(stage: &mut SystemStage, world: &mut World) {
-    stage.run(world);
-}
 
 /// Labels for run criteria which either always return yes, or always return no.
 #[derive(RunCriteriaLabel)]
@@ -22,11 +18,11 @@ pub fn run_criteria_yes(criterion: &mut Criterion) {
         ShouldRun::Yes
     }
     for amount in 0..21 {
-        let mut stage = SystemStage::parallel();
-        stage.add_system(empty.with_run_criteria(always_yes));
+        let mut schedule = Schedule::parallel();
+        schedule.add_system(empty.with_run_criteria(always_yes));
         for _ in 0..amount {
             // TODO: should change this to use a label or have another bench that uses a label instead
-            stage
+            schedule
                 .add_system(empty.with_run_criteria(always_yes))
                 .add_system(empty.with_run_criteria(always_yes))
                 .add_system(empty.with_run_criteria(always_yes))
@@ -34,10 +30,10 @@ pub fn run_criteria_yes(criterion: &mut Criterion) {
                 .add_system(empty.with_run_criteria(always_yes));
         }
         // run once to initialize systems
-        run_stage(&mut stage, &mut world);
+        run_schedule(&mut schedule, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                run_schedule(&mut schedule, &mut world);
             });
         });
     }
@@ -54,10 +50,10 @@ pub fn run_criteria_no(criterion: &mut Criterion) {
         ShouldRun::No
     }
     for amount in 0..21 {
-        let mut stage = SystemStage::parallel();
-        stage.add_system(empty.with_run_criteria(always_no));
+        let mut schedule = Schedule::parallel();
+        schedule.add_system(empty.with_run_criteria(always_no));
         for _ in 0..amount {
-            stage
+            schedule
                 .add_system(empty.with_run_criteria(always_no))
                 .add_system(empty.with_run_criteria(always_no))
                 .add_system(empty.with_run_criteria(always_no))
@@ -65,10 +61,10 @@ pub fn run_criteria_no(criterion: &mut Criterion) {
                 .add_system(empty.with_run_criteria(always_no));
         }
         // run once to initialize systems
-        run_stage(&mut stage, &mut world);
+        run_schedule(&mut schedule, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                run_schedule(&mut schedule, &mut world);
             });
         });
     }
@@ -85,11 +81,11 @@ pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
         ShouldRun::Yes
     }
     for amount in 0..21 {
-        let mut stage = SystemStage::parallel();
+        let mut schedule = Schedule::parallel();
 
-        stage.add_system(empty.with_run_criteria(always_yes.in_set(Always::Yes)));
+        schedule.add_system(empty.with_run_criteria(always_yes.in_set(Always::Yes)));
         for _ in 0..amount {
-            stage
+            schedule
                 .add_system(empty.with_run_criteria(Always::Yes))
                 .add_system(empty.with_run_criteria(Always::Yes))
                 .add_system(empty.with_run_criteria(Always::Yes))
@@ -97,10 +93,10 @@ pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
                 .add_system(empty.with_run_criteria(Always::Yes));
         }
         // run once to initialize systems
-        run_stage(&mut stage, &mut world);
+        run_schedule(&mut schedule, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                run_schedule(&mut schedule, &mut world);
             });
         });
     }
@@ -117,11 +113,11 @@ pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
         ShouldRun::No
     }
     for amount in 0..21 {
-        let mut stage = SystemStage::parallel();
+        let mut schedule = Schedule::parallel();
 
-        stage.add_system(empty.with_run_criteria(always_no.in_set(Always::No)));
+        schedule.add_system(empty.with_run_criteria(always_no.in_set(Always::No)));
         for _ in 0..amount {
-            stage
+            schedule
                 .add_system(empty.with_run_criteria(Always::No))
                 .add_system(empty.with_run_criteria(Always::No))
                 .add_system(empty.with_run_criteria(Always::No))
@@ -129,10 +125,10 @@ pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
                 .add_system(empty.with_run_criteria(Always::No));
         }
         // run once to initialize systems
-        run_stage(&mut stage, &mut world);
+        run_schedule(&mut schedule, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                run_schedule(&mut schedule, &mut world);
             });
         });
     }
@@ -153,10 +149,10 @@ pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
         query.single().0.into()
     }
     for amount in 0..21 {
-        let mut stage = SystemStage::parallel();
-        stage.add_system(empty.with_run_criteria(yes_with_query));
+        let mut schedule = Schedule::parallel();
+        schedule.add_system(empty.with_run_criteria(yes_with_query));
         for _ in 0..amount {
-            stage
+            schedule
                 .add_system(empty.with_run_criteria(yes_with_query))
                 .add_system(empty.with_run_criteria(yes_with_query))
                 .add_system(empty.with_run_criteria(yes_with_query))
@@ -164,10 +160,10 @@ pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
                 .add_system(empty.with_run_criteria(yes_with_query));
         }
         // run once to initialize systems
-        run_stage(&mut stage, &mut world);
+        run_schedule(&mut schedule, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                run_schedule(&mut schedule, &mut world);
             });
         });
     }
@@ -185,10 +181,10 @@ pub fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
         res.0.into()
     }
     for amount in 0..21 {
-        let mut stage = SystemStage::parallel();
-        stage.add_system(empty.with_run_criteria(yes_with_resource));
+        let mut schedule = Schedule::parallel();
+        schedule.add_system(empty.with_run_criteria(yes_with_resource));
         for _ in 0..amount {
-            stage
+            schedule
                 .add_system(empty.with_run_criteria(yes_with_resource))
                 .add_system(empty.with_run_criteria(yes_with_resource))
                 .add_system(empty.with_run_criteria(yes_with_resource))
@@ -196,10 +192,10 @@ pub fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
                 .add_system(empty.with_run_criteria(yes_with_resource));
         }
         // run once to initialize systems
-        run_stage(&mut stage, &mut world);
+        run_schedule(&mut schedule, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                run_schedule(&mut schedule, &mut world);
             });
         });
     }
