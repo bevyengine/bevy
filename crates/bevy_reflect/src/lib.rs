@@ -1274,9 +1274,15 @@ bevy_reflect::tests::should_reflect_debug::Test {
         fn vec3_path_access() {
             let mut v = vec3(1.0, 2.0, 3.0);
 
-            assert_eq!(*v.path("x").unwrap().downcast_ref::<f32>().unwrap(), 1.0);
+            assert_eq!(
+                *v.reflect_path("x").unwrap().downcast_ref::<f32>().unwrap(),
+                1.0
+            );
 
-            *v.path_mut("y").unwrap().downcast_mut::<f32>().unwrap() = 6.0;
+            *v.reflect_path_mut("y")
+                .unwrap()
+                .downcast_mut::<f32>()
+                .unwrap() = 6.0;
 
             assert_eq!(v.y, 6.0);
         }

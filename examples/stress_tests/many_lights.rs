@@ -158,17 +158,13 @@ impl Plugin for LogVisibleLights {
             Err(_) => return,
         };
 
-        render_app
-            .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                extract_schedule.add_system(extract_time);
-            })
-            .add_system(print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app.add_system(print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<ExtractedTime>,
+    time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -182,13 +178,6 @@ fn print_visible_light_count(
             global_light_meta.entity_to_index.len()
         );
     }
-}
-
-#[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedTime(Time);
-
-fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
-    commands.insert_resource(ExtractedTime(time.clone()));
 }
 
 struct PrintingTimer(Timer);

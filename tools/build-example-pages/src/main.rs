@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::HashMap, fs::File};
 use bitflags::bitflags;
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml::Value;
+use toml_edit::Document;
 
 bitflags! {
     struct Command: u32 {
@@ -89,7 +89,7 @@ impl PartialOrd for Example {
 
 fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest: HashMap<String, Value> = toml::from_str(&manifest_file).unwrap();
+    let manifest = manifest_file.parse::<Document>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()
@@ -99,11 +99,11 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
         .clone();
 
     manifest["example"]
-        .as_array()
+        .as_array_of_tables()
         .unwrap()
         .iter()
         .flat_map(|val| {
-            let technical_name = val["name"].as_str().unwrap().to_string();
+            let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
             if panic_on_missing && metadatas.get(&technical_name).is_none() {
                 panic!("Missing metadata for example {technical_name}");
             }
@@ -132,7 +132,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
 
 fn parse_categories() -> HashMap<String, String> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest: HashMap<String, Value> = toml::from_str(&manifest_file).unwrap();
+    let manifest = manifest_file.parse::<Document>().unwrap();
     manifest
         .get("package")
         .unwrap()
@@ -140,7 +140,7 @@ fn parse_categories() -> HashMap<String, String> {
         .as_ref()
         .unwrap()["category"]
         .clone()
-        .as_array()
+        .as_array_of_tables()
         .unwrap()
         .iter()
         .map(|v| {

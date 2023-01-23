@@ -527,7 +527,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
             match alpha_mode {
                 AlphaMode::Opaque => {}
                 AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::ALPHA_MASK,
-                AlphaMode::Blend => continue,
+                AlphaMode::Blend
+                | AlphaMode::Premultiplied
+                | AlphaMode::Add
+                | AlphaMode::Multiply => continue,
             }
 
             let pipeline_id = pipelines.specialize(
@@ -566,7 +569,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         distance,
                     });
                 }
-                AlphaMode::Blend => {}
+                AlphaMode::Blend
+                | AlphaMode::Premultiplied
+                | AlphaMode::Add
+                | AlphaMode::Multiply => {}
             }
         }
     }
