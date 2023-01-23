@@ -460,26 +460,32 @@ impl App {
 
     /// Adds standardized schedules and labels to an [`App`].
     ///
-    /// Adding these schedules is necessary to make some core engine features work.
-    ///  This is however done by default by calling `App::default`, which is in turn called by
+    /// Adding these schedules is necessary to make almost all core engine features work.
+    ///  This is typically done implicitly by calling `App::default`, which is in turn called by
     /// [`App::new`].
     ///
-    /// The schedules are defined in the [`CoreSchedule`] enum.
+    /// The schedules added are defined in the [`CoreSchedule`] enum.
     ///
-    /// You can also add standardized system sets to these schedules using [`App::add_default_sets`],
+    /// You can also add standardized system sets and command flush points to these schedules using [`App::add_default_sets`],
     /// which must be called *after* this method as it relies on these schedules existing.
     ///
     /// # Examples
     ///
     /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// let app = App::empty().add_default_schedules();
+    /// use bevy_app::App;
+    /// use bevy_ecs::scheduling::Schedules;
+    ///
+    /// let app = App::empty()
+    ///     .init_resource::<Schedules>()
+    ///     .add_default_schedules()
+    ///     .add_default_sets();
     /// ```
     pub fn add_default_schedules(&mut self) -> &mut Self {
+        // The outer schedule should be set up, rather than initialized as empty
+        self.add_schedule(CoreSchedule::Outer, CoreSchedule::outer_schedule());
+
         self.init_schedule(CoreSchedule::Startup);
         self.init_schedule(CoreSchedule::Main);
-        self.init_schedule(CoreSchedule::Outer);
         self.init_schedule(CoreSchedule::FixedTimestep);
 
         self
@@ -502,9 +508,13 @@ impl App {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// let app = App::empty().add_default_sets();
+    /// use bevy_app::App;
+    /// use bevy_ecs::scheduling::Schedules;
+    ///
+    /// let app = App::empty()
+    ///     .init_resource::<Schedules>()
+    ///     .add_default_schedules()
+    ///     .add_default_sets();
     /// ```
     pub fn add_default_sets(&mut self) -> &mut Self {
         // Adding sets
