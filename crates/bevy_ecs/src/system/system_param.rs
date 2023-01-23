@@ -1545,11 +1545,12 @@ mod tests {
         #[system_param(ignore)]
         marker: PhantomData<Marker>,
     }
+    
+    // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
 
     #[derive(SystemParam)]
     pub struct UnitParam;
 
-    // Compile test for https://github.com/bevyengine/bevy/pull/6957.
     #[derive(SystemParam)]
     pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
         Res<'w, R>,
