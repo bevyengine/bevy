@@ -339,7 +339,7 @@ impl App {
     pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&self.default_schedule_label) {
+        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
         } else {
             let schedule_label = &self.default_schedule_label;
@@ -367,7 +367,7 @@ impl App {
     pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&self.default_schedule_label) {
+        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_systems(systems);
         } else {
             let schedule_label = &self.default_schedule_label;
