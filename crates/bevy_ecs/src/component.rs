@@ -1,17 +1,18 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    change_detection::MAX_CHANGE_AGE,
+    change_detection::{MAX_CHANGE_AGE, BuildReadWrap, BuildWriteWrap},
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
-use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    cell::UnsafeCell,
     borrow::Cow,
+    ops::{Deref, DerefMut},
     mem::needs_drop,
 };
 
@@ -144,6 +145,10 @@ use std::{
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
+    type ReadWrap<'a>: BuildReadWrap<'a, Inner = Self> + Deref<Target = Self>;
+    fn shrink_read<'wlong: 'wshort, 'wshort>(item: Self::ReadWrap<'wlong>) -> Self::ReadWrap<'wshort>;
+    type WriteWrap<'a>: BuildWriteWrap<'a, Inner = Self> + DerefMut<Target = Self>;
+    fn shrink_write<'wlong: 'wshort, 'wshort>(item: Self::WriteWrap<'wlong>) -> Self::WriteWrap<'wshort>;
 }
 
 pub struct TableStorage;

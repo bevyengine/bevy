@@ -2,7 +2,7 @@ pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{Ticks, TicksMut},
+    change_detection::{Ticks, TicksMut, DetectChanges},
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{
@@ -901,16 +901,20 @@ where
     }
 }
 
-impl<'w, T: 'static> NonSend<'w, T> {
+impl<'w, T: 'static> DetectChanges for NonSend<'w, T> {
     /// Returns `true` if the resource was added after the system last ran.
-    pub fn is_added(&self) -> bool {
+    fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self) -> bool {
+    fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
+    }
+
+    fn last_changed(&self) -> u32 {
+        self.last_change_tick
     }
 }
 
@@ -921,6 +925,7 @@ impl<'w, T> Deref for NonSend<'w, T> {
         self.value
     }
 }
+
 impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     fn from(nsm: NonSendMut<'a, T>) -> Self {
         Self {

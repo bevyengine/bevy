@@ -41,17 +41,39 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let read_wrap = if attrs.change_detection_enabled {
+        quote! { #bevy_ecs_path::change_detection::Ref<'a, Self> }
+    } else {
+        quote! { &'a Self }
+    };
+
+    let write_wrap = if attrs.change_detection_enabled {
+        quote! { #bevy_ecs_path::change_detection::Mut<'a, Self> }
+    } else {
+        quote! { &'a mut Self }
+    };
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
+            type ReadWrap<'a> = #read_wrap;
+            fn shrink_read<'wlong: 'wshort, 'wshort>(item: Self::ReadWrap<'wlong>) -> Self::ReadWrap<'wshort> {
+                item
+            }
+            type WriteWrap<'a> = #write_wrap;
+            fn shrink_write<'wlong: 'wshort, 'wshort>(item: Self::WriteWrap<'wlong>) -> Self::WriteWrap<'wshort> {
+                item
+            }
         }
     })
 }
 
 pub const COMPONENT: Symbol = Symbol("component");
 pub const STORAGE: Symbol = Symbol("storage");
+pub const CHANGE_DETECTION: Symbol = Symbol("change_detection");
 
 struct Attrs {
+    change_detection_enabled: bool,
     storage: StorageTy,
 }
 
@@ -69,6 +91,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
 
     let mut attrs = Attrs {
+        change_detection_enabled: true,
         storage: StorageTy::Table,
     };
 
@@ -88,6 +111,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                             format!(
                                 "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
                             ),
+                        ))
+                    }
+                };
+            }
+            Meta(NameValue(m)) if m.path == CHANGE_DETECTION => {
+                attrs.change_detection_enabled = match m.lit {
+                    syn::Lit::Bool(value) => value.value,
+                    s => {
+                        return Err(Error::new_spanned(
+                            s,
+                            "Change detection must be a bool, expected 'true' or 'false'.",
                         ))
                     }
                 };

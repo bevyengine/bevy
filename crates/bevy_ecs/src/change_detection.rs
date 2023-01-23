@@ -364,6 +364,44 @@ impl<'a> From<TicksMut<'a>> for Ticks<'a> {
     }
 }
 
+pub(crate) trait BuildReadWrap<'a> {
+    type Inner;
+    fn build(inner: &'a Self::Inner, ticks: Ticks<'a>) -> Self;
+}
+
+impl<'a, T> BuildReadWrap<'a> for &'a T {
+    type Inner = T;
+    fn build(inner: &'a T, _ticks: Ticks<'a>) -> Self {
+        inner
+    }
+}
+
+impl<'a, T> BuildReadWrap<'a> for Ref<'a, T> {
+    type Inner = T;
+    fn build(inner: &'a T, ticks: Ticks<'a>) -> Self {
+        Ref{value: inner, ticks}
+    }
+}
+
+pub(crate) trait BuildWriteWrap<'a> {
+    type Inner;
+    fn build(inner: &'a mut Self::Inner, ticks: TicksMut<'a>) -> Self;
+}
+
+impl<'a, T> BuildWriteWrap<'a> for &'a mut T {
+    type Inner = T;
+    fn build(inner: &'a mut T, _ticks: TicksMut<'a>) -> Self {
+        inner
+    }
+}
+
+impl<'a, T> BuildWriteWrap<'a> for Mut<'a, T> {
+    type Inner = T;
+    fn build(inner: &'a mut T, ticks: TicksMut<'a>) -> Self {
+        Mut{value: inner, ticks}
+    }
+}
+
 /// Shared borrow of a [`Resource`].
 ///
 /// See the [`Resource`] documentation for usage.
