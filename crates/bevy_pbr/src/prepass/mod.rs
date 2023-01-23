@@ -8,13 +8,11 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_ecs::{
-    prelude::Entity,
-    query::With,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::{FromWorld, World},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -39,7 +37,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, RenderApp,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
@@ -89,15 +87,14 @@ where
         };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_phase)
-            .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<AlphaMask3dPrepass>,
-            )
+            .edit_schedule(&ExtractSchedule, |extract_schedule| {
+                extract_schedule.add_system(extract_camera_prepass_phase);
+            })
+            .add_system(prepare_prepass_textures.in_set(RenderSet::Prepare))
+            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
+            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
