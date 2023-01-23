@@ -115,6 +115,7 @@ pub struct TemporalAntialiasBundle {
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
+/// * Thin geometry or texture lines may flicker or disappear
 /// * Slightly blurs the image, leading to a softer look
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
