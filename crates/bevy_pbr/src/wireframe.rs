@@ -6,6 +6,7 @@ use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::Extract;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -18,7 +19,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, VisibleEntities},
     ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_render::{Extract, ExtractSchedule, RenderingAppExtension};
 use bevy_utils::tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =

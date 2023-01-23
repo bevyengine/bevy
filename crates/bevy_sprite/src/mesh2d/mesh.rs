@@ -21,7 +21,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, RenderApp, RenderSet, RenderingAppExtension,
+    Extract, ExtractSchedule, RenderApp, RenderSet, RenderingAppExtension,
 };
 use bevy_transform::components::GlobalTransform;
 

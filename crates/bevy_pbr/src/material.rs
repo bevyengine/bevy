@@ -10,14 +10,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    event::EventReader,
-    prelude::World,
-    schedule::IntoSystemDescriptor,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::FromWorld,
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{

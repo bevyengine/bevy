@@ -198,7 +198,7 @@ impl Plugin for PbrPlugin {
             .add_system(
                 update_point_light_frusta
                     .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    .lable(CoreSet::PostUpdate)
+                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )

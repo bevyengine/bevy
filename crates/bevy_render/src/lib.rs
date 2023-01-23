@@ -22,7 +22,6 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
-use bevy_derive::{Deref, DerefMut};
 use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 

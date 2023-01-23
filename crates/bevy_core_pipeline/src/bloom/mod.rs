@@ -2,10 +2,8 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryItem, QueryState, With},
-    system::{Commands, Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    prelude::*,
+    query::{QueryItem, QueryState},
 };
 use bevy_math::{UVec2, UVec4, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};

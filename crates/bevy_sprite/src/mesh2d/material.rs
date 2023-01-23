@@ -3,15 +3,12 @@ use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    event::EventReader,
-    prelude::{Bundle, World},
+    prelude::*,
     query::ROQueryItem,
-    schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::FromWorld,
 };
 use bevy_log::error;
 use bevy_reflect::TypeUuid;
@@ -32,7 +29,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
-    Extract, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};

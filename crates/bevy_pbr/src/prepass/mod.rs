@@ -39,7 +39,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp,
 };
 use bevy_utils::{tracing::error, HashMap};
 

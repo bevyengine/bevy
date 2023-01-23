@@ -57,7 +57,8 @@ impl Plugin for Core2dPlugin {
             .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
             .add_system(
                 batch_phase_system::<Transparent2d>
-                    .after(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort)),
+                    .after(sort_phase_system::<Transparent2d>)
+                    .in_set(RenderSet::PhaseSort),
             );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
