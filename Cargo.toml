@@ -372,24 +372,14 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "fxaa"
-path = "examples/3d/fxaa.rs"
+name = "anti_aliasing"
+path = "examples/3d/anti_aliasing.rs"
 
-[package.metadata.example.fxaa]
-name = "FXAA"
-description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
+[package.metadata.example.anti_aliasing]
+name = "Anti Aliasing"
+description = "Compares different anti aliasing methods"
 category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "msaa"
-path = "examples/3d/msaa.rs"
-
-[package.metadata.example.msaa]
-name = "MSAA"
-description = "Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges"
-category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "orthographic"
