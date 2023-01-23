@@ -235,6 +235,10 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         self.nodes.keys()
     }
 
+    unsafe fn nodes_raw(&self) -> &slotmap::HopSlotMap<NodeIdx, N> {
+        &self.nodes
+    }
+
     type Nodes<'n> = slotmap::hop::Values<'n, NodeIdx, N> where Self: 'n;
     fn nodes(&self) -> Self::Nodes<'_> {
         self.nodes.values()
@@ -300,7 +304,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         iters::EdgesByIdxMut::new(self.adjacencies[index].outgoing().values(), &mut self.edges)
     }
 
-    type InNeighbors<'n> = iters::NodesByIdx<'n, N, hashbrown::hash_map::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    type InNeighbors<'n> = iters::NodesByIdx<'n, N, &'n NodeIdx, hashbrown::hash_map::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
     fn in_neighbors(&self, index: NodeIdx) -> Self::InNeighbors<'_> {
         iters::NodesByIdx::new(self.adjacencies[index].incoming().keys(), &self.nodes)
     }
@@ -310,7 +314,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         iters::NodesByIdxMut::new(self.adjacencies[index].incoming().keys(), &mut self.nodes)
     }
 
-    type OutNeighbors<'n> = iters::NodesByIdx<'n, N, hashbrown::hash_map::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    type OutNeighbors<'n> = iters::NodesByIdx<'n, N, &'n NodeIdx, hashbrown::hash_map::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
     fn out_neighbors(&self, index: NodeIdx) -> Self::OutNeighbors<'_> {
         iters::NodesByIdx::new(self.adjacencies[index].outgoing().keys(), &self.nodes)
     }

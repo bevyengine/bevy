@@ -1,71 +1,60 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, marker::PhantomData};
 
 use hashbrown::HashSet;
 
-use crate::graphs::{edge::EdgeRef, keys::NodeIdx, Graph};
-
-use super::GraphIterator;
+use crate::{
+    graphs::{edge::EdgeRef, keys::NodeIdx, Graph},
+    iters,
+};
 
 /// Implementation of the [`BFS` algorithm](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
 ///
 /// when `d` is the distance between a node and the startnode,
 /// it will evaluate every node with `d=1`, then continue with `d=2` and so on.
-pub struct BreadthFirstSearch {
+pub struct BreadthFirstSearch<'g, N, E, G: Graph<N, E>> {
+    graph: &'g G,
     queue: VecDeque<NodeIdx>,
     visited: HashSet<NodeIdx>,
+    phantom: PhantomData<(N, E)>,
 }
 
-impl BreadthFirstSearch {
+impl<'g, N, E, G: Graph<N, E>> BreadthFirstSearch<'g, N, E, G> {
     /// Creates a new `BreadthFirstSearch` with a start node
-    pub fn new(start: NodeIdx) -> Self {
-        let mut queue = VecDeque::new();
-        let mut visited = HashSet::new();
-
-        visited.insert(start);
-        queue.push_back(start);
-
-        Self { queue, visited }
-    }
-
-    /// Creates a new `BreadthFirstSearch` with a start node and the count of nodes for capacity reserving
-    pub fn with_capacity(start: NodeIdx, node_count: usize) -> Self {
+    pub fn new(graph: &'g G, start: NodeIdx) -> Self {
+        let node_count = graph.node_count();
         let mut queue = VecDeque::with_capacity(node_count);
         let mut visited = HashSet::with_capacity(node_count);
 
         visited.insert(start);
         queue.push_back(start);
 
-        Self { queue, visited }
-    }
-}
-
-impl<'g, N: 'g, E, G: Graph<N, E>> GraphIterator<'g, N, E, G> for BreadthFirstSearch {
-    type Item = &'g N;
-    type ItemMut = &'g mut N;
-
-    fn next(&mut self, graph: &'g G) -> Option<Self::Item> {
-        if let Some(node) = self.queue.pop_front() {
-            for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
-                if !self.visited.contains(&dst) {
-                    self.visited.insert(dst);
-                    self.queue.push_back(dst);
-                }
-            }
-            Some(graph.get_node(node).unwrap())
-        } else {
-            None
+        Self {
+            graph,
+            queue,
+            visited,
+            phantom: PhantomData,
         }
     }
 
-    fn next_mut(&mut self, graph: &'g mut G) -> Option<Self::ItemMut> {
+    /// Creates a new `BreadthFirstSearch` wrapped inside an `NodesByIdx` iterator
+    pub fn new_ref(graph: &'g G, start: NodeIdx) -> iters::NodesByIdx<'g, N, NodeIdx, Self> {
+        let inner = Self::new(graph, start);
+        iters::NodesByIdx::from_graph(inner, graph)
+    }
+}
+
+impl<'g, N, E, G: Graph<N, E>> Iterator for BreadthFirstSearch<'g, N, E, G> {
+    type Item = NodeIdx;
+
+    fn next(&mut self) -> Option<Self::Item> {
         if let Some(node) = self.queue.pop_front() {
-            for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
+            for EdgeRef(_, dst, _) in self.graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
                     self.visited.insert(dst);
                     self.queue.push_back(dst);
                 }
             }
-            Some(graph.get_node_mut(node).unwrap())
+            Some(node)
         } else {
             None
         }
@@ -75,7 +64,7 @@ impl<'g, N: 'g, E, G: Graph<N, E>> GraphIterator<'g, N, E, G> for BreadthFirstSe
 #[cfg(test)]
 mod test {
     use crate::{
-        algos::{bfs::BreadthFirstSearch, GraphIterator},
+        algos::bfs::BreadthFirstSearch,
         graphs::{map::SimpleMapGraph, Graph},
     };
 
@@ -98,8 +87,8 @@ mod test {
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut bfs = BreadthFirstSearch::with_capacity(zero, graph.node_count());
-        while let Some(node) = bfs.next(&graph) {
+        let bfs = BreadthFirstSearch::new_ref(&graph, zero);
+        for node in bfs {
             counted_elements.push(*node);
         }
 

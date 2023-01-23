@@ -1,68 +1,59 @@
+use std::marker::PhantomData;
+
 use hashbrown::HashSet;
 
-use crate::graphs::{edge::EdgeRef, keys::NodeIdx, Graph};
-
-use super::GraphIterator;
+use crate::{
+    graphs::{edge::EdgeRef, keys::NodeIdx, Graph},
+    iters,
+};
 
 /// Implementation of the [`DFS` algorithm](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/)
 ///
 /// it will evaluate every node from the start as deep as it can and then continue at the next sibling node from the top.
-pub struct DepthFirstSearch {
+pub struct DepthFirstSearch<'g, N, E, G: Graph<N, E>> {
+    graph: &'g G,
     stack: Vec<NodeIdx>,
     visited: HashSet<NodeIdx>,
+    phantom: PhantomData<(N, E)>,
 }
 
-impl DepthFirstSearch {
+impl<'g, N, E, G: Graph<N, E>> DepthFirstSearch<'g, N, E, G> {
     /// Creates a new `DepthFirstSearch` with a start node
-    pub fn new(start: NodeIdx) -> Self {
-        let mut stack = Vec::new();
-        let mut visited = HashSet::new();
-
-        visited.insert(start);
-        stack.push(start);
-
-        Self { stack, visited }
-    }
-
-    /// Creates a new `DepthFirstSearch` with a start node and the count of nodes for capacity reserving
-    pub fn with_capacity(start: NodeIdx, node_count: usize) -> Self {
+    pub fn new(graph: &'g G, start: NodeIdx) -> Self {
+        let node_count = graph.node_count();
         let mut stack = Vec::with_capacity(node_count);
         let mut visited = HashSet::with_capacity(node_count);
 
         visited.insert(start);
         stack.push(start);
 
-        Self { stack, visited }
-    }
-}
-
-impl<'g, N: 'g, E, G: Graph<N, E>> GraphIterator<'g, N, E, G> for DepthFirstSearch {
-    type Item = &'g N;
-    type ItemMut = &'g mut N;
-
-    fn next(&mut self, graph: &'g G) -> Option<Self::Item> {
-        if let Some(node) = self.stack.pop() {
-            for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
-                if !self.visited.contains(&dst) {
-                    self.visited.insert(dst);
-                    self.stack.push(dst);
-                }
-            }
-            Some(graph.get_node(node).unwrap())
-        } else {
-            None
+        Self {
+            graph,
+            stack,
+            visited,
+            phantom: PhantomData,
         }
     }
 
-    fn next_mut(&mut self, graph: &'g mut G) -> Option<Self::ItemMut> {
+    /// Creates a new `DepthFirstSearch` wrapped inside an `NodesByIdx` iterator
+    pub fn new_ref(graph: &'g G, start: NodeIdx) -> iters::NodesByIdx<'g, N, NodeIdx, Self> {
+        let inner = Self::new(graph, start);
+        iters::NodesByIdx::from_graph(inner, graph)
+    }
+}
+
+impl<'g, N, E, G: Graph<N, E>> Iterator for DepthFirstSearch<'g, N, E, G> {
+    type Item = NodeIdx;
+
+    fn next(&mut self) -> Option<Self::Item> {
         if let Some(node) = self.stack.pop() {
-            for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
+            for EdgeRef(_, dst, _) in self.graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
                     self.visited.insert(dst);
                     self.stack.push(dst);
                 }
             }
-            Some(graph.get_node_mut(node).unwrap())
+            Some(node)
         } else {
             None
         }
@@ -72,7 +63,7 @@ impl<'g, N: 'g, E, G: Graph<N, E>> GraphIterator<'g, N, E, G> for DepthFirstSear
 #[cfg(test)]
 mod test {
     use crate::{
-        algos::{dfs::DepthFirstSearch, GraphIterator},
+        algos::dfs::DepthFirstSearch,
         graphs::{map::SimpleMapGraph, Graph},
     };
 
@@ -95,8 +86,8 @@ mod test {
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut dfs = DepthFirstSearch::with_capacity(zero, graph.node_count());
-        while let Some(node) = dfs.next(&graph) {
+        let dfs = DepthFirstSearch::new_ref(&graph, zero);
+        for node in dfs {
             counted_elements.push(*node);
         }
 
