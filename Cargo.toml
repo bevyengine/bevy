@@ -48,7 +48,7 @@ default = [
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -294,6 +294,16 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blend_modes"
+path = "examples/3d/blend_modes.rs"
+
+[package.metadata.example.blend_modes]
+name = "Blend Modes"
+description = "Showcases different blend modes"
 category = "3D Rendering"
 wasm = true
 
