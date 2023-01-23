@@ -45,7 +45,11 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system(prepare_view_uniforms.in_set(RenderSet::Prepare))
+                .add_system(
+                    prepare_view_uniforms
+                        .in_set(RenderSet::Prepare)
+                        .in_set(ViewSet::PrepareUniforms),
+                )
                 .add_system(
                     prepare_view_targets
                         .after(WindowSystem::Prepare)
@@ -368,4 +372,11 @@ fn prepare_view_targets(
             }
         }
     }
+}
+
+/// System sets for the [`view`](crate::view) module.
+#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+pub enum ViewSet {
+    /// Prepares view uniforms
+    PrepareUniforms,
 }

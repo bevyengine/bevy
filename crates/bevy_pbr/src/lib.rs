@@ -51,7 +51,7 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedMeshPipelines},
-    view::VisibilitySystems,
+    view::{ViewSet, VisibilitySystems},
     ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -245,18 +245,14 @@ impl Plugin for PbrPlugin {
                     .add_system(render::extract_lights.in_set(RenderLightSystems::ExtractLights));
             })
             .add_system(
-                // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
-                // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_lights
-                    .at_start()
+                    .before(ViewSet::PrepareUniforms)
                     .in_set(RenderLightSystems::PrepareLights)
                     .in_set(RenderSet::Prepare),
             )
             .add_system(
-                // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
-                // just adding it to the non-exclusive systems in the Prepare stage means it runs after
-                // prepare_lights.
                 render::prepare_clusters
+                    .after(render::prepare_lights)
                     .in_set(RenderLightSystems::PrepareClusters)
                     .in_set(RenderSet::Prepare),
             )
