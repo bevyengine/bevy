@@ -247,6 +247,10 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         self.nodes.values()
     }
 
+    unsafe fn nodes_mut_raw(&mut self) -> &mut HopSlotMap<NodeIdx, N> {
+        &mut self.nodes
+    }
+
     type NodesMut<'n> = slotmap::hop::ValuesMut<'n, NodeIdx, N> where Self: 'n;
     fn nodes_mut(&mut self) -> Self::NodesMut<'_> {
         self.nodes.values_mut()
@@ -312,7 +316,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::NodesByIdx::new(self.adjacencies[index].incoming().keys(), &self.nodes)
     }
 
-    type InNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    type InNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, &'n NodeIdx, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
     fn in_neighbors_mut(&mut self, index: NodeIdx) -> Self::InNeighborsMut<'_> {
         iters::NodesByIdxMut::new(self.adjacencies[index].incoming().keys(), &mut self.nodes)
     }
@@ -322,7 +326,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::NodesByIdx::new(self.adjacencies[index].outgoing().keys(), &self.nodes)
     }
 
-    type OutNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
+    type OutNeighborsMut<'n> = iters::NodesByIdxMut<'n, N, &'n NodeIdx, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>> where Self: 'n;
     fn out_neighbors_mut(&mut self, index: NodeIdx) -> Self::OutNeighborsMut<'_> {
         iters::NodesByIdxMut::new(
             self.adjacencies[index].outgoing_mut().keys(),

@@ -257,7 +257,7 @@ pub trait Graph<N, E> {
     /// Returns an iterator over all `NodeIdx`s.
     fn node_indices(&self) -> Self::NodeIndices<'_>;
 
-    /// Returns a raw handle to the nodes slotmap.
+    /// Returns a immutable raw handle to the nodes slotmap.
     ///
     /// # Safety
     ///
@@ -266,6 +266,13 @@ pub trait Graph<N, E> {
 
     /// Returns an iterator over all nodes.
     fn nodes(&self) -> Self::Nodes<'_>;
+
+    /// Returns a mutable raw handle to the nodes slotmap.
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called when you really know what you are doing.
+    unsafe fn nodes_mut_raw(&mut self) -> &mut HopSlotMap<NodeIdx, N>;
 
     /// Returns a mutable iterator over all nodes.
     fn nodes_mut(&mut self) -> Self::NodesMut<'_>;

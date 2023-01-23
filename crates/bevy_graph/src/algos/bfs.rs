@@ -41,6 +41,17 @@ impl<'g, N, E, G: Graph<N, E>> BreadthFirstSearch<'g, N, E, G> {
         let inner = Self::new(graph, start);
         iters::NodesByIdx::from_graph(inner, graph)
     }
+
+    /// Creates a new `BreadthFirstSearch` wrapped inside an `NodesByIdxMut` iterator
+    pub fn new_mut(graph: &'g mut G, start: NodeIdx) -> iters::NodesByIdxMut<'g, N, NodeIdx, Self> {
+        unsafe {
+            // SAFETY: We know `NodesByIdxMut` doesn't intercept (deletes nodes) at all.
+            let ptr: *mut G = &mut *graph;
+            let inner = Self::new(&*ptr, start);
+
+            iters::NodesByIdxMut::from_graph(inner, graph)
+        }
+    }
 }
 
 impl<'g, N, E, G: Graph<N, E>> Iterator for BreadthFirstSearch<'g, N, E, G> {
