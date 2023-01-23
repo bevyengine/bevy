@@ -2,6 +2,8 @@ use hashbrown::HashSet;
 
 use crate::graphs::{edge::EdgeRef, keys::NodeIdx, Graph};
 
+use super::GraphIterator;
+
 /// Implementation of the [`DFS` algorithm](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/)
 ///
 /// it will evaluate every node from the start as deep as it can and then continue at the next sibling node from the top.
@@ -32,9 +34,13 @@ impl DepthFirstSearch {
 
         Self { stack, visited }
     }
+}
 
-    /// Gets a reference to the value of the next node from the algorithm.
-    pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
+impl<'g, N: 'g, E, G: Graph<N, E>> GraphIterator<'g, N, E, G> for DepthFirstSearch {
+    type Item = &'g N;
+    type ItemMut = &'g mut N;
+
+    fn next(&mut self, graph: &'g G) -> Option<Self::Item> {
         if let Some(node) = self.stack.pop() {
             for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
@@ -48,8 +54,7 @@ impl DepthFirstSearch {
         }
     }
 
-    /// Gets a mutable reference to the value of the next node from the algorithm.
-    pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
+    fn next_mut(&mut self, graph: &'g mut G) -> Option<Self::ItemMut> {
         if let Some(node) = self.stack.pop() {
             for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
@@ -67,7 +72,7 @@ impl DepthFirstSearch {
 #[cfg(test)]
 mod test {
     use crate::{
-        algos::dfs::DepthFirstSearch,
+        algos::{dfs::DepthFirstSearch, GraphIterator},
         graphs::{map::SimpleMapGraph, Graph},
     };
 

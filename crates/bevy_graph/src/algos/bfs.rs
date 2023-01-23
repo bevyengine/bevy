@@ -4,6 +4,8 @@ use hashbrown::HashSet;
 
 use crate::graphs::{edge::EdgeRef, keys::NodeIdx, Graph};
 
+use super::GraphIterator;
+
 /// Implementation of the [`BFS` algorithm](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
 ///
 /// when `d` is the distance between a node and the startnode,
@@ -35,9 +37,13 @@ impl BreadthFirstSearch {
 
         Self { queue, visited }
     }
+}
 
-    /// Gets an immutable reference to the value of the next node from the algorithm
-    pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
+impl<'g, N: 'g, E, G: Graph<N, E>> GraphIterator<'g, N, E, G> for BreadthFirstSearch {
+    type Item = &'g N;
+    type ItemMut = &'g mut N;
+
+    fn next(&mut self, graph: &'g G) -> Option<Self::Item> {
         if let Some(node) = self.queue.pop_front() {
             for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
@@ -51,8 +57,7 @@ impl BreadthFirstSearch {
         }
     }
 
-    /// Gets a mutable reference to the value of the next node from the algorithm.
-    pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
+    fn next_mut(&mut self, graph: &'g mut G) -> Option<Self::ItemMut> {
         if let Some(node) = self.queue.pop_front() {
             for EdgeRef(_, dst, _) in graph.outgoing_edges_of(node) {
                 if !self.visited.contains(&dst) {
@@ -70,7 +75,7 @@ impl BreadthFirstSearch {
 #[cfg(test)]
 mod test {
     use crate::{
-        algos::bfs::BreadthFirstSearch,
+        algos::{bfs::BreadthFirstSearch, GraphIterator},
         graphs::{map::SimpleMapGraph, Graph},
     };
 
