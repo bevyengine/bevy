@@ -56,30 +56,34 @@ impl Plugin for ViewPlugin {
 
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
+/// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
+/// smoother edges.
+/// Defaults to 4.
+///
+/// Note that WGPU currently only supports 1 or 4 samples.
+/// Ultimately we plan on supporting whatever is natively supported on a given device.
+/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+///
 /// # Example
 /// ```
 /// # use bevy_app::prelude::App;
 /// # use bevy_render::prelude::Msaa;
 /// App::new()
-///     .insert_resource(Msaa { samples: 4 })
+///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Clone, ExtractResource, Reflect)]
+#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
 #[reflect(Resource)]
-pub struct Msaa {
-    /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
-    /// smoother edges.
-    /// Defaults to 4.
-    ///
-    /// Note that WGPU currently only supports 1 or 4 samples.
-    /// Ultimately we plan on supporting whatever is natively supported on a given device.
-    /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
-    pub samples: u32,
+pub enum Msaa {
+    Off = 1,
+    #[default]
+    Sample4 = 4,
 }
 
-impl Default for Msaa {
-    fn default() -> Self {
-        Self { samples: 4 }
+impl Msaa {
+    #[inline]
+    pub fn samples(&self) -> u32 {
+        *self as u32
     }
 }
 
@@ -334,7 +338,7 @@ fn prepare_view_targets(
                                     },
                                 )
                                 .default_view,
-                            sampled: (msaa.samples > 1).then(|| {
+                            sampled: (msaa.samples() > 1).then(|| {
                                 texture_cache
                                     .get(
                                         &render_device,
@@ -342,7 +346,7 @@ fn prepare_view_targets(
                                             label: Some("main_texture_sampled"),
                                             size,
                                             mip_level_count: 1,
-                                            sample_count: msaa.samples,
+                                            sample_count: msaa.samples(),
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,

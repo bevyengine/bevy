@@ -98,7 +98,7 @@ impl Node for CameraDriverNode {
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 

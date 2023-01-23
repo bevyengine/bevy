@@ -14,6 +14,8 @@ pub struct Text {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub alignment: TextAlignment,
+    /// How the text should linebreak when running out of the bounds determined by max_size
+    pub linebreak_behaviour: BreakLineOn,
 }
 
 impl Default for Text {
@@ -21,6 +23,7 @@ impl Default for Text {
         Self {
             sections: Default::default(),
             alignment: TextAlignment::Left,
+            linebreak_behaviour: BreakLineOn::WordBoundary,
         }
     }
 }
@@ -167,6 +170,29 @@ impl Default for TextStyle {
             font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
+        }
+    }
+}
+
+/// Determines how lines will be broken when preventing text from running out of bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
+pub enum BreakLineOn {
+    /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
+    /// Lines will be broken up at the nearest suitable word boundary, usually a space.
+    /// This behaviour suits most cases, as it keeps words intact across linebreaks.
+    WordBoundary,
+    /// Lines will be broken without discrimination on any character that would leave bounds.
+    /// This is closer to the behaviour one might expect from text in a terminal.
+    /// However it may lead to words being broken up across linebreaks.
+    AnyCharacter,
+}
+
+impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
+    fn from(val: BreakLineOn) -> Self {
+        match val {
+            BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
         }
     }
 }

@@ -12,10 +12,10 @@ use proc_macro::TokenStream;
 use quote::{quote, quote_spanned};
 use std::{env, path::PathBuf};
 use syn::spanned::Spanned;
-use toml::{map::Map, Value};
+use toml_edit::{Document, Item};
 
 pub struct BevyManifest {
-    manifest: Map<String, Value>,
+    manifest: Document,
 }
 
 impl Default for BevyManifest {
@@ -26,7 +26,7 @@ impl Default for BevyManifest {
                 .map(|mut path| {
                     path.push("Cargo.toml");
                     let manifest = std::fs::read_to_string(path).unwrap();
-                    toml::from_str(&manifest).unwrap()
+                    manifest.parse::<Document>().unwrap()
                 })
                 .unwrap(),
         }
@@ -37,18 +37,15 @@ const BEVY_INTERNAL: &str = "bevy_internal";
 
 impl BevyManifest {
     pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
-        fn dep_package(dep: &Value) -> Option<&str> {
+        fn dep_package(dep: &Item) -> Option<&str> {
             if dep.as_str().is_some() {
                 None
             } else {
-                dep.as_table()
-                    .unwrap()
-                    .get("package")
-                    .map(|name| name.as_str().unwrap())
+                dep.get("package").map(|name| name.as_str().unwrap())
             }
         }
 
-        let find_in_deps = |deps: &Map<String, Value>| -> Option<syn::Path> {
+        let find_in_deps = |deps: &Item| -> Option<syn::Path> {
             let package = if let Some(dep) = deps.get(name) {
                 return Some(Self::parse_str(dep_package(dep).unwrap_or(name)));
             } else if let Some(dep) = deps.get(BEVY) {
@@ -66,14 +63,8 @@ impl BevyManifest {
             Some(path)
         };
 
-        let deps = self
-            .manifest
-            .get("dependencies")
-            .map(|deps| deps.as_table().unwrap());
-        let deps_dev = self
-            .manifest
-            .get("dev-dependencies")
-            .map(|deps| deps.as_table().unwrap());
+        let deps = self.manifest.get("dependencies");
+        let deps_dev = self.manifest.get("dev-dependencies");
 
         deps.and_then(find_in_deps)
             .or_else(|| deps_dev.and_then(find_in_deps))

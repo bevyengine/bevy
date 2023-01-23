@@ -160,14 +160,14 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.cursor.position != previous.cursor.position {
-                if let Some(physical_position) = window.cursor.position {
+            if window.physical_cursor_position() != previous.physical_cursor_position() {
+                if let Some(physical_position) = window.physical_cursor_position() {
                     let inner_size = winit_window.inner_size();
 
                     let position = PhysicalPosition::new(
                         physical_position.x,
                         // Flip the coordinate space back to winit's context.
-                        inner_size.height as f64 - physical_position.y,
+                        inner_size.height as f32 - physical_position.y,
                     );
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
