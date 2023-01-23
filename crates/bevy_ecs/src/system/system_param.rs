@@ -1545,7 +1545,7 @@ mod tests {
         #[system_param(ignore)]
         marker: PhantomData<Marker>,
     }
-    
+
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
 
     #[derive(SystemParam)]
