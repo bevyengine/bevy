@@ -8,8 +8,8 @@ use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
-    rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
+    render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -285,10 +285,10 @@ fn prepare_view_targets(
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
-        if let Some(target_size) = camera.physical_target_size {
+        if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
-                camera.target.get_texture_view(&windows, &images),
-                camera.target.get_texture_format(&windows, &images),
+                target.get_texture_view(&windows, &images),
+                target.get_texture_format(&windows, &images),
             ) {
                 let size = Extent3d {
                     width: target_size.x,

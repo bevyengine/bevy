@@ -5,7 +5,7 @@ use crate::{
     system::{IntoSystem, System},
     world::World,
 };
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
@@ -54,12 +54,31 @@ pub struct PipeSystem<SystemA, SystemB> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
+impl<SystemA, SystemB> PipeSystem<SystemA, SystemB> {
+    /// Manual constructor for creating a [`PipeSystem`].
+    /// This should only be used when [`IntoPipeSystem::pipe`] cannot be used,
+    /// such as in `const` contexts.
+    pub const fn new(system_a: SystemA, system_b: SystemB, name: Cow<'static, str>) -> Self {
+        Self {
+            system_a,
+            system_b,
+            name,
+            component_access: Access::new(),
+            archetype_component_access: Access::new(),
+        }
+    }
+}
+
 impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<SystemA, SystemB> {
     type In = SystemA::In;
     type Out = SystemB::Out;
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<(SystemA, SystemB)>()
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -126,6 +145,18 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_a.set_last_change_tick(last_change_tick);
         self.system_b.set_last_change_tick(last_change_tick);
     }
+
+    fn default_labels(&self) -> Vec<crate::schedule::SystemLabelId> {
+        let mut labels = self.system_a.default_labels();
+        labels.extend(&self.system_b.default_labels());
+        labels
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        let mut system_sets = self.system_a.default_system_sets();
+        system_sets.extend_from_slice(&self.system_b.default_system_sets());
+        system_sets
+    }
 }
 
 /// An extension trait providing the [`IntoPipeSystem::pipe`] method to pass input from one system into the next.
@@ -154,13 +185,8 @@ where
     fn pipe(self, system: SystemB) -> PipeSystem<SystemA::System, SystemB::System> {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
-        PipeSystem {
-            name: Cow::Owned(format!("Pipe({}, {})", system_a.name(), system_b.name())),
-            system_a,
-            system_b,
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-        }
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
@@ -423,8 +449,15 @@ pub mod adapter {
             unimplemented!()
         }
 
+        /// Mocks an exclusive system that takes an input and returns an output.
+        fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
+            unimplemented!()
+        }
+
         assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
         assert_is_system(returning::<Option<()>>.pipe(ignore));
         assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
     }
 }

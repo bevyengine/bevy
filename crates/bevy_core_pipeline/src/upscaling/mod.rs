@@ -112,7 +112,7 @@ pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
 fn queue_view_upscaling_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
     view_targets: Query<(Entity, &ViewTarget)>,
@@ -122,7 +122,7 @@ fn queue_view_upscaling_pipelines(
             upscaling_mode: UpscalingMode::Filtering,
             texture_format: view_target.out_texture_format(),
         };
-        let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
+        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
         commands
             .entity(entity)

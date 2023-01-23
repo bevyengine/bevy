@@ -28,23 +28,13 @@ pub trait AccessKitEntityExt {
 
 impl AccessKitEntityExt for Entity {
     fn to_node_id(&self) -> NodeId {
-        let id = NonZeroU128::new(self.to_bits() as u128 + 2);
+        let id = NonZeroU128::new(self.to_bits() as u128 + 1);
         NodeId(id.unwrap())
     }
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Focus(Option<NodeId>);
-
-impl Focus {
-    pub fn from_entity(&mut self, entity: Option<Entity>) {
-        **self = entity.map(|v| v.to_node_id());
-    }
-
-    pub fn entity(&self) -> Option<Entity> {
-        self.0.as_ref().map(<Entity>::from_node_id)
-    }
-}
+pub struct Focus(Option<Entity>);
 
 pub struct AccessibilityPlugin;
 

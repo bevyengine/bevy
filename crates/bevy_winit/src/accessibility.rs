@@ -1,6 +1,5 @@
 use std::{
     collections::VecDeque,
-    num::NonZeroU128,
     sync::{Arc, Mutex},
 };
 
@@ -12,24 +11,18 @@ use bevy_a11y::{
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Entity, EventReader, EventWriter},
+    prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::{Changed, With},
     system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_utils::{default, HashMap};
-use bevy_window::{WindowClosed, WindowFocused, WindowId, Windows};
+use bevy_window::{PrimaryWindow, Window, WindowClosed, WindowFocused};
 
 #[derive(Default, Deref, DerefMut)]
-pub struct AccessKitAdapters(pub HashMap<WindowId, Adapter>);
-
-impl AccessKitAdapters {
-    pub fn get_primary_adapter(&self) -> Option<&Adapter> {
-        self.get(&WindowId::primary())
-    }
-}
+pub struct AccessKitAdapters(pub HashMap<Entity, Adapter>);
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct WinitActionHandlers(pub HashMap<WindowId, WinitActionHandler>);
+pub struct WinitActionHandlers(pub HashMap<Entity, WinitActionHandler>);
 
 #[derive(Clone, Default, Deref, DerefMut)]
 pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
@@ -47,13 +40,15 @@ fn handle_window_focus(
     mut focused: EventReader<WindowFocused>,
 ) {
     for event in focused.iter() {
-        if let Some(adapter) = adapters.get_primary_adapter() {
+        if let Some(adapter) = adapters.get(&event.window) {
             adapter.update_if_active(|| {
-                let focus_id = (*focus).unwrap_or_else(|| {
-                    NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap())
-                });
+                let focus_id = (*focus).unwrap_or_else(|| event.window);
                 TreeUpdate {
-                    focus: if event.focused { Some(focus_id) } else { None },
+                    focus: if event.focused {
+                        Some(focus_id.to_node_id())
+                    } else {
+                        None
+                    },
                     ..default()
                 }
             });
@@ -66,9 +61,9 @@ fn window_closed(
     mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
-    for WindowClosed { id, .. } in events.iter() {
-        adapters.remove(id);
-        receivers.remove(id);
+    for WindowClosed { window, .. } in events.iter() {
+        adapters.remove(window);
+        receivers.remove(window);
     }
 }
 
@@ -82,56 +77,50 @@ fn poll_receivers(handlers: Res<WinitActionHandlers>, mut actions: EventWriter<A
 }
 
 fn update_accessibility_nodes(
-    windows: Res<Windows>,
     adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
-    query: Query<(Entity, &AccessibilityNode), Changed<AccessibilityNode>>,
+    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    nodes: Query<(Entity, &AccessibilityNode), Changed<AccessibilityNode>>,
 ) {
-    if let Some(adapter) = adapters.get_primary_adapter() {
-        let should_run = focus.is_changed() || !query.is_empty();
-        if should_run {
-            adapter.update_if_active(|| {
-                let mut nodes = vec![];
-                let mut has_focus = false;
-                let mut name = None;
-                for window in windows.iter() {
-                    if window.is_focused() {
+    if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
+        if let Some(adapter) = adapters.get(&primary_window_id) {
+            let should_run = focus.is_changed() || !nodes.is_empty();
+            if should_run {
+                adapter.update_if_active(|| {
+                    let mut to_update = vec![];
+                    let mut has_focus = false;
+                    let mut name = None;
+                    if primary_window.focused {
                         has_focus = true;
-                        let title = window.title().to_string();
+                        let title = primary_window.title.clone();
                         name = Some(title.into_boxed_str());
-                        break;
                     }
-                }
-                let focus_id = if has_focus {
-                    (**focus).or_else(|| {
-                        Some(NodeId(
-                            NonZeroU128::new(WindowId::primary().as_u128()).unwrap(),
-                        ))
-                    })
-                } else {
-                    None
-                };
-                for (entity, node) in &query {
-                    nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
-                }
-                let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
-                let children = nodes.iter().map(|v| v.0).collect::<Vec<NodeId>>();
-                let window_update = (
-                    root_id,
-                    Arc::new(Node {
-                        role: Role::Window,
-                        name,
-                        children,
+                    let focus_id = if has_focus {
+                        (*focus).or_else(|| Some(primary_window_id))
+                    } else {
+                        None
+                    };
+                    for (entity, node) in &nodes {
+                        to_update.push((entity.to_node_id(), Arc::new((**node).clone())));
+                    }
+                    let children = to_update.iter().map(|v| v.0).collect::<Vec<NodeId>>();
+                    let window_update = (
+                        primary_window_id.to_node_id(),
+                        Arc::new(Node {
+                            role: Role::Window,
+                            name,
+                            children,
+                            ..default()
+                        }),
+                    );
+                    to_update.insert(0, window_update);
+                    TreeUpdate {
+                        nodes: to_update,
+                        focus: focus_id.map(|v| v.to_node_id()),
                         ..default()
-                    }),
-                );
-                nodes.insert(0, window_update);
-                TreeUpdate {
-                    nodes,
-                    focus: focus_id,
-                    ..default()
-                }
-            });
+                    }
+                });
+            }
         }
     }
 }
@@ -140,39 +129,41 @@ fn remove_accessibility_nodes(
     adapters: NonSend<AccessKitAdapters>,
     mut focus: ResMut<Focus>,
     removed: RemovedComponents<AccessibilityNode>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
     remaining_nodes: Query<Entity, With<AccessibilityNode>>,
 ) {
     if removed.iter().len() != 0 {
-        if let Some(adapter) = adapters.get_primary_adapter() {
-            adapter.update_if_active(|| {
-                if let Some(last_focused_entity) = focus.entity() {
-                    for entity in removed.iter() {
-                        if entity == last_focused_entity {
-                            **focus = None;
-                            break;
+        if let Ok(primary_window_id) = primary_window.get_single() {
+            if let Some(adapter) = adapters.get(&primary_window_id) {
+                adapter.update_if_active(|| {
+                    if let Some(last_focused_entity) = **focus {
+                        for entity in removed.iter() {
+                            if entity == last_focused_entity {
+                                **focus = None;
+                                break;
+                            }
                         }
                     }
-                }
-                let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
-                let children = remaining_nodes
-                    .iter()
-                    .map(|v| v.to_node_id())
-                    .collect::<Vec<NodeId>>();
-                let window_update = (
-                    root_id,
-                    Arc::new(Node {
-                        role: Role::Window,
-                        children,
+                    let children = remaining_nodes
+                        .iter()
+                        .map(|v| v.to_node_id())
+                        .collect::<Vec<NodeId>>();
+                    let window_update = (
+                        primary_window_id.to_node_id(),
+                        Arc::new(Node {
+                            role: Role::Window,
+                            children,
+                            ..default()
+                        }),
+                    );
+                    let focus = (**focus).unwrap_or(primary_window_id);
+                    TreeUpdate {
+                        nodes: vec![window_update],
+                        focus: Some(focus.to_node_id()),
                         ..default()
-                    }),
-                );
-                let focus = (**focus).unwrap_or(root_id);
-                TreeUpdate {
-                    nodes: vec![window_update],
-                    focus: Some(focus),
-                    ..default()
-                }
-            });
+                    }
+                });
+            }
         }
     }
 }
@@ -182,7 +173,7 @@ pub struct AccessibilityPlugin;
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
-            .init_resource::<WinitActionHandlers>()
+            .init_non_send_resource::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_window_focus)
             .add_system_to_stage(CoreStage::PreUpdate, window_closed)

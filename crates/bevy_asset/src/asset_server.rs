@@ -284,7 +284,7 @@ impl AssetServer {
     /// to look for loaders of `bar.baz` and `baz` assets.
     ///
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
-    /// setting the `"CARGO_MANIFEST_DIR"` environment variable
+    /// setting the `"BEVY_ASSET_ROOT"` or `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
     /// to another directory. When the application  is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
@@ -387,7 +387,7 @@ impl AssetServer {
             return Err(err);
         }
 
-        // if version has changed since we loaded and grabbed a lock, return. theres is a newer
+        // if version has changed since we loaded and grabbed a lock, return. there is a newer
         // version being loaded
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources

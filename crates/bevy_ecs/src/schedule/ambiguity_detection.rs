@@ -335,6 +335,7 @@ mod tests {
     fn read_only() {
         let mut world = World::new();
         world.insert_resource(R);
+        world.insert_non_send_resource(R);
         world.spawn(A);
         world.init_resource::<Events<E>>();
 
@@ -394,6 +395,7 @@ mod tests {
     fn nonsend() {
         let mut world = World::new();
         world.insert_resource(R);
+        world.insert_non_send_resource(R);
 
         let mut test_stage = SystemStage::parallel();
         test_stage
@@ -497,6 +499,7 @@ mod tests {
     fn ignore_all_ambiguities() {
         let mut world = World::new();
         world.insert_resource(R);
+        world.insert_non_send_resource(R);
 
         let mut test_stage = SystemStage::parallel();
         test_stage
@@ -513,6 +516,7 @@ mod tests {
     fn ambiguous_with_label() {
         let mut world = World::new();
         world.insert_resource(R);
+        world.insert_non_send_resource(R);
 
         #[derive(SystemLabel)]
         struct IgnoreMe;

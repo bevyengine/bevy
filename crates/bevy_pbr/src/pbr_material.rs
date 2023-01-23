@@ -1,4 +1,7 @@
-use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
+use crate::{
+    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_PREPASS_SHADER_HANDLE,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::Handle;
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
@@ -414,18 +417,21 @@ impl Material for StandardMaterial {
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.normal_map {
-            descriptor
-                .fragment
-                .as_mut()
-                .unwrap()
-                .shader_defs
-                .push("STANDARDMATERIAL_NORMAL_MAP".into());
+            if let Some(fragment) = descriptor.fragment.as_mut() {
+                fragment
+                    .shader_defs
+                    .push("STANDARDMATERIAL_NORMAL_MAP".into());
+            }
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         Ok(())
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.typed().into()
     }
 
     fn fragment_shader() -> ShaderRef {
