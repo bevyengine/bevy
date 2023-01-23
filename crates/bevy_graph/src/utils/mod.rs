@@ -1,3 +1,5 @@
+/// Iterator type holding chosen iterator
+pub mod iter_choice;
 /// Map-like methods for `Vec<(K, V)>`
 pub mod vecmap;
 /// Set-like methods for `Vec<T>`

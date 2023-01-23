@@ -10,7 +10,7 @@ use crate::{
         DirectedGraph, Graph,
     },
     iters,
-    utils::{vecmap::VecMap, wrapped_iterator::WrappedIterator},
+    utils::{iter_choice::IterChoice, vecmap::VecMap, wrapped_iterator::WrappedIterator},
 };
 
 type SimpleListStorage = Vec<(NodeIdx, EdgeIdx)>;
@@ -280,14 +280,34 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
-    fn edges_of(&self, _index: NodeIdx) -> Self::EdgesOf<'_> {
-        todo!()
+    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Chain<crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>>, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>>> where Self: 'e;
+    fn edges_of(&self, index: NodeIdx) -> Self::EdgesOf<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .values()
+                    .chain(self.adjacencies[index].outgoing().values()),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().values())
+        };
+        iters::EdgesByIdx::new(inner, &self.edges)
     }
 
-    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Empty<&'e EdgeIdx>> where Self: 'e;
-    fn edges_of_mut(&mut self, _index: NodeIdx) -> Self::EdgesOfMut<'_> {
-        todo!()
+    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Chain<crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>>, crate::utils::vecmap::Values<'e, NodeIdx, EdgeIdx>>> where Self: 'e;
+    fn edges_of_mut(&mut self, index: NodeIdx) -> Self::EdgesOfMut<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .values()
+                    .chain(self.adjacencies[index].outgoing().values()),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().values())
+        };
+        iters::EdgesByIdxMut::new(inner, &mut self.edges)
     }
 
     #[inline]
