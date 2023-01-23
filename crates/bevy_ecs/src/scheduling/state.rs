@@ -53,6 +53,13 @@ pub struct State<S: States>(pub S);
 #[derive(Resource, Default)]
 pub struct NextState<S: States>(pub Option<S>);
 
+impl<S: States> NextState<S> {
+    /// Queue the transition to a new `state`.
+    pub fn queue(&mut self, state: S) {
+        self.0 = Some(state);
+    }
+}
+
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
 /// - Runs the [`OnExit(exited_state)`] schedule.

@@ -188,7 +188,7 @@ impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
     ///
-    /// This calls [`App::add_default_schedules`] and [App::add_defaults_sets`].
+    /// This calls [`App::add_default_schedules`] and [`App::add_defaults_sets`].
     pub fn new() -> App {
         App::default()
     }
@@ -994,7 +994,7 @@ impl App {
 
 /// Methods for working with schedules
 impl App {
-    /// Adds a new `schedule` to the [`App`] under the provided `label.
+    /// Adds a new `schedule` to the [`App`] under the provided `label`.
     ///
     /// # Warning
     /// This method will overwrite any existing schedule at that label.
@@ -1006,7 +1006,7 @@ impl App {
         self
     }
 
-    /// Initializes a new empty `schedule` to the [`App`] under the provided `label if it does not exists.
+    /// Initializes a new empty `schedule` to the [`App`] under the provided `label` if it does not exists.
     ///
     /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
