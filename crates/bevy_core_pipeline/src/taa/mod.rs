@@ -121,6 +121,8 @@ pub struct TemporalAntialiasBundle {
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
 ///
+/// Artifacts tend to be reduced at higher framerates and rendering resolution.
+///
 /// # Usage Notes
 ///
 /// Requires that you add [`TemporalAntialiasPlugin`] to your app,
