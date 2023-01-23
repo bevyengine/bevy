@@ -39,6 +39,33 @@ impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = EdgeRef<'g, E>>>
             phantom: PhantomData,
         }
     }
+
+    /// Creates a new `BreadthFirstSearch` with a start node and a custom visitor wrapped inside an `NodesByIdx` iterator
+    #[inline]
+    pub fn custom_ref(
+        graph: &'g G,
+        start: NodeIdx,
+        visitor: fn(&'g G, NodeIdx) -> I,
+    ) -> iters::NodesByIdx<'g, N, NodeIdx, Self> {
+        let inner = Self::custom(graph, start, visitor);
+        iters::NodesByIdx::from_graph(inner, graph)
+    }
+
+    /// Creates a new `BreadthFirstSearch` with a start node and a custom visitor wrapped inside an `NodesByIdxMut` iterator
+    #[inline]
+    pub fn custom_mut(
+        graph: &'g mut G,
+        start: NodeIdx,
+        visitor: fn(&'g G, NodeIdx) -> I,
+    ) -> iters::NodesByIdxMut<'g, N, NodeIdx, Self> {
+        unsafe {
+            // SAFETY: We know `NodesByIdxMut` doesn't intercept (deletes nodes) at all.
+            let ptr: *mut G = &mut *graph;
+            let inner = Self::custom(&*ptr, start, visitor);
+
+            iters::NodesByIdxMut::from_graph(inner, graph)
+        }
+    }
 }
 
 impl<'g, N, E: 'g, G: Graph<N, E>> BreadthFirstSearch<'g, N, E, G, G::OutgoingEdgesOf<'g>> {
