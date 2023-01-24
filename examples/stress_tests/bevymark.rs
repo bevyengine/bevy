@@ -50,7 +50,7 @@ fn main() {
         .add_system(collision_system.in_set(CoreSet::Update))
         .add_system(counter_system)
         .add_system_to_schedule(scheduled_spawner, &CoreSchedule::FixedTimestep)
-        .insert_resource(FixedTime::new(Duration::from_seconds_f32(0.2)))
+        .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }
 

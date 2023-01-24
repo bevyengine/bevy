@@ -48,6 +48,14 @@ impl FixedTime {
         }
     }
 
+    /// Creates a new [`FixedTime`] struct with a period specified in `f32` seconds
+    pub fn new_from_secs(period: f32) -> Self {
+        FixedTime {
+            accumulated: Duration::ZERO,
+            period: Duration::from_secs_f32(period),
+        }
+    }
+
     /// Adds the `delta_time` to the accumulated time so far.
     pub fn tick(&mut self, delta_time: Duration) {
         self.accumulated += delta_time;
@@ -118,7 +126,7 @@ mod test {
 
     #[test]
     fn fixed_time_starts_at_zero() {
-        let new_time = FixedTime::new(Duration::from_secs(42));
+        let new_time = FixedTime::new_from_secs(42.);
         assert_eq!(new_time.accumulated(), Duration::ZERO);
 
         let default_time = FixedTime::default();

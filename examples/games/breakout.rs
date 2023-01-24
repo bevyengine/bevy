@@ -69,7 +69,7 @@ fn main() {
             &CoreSchedule::FixedTimestep,
         )
         // Configure how frequently our gameplay systems are run
-        .insert_resource(FixedTime::new(Duration::from_secs_f32(TIME_STEP)))
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
         .run();

@@ -17,7 +17,7 @@ fn main() {
             ),
             &CoreSchedule::FixedTimestep,
         )
-        .insert_resource(FixedTime::new(Duration::from_seconds_f32(TIME_STEP)))
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(bevy::window::close_on_esc)
         .run();
 }
