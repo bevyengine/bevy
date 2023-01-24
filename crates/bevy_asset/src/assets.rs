@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetSet, Handle, HandleId,
     RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::{App, AppTypeRegistry};
+use bevy_app::{App, AppTypeRegistry, CoreSet};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
@@ -331,8 +331,16 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system(Assets::<T>::asset_event_system.in_set(AssetSet::AssetEvents))
-            .add_system(update_asset_storage_system::<T>.in_set(AssetSet::LoadAssets))
+            .add_system(
+                Assets::<T>::asset_event_system
+                    .in_set(AssetSet::AssetEvents)
+                    .in_set(CoreSet::Update),
+            )
+            .add_system(
+                update_asset_storage_system::<T>
+                    .in_set(AssetSet::LoadAssets)
+                    .in_set(CoreSet::Update),
+            )
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
@@ -360,7 +368,9 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
+            self.add_system(
+                crate::debug_asset_server::sync_debug_assets::<T>.in_set(CoreSet::Update),
+            );
             let mut app = self
                 .world
                 .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();

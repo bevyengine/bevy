@@ -45,9 +45,9 @@ fn main() {
             color: Color::WHITE,
         })
         .add_startup_system(setup)
-        .add_system(mouse_handler)
-        .add_system(movement_system)
-        .add_system(collision_system)
+        .add_system(mouse_handler.in_set(CoreSet::Update))
+        .add_system(movement_system.in_set(CoreSet::Update))
+        .add_system(collision_system.in_set(CoreSet::Update))
         .add_system(counter_system)
         .add_systems(
             SystemSet::new()

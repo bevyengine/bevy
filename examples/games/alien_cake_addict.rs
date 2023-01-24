@@ -41,6 +41,7 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
+                .in_set(CoreSet::Update)
                 .on_update(GameState::Playing),
         )
         .add_system(teardown.on_exit(GameState::Playing))

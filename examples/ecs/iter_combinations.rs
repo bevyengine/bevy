@@ -24,7 +24,7 @@ fn main() {
                 .with_system(interact_bodies)
                 .with_system(integrate),
         )
-        .add_system(look_at_star)
+        .add_system(look_at_star.in_set(CoreSet::Update))
         .insert_resource(ClearColor(Color::BLACK))
         .run();
 }

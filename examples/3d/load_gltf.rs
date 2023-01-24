@@ -12,7 +12,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(animate_light_direction)
+        .add_system(animate_light_direction.in_set(CoreSet::Update))
         .run();
 }
 

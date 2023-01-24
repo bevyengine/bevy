@@ -18,8 +18,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(cube_rotator_system)
-        .add_system(rotator_system)
+        .add_system(cube_rotator_system.in_set(CoreSet::Update))
+        .add_system(rotator_system.in_set(CoreSet::Update))
         .run();
 }
 

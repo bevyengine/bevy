@@ -123,7 +123,7 @@ pub struct FrameCountPlugin;
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
-        app.add_system(update_frame_count);
+        app.add_system(update_frame_count.in_set(CoreSet::Update));
     }
 }
 

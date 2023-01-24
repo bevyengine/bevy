@@ -26,9 +26,13 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(animate_sprite)
+        .add_system(animate_sprite.in_set(CoreSet::Update))
         .add_system(print_sprite_count)
-        .add_system(move_camera.after(print_sprite_count))
+        .add_system(
+            move_camera
+                .in_set(CoreSet::Update)
+                .after(print_sprite_count),
+        )
         .run();
 }
 

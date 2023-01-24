@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(sprite_movement)
+        .add_system(sprite_movement.in_set(CoreSet::Update))
         .run();
 }
 
