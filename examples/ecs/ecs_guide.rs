@@ -26,7 +26,6 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    ecs::scheduling::ReportExecutionOrderAmbiguities,
     log::LogPlugin,
     prelude::*,
     utils::Duration,
@@ -290,10 +289,10 @@ fn main() {
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .configure_set(MySet::BeforeRound.before(CoreSet::Update))
-        .configure_set(MySet::AfterRound.after(CoreSet::Update))
+        .configure_set(MySet::BeforeRound.no_default_set().before(CoreSet::Update))
+        .configure_set(MySet::AfterRound.no_default_set().after(CoreSet::Update))
         .add_system(new_round_system.in_set(MySet::BeforeRound))
-        .add_system(new_player_system.after(new_round_system.in_set(MySet::BeforeRound)))
+        .add_system(new_player_system.after(new_round_system).in_set(MySet::BeforeRound))
         .add_system(exclusive_player_system.in_set(MySet::BeforeRound))
         .add_system(score_check_system.in_set(MySet::AfterRound))
         .add_system(
@@ -307,7 +306,6 @@ fn main() {
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
         .add_plugin(LogPlugin::default())
-        .init_resource::<ReportExecutionOrderAmbiguities>()
         // This call to run() starts the app we just built!
         .run();
 }
