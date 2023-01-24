@@ -128,7 +128,7 @@ impl<'m> EntityMapper<'m> {
     }
 
     /// Reserves the allocated references to dead entities within the world. This despawns the temporary base
-    /// [`Entity`] while reserving extra generations via [`World::reserve_generations`]. Because this renders the
+    /// [`Entity`] while reserving extra generations via [`World::try_reserve_generations`]. Because this renders the
     /// [`EntityMapper`] unable to safely allocate any more references, this method takes ownership of `self` in order
     /// to render it unusable.
     fn save(self, world: &mut World) {
@@ -137,7 +137,7 @@ impl<'m> EntityMapper<'m> {
             return;
         }
 
-        assert!(world.reserve_generations(self.dead_start, self.generations));
+        assert!(world.try_reserve_generations(self.dead_start, self.generations));
     }
 }
 
