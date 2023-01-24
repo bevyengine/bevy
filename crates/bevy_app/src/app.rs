@@ -537,9 +537,6 @@ impl App {
 
         startup_schedule.add_system(apply_system_buffers.after(StartupSet::PostStartup));
 
-        // Default set
-        startup_schedule.set_default_set(StartupSet::Startup);
-
         // Adding sets
         let main_schedule = self.schedule_mut(&CoreSchedule::Main).unwrap();
         main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
@@ -579,9 +576,6 @@ impl App {
         );
 
         main_schedule.add_system(apply_system_buffers.after(CoreSet::Last));
-
-        // Default set
-        main_schedule.set_default_set(CoreSet::Update);
 
         self
     }

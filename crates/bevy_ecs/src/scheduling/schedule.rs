@@ -9,7 +9,7 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::{
     petgraph::{algo::tarjan_scc, prelude::*},
     thiserror::Error,
-    tracing::{error, info, warn},
+    tracing::{error, warn},
     HashMap, HashSet,
 };
 
@@ -151,13 +151,6 @@ impl Schedule {
         self
     }
 
-    /// Changes the system set that new systems and system sets will join by default
-    /// if they aren't already part of one.
-    pub fn set_default_set(&mut self, set: impl SystemSet) -> &mut Self {
-        self.graph.set_default_set(set);
-        self
-    }
-
     /// Changes miscellaneous build settings.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         self.graph.settings = settings;
@@ -269,16 +262,11 @@ impl Dag {
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
     inner: BoxedSystemSet,
-    /// `true` if this system set was modified with `configure_set`
-    configured: bool,
 }
 
 impl SystemSetNode {
     pub fn new(set: BoxedSystemSet) -> Self {
-        Self {
-            inner: set,
-            configured: false,
-        }
+        Self { inner: set }
     }
 
     pub fn name(&self) -> String {
@@ -305,7 +293,6 @@ struct ScheduleGraph {
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
-    default_set: Option<BoxedSystemSet>,
     changed: bool,
     settings: ScheduleBuildSettings,
 }
@@ -325,18 +312,9 @@ impl ScheduleGraph {
             ambiguous_with: UnGraphMap::new(),
             ambiguous_with_flattened: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
-            default_set: None,
             changed: false,
             settings: default(),
         }
-    }
-
-    fn set_default_set(&mut self, set: impl SystemSet) {
-        assert!(
-            !set.is_system_type(),
-            "adding arbitrary systems to a system type set is not allowed"
-        );
-        self.default_set = Some(Box::new(set));
     }
 
     fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
@@ -367,19 +345,11 @@ impl ScheduleGraph {
     ) -> Result<NodeId, ScheduleBuildError> {
         let SystemConfig {
             system,
-            mut graph_info,
+            graph_info,
             conditions,
         } = system.into_config();
 
         let id = NodeId::System(self.systems.len());
-
-        if let [single_set] = graph_info.sets.as_slice() {
-            if single_set.is_system_type() {
-                if let Some(default) = self.default_set.as_ref() {
-                    graph_info.sets.push(default.dyn_clone());
-                }
-            }
-        }
 
         // graph updates are immediate
         self.update_graphs(id, graph_info)?;
@@ -420,7 +390,7 @@ impl ScheduleGraph {
     ) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
             set,
-            mut graph_info,
+            graph_info,
             mut conditions,
         } = set.into_config();
 
@@ -428,18 +398,6 @@ impl ScheduleGraph {
             Some(&id) => id,
             None => self.add_set(set.dyn_clone()),
         };
-
-        let meta = &mut self.system_sets[id.index()];
-        let already_configured = std::mem::replace(&mut meta.configured, true);
-
-        // a system set can be configured multiple times, so this "default check"
-        // should only happen the first time `configure_set` is called on it
-        if !already_configured && graph_info.sets.is_empty() {
-            if let Some(default) = self.default_set.as_ref() {
-                info!("adding system set `{:?}` to default: `{:?}`", set, default);
-                graph_info.sets.push(default.dyn_clone());
-            }
-        }
 
         // graph updates are immediate
         self.update_graphs(id, graph_info)?;
