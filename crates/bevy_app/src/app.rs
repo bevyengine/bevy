@@ -141,9 +141,7 @@ pub struct SubApp {
 impl SubApp {
     /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app
-            .world
-            .run_schedule(&*self.app.outer_schedule_label);
+        self.app.world.run_schedule(&*self.app.outer_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -170,7 +168,6 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_default_schedules();
-        app.add_default_sets();
 
         app.add_event::<AppExit>();
 
@@ -475,10 +472,13 @@ impl App {
     ///  This is typically done implicitly by calling `App::default`, which is in turn called by
     /// [`App::new`].
     ///
-    /// The schedules added are defined in the [`CoreSchedule`] enum.
+    /// The schedules added are defined in the [`CoreSchedule`] enum,
+    /// and have a starting configuration defined by:
     ///
-    /// You can also add standardized system sets and command flush points to these schedules using [`App::add_default_sets`],
-    /// which must be called *after* this method as it relies on these schedules existing.
+    /// - [`CoreSchedule::Outer`]: uses [`CoreSchedule::outer_schedule`]
+    /// - [`CoreSchedule::Startup`]: uses [`StartupSet::base_schedule`]
+    /// - [`CoreSchedule::Main`]: uses [`CoreSet::base_schedule`]
+    /// - [`CoreSchedule::FixedTimestep`]: no starting configuration
     ///
     /// # Examples
     ///
@@ -492,101 +492,10 @@ impl App {
     ///     .add_default_sets();
     /// ```
     pub fn add_default_schedules(&mut self) -> &mut Self {
-        // The outer schedule should be set up, rather than initialized as empty
         self.add_schedule(CoreSchedule::Outer, CoreSchedule::outer_schedule());
-
-        self.init_schedule(CoreSchedule::Startup);
-        self.init_schedule(CoreSchedule::Main);
+        self.add_schedule(CoreSchedule::Startup, StartupSet::base_schedule());
+        self.add_schedule(CoreSchedule::Main, CoreSet::base_schedule());
         self.init_schedule(CoreSchedule::FixedTimestep);
-
-        self
-    }
-
-    /// Adds broad system sets to the default [`Schedule`], giving it a standardized linear structure.
-    ///
-    /// See [`CoreSet`] and [`StartupSet`] for documentation on the system sets added.
-    ///
-    /// The [default sets](bevy_ecs::schedule::Schedule::set_default_set) becomes [`CoreSet::Update`] and [`StartupSet::Startup`] respectively.
-    /// [`Command`](bevy_ecs::prelude::Commands) flush points, set with [`apply_system_buffers`] are added between each of these sets and at the end of each schedule.
-    ///
-    /// This method calls [`App::add_default_schedules`].
-    ///
-    /// # Panics
-    ///
-    /// The [`CoreSchedule`] schedules must have been added to the [`App`] before this method is called.
-    /// You can do so using [`App::add_default_schedules`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_app::App;
-    /// use bevy_ecs::scheduling::Schedules;
-    ///
-    /// let app = App::empty()
-    ///     .init_resource::<Schedules>()
-    ///     .add_default_schedules()
-    ///     .add_default_sets();
-    /// ```
-    pub fn add_default_sets(&mut self) -> &mut Self {
-        // Adding sets
-        let startup_schedule = self.schedule_mut(&CoreSchedule::Startup).unwrap();
-        startup_schedule.configure_set(StartupSet::PreStartup.before(StartupSet::Startup));
-        startup_schedule.configure_set(StartupSet::Startup);
-        startup_schedule.configure_set(StartupSet::PostStartup.after(StartupSet::Startup));
-
-        // Flush points
-        startup_schedule.add_system(
-            apply_system_buffers
-                .after(StartupSet::PreStartup)
-                .before(StartupSet::Startup),
-        );
-        startup_schedule.add_system(
-            apply_system_buffers
-                .after(StartupSet::Startup)
-                .before(StartupSet::PostStartup),
-        );
-
-        startup_schedule.add_system(apply_system_buffers.after(StartupSet::PostStartup));
-
-        // Adding sets
-        let main_schedule = self.schedule_mut(&CoreSchedule::Main).unwrap();
-        main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
-        main_schedule.configure_set(CoreSet::PreUpdate.before(CoreSet::Update));
-        main_schedule.configure_set(CoreSet::StateTransitions.before(CoreSet::Update));
-        main_schedule.configure_set(CoreSet::PostUpdate.after(CoreSet::Update));
-        main_schedule.configure_set(CoreSet::Last.after(CoreSet::PostUpdate));
-
-        // Flush points
-        main_schedule.add_system(
-            apply_system_buffers
-                .after(CoreSet::First)
-                .before(CoreSet::PreUpdate),
-        );
-        main_schedule.add_system(
-            apply_system_buffers
-                .after(CoreSet::PreUpdate)
-                .before(CoreSet::StateTransitions),
-        );
-
-        main_schedule.add_system(
-            apply_system_buffers
-                .after(CoreSet::StateTransitions)
-                .before(CoreSet::Update),
-        );
-
-        main_schedule.add_system(
-            apply_system_buffers
-                .after(CoreSet::Update)
-                .before(CoreSet::PostUpdate),
-        );
-
-        main_schedule.add_system(
-            apply_system_buffers
-                .after(CoreSet::PostUpdate)
-                .before(CoreSet::Last),
-        );
-
-        main_schedule.add_system(apply_system_buffers.after(CoreSet::Last));
 
         self
     }

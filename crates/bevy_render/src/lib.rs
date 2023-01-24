@@ -66,74 +66,69 @@ pub struct RenderPlugin {
 /// The labels of the default App rendering sets.
 ///
 /// The sets run in the order listed, with [`apply_system_buffers`] inserted between each set.
+///
+/// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
+/// that runs immediately after the matching system set.
+/// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// A system set for applying the commands from the [`ExtractSchedule`]
+    /// The copy of [`apply_system_buffers`] that runs at the begining of this schedule.
+    /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
-
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
-
+    /// The copy of [`apply_system_buffers`] that runs immediately after `Prepare`.
+    PrepareFlush,
     /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
     /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
     /// [`Render`](RenderSet::Render) step.
     Queue,
-
+    /// The copy of [`apply_system_buffers`] that runs immediately after `Queue`.
+    QueueFlush,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
     /// Sort the [`RenderPhases`](crate::render_phase::RenderPhase) here.
     PhaseSort,
-
+    /// The copy of [`apply_system_buffers`] that runs immediately after `PhaseSort`.
+    PhaseSortFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
-
+    /// The copy of [`apply_system_buffers`] that runs immediately after `Render`.
+    RenderFlush,
     /// Cleanup render resources here.
     Cleanup,
+    /// The copy of [`apply_system_buffers`] that runs immediately after `Cleanup`.
+    CleanupFlush,
 }
 
 impl RenderSet {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
-    /// The sets in [`RenderSet`] are configured to run in order.
-    /// A copy of [`apply_system_buffers`] is inserted between each of the sets defined in [`RenderSet`].
+    /// The sets defined in this enum are configured to run in order,
+    /// and a copy of [`apply_system_buffers`] is inserted at each `*Flush` label.
     pub fn base_schedule() -> Schedule {
+        use RenderSet::*;
+
         let mut schedule = Schedule::new();
 
-        // Create "stage-like" structure using buffer flushes + induced ordering
-        schedule.add_system(
-            apply_system_buffers
-                .after(RenderSet::ExtractCommands)
-                .before(RenderSet::Prepare),
-        );
-        schedule.add_system(
-            apply_system_buffers
-                .after(RenderSet::Prepare)
-                .before(RenderSet::Queue),
-        );
-        schedule.add_system(
-            apply_system_buffers
-                .after(RenderSet::Queue)
-                .before(RenderSet::PhaseSort),
-        );
-        schedule.add_system(
-            apply_system_buffers
-                .after(RenderSet::PhaseSort)
-                .before(RenderSet::Render),
-        );
-        schedule.add_system(
-            apply_system_buffers
-                .after(RenderSet::Render)
-                .before(RenderSet::Cleanup),
-        );
-        schedule.add_system(apply_system_buffers.after(RenderSet::Cleanup));
+        // Create "stage-like" structure using buffer flushes + ordering
+        schedule.add_system(apply_system_buffers.in_set(ExtractCommands));
+        schedule.add_system(apply_system_buffers.in_set(PrepareFlush));
+        schedule.add_system(apply_system_buffers.in_set(QueueFlush));
+        schedule.add_system(apply_system_buffers.in_set(PhaseSortFlush));
+        schedule.add_system(apply_system_buffers.in_set(RenderFlush));
+        schedule.add_system(apply_system_buffers.in_set(CleanupFlush));
+
+        schedule.configure_set(ExtractCommands.before(Prepare));
+        schedule.configure_set(Prepare.after(ExtractCommands).before(PrepareFlush));
+        schedule.configure_set(Queue.after(PrepareFlush).before(QueueFlush));
+        schedule.configure_set(PhaseSort.after(QueueFlush).before(PhaseSortFlush));
+        schedule.configure_set(Render.after(PhaseSortFlush).before(RenderFlush));
+        schedule.configure_set(Cleanup.after(RenderFlush).before(CleanupFlush));
 
         schedule
     }
 }
-
-/// The [`ScheduleLabel`] for [`ExtractSchedule`].
-#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
-struct RenderExtraction;
 
 /// Schedule which extract data from the main world and inserts it into the render world.
 ///
