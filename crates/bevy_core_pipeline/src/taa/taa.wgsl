@@ -2,9 +2,13 @@
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail
 // http://behindthepixels.io/assets/files/TemporalAA.pdf
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
+// https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
+
+#ifdef TONEMAP
 #import bevy_core_pipeline::tonemapping
+#endif
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
@@ -44,10 +48,32 @@ fn clip_towards_aabb_center(previous_color: vec3<f32>, current_color: vec3<f32>,
     return select(previous_color, p_clip + v_clip / ma_unit, ma_unit > 1.0);
 }
 
+// TAA is ideally applied after tonemapping, but before post processing
+// Post processing wants to go before tonemapping, which conflicts
+// Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
+// https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
+#ifdef TONEMAP
+fn rcp(x: f32) -> f32 { return 1.0 / x; }
+
+fn tonemap(color: vec3<f32>) -> vec3<f32> {
+    return color * rcp(tonemapping_luminance(color) + 1.0);
+}
+
+fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> {
+    var l = 1.0 - tonemapping_luminance(color);
+    l = max(l, 0.000001); // Prevent NaNs
+    return color * rcp(l);
+}
+#endif
+
+fn sample_history(u: f32, v: f32) -> vec3<f32> {
+    return textureSample(history, linear_sampler, vec2(u, v)).rgb;
+}
+
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
     var sample = textureSample(view_target, nearest_sampler, uv).rgb;
 #ifdef TONEMAP
-    let sample = reinhard_luminance(sample);
+    let sample = tonemap(sample);
 #endif
     return RGB_to_YCoCg(sample);
 }
@@ -61,7 +87,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let original_color = textureSample(view_target, nearest_sampler, uv);
     let current_color = original_color.rgb;
 #ifdef TONEMAP
-    let current_color = reinhard_luminance(current_color);
+    let current_color = tonemap(current_color);
 #endif
 
     // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)
@@ -113,11 +139,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texel_position_3 = (texel_center + 2.0) * texel_size;
     let texel_position_12 = (texel_center + (w2 / w12)) * texel_size;
     var previous_color = vec3(0.0);
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * w12.x * w0.y;
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_0.x, texel_position_12.y)).rgb * w0.x * w12.y;
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_12.y)).rgb * w12.x * w12.y;
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
+    previous_color += sample_history(texel_position_12.x, texel_position_0.y) * w12.x * w0.y;
+    previous_color += sample_history(texel_position_0.x, texel_position_12.y) * w0.x * w12.y;
+    previous_color += sample_history(texel_position_12.x, texel_position_12.y) * w12.x * w12.y;
+    previous_color += sample_history(texel_position_3.x, texel_position_12.y) * w3.x * w12.y;
+    previous_color += sample_history(texel_position_12.x, texel_position_3.y) * w12.x * w3.y;
 
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
@@ -146,7 +172,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     var out: Output;
     out.history = vec4(output, original_color.a);
 #ifdef TONEMAP
-    out.view_target = vec4(inverse_reinhard_luminance(out.history.rgb), out.history.a);
+    out.view_target = vec4(reverse_tonemap(out.history.rgb), out.history.a);
 #else
     out.view_target = out.history;
 #endif
