@@ -5,7 +5,7 @@ use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     system::Resource,
-    world::{interior_mutable_world::InteriorMutableWorld, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
@@ -54,8 +54,8 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     ///
     /// # Safety
-    /// The function may only be called with an [`InteriorMutableWorld`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_mut: unsafe fn(InteriorMutableWorld<'_>, Entity) -> Option<Mut<'_, dyn Reflect>>,
+    /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant component on the given entity.
+    pub reflect_mut: unsafe fn(UnsafeWorldCell<'_>, Entity) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
 }
@@ -120,17 +120,17 @@ impl ReflectComponent {
         entity: Entity,
     ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: unique world access
-        unsafe { (self.0.reflect_mut)(world.as_interior_mutable(), entity) }
+        unsafe { (self.0.reflect_mut)(world.as_unsafe_world_cell(), entity) }
     }
 
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method with a [`InteriorMutableWorld`] that may be used to mutably access the component on the entity `entity`
+    /// * Only call this method with a [`UnsafeWorldCell`] that may be used to mutably access the component on the entity `entity`
     /// * Don't call this method more than once in the same scope for a given [`Component`].
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
-        world: InteriorMutableWorld<'a>,
+        world: UnsafeWorldCell<'a>,
         entity: Entity,
     ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
@@ -213,7 +213,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_mut: |world, entity| {
                 // SAFETY: reflect_mut is an unsafe function pointer used by
-                // 1. `reflect_unchecked_mut` which must be called with an InteriorMutableWorld with access to the the component `C` on the `entity`, and
+                // 1. `reflect_unchecked_mut` which must be called with an UnsafeWorldCell with access to the the component `C` on the `entity`, and
                 // 2. `reflect_mut`, which has mutable world access
                 unsafe {
                     world.get_entity(entity)?.get_mut::<C>().map(|c| Mut {
@@ -268,8 +268,8 @@ pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
-    /// The function may only be called with an [`InteriorMutableWorld`] that can be used to mutably access the relevant resource.
-    pub reflect_unchecked_mut: unsafe fn(InteriorMutableWorld<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant resource.
+    pub reflect_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World),
 }
@@ -318,17 +318,17 @@ impl ReflectResource {
     /// Gets the value of this [`Resource`] type from the world as a mutable reflected reference.
     pub fn reflect_mut<'a>(&self, world: &'a mut World) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: unique world access
-        unsafe { (self.0.reflect_unchecked_mut)(world.as_interior_mutable()) }
+        unsafe { (self.0.reflect_unchecked_mut)(world.as_unsafe_world_cell()) }
     }
 
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method with an [`InteriorMutableWorld`] which can be used to mutably access the resource.
+    /// * Only call this method with an [`UnsafeWorldCell`] which can be used to mutably access the resource.
     /// * Don't call this method more than once in the same scope for a given [`Resource`].
     pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
-        world: InteriorMutableWorld<'w>,
+        world: UnsafeWorldCell<'w>,
     ) -> Option<Mut<'w, dyn Reflect>> {
         // SAFETY: caller promises to uphold uniqueness guarantees
         (self.0.reflect_unchecked_mut)(world)

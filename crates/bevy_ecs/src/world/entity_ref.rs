@@ -13,7 +13,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::interior_mutable_world::InteriorMutableEntityRef;
+use super::unsafe_world_cell::UnsafeEntityRefCell;
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -42,9 +42,9 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    fn as_interior_mutable_readonly(&self) -> InteriorMutableEntityRef<'w> {
-        InteriorMutableEntityRef::new(
-            self.world.as_interior_mutable_readonly(),
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityRefCell<'w> {
+        UnsafeEntityRefCell::new(
+            self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
@@ -89,7 +89,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_interior_mutable_readonly().get::<T>() }
+        unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -97,7 +97,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: &self implies shared access
-        unsafe { self.as_interior_mutable_readonly().get_change_ticks::<T>() }
+        unsafe { self.as_unsafe_world_cell_readonly().get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -110,7 +110,7 @@ impl<'w> EntityRef<'w> {
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         // SAFETY: &self implies shared access
         unsafe {
-            self.as_interior_mutable_readonly()
+            self.as_unsafe_world_cell_readonly()
                 .get_change_ticks_by_id(component_id)
         }
     }
@@ -128,7 +128,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_interior_mutable_readonly().get_by_id(component_id) }
+        unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
     }
 }
 
@@ -148,15 +148,19 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    fn as_interior_mutable_readonly(&self) -> InteriorMutableEntityRef<'_> {
-        InteriorMutableEntityRef::new(
-            self.world.as_interior_mutable_readonly(),
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityRefCell<'_> {
+        UnsafeEntityRefCell::new(
+            self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
     }
-    fn as_interior_mutable(&mut self) -> InteriorMutableEntityRef<'_> {
-        InteriorMutableEntityRef::new(self.world.as_interior_mutable(), self.entity, self.location)
+    fn as_unsafe_world_cell(&mut self) -> UnsafeEntityRefCell<'_> {
+        UnsafeEntityRefCell::new(
+            self.world.as_unsafe_world_cell(),
+            self.entity,
+            self.location,
+        )
     }
 
     /// # Safety
@@ -215,13 +219,13 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_interior_mutable_readonly().get::<T>() }
+        unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
 
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.as_interior_mutable().get_mut() }
+        unsafe { self.as_unsafe_world_cell().get_mut() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -229,7 +233,7 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: &self implies shared access
-        unsafe { self.as_interior_mutable_readonly().get_change_ticks::<T>() }
+        unsafe { self.as_unsafe_world_cell_readonly().get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -242,7 +246,7 @@ impl<'w> EntityMut<'w> {
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         // SAFETY: &self implies shared access
         unsafe {
-            self.as_interior_mutable_readonly()
+            self.as_unsafe_world_cell_readonly()
                 .get_change_ticks_by_id(component_id)
         }
     }

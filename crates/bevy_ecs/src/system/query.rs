@@ -1134,7 +1134,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
         let world = self.world;
         let entity_ref = world
-            .as_interior_mutable_migration_internal()
+            .as_unsafe_world_cell_migration_internal()
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
         let component_id = world

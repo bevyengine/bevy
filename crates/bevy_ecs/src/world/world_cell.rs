@@ -14,12 +14,12 @@ use std::{
     rc::Rc,
 };
 
-use super::interior_mutable_world::InteriorMutableWorld;
+use super::unsafe_world_cell::UnsafeWorldCell;
 
 /// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
 /// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
 pub struct WorldCell<'w> {
-    pub(crate) world: InteriorMutableWorld<'w>,
+    pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
@@ -190,7 +190,7 @@ impl<'w> WorldCell<'w> {
         );
         // world's ArchetypeComponentAccess is recycled to cut down on allocations
         Self {
-            world: world.as_interior_mutable(),
+            world: world.as_unsafe_world_cell(),
             access: Rc::new(RefCell::new(access)),
         }
     }

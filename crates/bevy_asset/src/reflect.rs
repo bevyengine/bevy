@@ -1,6 +1,6 @@
 use std::any::{Any, TypeId};
 
-use bevy_ecs::world::{interior_mutable_world::InteriorMutableWorld, World};
+use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{FromReflect, FromType, Reflect, Uuid};
 
 use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
@@ -21,8 +21,7 @@ pub struct ReflectAsset {
     // SAFETY:
     // - may only be called with a [`IteriorMutableWorld`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
-    get_unchecked_mut:
-        unsafe fn(InteriorMutableWorld<'_>, HandleUntyped) -> Option<&mut dyn Reflect>,
+    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
     set: fn(&mut World, HandleUntyped, &dyn Reflect) -> HandleUntyped,
     len: fn(&World) -> usize,
@@ -58,10 +57,10 @@ impl ReflectAsset {
         handle: HandleUntyped,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: unique world access
-        unsafe { (self.get_unchecked_mut)(world.as_interior_mutable(), handle) }
+        unsafe { (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle) }
     }
 
-    /// Equivalent of [`Assets::get_mut`], but works with an [`InteriorMutableWorld`].
+    /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
     ///
     /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
@@ -74,9 +73,9 @@ impl ReflectAsset {
     /// # let mut world: World = unimplemented!();
     /// # let handle_1: HandleUntyped = unimplemented!();
     /// # let handle_2: HandleUntyped = unimplemented!();
-    /// let interior_mutable_world = world.as_interior_mutable();
-    /// let a = unsafe { reflect_asset.get_unchecked_mut(interior_mutable_world, handle_1).unwrap() };
-    /// let b = unsafe { reflect_asset.get_unchecked_mut(interior_mutable_world, handle_2).unwrap() };
+    /// let unsafe_world_cell = world.as_unsafe_world_cell();
+    /// let a = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, handle_1).unwrap() };
+    /// let b = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, handle_2).unwrap() };
     /// // ^ not allowed, two mutable references through the same asset resource, even though the
     /// // handles are distinct
     ///
@@ -86,11 +85,11 @@ impl ReflectAsset {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method if you know that the [`InteriorMutableWorld`] may be used to access the corresponding `Assets<T>`
+    /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
-        world: InteriorMutableWorld<'w>,
+        world: UnsafeWorldCell<'w>,
         handle: HandleUntyped,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
@@ -145,7 +144,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 asset.map(|asset| asset as &dyn Reflect)
             },
             get_unchecked_mut: |world, handle| {
-                // SAFETY: `get_unchecked_mut` must be callied with `InteriorMutableWorld` having access to `Assets<A>`,
+                // SAFETY: `get_unchecked_mut` must be callied with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed());

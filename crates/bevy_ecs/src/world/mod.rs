@@ -1,6 +1,6 @@
 mod entity_ref;
-pub mod interior_mutable_world;
 mod spawn_batch;
+pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
@@ -34,7 +34,7 @@ mod identifier;
 
 pub use identifier::WorldId;
 
-use self::interior_mutable_world::InteriorMutableWorld;
+use self::unsafe_world_cell::UnsafeWorldCell;
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -108,21 +108,21 @@ impl World {
         self.id
     }
 
-    /// Creates a new [`InteriorMutableWorld`] view with complete read+write access.
-    pub fn as_interior_mutable(&mut self) -> InteriorMutableWorld<'_> {
-        InteriorMutableWorld::new(self)
+    /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new(self)
     }
 
-    /// Creates a new [`InteriorMutableWorld`] view with only read access to everything.
-    pub fn as_interior_mutable_readonly(&self) -> InteriorMutableWorld<'_> {
-        InteriorMutableWorld::new(self)
+    /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new(self)
     }
 
-    /// Creates a new [`InteriorMutableWorld`] with read+write access from a [&World](World).
-    /// This is only a temporary measure until every `&World` that is semantically a [`InteriorMutableWorld`]
+    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
+    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
     /// has been replaced.
-    pub(crate) fn as_interior_mutable_migration_internal(&self) -> InteriorMutableWorld<'_> {
-        InteriorMutableWorld::new(self)
+    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new(self)
     }
 
     /// Retrieves this world's [Entities] collection
@@ -1011,7 +1011,7 @@ impl World {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        unsafe { self.as_interior_mutable().get_resource_mut() }
+        unsafe { self.as_unsafe_world_cell().get_resource_mut() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -1108,7 +1108,7 @@ impl World {
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        unsafe { self.as_interior_mutable().get_non_send_resource_mut() }
+        unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
@@ -1626,7 +1626,7 @@ impl World {
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY: unique world access
         unsafe {
-            self.as_interior_mutable()
+            self.as_unsafe_world_cell()
                 .get_resource_mut_by_id(component_id)
         }
     }

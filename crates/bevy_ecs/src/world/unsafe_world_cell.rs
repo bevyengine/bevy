@@ -36,7 +36,7 @@ use std::any::TypeId;
 ///
 /// ### Example Usage
 ///
-/// [`InteriorMutableWorld`] can be used as a building block for writing APIs that safely allow disjoint access into the world.
+/// [`UnsafeWorldCell`] can be used as a building block for writing APIs that safely allow disjoint access into the world.
 /// In the following example, the world is split into a resource access half and a component access half, where each one can
 /// safely hand out mutable references.
 ///
@@ -44,16 +44,16 @@ use std::any::TypeId;
 /// use bevy_ecs::world::World;
 /// use bevy_ecs::change_detection::Mut;
 /// use bevy_ecs::system::Resource;
-/// use bevy_ecs::world::interior_mutable_world::InteriorMutableWorld;
+/// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 ///
 /// // INVARIANT: existence of this struct means that users of it are the only ones being able to access resources in the world
-/// struct OnlyResourceAccessWorld<'w>(InteriorMutableWorld<'w>);
+/// struct OnlyResourceAccessWorld<'w>(UnsafeWorldCell<'w>);
 /// // INVARIANT: existence of this struct means that users of it are the only ones being able to access components in the world
-/// struct OnlyComponentAccessWorld<'w>(InteriorMutableWorld<'w>);
+/// struct OnlyComponentAccessWorld<'w>(UnsafeWorldCell<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
 ///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'w, T>> {
-///         // SAFETY: resource access is allowed through this InteriorMutableWorld
+///         // SAFETY: resource access is allowed through this UnsafeWorldCell
 ///         unsafe { self.0.get_resource_mut::<T>() }
 ///     }
 /// }
@@ -61,26 +61,26 @@ use std::any::TypeId;
 /// //     ...
 /// // }
 ///
-/// // the two interior mutable worlds borrow from the `&mut World`, so it cannot be accessed while they are live
+/// // the two `UnsafeWorldCell`s borrow from the `&mut World`, so it cannot be accessed while they are live
 /// fn split_world_access(world: &mut World) -> (OnlyResourceAccessWorld<'_>, OnlyComponentAccessWorld<'_>) {
-///     let interior_mutable_world = world.as_interior_mutable();
-///     let resource_access = OnlyResourceAccessWorld(interior_mutable_world);
-///     let component_access = OnlyComponentAccessWorld(interior_mutable_world);
+///     let unsafe_world_cell = world.as_unsafe_world_cell();
+///     let resource_access = OnlyResourceAccessWorld(unsafe_world_cell);
+///     let component_access = OnlyComponentAccessWorld(unsafe_world_cell);
 ///     (resource_access, component_access)
 /// }
 /// ```
 #[derive(Copy, Clone)]
-pub struct InteriorMutableWorld<'w>(&'w World);
+pub struct UnsafeWorldCell<'w>(&'w World);
 
-impl<'w> InteriorMutableWorld<'w> {
+impl<'w> UnsafeWorldCell<'w> {
     pub(crate) fn new(world: &'w World) -> Self {
-        InteriorMutableWorld(world)
+        UnsafeWorldCell(world)
     }
 
-    /// Gets a reference to the [`&World`](crate::world::World) this [`InteriorMutableWorld`] belongs to.
+    /// Gets a reference to the [`&World`](crate::world::World) this [`UnsafeWorldCell`] belongs to.
     /// This can be used to call methods like [`World::contains_resource`] which aren't exposed and but don't perform any accesses.
     ///
-    /// **Note**: You *must not* hand out a `&World` reference to arbitrary safe code when the [`InteriorMutableWorld`] is currently
+    /// **Note**: You *must not* hand out a `&World` reference to arbitrary safe code when the [`UnsafeWorldCell`] is currently
     /// being used for mutable accesses.
     ///
     /// # Safety
@@ -135,18 +135,18 @@ impl<'w> InteriorMutableWorld<'w> {
         self.0.increment_change_tick()
     }
 
-    /// Retrieves an [`InteriorMutableEntityRef`] that exposes read and write operations for the given `entity`.
-    /// Similar to the [`InteriorMutableWorld`], you are in charge of making sure that no aliasing rules are violated.
-    pub fn get_entity(self, entity: Entity) -> Option<InteriorMutableEntityRef<'w>> {
+    /// Retrieves an [`UnsafeEntityRefCell`] that exposes read and write operations for the given `entity`.
+    /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
+    pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityRefCell<'w>> {
         let location = self.0.entities.get(entity)?;
-        Some(InteriorMutableEntityRef::new(self, entity, location))
+        Some(UnsafeEntityRefCell::new(self, entity, location))
     }
 
     /// Gets a reference to the resource of the given type if it exists
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource<R: Resource>(self) -> Option<&'w R> {
@@ -157,12 +157,12 @@ impl<'w> InteriorMutableWorld<'w> {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the borrow of the [`World`] ends.
     ///
-    /// **You should prefer to use the typed API [`InteriorMutableWorld::get_resource`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
@@ -173,7 +173,7 @@ impl<'w> InteriorMutableWorld<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
@@ -184,7 +184,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
-    /// **You should prefer to use the typed API [`InteriorMutableWorld::get_non_send_resource`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
@@ -192,7 +192,7 @@ impl<'w> InteriorMutableWorld<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
@@ -207,7 +207,7 @@ impl<'w> InteriorMutableWorld<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<Mut<'w, R>> {
@@ -221,14 +221,14 @@ impl<'w> InteriorMutableWorld<'w> {
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
-    /// of the [`InteriorMutableWorld`] is still valid.
+    /// of the [`UnsafeWorldCell`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`InteriorMutableWorld::get_resource_mut`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_resource_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource_mut_by_id(
@@ -255,7 +255,7 @@ impl<'w> InteriorMutableWorld<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
@@ -268,7 +268,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`InteriorMutableWorld::get_non_send_resource_mut`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
@@ -276,7 +276,7 @@ impl<'w> InteriorMutableWorld<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_non_send_resource_mut_by_id(
@@ -300,11 +300,11 @@ impl<'w> InteriorMutableWorld<'w> {
     }
 }
 
-impl<'w> InteriorMutableWorld<'w> {
+impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - `component_id` must be assigned to a component of type `R`
-    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no other mutable references to the resource exist at the same time
     #[inline]
     pub(crate) unsafe fn get_resource_mut_with_id<R>(
@@ -330,7 +330,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - `component_id` must be assigned to a component of type `R`.
-    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub(crate) unsafe fn get_non_send_mut_with_id<R: 'static>(
@@ -356,19 +356,19 @@ impl<'w> InteriorMutableWorld<'w> {
 
 /// A interior-mutable reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
-pub struct InteriorMutableEntityRef<'w> {
-    world: InteriorMutableWorld<'w>,
+pub struct UnsafeEntityRefCell<'w> {
+    world: UnsafeWorldCell<'w>,
     entity: Entity,
     location: EntityLocation,
 }
 
-impl<'w> InteriorMutableEntityRef<'w> {
+impl<'w> UnsafeEntityRefCell<'w> {
     pub(crate) fn new(
-        world: InteriorMutableWorld<'w>,
+        world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
     ) -> Self {
-        InteriorMutableEntityRef {
+        UnsafeEntityRefCell {
             world,
             entity,
             location,
@@ -392,7 +392,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     }
 
     #[inline]
-    pub fn world(self) -> InteriorMutableWorld<'w> {
+    pub fn world(self) -> UnsafeWorldCell<'w> {
         self.world
     }
 
@@ -413,7 +413,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
@@ -439,7 +439,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
@@ -459,13 +459,13 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`InteriorMutableEntityRef::get_change_ticks`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeEntityRefCell::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks_by_id(
@@ -489,7 +489,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
@@ -501,7 +501,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
     pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
@@ -530,19 +530,19 @@ impl<'w> InteriorMutableEntityRef<'w> {
     }
 }
 
-impl<'w> InteriorMutableEntityRef<'w> {
+impl<'w> UnsafeEntityRefCell<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`InteriorMutableEntityRef::get`], this returns a raw pointer to the component,
+    /// Unlike [`UnsafeEntityRefCell::get`], this returns a raw pointer to the component,
     /// which is only valid while the `'w` borrow of the lifetime is active.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
@@ -561,12 +561,12 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
     /// Returns [None] if the `entity` does not have a [Component] of the given type.
     ///
-    /// **You should prefer to use the typed API [`InteriorMutableEntityRef::get_mut`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeEntityRefCell::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
+    /// - the [`UnsafeEntityRefCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {

@@ -541,7 +541,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .as_interior_mutable_migration_internal()
+            .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_with_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -579,7 +579,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .as_interior_mutable_migration_internal()
+            .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_with_id(component_id)
             .map(|value| ResMut {
                 value: value.value,
