@@ -1,5 +1,4 @@
 use bevy_ecs_macros::all_tuples;
-use bevy_utils::default;
 
 use crate::{
     scheduling::{
@@ -29,11 +28,7 @@ impl SystemSetConfig {
 
         Self {
             set,
-            graph_info: GraphInfo {
-                sets: Vec::new(),
-                dependencies: Vec::new(),
-                ambiguous_with: default(),
-            },
+            graph_info: GraphInfo::default(),
             conditions: Vec::new(),
         }
     }
@@ -54,8 +49,7 @@ impl SystemConfig {
             system,
             graph_info: GraphInfo {
                 sets,
-                dependencies: Vec::new(),
-                ambiguous_with: default(),
+                ..Default::default()
             },
             conditions: Vec::new(),
         }
@@ -94,6 +88,8 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     fn into_config(self) -> SystemSetConfig;
     /// Add to the provided `set`.
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
+    /// Don't add this set to the schedules's default set.
+    fn no_default_set(self) -> SystemSetConfig;
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Run after all systems in `set`.
@@ -123,6 +119,10 @@ where
 
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_set(set)
+    }
+
+    fn no_default_set(self) -> SystemSetConfig {
+        self.into_config().no_default_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
@@ -157,6 +157,10 @@ impl IntoSystemSetConfig for BoxedSystemSet {
 
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_set(set)
+    }
+
+    fn no_default_set(self) -> SystemSetConfig {
+        self.into_config().no_default_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
@@ -195,6 +199,11 @@ impl IntoSystemSetConfig for SystemSetConfig {
             "adding arbitrary systems to a system type set is not allowed"
         );
         self.graph_info.sets.push(Box::new(set));
+        self
+    }
+
+    fn no_default_set(mut self) -> SystemSetConfig {
+        self.graph_info.no_default_set = true;
         self
     }
 
@@ -244,6 +253,8 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     fn into_config(self) -> SystemConfig;
     /// Add to `set` membership.
     fn in_set(self, set: impl SystemSet) -> SystemConfig;
+    /// Don't add this system to the schedules's default set.
+    fn no_default_set(self) -> SystemConfig;
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
     /// Run after all systems in `set`.
@@ -273,6 +284,10 @@ where
 
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
         self.into_config().in_set(set)
+    }
+
+    fn no_default_set(self) -> SystemConfig {
+        self.into_config().no_default_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
@@ -307,6 +322,10 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
 
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
         self.into_config().in_set(set)
+    }
+
+    fn no_default_set(self) -> SystemConfig {
+        self.into_config().no_default_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
@@ -345,6 +364,11 @@ impl IntoSystemConfig<()> for SystemConfig {
             "adding arbitrary systems to a system type set is not allowed"
         );
         self.graph_info.sets.push(Box::new(set));
+        self
+    }
+
+    fn no_default_set(mut self) -> SystemConfig {
+        self.graph_info.no_default_set = true;
         self
     }
 

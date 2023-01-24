@@ -107,11 +107,9 @@ impl Plugin for AssetPlugin {
 
         app.register_type::<HandleId>();
 
-        let main_schedule = app.schedule_mut(&CoreSchedule::Main).unwrap();
-
-        main_schedule
-            .configure_set(AssetSet::LoadAssets.before(CoreSet::PreUpdate))
-            .configure_set(AssetSet::AssetEvents.after(CoreSet::PostUpdate))
+        app
+            .configure_set(AssetSet::LoadAssets.no_default_set().before(CoreSet::PreUpdate))
+            .configure_set(AssetSet::AssetEvents.no_default_set().after(CoreSet::PostUpdate))
             .add_system(asset_server::free_unused_assets_system.in_set(CoreSet::PreUpdate));
 
         #[cfg(all(
