@@ -143,7 +143,7 @@ impl SubApp {
     pub fn run(&mut self) {
         self.app
             .world
-            .run_schedule(&self.app.default_schedule_label);
+            .run_schedule(&*self.app.outer_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -168,7 +168,6 @@ impl Default for App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
-        app.init_resource::<Schedules>();
 
         app.add_default_schedules();
         app.add_default_sets();
@@ -197,8 +196,10 @@ impl App {
     ///
     /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
+        let mut world = World::new();
+        world.init_resource::<Schedules>();
         Self {
-            world: Default::default(),
+            world,
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
@@ -456,6 +457,16 @@ impl App {
     /// ```
     pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
         self.add_systems_to_schedule(systems, &CoreSchedule::Startup)
+    }
+
+    /// Configures a system set in the default schedule, adding it if it does not exist.
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .get_mut(&*self.default_schedule_label)
+            .unwrap()
+            .configure_set(set);
+        self
     }
 
     /// Adds standardized schedules and labels to an [`App`].

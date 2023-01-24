@@ -482,6 +482,7 @@ impl ScheduleGraph {
             sets,
             dependencies,
             ambiguous_with,
+            ..
         } = graph_info;
 
         if !self.hierarchy.graph.contains_node(id) {
