@@ -179,7 +179,8 @@ impl ViewTarget {
     }
 
     /// The _other_ "main" unsampled texture.
-    /// In most cases you should use [`Self::main_texture`] instead.
+    /// In most cases you should use [`Self::main_texture`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
     ///
     /// A use case for this is to be able to prepare a bind group for all main textures
     /// ahead of time.
