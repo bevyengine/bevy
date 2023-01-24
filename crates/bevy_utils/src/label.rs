@@ -99,7 +99,7 @@ macro_rules! define_boxed_label {
             }
         }
 
-        impl $label_trait_name for Box<dyn $label_trait_namel> {
+        impl $label_trait_name for Box<dyn $label_trait_name> {
             fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
                 // Be explicit that we want to use the inner value
                 // to avoid infinite recursion.

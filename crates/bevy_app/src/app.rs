@@ -381,11 +381,11 @@ impl App {
     pub fn add_system_to_schedule<P>(
         &mut self,
         system: impl IntoSystemConfig<P>,
-        schedule_label: impl ScheduleLabel,
+        schedule_label: &impl ScheduleLabel,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(schedule) = schedules.get_mut(&schedule_label) {
+        if let Some(schedule) = schedules.get_mut(schedule_label) {
             schedule.add_system(system);
         } else {
             panic!("Provided schedule {schedule_label:?} does not exist.")
@@ -398,11 +398,11 @@ impl App {
     pub fn add_systems_to_schedule<P>(
         &mut self,
         systems: impl IntoSystemConfigs<P>,
-        schedule_label: impl ScheduleLabel,
+        schedule_label: &impl ScheduleLabel,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(schedule) = schedules.get_mut(&schedule_label) {
+        if let Some(schedule) = schedules.get_mut(schedule_label) {
             schedule.add_systems(systems);
         } else {
             panic!("Provided schedule {schedule_label:?} does not exist.")
@@ -430,7 +430,7 @@ impl App {
     ///     .add_startup_system(my_startup_system);
     /// ```
     pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
-        self.add_system_to_schedule(system, CoreSchedule::Startup)
+        self.add_system_to_schedule(system, &CoreSchedule::Startup)
     }
 
     /// Adds a collection of systems to [`CoreSchedule::Startup`].
@@ -455,7 +455,7 @@ impl App {
     /// );
     /// ```
     pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
-        self.add_systems_to_schedule(systems, CoreSchedule::Startup)
+        self.add_systems_to_schedule(systems, &CoreSchedule::Startup)
     }
 
     /// Adds standardized schedules and labels to an [`App`].
