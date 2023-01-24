@@ -20,7 +20,7 @@ impl<T: Send> Parallel<T> {
 
     /// Clears all of the stored thread local values.
     pub fn clear(&mut self) {
-        self.locals.clear()
+        self.locals.clear();
     }
 }
 
