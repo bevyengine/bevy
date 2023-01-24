@@ -341,9 +341,11 @@ impl ScheduleGraph {
 
         let id = NodeId::System(self.systems.len());
 
-        if graph_info.sets.is_empty() {
-            if let Some(default) = self.default_set.as_ref() {
-                graph_info.sets.push(default.dyn_clone());
+        if let [single_set] = graph_info.sets.as_slice() {
+            if single_set.is_system_type() {
+                if let Some(default) = self.default_set.as_ref() {
+                    graph_info.sets.push(default.dyn_clone());
+                }
             }
         }
 

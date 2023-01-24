@@ -108,12 +108,11 @@ impl FlexSurface {
                 size
             },
         ));
-
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy.set_style(*taffy_node, taffy_style).unwrap();
             self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
         } else {
-            let taffy_node = taffy.new_leaf(taffy_style).unwrap();
+            let taffy_node = taffy.new_leaf_with_measure(taffy_style, measure).unwrap();
             self.entity_to_taffy.insert(entity, taffy_node);
         }
     }

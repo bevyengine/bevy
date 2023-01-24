@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 # Disables diagnostics that are unsupported when Bevy is dynamically linked
-dynamic = []
+dynamic_linking = []
 
 [dependencies]
 # bevy
