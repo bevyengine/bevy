@@ -50,7 +50,7 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_utils::tracing::debug;
@@ -231,7 +231,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(receiver);
             render_app.insert_resource(sender);
 
-            app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
+            app.insert_sub_app(RenderApp, SubApp::new(render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
                 let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
@@ -267,7 +267,7 @@ impl Plugin for RenderPlugin {
                     // extract
                     extract(app_world, render_app);
                 }
-            });
+            }));
         }
 
         app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
