@@ -468,7 +468,10 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// - the [`InteriorMutableEntityRef`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub unsafe fn get_change_ticks_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentTicks> {
         let info = self.world.components().get_info(component_id)?;
         // SAFETY:
         // - entity location and entity is valid
