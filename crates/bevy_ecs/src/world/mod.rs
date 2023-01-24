@@ -112,6 +112,7 @@ impl World {
     pub fn as_interior_mutable(&mut self) -> InteriorMutableWorld<'_> {
         InteriorMutableWorld::new(self)
     }
+
     /// Creates a new [`InteriorMutableWorld`] view with only read access to everything.
     pub fn as_interior_mutable_readonly(&self) -> InteriorMutableWorld<'_> {
         InteriorMutableWorld::new(self)
