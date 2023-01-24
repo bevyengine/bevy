@@ -222,7 +222,6 @@ impl Plugin for RenderPlugin {
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
-            render_app.init_resource::<Schedules>();
             let mut render_schedule = RenderSet::base_schedule();
 
             // Prepare the schedule which extracts data from the main world to the render world
