@@ -374,7 +374,7 @@ impl ScheduleGraph {
         let id = NodeId::System(self.systems.len());
 
         if let [single_set] = graph_info.sets.as_slice() {
-            if single_set.is_system_type() && !graph_info.no_default_set {
+            if single_set.is_system_type() && graph_info.add_default_set {
                 if let Some(default) = self.default_set.as_ref() {
                     graph_info.sets.push(default.dyn_clone());
                 }
@@ -434,7 +434,7 @@ impl ScheduleGraph {
 
         // a system set can be configured multiple times, so this "default check"
         // should only happen the first time `configure_set` is called on it
-        if !already_configured && graph_info.sets.is_empty() && !graph_info.no_default_set {
+        if !already_configured && graph_info.sets.is_empty() && graph_info.add_default_set {
             if let Some(default) = self.default_set.as_ref() {
                 info!("adding system set `{:?}` to default: `{:?}`", set, default);
                 graph_info.sets.push(default.dyn_clone());

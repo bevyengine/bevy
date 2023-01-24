@@ -67,12 +67,23 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<BoxedSystemSet>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
-    pub(crate) no_default_set: bool,
+    pub(crate) add_default_set: bool,
+}
+
+impl Default for GraphInfo {
+    fn default() -> Self {
+        GraphInfo {
+            sets: Vec::new(),
+            dependencies: Vec::new(),
+            ambiguous_with: Ambiguity::default(),
+            add_default_set: true,
+        }
+    }
 }
 
 /// Converts 2D row-major pair of indices into a 1D array index.

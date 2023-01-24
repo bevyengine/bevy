@@ -203,7 +203,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     }
 
     fn no_default_set(mut self) -> SystemSetConfig {
-        self.graph_info.no_default_set = true;
+        self.graph_info.add_default_set = false;
         self
     }
 
@@ -368,7 +368,7 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     fn no_default_set(mut self) -> SystemConfig {
-        self.graph_info.no_default_set = true;
+        self.graph_info.add_default_set = false;
         self
     }
 
