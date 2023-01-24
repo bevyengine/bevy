@@ -8,9 +8,9 @@ fn main() {
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_state::<AppState>()
-        .add_system(load_textures.on_enter(AppState::Setup))
+        .add_system_to_schedule(load_textures, &OnEnter(AppState::Setup))
         .add_system(check_textures.on_update(AppState::Setup))
-        .add_system(setup.on_enter(AppState::Finished))
+        .add_system_to_schedule(setup, &OnEnter(AppState::Finished))
         .run();
 }
 

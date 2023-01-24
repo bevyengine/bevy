@@ -8,10 +8,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
         .add_startup_system(setup)
-        .add_systems(setup_menu.on_enter(AppState::Menu))
-        .add_systems(menu.on_update(AppState::Menu))
-        .add_systems(cleanup_menu.on_exit(AppState::Menu))
-        .add_systems(setup_game.on_enter(AppState::InGame))
+        .add_system_to_schedule(setup_menu, &OnEnter(AppState::Menu))
+        .add_system(menu.on_update(AppState::Menu))
+        .add_system_to_scheduel(cleanup_menu, &OnExit(AppState::Menu))
+        .add_system_to_schedule(setup_game, &OnEnter(AppState::InGame))
         .add_systems((movement, change_color).on_update(AppState::InGame))
         .run();
 }
