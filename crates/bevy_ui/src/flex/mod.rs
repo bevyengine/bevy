@@ -12,7 +12,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::{Entry, HashMap};
+use bevy_utils::{HashMap, Entry};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
@@ -108,19 +108,13 @@ impl FlexSurface {
                 size
             },
         ));
-        let taffy_node = match self.entity_to_taffy.entry(entity) {
-            Entry::Occupied(entry) => {
-                let taffy_node = *entry.get();
-                self.taffy.set_style(taffy_node, taffy_style).unwrap();
-                taffy_node
-            }
-            Entry::Vacant(entry) => {
-                let taffy_node = taffy.new_leaf(taffy_style).unwrap();
-                entry.insert(taffy_node);
-                taffy_node
-            }
-        };
-        self.taffy.set_measure(taffy_node, Some(measure)).unwrap();
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_style(*taffy_node, taffy_style).unwrap();
+            self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
+        } else {
+            let taffy_node = taffy.new_leaf_with_measure(taffy_style, measure).unwrap();
+            self.entity_to_taffy.insert(entity, taffy_node);
+        }
     }
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
