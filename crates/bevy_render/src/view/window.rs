@@ -184,15 +184,24 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance.create_surface(&window.handle.get_handle());
-                let format = *surface
-                    .get_supported_formats(&render_adapter)
-                    .get(0)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No supported formats found for surface {surface:?} on adapter {render_adapter:?}"
-                        )
-                    });
+                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL 2 context fails.
+                let surface = render_instance
+                    .create_surface(&window.handle.get_handle())
+                    .unwrap();
+                let caps = surface.get_capabilities(&render_adapter);
+                let formats = caps.formats;
+                // Explicitally request a format, otherwise fallback to the first available format
+                // For future HDR output support, we'll need to request a format that supports HDR,
+                // but as of wgpu 0.15 that is not yet supported.
+                // TODO: This works if https://github.com/gfx-rs/wgpu/pull/3409 lands in time for wgpu 0.15
+                // Otherwise, we'll need to use sRGB formats (which WebGPU doesn't support).
+                let format = if formats.contains(&TextureFormat::Rgba8Unorm) {
+                    TextureFormat::Rgba8Unorm
+                } else if formats.contains(&TextureFormat::Bgra8Unorm) {
+                    TextureFormat::Bgra8Unorm
+                } else {
+                    formats[0]
+                };
                 SurfaceData { surface, format }
             });
 
