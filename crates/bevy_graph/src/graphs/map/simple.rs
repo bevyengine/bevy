@@ -227,7 +227,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         if DIRECTED {
             self.in_degree(index) + self.out_degree(index)
         } else {
-            todo!()
+            self.adjacencies[index].incoming().len()
         }
     }
 
