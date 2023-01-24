@@ -99,8 +99,8 @@ macro_rules! define_boxed_label {
             }
         }
 
-        impl ScheduleLabel for Box<dyn ScheduleLabel> {
-            fn dyn_clone(&self) -> Box<dyn ScheduleLabel> {
+        impl $label_trait_name for Box<dyn $label_trait_namel> {
+            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
                 // Be explicit that we want to use the inner value
                 // to avoid infinite recursion.
                 (**self).dyn_clone()
