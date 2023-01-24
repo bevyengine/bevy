@@ -143,7 +143,7 @@ impl SubApp {
     pub fn run(&mut self) {
         self.app
             .world
-            .run_schedule(&self.app.default_schedule_label);
+            .run_schedule(&*self.app.outer_schedule_label);
         self.app.world.clear_trackers();
     }
 
