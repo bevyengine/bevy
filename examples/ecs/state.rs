@@ -10,7 +10,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system_to_schedule(setup_menu, &OnEnter(AppState::Menu))
         .add_system(menu.on_update(AppState::Menu))
-        .add_system_to_scheduel(cleanup_menu, &OnExit(AppState::Menu))
+        .add_system_to_schedule(cleanup_menu, &OnExit(AppState::Menu))
         .add_system_to_schedule(setup_game, &OnEnter(AppState::InGame))
         .add_systems((movement, change_color).on_update(AppState::InGame))
         .run();

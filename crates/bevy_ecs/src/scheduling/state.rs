@@ -7,9 +7,38 @@ use crate::scheduling::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
-/// Types that can define states in a finite-state machine.
+/// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
+/// Multiple states can be defined for the same world,
+/// allowing you to classify the state of the world across orthogonal dimensions.
+/// You can access the current state of type `T` with the [`State<T>`] resource,
+/// and the queued state with the [`NextState<T>`] resource.
+///
+/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Varaitn>`] schedules,
+/// which can be run via the [`apply_state_transition::<T>`] system.
+/// Systems that run each frame in various states are typically stored in the main schedule,
+/// and are conventionally part of the [`OnUpdate(T::Variant)`] system set.
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(Clone, Copy, PartialEq, Eq)]
+/// enum GameState {
+///   MainMenu,
+///   SettingsMenu,
+///   InGame,
+/// }
+///
+/// impl States for GameState {
+///   type Iter: [GameState; 3];
+///
+///   fn variants() -> Self::Iter {
+///     [GameState::MainMenu, GameState::SettingsMenu, GameState::InGame]
+///   }
+/// }
+///
+/// ```
 pub trait States:
     'static + Send + Sync + Clone + Copy + PartialEq + Eq + Hash + Debug + Default
 {
