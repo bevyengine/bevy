@@ -50,11 +50,8 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_systems(
-                (changed_window, despawn_window)
-                    .in_set(ModifiesWindows)
-                    .in_set(CoreSet::PostUpdate),
-            );
+            .configure_set(ModifiesWindows.in_set(CoreSet::PostUpdate))
+            .add_systems((changed_window, despawn_window).in_set(ModifiesWindows));
 
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(CanvasParentResizePlugin);

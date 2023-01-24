@@ -169,16 +169,22 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .configure_set(SimulationLightSystems::AddClusters.in_set(CoreSet::PostUpdate))
+            .configure_set(SimulationLightSystems::UpdateLightFrusta.in_set(CoreSet::PostUpdate))
+            .configure_set(
+                SimulationLightSystems::AssignLightsToClusters.in_set(CoreSet::PostUpdate),
+            )
+            .configure_set(SimulationLightSystems::UpdateLightFrusta.in_set(CoreSet::PostUpdate))
+            .configure_set(SimulationLightSystems::CheckLightVisibility.in_set(CoreSet::PostUpdate))
+            .configure_set(SimulationLightSystems::UpdateDirectionalLightCascades.in_set(CoreSet::PostUpdate))
             .add_system(
                 add_clusters
                     .in_set(SimulationLightSystems::AddClusters)
-                    .in_set(CoreSet::PostUpdate)
                     .before(assign_lights_to_clusters),
             )
             .add_system(
                 assign_lights_to_clusters
                     .in_set(SimulationLightSystems::AssignLightsToClusters)
-                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CheckVisibility)
                     .after(CameraUpdateSystem)
@@ -187,13 +193,11 @@ impl Plugin for PbrPlugin {
             .add_system(
                 update_directional_light_cascades
                     .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_system(
                 update_directional_light_frusta
                     .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    .in_set(CoreSet::PostUpdate)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate)
@@ -206,21 +210,18 @@ impl Plugin for PbrPlugin {
             .add_system(
                 update_point_light_frusta
                     .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system(
                 update_spot_light_frusta
                     .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system(
                 check_light_mesh_visibility
                     .in_set(SimulationLightSystems::CheckLightVisibility)
-                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
