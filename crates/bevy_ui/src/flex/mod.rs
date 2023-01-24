@@ -12,7 +12,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, Entry};
+use bevy_utils::{Entry, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
@@ -113,12 +113,12 @@ impl FlexSurface {
                 let taffy_node = *entry.get();
                 self.taffy.set_style(taffy_node, taffy_style).unwrap();
                 taffy_node
-            },
+            }
             Entry::Vacant(entry) => {
                 let taffy_node = taffy.new_leaf(taffy_style).unwrap();
                 entry.insert(taffy_node);
                 taffy_node
-            },
+            }
         };
         self.taffy.set_measure(taffy_node, Some(measure)).unwrap();
     }
