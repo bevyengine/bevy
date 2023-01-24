@@ -168,7 +168,6 @@ impl Default for App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
-        app.init_resource::<Schedules>();
 
         app.add_default_schedules();
         app.add_default_sets();
@@ -197,8 +196,10 @@ impl App {
     ///
     /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
+        let mut world = World::new();
+        world.init_resource::<Schedules>();
         Self {
-            world: Default::default(),
+            world,
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
