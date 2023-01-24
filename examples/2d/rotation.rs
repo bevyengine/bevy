@@ -9,13 +9,15 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_systems(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(player_movement_system)
-                .with_system(snap_to_player_system)
-                .with_system(rotate_to_player_system),
+        .add_systems_to_schedule(
+            (
+                player_movement_system,
+                snap_to_player_system,
+                rotate_to_player_system,
+            ),
+            &CoreSchedule::FixedTimestep,
         )
+        .insert_resource(FixedTime::new(Duration::from_seconds_f32(TIME_STEP)))
         .add_system(bevy::window::close_on_esc)
         .run();
 }

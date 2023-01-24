@@ -15,19 +15,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(frame_update)
-        // add a new stage that runs twice a second
-        .add_stage_after(
-            CoreSet::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(
-                    FixedTimestep::step(0.5)
-                        // labels are optional. they provide a way to access the current
-                        // FixedTimestep state from within a system
-                        .with_label(LABEL),
-                )
-                .with_system(fixed_update),
-        )
+        // add our system to the fixed timestep schedule
+        .add_system_to_schedule(fixed_update, &CoreSchedule::FixedTimestep)
+        // configure our fixed timestep schedule to run twice a second
+        .insert_resource(FixedTime::new(Duration::from_seconds_f32(0.5)))
         .run();
 }
 

@@ -16,14 +16,8 @@ fn main() {
             ..default()
         })
         .add_startup_system(generate_bodies)
-        .add_stage_after(
-            CoreSet::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies)
-                .with_system(integrate),
-        )
+        .insert_resource(FixedTime::new(DELTA_TIME))
+        .add_systems_to_schedule((interact_bodies, integrate), &CoreSchedule::FixedTimestep)
         .add_system(look_at_star.in_set(CoreSet::Update))
         .insert_resource(ClearColor(Color::BLACK))
         .run();
