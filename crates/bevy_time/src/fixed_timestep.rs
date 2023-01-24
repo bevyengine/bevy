@@ -12,14 +12,15 @@
 //!
 //! This does not guarantee that the time elapsed between executions is exact,
 //! and systems in this schedule can run 0, 1 or more times on any given frame.
-///
-/// For example, a system with a fixed timestep run criteria of 120 times per second will run
-/// two times during a ~16.667ms frame, once during a ~8.333ms frame, and once every two frames
-/// with ~4.167ms frames. However, the same criteria may not result in exactly 8.333ms passing
-/// between each execution.
-///
-/// When using fixed time steps, it is advised not to rely on [`Time::delta`] or any of it's
-/// variants for game simulation, but rather use the value of [`FixedTimestep`] instead.
+//!
+//! For example, a system with a fixed timestep run criteria of 120 times per second will run
+//! two times during a ~16.667ms frame, once during a ~8.333ms frame, and once every two frames
+//! with ~4.167ms frames. However, the same criteria may not result in exactly 8.333ms passing
+//! between each execution.
+//!
+//! When using fixed time steps, it is advised not to rely on [`Time::delta`] or any of it's
+//! variants for game simulation, but rather use the value of [`FixedTimestep`] instead.
+
 use crate::Time;
 use bevy_app::CoreSchedule;
 use bevy_ecs::{
