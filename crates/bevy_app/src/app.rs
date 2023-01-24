@@ -1069,7 +1069,11 @@ fn run_once(mut app: App) {
 ///
 /// You can also use this event to detect that an exit was requested. In order to receive it, systems
 /// subscribing to this event should run after it was emitted and before the schedule of the same
-/// frame is over.
+/// frame is over. This is important since [`App::run()`] might never return.
+///
+/// If you don't require access to other components or resources, consider implementing the [`Drop`]
+/// trait on components/resources for code that runs on exit. That saves you from worrying about
+/// system schedule ordering, and is idiomatic Rust.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
 

@@ -1480,7 +1480,7 @@ mod tests {
         system::Query,
     };
 
-    // Compile test for #2838
+    // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[derive(SystemParam)]
     pub struct SpecialQuery<
         'w,
@@ -1490,6 +1490,8 @@ mod tests {
     > {
         _query: Query<'w, 's, Q, F>,
     }
+
+    // Compile tests for https://github.com/bevyengine/bevy/pull/6694.
 
     #[derive(SystemParam)]
     pub struct SpecialRes<'w, T: Resource> {
@@ -1504,9 +1506,11 @@ mod tests {
     #[derive(Resource)]
     pub struct R<const I: usize>;
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/7001.
     #[derive(SystemParam)]
     pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/6867.
     #[derive(SystemParam)]
     pub struct LongParam<'w> {
         _r0: Res<'w, R<0>>,
@@ -1533,12 +1537,15 @@ mod tests {
         crate::system::assert_is_system(long_system);
     }
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/6919.
     #[derive(SystemParam)]
     struct MyParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
         marker: PhantomData<Marker>,
     }
+
+    // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
 
     #[derive(SystemParam)]
     pub struct UnitParam;
@@ -1552,6 +1559,7 @@ mod tests {
     #[derive(Resource)]
     struct PrivateResource;
 
+    // Regression test for https://github.com/bevyengine/bevy/issues/4200.
     #[derive(SystemParam)]
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
