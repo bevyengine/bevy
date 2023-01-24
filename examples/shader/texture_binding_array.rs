@@ -31,7 +31,21 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<BindlessMaterial>>,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
 ) {
+    // check if the device support the required feature
+    if !render_device
+        .features()
+        .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+    {
+        error!(
+            "Render device doesn't support feature \
+            SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
+            which is required for texture binding arrays"
+        );
+        return;
+    }
+
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ..Default::default()
