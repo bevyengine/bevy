@@ -42,6 +42,14 @@ impl<'w> EntityRef<'w> {
         }
     }
 
+    fn as_interior_mutable_readonly(&self) -> InteriorMutableEntityRef<'w> {
+        InteriorMutableEntityRef::new(
+            self.world.as_interior_mutable_readonly(),
+            self.entity,
+            self.location,
+        )
+    }
+
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
@@ -80,39 +88,16 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - the storage type provided is correct for T
-        // - world access is immutable, lifetime tied to `&self`
-        unsafe {
-            self.world
-                .get_component_with_type(
-                    TypeId::of::<T>(),
-                    T::Storage::STORAGE_TYPE,
-                    self.entity,
-                    self.location,
-                )
-                // SAFETY: returned component is of type T
-                .map(|value| value.deref::<T>())
-        }
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_interior_mutable_readonly().get::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            self.world.get_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-        }
+        // SAFETY: &self implies shared access
+        unsafe { self.as_interior_mutable_readonly().get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -123,18 +108,10 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity location and entity is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
+        // SAFETY: &self implies shared access
         unsafe {
-            self.world.get_ticks(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
+            self.as_interior_mutable_readonly()
+                .get_change_ticks_by_id(component_id)
         }
     }
 }
@@ -150,19 +127,8 @@ impl<'w> EntityRef<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity_location and entity are valid
-        // - component_id is valid as checked by the line above
-        // - the storage type is accurate as checked by the fetched ComponentInfo
-        unsafe {
-            self.world.get_component(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-        }
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_interior_mutable_readonly().get_by_id(component_id) }
     }
 }
 
@@ -182,6 +148,17 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
+    fn as_interior_mutable_readonly(&self) -> InteriorMutableEntityRef<'_> {
+        InteriorMutableEntityRef::new(
+            self.world.as_interior_mutable_readonly(),
+            self.entity,
+            self.location,
+        )
+    }
+    fn as_interior_mutable(&mut self) -> InteriorMutableEntityRef<'_> {
+        InteriorMutableEntityRef::new(self.world.as_interior_mutable(), self.entity, self.location)
+    }
+
     /// # Safety
     ///
     ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
@@ -237,50 +214,22 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        // SAFETY:
-        // - entity location is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            self.world
-                .get_component_with_type(
-                    TypeId::of::<T>(),
-                    T::Storage::STORAGE_TYPE,
-                    self.entity,
-                    self.location,
-                )
-                // SAFETY: returned component is of type T
-                .map(|value| value.deref::<T>())
-        }
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_interior_mutable_readonly().get::<T>() }
     }
 
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        let interior_mutable = InteriorMutableEntityRef::new(
-            self.world.as_interior_mutable(),
-            self.entity,
-            self.location,
-        );
-        // SAFETY: interiormutableentityref has exclusive access
-        unsafe { interior_mutable.get_mut() }
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.as_interior_mutable().get_mut() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY:
-        // - entity location is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            self.world.get_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-        }
+        // SAFETY: &self implies shared access
+        unsafe { self.as_interior_mutable_readonly().get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -291,18 +240,10 @@ impl<'w> EntityMut<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity location is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
+        // SAFETY: &self implies shared access
         unsafe {
-            self.world.get_ticks(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
+            self.as_interior_mutable_readonly()
+                .get_change_ticks_by_id(component_id)
         }
     }
 
