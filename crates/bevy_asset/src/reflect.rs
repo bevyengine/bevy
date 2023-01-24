@@ -145,6 +145,8 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 asset.map(|asset| asset as &dyn Reflect)
             },
             get_unchecked_mut: |world, handle| {
+                // SAFETY: `get_unchecked_mut` must be callied with `InteriorMutableWorld` having access to `Assets<A>`,
+                // and must ensure to only have at most one reference to it live at all times.
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed());
                 asset.map(|asset| asset as &mut dyn Reflect)
