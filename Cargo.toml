@@ -955,10 +955,6 @@ description = "Illustrates creating custom system parameters with `SystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[[example]]
-name = "system_sets"
-path = "examples/ecs/system_sets.rs"
-
 [package.metadata.example.system_sets]
 name = "System Sets"
 description = "Shows `SystemSet` use along with run criterion"
