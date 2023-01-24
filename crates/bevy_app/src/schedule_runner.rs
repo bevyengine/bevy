@@ -95,9 +95,11 @@ impl Plugin for ScheduleRunnerPlugin {
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()
                         {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            if let Some(exit) =
+                                app_exit_event_reader.iter(&app_exit_events).last().cloned()
                             {
-                                return Err(exit.clone());
+                                app.teardown();
+                                return Err(exit);
                             }
                         }
 
@@ -106,9 +108,11 @@ impl Plugin for ScheduleRunnerPlugin {
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()
                         {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            if let Some(exit) =
+                                app_exit_event_reader.iter(&app_exit_events).last().cloned()
                             {
-                                return Err(exit.clone());
+                                app.teardown();
+                                return Err(exit);
                             }
                         }
 
@@ -166,5 +170,52 @@ impl Plugin for ScheduleRunnerPlugin {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, AppExit, ScheduleRunnerPlugin};
+    use bevy_ecs::{
+        prelude::EventWriter,
+        system::{Res, ResMut, Resource},
+    };
+
+    #[derive(Resource)]
+    struct RunCounter(usize);
+
+    #[test]
+    fn exit_systems_called_after_app_exits() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+
+        let successful_exit = Arc::new(AtomicBool::new(false));
+        let exit_marker = Arc::clone(&successful_exit);
+
+        App::new()
+            .insert_resource(RunCounter(0))
+            .add_plugin(ScheduleRunnerPlugin)
+            .add_system(
+                |mut exit: EventWriter<AppExit>, mut run_counter: ResMut<RunCounter>| {
+                    run_counter.0 += 1;
+                    if run_counter.0 == 3 {
+                        exit.send(AppExit);
+                    }
+                },
+            )
+            .add_exit_system(move |run_counter: Res<RunCounter>| {
+                if run_counter.0 != 3 {
+                    panic!("Exit systems should only run at the end of the program");
+                }
+                exit_marker.store(true, Ordering::SeqCst);
+            })
+            .run();
+
+        assert!(
+            successful_exit.load(Ordering::SeqCst),
+            "Exit system did not run successfully"
+        );
     }
 }

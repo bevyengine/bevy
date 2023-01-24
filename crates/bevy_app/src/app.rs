@@ -1,4 +1,6 @@
-use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
+use crate::{
+    CoreStage, ExitSchedule, ExitStage, Plugin, PluginGroup, StartupSchedule, StartupStage,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
@@ -219,6 +221,16 @@ impl App {
         }
 
         self.world.clear_trackers();
+    }
+
+    /// Executes the [`App`]'s [exit schedule](Self::add_default_stages()). Should be called by the runner once right before it completes.
+    pub fn teardown(&mut self) {
+        #[cfg(feature = "trace")]
+        let _bevy_frame_update_span = info_span!("exit app").entered();
+        if let Some(schedule) = self.schedule.get_stage_mut::<Schedule>(ExitSchedule) {
+            schedule.set_run_criteria(ShouldRun::once);
+            schedule.run(&mut self.world);
+        }
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
@@ -675,6 +687,62 @@ impl App {
         self
     }
 
+    /// Adds a system to the [exit schedule](Self::add_default_stages)
+    ///
+    /// If the code you want to run only requires access to a single resource/component, consider
+    /// if implementing the [`Drop`] trait on the component or resource might work. This can be more
+    /// idiomatic for objects representing system resources.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn my_exit_system() {}
+    /// #
+    /// app.add_exit_system(my_exit_system);
+    /// ```
+    pub fn add_exit_system<Params>(
+        &mut self,
+        system: impl IntoSystemDescriptor<Params>,
+    ) -> &mut Self {
+        self.schedule
+            .stage(ExitSchedule, |schedule: &mut Schedule| {
+                schedule.add_system_to_stage(ExitStage, system)
+            });
+        self
+    }
+
+    /// Adds a [`SystemSet`] to the [exit schedule](Self::add_default_stages)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn exit_system_a() {}
+    /// # fn exit_system_b() {}
+    /// # fn exit_system_c() {}
+    /// #
+    /// app.add_exit_system_set(
+    ///     SystemSet::new()
+    ///         .with_system(exit_system_a)
+    ///         .with_system(exit_system_b)
+    ///         .with_system(exit_system_c),
+    /// );
+    /// ```
+    pub fn add_exit_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        self.schedule
+            .stage(ExitSchedule, |schedule: &mut Schedule| {
+                schedule.add_system_set_to_stage(ExitStage, system_set)
+            });
+        self
+    }
+
     /// Adds a new [`State`] with the given `initial` value.
     /// This inserts a new `State<T>` resource and adds a new "driver" to [`CoreStage::Update`].
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
@@ -725,6 +793,8 @@ impl App {
     /// - **Post-update:** Often used by plugins to finalize their internal state after the
     ///   world changes that happened during the update stage.
     /// - **Last:** Runs right before the end of the schedule execution cycle.
+    /// - **Exit:** This schedule doesn't execute during the normal schedule execution cycle,
+    ///   but is instead executed right before the game exits.
     ///
     /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`] `enum`s.
     ///
@@ -749,6 +819,12 @@ impl App {
             .add_stage(CoreStage::Update, SystemStage::parallel())
             .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
             .add_stage(CoreStage::Last, SystemStage::parallel())
+            .add_stage(
+                ExitSchedule,
+                Schedule::default()
+                    .with_run_criteria(|| ShouldRun::No)
+                    .with_stage(ExitStage, SystemStage::parallel()),
+            )
     }
 
     /// Setup the application to manage events of type `T`.
@@ -1166,7 +1242,11 @@ fn run_once(mut app: App) {
 ///
 /// You can also use this event to detect that an exit was requested. In order to receive it, systems
 /// subscribing to this event should run after it was emitted and before the schedule of the same
-/// frame is over. This is important since [`App::run()`] might never return.
+/// frame is over. This is important since [`App::run()`] might close the program before returning.
+///
+/// It would probably be easier just to add an [exit system](`App::add_exit_system()`), which is
+/// added to [a special schedule](`App::add_default_stages()`) for runners to execute right before
+/// the App closes.
 ///
 /// If you don't require access to other components or resources, consider implementing the [`Drop`]
 /// trait on components/resources for code that runs on exit. That saves you from worrying about

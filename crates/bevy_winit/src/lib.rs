@@ -260,6 +260,7 @@ pub fn winit_runner(mut app: App) {
 
         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
             if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                app.teardown();
                 *control_flow = ControlFlow::Exit;
                 return;
             }

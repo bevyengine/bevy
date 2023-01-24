@@ -64,3 +64,12 @@ pub enum StartupStage {
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs once after [`StartupStage::Startup`].
     PostStartup,
 }
+
+/// The label for the exit [`Schedule`](bevy_ecs::schedule::Schedule),
+/// which runs once at the end of the [`App`].
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub struct ExitSchedule;
+
+/// The only stage in the exit schedule.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub struct ExitStage;
