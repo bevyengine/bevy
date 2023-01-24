@@ -225,7 +225,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.run_schedule(&self.outer_schedule_label.dyn_clone());
+            self.run_schedule(&*self.outer_schedule_label.dyn_clone());
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -1018,7 +1018,7 @@ impl App {
     }
 
     /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
-    pub fn run_schedule(&mut self, label: &impl ScheduleLabel) -> &mut Self {
+    pub fn run_schedule(&mut self, label: &dyn ScheduleLabel) -> &mut Self {
         self.world.run_schedule(label);
 
         self

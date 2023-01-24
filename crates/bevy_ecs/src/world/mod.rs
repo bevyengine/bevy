@@ -1991,7 +1991,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(world)`](Schedule::run) instead.
-    pub fn run_schedule(&mut self, label: &impl ScheduleLabel) {
+    pub fn run_schedule(&mut self, label: &dyn ScheduleLabel) {
         if let Some((extracted_label, mut schedule)) =
             self.resource_mut::<Schedules>().remove_entry(label)
         {
