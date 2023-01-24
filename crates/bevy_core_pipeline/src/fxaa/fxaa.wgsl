@@ -55,8 +55,8 @@ var samp: sampler;
     let EDGE_THRESHOLD_MAX: f32 = 0.031;
 #endif
 
-let ITERATIONS: i32 = 12; //default is 12
-let SUBPIXEL_QUALITY: f32 = 0.75;
+const ITERATIONS: i32 = 12; //default is 12
+const SUBPIXEL_QUALITY: f32 = 0.75;
 // #define QUALITY(q) ((q) < 5 ? 1.0 : ((q) > 5 ? ((q) < 10 ? 2.0 : ((q) < 11 ? 4.0 : 8.0)) : 1.5))
 fn QUALITY(q: i32) -> f32 {
     switch (q) {
