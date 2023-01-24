@@ -19,12 +19,14 @@ pub mod syncunsafecell;
 
 mod default;
 mod float_ord;
+mod parallel_queue;
 
 pub use ahash::AHasher;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
+pub use parallel_queue::*;
 pub use petgraph;
 pub use thiserror;
 pub use tracing;

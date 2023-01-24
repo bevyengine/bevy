@@ -10,8 +10,7 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
-use std::cell::Cell;
-use thread_local::ThreadLocal;
+use bevy_utils::Parallel;
 
 use crate::{
     camera::{
@@ -356,7 +355,7 @@ fn propagate_recursive(
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
-    mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
+    mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut visible_aabb_query: Query<(
         Entity,
@@ -413,10 +412,7 @@ pub fn check_visibility(
                 }
 
                 computed_visibility.set_visible_in_view();
-                let cell = thread_queues.get_or_default();
-                let mut queue = cell.take();
-                queue.push(entity);
-                cell.set(queue);
+                thread_queues.get().push(entity);
             },
         );
 
@@ -434,16 +430,11 @@ pub fn check_visibility(
                 }
 
                 computed_visibility.set_visible_in_view();
-                let cell = thread_queues.get_or_default();
-                let mut queue = cell.take();
-                queue.push(entity);
-                cell.set(queue);
+                thread_queues.get().push(entity);
             },
         );
 
-        for cell in thread_queues.iter_mut() {
-            visible_entities.entities.append(cell.get_mut());
-        }
+        thread_queues.drain_into(&mut visible_entities.entities);
     }
 }
 

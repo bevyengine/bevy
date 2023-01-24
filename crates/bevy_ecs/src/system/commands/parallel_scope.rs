@@ -1,6 +1,4 @@
-use std::cell::Cell;
-
-use thread_local::ThreadLocal;
+use bevy_utils::Parallel;
 
 use crate::{
     entity::Entities,
@@ -14,7 +12,7 @@ use super::{CommandQueue, Commands};
 #[doc(hidden)]
 #[derive(Default)]
 pub struct ParallelCommandsState {
-    thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
+    thread_queues: Parallel<CommandQueue>,
 }
 
 /// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_iter`](crate::system::Query::par_iter)
@@ -62,8 +60,8 @@ unsafe impl SystemParam for ParallelCommands<'_, '_> {
         let _system_span =
             bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
                 .entered();
-        for cq in &mut state.thread_local_storage {
-            cq.get_mut().apply(world);
+        for cq in state.thread_queues.iter_mut() {
+            cq.apply(world);
         }
     }
 
@@ -82,16 +80,10 @@ unsafe impl SystemParam for ParallelCommands<'_, '_> {
 
 impl<'w, 's> ParallelCommands<'w, 's> {
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
-        let store = &self.state.thread_local_storage;
-        let command_queue_cell = store.get_or_default();
-        let mut command_queue = command_queue_cell.take();
-
-        let r = f(Commands::new_from_entities(
+        let mut command_queue = self.state.thread_queues.get();
+        f(Commands::new_from_entities(
             &mut command_queue,
             self.entities,
-        ));
-
-        command_queue_cell.set(command_queue);
-        r
+        ))
     }
 }
