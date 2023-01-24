@@ -8,6 +8,14 @@ use crate::{
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::ops::{Deref, DerefMut};
 
+mod sealed {
+    pub trait Sealed {}
+    impl<'a, T> Sealed for &'a T {}
+    impl<'a, T> Sealed for &'a mut T {}
+    impl<'a, T> Sealed for super::Ref<'a, T> {}
+    impl<'a, T> Sealed for super::Mut<'a, T> {}
+}
+
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
 /// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`,
@@ -303,7 +311,7 @@ macro_rules! impl_debug {
 }
 
 #[derive(Clone)]
-pub(crate) struct Ticks<'a> {
+pub struct Ticks<'a> {
     pub(crate) added: &'a Tick,
     pub(crate) changed: &'a Tick,
     pub(crate) last_change_tick: u32,
@@ -328,7 +336,7 @@ impl<'a> Ticks<'a> {
     }
 }
 
-pub(crate) struct TicksMut<'a> {
+pub struct TicksMut<'a> {
     pub(crate) added: &'a mut Tick,
     pub(crate) changed: &'a mut Tick,
     pub(crate) last_change_tick: u32,
@@ -364,7 +372,7 @@ impl<'a> From<TicksMut<'a>> for Ticks<'a> {
     }
 }
 
-pub(crate) trait BuildReadWrap<'a> {
+pub trait BuildReadWrap<'a> : sealed::Sealed {
     type Inner;
     fn build(inner: &'a Self::Inner, ticks: Ticks<'a>) -> Self;
 }
@@ -383,7 +391,7 @@ impl<'a, T> BuildReadWrap<'a> for Ref<'a, T> {
     }
 }
 
-pub(crate) trait BuildWriteWrap<'a> {
+pub trait BuildWriteWrap<'a> : sealed::Sealed {
     type Inner;
     fn build(inner: &'a mut Self::Inner, ticks: TicksMut<'a>) -> Self;
 }

@@ -531,7 +531,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: T::ReadWrap<'wlong>) -> T::ReadWrap<'wshort> {
-        item
+        T::shrink_read(item)
     }
 
     const IS_DENSE: bool = {
