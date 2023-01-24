@@ -459,6 +459,16 @@ impl App {
         self.add_systems_to_schedule(systems, CoreSchedule::Startup)
     }
 
+    /// Configures a system set in the default schedule, adding it if it does not exist.
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .get_mut(&*self.default_schedule_label)
+            .unwrap()
+            .configure_set(set);
+        self
+    }
+
     /// Adds standardized schedules and labels to an [`App`].
     ///
     /// Adding these schedules is necessary to make almost all core engine features work.
