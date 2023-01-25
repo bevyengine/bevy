@@ -58,7 +58,7 @@ fn handle_window_focus(
 
 fn window_closed(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    mut receivers: ResMut<WinitActionHandlers>,
+    mut receivers: NonSendMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
     for WindowClosed { window, .. } in events.iter() {
