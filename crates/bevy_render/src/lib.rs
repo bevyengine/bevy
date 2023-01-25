@@ -279,6 +279,7 @@ impl Plugin for RenderPlugin {
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();
     }
