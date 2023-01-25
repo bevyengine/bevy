@@ -7,7 +7,7 @@ use quote::quote;
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Type, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -322,6 +322,7 @@ impl<'a> ReflectMeta<'a> {
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
+            &Vec::default(),
             None,
         )
     }
@@ -350,7 +351,7 @@ impl<'a> ReflectStruct<'a> {
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
     /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
-    pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
+    pub fn get_type_registration(&self, fields: &Vec<Type>) -> proc_macro2::TokenStream {
         let reflect_path = self.meta.bevy_reflect_path();
 
         crate::registration::impl_get_type_registration(
@@ -358,6 +359,7 @@ impl<'a> ReflectStruct<'a> {
             reflect_path,
             self.meta.traits().idents(),
             self.meta.generics(),
+            fields,
             Some(&self.serialization_denylist),
         )
     }

@@ -159,6 +159,32 @@ mod tests {
     }
 
     #[test]
+    fn reflect_struct_generics() {
+        #[derive(Reflect)]
+        struct Foo<T> {
+            a: T,
+        }
+
+        let mut foo = Foo::<u32>{
+            a: 42,
+        };
+
+        let a = *foo.get_field::<u32>("a").unwrap();
+        assert_eq!(a, 42);
+
+        *foo.get_field_mut::<u32>("a").unwrap() += 1;
+        assert_eq!(foo.a, 43);
+
+        // patch Foo with a dynamic struct
+        let mut dynamic_struct = DynamicStruct::default();
+        dynamic_struct.insert("a", 123u32);
+        dynamic_struct.insert("should_be_ignored", 456);
+
+        foo.apply(&dynamic_struct);
+        assert_eq!(foo.a, 123);
+    }
+
+    #[test]
     fn reflect_map() {
         #[derive(Reflect, Hash)]
         #[reflect(Hash)]

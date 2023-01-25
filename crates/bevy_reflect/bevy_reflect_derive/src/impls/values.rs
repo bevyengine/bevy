@@ -21,9 +21,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     #[cfg(not(feature = "documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
+    let field_types = Vec::default();
     let typed_impl = impl_typed(
         type_name,
         meta.generics(),
+        &field_types,
         quote! {
             let info = #bevy_reflect_path::ValueInfo::new::<Self>() #with_docs;
             #bevy_reflect_path::TypeInfo::Value(info)

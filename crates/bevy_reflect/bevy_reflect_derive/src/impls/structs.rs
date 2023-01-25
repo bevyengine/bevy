@@ -91,6 +91,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
+        &field_types,
         quote! {
             let fields = [#field_generator];
             let info = #info_generator;
@@ -99,16 +100,34 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_struct.get_type_registration();
+    let get_type_registration_impl = reflect_struct.get_type_registration(&field_types);
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
+
+    // Add Reflect bound for each active field
+    let mut where_reflect_clause = if where_clause.is_some() {
+        quote! {#where_clause}
+    } else if !field_types.is_empty() {
+        quote! {where}
+    } else {
+        quote! {}
+    };
+    where_reflect_clause.extend(quote! {
+        // TODO: had to add #bevy_reflect_path::Typed to get the test to compile,
+        //  presumably because of this:
+        //  #[inline]
+        //  fn get_type_info(&self) -> &'static bevy_reflect::TypeInfo {
+        //      <Self as bevy_reflect::Typed>::type_info()
+        //  }
+        #(#field_types: #bevy_reflect_path::Reflect + #bevy_reflect_path::Typed,)*
+    });
 
     TokenStream::from(quote! {
         #get_type_registration_impl
 
         #typed_impl
 
-        impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_reflect_clause {
             fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match name {
                     #(#field_names => #fqoption::Some(&self.#field_idents),)*
@@ -160,7 +179,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_reflect_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 ::core::any::type_name::<Self>()

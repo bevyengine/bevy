@@ -76,6 +76,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let typed_impl = impl_typed(
         enum_name,
         reflect_enum.meta().generics(),
+        &Vec::default(),
         quote! {
             let variants = [#(#variant_info),*];
             let info = #info_generator;
