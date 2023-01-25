@@ -251,6 +251,25 @@ impl Image {
         value
     }
 
+    /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// This is primarily for use as a render target for a [`Camera`](`crate::camera::Camera`).
+    /// See [`RenderTarget::Image`](`crate::camera::RenderTarget::Image`).
+    pub fn new_target_texture(width: u32, height: u32) -> Self {
+        let mut image = Self::default();
+
+        image.resize(Extent3d {
+            width,
+            height,
+            ..Default::default()
+        });
+
+        image.texture_descriptor.usage = wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::COPY_DST
+            | wgpu::TextureUsages::RENDER_ATTACHMENT;
+
+        image
+    }
+
     /// Returns the aspect ratio (height/width) of a 2D image.
     pub fn aspect_2d(&self) -> f32 {
         self.texture_descriptor.size.height as f32 / self.texture_descriptor.size.width as f32
