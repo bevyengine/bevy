@@ -18,12 +18,12 @@ impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> SourcesSinks<T, I> {
     }
 }
 
-impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> WrappedIterator<Self, T, I>
-    for SourcesSinks<T, I>
-{
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> WrappedIterator<NodeIdx> for SourcesSinks<T, I> {
+    type Inner = std::iter::Map<I, fn(((NodeIdx, T), usize)) -> NodeIdx>;
+
     #[inline]
-    fn into_inner(self) -> I {
-        self.inner
+    fn into_inner(self) -> Self::Inner {
+        self.inner.map(|((index, _), _)| index)
     }
 }
 

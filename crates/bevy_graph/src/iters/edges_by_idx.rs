@@ -32,11 +32,13 @@ impl<'g, E: 'g, B: Borrow<EdgeIdx>, I: Iterator<Item = B>> EdgesByIdx<'g, E, B, 
     }
 }
 
-impl<'g, E: 'g, B: Borrow<EdgeIdx>, I: Iterator<Item = B>> WrappedIterator<Self, EdgeRef<'g, E>, I>
+impl<'g, E: 'g, B: Borrow<EdgeIdx>, I: Iterator<Item = B>> WrappedIterator<B>
     for EdgesByIdx<'g, E, B, I>
 {
+    type Inner = I;
+
     #[inline]
-    fn into_inner(self) -> I {
+    fn into_inner(self) -> Self::Inner {
         self.inner
     }
 }

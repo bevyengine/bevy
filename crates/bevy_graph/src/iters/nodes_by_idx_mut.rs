@@ -28,11 +28,13 @@ impl<'g, N: 'g, B: Borrow<NodeIdx>, I: Iterator<Item = B>> NodesByIdxMut<'g, N, 
     }
 }
 
-impl<'g, N: 'g, B: Borrow<NodeIdx>, I: Iterator<Item = B>> WrappedIterator<Self, &'g mut N, I>
+impl<'g, N: 'g, B: Borrow<NodeIdx>, I: Iterator<Item = B>> WrappedIterator<B>
     for NodesByIdxMut<'g, N, B, I>
 {
+    type Inner = I;
+
     #[inline]
-    fn into_inner(self) -> I {
+    fn into_inner(self) -> Self::Inner {
         self.inner
     }
 }

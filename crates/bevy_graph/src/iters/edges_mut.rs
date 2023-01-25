@@ -21,11 +21,13 @@ impl<'g, E: 'g, I: Iterator<Item = &'g mut Edge<E>>> EdgesMut<'g, E, I> {
     }
 }
 
-impl<'g, E: 'g, I: Iterator<Item = &'g mut Edge<E>>> WrappedIterator<Self, EdgeMut<'g, E>, I>
+impl<'g, E: 'g, I: Iterator<Item = &'g mut Edge<E>>> WrappedIterator<&'g mut Edge<E>>
     for EdgesMut<'g, E, I>
 {
+    type Inner = I;
+
     #[inline]
-    fn into_inner(self) -> I {
+    fn into_inner(self) -> Self::Inner {
         self.inner
     }
 }
