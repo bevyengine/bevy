@@ -19,10 +19,6 @@ impl From<Node> for AccessibilityNode {
 }
 
 pub trait AccessKitEntityExt {
-    fn from_node_id(id: &NodeId) -> Entity {
-        Entity::from_bits(id.0.get() as u64 - 2)
-    }
-
     fn to_node_id(&self) -> NodeId;
 }
 
