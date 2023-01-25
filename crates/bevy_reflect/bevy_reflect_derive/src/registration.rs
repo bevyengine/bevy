@@ -1,5 +1,6 @@
 //! Contains code related specifically to Bevy's type registration.
 
+use crate::utility::generic_where_clause;
 use bit_set::BitSet;
 use proc_macro2::Ident;
 use quote::quote;
@@ -12,6 +13,7 @@ pub(crate) fn impl_get_type_registration(
     registration_data: &[Ident],
     generics: &Generics,
     field_types: &Vec<Type>,
+    ignored_types: &Vec<Type>,
     serialization_denylist: Option<&BitSet<u32>>,
 ) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -24,20 +26,17 @@ pub(crate) fn impl_get_type_registration(
     });
 
     // Add Typed bound for each active field
-    let mut where_reflect_typed_clause = if where_clause.is_some() {
-        quote! {#where_clause}
-    } else if !field_types.is_empty() {
-        quote! {where}
-    } else {
-        quote! {}
-    };
-    where_reflect_typed_clause.extend(quote! {
-        #(#field_types: #bevy_reflect_path::Reflect + #bevy_reflect_path::Typed,)*
-    });
+    let where_reflect_clause = generic_where_clause(
+        where_clause,
+        &field_types,
+        quote! { #bevy_reflect_path::Reflect },
+        &ignored_types,
+        quote! { 'static + std::marker::Send + std::marker::Sync },
+    );
 
     quote! {
         #[allow(unused_mut)]
-        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name #ty_generics #where_reflect_typed_clause {
+        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name #ty_generics>();
                 registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());

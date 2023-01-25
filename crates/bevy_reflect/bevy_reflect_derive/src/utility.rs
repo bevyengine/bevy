@@ -3,8 +3,9 @@
 use crate::field_attributes::ReflectIgnoreBehavior;
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
-use proc_macro2::{Ident, Span};
-use syn::{Member, Path};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
+use syn::{Member, Path, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -57,6 +58,29 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
         || Member::Unnamed(index.into()),
         |ident| Member::Named(ident.clone()),
     )
+}
+
+pub(crate) fn generic_where_clause(
+    where_clause: Option<&WhereClause>,
+    active_types: &Vec<Type>,
+    active_trait_bounds: TokenStream,
+    ignored_types: &Vec<Type>,
+    ignored_trait_bounds: TokenStream,
+) -> TokenStream {
+    let mut generic_where_clause = if where_clause.is_some() {
+        quote! {#where_clause}
+    } else if !(active_types.is_empty() && ignored_types.is_empty()) {
+        quote! {where}
+    } else {
+        quote! {}
+    };
+    generic_where_clause.extend(quote! {
+        #(#active_types: #active_trait_bounds,)*
+    });
+    generic_where_clause.extend(quote! {
+        #(#ignored_types: #ignored_trait_bounds,)*
+    });
+    generic_where_clause
 }
 
 impl<T> Default for ResultSifter<T> {

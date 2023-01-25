@@ -161,11 +161,19 @@ mod tests {
     #[test]
     fn reflect_struct_generics() {
         #[derive(Reflect)]
-        struct Foo<T> {
+        struct Foo<T, U> {
             a: T,
+            #[reflect(ignore)]
+            _b: U,
         }
 
-        let mut foo = Foo::<u32> { a: 42 };
+        // Type that doesn't implement Reflect
+        struct NoReflect(f32);
+
+        let mut foo = Foo::<u32, NoReflect> {
+            a: 42,
+            _b: NoReflect(1.0),
+        };
 
         let a = *foo.get_field::<u32>("a").unwrap();
         assert_eq!(a, 42);

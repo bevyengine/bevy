@@ -81,6 +81,18 @@ pub(crate) struct ReflectEnum<'a> {
     variants: Vec<EnumVariant<'a>>,
 }
 
+impl<'a> ReflectEnum<'a> {
+    /// Get a collection of types which are exposed to the reflection API
+    pub fn active_types(&self) -> Vec<syn::Type> {
+        Vec::default()
+    }
+
+    /// Get a collection of types which are ignored by the reflection API
+    pub fn ignored_types(&self) -> Vec<syn::Type> {
+        Vec::default()
+    }
+}
+
 /// Represents a field on a struct or tuple struct.
 pub(crate) struct StructField<'a> {
     /// The raw field.
@@ -323,6 +335,7 @@ impl<'a> ReflectMeta<'a> {
             self.traits.idents(),
             self.generics,
             &Vec::default(),
+            &Vec::default(),
             None,
         )
     }
@@ -351,7 +364,11 @@ impl<'a> ReflectStruct<'a> {
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
     /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
-    pub fn get_type_registration(&self, fields: &Vec<Type>) -> proc_macro2::TokenStream {
+    pub fn get_type_registration(
+        &self,
+        field_types: &Vec<Type>,
+        active_types: &Vec<Type>,
+    ) -> proc_macro2::TokenStream {
         let reflect_path = self.meta.bevy_reflect_path();
 
         crate::registration::impl_get_type_registration(
@@ -359,7 +376,8 @@ impl<'a> ReflectStruct<'a> {
             reflect_path,
             self.meta.traits().idents(),
             self.meta.generics(),
-            fields,
+            field_types,
+            active_types,
             Some(&self.serialization_denylist),
         )
     }
@@ -378,6 +396,15 @@ impl<'a> ReflectStruct<'a> {
         self.fields
             .iter()
             .filter(move |field| field.attrs.ignore.is_active())
+    }
+
+    /// Get a collection of types which are ignored by the reflection API
+    pub fn ignored_types(&self) -> Vec<syn::Type> {
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_ignored())
+            .map(|field| field.data.ty.clone())
+            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are ignored by the reflection API

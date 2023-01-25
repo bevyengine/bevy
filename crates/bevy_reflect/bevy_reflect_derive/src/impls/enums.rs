@@ -15,6 +15,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let ref_index = Ident::new("__index_param", Span::call_site());
     let ref_value = Ident::new("__value_param", Span::call_site());
 
+    let ignored_types = reflect_enum.ignored_types();
+    let field_types = reflect_enum.active_types();
+
     let EnumImpls {
         variant_info,
         enum_field,
@@ -76,7 +79,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let typed_impl = impl_typed(
         enum_name,
         reflect_enum.meta().generics(),
-        &Vec::default(),
+        &field_types,
+        &ignored_types,
         quote! {
             let variants = [#(#variant_info),*];
             let info = #info_generator;
