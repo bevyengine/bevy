@@ -1,4 +1,4 @@
-//! Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text.
+//! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
 use bevy::prelude::*;
 
 fn main() {
@@ -31,7 +31,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             background_color: BackgroundColor(Color::CYAN),
             ..Default::default()
         })
-        // spawn one child node for each combination of AlignItems and JustifyContent
+        // spawn one child node for each combination of `AlignItems` and `JustifyContent`
         .with_children(|builder| {
             let alignments = [
                 AlignItems::Baseline,
