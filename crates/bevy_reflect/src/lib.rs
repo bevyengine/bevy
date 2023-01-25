@@ -165,9 +165,7 @@ mod tests {
             a: T,
         }
 
-        let mut foo = Foo::<u32>{
-            a: 42,
-        };
+        let mut foo = Foo::<u32> { a: 42 };
 
         let a = *foo.get_field::<u32>("a").unwrap();
         assert_eq!(a, 42);
