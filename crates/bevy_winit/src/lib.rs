@@ -73,7 +73,7 @@ impl Plugin for WinitPlugin {
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
             NonSendMut<AccessKitAdapters>,
-            NonSendMut<WinitActionHandlers>,
+            ResMut<WinitActionHandlers>,
         )> = SystemState::from_world(&mut app.world);
 
         #[cfg(target_arch = "wasm32")]
@@ -84,7 +84,7 @@ impl Plugin for WinitPlugin {
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
             NonSendMut<AccessKitAdapters>,
-            NonSendMut<WinitActionHandlers>,
+            ResMut<WinitActionHandlers>,
             ResMut<CanvasParentResizeEventChannel>,
         )> = SystemState::from_world(&mut app.world);
 
@@ -267,7 +267,7 @@ pub fn winit_runner(mut app: App) {
         EventWriter<WindowCreated>,
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
-        NonSendMut<WinitActionHandlers>,
+        ResMut<WinitActionHandlers>,
     )> = SystemState::from_world(&mut app.world);
 
     #[cfg(target_arch = "wasm32")]
@@ -277,7 +277,7 @@ pub fn winit_runner(mut app: App) {
         EventWriter<WindowCreated>,
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
-        NonSendMut<WinitActionHandlers>,
+        ResMut<WinitActionHandlers>,
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 

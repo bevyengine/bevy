@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
-    system::{Commands, NonSendMut, Query, RemovedComponents},
+    system::{Commands, NonSendMut, Query, RemovedComponents, ResMut},
     world::Mut,
 };
 use bevy_utils::{
@@ -37,7 +37,7 @@ pub(crate) fn create_window<'a>(
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
     mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: NonSendMut<WinitActionHandlers>,
+    mut handlers: ResMut<WinitActionHandlers>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut component) in created_windows {
@@ -51,8 +51,13 @@ pub(crate) fn create_window<'a>(
             entity
         );
 
-        let winit_window =
-            winit_windows.create_window(event_loop, entity, &component, &mut adapters, &mut handlers);
+        let winit_window = winit_windows.create_window(
+            event_loop,
+            entity,
+            &component,
+            &mut adapters,
+            &mut handlers,
+        );
         let current_size = winit_window.inner_size();
         component
             .resolution

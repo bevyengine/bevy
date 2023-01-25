@@ -58,7 +58,7 @@ fn handle_window_focus(
 
 fn window_closed(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    mut receivers: NonSendMut<WinitActionHandlers>,
+    mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
     for WindowClosed { window, .. } in events.iter() {
@@ -173,7 +173,7 @@ pub struct AccessibilityPlugin;
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
-            .init_non_send_resource::<WinitActionHandlers>()
+            .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_window_focus)
             .add_system_to_stage(CoreStage::PreUpdate, window_closed)
