@@ -1522,7 +1522,7 @@ path = "examples/ui/text_layout.rs"
 
 [package.metadata.example.text_layout]
 name = "Text Layout"
-description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+description = "Demonstrates the use of FlexWrap to arrange nodes into rows and how the AlignItems and JustifyContent properties can be composed to layout text"
 category = "UI (User Interface)"
 wasm = false
 

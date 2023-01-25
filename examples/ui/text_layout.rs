@@ -1,4 +1,4 @@
-//! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
+//! Demonstrates arranging nodes into rows with `FlexWrap` and how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
 use bevy::prelude::*;
 
 fn main() {
