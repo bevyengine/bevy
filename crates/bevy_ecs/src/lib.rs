@@ -14,6 +14,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod schedule;
+pub mod schedule_v3;
 pub mod storage;
 pub mod system;
 pub mod world;
@@ -28,7 +29,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::DetectChanges,
+        change_detection::{DetectChanges, DetectChangesMut},
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter, Events},
@@ -399,7 +400,8 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &A)>()
-            .par_for_each(&world, 2, |(e, &A(i))| {
+            .par_iter(&world)
+            .for_each(|(e, &A(i))| {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
@@ -419,11 +421,10 @@ mod tests {
         let e4 = world.spawn((SparseStored(4), A(1))).id();
         let e5 = world.spawn((SparseStored(5), A(1))).id();
         let results = Arc::new(Mutex::new(Vec::new()));
-        world.query::<(Entity, &SparseStored)>().par_for_each(
-            &world,
-            2,
-            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
-        );
+        world
+            .query::<(Entity, &SparseStored)>()
+            .par_iter(&world)
+            .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
         assert_eq!(
             &*results.lock().unwrap(),
@@ -1268,6 +1269,15 @@ mod tests {
     }
 
     #[test]
+    fn non_send_resource_points_to_distinct_data() {
+        let mut world = World::default();
+        world.insert_resource(A(123));
+        world.insert_non_send_resource(A(456));
+        assert_eq!(*world.resource::<A>(), A(123));
+        assert_eq!(*world.non_send_resource::<A>(), A(456));
+    }
+
+    #[test]
     #[should_panic]
     fn non_send_resource_panic() {
         let mut world = World::default();
@@ -1407,35 +1417,29 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource_scope() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
-            value.0 += 1;
-            assert!(!world.contains_resource::<NonSendA>());
-        });
-        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
-    }
-
-    #[test]
     #[should_panic(
-        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
+        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
     )]
-    fn non_send_resource_scope_from_different_thread() {
+    fn non_send_resource_drop_from_different_thread() {
         let mut world = World::default();
         world.insert_non_send_resource(NonSendA::default());
 
         let thread = std::thread::spawn(move || {
-            // Accessing the non-send resource on a different thread
+            // Dropping the non-send resource on a different thread
             // Should result in a panic
-            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
-                value.0 += 1;
-            });
+            drop(world);
         });
 
         if let Err(err) = thread.join() {
             std::panic::resume_unwind(err);
         }
+    }
+
+    #[test]
+    fn non_send_resource_drop_from_same_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+        drop(world);
     }
 
     #[test]

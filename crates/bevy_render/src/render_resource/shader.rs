@@ -1,27 +1,16 @@
+use super::ShaderDefVal;
+use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::{TypeUuid, Uuid};
+use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
-use naga::back::wgsl::WriterFlags;
-use naga::valid::Capabilities;
-use naga::{valid::ModuleInfo, Module};
+use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use wgpu::Features;
-use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
 
-use super::ShaderDefVal;
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ShaderId(Uuid);
-
-impl ShaderId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        ShaderId(Uuid::new_v4())
-    }
-}
+define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {

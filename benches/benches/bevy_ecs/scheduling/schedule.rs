@@ -110,11 +110,11 @@ pub fn build_schedule(criterion: &mut Criterion) {
                 // Not particularly realistic but this can be refined later.
                 for i in 0..graph_size {
                     let mut sys = empty_system.label(labels[i]).before(DummyLabel);
-                    for a in 0..i {
-                        sys = sys.after(labels[a]);
+                    for label in labels.iter().take(i) {
+                        sys = sys.after(*label);
                     }
-                    for b in i + 1..graph_size {
-                        sys = sys.before(labels[b]);
+                    for label in &labels[i + 1..graph_size] {
+                        sys = sys.before(*label);
                     }
                     app.add_system(sys);
                 }

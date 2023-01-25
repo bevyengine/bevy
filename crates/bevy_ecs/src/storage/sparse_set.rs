@@ -447,6 +447,12 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         })
     }
 
+    pub fn clear(&mut self) {
+        self.dense.clear();
+        self.indices.clear();
+        self.sparse.clear();
+    }
+
     pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),

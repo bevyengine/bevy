@@ -16,7 +16,7 @@ mod pretty;
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long, default_value_t = 0.0)]
-    /// Filter spans that have an average shorther than the threshold
+    /// Filter spans that have an average shorter than the threshold
     threshold: f32,
 
     #[arg(short, long)]

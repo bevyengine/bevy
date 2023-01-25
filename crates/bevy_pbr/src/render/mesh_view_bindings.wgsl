@@ -43,3 +43,15 @@ var<uniform> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
 
 @group(0) @binding(9)
 var<uniform> globals: Globals;
+
+#ifdef MULTISAMPLED
+@group(0) @binding(10)
+var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(11)
+var normal_prepass_texture: texture_multisampled_2d<f32>;
+#else
+@group(0) @binding(10)
+var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(11)
+var normal_prepass_texture: texture_2d<f32>;
+#endif
