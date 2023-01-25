@@ -28,9 +28,9 @@ pub(crate) fn impl_get_type_registration(
     // Add Typed bound for each active field
     let where_reflect_clause = generic_where_clause(
         where_clause,
-        &field_types,
+        field_types,
         quote! { #bevy_reflect_path::Reflect },
-        &ignored_types,
+        ignored_types,
         quote! { 'static + std::marker::Send + std::marker::Sync },
     );
 
