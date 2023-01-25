@@ -78,18 +78,15 @@ fn spawn_child_node(
         })
         .with_children(|builder| {
             let labels = [
-                (format!("{:?}", align_items), Color::MAROON, Val::Px(0.)),
-                (
-                    format!("{:?}", justify_content),
-                    Color::DARK_GREEN,
-                    Val::Px(3.),
-                ),
+                (format!("{:?}", align_items), Color::MAROON, 0.),
+                (format!("{:?}", justify_content), Color::DARK_GREEN, 3.),
             ];
             for (text, color, top_margin) in labels {
+                // We nest the text within a parent node because margins and padding can't be directly applied to text nodes currently.
                 builder
                     .spawn(NodeBundle {
                         style: Style {
-                            margin: UiRect::top(top_margin),
+                            margin: UiRect::top(Val::Px(top_margin)),
                             padding: UiRect::all(Val::Px(5.)),
                             ..Default::default()
                         },
