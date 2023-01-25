@@ -66,6 +66,26 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
+    type Neighbors<'n>: Iterator<Item = &'n N> + WrappedIterator<&'n NodeIdx>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type NeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<&'n NodeIdx>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type Isolated<'n>: Iterator<Item = &'n N> + WrappedIterator<NodeIdx>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type IsolatedMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<NodeIdx>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
     type IncomingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIterator<&'e EdgeIdx>
     where
         Self: 'e,
@@ -305,6 +325,18 @@ pub trait Graph<N, E> {
 
     /// Returns a mutable iterator over the edges of the specified node.
     fn edges_of_mut(&mut self, index: NodeIdx) -> Self::EdgesOfMut<'_>;
+
+    /// Returns an iterator over the nodes the share an edge with the specified node.
+    fn neighbors(&self, index: NodeIdx) -> Self::Neighbors<'_>;
+
+    /// Returns a mutable iterator over the nodes the share an edge with the specified node.
+    fn neighbors_mut(&mut self, index: NodeIdx) -> Self::NeighborsMut<'_>;
+
+    /// Returns an iterator over all nodes with zero degree.
+    fn isolated(&self) -> Self::Isolated<'_>;
+
+    /// Returns a mutable iterator over all nodes with zero degree.
+    fn isolated_mut(&mut self) -> Self::IsolatedMut<'_>;
 
     /// Returns the number of edges going into the specified node.
     fn in_degree(&self, index: NodeIdx) -> usize;

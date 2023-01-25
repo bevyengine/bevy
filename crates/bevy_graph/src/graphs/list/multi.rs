@@ -287,40 +287,89 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, iters::LoopSafetyIter<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Flatten<std::iter::Chain<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>>> where Self: 'e;
+    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, iters::LoopSafetyIter<'e, &'e Vec<EdgeIdx>, IterChoice<(&'e NodeIdx, &'e Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>>, false>>> where Self: 'e;
     fn edges_of(&self, index: NodeIdx) -> Self::EdgesOf<'_> {
         let inner = if DIRECTED {
             IterChoice::new_first(
                 self.adjacencies[index]
                     .incoming()
-                    .values()
-                    .chain(self.adjacencies[index].outgoing().values())
-                    .flatten(),
+                    .tuple_iter()
+                    .chain(self.adjacencies[index].outgoing().tuple_iter()),
             )
         } else {
-            IterChoice::new_second(self.adjacencies[index].incoming().values().flatten())
+            IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
         };
-        iters::EdgesByIdx::new(iters::LoopSafetyIter::new(inner, &self.edges), &self.edges)
+        iters::EdgesByIdx::new(
+            iters::TupleExtract::new_second(iters::LoopSafetyIter::new(inner, index)).flatten(),
+            &self.edges,
+        )
     }
 
-    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, iters::LoopSafetyIter<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Flatten<std::iter::Chain<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>, std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>>>> where Self: 'e;
+    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, iters::LoopSafetyIter<'e, &'e Vec<EdgeIdx>, IterChoice<(&'e NodeIdx, &'e Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>>, false>>> where Self: 'e;
     fn edges_of_mut(&mut self, index: NodeIdx) -> Self::EdgesOfMut<'_> {
         let inner = if DIRECTED {
             IterChoice::new_first(
                 self.adjacencies[index]
                     .incoming()
-                    .values()
-                    .chain(self.adjacencies[index].outgoing().values())
-                    .flatten(),
+                    .tuple_iter()
+                    .chain(self.adjacencies[index].outgoing().tuple_iter()),
             )
         } else {
-            IterChoice::new_second(self.adjacencies[index].incoming().values().flatten())
+            IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
         };
-        unsafe {
-            // SAFETY: EdgesByIdxMut should'nt be able to do any bad stuff for LoopSafetyIter
-            let ptr: *mut HopSlotMap<EdgeIdx, Edge<E>> = &mut self.edges;
-            iters::EdgesByIdxMut::new(iters::LoopSafetyIter::new(inner, &*ptr), &mut self.edges)
-        }
+        iters::EdgesByIdxMut::new(
+            iters::TupleExtract::new_second(iters::LoopSafetyIter::new(inner, index)).flatten(),
+            &mut self.edges,
+        )
+    }
+
+    type Neighbors<'n> = iters::NodesByIdx<'n, N, &'n NodeIdx, iters::TupleExtract<&'n NodeIdx, &'n Vec<EdgeIdx>, iters::LoopSafetyIter<'n, &'n Vec<EdgeIdx>, IterChoice<(&'n NodeIdx, &'n Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>>, true>> where Self: 'n;
+    fn neighbors(&self, index: NodeIdx) -> Self::Neighbors<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .tuple_iter()
+                    .chain(self.adjacencies[index].outgoing().tuple_iter()),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
+        };
+        iters::NodesByIdx::new(
+            iters::TupleExtract::new_first(iters::LoopSafetyIter::new(inner, index)),
+            &self.nodes,
+        )
+    }
+
+    type NeighborsMut<'n> = iters::NodesByIdxMut<'n, N, &'n NodeIdx, iters::TupleExtract<&'n NodeIdx, &'n Vec<EdgeIdx>, iters::LoopSafetyIter<'n, &'n Vec<EdgeIdx>, IterChoice<(&'n NodeIdx, &'n Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>>, true>> where Self: 'n;
+    fn neighbors_mut(&mut self, index: NodeIdx) -> Self::NeighborsMut<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .tuple_iter()
+                    .chain(self.adjacencies[index].outgoing().tuple_iter()),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
+        };
+        iters::NodesByIdxMut::new(
+            iters::TupleExtract::new_first(iters::LoopSafetyIter::new(inner, index)),
+            &mut self.nodes,
+        )
+    }
+
+    type Isolated<'n> = iters::Isolated<&'n N, iters::ZipDegree<'n, MultiListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>, DIRECTED>> where Self: 'n;
+    fn isolated(&self) -> Self::Isolated<'_> {
+        iters::Isolated::new(iters::ZipDegree::new(self.nodes.iter(), &self.adjacencies))
+    }
+
+    type IsolatedMut<'n> = iters::Isolated<&'n mut N, iters::ZipDegree<'n, MultiListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>, DIRECTED>> where Self: 'n;
+    fn isolated_mut(&mut self) -> Self::IsolatedMut<'_> {
+        iters::Isolated::new(iters::ZipDegree::new(
+            self.nodes.iter_mut(),
+            &self.adjacencies,
+        ))
     }
 
     #[inline]
@@ -388,33 +437,33 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         )
     }
 
-    type Sources<'n> = iters::SourcesSinks<&'n N, iters::ZipInDegree<'n, MultiListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
+    type Sources<'n> = iters::Isolated<&'n N, iters::ZipInDegree<'n, MultiListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
     fn sources(&self) -> Self::Sources<'_> {
-        iters::SourcesSinks::new(iters::ZipInDegree::new(
+        iters::Isolated::new(iters::ZipInDegree::new(
             self.nodes.iter(),
             &self.adjacencies,
         ))
     }
 
-    type SourcesMut<'n> = iters::SourcesSinks<&'n mut N, iters::ZipInDegree<'n, MultiListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
+    type SourcesMut<'n> = iters::Isolated<&'n mut N, iters::ZipInDegree<'n, MultiListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
     fn sources_mut(&mut self) -> Self::SourcesMut<'_> {
-        iters::SourcesSinks::new(iters::ZipInDegree::new(
+        iters::Isolated::new(iters::ZipInDegree::new(
             self.nodes.iter_mut(),
             &self.adjacencies,
         ))
     }
 
-    type Sinks<'n> = iters::SourcesSinks<&'n N, iters::ZipOutDegree<'n, MultiListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
+    type Sinks<'n> = iters::Isolated<&'n N, iters::ZipOutDegree<'n, MultiListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
     fn sinks(&self) -> Self::Sinks<'_> {
-        iters::SourcesSinks::new(iters::ZipOutDegree::new(
+        iters::Isolated::new(iters::ZipOutDegree::new(
             self.nodes.iter(),
             &self.adjacencies,
         ))
     }
 
-    type SinksMut<'n> = iters::SourcesSinks<&'n mut N, iters::ZipOutDegree<'n, MultiListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
+    type SinksMut<'n> = iters::Isolated<&'n mut N, iters::ZipOutDegree<'n, MultiListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
     fn sinks_mut(&mut self) -> Self::SinksMut<'_> {
-        iters::SourcesSinks::new(iters::ZipOutDegree::new(
+        iters::Isolated::new(iters::ZipOutDegree::new(
             self.nodes.iter_mut(),
             &self.adjacencies,
         ))

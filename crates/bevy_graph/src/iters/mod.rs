@@ -16,14 +16,20 @@ pub use edges_ref::*;
 mod edges_mut;
 pub use edges_mut::*;
 
+mod zip_degree;
+pub use zip_degree::*;
+
 mod zip_in_degree;
 pub use zip_in_degree::*;
 
 mod zip_out_degree;
 pub use zip_out_degree::*;
 
-mod sources_sinks;
-pub use sources_sinks::*;
+mod isolated;
+pub use isolated::*;
 
 mod loop_safety_iter;
 pub use loop_safety_iter::*;
+
+mod tuple_extract;
+pub use tuple_extract::*;

@@ -2,14 +2,14 @@ use std::marker::PhantomData;
 
 use crate::{graphs::keys::NodeIdx, utils::wrapped_iterator::WrappedIterator};
 
-/// An iterator which iterates every source / sink node of a graph
-pub struct SourcesSinks<T, I: Iterator<Item = ((NodeIdx, T), usize)>> {
+/// An iterator which filters out every non-isolated node of a sub-iterator
+pub struct Isolated<T, I: Iterator<Item = ((NodeIdx, T), usize)>> {
     inner: I,
     phantom: PhantomData<T>,
 }
 
-impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> SourcesSinks<T, I> {
-    /// An iterator which iterates every source / sink node of a graph
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> Isolated<T, I> {
+    /// Creates a new `Isolated` iterator
     pub fn new(inner: I) -> Self {
         Self {
             inner,
@@ -18,7 +18,7 @@ impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> SourcesSinks<T, I> {
     }
 }
 
-impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> WrappedIterator<NodeIdx> for SourcesSinks<T, I> {
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> WrappedIterator<NodeIdx> for Isolated<T, I> {
     type Inner = std::iter::Map<I, fn(((NodeIdx, T), usize)) -> NodeIdx>;
 
     #[inline]
@@ -27,7 +27,7 @@ impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> WrappedIterator<NodeIdx> for 
     }
 }
 
-impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> Iterator for SourcesSinks<T, I> {
+impl<T, I: Iterator<Item = ((NodeIdx, T), usize)>> Iterator for Isolated<T, I> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -310,6 +310,49 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         iters::EdgesByIdxMut::new(inner, &mut self.edges)
     }
 
+    type Neighbors<'n> = iters::NodesByIdx<'n, N, &'n NodeIdx, IterChoice<&'n NodeIdx, std::iter::Chain<crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>>, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>>> where Self: 'n;
+    fn neighbors(&self, index: NodeIdx) -> Self::Neighbors<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .keys()
+                    .chain(self.adjacencies[index].outgoing().keys()),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().keys())
+        };
+        iters::NodesByIdx::new(inner, &self.nodes)
+    }
+
+    type NeighborsMut<'n> = iters::NodesByIdxMut<'n, N, &'n NodeIdx, IterChoice<&'n NodeIdx, std::iter::Chain<crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>>, crate::utils::vecmap::Keys<'n, NodeIdx, EdgeIdx>>> where Self: 'n;
+    fn neighbors_mut(&mut self, index: NodeIdx) -> Self::NeighborsMut<'_> {
+        let inner = if DIRECTED {
+            IterChoice::new_first(
+                self.adjacencies[index]
+                    .incoming()
+                    .keys()
+                    .chain(self.adjacencies[index].outgoing().keys()),
+            )
+        } else {
+            IterChoice::new_second(self.adjacencies[index].incoming().keys())
+        };
+        iters::NodesByIdxMut::new(inner, &mut self.nodes)
+    }
+
+    type Isolated<'n> = iters::Isolated<&'n N, iters::ZipDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>, DIRECTED>> where Self: 'n;
+    fn isolated(&self) -> Self::Isolated<'_> {
+        iters::Isolated::new(iters::ZipDegree::new(self.nodes.iter(), &self.adjacencies))
+    }
+
+    type IsolatedMut<'n> = iters::Isolated<&'n mut N, iters::ZipDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>, DIRECTED>> where Self: 'n;
+    fn isolated_mut(&mut self) -> Self::IsolatedMut<'_> {
+        iters::Isolated::new(iters::ZipDegree::new(
+            self.nodes.iter_mut(),
+            &self.adjacencies,
+        ))
+    }
+
     #[inline]
     fn in_degree(&self, index: NodeIdx) -> usize {
         self.adjacencies[index].incoming().len()
@@ -363,33 +406,33 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         )
     }
 
-    type Sources<'n> = iters::SourcesSinks<&'n N, iters::ZipInDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
+    type Sources<'n> = iters::Isolated<&'n N, iters::ZipInDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
     fn sources(&self) -> Self::Sources<'_> {
-        iters::SourcesSinks::new(iters::ZipInDegree::new(
+        iters::Isolated::new(iters::ZipInDegree::new(
             self.nodes.iter(),
             &self.adjacencies,
         ))
     }
 
-    type SourcesMut<'n> = iters::SourcesSinks<&'n mut N, iters::ZipInDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
+    type SourcesMut<'n> = iters::Isolated<&'n mut N, iters::ZipInDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
     fn sources_mut(&mut self) -> Self::SourcesMut<'_> {
-        iters::SourcesSinks::new(iters::ZipInDegree::new(
+        iters::Isolated::new(iters::ZipInDegree::new(
             self.nodes.iter_mut(),
             &self.adjacencies,
         ))
     }
 
-    type Sinks<'n> = iters::SourcesSinks<&'n N, iters::ZipOutDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
+    type Sinks<'n> = iters::Isolated<&'n N, iters::ZipOutDegree<'n, SimpleListStorage, &'n N, slotmap::hop::Iter<'n, NodeIdx, N>>> where Self: 'n;
     fn sinks(&self) -> Self::Sinks<'_> {
-        iters::SourcesSinks::new(iters::ZipOutDegree::new(
+        iters::Isolated::new(iters::ZipOutDegree::new(
             self.nodes.iter(),
             &self.adjacencies,
         ))
     }
 
-    type SinksMut<'n> = iters::SourcesSinks<&'n mut N, iters::ZipOutDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
+    type SinksMut<'n> = iters::Isolated<&'n mut N, iters::ZipOutDegree<'n, SimpleListStorage, &'n mut N, slotmap::hop::IterMut<'n, NodeIdx, N>>> where Self: 'n;
     fn sinks_mut(&mut self) -> Self::SinksMut<'_> {
-        iters::SourcesSinks::new(iters::ZipOutDegree::new(
+        iters::Isolated::new(iters::ZipOutDegree::new(
             self.nodes.iter_mut(),
             &self.adjacencies,
         ))
