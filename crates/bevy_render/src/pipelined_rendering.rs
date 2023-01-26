@@ -1,8 +1,8 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, CoreSchedule, Plugin, SubApp};
 use bevy_ecs::{
-    scheduling::MainThreadExecutor,
+    scheduling::{MainThreadExecutor, Schedule},
     system::Resource,
     world::{Mut, World},
 };
@@ -71,7 +71,13 @@ impl Plugin for PipelinedRenderingPlugin {
         }
         app.insert_resource(MainThreadExecutor::new());
 
-        let sub_app = App::empty();
+        let mut sub_app = App::empty();
+        sub_app.init_schedule(CoreSchedule::Main);
+        let mut outer_schedule = Schedule::new();
+        outer_schedule.add_system(|world: &mut World| {
+            world.run_schedule(&CoreSchedule::Main);
+        });
+        sub_app.add_schedule(CoreSchedule::Outer, outer_schedule);
         app.add_sub_app(RenderExtractApp, sub_app, update_rendering);
     }
 
