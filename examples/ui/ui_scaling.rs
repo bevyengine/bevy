@@ -4,7 +4,7 @@ use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SystemLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 struct ApplyScaling;
 
 fn main() {
