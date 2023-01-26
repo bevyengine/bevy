@@ -42,7 +42,7 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label: Box<dyn ScheduleLabel> = Box::new(label);
+        let label = label.dyn_clone();
         if self.inner.contains_key(&label) {
             warn!("schedule with label {:?} already exists", label);
         }
@@ -1088,5 +1088,15 @@ impl ScheduleBuildSettings {
     pub fn with_hierarchy_detection(mut self, level: LogLevel) -> Self {
         self.hierarchy_detection = level;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut schedules = Schedules::new();
     }
 }
