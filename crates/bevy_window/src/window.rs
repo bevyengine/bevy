@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2};
+use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -158,6 +158,13 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Whether or not to stop events from propagating out of the canvas element
+    ///
+    ///  When `true`, this will prevent common browser hotkeys like F5, F12, Ctrl+R, tab, etc.
+    /// from performing their default behavior while the bevy app has focus.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub prevent_default_event_handling: bool,
     /// Stores internal state that isn't directly accessible.
     pub internal: InternalWindowState,
 }
@@ -180,6 +187,7 @@ impl Default for Window {
             focused: true,
             always_on_top: false,
             fit_canvas_to_parent: false,
+            prevent_default_event_handling: true,
             canvas: None,
         }
     }
@@ -193,9 +201,9 @@ impl Window {
         self.internal.maximize_request = Some(maximized);
     }
 
-    /// Setting this to true will attempt to maximize the window.
+    /// Setting this to true will attempt to minimize the window.
     ///
-    /// Setting it to false will attempt to un-maximize the window.
+    /// Setting it to false will attempt to un-minimize the window.
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
     }
@@ -228,6 +236,32 @@ impl Window {
     #[inline]
     pub fn scale_factor(&self) -> f64 {
         self.resolution.scale_factor()
+    }
+
+    /// The cursor position in this window
+    #[inline]
+    pub fn cursor_position(&self) -> Option<Vec2> {
+        self.cursor
+            .physical_position
+            .map(|position| (position / self.scale_factor()).as_vec2())
+    }
+
+    /// The physical cursor position in this window
+    #[inline]
+    pub fn physical_cursor_position(&self) -> Option<Vec2> {
+        self.cursor
+            .physical_position
+            .map(|position| position.as_vec2())
+    }
+
+    /// Set the cursor position in this window
+    pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
+        self.cursor.physical_position = position.map(|p| p.as_dvec2() * self.scale_factor());
+    }
+
+    /// Set the physical cursor position in this window
+    pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
+        self.cursor.physical_position = position;
     }
 }
 
@@ -345,7 +379,7 @@ pub struct Cursor {
     pub hit_test: bool,
 
     /// The position of this window's cursor.
-    pub position: Option<DVec2>,
+    physical_position: Option<DVec2>,
 }
 
 impl Default for Cursor {
@@ -355,7 +389,7 @@ impl Default for Cursor {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
-            position: None,
+            physical_position: None,
         }
     }
 }
