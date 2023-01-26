@@ -789,6 +789,63 @@ mod test {
         assert!(check_err(&mut composer, "structs"));
     }
 
+    #[test]
+    fn dup_struct_import() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/dup_struct_import/struct.wgsl"),
+                file_path: "tests/dup_struct_import/struct.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/dup_struct_import/a.wgsl"),
+                file_path: "tests/dup_struct_import/a.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/dup_struct_import/b.wgsl"),
+                file_path: "tests/dup_struct_import/b.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/dup_struct_import/top.wgsl"),
+                file_path: "tests/dup_struct_import/top.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        // println!("{}", module.emit_to_string(&composer));
+        // assert!(false);
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // let mut f = std::fs::File::create("dup_struct_import.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(wgsl, "tests/expected/dup_struct_import.txt");
+    }
+
     // actually run a shader and extract the result
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
     fn test_shader(composer: &mut Composer) -> f32 {
@@ -883,7 +940,6 @@ mod test {
         }
 
         let view: &[u8] = &output_buffer.slice(..).get_mapped_range();
-        
 
         f32::from_le_bytes(view.try_into().unwrap())
     }
@@ -1050,10 +1106,7 @@ fn vertex(
             pos: 124,
             shader_def_name: "TEXTURE".to_string(),
         });
-        assert_eq!(
-            format!("{result_missing:?}"),
-            format!("{expected_err:?}"),
-        );
+        assert_eq!(format!("{result_missing:?}"), format!("{expected_err:?}"),);
 
         let result_wrong_type = processor.preprocess_defs(
             WGSL,
@@ -1294,10 +1347,7 @@ fn vertex(
             pos: 124,
             shader_def_name: "TEXTURE".to_string(),
         });
-        assert_eq!(
-            format!("{result_missing:?}"),
-            format!("{expected_err:?}"),
-        );
+        assert_eq!(format!("{result_missing:?}"), format!("{expected_err:?}"),);
 
         let result_wrong_type = processor.preprocess_defs(
             WGSL,

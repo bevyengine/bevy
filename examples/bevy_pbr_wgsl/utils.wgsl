@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::utils
 
-let PI: f32 = 3.141592653589793;
+const PI: f32 = 3.141592653589793;
 
 fn saturate(value: f32) -> f32 {
     return clamp(value, 0.0, 1.0);

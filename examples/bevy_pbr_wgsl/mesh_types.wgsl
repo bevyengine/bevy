@@ -13,4 +13,4 @@ struct SkinnedMesh {
 };
 #endif
 
-let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
+const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;

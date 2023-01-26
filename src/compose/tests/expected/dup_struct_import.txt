@@ -1,0 +1,26 @@
+struct _naga_oil_mod_ON2HE5LDOQ_memberMyStruct {
+    value: f32,
+}
+
+fn _naga_oil_mod_ME_membera() -> _naga_oil_mod_ON2HE5LDOQ_memberMyStruct {
+    var s: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct;
+
+    s.value = 1.0;
+    let _e3: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = s;
+    return _e3;
+}
+
+fn _naga_oil_mod_MI_memberb() -> _naga_oil_mod_ON2HE5LDOQ_memberMyStruct {
+    var s_1: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct;
+
+    s_1.value = 2.0;
+    let _e3: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = s_1;
+    return _e3;
+}
+
+fn main() -> f32 {
+    let _e0: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = _naga_oil_mod_ME_membera();
+    let _e1: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = _naga_oil_mod_MI_memberb();
+    return (_e0.value + _e1.value);
+}
+
