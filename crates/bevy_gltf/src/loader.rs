@@ -43,7 +43,7 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::{Gltf, GltfNode};
+use crate::{Gltf, GltfNode, GltfExtras};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -329,9 +329,8 @@ async fn load_gltf<'a, 'b>(
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
-                material_extras: primitive.extras().as_ref().map(|extras| super::GltfExtras {
-                    value: extras.get().to_string(),
-                }),
+                extras: get_gltf_extras(primitive.extras()),
+                material_extras: get_gltf_extras(primitive.material().extras()),
             });
         }
 
@@ -339,9 +338,7 @@ async fn load_gltf<'a, 'b>(
             &mesh_label(&mesh),
             LoadedAsset::new(super::GltfMesh {
                 primitives,
-                extras: mesh.extras().as_ref().map(|extras| super::GltfExtras {
-                    value: extras.get().to_string(),
-                }),
+                extras: get_gltf_extras(mesh.extras()),
             }),
         );
         if let Some(name) = mesh.name() {
@@ -376,9 +373,7 @@ async fn load_gltf<'a, 'b>(
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
-                extras: node.extras().as_ref().map(|extras| super::GltfExtras {
-                    value: extras.get().to_string(),
-                }),
+                extras: get_gltf_extras(node.extras()),
             },
             node.children()
                 .map(|child| child.index())
@@ -553,6 +548,12 @@ async fn load_gltf<'a, 'b>(
     }));
 
     Ok(())
+}
+
+fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
+    extras.as_ref().map(|extras| super::GltfExtras {
+        value: extras.get().to_string(),
+    })
 }
 
 fn node_name(node: &Node) -> Name {

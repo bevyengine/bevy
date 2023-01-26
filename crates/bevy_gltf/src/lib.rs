@@ -73,6 +73,7 @@ pub struct GltfMesh {
 pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,
     pub material: Option<Handle<StandardMaterial>>,
+    pub extras: Option<GltfExtras>,
     pub material_extras: Option<GltfExtras>,
 }
 
