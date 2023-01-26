@@ -68,7 +68,11 @@ pub fn build_schedule(criterion: &mut Criterion) {
     #[derive(Debug, Clone, Copy, SystemSet, PartialEq, Eq, Hash)]
     struct DummyLabel;
 
-    impl SystemSet for NumLabel {}
+    impl SystemSet for NumLabel {
+        fn dyn_clone(&self) -> Box<dyn SystemSet> {
+            Box::new(self.clone())
+        }
+    }
 
     let mut group = criterion.benchmark_group("build_schedule");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -77,10 +81,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the schedule with full constraints. Hopefully this should be maximimally
     // difficult for bevy to figure out.
-    // Also, we are performing the `as_label` operation outside of the loop since that
-    // requires an allocation and a leak. This is not something that would be necessary in a
-    // real scenario, just a contrivance for the benchmark.
-    let labels: Vec<_> = (0..1000).map(|i| NumLabel(i).as_label()).collect();
+    let labels: Vec<_> = (0..1000).map(|i| NumLabel(i)).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
