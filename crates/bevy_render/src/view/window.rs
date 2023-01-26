@@ -190,16 +190,17 @@ pub fn prepare_windows(
                     .unwrap();
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
-                // Explicitally request a format, otherwise fallback to the first available format
+                // Explicitally request an sRBG format, otherwise fallback to the first available format.
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
-                // TODO: This works if https://github.com/gfx-rs/wgpu/pull/3409 lands in time for wgpu 0.15
-                // Otherwise, we'll need to use sRGB formats (which WebGPU doesn't support).
-                let format = if formats.contains(&TextureFormat::Rgba8Unorm) {
-                    TextureFormat::Rgba8Unorm
-                } else if formats.contains(&TextureFormat::Bgra8Unorm) {
-                    TextureFormat::Bgra8Unorm
+                let format = if formats.contains(&TextureFormat::Rgba8UnormSrgb) {
+                    TextureFormat::Rgba8UnormSrgb
+                } else if formats.contains(&TextureFormat::Bgra8UnormSrgb) {
+                    TextureFormat::Bgra8UnormSrgb
                 } else {
+                    // TODO: If this isn't an sRGB surface (eg. on webgpu), use an sRGB view_format on the SurfaceConfiguration.
+                    // TODO: webgpu doesn't support sRGB surfaces, and requires an sRGB view_format, but that was causing issues on Vulkan
+                    // so it's getting skipped for now.
                     formats[0]
                 };
                 SurfaceData { surface, format }
@@ -224,6 +225,8 @@ pub fn prepare_windows(
                 CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
+            // TODO: Figure out why Vulkan is spitting out tons of validation errors when attempting to use an sRGB view_format on the surface.
+            view_formats: vec![],
         };
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
