@@ -8,7 +8,7 @@ use naga_oil::compose::{
 fn init_composer() -> Composer {
     let mut composer = Composer::default();
 
-    let mut load_composable = |source: &str, file_path: &str| -> () {
+    let mut load_composable = |source: &str, file_path: &str| {
         match composer.add_composable_module(ComposableModuleDescriptor {
             source,
             file_path,
@@ -18,7 +18,7 @@ fn init_composer() -> Composer {
                 // println!("{} -> {:#?}", module.name, module)
             }
             Err(e) => {
-                println!("{} -> {:#?}", "?", e)
+                println!("? -> {e:#?}")
             }
         }
     };
@@ -126,7 +126,7 @@ fn test_compose_final_module(n: usize, composer: &mut Composer) {
                 Ok(module)
             }
             Err(e) => {
-                println!("error: {:#?}", e);
+                println!("error: {e:#?}");
                 Err(e)
             }
         };

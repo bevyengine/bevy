@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod test {
     #[allow(unused_imports)]
     use std::io::Write;
@@ -77,7 +78,7 @@ mod test {
             .unwrap();
 
         let defs = (1..=67)
-            .map(|i| (format!("a{}", i), ShaderDefValue::Bool(true)))
+            .map(|i| (format!("a{i}"), ShaderDefValue::Bool(true)))
             .collect::<HashMap<_, _>>();
 
         let module = composer
@@ -477,7 +478,7 @@ mod test {
         .unwrap();
 
         // todo test properly - the redirect returns the functions in random order so can't rely on string repr
-        println!("{}", wgsl);
+        println!("{wgsl}");
     }
 
     #[test]
@@ -727,7 +728,7 @@ mod test {
 
         let check_err = |composer: &mut Composer, name: &str| -> bool {
             let result = composer.make_naga_module(NagaModuleDescriptor {
-                source: &format!("#import {}", name),
+                source: &format!("#import {name}"),
                 file_path: name,
                 ..Default::default()
             });
@@ -738,7 +739,7 @@ mod test {
                 }
             }
 
-            println!("{:?}", result);
+            println!("{result:?}");
             false
         };
 
@@ -882,9 +883,9 @@ mod test {
         }
 
         let view: &[u8] = &output_buffer.slice(..).get_mapped_range();
-        let res = f32::from_le_bytes(view.try_into().unwrap());
+        
 
-        res
+        f32::from_le_bytes(view.try_into().unwrap())
     }
 
     //preprocessor tests
@@ -934,7 +935,7 @@ fn vertex(
             operator: "!!".to_string(),
         });
 
-        assert_eq!(format!("{:?}", result_missing), format!("{:?}", expected),);
+        assert_eq!(format!("{result_missing:?}"), format!("{expected:?}"),);
     }
     #[test]
     fn process_shader_def_equal_int() {
@@ -1050,8 +1051,8 @@ fn vertex(
             shader_def_name: "TEXTURE".to_string(),
         });
         assert_eq!(
-            format!("{:?}", result_missing),
-            format!("{:?}", expected_err),
+            format!("{result_missing:?}"),
+            format!("{expected_err:?}"),
         );
 
         let result_wrong_type = processor.preprocess_defs(
@@ -1071,8 +1072,8 @@ fn vertex(
         });
 
         assert_eq!(
-            format!("{:?}", result_wrong_type),
-            format!("{:?}", expected_err)
+            format!("{result_wrong_type:?}"),
+            format!("{expected_err:?}")
         );
     }
 
@@ -1294,8 +1295,8 @@ fn vertex(
             shader_def_name: "TEXTURE".to_string(),
         });
         assert_eq!(
-            format!("{:?}", result_missing),
-            format!("{:?}", expected_err),
+            format!("{result_missing:?}"),
+            format!("{expected_err:?}"),
         );
 
         let result_wrong_type = processor.preprocess_defs(
@@ -1314,8 +1315,8 @@ fn vertex(
             value: "false".to_string(),
         });
         assert_eq!(
-            format!("{:?}", result_wrong_type),
-            format!("{:?}", expected_err),
+            format!("{result_wrong_type:?}"),
+            format!("{expected_err:?}"),
         );
     }
 

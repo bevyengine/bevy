@@ -474,7 +474,7 @@ impl ComposerError {
             ),
             ComposerErrorInner::ImportNotFound(msg, pos) => (
                 vec![Label::primary((), *pos..*pos)],
-                vec![format!("missing import '{}'", msg)],
+                vec![format!("missing import '{msg}'")],
             ),
             ComposerErrorInner::WgslParseError(e) => (
                 e.labels()
@@ -503,15 +503,14 @@ impl ComposerError {
                 (vec![Label::primary((), *pos..*pos)], vec![])
             }
             ComposerErrorInner::WgslBackError(e) => {
-                return format!("{}: wgsl back error: {}", path, e);
+                return format!("{path}: wgsl back error: {e}");
             }
             ComposerErrorInner::GlslBackError(e) => {
-                return format!("{}: glsl back error: {}", path, e);
+                return format!("{path}: glsl back error: {e}");
             }
             ComposerErrorInner::InconsistentShaderDefValue { def } => {
                 return format!(
-                    "{}: multiple inconsistent shader def values: '{}'",
-                    path, def
+                    "{path}: multiple inconsistent shader def values: '{def}'"
                 );
             }
             ComposerErrorInner::RedirectError(..) => (
@@ -520,8 +519,7 @@ impl ComposerError {
             ),
             ComposerErrorInner::NoModuleName => {
                 return format!(
-                    "{}: no #define_import_path declaration found in composable module",
-                    path
+                    "{path}: no #define_import_path declaration found in composable module"
                 );
             }
             ComposerErrorInner::InvalidIdentifier { at, .. } => (
@@ -661,7 +659,7 @@ impl Composer {
 
     fn decorate(as_name: &str) -> String {
         let as_name = data_encoding::BASE32_NOPAD.encode(as_name.as_bytes());
-        format!("{}{}{}", DECORATION_PRE, as_name, DECORATION_POST)
+        format!("{DECORATION_PRE}{as_name}{DECORATION_POST}")
     }
 
     fn decode(from: &str) -> String {
@@ -1162,7 +1160,7 @@ impl Composer {
             .collect();
         for (h, ty) in source_ir.types.iter() {
             if let Some(name) = &ty.name {
-                let decorated_type_name = format!("{}{}", module_decoration, name);
+                let decorated_type_name = format!("{module_decoration}{name}");
                 if !owned_types.contains(&decorated_type_name) {
                     continue;
                 }
@@ -1414,7 +1412,7 @@ impl Composer {
             override_functions
                 .entry(base_name.clone())
                 .or_default()
-                .push(format!("{}{}", module_decoration, rename));
+                .push(format!("{module_decoration}{rename}"));
         }
 
         // rename and record owned items (except types which can't be mutably accessed)
@@ -1422,7 +1420,7 @@ impl Composer {
         for (h, c) in source_ir.constants.iter_mut() {
             if let Some(name) = c.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
-                    *name = format!("{}{}", module_decoration, name);
+                    *name = format!("{module_decoration}{name}");
                     owned_constants.insert(name.clone(), h);
                 }
             }
@@ -1432,7 +1430,7 @@ impl Composer {
         for (h, gv) in source_ir.global_variables.iter_mut() {
             if let Some(name) = gv.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
-                    *name = format!("{}{}", module_decoration, name);
+                    *name = format!("{module_decoration}{name}");
 
                     owned_vars.insert(name.clone(), h);
                 }
@@ -1443,7 +1441,7 @@ impl Composer {
         for (h_f, f) in source_ir.functions.iter_mut() {
             if let Some(name) = f.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
-                    *name = format!("{}{}", module_decoration, name);
+                    *name = format!("{module_decoration}{name}");
 
                     // create dummy header function
                     let header_function = naga::Function {
@@ -1506,7 +1504,7 @@ impl Composer {
         for (h, ty) in source_ir.types.iter() {
             if let Some(name) = &ty.name {
                 if !name.contains(DECORATION_PRE) {
-                    let name = format!("{}{}", module_decoration, name);
+                    let name = format!("{module_decoration}{name}");
                     owned_types.insert(name.clone());
                     // copy and rename types
                     module_builder.rename_type(&h, Some(name.clone()));
@@ -1573,7 +1571,7 @@ impl Composer {
         for (_, constant) in header_ir.constants.iter_mut() {
             if let Some(name) = constant.name.as_mut() {
                 if name.contains(DECORATION_PRE) && !name.contains(&module_decoration) {
-                    let rename = format!("{}{}", module_decoration, name);
+                    let rename = format!("{module_decoration}{name}");
                     trace!(
                         "{}: header rename {} -> {}",
                         module_definition.name,
@@ -1624,7 +1622,7 @@ impl Composer {
                     {
                         // add a dummy entry point for glsl headers
                         let dummy_entry_point =
-                            format!("{}dummy_module_entry_point", module_decoration);
+                            format!("{module_decoration}dummy_module_entry_point");
                         let func = naga::Function {
                             name: Some(dummy_entry_point.clone()),
                             arguments: Default::default(),
