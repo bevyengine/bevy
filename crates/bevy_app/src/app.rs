@@ -301,7 +301,7 @@ impl App {
         self.init_resource::<NextState<S>>();
         self.add_system(apply_state_transition::<S>.in_set(CoreSet::StateTransitions));
 
-        let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
+        let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
             main_schedule.configure_set(
                 OnUpdate(variant)
@@ -941,13 +941,13 @@ impl App {
     }
 
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
-    pub fn schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+    pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
         schedules.get(&label)
     }
 
     /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
-    pub fn schedule_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
+    pub fn get_schedule_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
         let schedules = self.world.get_resource_mut::<Schedules>()?;
         // We need to call .into_inner here to satisfy the borrow checker:
         // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
