@@ -1,6 +1,6 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::{math::Vec3Swizzles, prelude::*, time::FixedTimestep};
+use bevy::{math::Vec3Swizzles, prelude::*};
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
@@ -10,12 +10,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_systems_to_schedule(
+            CoreSchedule::FixedTimestep,
             (
                 player_movement_system,
                 snap_to_player_system,
                 rotate_to_player_system,
             ),
-            &CoreSchedule::FixedTimestep,
         )
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(bevy::window::close_on_esc)

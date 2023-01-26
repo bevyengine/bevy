@@ -47,11 +47,11 @@ fn main() {
         .add_system(transition_to_in_game_system.on_update(AppState::MainMenu))
         // add the cleanup systems
         .add_system_to_schedule(
+            OnExit(AppState::MainMenu),
             // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
             cleanup_system::<MenuClose>,
-            &OnExit(AppState::MainMenu),
         )
-        .add_system_to_schedule(cleanup_system::<LevelUnload>, &OnExit(AppState::InGame))
+        .add_system_to_schedule(OnExit(AppState::InGame), cleanup_system::<LevelUnload>)
         .run();
 }
 
