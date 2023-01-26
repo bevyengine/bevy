@@ -1301,6 +1301,16 @@ description = "A shader that shows how to reuse the core bevy PBR shading functi
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader/texture_binding_array.rs"
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
+
 # Stress tests
 [[package.metadata.category]]
 name = "Stress Tests"

@@ -271,6 +271,7 @@ Example | Description
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the depth texture generated in a prepass
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
+[Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
 ## Stress Tests
 
