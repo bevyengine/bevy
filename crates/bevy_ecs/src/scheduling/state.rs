@@ -79,12 +79,14 @@ pub struct State<S: States>(pub S);
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
+/// Note that these transitions can be overriden by other systems:
+/// only the actual value of this resource at the time of [`apply_state_transitions`] matters.
 #[derive(Resource, Default)]
 pub struct NextState<S: States>(pub Option<S>);
 
 impl<S: States> NextState<S> {
-    /// Queue the transition to a new `state`.
-    pub fn queue(&mut self, state: S) {
+    /// Tentatively set a planned state transition to `Some(state)`.
+    pub fn set(&mut self, state: S) {
         self.0 = Some(state);
     }
 }
