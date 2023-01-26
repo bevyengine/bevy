@@ -1991,7 +1991,17 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(world)`](Schedule::run) instead.
-    pub fn run_schedule(&mut self, label: &dyn ScheduleLabel) {
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+        self.run_schedule_ref(&label)
+    }
+
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(world)`](Schedule::run) instead.
+    pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
         if let Some((extracted_label, mut schedule)) =
             self.resource_mut::<Schedules>().remove_entry(label)
         {

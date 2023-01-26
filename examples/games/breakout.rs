@@ -4,7 +4,6 @@ use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
-    time::FixedTimestep,
 };
 
 // Defines the amount of time that should elapse between each physics step.

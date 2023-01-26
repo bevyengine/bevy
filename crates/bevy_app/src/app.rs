@@ -141,7 +141,9 @@ pub struct SubApp {
 impl SubApp {
     /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(&*self.app.outer_schedule_label);
+        self.app
+            .world
+            .run_schedule_ref(&*self.app.outer_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -223,7 +225,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.run_schedule(&*self.outer_schedule_label.dyn_clone());
+            self.world.run_schedule_ref(&*self.outer_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -299,7 +301,7 @@ impl App {
         self.init_resource::<NextState<S>>();
         self.add_system(apply_state_transition::<S>.in_set(CoreSet::StateTransitions));
 
-        let main_schedule = self.schedule_mut(&CoreSchedule::Main).unwrap();
+        let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
             main_schedule.configure_set(
                 OnUpdate(variant)
@@ -932,24 +934,24 @@ impl App {
     }
 
     /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
-    pub fn run_schedule(&mut self, label: &dyn ScheduleLabel) -> &mut Self {
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
         self.world.run_schedule(label);
 
         self
     }
 
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
-    pub fn schedule(&self, label: &impl ScheduleLabel) -> Option<&Schedule> {
+    pub fn schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get(label)
+        schedules.get(&label)
     }
 
     /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
-    pub fn schedule_mut(&mut self, label: &impl ScheduleLabel) -> Option<&mut Schedule> {
+    pub fn schedule_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
         let schedules = self.world.get_resource_mut::<Schedules>()?;
         // We need to call .into_inner here to satisfy the borrow checker:
         // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
-        schedules.into_inner().get_mut(label)
+        schedules.into_inner().get_mut(&label)
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.

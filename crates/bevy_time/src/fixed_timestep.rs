@@ -112,7 +112,7 @@ pub fn apply_fixed_timestep(world: &mut World) {
         let mut check_again = true;
         while check_again {
             if fixed_time.expend().is_ok() {
-                world.run_schedule(&CoreSchedule::FixedTimestep);
+                world.run_schedule(CoreSchedule::FixedTimestep);
             } else {
                 check_again = false;
             }
