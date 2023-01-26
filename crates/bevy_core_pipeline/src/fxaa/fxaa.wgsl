@@ -15,44 +15,44 @@ var samp: sampler;
 
 // Trims the algorithm from processing darks.
 #ifdef EDGE_THRESH_MIN_LOW
-    let EDGE_THRESHOLD_MIN: f32 = 0.0833;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0833;
 #endif
 
 #ifdef EDGE_THRESH_MIN_MEDIUM
-    let EDGE_THRESHOLD_MIN: f32 = 0.0625;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0625;
 #endif
 
 #ifdef EDGE_THRESH_MIN_HIGH
-    let EDGE_THRESHOLD_MIN: f32 = 0.0312;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0312;
 #endif
 
 #ifdef EDGE_THRESH_MIN_ULTRA
-    let EDGE_THRESHOLD_MIN: f32 = 0.0156;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0156;
 #endif
 
 #ifdef EDGE_THRESH_MIN_EXTREME
-    let EDGE_THRESHOLD_MIN: f32 = 0.0078;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0078;
 #endif
 
 // The minimum amount of local contrast required to apply algorithm.
 #ifdef EDGE_THRESH_LOW
-    let EDGE_THRESHOLD_MAX: f32 = 0.250;
+    const EDGE_THRESHOLD_MAX: f32 = 0.250;
 #endif
 
 #ifdef EDGE_THRESH_MEDIUM
-    let EDGE_THRESHOLD_MAX: f32 = 0.166;
+    const EDGE_THRESHOLD_MAX: f32 = 0.166;
 #endif
 
 #ifdef EDGE_THRESH_HIGH
-    let EDGE_THRESHOLD_MAX: f32 = 0.125;
+    const EDGE_THRESHOLD_MAX: f32 = 0.125;
 #endif
 
 #ifdef EDGE_THRESH_ULTRA
-    let EDGE_THRESHOLD_MAX: f32 = 0.063;
+    const EDGE_THRESHOLD_MAX: f32 = 0.063;
 #endif
 
 #ifdef EDGE_THRESH_EXTREME
-    let EDGE_THRESHOLD_MAX: f32 = 0.031;
+    const EDGE_THRESHOLD_MAX: f32 = 0.031;
 #endif
 
 const ITERATIONS: i32 = 12; //default is 12
