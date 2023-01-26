@@ -44,7 +44,7 @@ impl CommandQueue {
         C: Command,
     {
         #[repr(C, packed)]
-        struct WithMeta<T: Command> {
+        struct Packed<T: Command> {
             meta: CommandMeta,
             command: T,
         }
@@ -62,7 +62,7 @@ impl CommandQueue {
         let old_len = self.bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        self.bytes.reserve(std::mem::size_of::<WithMeta<C>>());
+        self.bytes.reserve(std::mem::size_of::<Packed<C>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
@@ -74,8 +74,8 @@ impl CommandQueue {
         // The call to `reserve()` ensures that the buffer has enough space to fit a value of type `C`,
         // and it is valid to write any bit pattern since the underlying buffer is of type `MaybeUninit<u8>`.
         unsafe {
-            ptr.cast::<WithMeta<C>>()
-                .write_unaligned(WithMeta { meta, command });
+            ptr.cast::<Packed<C>>()
+                .write_unaligned(Packed { meta, command });
         }
 
         // Extend the length of the buffer to include the data we just wrote.
@@ -83,7 +83,7 @@ impl CommandQueue {
         // due to the call to `.reserve()` above.
         unsafe {
             self.bytes
-                .set_len(old_len + std::mem::size_of::<WithMeta<C>>());
+                .set_len(old_len + std::mem::size_of::<Packed<C>>());
         }
     }
 
