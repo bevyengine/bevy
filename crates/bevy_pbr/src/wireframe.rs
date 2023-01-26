@@ -46,9 +46,7 @@ impl Plugin for WireframePlugin {
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                    extract_schedule.add_system(extract_wireframes);
-                })
+                .add_system_to_schedule(ExtractSchedule, extract_wireframes)
                 .add_system(queue_wireframes.in_set(RenderSet::Queue));
         }
     }

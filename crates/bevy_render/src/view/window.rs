@@ -30,9 +30,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
-                .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                    extract_schedule.add_system(extract_windows);
-                })
+                .add_system_to_schedule(ExtractSchedule, extract_windows)
                 .add_system(
                     prepare_windows
                         .in_set(WindowSystem::Prepare)

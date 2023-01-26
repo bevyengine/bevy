@@ -59,13 +59,13 @@ fn main() {
         .add_event::<CollisionEvent>()
         // Add our gameplay simulation systems to the fixed timestep schedule
         .add_systems_to_schedule(
+            CoreSchedule::FixedTimestep,
             (
                 check_for_collisions,
                 move_paddle.before(check_for_collisions),
                 apply_velocity.before(check_for_collisions),
                 play_collision_sound.after(check_for_collisions),
             ),
-            &CoreSchedule::FixedTimestep,
         )
         // Configure how frequently our gameplay systems are run
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))

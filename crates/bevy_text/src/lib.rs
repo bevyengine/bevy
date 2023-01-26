@@ -92,10 +92,10 @@ impl Plugin for TextPlugin {
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.edit_schedule(&ExtractSchedule, |extract_schedule| {
-                extract_schedule
-                    .add_system(extract_text2d_sprite.after(SpriteSystem::ExtractSprites));
-            });
+            render_app.add_system_to_schedule(
+                ExtractSchedule,
+                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+            );
         }
     }
 }

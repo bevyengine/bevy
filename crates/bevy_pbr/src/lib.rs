@@ -237,13 +237,13 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                extract_schedule
-                    .add_system(
-                        render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
-                    )
-                    .add_system(render::extract_lights.in_set(RenderLightSystems::ExtractLights));
-            })
+            .add_systems_to_schedule(
+                ExtractSchedule,
+                (
+                    render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
+                    render::extract_lights.in_set(RenderLightSystems::ExtractLights),
+                ),
+            )
             .add_system(
                 render::prepare_lights
                     .before(ViewSet::PrepareUniforms)

@@ -27,10 +27,7 @@ impl Plugin for CameraPlugin {
             .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.edit_schedule(&ExtractSchedule, |extract_schedule| {
-                extract_schedule.add_system(extract_cameras);
-            });
-
+            render_app.add_system_to_schedule(ExtractSchedule, extract_cameras);
             let camera_driver_node = CameraDriverNode::new(&mut render_app.world);
             let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
             render_graph.add_node(crate::main_graph::node::CAMERA_DRIVER, camera_driver_node);

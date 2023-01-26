@@ -67,9 +67,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                extract_schedule.add_system(extract_core_3d_camera_phases);
-            })
+            .add_system_to_schedule(ExtractSchedule, extract_core_3d_camera_phases)
             .add_system(prepare_core_3d_depth_textures.in_set(RenderSet::Prepare))
             .add_system(sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort))

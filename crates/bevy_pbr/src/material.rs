@@ -195,9 +195,7 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                    extract_schedule.add_system(extract_materials::<M>);
-                })
+                .add_system_to_schedule(ExtractSchedule, extract_materials::<M>)
                 .add_system(
                     prepare_materials::<M>
                         .after(PrepareAssetLabel::PreAssetPrepare)

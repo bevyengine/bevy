@@ -101,11 +101,7 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                    extract_schedule
-                        .add_system(extract_meshes)
-                        .add_system(extract_skinned_meshes);
-                })
+                .add_systems_to_schedule(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
                 .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
                 .add_system(queue_mesh_view_bind_groups.in_set(RenderSet::Queue));

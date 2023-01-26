@@ -72,13 +72,15 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .edit_schedule(&ExtractSchedule, |extract_schedule| {
-            extract_schedule
-                .add_system(extract_default_ui_camera_view::<Camera2d>)
-                .add_system(extract_default_ui_camera_view::<Camera3d>)
-                .add_system(extract_uinodes.in_set(RenderUiSystem::ExtractNode))
-                .add_system(extract_text_uinodes.after(RenderUiSystem::ExtractNode));
-        })
+        .add_systems_to_schedule(
+            ExtractSchedule,
+            (
+                extract_default_ui_camera_view::<Camera2d>,
+                extract_default_ui_camera_view::<Camera3d>,
+                extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+            ),
+        )
         .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
         .add_system(queue_uinodes.in_set(RenderSet::Queue))
         .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));
