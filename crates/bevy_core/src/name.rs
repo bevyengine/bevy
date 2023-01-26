@@ -79,7 +79,7 @@ impl std::fmt::Display for Name {
 }
 
 /// Convenient query for giving a human friendly name to an entity.
-/// 
+///
 /// ```rust
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
