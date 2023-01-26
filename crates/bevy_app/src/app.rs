@@ -294,7 +294,7 @@ impl App {
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
     ///
-    /// Note that you can also apply state tranitions at other points in the schedule
+    /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
         self.init_resource::<State<S>>();
