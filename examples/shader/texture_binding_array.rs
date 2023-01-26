@@ -55,7 +55,7 @@ fn setup(
     let textures: Vec<_> = TILE_ID
         .iter()
         .map(|id| {
-            let path = format!("textures/rpg/tiles/generic-rpg-tile{:0>2}.png", id);
+            let path = format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png");
             asset_server.load(path)
         })
         .collect();
