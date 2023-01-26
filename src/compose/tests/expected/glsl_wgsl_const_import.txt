@@ -1,0 +1,10 @@
+const _naga_oil_mod_MNXW23LPNY_membermy_constant: f32 = 0.5;
+
+fn _naga_oil_mod_MNXW23LPNY_membermain() {
+    return;
+}
+
+fn main() -> vec4<f32> {
+    return vec4<f32>(1.0, _naga_oil_mod_MNXW23LPNY_membermy_constant, 0.0, 1.0);
+}
+

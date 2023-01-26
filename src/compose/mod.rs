@@ -826,7 +826,7 @@ impl Composer {
                 let mut string = String::new();
                 let options = naga::back::glsl::Options {
                     version: naga::back::glsl::Version::Desktop(450),
-                    writer_flags: naga::back::glsl::WriterFlags::empty(),
+                    writer_flags: naga::back::glsl::WriterFlags::INCLUDE_UNUSED_ITEMS,
                     ..Default::default()
                 };
                 let pipeline_options = naga::back::glsl::PipelineOptions {
@@ -1229,7 +1229,7 @@ impl Composer {
         module_decoration: &str,
         owned_types: &HashSet<String>,
     ) -> Result<(), ComposerErrorInner> {
-        // TODO: remove this once glsl has INCLUDE_UNUSED_ITEMS
+        // TODO: remove this once glsl front support is complete
         if lang == ShaderLanguage::Glsl {
             return Ok(());
         }
@@ -1244,7 +1244,10 @@ impl Composer {
                     },
                     &format!("{}\n{}", header, "void main() {}"),
                 )
-                .unwrap(),
+                .map_err(|e| {
+                    debug!("full err'd source file: \n---\n{header}\n---");
+                    ComposerErrorInner::GlslParseError(e)
+                })?,
         };
 
         let recompiled_types: HashMap<_, _> = recompiled
