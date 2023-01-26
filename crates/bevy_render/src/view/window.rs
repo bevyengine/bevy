@@ -184,13 +184,13 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL 2 context fails.
+                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                 let surface = render_instance
                     .create_surface(&window.handle.get_handle())
                     .unwrap();
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
-                // Explicitally request an sRBG format, otherwise fallback to the first available format.
+                // Explicitly request an sRGB format, otherwise fallback to the first available format.
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
                 let format = if formats.contains(&TextureFormat::Rgba8UnormSrgb) {
