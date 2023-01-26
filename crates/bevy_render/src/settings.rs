@@ -69,7 +69,11 @@ impl Default for WgpuSettings {
             limits
         };
 
-        let dx12_compiler = wgpu::util::dx12_shader_compiler_from_env().unwrap_or_default();
+        let dx12_compiler =
+            wgpu::util::dx12_shader_compiler_from_env().unwrap_or(Dx12Compiler::Dxc {
+                dxil_path: None,
+                dxc_path: None,
+            });
 
         Self {
             device_label: Default::default(),
