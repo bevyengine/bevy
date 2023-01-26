@@ -123,10 +123,6 @@ impl Plugin for AssetPlugin {
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system(
-            io::filesystem_watcher_system
-                .in_set(AssetSet::LoadAssets)
-                .in_set(CoreSet::Update),
-        );
+        app.add_system(io::filesystem_watcher_system.in_set(AssetSet::LoadAssets));
     }
 }
