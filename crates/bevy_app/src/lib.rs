@@ -64,11 +64,11 @@ impl CoreSchedule {
     /// If this is the first time this system has been run, [`CoreSchedule::Startup`] will run before [`CoreSchedule::Main`].
     pub fn outer_loop(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            world.run_schedule(&CoreSchedule::Startup);
+            world.run_schedule(CoreSchedule::Startup);
             *run_at_least_once = true;
         }
 
-        world.run_schedule(&CoreSchedule::Main);
+        world.run_schedule(CoreSchedule::Main);
     }
 
     /// Initializes a schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`] system.

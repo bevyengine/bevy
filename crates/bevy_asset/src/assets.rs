@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetSet, Handle, HandleId,
     RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::{App, AppTypeRegistry, CoreSet};
+use bevy_app::{App, AppTypeRegistry};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;

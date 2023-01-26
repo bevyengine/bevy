@@ -220,12 +220,9 @@ impl Plugin for RenderPlugin {
             let mut render_schedule = RenderSet::base_schedule();
 
             // Prepare the schedule which extracts data from the main world to the render world
-            render_app.init_schedule(ExtractSchedule).edit_schedule(
-                &ExtractSchedule,
-                |extract_schedule| {
-                    extract_schedule.add_system(PipelineCache::extract_shaders);
-                },
-            );
+            render_app
+                .init_schedule(ExtractSchedule)
+                .add_system_to_schedule(ExtractSchedule, PipelineCache::extract_shaders);
 
             // TODO: look closer at the next 2 lines. something looks weird here
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
@@ -247,7 +244,7 @@ impl Plugin for RenderPlugin {
 
             let mut outer_schedule = Schedule::new();
             outer_schedule.add_system(|world: &mut World| {
-                world.run_schedule(&CoreSchedule::Main);
+                world.run_schedule(CoreSchedule::Main);
             });
 
             render_app
@@ -332,7 +329,7 @@ fn extract(main_world: &mut World, render_app: &mut App) {
     let inserted_world = std::mem::replace(main_world, scratch_world.0);
     render_app.world.insert_resource(MainWorld(inserted_world));
 
-    render_app.run_schedule(&ExtractSchedule);
+    render_app.run_schedule(ExtractSchedule);
 
     // move the app world back, as if nothing happened.
     let inserted_world = render_app.world.remove_resource::<MainWorld>().unwrap();

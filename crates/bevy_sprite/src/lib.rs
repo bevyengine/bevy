@@ -70,11 +70,13 @@ impl Plugin for SpritePlugin {
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
-                .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                    extract_schedule
-                        .add_system(extract_sprites.in_set(SpriteSystem::ExtractSprites))
-                        .add_system(extract_sprite_events);
-                })
+                .add_systems_to_schedule(
+                    ExtractSchedule,
+                    (
+                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                        extract_sprite_events,
+                    ),
+                )
                 .add_system(queue_sprites.in_set(RenderSet::Queue));
         };
     }

@@ -75,7 +75,7 @@ impl Plugin for PipelinedRenderingPlugin {
         sub_app.init_schedule(CoreSchedule::Main);
         let mut outer_schedule = Schedule::new();
         outer_schedule.add_system(|world: &mut World| {
-            world.run_schedule(&CoreSchedule::Main);
+            world.run_schedule(CoreSchedule::Main);
         });
         sub_app.add_schedule(CoreSchedule::Outer, outer_schedule);
         app.add_sub_app(RenderExtractApp, sub_app, update_rendering);
