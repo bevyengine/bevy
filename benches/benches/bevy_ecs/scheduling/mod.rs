@@ -10,8 +10,6 @@ criterion_group!(
     scheduling_benches,
     run_criteria_yes,
     run_criteria_no,
-    run_criteria_yes_with_labels,
-    run_criteria_no_with_labels,
     run_criteria_yes_with_query,
     run_criteria_yes_with_resource,
     empty_systems,

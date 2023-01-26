@@ -46,7 +46,7 @@ pub fn schedule(c: &mut Criterion) {
 
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
-        let mut schedule = Schedule::parallel();
+        let mut schedule = Schedule::new();
         schedule.add_system(ab);
         schedule.add_system(cd);
         schedule.add_system(ce);
@@ -63,17 +63,12 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     struct NumLabel(usize);
-    #[derive(Debug, Clone, Copy, SystemSet)]
+    #[derive(Debug, Clone, Copy, SystemSet, PartialEq, Eq, Hash)]
     struct DummyLabel;
 
-    impl SystemSet for NumLabel {
-        fn as_str(&self) -> &'static str {
-            let s = self.0.to_string();
-            Box::leak(s.into_boxed_str())
-        }
-    }
+    impl SystemSet for NumLabel {}
 
     let mut group = criterion.benchmark_group("build_schedule");
     group.warm_up_time(std::time::Duration::from_millis(500));
