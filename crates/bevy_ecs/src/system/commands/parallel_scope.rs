@@ -53,7 +53,7 @@ unsafe impl SystemParam for ParallelCommands<'_, '_> {
     type State = ParallelCommandsState;
     type Item<'w, 's> = ParallelCommands<'w, 's>;
     // `ParallelCommands` is only useful in mutable contexts
-    type ReadOnly<'w, 's> = ();
+    type ReadOnly = ();
 
     fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {
         ParallelCommandsState::default()
