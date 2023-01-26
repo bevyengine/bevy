@@ -245,7 +245,13 @@ impl Plugin for RenderPlugin {
 
             render_schedule.add_system(World::clear_entities.in_set(RenderSet::Cleanup));
 
+            let mut outer_schedule = Schedule::new();
+            outer_schedule.add_system(|world: &mut World| {
+                world.run_schedule(&CoreSchedule::Main);
+            });
+
             render_app
+                .add_schedule(CoreSchedule::Outer, outer_schedule)
                 .add_schedule(CoreSchedule::Main, render_schedule)
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
