@@ -91,7 +91,7 @@ impl std::fmt::Debug for DebugName {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.name {
-            Some(name) => std::fmt::Debug::fmt(&name, f),
+            Some(name) => write!(f, "{:?} ({:?})", &name, &self.entity),
             None => std::fmt::Debug::fmt(&self.entity, f),
         }
     }
