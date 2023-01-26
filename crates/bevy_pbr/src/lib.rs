@@ -184,10 +184,10 @@ impl Plugin for PbrPlugin {
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_system(
                 update_directional_light_cascades
-                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .in_set(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_system(
