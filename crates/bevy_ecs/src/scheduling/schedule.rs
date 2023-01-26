@@ -1090,13 +1090,3 @@ impl ScheduleBuildSettings {
         self
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test() {
-        let mut schedules = Schedules::new();
-    }
-}
