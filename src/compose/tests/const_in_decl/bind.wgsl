@@ -2,6 +2,6 @@
 
 #import consts
 
-let y: u32 = 2u;
+const y: u32 = 2u;
 
 var<private> arr: array<u32, consts::X>;

@@ -1,4 +1,4 @@
-let _naga_oil_mod_MNXW443UOM_memberPI: f32 = 3.0999999046325684;
+const _naga_oil_mod_MNXW443UOM_memberPI: f32 = 3.0999999046325684;
 
 fn _naga_oil_mod_ME_memberf() -> f32 {
     return (_naga_oil_mod_MNXW443UOM_memberPI * 1.0);

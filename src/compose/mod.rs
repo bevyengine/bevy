@@ -478,7 +478,9 @@ impl ComposerError {
             ),
             ComposerErrorInner::WgslParseError(e) => (
                 e.labels()
-                    .map(|(range, msg)| Label::primary((), map_span(range)).with_message(msg))
+                    .map(|(range, msg)| {
+                        Label::primary((), map_span(range.to_range().unwrap())).with_message(msg)
+                    })
                     .collect(),
                 vec![e.message().to_owned()],
             ),
@@ -1653,7 +1655,7 @@ impl Composer {
                         let options = naga::back::glsl::Options {
                             version: naga::back::glsl::Version::Desktop(450),
                             writer_flags: naga::back::glsl::WriterFlags::empty(),
-                            binding_map: Default::default(),
+                            ..Default::default()
                         };
                         let pipeline_options = naga::back::glsl::PipelineOptions {
                             shader_stage: naga::ShaderStage::Vertex,

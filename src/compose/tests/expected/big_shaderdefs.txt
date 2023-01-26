@@ -1,9 +1,10 @@
 fn _naga_oil_mod_NVXWI_memberf() -> f32 {
-    var x: f32 = 0.0;
+    var x: f32;
 
+    x = 0.0;
     x = 1.0;
-    let _e2: f32 = x;
-    return _e2;
+    let _e3: f32 = x;
+    return _e3;
 }
 
 fn main() -> f32 {

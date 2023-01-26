@@ -1,4 +1,4 @@
-let PI: f32 = 3.1;
+const PI: f32 = 3.1;
 
 fn b__f() -> f32 {
     return PI * 2.0;
