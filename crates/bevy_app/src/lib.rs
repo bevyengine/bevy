@@ -141,14 +141,14 @@ impl CoreSet {
         schedule.add_system(apply_system_buffers.in_set(LastFlush));
 
         schedule.configure_set(First.before(FirstFlush));
-        schedule.configure_set(FixedTimestep.after(FirstFlush).before(FixedTimestepFlush));
-        schedule.configure_set(PreUpdate.after(FixedTimestepFlush).before(PreUpdateFlush));
+        schedule.configure_set(PreUpdate.after(FirstFlush).before(PreUpdateFlush));
         schedule.configure_set(
             StateTransitions
                 .after(PreUpdateFlush)
                 .before(StateTransitionsFlush),
         );
-        schedule.configure_set(Update.after(StateTransitionsFlush).before(UpdateFlush));
+        schedule.configure_set(FixedTimestep.after(StateTransitionsFlush).before(FixedTimestepFlush));
+        schedule.configure_set(Update.after(FixedTimestepFlush).before(UpdateFlush));
         schedule.configure_set(PostUpdate.after(UpdateFlush).before(PostUpdateFlush));
         schedule.configure_set(Last.after(PostUpdateFlush).before(LastFlush));
 
