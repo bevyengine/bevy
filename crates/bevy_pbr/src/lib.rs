@@ -145,17 +145,20 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<CubemapVisibleEntities>()
-            .register_type::<DirectionalLight>()
-            .register_type::<PointLight>()
-            .register_type::<SpotLight>()
-            .register_asset_reflect::<StandardMaterial>()
+        app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
-            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
+            .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterZConfig>()
             .register_type::<ClusterFarZMode>()
+            .register_type::<ClusterZConfig>()
+            .register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial> {
                 prepass_enabled: self.prepass_enabled,
@@ -181,6 +184,12 @@ impl Plugin for PbrPlugin {
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_directional_light_cascades
+                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .after(TransformSystem::TransformPropagate),
+            )
             .add_system(
                 update_directional_light_frusta
                     .in_set(SimulationLightSystems::UpdateLightFrusta)
@@ -188,6 +197,7 @@ impl Plugin for PbrPlugin {
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateDirectionalLightCascades)
                     // We assume that no entity will be both a directional light and a spot light,
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.

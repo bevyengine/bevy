@@ -224,7 +224,7 @@ fn pbr(
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
         let light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
