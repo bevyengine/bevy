@@ -38,8 +38,7 @@ struct ComponentZ;
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug>
-    where <T as Component>::ReadWrap<'static>: Debug, <P as Component>::ReadWrap<'static>: Debug {
+struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static ComponentA,
     b: Option<&'static ComponentB>,
@@ -73,8 +72,7 @@ fn print_components_read_only(
 // using the `derive` attribute.
 #[derive(WorldQuery)]
 #[world_query(mutable, derive(Debug))]
-struct CustomQuery<T: Component + Debug, P: Component + Debug>
-    where <T as Component>::ReadWrap<'static>: Debug, <P as Component>::ReadWrap<'static>: Debug {
+struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static mut ComponentA,
     b: Option<&'static mut ComponentB>,
@@ -101,7 +99,7 @@ struct NestedQuery {
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct GenericQuery<T: Component + Debug, P: Component + Debug> {
+struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
 
