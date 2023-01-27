@@ -75,7 +75,7 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 /// * `ignored_trait_bounds: Any + Send + Sync`
 ///
 /// For example, the struct:
-/// ```rust
+/// ```ignore
 /// #[derive(Reflect)]
 /// struct Foo<T, U> {
 ///     a: T,

@@ -6,7 +6,7 @@ struct Foo<T, U, S> {
     #[reflect(ignore)]
     _b: U,
 
-    // check that duplicate types only result in one trait bound
+    // check that duplicate types don't cause any compile errors
     _c: T,
     // check that when a type is both an active and inactive type, both trait bounds are used
     _d: U,
