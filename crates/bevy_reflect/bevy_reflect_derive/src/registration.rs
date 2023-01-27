@@ -7,6 +7,7 @@ use quote::quote;
 use syn::{Generics, Path, Type};
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn impl_get_type_registration(
     type_name: &Ident,
     bevy_reflect_path: &Path,

@@ -3,6 +3,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Generics, Path, Type};
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn impl_typed(
     type_name: &Ident,
     generics: &Generics,
