@@ -83,11 +83,6 @@ pub enum TransformSystem {
     TransformPropagate,
 }
 
-/// A [`Schedule`] that contains correctly ordered transform propagation systems for third party plugin use
-pub fn transform_propagate_systems() -> SystemConfigs {
-    IntoSystemConfigs::into_configs((sync_simple_transforms, propagate_transforms))
-}
-
 /// The base plugin for handling [`Transform`] components
 #[derive(Default)]
 pub struct TransformPlugin;
@@ -100,7 +95,9 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .configure_set(TransformSystem::TransformPropagate.in_set(CoreSet::PostUpdate))
             .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(TransformSystem::TransformPropagate.in_set(StartupSet::PostStartup));
+                schedule.configure_set(
+                    TransformSystem::TransformPropagate.in_set(StartupSet::PostStartup),
+                );
             })
             .add_startup_system(sync_simple_transforms.in_set(TransformSystem::TransformPropagate))
             .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))

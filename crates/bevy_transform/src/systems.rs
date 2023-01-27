@@ -7,8 +7,7 @@ use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
-/// Third party plugins should use [`transform_propagate_systems`](crate::transform_propagate_systems)
-/// to propagate transforms correctly.
+/// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
 pub fn sync_simple_transforms(
     mut query: Query<
         (&Transform, &mut GlobalTransform),
@@ -25,8 +24,7 @@ pub fn sync_simple_transforms(
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
 ///
-/// Third party plugins should use [`transform_propagate_systems`](crate::transform_propagate_systems)
-/// to propagate transforms correctly.
+/// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(
     mut root_query: Query<
         (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
