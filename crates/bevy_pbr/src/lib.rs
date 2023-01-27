@@ -190,7 +190,8 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 update_directional_light_cascades
                     .label(SimulationLightSystems::UpdateDirectionalLightCascades)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
