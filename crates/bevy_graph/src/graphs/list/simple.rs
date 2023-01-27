@@ -211,6 +211,15 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         self.nodes.get_mut(index)
     }
 
+    fn find_node(&self, value: &N) -> Option<NodeIdx>
+    where
+        N: PartialEq,
+    {
+        self.nodes
+            .iter()
+            .find_map(|(key, val)| if val == value { Some(key) } else { None })
+    }
+
     #[inline]
     unsafe fn get_edge_raw(&mut self, index: EdgeIdx) -> Option<&mut Edge<E>> {
         self.edges.get_mut(index)
@@ -224,6 +233,15 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     #[inline]
     fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<EdgeMut<E>> {
         self.edges.get_mut(index).map(|edge| edge.as_mut_edge())
+    }
+
+    fn find_edge(&self, value: &E) -> Option<EdgeIdx>
+    where
+        E: PartialEq,
+    {
+        self.edges
+            .iter()
+            .find_map(|(key, val)| if &val.2 == value { Some(key) } else { None })
     }
 
     fn degree(&self, index: NodeIdx) -> usize {

@@ -256,6 +256,11 @@ pub trait Graph<N, E> {
     /// Returns a mutable reference to the specified node.
     fn get_node_mut(&mut self, index: NodeIdx) -> Option<&mut N>;
 
+    /// Returns the `NodeIdx` by a node value when it could be found in the graph.
+    fn find_node(&self, value: &N) -> Option<NodeIdx>
+    where
+        N: PartialEq;
+
     /// Returns a raw edge handle to the specified edge.
     ///
     /// # Safety
@@ -268,6 +273,11 @@ pub trait Graph<N, E> {
 
     /// Returns a mutable reference to the specified edge.
     fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<EdgeMut<E>>;
+
+    /// Returns the `NodeIdx` by a node value when it could be found in the graph.
+    fn find_edge(&self, value: &E) -> Option<EdgeIdx>
+    where
+        E: PartialEq;
 
     /// Returns the number of edges connected to the specified node.
     ///
