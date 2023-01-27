@@ -1,8 +1,8 @@
 //! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
 use bevy::prelude::*;
 
-const ALIGN_ITEMS_COLOR: Color = Color::rgb(212. / 255., 17. / 255., 89. / 255.);
-const JUSTIFY_CONTENT_COLOR: Color = Color::rgb(26. / 255., 133. / 255., 255. / 255.);
+const ALIGN_ITEMS_COLOR: Color = Color::rgb(1., 0.066, 0.349);
+const JUSTIFY_CONTENT_COLOR: Color = Color::rgb(0.102, 0.522, 1.);
 const MARGIN: Val = Val::Px(5.);
 
 fn main() {
