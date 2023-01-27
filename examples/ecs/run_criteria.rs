@@ -43,7 +43,8 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(run_if)
-                // Another major criteria(specifically for this example) to run the criteria only once
+                // You can combine run criteria
+                // In this case, the system controlled by this run criteria is only evaluated a single time
                 .with_run_criteria(ShouldRun::once)
                 .with_system(text),
         )
