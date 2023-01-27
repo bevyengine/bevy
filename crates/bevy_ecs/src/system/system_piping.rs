@@ -196,12 +196,13 @@ pub mod adapter {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// fn return1() -> u64 { 1 }
+    ///
     /// return1
     ///     .pipe(system_adapter::new(u32::try_from))
     ///     .pipe(system_adapter::unwrap)
     ///     .pipe(print);
     ///
-    /// fn return1() -> u64 { 1 }
     /// fn print(In(x): In<impl std::fmt::Debug>) {
     ///     println!("{x:?}");
     /// }
@@ -222,13 +223,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
-    ///     .add_system(
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Panic if the load system returns an error.
     ///         load_save_system.pipe(system_adapter::unwrap)
     ///     )
@@ -256,13 +254,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
-    ///     .add_system(
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system information.
     ///         data_pipe_system.pipe(system_adapter::info)
     ///     )
@@ -286,14 +281,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
-    ///     .add_system(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints debug data from system.
     ///         parse_message_system.pipe(system_adapter::dbg)
     ///     )
@@ -317,13 +308,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
-    ///     .add_system(
+    /// # let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system warning if system returns an error.
     ///         warning_pipe_system.pipe(system_adapter::warn)
     ///     )
@@ -350,9 +338,8 @@ pub mod adapter {
     /// ```
     /// use bevy_ecs::prelude::*;
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
-    ///     .add_system(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system error if system fails.
     ///         parse_error_message_system.pipe(system_adapter::error)
     ///     )

@@ -23,18 +23,21 @@ use crate::world::World;
 /// # Example
 ///
 /// ```rust
-/// #[derive(Clone, Copy, PartialEq, Eq)]
+/// use bevy_ecs::prelude::States;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 /// enum GameState {
+///  #[default]
 ///   MainMenu,
 ///   SettingsMenu,
 ///   InGame,
 /// }
 ///
 /// impl States for GameState {
-///   type Iter: [GameState; 3];
+///   type Iter = std::array::IntoIter<GameState, 3>;
 ///
 ///   fn variants() -> Self::Iter {
-///     [GameState::MainMenu, GameState::SettingsMenu, GameState::InGame]
+///     [GameState::MainMenu, GameState::SettingsMenu, GameState::InGame].into_iter()
 ///   }
 /// }
 ///
