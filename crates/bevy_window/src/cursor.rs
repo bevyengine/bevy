@@ -14,7 +14,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(debug, partial_eq, Default)]
 pub enum CursorIcon {
     /// The platform-dependent default cursor.
     #[default]

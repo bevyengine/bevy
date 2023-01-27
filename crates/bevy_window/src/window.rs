@@ -278,7 +278,7 @@ impl Window {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(debug, partial_eq, Default)]
 pub struct WindowResizeConstraints {
     /// The minimum width the window can have.
     pub min_width: f32,
@@ -345,7 +345,7 @@ impl WindowResizeConstraints {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, Default)]
+#[reflect(debug, Default)]
 pub struct Cursor {
     /// Get the current [`CursorIcon`] while inside the window.
     pub icon: CursorIcon,
@@ -401,7 +401,7 @@ impl Default for Cursor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 pub enum WindowPosition {
     /// Position will be set by the window manager
     #[default]
@@ -452,7 +452,7 @@ impl WindowPosition {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(debug, partial_eq, Default)]
 pub struct WindowResolution {
     physical_width: u32,
     physical_height: u32,
@@ -616,7 +616,7 @@ impl From<bevy_math::DVec2> for WindowResolution {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(debug, partial_eq, Default)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     #[default]
@@ -634,7 +634,7 @@ pub enum CursorGrabMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(debug, partial_eq, Default)]
 pub struct InternalWindowState {
     /// If this is true then next frame we will ask to minimize the window.
     minimize_request: Option<bool>,
@@ -661,7 +661,7 @@ impl InternalWindowState {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
     ///
@@ -692,7 +692,7 @@ pub enum MonitorSelection {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(debug, partial_eq, hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -732,7 +732,7 @@ pub enum PresentMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(debug, partial_eq, hash)]
 pub enum CompositeAlphaMode {
     /// Chooses either `Opaque` or `Inherit` automatically, depending on the
     /// `alpha_mode` that the current surface can support.
@@ -767,7 +767,7 @@ pub enum CompositeAlphaMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(debug, partial_eq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     #[default]

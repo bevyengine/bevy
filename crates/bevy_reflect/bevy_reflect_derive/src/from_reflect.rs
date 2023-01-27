@@ -1,5 +1,4 @@
-use crate::container_attributes::REFLECT_DEFAULT;
-use crate::derive_data::ReflectEnum;
+use crate::derive_data::{ReflectEnum, ReflectImplSource};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
@@ -75,8 +74,6 @@ impl MemberValuePair {
 }
 
 fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> TokenStream {
-    let fqoption = FQOption.into_token_stream();
-
     let struct_name = reflect_struct.meta().type_name();
     let generics = reflect_struct.meta().generics();
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -92,29 +89,35 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let constructor = if reflect_struct.meta().traits().contains(REFLECT_DEFAULT) {
-        quote!(
-            let mut __this: Self = #FQDefault::default();
-            #(
-                if let #fqoption::Some(__field) = #active_values() {
-                    // Iff field exists -> use its value
-                    __this.#active_members = __field;
-                }
-            )*
-            #FQOption::Some(__this)
-        )
-    } else {
-        let MemberValuePair(ignored_members, ignored_values) =
-            get_ignored_fields(reflect_struct, is_tuple);
+    let MemberValuePair(ignored_members, ignored_values) =
+        get_ignored_fields(reflect_struct, is_tuple);
 
-        quote!(
-            #FQOption::Some(
-                Self {
-                    #(#active_members: #active_values()?,)*
-                    #(#ignored_members: #ignored_values,)*
-                }
-            )
-        )
+    let constructor = match reflect_struct.meta().impl_source() {
+        ReflectImplSource::ImplStruct => {
+            quote! {
+                // This is necessary for `impl_reflect_struct` on types like `Vec4`
+                // because on some targets field access is implemented using `Deref(Mut)`.
+                let mut __this: Self = #FQDefault::default();
+                #(
+                    // Early-return if an active field is not present.
+                    __this.#active_members = #active_values()?;
+                )*
+                #(
+                    __this.#ignored_members = #ignored_values;
+                )*
+                #FQOption::Some(__this)
+            }
+        }
+        _ => {
+            quote! {
+                #FQOption::Some(
+                    Self {
+                        #(#active_members: #active_values()?,)*
+                        #(#ignored_members: #ignored_values,)*
+                    }
+                )
+            }
+        }
     };
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

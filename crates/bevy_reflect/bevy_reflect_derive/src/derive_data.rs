@@ -17,6 +17,14 @@ pub(crate) enum ReflectDerive<'a> {
     Value(ReflectMeta<'a>),
 }
 
+/// The context of the implementation.
+#[derive(Clone, Copy)]
+pub(crate) enum ReflectImplSource {
+    Derive,
+    ImplStruct,
+    ImplValue,
+}
+
 /// Metadata present on all reflected types, including name, generics, and attributes.
 ///
 /// # Example
@@ -25,7 +33,7 @@ pub(crate) enum ReflectDerive<'a> {
 /// #[derive(Reflect)]
 /// //                          traits
 /// //        |----------------------------------------|
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(partial_eq, Serialize, Deserialize, Default)]
 /// //            type_name       generics
 /// //     |-------------------||----------|
 /// struct ThingThatImReflecting<T1, T2, T3> {/* ... */}
@@ -39,6 +47,8 @@ pub(crate) struct ReflectMeta<'a> {
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
+    /// In what context the type is being reflected.
+    impl_source: ReflectImplSource,
     /// The documentation for this type, if any
     #[cfg(feature = "documentation")]
     docs: crate::documentation::Documentation,
@@ -50,7 +60,7 @@ pub(crate) struct ReflectMeta<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(partial_eq, Serialize, Deserialize, Default)]
 /// struct ThingThatImReflecting<T1, T2, T3> {
 ///     x: T1, // |
 ///     y: T2, // |- fields
@@ -69,7 +79,7 @@ pub(crate) struct ReflectStruct<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(partial_eq, Serialize, Deserialize, Default)]
 /// enum ThingThatImReflecting<T1, T2, T3> {
 ///     A(T1),                  // |
 ///     B,                      // |- variants
@@ -127,7 +137,10 @@ enum ReflectMode {
 }
 
 impl<'a> ReflectDerive<'a> {
-    pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
+    pub fn from_input(
+        input: &'a DeriveInput,
+        impl_source: ReflectImplSource,
+    ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used
         let mut reflect_mode = None;
@@ -181,7 +194,7 @@ impl<'a> ReflectDerive<'a> {
             }
         }
 
-        let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
+        let meta = ReflectMeta::new(&input.ident, &input.generics, traits, impl_source);
 
         #[cfg(feature = "documentation")]
         let meta = meta.with_docs(doc);
@@ -278,11 +291,17 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_name: &'a Ident, generics: &'a Generics, traits: ReflectTraits) -> Self {
+    pub fn new(
+        type_name: &'a Ident,
+        generics: &'a Generics,
+        traits: ReflectTraits,
+        impl_source: ReflectImplSource,
+    ) -> Self {
         Self {
             traits,
             type_name,
             generics,
+            impl_source,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
@@ -310,6 +329,11 @@ impl<'a> ReflectMeta<'a> {
         self.generics
     }
 
+    /// In what context the type is being reflected.
+    pub fn impl_source(&self) -> ReflectImplSource {
+        self.impl_source
+    }
+
     /// The cached `bevy_reflect` path.
     pub fn bevy_reflect_path(&self) -> &Path {
         &self.bevy_reflect_path
@@ -320,7 +344,7 @@ impl<'a> ReflectMeta<'a> {
         crate::registration::impl_get_type_registration(
             self.type_name,
             &self.bevy_reflect_path,
-            self.traits.idents(),
+            self.traits.paths(),
             self.generics,
             None,
         )
@@ -356,7 +380,7 @@ impl<'a> ReflectStruct<'a> {
         crate::registration::impl_get_type_registration(
             self.meta.type_name(),
             reflect_path,
-            self.meta.traits().idents(),
+            self.meta.traits().paths(),
             self.meta.generics(),
             Some(&self.serialization_denylist),
         )

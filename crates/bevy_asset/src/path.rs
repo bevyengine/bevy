@@ -68,21 +68,21 @@ impl<'a> AssetPath<'a> {
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
+#[reflect_value(partial_eq, hash, Serialize, Deserialize)]
 pub struct AssetPathId(SourcePathId, LabelId);
 
 /// An unique identifier to the source path of an asset.
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
+#[reflect_value(partial_eq, hash, Serialize, Deserialize)]
 pub struct SourcePathId(u64);
 
 /// An unique identifier to a sub-asset label.
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
+#[reflect_value(partial_eq, hash, Serialize, Deserialize)]
 pub struct LabelId(u64);
 
 impl<'a> From<&'a Path> for SourcePathId {

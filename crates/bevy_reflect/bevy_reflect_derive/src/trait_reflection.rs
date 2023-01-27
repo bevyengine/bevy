@@ -2,7 +2,7 @@ use crate::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token};
+use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Path, Token};
 
 pub(crate) struct TraitInfo {
     item_trait: ItemTrait,
@@ -31,7 +31,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
     let item_trait = &trait_info.item_trait;
     let trait_ident = &item_trait.ident;
     let trait_vis = &item_trait.vis;
-    let reflect_trait_ident = crate::utility::get_reflect_ident(&item_trait.ident.to_string());
+    let reflect_trait_ident = crate::utility::into_reflected_path(Path::from(trait_ident.clone()));
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
 
     let struct_doc = format!(

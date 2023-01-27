@@ -3,56 +3,51 @@
 //! A container attribute is an attribute which applies to an entire struct or enum
 //! as opposed to a particular field or variant. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like:
-//! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
+//! `#[reflect(partial_eq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
 use crate::fq_std::{FQAny, FQDefault, FQOption};
 use crate::utility;
-use proc_macro2::{Ident, Span};
+use proc_macro2::Span;
 use quote::quote_spanned;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Meta, NestedMeta, Path};
+use syn::{parse_str, Lit, Meta, NestedMeta, Path};
 
-// The "special" trait idents that are used internally for reflection.
-// Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
-const DEBUG_ATTR: &str = "Debug";
-const PARTIAL_EQ_ATTR: &str = "PartialEq";
-const HASH_ATTR: &str = "Hash";
+// The "special" trait-like attributes that are used internally for reflection.
+// Received via attributes like `#[reflect(partial_eq, hash, ...)]`
+const DEBUG_ATTR: &str = "debug";
+const PARTIAL_EQ_ATTR: &str = "partial_eq";
+const HASH_ATTR: &str = "hash";
 
-// The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
-// but useful to know exist nonetheless
-pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
-
-// The error message to show when a trait/type is specified multiple times
-const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
-
-/// A marker for trait implementations registered via the `Reflect` derive macro.
+/// A marker for special trait-like attribute implementations registered via the `Reflect` derive macro.
 #[derive(Clone, Default)]
-pub(crate) enum TraitImpl {
-    /// The trait is not registered as implemented.
+pub(crate) enum TraitLikeImpl {
+    /// The ident is not registered as implemented.
     #[default]
     NotImplemented,
 
-    /// The trait is registered as implemented.
+    /// The ident is registered as implemented.
     Implemented(Span),
 
-    /// The trait is registered with a custom function rather than an actual implementation.
+    /// The ident is registered with a custom function rather than the trait's implementation.
     Custom(Path, Span),
 }
 
-impl TraitImpl {
-    /// Merges this [`TraitImpl`] with another.
+impl TraitLikeImpl {
+    /// Merges this [`TraitLikeImpl`] with another.
     ///
-    /// Returns whichever value is not [`TraitImpl::NotImplemented`].
-    /// If both values are [`TraitImpl::NotImplemented`], then that is returned.
-    /// Otherwise, an error is returned if neither value is [`TraitImpl::NotImplemented`].
-    pub fn merge(self, other: TraitImpl) -> Result<TraitImpl, syn::Error> {
+    /// Returns whichever value is not [`TraitLikeImpl::NotImplemented`].
+    /// If both values are [`TraitLikeImpl::NotImplemented`], then that is returned.
+    /// Otherwise, an error is returned if neither value is [`TraitLikeImpl::NotImplemented`].
+    pub fn merge(self, other: TraitLikeImpl) -> Result<TraitLikeImpl, syn::Error> {
         match (self, other) {
-            (TraitImpl::NotImplemented, value) | (value, TraitImpl::NotImplemented) => Ok(value),
-            (_, TraitImpl::Implemented(span) | TraitImpl::Custom(_, span)) => {
-                Err(syn::Error::new(span, CONFLICTING_TYPE_DATA_MESSAGE))
+            (TraitLikeImpl::NotImplemented, value) | (value, TraitLikeImpl::NotImplemented) => {
+                Ok(value)
+            }
+            (_, TraitLikeImpl::Implemented(span) | TraitLikeImpl::Custom(_, span)) => {
+                Err(syn::Error::new(span, "conflicting type data registration"))
             }
         }
     }
@@ -61,14 +56,14 @@ impl TraitImpl {
 /// A collection of traits that have been registered for a reflected type.
 ///
 /// This keeps track of a few traits that are utilized internally for reflection
-/// (we'll call these traits _special traits_ within this context), but it
+/// (we'll call these traits _special trait-like attributes_ within this context), but it
 /// will also keep track of all registered traits. Traits are registered as part of the
 /// `Reflect` derive macro using the helper attribute: `#[reflect(...)]`.
 ///
-/// The list of special traits are as follows:
-/// * `Debug`
-/// * `Hash`
-/// * `PartialEq`
+/// The list of special trait-like attributes are as follows:
+/// * `debug`
+/// * `hash`
+/// * `partial_eq`
 ///
 /// When registering a trait, there are a few things to keep in mind:
 /// * Traits must have a valid `Reflect{}` struct in scope. For example, `Default`
@@ -92,28 +87,28 @@ impl TraitImpl {
 /// struct Foo;
 /// ```
 ///
-/// Registering the `Hash` implementation:
+/// Registering `hash` using the `Hash` trait:
 ///
 /// ```ignore
-/// // `Hash` is a "special trait" and does not need (nor have) a ReflectHash struct
+/// // `hash` is "special" and does not need (nor have) a ReflectHash struct
 ///
 /// #[derive(Reflect, Hash)]
-/// #[reflect(Hash)]
+/// #[reflect(hash)]
 /// struct Foo;
 /// ```
 ///
-/// Registering the `Hash` implementation using a custom function:
+/// Registering `hash` using a custom function:
 ///
 /// ```ignore
-/// // This function acts as our `Hash` implementation and
+/// // This function acts is out hash function and
 /// // corresponds to the `Reflect::reflect_hash` method.
 /// fn get_hash(foo: &Foo) -> Option<u64> {
 ///   Some(123)
 /// }
 ///
 /// #[derive(Reflect)]
-/// // Register the custom `Hash` function
-/// #[reflect(Hash(get_hash))]
+/// // Register the custom hash function
+/// #[reflect(hash = "get_hash")]
 /// struct Foo;
 /// ```
 ///
@@ -121,10 +116,10 @@ impl TraitImpl {
 ///
 #[derive(Default, Clone)]
 pub(crate) struct ReflectTraits {
-    debug: TraitImpl,
-    hash: TraitImpl,
-    partial_eq: TraitImpl,
-    idents: Vec<Ident>,
+    debug: TraitLikeImpl,
+    hash: TraitLikeImpl,
+    partial_eq: TraitLikeImpl,
+    idents: Vec<Path>,
 }
 
 impl ReflectTraits {
@@ -135,67 +130,59 @@ impl ReflectTraits {
         let mut traits = ReflectTraits::default();
         for nested_meta in nested_metas.iter() {
             match nested_meta {
-                // Handles `#[reflect( Hash, Default, ... )]`
-                NestedMeta::Meta(Meta::Path(path)) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let Some(segment) = path.segments.iter().next() else {
-                        continue;
-                    };
-                    let ident = &segment.ident;
-                    let ident_name = ident.to_string();
-
-                    // Track the span where the trait is implemented for future errors
-                    let span = ident.span();
-
-                    match ident_name.as_str() {
-                        DEBUG_ATTR => {
-                            traits.debug = traits.debug.merge(TraitImpl::Implemented(span))?;
-                        }
-                        PARTIAL_EQ_ATTR => {
-                            traits.partial_eq =
-                                traits.partial_eq.merge(TraitImpl::Implemented(span))?;
-                        }
-                        HASH_ATTR => {
-                            traits.hash = traits.hash.merge(TraitImpl::Implemented(span))?;
-                        }
-                        // We only track reflected idents for traits not considered special
-                        _ => {
-                            // Create the reflect ident
-                            // We set the span to the old ident so any compile errors point to that ident instead
-                            let mut reflect_ident = utility::get_reflect_ident(&ident_name);
-                            reflect_ident.set_span(span);
-
-                            add_unique_ident(&mut traits.idents, reflect_ident)?;
+                // Handles `#[reflect(hash = "custom_hash_fn")]`
+                NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                    if let Lit::Str(lit) = &name_value.lit {
+                        // This should be the path of the custom function
+                        let path: Path = parse_str(&lit.value())?;
+                        // Track the span where the trait is implemented for future errors
+                        let span = lit.span();
+                        let trait_func_ident = TraitLikeImpl::Custom(path, span);
+                        match name_value
+                            .path
+                            .get_ident()
+                            .map(ToString::to_string)
+                            .as_deref()
+                        {
+                            Some(DEBUG_ATTR) => {
+                                traits.debug = traits.debug.merge(trait_func_ident)?;
+                            }
+                            Some(PARTIAL_EQ_ATTR) => {
+                                traits.partial_eq = traits.partial_eq.merge(trait_func_ident)?;
+                            }
+                            Some(HASH_ATTR) => {
+                                traits.hash = traits.hash.merge(trait_func_ident)?;
+                            }
+                            _ => {
+                                return Err(syn::Error::new(
+                                    span,
+                                    "custom path literals can only be used for \"special\" idents.",
+                                ))
+                            }
                         }
                     }
                 }
-                // Handles `#[reflect( Hash(custom_hash_fn) )]`
-                NestedMeta::Meta(Meta::List(list)) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let Some(segment) = list.path.segments.iter().next() else {
-                        continue;
-                    };
-
-                    let ident = segment.ident.to_string();
-
+                // Handles `#[reflect( hash, Default, ... )]`
+                NestedMeta::Meta(Meta::Path(path)) => {
                     // Track the span where the trait is implemented for future errors
-                    let span = ident.span();
+                    let span = path.span();
 
-                    let list_meta = list.nested.iter().next();
-                    if let Some(NestedMeta::Meta(Meta::Path(path))) = list_meta {
-                        // This should be the path of the custom function
-                        let trait_func_ident = TraitImpl::Custom(path.clone(), span);
-                        match ident.as_str() {
-                            DEBUG_ATTR => {
-                                traits.debug = traits.debug.merge(trait_func_ident)?;
-                            }
-                            PARTIAL_EQ_ATTR => {
-                                traits.partial_eq = traits.partial_eq.merge(trait_func_ident)?;
-                            }
-                            HASH_ATTR => {
-                                traits.hash = traits.hash.merge(trait_func_ident)?;
-                            }
-                            _ => {}
+                    match path.get_ident().map(ToString::to_string).as_deref() {
+                        Some(DEBUG_ATTR) => {
+                            traits.debug = traits.debug.merge(TraitLikeImpl::Implemented(span))?;
+                        }
+                        Some(PARTIAL_EQ_ATTR) => {
+                            traits.partial_eq =
+                                traits.partial_eq.merge(TraitLikeImpl::Implemented(span))?;
+                        }
+                        Some(HASH_ATTR) => {
+                            traits.hash = traits.hash.merge(TraitLikeImpl::Implemented(span))?;
+                        }
+                        _ => {
+                            // Create the reflect ident
+                            // We set the span to the old ident so any compile errors point to that ident instead
+                            let reflect_ident = utility::into_reflected_path(path.clone());
+                            traits.idents.push(reflect_ident);
                         }
                     }
                 }
@@ -206,23 +193,17 @@ impl ReflectTraits {
         Ok(traits)
     }
 
-    /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
-    /// is registered for this type.
-    pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
-    }
-
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
-    pub fn idents(&self) -> &[Ident] {
+    pub fn paths(&self) -> &[Path] {
         &self.idents
     }
 
     /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
     ///
-    /// If `Hash` was not registered, returns `None`.
+    /// If `hash` was not registered, returns `None`.
     pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
         match &self.hash {
-            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+            &TraitLikeImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn reflect_hash(&self) -> #FQOption<u64> {
                     use ::core::hash::{Hash, Hasher};
                     let mut hasher: #bevy_reflect_path::ReflectHasher = #FQDefault::default();
@@ -231,24 +212,24 @@ impl ReflectTraits {
                     #FQOption::Some(Hasher::finish(&hasher))
                 }
             }),
-            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+            &TraitLikeImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 fn reflect_hash(&self) -> #FQOption<u64> {
                     #FQOption::Some(#impl_fn(self))
                 }
             }),
-            TraitImpl::NotImplemented => None,
+            TraitLikeImpl::NotImplemented => None,
         }
     }
 
     /// Returns the implementation of `Reflect::reflect_partial_eq` as a `TokenStream`.
     ///
-    /// If `PartialEq` was not registered, returns `None`.
+    /// If `partial_eq` was not registered, returns `None`.
     pub fn get_partial_eq_impl(
         &self,
         bevy_reflect_path: &Path,
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_eq {
-            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+            &TraitLikeImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
                     let value = <dyn #bevy_reflect_path::Reflect>::as_any(value);
                     if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
@@ -258,31 +239,31 @@ impl ReflectTraits {
                     }
                 }
             }),
-            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+            &TraitLikeImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
                     #FQOption::Some(#impl_fn(self, value))
                 }
             }),
-            TraitImpl::NotImplemented => None,
+            TraitLikeImpl::NotImplemented => None,
         }
     }
 
     /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
     ///
-    /// If `Debug` was not registered, returns `None`.
+    /// If `debug` was not registered, returns `None`.
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
         match &self.debug {
-            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+            &TraitLikeImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     ::core::fmt::Debug::fmt(self, f)
                 }
             }),
-            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+            &TraitLikeImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     #impl_fn(self, f)
                 }
             }),
-            TraitImpl::NotImplemented => None,
+            TraitLikeImpl::NotImplemented => None,
         }
     }
 
@@ -296,9 +277,7 @@ impl ReflectTraits {
             partial_eq: self.partial_eq.merge(other.partial_eq)?,
             idents: {
                 let mut idents = self.idents;
-                for ident in other.idents {
-                    add_unique_ident(&mut idents, ident)?;
-                }
+                idents.extend(other.idents);
                 idents
             },
         })
@@ -310,17 +289,4 @@ impl Parse for ReflectTraits {
         let result = Punctuated::<NestedMeta, Comma>::parse_terminated(input)?;
         ReflectTraits::from_nested_metas(&result)
     }
-}
-
-/// Adds an identifier to a vector of identifiers if it is not already present.
-///
-/// Returns an error if the identifier already exists in the list.
-fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Error> {
-    let ident_name = ident.to_string();
-    if idents.iter().any(|i| i == ident_name.as_str()) {
-        return Err(syn::Error::new(ident.span(), CONFLICTING_TYPE_DATA_MESSAGE));
-    }
-
-    idents.push(ident);
-    Ok(())
 }

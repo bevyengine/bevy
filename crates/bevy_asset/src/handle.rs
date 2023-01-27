@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
     Reflect,
     FromReflect,
 )]
-#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
+#[reflect_value(partial_eq, hash, Serialize, Deserialize)]
 pub enum HandleId {
     /// A handle id of a loaded asset.
     Id(Uuid, u64),

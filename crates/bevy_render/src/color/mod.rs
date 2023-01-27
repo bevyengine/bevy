@@ -10,7 +10,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(partial_eq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color
     Rgba {

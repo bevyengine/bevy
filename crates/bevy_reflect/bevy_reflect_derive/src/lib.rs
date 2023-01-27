@@ -30,6 +30,7 @@ mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
+use derive_data::ReflectImplSource;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
@@ -39,11 +40,34 @@ use syn::{parse_macro_input, DeriveInput};
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 
+/// Derives the `Reflect` trait.
+///
+/// This macro supports the following container attributes (attributes on the item itself):
+/// * `#[reflect(MyTrait)]`: Adds `ReflectMyTrait` into the `TypeRegistration` for this type.
+///   * There are three "special" trait-like attributes: `#[reflect(debug, partial_eq, hash)]`.
+///     These tell this macro to use [`Debug::fmt`], [`PartialEq::eq`] and [`Hash::hash`] respectivel
+///     for its implementation of `reflect_debug`, `reflect_partial_eq` and `reflect_hash`.
+/// * `#[reflect_value(...)]`: Supports all the same syntax as `#[reflect(...)]`
+///   but tells this macro to treat this type as a basic value which cannot be broken down
+///   into individual fields or variants.
+///   * `reflect_value` and `reflect` are mutually exclusive.
+///
+/// This macro also supports the following field attributes (on items without a `#[reflect_value]` attribute):
+/// * `#[reflect(ignore)]`: Do not include this field in reflection
+///   so it will never be read or written from a `dyn Reflect`.
+///   The type of the field must implement [`Default`] for use in deserialization.
+/// * `#[reflect(skip_serializing)]`: Include the field in reflection
+///   so it can be read and written with a `dyn Reflect` but never (de)serialized.
+///   The type of the field must implement [`Default`] for use in deserialization.
+///
+/// [`Debug::fmt`]: core::fmt::Debug::fmt
+/// [`PartialEq::eq`]: PartialEq::eq
+/// [`Hash::hash`]: core::hash::Hash::hash
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -69,7 +93,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -102,6 +126,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
+        ReflectImplSource::ImplValue,
     );
 
     #[cfg(feature = "documentation")]
@@ -119,18 +144,13 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// which have greater functionality. The type being reflected must be in scope, as you cannot
 /// qualify it in the macro as e.g. `bevy::prelude::Vec3`.
 ///
-/// It may be necessary to add `#[reflect(Default)]` for some types, specifically non-constructible
-/// foreign types. Without `Default` reflected for such types, you will usually get an arcane
-/// error message and fail to compile. If the type does not implement `Default`, it may not
-/// be possible to reflect without extending the macro.
-///
 /// # Example
 /// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
 /// ```ignore
 /// use bevy::prelude::Vec3;
 ///
 /// impl_reflect_struct!(
-///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
+///    #[reflect(partial_eq, Serialize, Deserialize, Default)]
 ///    struct Vec3 {
 ///        x: f32,
 ///        y: f32,
@@ -141,7 +161,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDerive::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast, ReflectImplSource::ImplStruct) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -183,5 +203,6 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
+        ReflectImplSource::ImplValue,
     ))
 }

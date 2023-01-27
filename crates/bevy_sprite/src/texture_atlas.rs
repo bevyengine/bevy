@@ -11,7 +11,7 @@ use bevy_utils::HashMap;
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
-#[reflect(Debug)]
+#[reflect(debug)]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Image>,

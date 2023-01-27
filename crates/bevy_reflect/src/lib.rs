@@ -108,7 +108,6 @@ mod tests {
     use std::any::TypeId;
     use std::fmt::{Debug, Formatter};
 
-    use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
     use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
@@ -161,7 +160,7 @@ mod tests {
     #[test]
     fn reflect_map() {
         #[derive(Reflect, Hash)]
-        #[reflect(Hash)]
+        #[reflect(hash)]
         struct Foo {
             a: u32,
             b: String,
@@ -314,39 +313,9 @@ mod tests {
     }
 
     #[test]
-    fn from_reflect_should_use_default_container_attribute() {
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
-        #[reflect(Default)]
-        struct MyStruct {
-            foo: String,
-            #[reflect(ignore)]
-            bar: usize,
-        }
-
-        impl Default for MyStruct {
-            fn default() -> Self {
-                Self {
-                    foo: String::from("Hello"),
-                    bar: 123,
-                }
-            }
-        }
-
-        let expected = MyStruct {
-            foo: String::from("Hello"),
-            bar: 123,
-        };
-
-        let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
-
-        assert_eq!(Some(expected), my_struct);
-    }
-
-    #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
-        #[reflect(PartialEq)]
+        #[reflect(partial_eq)]
         struct Foo {
             a: u32,
             #[reflect(ignore)]
@@ -360,7 +329,7 @@ mod tests {
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
-        #[reflect(PartialEq)]
+        #[reflect(partial_eq)]
         struct Bar {
             x: u32,
         }
@@ -594,7 +563,7 @@ mod tests {
     #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
-        #[reflect(PartialEq)]
+        #[reflect(partial_eq)]
         struct Bar {
             x: u32,
         }
@@ -1093,7 +1062,7 @@ mod tests {
         struct SomeTupleStruct(String);
 
         #[derive(Reflect)]
-        #[reflect(Debug)]
+        #[reflect(debug)]
         struct CustomDebug;
         impl Debug for CustomDebug {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1159,8 +1128,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[test]
     fn multiple_reflect_lists() {
         #[derive(Hash, PartialEq, Reflect)]
-        #[reflect(Debug, Hash)]
-        #[reflect(PartialEq)]
+        #[reflect(debug, hash)]
+        #[reflect(partial_eq)]
         struct Foo(i32);
 
         impl Debug for Foo {
@@ -1180,8 +1149,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[test]
     fn multiple_reflect_value_lists() {
         #[derive(Clone, Hash, PartialEq, Reflect)]
-        #[reflect_value(Debug, Hash)]
-        #[reflect_value(PartialEq)]
+        #[reflect_value(debug, hash, partial_eq)]
         struct Foo(i32);
 
         impl Debug for Foo {

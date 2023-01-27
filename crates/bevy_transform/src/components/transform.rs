@@ -36,7 +36,7 @@ use std::ops::Mul;
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, partial_eq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///

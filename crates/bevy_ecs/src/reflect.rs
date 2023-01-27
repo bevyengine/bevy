@@ -404,7 +404,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
     }
 }
 
-impl_reflect_value!(Entity(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Entity(hash, partial_eq, Serialize, Deserialize));
 impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
