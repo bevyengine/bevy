@@ -109,7 +109,6 @@ impl Node for PrepassNode {
                     stencil_ops: None,
                 }),
             });
-
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
