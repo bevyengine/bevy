@@ -1,10 +1,10 @@
 //! Contains code related specifically to Bevy's type registration.
 
-use crate::utility::extend_where_clause;
+use crate::utility::{extend_where_clause, WhereClauseOptions};
 use bit_set::BitSet;
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::Ident;
 use quote::quote;
-use syn::{Generics, Path, Type};
+use syn::{Generics, Path};
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
 #[allow(clippy::too_many_arguments)]
@@ -13,12 +13,9 @@ pub(crate) fn impl_get_type_registration(
     bevy_reflect_path: &Path,
     registration_data: &[Ident],
     generics: &Generics,
-    active_types: &[Type],
-    ignored_types: &[Type],
-    active_trait_bounds: &TokenStream,
-    ignored_trait_bounds: &TokenStream,
+    where_clause_options: &WhereClauseOptions,
     serialization_denylist: Option<&BitSet<u32>>,
-) -> TokenStream {
+) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let serialization_data = serialization_denylist.map(|denylist| {
         let denylist = denylist.into_iter();
@@ -28,13 +25,7 @@ pub(crate) fn impl_get_type_registration(
         }
     });
 
-    let where_reflect_clause = extend_where_clause(
-        where_clause,
-        active_types,
-        active_trait_bounds,
-        ignored_types,
-        ignored_trait_bounds,
-    );
+    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
         #[allow(unused_mut)]

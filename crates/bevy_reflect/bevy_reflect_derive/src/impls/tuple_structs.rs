@@ -1,4 +1,4 @@
-use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult, FQSend, FQSync};
+use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::impl_typed;
 use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
@@ -18,18 +18,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         .map(|field| Member::Unnamed(Index::from(field.index)))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
-    let ignored_types = reflect_struct.ignored_types();
-    let active_trait_bounds = quote! { #bevy_reflect_path::Reflect };
-    let ignored_trait_bounds = quote! { #FQAny + #FQSend + #FQSync };
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let get_type_registration_impl = reflect_struct.get_type_registration(
-        &field_types,
-        &ignored_types,
-        &active_trait_bounds,
-        &ignored_trait_bounds,
-    );
+    let where_clause_options = reflect_struct.where_clause_options();
+    let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
     let hash_fn = reflect_struct
         .meta()
@@ -85,10 +78,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
-        &field_types,
-        &ignored_types,
-        &active_trait_bounds,
-        &ignored_trait_bounds,
+        &where_clause_options,
         quote! {
             let fields = [#field_generator];
             let info = #info_generator;
@@ -100,13 +90,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(
-        where_clause,
-        &field_types,
-        &active_trait_bounds,
-        &ignored_types,
-        &ignored_trait_bounds,
-    );
+    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
     TokenStream::from(quote! {
         #get_type_registration_impl

@@ -1,19 +1,16 @@
-use crate::utility::extend_where_clause;
-use proc_macro2::{Ident, TokenStream};
+use crate::utility::{extend_where_clause, WhereClauseOptions};
+use proc_macro2::Ident;
 use quote::quote;
-use syn::{Generics, Path, Type};
+use syn::{Generics, Path};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn impl_typed(
     type_name: &Ident,
     generics: &Generics,
-    active_types: &[Type],
-    ignored_types: &[Type],
-    active_trait_bounds: &TokenStream,
-    ignored_trait_bounds: &TokenStream,
-    generator: TokenStream,
+    where_clause_options: &WhereClauseOptions,
+    generator: proc_macro2::TokenStream,
     bevy_reflect_path: &Path,
-) -> TokenStream {
+) -> proc_macro2::TokenStream {
     let is_generic = !generics.params.is_empty();
 
     let static_generator = if is_generic {
@@ -35,13 +32,7 @@ pub(crate) fn impl_typed(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     // Add Typed bound for each active field
-    let where_reflect_clause = extend_where_clause(
-        where_clause,
-        active_types,
-        active_trait_bounds,
-        ignored_types,
-        ignored_trait_bounds,
-    );
+    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_name #ty_generics #where_reflect_clause {

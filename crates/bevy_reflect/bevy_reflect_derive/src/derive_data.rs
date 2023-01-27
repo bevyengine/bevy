@@ -1,14 +1,14 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
-use crate::utility::members_to_serialization_denylist;
+use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
+use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
 use bit_set::BitSet;
-use proc_macro2::TokenStream;
 use quote::quote;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Type, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -317,27 +317,16 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
-    ///
-    /// * `active_types`: types corresponding to active fields in the object (used to add specific trait bounds)
-    /// * `ignored_types`: types corresponding to ignored fields in the object (used to add specific trait bounds)
-    /// * `active_trait_bounds`: trait bounds to provide for the active types
-    /// * `ignored_trait_bounds`: trait bounds to provide for the ignored types
     pub fn get_type_registration(
         &self,
-        active_types: &[Type],
-        ignored_types: &[Type],
-        active_trait_bounds: &TokenStream,
-        ignored_trait_bounds: &TokenStream,
+        where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
             self.type_name,
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
-            active_types,
-            ignored_types,
-            active_trait_bounds,
-            ignored_trait_bounds,
+            where_clause_options,
             None,
         )
     }
@@ -366,17 +355,9 @@ impl<'a> ReflectStruct<'a> {
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
     /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
-    ///
-    /// * `active_types`: types corresponding to active fields in the struct (used to add specific trait bounds)
-    /// * `ignored_types`: types corresponding to ignored fields in the struct (used to add specific trait bounds)
-    /// * `active_trait_bounds`: trait bounds to provide for the active types
-    /// * `ignored_trait_bounds`: trait bounds to provide for the ignored types
     pub fn get_type_registration(
         &self,
-        active_types: &[Type],
-        ignored_types: &[Type],
-        active_trait_bounds: &TokenStream,
-        ignored_trait_bounds: &TokenStream,
+        where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         let reflect_path = self.meta.bevy_reflect_path();
 
@@ -385,10 +366,7 @@ impl<'a> ReflectStruct<'a> {
             reflect_path,
             self.meta.traits().idents(),
             self.meta.generics(),
-            active_types,
-            ignored_types,
-            active_trait_bounds,
-            ignored_trait_bounds,
+            where_clause_options,
             Some(&self.serialization_denylist),
         )
     }
@@ -425,6 +403,16 @@ impl<'a> ReflectStruct<'a> {
     #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         &self.fields
+    }
+
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        WhereClauseOptions {
+            active_types: self.active_types().into(),
+            active_trait_bounds: quote! { #bevy_reflect_path::Reflect },
+            ignored_types: self.ignored_types().into(),
+            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
+        }
     }
 }
 
@@ -474,6 +462,16 @@ impl<'a> ReflectEnum<'a> {
             .map(|field| field.data.ty.clone())
             .collect()
     }
+
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        WhereClauseOptions {
+            active_types: self.active_types().into(),
+            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect },
+            ignored_types: self.ignored_types().into(),
+            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
+        }
+    }
 }
 
 impl<'a> EnumVariant<'a> {
@@ -482,7 +480,7 @@ impl<'a> EnumVariant<'a> {
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields()
             .iter()
-            .filter(move |field| field.attrs.ignore.is_active())
+            .filter(|field| field.attrs.ignore.is_active())
     }
 
     /// Get an iterator of fields which are ignored by the reflection API
@@ -490,7 +488,7 @@ impl<'a> EnumVariant<'a> {
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields()
             .iter()
-            .filter(move |field| field.attrs.ignore.is_ignored())
+            .filter(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this variant.

@@ -1,6 +1,6 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
-use crate::fq_std::{FQAny, FQBox, FQOption, FQResult, FQSend, FQSync};
+use crate::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use crate::impls::impl_typed;
 use crate::utility::extend_where_clause;
 use proc_macro::TokenStream;
@@ -16,10 +16,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let ref_index = Ident::new("__index_param", Span::call_site());
     let ref_value = Ident::new("__value_param", Span::call_site());
 
-    let field_types = reflect_enum.active_types();
-    let ignored_types = reflect_enum.ignored_types();
-    let active_trait_bounds = quote! { #bevy_reflect_path::FromReflect };
-    let ignored_trait_bounds = quote! { #FQAny + #FQSend + #FQSync + Default };
+    let where_clause_options = reflect_enum.where_clause_options();
 
     let EnumImpls {
         variant_info,
@@ -82,10 +79,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let typed_impl = impl_typed(
         enum_name,
         reflect_enum.meta().generics(),
-        &field_types,
-        &ignored_types,
-        &active_trait_bounds,
-        &ignored_trait_bounds,
+        &where_clause_options,
         quote! {
             let variants = [#(#variant_info),*];
             let info = #info_generator;
@@ -94,22 +88,13 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_enum.meta().get_type_registration(
-        &field_types,
-        &ignored_types,
-        &active_trait_bounds,
-        &ignored_trait_bounds,
-    );
+    let get_type_registration_impl = reflect_enum
+        .meta()
+        .get_type_registration(&where_clause_options);
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(
-        where_clause,
-        &field_types,
-        &active_trait_bounds,
-        &ignored_types,
-        &ignored_trait_bounds,
-    );
+    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
     TokenStream::from(quote! {
         #get_type_registration_impl
