@@ -39,7 +39,7 @@ pub struct WgpuSettings {
     pub limits: WgpuLimits,
     /// The constraints on limits allowed regardless of what the adapter/backend supports
     pub constrained_limits: Option<WgpuLimits>,
-    /// The compiler to use for DX12 shaders. If `None`, then FXC will be used.
+    // The shader compiler to use for the DX12 backend.
     pub dx12_shader_compiler: Dx12Compiler,
 }
 
