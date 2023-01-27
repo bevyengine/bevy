@@ -62,8 +62,10 @@ fn main() {
             CoreSchedule::FixedUpdate,
             (
                 check_for_collisions,
-                move_paddle.before(check_for_collisions),
                 apply_velocity.before(check_for_collisions),
+                move_paddle
+                    .before(check_for_collisions)
+                    .after(apply_velocity),
                 play_collision_sound.after(check_for_collisions),
             ),
         )
