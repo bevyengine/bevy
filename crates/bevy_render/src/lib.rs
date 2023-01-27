@@ -330,7 +330,7 @@ fn extract(main_world: &mut World, render_app: &mut App) {
     let inserted_world = std::mem::replace(main_world, scratch_world.0);
     render_app.world.insert_resource(MainWorld(inserted_world));
 
-    render_app.run_schedule(ExtractSchedule);
+    render_app.world.run_schedule(ExtractSchedule);
 
     // move the app world back, as if nothing happened.
     let inserted_world = render_app.world.remove_resource::<MainWorld>().unwrap();

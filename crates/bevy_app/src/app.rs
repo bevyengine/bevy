@@ -924,13 +924,6 @@ impl App {
         self
     }
 
-    /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        self.world.run_schedule(label);
-
-        self
-    }
-
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
     pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
