@@ -3,7 +3,7 @@ use crate::{
     component::ComponentId,
     query::Access,
     system::{IntoSystem, System},
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use std::{any::TypeId, borrow::Cow};
 
@@ -99,7 +99,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_a.is_exclusive() || self.system_b.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell<'_>) -> Self::Out {
         let out = self.system_a.run_unsafe(input, world);
         self.system_b.run_unsafe(out, world)
     }

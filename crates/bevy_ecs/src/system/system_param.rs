@@ -9,7 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{Query, SystemMeta},
-    world::{FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
@@ -168,7 +168,7 @@ pub unsafe trait SystemParam: Sized {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: UnsafeWorldCell<'world>,
         change_tick: u32,
     ) -> Self::Item<'world, 'state>;
 }
@@ -226,9 +226,12 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
+        // SAFETY: QueryState::new populates `component_access` which is used in `impl SystemParamState for QueryState`,
+        // so the scheduler only calls this in systems with access to every component used in the query
+        let world = unsafe { world.world() };
         Query::new(
             world,
             state,
@@ -369,7 +372,7 @@ fn assert_component_access_compatibility(
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
-    world: &'w World,
+    world: UnsafeWorldCell<'w>,
     system_meta: SystemMeta,
     change_tick: u32,
 }
@@ -444,11 +447,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -485,11 +487,10 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
@@ -539,11 +540,10 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_by_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -577,11 +577,10 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_by_id(component_id)
             .map(|value| ResMut {
                 value: value.value.deref_mut::<T>(),
@@ -630,10 +629,11 @@ unsafe impl SystemParam for &'_ World {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world
+        // SAFTY: `WorldState` has `read_all` access
+        unsafe { world.world() }
     }
 }
 
@@ -751,7 +751,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
@@ -926,7 +926,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         Deferred(state.get())
@@ -1033,11 +1033,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1072,11 +1071,10 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
@@ -1125,11 +1123,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1158,11 +1155,10 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
@@ -1185,7 +1181,7 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.archetypes()
@@ -1206,7 +1202,7 @@ unsafe impl<'a> SystemParam for &'a Components {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.components()
@@ -1227,7 +1223,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.entities()
@@ -1248,7 +1244,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.bundles()
@@ -1297,7 +1293,7 @@ unsafe impl SystemParam for SystemChangeTick {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         SystemChangeTick {
@@ -1367,7 +1363,7 @@ unsafe impl SystemParam for SystemName<'_> {
     unsafe fn get_param<'w, 's>(
         name: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         SystemName { name }
@@ -1409,7 +1405,7 @@ macro_rules! impl_system_param_tuple {
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 _system_meta: &SystemMeta,
-                _world: &'w World,
+                _world: UnsafeWorldCell<'w>,
                 _change_tick: u32,
             ) -> Self::Item<'w, 's> {
 
@@ -1533,7 +1529,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: UnsafeWorldCell<'world>,
         change_tick: u32,
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam

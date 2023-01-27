@@ -3,7 +3,7 @@ use core::fmt::Debug;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, world::World,
+    query::Access, world::unsafe_world_cell::UnsafeWorldCell, world::World,
 };
 
 use std::any::TypeId;
@@ -46,17 +46,14 @@ pub trait System: Send + Sync + 'static {
     ///
     /// # Safety
     ///
-    /// This might access world and resources in an unsafe manner. This should only be called in one
-    /// of the following contexts:
-    ///     1. This system is the only system running on the given world across all threads.
-    ///     2. This system only runs in parallel with other systems that do not conflict with the
-    ///        [`System::archetype_component_access()`].
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
+    /// This function may only be called with a [`UnsafeWorldCell`] that can be used for
+    /// everything listed in [`System::archetype_component_access`].
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell<'_>) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.update_archetype_component_access(world);
         // SAFETY: world and resources are exclusively borrowed
-        unsafe { self.run_unsafe(input, world) }
+        unsafe { self.run_unsafe(input, world.as_unsafe_world_cell()) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.

@@ -2,6 +2,7 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -75,7 +76,7 @@ where
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         // SAFETY:

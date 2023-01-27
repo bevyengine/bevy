@@ -5,7 +5,7 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
@@ -174,7 +174,7 @@ impl<Param: SystemParam> SystemState<Param> {
         self.validate_world(world);
         self.update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world) }
+        unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell_readonly()) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
@@ -183,7 +183,7 @@ impl<Param: SystemParam> SystemState<Param> {
         self.validate_world(world);
         self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world) }
+        unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
@@ -243,7 +243,7 @@ impl<Param: SystemParam> SystemState<Param> {
         self.validate_world(world);
         let change_tick = world.read_change_tick();
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
-        unsafe { self.fetch(world, change_tick) }
+        unsafe { self.fetch(world.as_unsafe_world_cell_readonly(), change_tick) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes
@@ -261,7 +261,7 @@ impl<Param: SystemParam> SystemState<Param> {
         self.validate_world(world);
         let change_tick = world.change_tick();
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.fetch(world, change_tick) }
+        unsafe { self.fetch(world.as_unsafe_world_cell(), change_tick) }
     }
 
     /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
@@ -273,7 +273,7 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
         self.fetch(world, change_tick)
@@ -286,7 +286,7 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     unsafe fn fetch<'w, 's>(
         &'s mut self,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: u32,
     ) -> SystemParamItem<'w, 's, Param> {
         let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
@@ -459,7 +459,7 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell<'_>) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
         // Safety:

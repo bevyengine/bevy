@@ -8,7 +8,7 @@ use crate::{
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use std::{
@@ -178,9 +178,10 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.removed_components()
+        // SAFETY: only metadata is accessed
+        unsafe { world.world_metadata() }.removed_components()
     }
 }

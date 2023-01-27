@@ -18,7 +18,7 @@ use crate::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     system::BoxedSystem,
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use crate as bevy_ecs;
@@ -281,6 +281,7 @@ impl MultiThreadedExecutor {
             // SAFETY: No exclusive system is running.
             // Therefore, there is no existing mutable reference to the world.
             let world = unsafe { &*cell.get() };
+
             if !self.can_run(system_index, system, conditions, world) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
                 // being significantly displaced here (compared to single-threaded order)
@@ -308,6 +309,9 @@ impl MultiThreadedExecutor {
                 }
                 break;
             }
+
+            // TODO: do this earlier?
+            let world = world.as_unsafe_world_cell_migration_internal();
 
             // SAFETY: No other reference to this system exists.
             unsafe {
@@ -425,7 +429,7 @@ impl MultiThreadedExecutor {
         scope: &Scope<'_, 'scope, ()>,
         system_index: usize,
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
-        world: &'scope World,
+        world: UnsafeWorldCell<'scope>,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
@@ -604,6 +608,7 @@ fn apply_system_buffers(
     }
 }
 
+// TODO: this is unsafe
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
@@ -613,7 +618,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
             #[cfg(feature = "trace")]
             let _condition_span = info_span!("condition", name = &*condition.name()).entered();
             // SAFETY: caller ensures system access is compatible
-            unsafe { condition.run_unsafe((), world) }
+            unsafe { condition.run_unsafe((), world.as_unsafe_world_cell_readonly()) }
         })
         .fold(true, |acc, res| acc && res)
 }
