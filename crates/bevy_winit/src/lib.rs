@@ -58,7 +58,7 @@ impl Plugin for WinitPlugin {
                     // exit_on_all_closed only uses the query to determine if the query is empty,
                     // and so doesn't care about ordering relative to changed_window
                     .with_system(changed_window.ambiguous_with(exit_on_all_closed))
-                    // Update the state of the window before attempting to despawn to avoid desynchronized state
+                    // Update the state of the window before attempting to despawn to ensure consistent event ordering
                     .with_system(despawn_window.after(changed_window)),
             );
 
