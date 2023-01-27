@@ -1,4 +1,4 @@
-//! Simple run criteria example
+//! Demonstrates how and why to use run criteria to control whether or not systems run
 
 /*
     Basically, run criteria is the way to make a function run under certaion conditons.
