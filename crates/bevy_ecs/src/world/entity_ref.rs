@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
-use std::any::TypeId;
+use std::{any::TypeId, panic::AssertUnwindSafe};
 
 use super::unsafe_world_cell::UnsafeWorldCellEntityRef;
 
@@ -564,22 +564,9 @@ impl<'w> EntityMut<'w> {
     /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
-        // Erase the lifetime of self, so we can get around the borrow checker.
-        let this_ptr = self as *mut Self;
-
-        // Update the stored `EntityLocation` for this instance.
-        // This will get called at the end of this scope, even if the closure `f` unwinds.
-        let _cleanup_guard = bevy_utils::OnDrop::new(move || {
-            // SAFETY:
-            // - When this closure gets called at the end of the outer scope,
-            //   the reference to `self` will be inactive, which ensures that this will not alias.
-            // - The pointer must otherwise be safe to dereference, since it was obtained
-            //   from a mutable reference.
-            let this = unsafe { &mut *this_ptr };
-            this.update_location();
-        });
-
-        f(self.world)
+        let value = std::panic::catch_unwind(AssertUnwindSafe(|| f(self.world)));
+        self.update_location();
+        value.unwrap_or_else(|e| std::panic::panic_any(e))
     }
 
     /// Updates the internal entity location to match the current location in the internal
