@@ -546,7 +546,7 @@ impl<'w> EntityMut<'w> {
 
         // Update the stored `EntityLocation` for this instance.
         // This will get called at the end of this scope, even if the closure `f` unwinds.
-        let _on_drop = bevy_utils::OnDrop::new(|| {
+        let _cleanup_guard = bevy_utils::OnDrop::new(move || {
             // SAFETY:
             // - This will only be invoked at the end of the outer scope, at which point
             //   `self` will no longer be borrowed, which ensures the references don't alias.
