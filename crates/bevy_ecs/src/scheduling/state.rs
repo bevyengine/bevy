@@ -92,6 +92,11 @@ impl<S: States> NextState<S> {
     }
 }
 
+/// Run the enter schedule for the current state
+pub fn run_enter_schedule<S: States>(world: &mut World) {
+    world.run_schedule(OnEnter(world.resource::<State<S>>().0.clone()));
+}
+
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
 /// - Runs the [`OnExit(exited_state)`] schedule.
