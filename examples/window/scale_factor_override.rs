@@ -3,17 +3,21 @@
 
 use bevy::{prelude::*, window::WindowResolution};
 
+#[derive(Resource, Default)]
+struct Override(Option<f64>);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(500., 300.),
                 ..default()
             }),
             ..default()
         }))
+        .init_resource::<Override>()
         .add_startup_system(setup)
-        .add_system(display_override)
+        .add_system(update_window)
         .add_system(toggle_override)
         .add_system(change_scale_factor)
         .run();
@@ -47,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn(
                         TextBundle::from_section(
-                            "Example text",
+                            "[Enter] Toggle override\n[↑↓] Change scale",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
@@ -63,9 +67,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-/// Set the title of the window to the current override
-fn display_override(mut windows: Query<&mut Window>) {
+fn update_window(mut windows: Query<&mut Window>, over: Res<Override>) {
+    if !over.is_changed() {
+        return;
+    }
+
     let mut window = windows.single_mut();
+
+    window.resolution.set_scale_factor_override(over.0);
 
     window.title = format!(
         "Scale override: {:?}",
@@ -74,28 +83,17 @@ fn display_override(mut windows: Query<&mut Window>) {
 }
 
 /// This system toggles scale factor overrides when enter is pressed
-fn toggle_override(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut();
-
+fn toggle_override(input: Res<Input<KeyCode>>, mut over: ResMut<Override>) {
     if input.just_pressed(KeyCode::Return) {
-        let scale_factor_override = window.resolution.scale_factor_override();
-        window
-            .resolution
-            .set_scale_factor_override(scale_factor_override.xor(Some(1.0)));
+        over.0 = over.0.xor(Some(1.0));
     }
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut();
-    let scale_factor_override = window.resolution.scale_factor_override();
+fn change_scale_factor(input: Res<Input<KeyCode>>, mut over: ResMut<Override>) {
     if input.just_pressed(KeyCode::Up) {
-        window
-            .resolution
-            .set_scale_factor_override(scale_factor_override.map(|n| n + 1.0));
+        over.0 = over.0.map(|n| n + 1.0);
     } else if input.just_pressed(KeyCode::Down) {
-        window
-            .resolution
-            .set_scale_factor_override(scale_factor_override.map(|n| (n - 1.0).max(1.0)));
+        over.0 = over.0.map(|n| (n - 1.0).max(1.0));
     }
 }
