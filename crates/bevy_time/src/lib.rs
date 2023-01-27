@@ -4,7 +4,7 @@ mod stopwatch;
 mod time;
 mod timer;
 
-use fixed_timestep::{apply_fixed_timestep, FixedTime};
+use fixed_timestep::{run_fixed_update_schedule, FixedTime};
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -40,7 +40,7 @@ impl Plugin for TimePlugin {
             .register_type::<Stopwatch>()
             .init_resource::<FixedTime>()
             .add_system(time_system.in_set(TimeSystem).in_set(CoreSet::First))
-            .add_system(apply_fixed_timestep.in_set(CoreSet::FixedTimestep));
+            .add_system(run_fixed_update_schedule.in_set(CoreSet::FixedUpdate));
     }
 }
 

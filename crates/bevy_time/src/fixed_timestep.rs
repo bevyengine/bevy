@@ -1,9 +1,9 @@
 //! Tools to run systems at a regular interval.
 //! This can be extremely useful for steady, frame-rate independent gameplay logic and physics.
 //!
-//! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedTimestep`] [`Schedule`].
-//! This schedules is run in the [`CoreSet::FixedTimestep`] near the start of each frame,
-//! via the [`apply_fixed_timestep`] exclsuive system.
+//! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedUpdate`] [`Schedule`].
+//! This schedules is run in the [`CoreSet::FixedUpdate`] near the start of each frame,
+//! via the [`run_fixed_update_schedule`] exclsuive system.
 //!
 //! This schedule will be run a number of times each frame,
 //! equal to the accumulated divided by the period resource, rounded down,
@@ -19,7 +19,7 @@
 //! between each execution.
 //!
 //! When using fixed time steps, it is advised not to rely on [`Time::delta`] or any of it's
-//! variants for game simulation, but rather use the value of [`FixedTimestep`] instead.
+//! variants for game simulation, but rather use the value of [`FixedUpdate`] instead.
 
 use crate::Time;
 use bevy_app::CoreSchedule;
@@ -69,12 +69,12 @@ impl FixedTime {
     /// Expends one `period` of accumulated time.
     ///
     /// [`Err(FixedTimstepError`)] will be returned
-    pub fn expend(&mut self) -> Result<(), FixedTimestepError> {
+    pub fn expend(&mut self) -> Result<(), FixedUpdateError> {
         if let Some(new_value) = self.accumulated.checked_sub(self.period) {
             self.accumulated = new_value;
             Ok(())
         } else {
-            Err(FixedTimestepError::NotEnoughTime {
+            Err(FixedUpdateError::NotEnoughTime {
                 accumulated: self.accumulated,
                 period: self.period,
             })
@@ -93,7 +93,7 @@ impl Default for FixedTime {
 
 /// An error returned when working with [`FixedTime`].
 #[derive(Debug, Error)]
-pub enum FixedTimestepError {
+pub enum FixedUpdateError {
     #[error("At least one period worth of time must be accumulated.")]
     NotEnoughTime {
         accumulated: Duration,
@@ -101,8 +101,8 @@ pub enum FixedTimestepError {
     },
 }
 
-/// Ticks the [`FixedTime`] resource then runs the [`CoreSchedule::FixedTimestep`].
-pub fn apply_fixed_timestep(world: &mut World) {
+/// Ticks the [`FixedTime`] resource then runs the [`CoreSchedule::FixedUpdate`].
+pub fn run_fixed_update_schedule(world: &mut World) {
     world.resource_scope(|world, mut fixed_time: Mut<FixedTime>| {
         // Tick the time
         let delta_time = world.resource::<Time>().delta();
@@ -112,7 +112,7 @@ pub fn apply_fixed_timestep(world: &mut World) {
         let mut check_again = true;
         while check_again {
             if fixed_time.expend().is_ok() {
-                world.run_schedule(CoreSchedule::FixedTimestep);
+                world.run_schedule(CoreSchedule::FixedUpdate);
             } else {
                 check_again = false;
             }

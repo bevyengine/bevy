@@ -52,8 +52,8 @@ pub enum CoreSchedule {
     Outer,
     /// The schedule that contains systems which only run after a fixed period of time has elapsed.
     ///
-    /// This schedule is run during [`CoreSet::FixedTimestep`] via an exclusive system, between [`CoreSet::First`] and [`CoreSet::PreUpdate`]
-    FixedTimestep,
+    /// The exclusive `run_fixed_update_schedule` system runs this schedule during the [`CoreSet::FixedUpdate`] system set.
+    FixedUpdate,
 }
 
 impl CoreSchedule {
@@ -102,8 +102,8 @@ pub enum CoreSet {
     StateTransitions,
     /// Runs systems that should only occur after a fixed period of time.
     ///
-    /// The `fixed_timestep` system runs the [`CoreSchedule::FixedTimestep`] system in this system set.
-    FixedTimestep,
+    /// The `run_fixed_update_schedule` system runs the [`CoreSchedule::FixedUpdate`] system in this system set.
+    FixedUpdate,
     /// Responsible for doing most app logic. Systems should be registered here by default.
     Update,
     /// The copy of [`apply_system_buffers`] that runs immediately after `Update`.
@@ -136,9 +136,9 @@ impl CoreSet {
 
         schedule.configure_set(First.before(FirstFlush));
         schedule.configure_set(PreUpdate.after(FirstFlush).before(PreUpdateFlush));
-        schedule.configure_set(StateTransitions.after(PreUpdateFlush).before(FixedTimestep));
-        schedule.configure_set(FixedTimestep.after(StateTransitions).before(Update));
-        schedule.configure_set(Update.after(FixedTimestep).before(UpdateFlush));
+        schedule.configure_set(StateTransitions.after(PreUpdateFlush).before(FixedUpdate));
+        schedule.configure_set(FixedUpdate.after(StateTransitions).before(Update));
+        schedule.configure_set(Update.after(FixedUpdate).before(UpdateFlush));
         schedule.configure_set(PostUpdate.after(UpdateFlush).before(PostUpdateFlush));
         schedule.configure_set(Last.after(PostUpdateFlush).before(LastFlush));
 

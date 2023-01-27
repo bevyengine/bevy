@@ -493,7 +493,7 @@ impl App {
     /// - [`CoreSchedule::Outer`]: uses [`CoreSchedule::outer_schedule`]
     /// - [`CoreSchedule::Startup`]: uses [`StartupSet::base_schedule`]
     /// - [`CoreSchedule::Main`]: uses [`CoreSet::base_schedule`]
-    /// - [`CoreSchedule::FixedTimestep`]: no starting configuration
+    /// - [`CoreSchedule::FixedUpdate`]: no starting configuration
     ///
     /// # Examples
     ///
@@ -510,7 +510,7 @@ impl App {
         self.add_schedule(CoreSchedule::Outer, CoreSchedule::outer_schedule());
         self.add_schedule(CoreSchedule::Startup, StartupSet::base_schedule());
         self.add_schedule(CoreSchedule::Main, CoreSet::base_schedule());
-        self.init_schedule(CoreSchedule::FixedTimestep);
+        self.init_schedule(CoreSchedule::FixedUpdate);
 
         self
     }

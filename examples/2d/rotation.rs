@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_systems_to_schedule(
-            CoreSchedule::FixedTimestep,
+            CoreSchedule::FixedUpdate,
             (
                 player_movement_system,
                 snap_to_player_system,

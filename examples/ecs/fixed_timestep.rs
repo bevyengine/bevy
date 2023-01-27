@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    time::{FixedTimestep, FixedTimesteps},
+    time::{FixedUpdate, FixedUpdates},
 };
 
 const LABEL: &str = "my_fixed_timestep";
@@ -16,7 +16,7 @@ fn main() {
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(frame_update)
         // add our system to the fixed timestep schedule
-        .add_system_to_schedule(fixed_update, &CoreSchedule::FixedTimestep)
+        .add_system_to_schedule(fixed_update, &CoreSchedule::FixedUpdate)
         // configure our fixed timestep schedule to run twice a second
         .insert_resource(FixedTime::new_from_secs(0.5))
         .run();
@@ -30,7 +30,7 @@ fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
     *last_time = time.raw_elapsed_seconds();
 }
 
-fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
+fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_timesteps: Res<FixedUpdates>) {
     info!(
         "time since last fixed_update: {}\n",
         time.raw_elapsed_seconds() - *last_time
