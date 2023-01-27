@@ -184,15 +184,25 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance.create_surface(&window.handle.get_handle());
-                let format = *surface
-                    .get_supported_formats(&render_adapter)
-                    .get(0)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No supported formats found for surface {surface:?} on adapter {render_adapter:?}"
-                        )
-                    });
+                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                let surface = render_instance
+                    .create_surface(&window.handle.get_handle())
+                    .unwrap();
+                let caps = surface.get_capabilities(&render_adapter);
+                let formats = caps.formats;
+                // Explicitly request an sRGB format, otherwise fallback to the first available format.
+                // For future HDR output support, we'll need to request a format that supports HDR,
+                // but as of wgpu 0.15 that is not yet supported.
+                let format = if formats.contains(&TextureFormat::Rgba8UnormSrgb) {
+                    TextureFormat::Rgba8UnormSrgb
+                } else if formats.contains(&TextureFormat::Bgra8UnormSrgb) {
+                    TextureFormat::Bgra8UnormSrgb
+                } else {
+                    // TODO: If this isn't an sRGB surface (eg. on webgpu), use an sRGB view_format on the SurfaceConfiguration.
+                    // TODO: webgpu doesn't support sRGB surfaces, and requires an sRGB view_format, but that was causing issues on Vulkan
+                    // so it's getting skipped for now.
+                    formats[0]
+                };
                 SurfaceData { surface, format }
             });
 
@@ -215,6 +225,8 @@ pub fn prepare_windows(
                 CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
+            // TODO: Figure out why Vulkan is spitting out tons of validation errors when attempting to use an sRGB view_format on the surface.
+            view_formats: vec![],
         };
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
