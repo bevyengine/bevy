@@ -221,7 +221,6 @@ impl Plugin for RenderPlugin {
                 .init_schedule(ExtractSchedule)
                 .add_system_to_schedule(ExtractSchedule, PipelineCache::extract_shaders);
 
-            // TODO: look closer at the next 2 lines. something looks weird here
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
             render_app.init_resource::<MainWorld>();
             render_app.world.remove_resource::<MainWorld>();
