@@ -5,6 +5,7 @@
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
+/// Systems responsible for transform propagation
 pub mod systems;
 
 #[doc(hidden)]
