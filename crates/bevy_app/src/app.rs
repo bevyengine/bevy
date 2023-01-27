@@ -940,16 +940,16 @@ impl App {
     /// **Note:** This will create the schedule if it does not already exist.
     pub fn edit_schedule(
         &mut self,
-        label: &impl ScheduleLabel,
+        label: impl ScheduleLabel,
         mut f: impl FnMut(&mut Schedule),
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if schedules.get(label).is_none() {
+        if schedules.get(&label).is_none() {
             schedules.insert(label.dyn_clone(), Schedule::new());
         }
 
-        let schedule = schedules.get_mut(label).unwrap();
+        let schedule = schedules.get_mut(&label).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 
