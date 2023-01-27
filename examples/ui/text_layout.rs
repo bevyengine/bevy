@@ -133,8 +133,8 @@ fn spawn_child_node(
         })
         .with_children(|builder| {
             let labels = [
-                (format!("{:?}", align_items), ALIGN_ITEMS_COLOR, 0.),
-                (format!("{:?}", justify_content), JUSTIFY_CONTENT_COLOR, 3.),
+                (format!("{align_items:?}"), ALIGN_ITEMS_COLOR, 0.),
+                (format!("{justify_content:?}"), JUSTIFY_CONTENT_COLOR, 3.),
             ];
             for (text, color, top_margin) in labels {
                 // We nest the text within a parent node because margins and padding can't be directly applied to text nodes currently.
