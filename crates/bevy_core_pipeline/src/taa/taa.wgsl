@@ -73,7 +73,7 @@ fn sample_history(u: f32, v: f32) -> vec3<f32> {
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
     var sample = textureSample(view_target, nearest_sampler, uv).rgb;
 #ifdef TONEMAP
-    let sample = tonemap(sample);
+    sample = tonemap(sample);
 #endif
     return RGB_to_YCoCg(sample);
 }
@@ -85,9 +85,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 
     // Fetch the current sample
     let original_color = textureSample(view_target, nearest_sampler, uv);
-    let current_color = original_color.rgb;
+    var current_color = original_color.rgb;
 #ifdef TONEMAP
-    let current_color = tonemap(current_color);
+    current_color = tonemap(current_color);
 #endif
 
     // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)

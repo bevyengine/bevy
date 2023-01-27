@@ -84,10 +84,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef VELOCITY_PREPASS
-    let clip_position = view.unjittered_view_proj * in.world_position;
-    let clip_position = clip_position.xy / clip_position.w;
-    let previous_clip_position = previous_view_proj * in.previous_world_position;
-    let previous_clip_position = previous_clip_position.xy / previous_clip_position.w;
+    let clip_position_t = view.unjittered_view_proj * in.world_position;
+    let clip_position = clip_position_t.xy / clip_position_t.w;
+    let previous_clip_position_t = previous_view_proj * in.previous_world_position;
+    let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     out.velocity = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 #endif // VELOCITY_PREPASS
 

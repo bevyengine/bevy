@@ -491,6 +491,7 @@ fn prepare_taa_history_textures(
                     TextureFormat::bevy_default()
                 },
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
             };
 
             texture_descriptor.label = Some("taa_history_1_texture");

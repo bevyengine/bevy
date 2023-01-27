@@ -603,6 +603,7 @@ pub fn prepare_prepass_textures(
                             format: VELOCITY_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
                         },
                     )
                 })
