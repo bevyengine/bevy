@@ -274,7 +274,7 @@ pub trait Graph<N, E> {
     /// Returns a mutable reference to the specified edge.
     fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<EdgeMut<E>>;
 
-    /// Returns the `NodeIdx` by a node value when it could be found in the graph.
+    /// Returns the *first found* `EdgeIdx` by a edge value when it could be found in the graph.
     fn find_edge(&self, value: &E) -> Option<EdgeIdx>
     where
         E: PartialEq;

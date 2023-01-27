@@ -20,6 +20,13 @@ fn undirected() {
     let bernhard = graph.add_node("Bernhard");
     assert_eq!(graph.node_count(), 3);
 
+    assert!(graph.contains_node(jakob));
+    assert!(graph.contains_node(edgar));
+    assert!(graph.contains_node(bernhard));
+
+    assert_eq!(graph.find_node(&"Edgar"), Some(edgar));
+    assert_eq!(graph.find_node(&"NoIReallyDon'tExist"), None);
+
     assert_eq!(graph.edge_count(), 0);
     let je = graph.add_edge(jakob, edgar, 12);
     let eb = graph.add_edge(edgar, bernhard, 7);
@@ -28,6 +35,9 @@ fn undirected() {
     assert!(graph.contains_edge_between(jakob, edgar));
     assert!(graph.contains_edge_between(edgar, jakob));
     assert!(!graph.contains_edge_between(jakob, bernhard));
+
+    assert_eq!(graph.find_edge(&12), Some(je));
+    assert_eq!(graph.find_edge(&0), None);
 
     assert_eq!(graph.degree(jakob), 1);
     assert_eq!(graph.degree(edgar), 2);
