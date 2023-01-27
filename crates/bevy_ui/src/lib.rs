@@ -101,12 +101,10 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
-            .add_system(
-                ui_focus_system
-                    .in_set(UiSystem::Focus)
-                    .in_set(CoreSet::PreUpdate)
-                    .after(InputSystem),
-            )
+            .configure_set(UiSystem::Focus.in_set(CoreSet::PreUpdate))
+            .configure_set(UiSystem::Flex.in_set(CoreSet::PreUpdate))
+            .configure_set(UiSystem::Stack.in_set(CoreSet::PreUpdate))
+            .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem))
             // add these systems to front because these must run before transform update systems
             .add_system(
                 widget::text_system
@@ -136,16 +134,11 @@ impl Plugin for UiPlugin {
             )
             .add_system(
                 flex_node_system
-                    .in_set(CoreSet::PostUpdate)
                     .in_set(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate)
                     .after(ModifiesWindows),
             )
-            .add_system(
-                ui_stack_system
-                    .in_set(UiSystem::Stack)
-                    .in_set(CoreSet::PostUpdate),
-            )
+            .add_system(ui_stack_system.in_set(UiSystem::Stack))
             .add_system(
                 update_clipping_system
                     .after(TransformSystem::TransformPropagate)

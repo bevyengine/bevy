@@ -292,7 +292,11 @@ fn main() {
         .configure_set(MySet::BeforeRound.no_default_set().before(CoreSet::Update))
         .configure_set(MySet::AfterRound.no_default_set().after(CoreSet::Update))
         .add_system(new_round_system.in_set(MySet::BeforeRound))
-        .add_system(new_player_system.after(new_round_system).in_set(MySet::BeforeRound))
+        .add_system(
+            new_player_system
+                .after(new_round_system)
+                .in_set(MySet::BeforeRound),
+        )
         .add_system(exclusive_player_system.in_set(MySet::BeforeRound))
         .add_system(score_check_system.in_set(MySet::AfterRound))
         .add_system(
