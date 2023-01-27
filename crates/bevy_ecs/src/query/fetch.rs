@@ -1156,6 +1156,10 @@ impl<T: Component> ChangeTrackers<T> {
         self.component_ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
+
+    pub fn ticks(&self) -> &ComponentTicks {
+        &self.component_ticks
+    }
 }
 
 #[doc(hidden)]
