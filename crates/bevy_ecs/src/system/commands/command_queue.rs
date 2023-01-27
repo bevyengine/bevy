@@ -43,6 +43,9 @@ impl CommandQueue {
     where
         C: Command,
     {
+        // Stores a command alongside its metadata.
+        // `repr(C)` prevents the compiler from reordering the fields,
+        // while `repr(C)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
         struct Packed<T: Command> {
             meta: CommandMeta,
