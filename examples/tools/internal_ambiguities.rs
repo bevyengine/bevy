@@ -6,10 +6,11 @@
 //! This is mostly used for testing that Bevy works as expected, both on your device and on CI.
 //! Consider it an advanced "hello world". You should see an empty window open.
 
-use bevy::prelude::*;
+use bevy::{ecs::schedule::ReportExecutionOrderAmbiguities, prelude::*};
 
 fn main() {
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .insert_resource(ReportExecutionOrderAmbiguities)
         .run();
 }
