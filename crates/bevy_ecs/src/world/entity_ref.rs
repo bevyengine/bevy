@@ -540,9 +540,10 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Gives mutable access to this `EntityMut`'s [`World`] in a temporary scope.
-    pub fn world_scope(&mut self, f: impl FnOnce(&mut World)) {
-        f(self.world);
+    pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
+        let val = f(self.world);
         self.update_location();
+        val
     }
 
     /// Updates the internal entity location to match the current location in the internal
