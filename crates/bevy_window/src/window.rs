@@ -554,7 +554,7 @@ impl WindowResolution {
         self.physical_height = height;
     }
 
-    /// Set the window's scale factor, this may get overriden by the backend.
+    /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f64) {
         let (width, height) = (self.width(), self.height());

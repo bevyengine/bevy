@@ -88,7 +88,7 @@ impl Default for PointLightShadowMap {
 }
 
 /// A light that emits light in a given direction from a central point.
-/// Behaves like a point light in a perfectly absorbant housing that
+/// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -280,13 +280,11 @@ impl CascadeShadowConfig {
     ) -> Self {
         assert!(
             num_cascades > 0,
-            "num_cascades must be positive, but was {}",
-            num_cascades
+            "num_cascades must be positive, but was {num_cascades}",
         );
         assert!(
             (0.0..1.0).contains(&overlap_proportion),
-            "overlap_proportion must be in [0.0, 1.0) but was {}",
-            overlap_proportion
+            "overlap_proportion must be in [0.0, 1.0) but was {overlap_proportion}",
         );
         Self {
             bounds: calculate_cascade_bounds(num_cascades, nearest_bound, shadow_maximum_distance),
@@ -397,8 +395,8 @@ fn calculate_cascade(
     z_near: f32,
     z_far: f32,
 ) -> Cascade {
-    debug_assert!(z_near <= 0.0, "z_near {} must be <= 0.0", z_near);
-    debug_assert!(z_far <= 0.0, "z_far {} must be <= 0.0", z_far);
+    debug_assert!(z_near <= 0.0, "z_near {z_near} must be <= 0.0");
+    debug_assert!(z_far <= 0.0, "z_far {z_far} must be <= 0.0");
     // NOTE: This whole function is very sensitive to floating point precision and instability and
     // has followed instructions to avoid view dependence from the section on cascade shadow maps in
     // Eric Lengyel's Foundations of Game Engine Development 2: Rendering. Be very careful when

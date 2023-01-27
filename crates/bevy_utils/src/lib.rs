@@ -253,7 +253,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 /// // This will print a message when the variable `_catch` gets dropped,
 /// // even if a panic occurs before we reach the end of this scope.
 /// // This is similar to a `try ... catch` block in languages such as C++.
-/// let _catch = OnDrop::new(|| log("Oops, a panic occured and this function didn't complete!"));
+/// let _catch = OnDrop::new(|| log("Oops, a panic occurred and this function didn't complete!"));
 ///
 /// // Some code that may panic...
 /// // ...

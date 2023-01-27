@@ -62,7 +62,7 @@ mod name_formatting_tests {
     }
 
     #[test]
-    fn path_seperated() {
+    fn path_separated() {
         assert_eq!(
             get_short_name("bevy_prelude::make_fun_game"),
             "make_fun_game".to_string()
