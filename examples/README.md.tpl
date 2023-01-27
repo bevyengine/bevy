@@ -121,7 +121,7 @@ You can view the logs with the following command:
 adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
 ```
 
-In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more informations.
+In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more information.
 
 Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
 
