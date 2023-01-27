@@ -13,6 +13,8 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
+use super::unsafe_world_cell::UnsafeWorldCellEntityRef;
+
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
 pub struct EntityRef<'w> {
@@ -38,6 +40,14 @@ impl<'w> EntityRef<'w> {
             entity,
             location,
         }
+    }
+
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCellEntityRef<'w> {
+        UnsafeWorldCellEntityRef::new(
+            self.world.as_unsafe_world_cell_readonly(),
+            self.entity,
+            self.location,
+        )
     }
 
     #[inline]
@@ -78,39 +88,16 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - the storage type provided is correct for T
-        // - world access is immutable, lifetime tied to `&self`
-        unsafe {
-            self.world
-                .get_component_with_type(
-                    TypeId::of::<T>(),
-                    T::Storage::STORAGE_TYPE,
-                    self.entity,
-                    self.location,
-                )
-                // SAFETY: returned component is of type T
-                .map(|value| value.deref::<T>())
-        }
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            self.world.get_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-        }
+        // SAFETY: &self implies shared access
+        unsafe { self.as_unsafe_world_cell_readonly().get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -121,55 +108,11 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity location and entity is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
+        // SAFETY: &self implies shared access
         unsafe {
-            self.world.get_ticks(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
+            self.as_unsafe_world_cell_readonly()
+                .get_change_ticks_by_id(component_id)
         }
-    }
-
-    /// Gets a mutable reference to the component of type `T` associated with
-    /// this entity without ensuring there are no other borrows active and without
-    /// ensuring that the returned reference will stay valid.
-    ///
-    /// # Safety
-    ///
-    /// - The returned reference must never alias a mutable borrow of this component.
-    /// - The returned reference must not be used after this component is moved which
-    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
-    ///   operation on this world (non-exhaustive list).
-    #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(
-        &self,
-        last_change_tick: u32,
-        change_tick: u32,
-    ) -> Option<Mut<'w, T>> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - returned component is of type T
-        // - the storage type provided is correct for T
-        self.world
-            .get_component_and_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-            .map(|(value, ticks)| Mut {
-                // SAFETY:
-                // - returned component is of type T
-                // - Caller guarantees that this reference will not alias.
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
-            })
     }
 }
 
@@ -184,19 +127,8 @@ impl<'w> EntityRef<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity_location and entity are valid
-        // . component_id is valid as checked by the line above
-        // - the storage type is accurate as checked by the fetched ComponentInfo
-        unsafe {
-            self.world.get_component(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-        }
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
     }
 }
 
@@ -216,6 +148,21 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCellEntityRef<'_> {
+        UnsafeWorldCellEntityRef::new(
+            self.world.as_unsafe_world_cell_readonly(),
+            self.entity,
+            self.location,
+        )
+    }
+    fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCellEntityRef<'_> {
+        UnsafeWorldCellEntityRef::new(
+            self.world.as_unsafe_world_cell(),
+            self.entity,
+            self.location,
+        )
+    }
+
     /// # Safety
     ///
     ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
@@ -271,45 +218,22 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        // SAFETY:
-        // - entity location is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            self.world
-                .get_component_with_type(
-                    TypeId::of::<T>(),
-                    T::Storage::STORAGE_TYPE,
-                    self.entity,
-                    self.location,
-                )
-                // SAFETY: returned component is of type T
-                .map(|value| value.deref::<T>())
-        }
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
 
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: world access is unique, and lifetimes enforce correct usage of returned borrow
-        unsafe { self.get_unchecked_mut::<T>() }
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.as_unsafe_world_cell().get_mut() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY:
-        // - entity location is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            self.world.get_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-        }
+        // SAFETY: &self implies shared access
+        unsafe { self.as_unsafe_world_cell_readonly().get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -320,52 +244,11 @@ impl<'w> EntityMut<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity location is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
+        // SAFETY: &self implies shared access
         unsafe {
-            self.world.get_ticks(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
+            self.as_unsafe_world_cell_readonly()
+                .get_change_ticks_by_id(component_id)
         }
-    }
-
-    /// Gets a mutable reference to the component of type `T` associated with
-    /// this entity without ensuring there are no other borrows active and without
-    /// ensuring that the returned reference will stay valid.
-    ///
-    /// # Safety
-    ///
-    /// - The returned reference must never alias a mutable borrow of this component.
-    /// - The returned reference must not be used after this component is moved which
-    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
-    ///   operation on this world (non-exhaustive list).
-    #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - returned component is of type T
-        // - the storage type provided is correct for T
-        self.world
-            .get_component_and_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-            .map(|(value, ticks)| Mut {
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: TicksMut::from_tick_cells(
-                    ticks,
-                    self.world.last_change_tick(),
-                    self.world.read_change_tick(),
-                ),
-            })
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -712,7 +595,11 @@ impl<'w> EntityMut<'w> {
     }
 }
 
-fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
+pub(crate) fn contains_component_with_type(
+    world: &World,
+    type_id: TypeId,
+    location: EntityLocation,
+) -> bool {
     if let Some(component_id) = world.components.get_id(type_id) {
         contains_component_with_id(world, component_id, location)
     } else {
@@ -720,7 +607,7 @@ fn contains_component_with_type(world: &World, type_id: TypeId, location: Entity
     }
 }
 
-fn contains_component_with_id(
+pub(crate) fn contains_component_with_id(
     world: &World,
     component_id: ComponentId,
     location: EntityLocation,
@@ -857,7 +744,7 @@ pub(crate) unsafe fn get_mut<T: Component>(
     // SAFETY:
     // - world access is unique
     // - entity location is valid
-    // - and returned component is of type T
+    // - returned component is of type T
     world
         .get_component_and_ticks_with_type(
             TypeId::of::<T>(),
@@ -888,7 +775,7 @@ pub(crate) unsafe fn get_mut_by_id(
     // SAFETY:
     // - world access is unique
     // - entity location is valid
-    // - and returned component is of type T
+    // - returned component is of type T
     world
         .get_component_and_ticks(component_id, info.storage_type(), entity, location)
         .map(|(value, ticks)| MutUntyped {
