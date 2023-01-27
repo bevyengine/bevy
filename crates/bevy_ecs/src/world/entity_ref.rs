@@ -572,8 +572,7 @@ impl<'w> EntityMut<'w> {
         let _cleanup_guard = bevy_utils::OnDrop::new(move || {
             // SAFETY:
             // - When this closure gets called at the end of the outer scope,
-            //   then any other mutable references to `this_ptr` will have been released,
-            //   which ensures that this will not alias.
+            //   the reference to `self` will be inactive, which ensures that this will not alias.
             // - The pointer must otherwise be safe to dereference, since it was obtained
             //   from a mutable reference.
             let this = unsafe { &mut *this_ptr };
