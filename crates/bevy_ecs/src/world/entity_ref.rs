@@ -544,11 +544,6 @@ impl<'w> EntityMut<'w> {
         // Erase the lifetime of self, so we can get around the borrow checker.
         let this_ptr = self as *mut Self;
 
-        // Make sure `self` cannot get observed in this scope.
-        // NOTE: This is probably unnecessary, but we are excercising extreme caution here.
-        #[allow(clippy::forget_ref)]
-        std::mem::forget(self);
-
         // Update the stored `EntityLocation` for this instance.
         // This will get called at the end of this scope, even if the closure `f` unwinds.
         let _cleanup_guard = bevy_utils::OnDrop::new(move || {
@@ -562,19 +557,7 @@ impl<'w> EntityMut<'w> {
             this.update_location();
         });
 
-        {
-            // SAFETY:
-            // - `this_ptr` does not have any current aliased mutable references.
-            //   `this` will get released at the end of the current scope, which ensures
-            //   that it won't alias when `_cleanup_guard` gets called.
-            // - The pointer must otherwise be safe to dereference, since it was obtained
-            //   from a mutable reference.
-            let this = unsafe { &mut *this_ptr };
-            f(this.world);
-
-            // `this` will get released at the end of this scope,
-            // which allows `_cleanup_guard` to safely take a reference to
-        }
+        f(self.world);
     }
 
     /// Updates the internal entity location to match the current location in the internal
