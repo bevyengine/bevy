@@ -25,6 +25,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
 use std::ffi::OsString;
+use std::marker::PhantomData;
 use std::ops::Range;
 use std::path::PathBuf;
 
@@ -106,8 +107,18 @@ impl Plugin for TaskPoolPlugin {
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(tick_global_task_pools_on_main_thread.in_set(bevy_app::CoreSet::Last));
+        app.add_system(tick_global_task_pools.in_set(bevy_app::CoreSet::Last));
     }
+}
+/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
+pub struct NonSendMarker(PhantomData<*mut ()>);
+
+/// A system used to check and advanced our task pools.
+///
+/// Calls [`tick_global_task_pools_on_main_thread`],
+/// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
+fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
+    tick_global_task_pools_on_main_thread();
 }
 
 /// Keeps a count of rendered frames since the start of the app
