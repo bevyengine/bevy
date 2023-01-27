@@ -96,6 +96,7 @@ impl Debug for App {
 /// ```rust
 /// # use bevy_app::{App, AppLabel, SubApp};
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::scheduling::ScheduleLabel;
 ///
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
@@ -113,7 +114,7 @@ impl Debug for App {
 /// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
 /// sub_app.insert_resource(Val(100));
-/// let mut example_schedule = Schedule::single_threaded();
+/// let mut example_schedule = Schedule::new();
 /// example_schedule.add_system(|counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
@@ -504,7 +505,7 @@ impl App {
     /// let app = App::empty()
     ///     .init_resource::<Schedules>()
     ///     .add_default_schedules()
-    ///     .add_default_sets();
+    ///     .update();
     /// ```
     pub fn add_default_schedules(&mut self) -> &mut Self {
         self.add_schedule(CoreSchedule::Outer, CoreSchedule::outer_schedule());
