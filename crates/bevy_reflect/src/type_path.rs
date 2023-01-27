@@ -93,3 +93,43 @@ pub trait TypePath: 'static {
         None
     }
 }
+
+/// 
+pub trait DynamicTypePath {
+    /// See [`TypePath::type_path`].
+    fn reflect_type_path(&self) -> &str;
+
+    /// See [`TypePath::short_type_path`].
+    fn reflect_short_type_path(&self) -> &str;
+
+    /// See [`TypePath::type_ident`].
+    fn reflect_type_ident(&self) -> Option<&str>;
+
+    /// See [`TypePath::crate_name`].
+    fn reflect_crate_name(&self) -> Option<&str>;
+
+    /// See [`TypePath::module_path`].
+    fn reflect_module_path(&self) -> Option<&str>;
+}
+
+impl<T: TypePath> DynamicTypePath for T {
+    fn reflect_type_path(&self) -> &str {
+        Self::type_path()
+    }
+
+    fn reflect_short_type_path(&self) -> &str {
+        Self::short_type_path()
+    }
+
+    fn reflect_type_ident(&self) -> Option<&str> {
+        Self::type_ident()
+    }
+
+    fn reflect_crate_name(&self) -> Option<&str> {
+        Self::crate_name()
+    }
+
+    fn reflect_module_path(&self) -> Option<&str> {
+        Self::module_path()
+    }
+}

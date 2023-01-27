@@ -5,7 +5,7 @@ use crate::{
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map,
     MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize,
     TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnitVariantInfo, UnnamedField,
-    ValueInfo, VariantFieldIter, VariantInfo, VariantType,
+    ValueInfo, VariantFieldIter, VariantInfo, VariantType, DynamicTypePath
 };
 
 use crate::utility::{GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell};
@@ -333,6 +333,11 @@ macro_rules! impl_reflect_for_veclike {
             fn get_type_info(&self) -> &'static TypeInfo {
                 <Self as Typed>::type_info()
             }
+            
+            #[inline]
+            fn get_type_path(&self) -> &dyn DynamicTypePath {
+                self
+            }
 
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
@@ -533,6 +538,11 @@ impl<K: FromReflect + TypePath + Eq + Hash, V: FromReflect + TypePath> Reflect f
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
+    }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -668,6 +678,11 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
 
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
+    }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
     }
 
     #[inline]
@@ -886,6 +901,11 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
+    }
 
     #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -1053,6 +1073,11 @@ impl Reflect for Cow<'static, str> {
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
+    }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -1184,6 +1209,11 @@ impl Reflect for &'static Path {
 
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
+    }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {

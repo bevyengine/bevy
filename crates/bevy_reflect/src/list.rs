@@ -6,7 +6,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, DynamicTypePath,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -238,6 +238,11 @@ impl Reflect for DynamicList {
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
+    }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
     }
 
     #[inline]

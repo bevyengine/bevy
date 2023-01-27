@@ -6,7 +6,7 @@ use crate::utility::GenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List,
     ListInfo, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, Typed,
+    TypeRegistration, Typed, DynamicTypePath,
 };
 
 impl<T: smallvec::Array + TypePath + Send + Sync> Array for SmallVec<T>
@@ -94,6 +94,11 @@ where
 
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
+    }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {

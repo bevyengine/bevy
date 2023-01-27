@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    TypeInfo, Typed, DynamicTypePath,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -389,6 +389,11 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
+    }
+            
+    #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
     }
 
     #[inline]
