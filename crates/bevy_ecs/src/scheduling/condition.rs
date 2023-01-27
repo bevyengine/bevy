@@ -29,6 +29,20 @@ pub mod common_conditions {
     use crate::system::{Res, Resource};
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the first time the condition is run and false every time after
+    pub fn run_once() -> impl FnMut() -> bool {
+        let mut has_run = false;
+        move || {
+            if !has_run {
+                has_run = true;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists.
     pub fn resource_exists<T>() -> impl FnMut(Option<Res<T>>) -> bool
     where

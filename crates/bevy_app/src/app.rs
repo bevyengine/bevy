@@ -2,7 +2,10 @@ use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
-    scheduling::{apply_state_transition, BoxedScheduleLabel, ScheduleLabel},
+    scheduling::{
+        apply_state_transition, common_conditions::run_once as run_once_condition,
+        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, ScheduleLabel,
+    },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
@@ -313,7 +316,14 @@ impl App {
     pub fn add_state<S: States>(&mut self) -> &mut Self {
         self.init_resource::<State<S>>();
         self.init_resource::<NextState<S>>();
-        self.add_system(apply_state_transition::<S>.in_set(CoreSet::StateTransitions));
+        self.add_systems(
+            (
+                run_enter_schedule::<S>.run_if(run_once_condition()),
+                apply_state_transition::<S>,
+            )
+                .chain()
+                .in_set(CoreSet::StateTransitions),
+        );
 
         let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
