@@ -77,8 +77,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         JustifyContent::FlexStart,
                         JustifyContent::Center,
                         JustifyContent::FlexEnd,
-                        JustifyContent::SpaceAround,
                         JustifyContent::SpaceEvenly,
+                        JustifyContent::SpaceAround,
                         JustifyContent::SpaceBetween,
                     ];
                     let alignments = [
