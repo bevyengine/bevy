@@ -10,7 +10,9 @@ use crate::{
         DirectedGraph, Graph,
     },
     iters,
-    utils::{iter_choice::IterChoice, vecmap::VecMap, wrapped_iterator::WrappedIterator},
+    utils::{
+        iter_choice::IterChoice, vecmap::VecMap, wrapped_indices_iterator::WrappedIndicesIterator,
+    },
 };
 
 type SimpleListStorage = Vec<(NodeIdx, EdgeIdx)>;
@@ -145,8 +147,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         if self.contains_node(index) {
             let edges_to_remove = self
                 .edges_of(index)
-                .into_inner()
-                .cloned()
+                .into_indices()
                 .collect::<Vec<EdgeIdx>>();
             for edge_idx in edges_to_remove {
                 unsafe {

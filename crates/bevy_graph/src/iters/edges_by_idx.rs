@@ -8,7 +8,7 @@ use crate::{
         keys::EdgeIdx,
         Graph,
     },
-    utils::wrapped_iterator::WrappedIterator,
+    utils::wrapped_indices_iterator::WrappedIndicesIterator,
 };
 
 /// An iterator which converts `(&)EdgeIdx` to a `EdgeRef<E>` of the graph
@@ -32,13 +32,24 @@ impl<'g, E: 'g, B: Borrow<EdgeIdx>, I: Iterator<Item = B>> EdgesByIdx<'g, E, B, 
     }
 }
 
-impl<'g, E: 'g, B: Borrow<EdgeIdx>, I: Iterator<Item = B>> WrappedIterator<B>
-    for EdgesByIdx<'g, E, B, I>
+impl<'g, E: 'g, I: Iterator<Item = &'g EdgeIdx>> WrappedIndicesIterator<EdgeIdx>
+    for EdgesByIdx<'g, E, &'g EdgeIdx, I>
 {
-    type Inner = I;
+    type IndicesIter = std::iter::Cloned<I>;
 
     #[inline]
-    fn into_inner(self) -> Self::Inner {
+    fn into_indices(self) -> Self::IndicesIter {
+        self.inner.cloned()
+    }
+}
+
+impl<'g, E: 'g, I: Iterator<Item = EdgeIdx>> WrappedIndicesIterator<EdgeIdx>
+    for EdgesByIdx<'g, E, EdgeIdx, I>
+{
+    type IndicesIter = I;
+
+    #[inline]
+    fn into_indices(self) -> Self::IndicesIter {
         self.inner
     }
 }

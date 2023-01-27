@@ -4,7 +4,7 @@ use bevy_graph::{
         map::SimpleMapGraph,
         Graph,
     },
-    utils::wrapped_iterator::WrappedIterator,
+    utils::wrapped_indices_iterator::WrappedIndicesIterator,
 };
 use hashbrown::HashSet;
 
@@ -19,18 +19,20 @@ fn undirected() {
     let jakob = graph.add_node("Jakob");
     let edgar = graph.add_node("Edgar");
     let bernhard = graph.add_node("Bernhard");
-    assert_eq!(graph.node_count(), 3);
+    let no_friends_manny = graph.add_node("No Friends Manny");
+    assert_eq!(graph.node_count(), 4);
 
     assert!(graph.contains_node(jakob));
     assert!(graph.contains_node(edgar));
     assert!(graph.contains_node(bernhard));
+    assert!(graph.contains_node(no_friends_manny));
 
     assert_eq!(graph.find_node(&"Edgar"), Some(edgar));
     assert_eq!(graph.find_node(&"NoIReallyDon'tExist"), None);
 
     assert_eq!(
-        &graph.node_indices().collect::<HashSet<NodeIdx>>(),
-        &[jakob, edgar, bernhard].into()
+        graph.node_indices().collect::<HashSet<NodeIdx>>(),
+        [jakob, edgar, bernhard, no_friends_manny].into()
     );
 
     assert_eq!(graph.edge_count(), 0);
@@ -45,36 +47,49 @@ fn undirected() {
     assert_eq!(graph.find_edge(&12), Some(je));
     assert_eq!(graph.find_edge(&0), None);
 
+    assert_eq!(
+        graph.edge_indices().collect::<HashSet<EdgeIdx>>(),
+        [je, eb].into()
+    );
+
     assert_eq!(graph.degree(jakob), 1);
     assert_eq!(graph.degree(edgar), 2);
 
     assert_eq!(
-        &graph
+        graph
             .edges_of(jakob)
-            .into_inner()
-            .collect::<HashSet<&EdgeIdx>>(),
-        &[&je].into()
+            .into_indices()
+            .collect::<HashSet<EdgeIdx>>(),
+        [je].into()
     );
     assert_eq!(
-        &graph
+        graph
             .edges_of(edgar)
-            .into_inner()
-            .collect::<HashSet<&EdgeIdx>>(),
-        &[&je, &eb].into()
+            .into_indices()
+            .collect::<HashSet<EdgeIdx>>(),
+        [je, eb].into()
     );
 
     assert_eq!(
-        &graph
+        graph
             .neighbors(jakob)
-            .into_inner()
-            .collect::<HashSet<&NodeIdx>>(),
-        &[&edgar].into()
+            .into_indices()
+            .collect::<HashSet<NodeIdx>>(),
+        [edgar].into()
     );
     assert_eq!(
-        &graph
+        graph
             .neighbors(edgar)
-            .into_inner()
-            .collect::<HashSet<&NodeIdx>>(),
-        &[&jakob, &bernhard].into()
+            .into_indices()
+            .collect::<HashSet<NodeIdx>>(),
+        [jakob, bernhard].into()
+    );
+
+    assert_eq!(
+        graph
+            .isolated()
+            .into_indices()
+            .collect::<HashSet<NodeIdx>>(),
+        [no_friends_manny].into()
     );
 }

@@ -4,5 +4,5 @@ pub mod iter_choice;
 pub mod vecmap;
 /// Set-like methods for `Vec<T>`
 pub mod vecset;
-/// Trait with helping function for getting the inner iterator of a wrapping iterator
-pub mod wrapped_iterator;
+/// Trait with helping function for yielding the index instead of the value.
+pub mod wrapped_indices_iterator;

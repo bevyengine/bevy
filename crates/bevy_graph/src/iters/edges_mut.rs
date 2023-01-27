@@ -1,9 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    graphs::edge::{Edge, EdgeMut},
-    utils::wrapped_iterator::WrappedIterator,
-};
+use crate::graphs::edge::{Edge, EdgeMut};
 
 /// An iterator which converts `&'g mut Edge<E>` to a `EdgeMut<'g, E>`
 pub struct EdgesMut<'g, E: 'g, I: Iterator<Item = &'g mut Edge<E>>> {
@@ -18,17 +15,6 @@ impl<'g, E: 'g, I: Iterator<Item = &'g mut Edge<E>>> EdgesMut<'g, E, I> {
             inner,
             phantom: PhantomData,
         }
-    }
-}
-
-impl<'g, E: 'g, I: Iterator<Item = &'g mut Edge<E>>> WrappedIterator<&'g mut Edge<E>>
-    for EdgesMut<'g, E, I>
-{
-    type Inner = I;
-
-    #[inline]
-    fn into_inner(self) -> Self::Inner {
-        self.inner
     }
 }
 

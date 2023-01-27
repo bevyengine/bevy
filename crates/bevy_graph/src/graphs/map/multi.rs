@@ -11,7 +11,9 @@ use crate::{
         DirectedGraph, Graph,
     },
     iters,
-    utils::{iter_choice::IterChoice, vecset::VecSet, wrapped_iterator::WrappedIterator},
+    utils::{
+        iter_choice::IterChoice, vecset::VecSet, wrapped_indices_iterator::WrappedIndicesIterator,
+    },
 };
 
 type MultiMapStorage = HashMap<NodeIdx, Vec<EdgeIdx>>;
@@ -146,8 +148,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         if self.contains_node(index) {
             let edges_to_remove = self
                 .edges_of(index)
-                .into_inner()
-                .cloned()
+                .into_indices()
                 .collect::<Vec<EdgeIdx>>();
             for edge_idx in edges_to_remove {
                 unsafe {

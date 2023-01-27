@@ -12,7 +12,7 @@ pub mod keys;
 
 use slotmap::HopSlotMap;
 
-use crate::{error::GraphError, utils::wrapped_iterator::WrappedIterator};
+use crate::{error::GraphError, utils::wrapped_indices_iterator::WrappedIndicesIterator};
 
 use self::{
     edge::{Edge, EdgeMut, EdgeRef},
@@ -56,92 +56,92 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type EdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIterator<&'e EdgeIdx>
+    type EdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIndicesIterator<EdgeIdx>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type EdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>> + WrappedIterator<&'e EdgeIdx>
+    type EdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>> + WrappedIndicesIterator<EdgeIdx>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type Neighbors<'n>: Iterator<Item = &'n N> + WrappedIterator<&'n NodeIdx>
+    type Neighbors<'n>: Iterator<Item = &'n N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type NeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<&'n NodeIdx>
+    type NeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type Isolated<'n>: Iterator<Item = &'n N> + WrappedIterator<NodeIdx>
+    type Isolated<'n>: Iterator<Item = &'n N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type IsolatedMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<NodeIdx>
+    type IsolatedMut<'n>: Iterator<Item = &'n mut N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type IncomingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIterator<&'e EdgeIdx>
+    type IncomingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIndicesIterator<EdgeIdx>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type IncomingEdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>> + WrappedIterator<&'e EdgeIdx>
+    type IncomingEdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>> + WrappedIndicesIterator<EdgeIdx>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type OutgoingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIterator<&'e EdgeIdx>
+    type OutgoingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>> + WrappedIndicesIterator<EdgeIdx>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type OutgoingEdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>> + WrappedIterator<&'e EdgeIdx>
+    type OutgoingEdgesOfMut<'e>: Iterator<Item = EdgeMut<'e, E>> + WrappedIndicesIterator<EdgeIdx>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type InNeighbors<'n>: Iterator<Item = &'n N> + WrappedIterator<&'n NodeIdx>
+    type InNeighbors<'n>: Iterator<Item = &'n N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type InNeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<&'n NodeIdx>
+    type InNeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type OutNeighbors<'n>: Iterator<Item = &'n N> + WrappedIterator<&'n NodeIdx>
+    type OutNeighbors<'n>: Iterator<Item = &'n N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type OutNeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<&'n NodeIdx>
+    type OutNeighborsMut<'n>: Iterator<Item = &'n mut N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type Sources<'n>: Iterator<Item = &'n N> + WrappedIterator<NodeIdx>
+    type Sources<'n>: Iterator<Item = &'n N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type SourcesMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<NodeIdx>
+    type SourcesMut<'n>: Iterator<Item = &'n mut N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type Sinks<'n>: Iterator<Item = &'n N> + WrappedIterator<NodeIdx>
+    type Sinks<'n>: Iterator<Item = &'n N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type SinksMut<'n>: Iterator<Item = &'n mut N> + WrappedIterator<NodeIdx>
+    type SinksMut<'n>: Iterator<Item = &'n mut N> + WrappedIndicesIterator<NodeIdx>
     where
         Self: 'n,
         N: 'n;

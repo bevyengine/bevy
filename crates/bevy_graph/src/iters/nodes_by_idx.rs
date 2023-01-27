@@ -4,7 +4,7 @@ use slotmap::HopSlotMap;
 
 use crate::{
     graphs::{keys::NodeIdx, Graph},
-    utils::wrapped_iterator::WrappedIterator,
+    utils::wrapped_indices_iterator::WrappedIndicesIterator,
 };
 
 /// An iterator which converts `(&)NodeIdx` to a `&'g N` of the graph
@@ -28,13 +28,24 @@ impl<'g, N: 'g, B: Borrow<NodeIdx>, I: Iterator<Item = B>> NodesByIdx<'g, N, B, 
     }
 }
 
-impl<'g, N: 'g, B: Borrow<NodeIdx>, I: Iterator<Item = B>> WrappedIterator<B>
-    for NodesByIdx<'g, N, B, I>
+impl<'g, N: 'g, I: Iterator<Item = &'g NodeIdx>> WrappedIndicesIterator<NodeIdx>
+    for NodesByIdx<'g, N, &'g NodeIdx, I>
 {
-    type Inner = I;
+    type IndicesIter = std::iter::Cloned<I>;
 
     #[inline]
-    fn into_inner(self) -> Self::Inner {
+    fn into_indices(self) -> Self::IndicesIter {
+        self.inner.cloned()
+    }
+}
+
+impl<'g, N: 'g, I: Iterator<Item = NodeIdx>> WrappedIndicesIterator<NodeIdx>
+    for NodesByIdx<'g, N, NodeIdx, I>
+{
+    type IndicesIter = I;
+
+    #[inline]
+    fn into_indices(self) -> Self::IndicesIter {
         self.inner
     }
 }
