@@ -325,7 +325,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::C);
 
     for (material_handle, controls) in &controllable {
-        let mut material = materials.get_mut(material_handle).unwrap();
+        let mut material = materials.get_mut(material_handle.into_inner()).unwrap();
         material.base_color.set_a(state.alpha);
 
         if controls.color && randomize_colors {
@@ -362,7 +362,7 @@ fn example_control_system(
             labelled.get(label.entity).unwrap().translation() + Vec3::new(0.0, 1.0, 0.0);
 
         let viewport_position = camera
-            .world_to_viewport(camera_global_transform, world_position)
+            .world_to_viewport(camera_global_transform.into_inner(), world_position)
             .unwrap();
 
         style.position.bottom = Val::Px(viewport_position.y);

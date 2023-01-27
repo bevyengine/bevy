@@ -308,7 +308,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d = materials.into_inner().get(material2d_handle).unwrap();
+        let material2d = materials.into_inner().get(material2d_handle.into_inner()).unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -343,7 +343,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping.map(|v| v.into_inner()) {
             if !view.hdr {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
 
@@ -357,7 +357,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
             if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
                 material2d_meshes.get(*visible_entity)
             {
-                if let Some(material2d) = render_materials.get(material2d_handle) {
+                if let Some(material2d) = render_materials.get(material2d_handle.into_inner()) {
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
                         let mesh_key = view_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);

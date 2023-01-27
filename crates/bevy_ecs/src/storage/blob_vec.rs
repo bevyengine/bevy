@@ -588,7 +588,7 @@ mod tests {
         let mut count = 0;
 
         let mut q = world.query::<&Zst>();
-        for &Zst in q.iter(&world) {
+        for _ref in q.iter(&world) {
             count += 1;
         }
 

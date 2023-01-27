@@ -116,7 +116,7 @@ fn animate_sprite(
     for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
+            let texture_atlas = texture_atlases.get(texture_atlas_handle.into_inner()).unwrap();
             sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
         }
     }

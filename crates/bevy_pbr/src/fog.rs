@@ -481,6 +481,6 @@ impl ExtractComponent for FogSettings {
     type Out = Self;
 
     fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
+        Some(item.into_inner().clone())
     }
 }

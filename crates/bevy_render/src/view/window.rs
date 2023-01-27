@@ -92,7 +92,7 @@ fn extract_windows(
 
         let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
-            handle: handle.clone(),
+            handle: handle.into_inner().clone(),
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,

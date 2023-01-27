@@ -883,7 +883,7 @@ mod tests {
         {
             let query = system_state.get(&world);
             assert_eq!(
-                query.iter().collect::<Vec<_>>(),
+                query.iter().map(|v| v.into_inner()).collect::<Vec<_>>(),
                 vec![&A(1)],
                 "exactly one component returned"
             );
@@ -893,7 +893,7 @@ mod tests {
         {
             let query = system_state.get(&world);
             assert_eq!(
-                query.iter().collect::<Vec<_>>(),
+                query.iter().map(|v| v.into_inner()).collect::<Vec<_>>(),
                 vec![&A(1), &A(2)],
                 "components from both archetypes returned"
             );
@@ -923,13 +923,13 @@ mod tests {
             fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
                 let q = self.state_q.get(world);
                 let a = q.get_inner(entity).unwrap();
-                Holder { value: a }
+                Holder { value: a.into_inner() }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
                 let mut components = Vec::new();
                 let q = self.state_q.get(world);
                 for a in q.iter_inner() {
-                    components.push(Holder { value: a });
+                    components.push(Holder { value: a.into_inner() });
                 }
                 components
             }
@@ -954,7 +954,7 @@ mod tests {
                 "both components returned by iter_mut of &mut"
             );
             assert_eq!(
-                query.iter().collect::<Vec<&A>>(),
+                query.iter().map(|v| v.into_inner()).collect::<Vec<&A>>(),
                 vec![&A(1), &A(2)],
                 "both components returned by iter of &mut"
             );

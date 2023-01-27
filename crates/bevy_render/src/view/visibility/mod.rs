@@ -267,7 +267,7 @@ pub fn calculate_bounds(
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
+        if let Some(mesh) = meshes.get(mesh_handle.into_inner()) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).insert(aabb);
             }
@@ -306,7 +306,7 @@ fn visibility_propagate_system(
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility
-            .reset(visibility == Visibility::Inherited || visibility == Visibility::Visible);
+            .reset(*visibility == Visibility::Inherited || *visibility == Visibility::Visible);
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -337,8 +337,8 @@ fn propagate_recursive(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        let visible_in_hierarchy = (parent_visible && visibility == Visibility::Inherited)
-            || visibility == Visibility::Visible;
+        let visible_in_hierarchy = (parent_visible && *visibility == Visibility::Inherited)
+            || *visibility == Visibility::Visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility.reset(visible_in_hierarchy);
         visible_in_hierarchy
@@ -372,7 +372,7 @@ pub fn check_visibility(
     >,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
 
         visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each_mut(
@@ -390,7 +390,7 @@ pub fn check_visibility(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
                     return;
                 }
@@ -407,7 +407,7 @@ pub fn check_visibility(
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                    if !frustum.intersects_obb(model_aabb.into_inner(), &model, true, false) {
                         return;
                     }
                 }
@@ -428,7 +428,7 @@ pub fn check_visibility(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
                     return;
                 }

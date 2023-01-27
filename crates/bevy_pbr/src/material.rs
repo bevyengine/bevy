@@ -17,7 +17,7 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
-    world::FromWorld,
+    world::{FromWorld, Ref},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -345,11 +345,11 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: &'_ Handle<M>,
+        material_handle: Ref<'_, Handle<M>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(material_handle).unwrap();
+        let material = materials.into_inner().get(material_handle.into_inner()).unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -394,7 +394,7 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
-        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping.map(|v| v.into_inner()) {
             if !view.hdr {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
 
@@ -409,8 +409,8 @@ pub fn queue_material_meshes<M: Material>(
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
                 material_meshes.get(*visible_entity)
             {
-                if let Some(material) = render_materials.get(material_handle) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                if let Some(material) = render_materials.get(material_handle.into_inner()) {
+                    if let Some(mesh) = render_meshes.get(mesh_handle.into_inner()) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | view_key;

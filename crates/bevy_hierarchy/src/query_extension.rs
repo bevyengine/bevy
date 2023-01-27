@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use bevy_ecs::{
     entity::Entity,
     query::{ReadOnlyWorldQuery, WorldQuery},
-    system::Query,
+    system::Query, prelude::Component,
 };
 
 use crate::{Children, Parent};
@@ -32,7 +32,7 @@ pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     /// ```
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, Q, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+        Q::ReadOnly: WorldQuery<Item<'w> = <Children as Component>::ReadWrap<'w>>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
     ///
@@ -54,7 +54,7 @@ pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     /// ```
     fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, Q, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+        Q::ReadOnly: WorldQuery<Item<'w> = <Parent as Component>::ReadWrap<'w>>;
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, F>
@@ -62,14 +62,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, 
 {
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, Q, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+        Q::ReadOnly: WorldQuery<Item<'w> = <Children as Component>::ReadWrap<'w>>,
     {
         DescendantIter::new(self, entity)
     }
 
     fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, Q, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+        Q::ReadOnly: WorldQuery<Item<'w> = <Parent as Component>::ReadWrap<'w>>,
     {
         AncestorIter::new(self, entity)
     }
@@ -80,7 +80,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, 
 /// Traverses the hierarchy breadth-first.
 pub struct DescendantIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    Q::ReadOnly: WorldQuery<Item<'w> = <Children as Component>::ReadWrap<'w>>,
 {
     children_query: &'w Query<'w, 's, Q, F>,
     vecdeque: VecDeque<Entity>,
@@ -88,7 +88,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> DescendantIter<'w, 's, Q, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    Q::ReadOnly: WorldQuery<Item<'w> = <Children as Component>::ReadWrap<'w>>,
 {
     /// Returns a new [`DescendantIter`].
     pub fn new(children_query: &'w Query<'w, 's, Q, F>, entity: Entity) -> Self {
@@ -106,7 +106,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for DescendantIter<'w, 's, Q, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    Q::ReadOnly: WorldQuery<Item<'w> = <Children as Component>::ReadWrap<'w>>,
 {
     type Item = Entity;
 
@@ -124,7 +124,7 @@ where
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
 pub struct AncestorIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    Q::ReadOnly: WorldQuery<Item<'w> = <Parent as Component>::ReadWrap<'w>>,
 {
     parent_query: &'w Query<'w, 's, Q, F>,
     next: Option<Entity>,
@@ -132,7 +132,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> AncestorIter<'w, 's, Q, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    Q::ReadOnly: WorldQuery<Item<'w> = <Parent as Component>::ReadWrap<'w>>,
 {
     /// Returns a new [`AncestorIter`].
     pub fn new(parent_query: &'w Query<'w, 's, Q, F>, entity: Entity) -> Self {
@@ -145,7 +145,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for AncestorIter<'w, 's, Q, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    Q::ReadOnly: WorldQuery<Item<'w> = <Parent as Component>::ReadWrap<'w>>,
 {
     type Item = Entity;
 
@@ -182,6 +182,7 @@ mod tests {
 
         let result: Vec<_> = a_query
             .iter_many(children_query.iter_descendants(a))
+            .map(|v| v.into_inner())
             .collect();
 
         assert_eq!([&A(1), &A(2), &A(3)], result.as_slice());
@@ -199,7 +200,7 @@ mod tests {
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);
 
-        let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
+        let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).map(|v| v.into_inner()).collect();
 
         assert_eq!([&A(1), &A(0)], result.as_slice());
     }

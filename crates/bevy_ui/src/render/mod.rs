@@ -256,7 +256,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
 ) {
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
+        if matches!(camera_ui.map(|v| v.into_inner()), Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
         if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (

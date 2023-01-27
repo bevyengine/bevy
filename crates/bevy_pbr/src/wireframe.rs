@@ -117,8 +117,8 @@ fn queue_wireframes(
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
-            |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
+            |(entity, mesh_handle, mesh_uniform): (Entity, Ref<Handle<Mesh>>, Ref<MeshUniform>)| {
+                if let Some(mesh) = render_meshes.get(mesh_handle.into_inner()) {
                     let key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = pipelines.specialize(

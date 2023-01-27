@@ -262,9 +262,9 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(entity, style.into_inner(), *calculated_size, scaling_factor);
             } else {
-                flex_surface.upsert_node(entity, style, scaling_factor);
+                flex_surface.upsert_node(entity, style.into_inner(), scaling_factor);
             }
         }
     }
@@ -276,7 +276,7 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
+        flex_surface.upsert_leaf(entity, style.into_inner(), *calculated_size, scale_factor);
     }
 
     // clean up removed nodes
@@ -290,7 +290,7 @@ pub fn flex_node_system(
         flex_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
-        flex_surface.update_children(entity, children);
+        flex_surface.update_children(entity, children.into_inner());
     }
 
     // compute layouts

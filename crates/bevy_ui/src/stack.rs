@@ -76,7 +76,7 @@ fn insert_context_hierarchy(
         }
     }
 
-    let z_index = zindex_query.get(entity).unwrap_or(&ZIndex::Local(0));
+    let z_index = zindex_query.get(entity).map(|v| v.into_inner()).unwrap_or(&ZIndex::Local(0));
     let (entity_context, z_index) = match z_index {
         ZIndex::Local(value) => (parent_context.unwrap_or(global_context), *value),
         ZIndex::Global(value) => (global_context, *value),
@@ -193,7 +193,7 @@ mod tests {
         let actual_result = ui_stack
             .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, *entity).unwrap().into_inner().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
             (Label("1-2-1")), // ZIndex::Global(-3)

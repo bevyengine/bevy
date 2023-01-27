@@ -326,6 +326,7 @@ pub fn update_directional_light_cascades(
 ) {
     let views = views
         .iter()
+        .map(|(e, g, p, c)| (e, g.into_inner(), p.into_inner(), c.into_inner()))
         .filter_map(|view| match view {
             // TODO: orthographic camera projection support.
             (entity, transform, Projection::Perspective(projection), camera)
@@ -723,7 +724,7 @@ pub fn add_clusters(
     cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
 ) {
     for (entity, config) in &cameras {
-        let config = config.copied().unwrap_or_default();
+        let config = config.map(|v| v.into_inner()).copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         commands
             .entity(entity)
@@ -1183,7 +1184,7 @@ pub(crate) fn assign_lights_to_clusters(
     {
         let clusters = clusters.into_inner();
 
-        if matches!(config, ClusterConfig::None) {
+        if matches!(*config, ClusterConfig::None) {
             if visible_lights.is_some() {
                 commands.entity(view_entity).remove::<VisiblePointLights>();
             }
@@ -1782,7 +1783,7 @@ pub fn update_spot_light_frusta(
         // by applying those as a view transform to shadow map rendering of objects
         let view_backward = transform.back();
 
-        let spot_view = spot_light_view_matrix(transform);
+        let spot_view = spot_light_view_matrix(transform.as_ref());
         let spot_projection = spot_light_projection_matrix(spot_light.outer_angle);
         let view_projection = spot_projection * spot_view.inverse();
 
@@ -1885,7 +1886,7 @@ pub fn check_light_mesh_visibility(
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
 
         for (entity, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
             &mut visible_entity_query
@@ -1894,7 +1895,7 @@ pub fn check_light_mesh_visibility(
                 continue;
             }
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
                 continue;
             }
@@ -1911,7 +1912,7 @@ pub fn check_light_mesh_visibility(
                         view_frusta.iter().zip(view_visible_entities)
                     {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                        if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
+                        if !frustum.intersects_obb(aabb.into_inner(), &transform.compute_matrix(), false, true) {
                             continue;
                         }
 
@@ -1947,7 +1948,7 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.copied().unwrap_or_default();
+                let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -1965,7 +1966,7 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                    let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
                     }
@@ -1974,7 +1975,7 @@ pub fn check_light_mesh_visibility(
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                         let model_to_world = transform.compute_matrix();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
-                        if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                        if !light_sphere.intersects_obb(aabb.as_ref(), &model_to_world) {
                             continue;
                         }
 
@@ -1982,7 +1983,7 @@ pub fn check_light_mesh_visibility(
                             .iter()
                             .zip(cubemap_visible_entities.iter_mut())
                         {
-                            if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                            if frustum.intersects_obb(aabb.as_ref(), &model_to_world, true, true) {
                                 computed_visibility.set_visible_in_view();
                                 visible_entities.entities.push(entity);
                             }
@@ -2011,7 +2012,7 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.copied().unwrap_or_default();
+                let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -2029,7 +2030,7 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                    let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
                     }
@@ -2038,11 +2039,11 @@ pub fn check_light_mesh_visibility(
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                         let model_to_world = transform.compute_matrix();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
-                        if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                        if !light_sphere.intersects_obb(aabb.as_ref(), &model_to_world) {
                             continue;
                         }
 
-                        if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                        if frustum.intersects_obb(aabb.as_ref(), &model_to_world, true, true) {
                             computed_visibility.set_visible_in_view();
                             visible_entities.entities.push(entity);
                         }

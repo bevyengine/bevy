@@ -376,7 +376,7 @@ mod test {
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
-            assert_eq!(global, &GlobalTransform::from_translation(translation));
+            assert_eq!(global.into_inner(), &GlobalTransform::from_translation(translation));
         }
     }
 

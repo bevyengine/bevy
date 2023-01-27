@@ -44,7 +44,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
             type Out = Self;
 
             fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-                Some(item.clone())
+                Some(item.into_inner().clone())
             }
         }
     })

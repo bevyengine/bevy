@@ -310,7 +310,7 @@ macro_rules! impl_debug {
     };
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Ticks<'a> {
     pub(crate) added: &'a Tick,
     pub(crate) changed: &'a Tick,
@@ -561,18 +561,29 @@ pub struct Ref<'a, T: ?Sized> {
     pub(crate) ticks: Ticks<'a>,
 }
 
+impl<'a, T: ?Sized> Clone for Ref<'a, T> {
+    fn clone(&self) -> Self {
+        Ref {
+            value: self.value,
+            ticks: self.ticks.clone(),
+        }
+    }
+}
+
+impl<'a, T: ?Sized> Copy for Ref<'a, T> {}
+
 impl<'a, T: ?Sized> Ref<'a, T> {
     pub fn into_inner(self) -> &'a T {
         self.value
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
+impl<'w, T> IntoIterator for Ref<'w, T>
 where
-    &'a T: IntoIterator,
+    &'w T: IntoIterator,
 {
-    type Item = <&'a T as IntoIterator>::Item;
-    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+    type Item = <&'w T as IntoIterator>::Item;
+    type IntoIter = <&'w T as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.value.into_iter()

@@ -502,7 +502,7 @@ pub fn extract_lights(
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_cubemap_visible_entities = cubemap_visible_entities.clone();
+            let render_cubemap_visible_entities = cubemap_visible_entities.into_inner().clone();
             point_lights_values.push((
                 entity,
                 (
@@ -539,7 +539,7 @@ pub fn extract_lights(
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_visible_entities = visible_entities.clone();
+            let render_visible_entities = visible_entities.into_inner().clone();
             let texel_size =
                 2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
 
@@ -589,7 +589,7 @@ pub fn extract_lights(
         }
 
         // TODO: As above
-        let render_visible_entities = visible_entities.clone();
+        let render_visible_entities = visible_entities.into_inner().clone();
         commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
                 color: directional_light.color,
@@ -599,7 +599,7 @@ pub fn extract_lights(
                 shadow_depth_bias: directional_light.shadow_depth_bias,
                 // The factor of SQRT_2 is for the worst-case diagonal offset
                 shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
-                cascade_shadow_config: cascade_config.clone(),
+                cascade_shadow_config: cascade_config.into_inner().clone(),
                 cascades: cascades.cascades.clone(),
             },
             render_visible_entities,
@@ -910,7 +910,7 @@ pub fn prepare_lights(
     }
 
     let mut gpu_point_lights = Vec::new();
-    for (index, &(entity, light)) in point_lights.iter().enumerate() {
+    for (index, (&entity, light)) in point_lights.iter().map(|(e,v)| (e, v.clone())).enumerate() {
         let mut flags = PointLightFlags::NONE;
 
         // Lights are sorted, shadow enabled lights are first
@@ -1098,7 +1098,7 @@ pub fn prepare_lights(
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for &(light_entity, light) in point_lights
+        for (light_entity, light) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
             .take(point_light_shadow_maps_count)
@@ -1152,7 +1152,7 @@ pub fn prepare_lights(
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
-                            light_entity,
+                            light_entity: *light_entity,
                             face_index,
                         },
                     ))
@@ -1711,14 +1711,15 @@ pub fn queue_shadows(
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
-            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
-            let visible_entities = match light_entity {
+            let is_directional_light = matches!(light_entity.into_inner(), LightEntity::Directional { .. });
+            let visible_entities = match light_entity.into_inner() {
                 LightEntity::Directional {
                     light_entity,
                     cascade_index,
                 } => directional_light_entities
                     .get(*light_entity)
                     .expect("Failed to get directional light visible entities")
+                    .into_inner()
                     .entities
                     .get(&entity)
                     .expect("Failed to get directional light visible entities for view")
@@ -1730,16 +1731,18 @@ pub fn queue_shadows(
                 } => point_light_entities
                     .get(*light_entity)
                     .expect("Failed to get point light visible entities")
+                    .into_inner()
                     .get(*face_index),
                 LightEntity::Spot { light_entity } => spot_light_entities
                     .get(*light_entity)
-                    .expect("Failed to get spot light visible entities"),
+                    .expect("Failed to get spot light visible entities")
+                    .into_inner(),
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                    if let Some(mesh) = render_meshes.get(mesh_handle.into_inner()) {
                         let mut key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                         if is_directional_light {
@@ -1893,7 +1896,7 @@ impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
     #[inline]
     fn render<'w>(
         _item: &Shadow,
-        view_uniform_offset: &'_ ViewUniformOffset,
+        view_uniform_offset: Ref<'_, ViewUniformOffset>,
         _entity: (),
         light_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

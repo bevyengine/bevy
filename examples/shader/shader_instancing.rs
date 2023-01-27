@@ -117,7 +117,7 @@ fn queue_custom(
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in &material_meshes {
-            if let Some(mesh) = meshes.get(mesh_handle) {
+            if let Some(mesh) = meshes.get(mesh_handle.into_inner()) {
                 let key =
                     view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
@@ -227,17 +227,17 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     fn render<'w>(
         _item: &P,
         _view: (),
-        (mesh_handle, instance_buffer): (&'w Handle<Mesh>, &'w InstanceBuffer),
+        (mesh_handle, instance_buffer): (Ref<'w, Handle<Mesh>>, Ref<'w, InstanceBuffer>),
         meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
+        let gpu_mesh = match meshes.into_inner().get(mesh_handle.into_inner()) {
             Some(gpu_mesh) => gpu_mesh,
             None => return RenderCommandResult::Failure,
         };
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-        pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
+        pass.set_vertex_buffer(1, instance_buffer.into_inner().buffer.slice(..));
 
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {

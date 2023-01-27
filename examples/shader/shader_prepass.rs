@@ -222,7 +222,7 @@ fn update(
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         let handle = material_handle.single();
-        let mut mat = materials.get_mut(handle).unwrap();
+        let mut mat = materials.get_mut(handle.into_inner()).unwrap();
         let out_text;
         if mat.show_depth == 1.0 {
             out_text = "normal";

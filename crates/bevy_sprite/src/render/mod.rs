@@ -362,7 +362,7 @@ pub fn extract_sprites(
         if !visibility.is_visible() {
             continue;
         }
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle.into_inner()) {
             let rect = Some(texture_atlas.textures[atlas_sprite.index]);
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
@@ -518,7 +518,7 @@ pub fn queue_sprites(
 
         for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping.map(|v| v.into_inner()) {
                 if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
 
@@ -704,7 +704,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 
     fn render<'w>(
         _item: &P,
-        view_uniform: &'_ ViewUniformOffset,
+        view_uniform: Ref<'_, ViewUniformOffset>,
         _entity: (),
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -726,7 +726,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     fn render<'w>(
         _item: &P,
         _view: (),
-        sprite_batch: &'_ SpriteBatch,
+        sprite_batch: Ref<'_, SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -753,7 +753,7 @@ impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
     fn render<'w>(
         item: &P,
         _view: (),
-        sprite_batch: &'_ SpriteBatch,
+        sprite_batch: Ref<'_, SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

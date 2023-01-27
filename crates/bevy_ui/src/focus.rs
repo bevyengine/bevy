@@ -169,7 +169,7 @@ pub fn ui_focus_system(
 
     let cursor_position = camera
         .iter()
-        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
+        .filter(|(_, camera_ui)| !is_ui_disabled(camera_ui.map(|v| v.into_inner())))
         .filter_map(|(camera, _)| {
             if let Some(NormalizedRenderTarget::Window(window_id)) =
                 camera.target.normalize(primary_window)
@@ -281,7 +281,7 @@ pub fn ui_focus_system(
             }
         }
 
-        match node.focus_policy.unwrap_or(&FocusPolicy::Block) {
+        match node.focus_policy.map(|v| v.into_inner()).unwrap_or(&FocusPolicy::Block) {
             FocusPolicy::Block => {
                 break;
             }

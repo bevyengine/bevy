@@ -294,7 +294,7 @@ fn find_bone(
         if let Some(cached) = path_cache[idx] {
             if children.contains(&cached) {
                 if let Ok(name) = names.get(cached) {
-                    if name == part {
+                    if name.deref() == part {
                         current_entity = cached;
                         found = true;
                     }
@@ -304,7 +304,7 @@ fn find_bone(
         if !found {
             for child in children.deref() {
                 if let Ok(name) = names.get(*child) {
-                    if name == part {
+                    if name.deref() == part {
                         // Found a children with the right name, continue to the next part
                         current_entity = *child;
                         path_cache[idx] = Some(*child);
@@ -363,7 +363,7 @@ pub fn animation_player(
                 &animations,
                 &names,
                 &transforms,
-                maybe_parent,
+                maybe_parent.map(|v| v.into_inner()),
                 &parents,
                 &children,
             );

@@ -63,7 +63,7 @@ impl Node for UiPassNode {
             return Ok(());
         }
         // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
+        if matches!(camera_ui.map(|v| v.into_inner()), Some(&UiCameraConfig { show_ui: false })) {
             return Ok(());
         }
 
@@ -139,7 +139,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
 
     fn render<'w>(
         _item: &P,
-        view_uniform: &'w ViewUniformOffset,
+        view_uniform: Ref<'w, ViewUniformOffset>,
         _entity: (),
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -162,7 +162,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Ref<'w, UiBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -181,7 +181,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Ref<'w, UiBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -14,7 +14,7 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
-    world::{FromWorld, World},
+    world::{FromWorld, World, Ref},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -531,8 +531,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
             };
 
             let (Some(material), Some(mesh)) = (
-                render_materials.get(material_handle),
-                render_meshes.get(mesh_handle),
+                render_materials.get(material_handle.into_inner()),
+                render_meshes.get(mesh_handle.into_inner()),
             ) else {
                 continue;
             };
@@ -603,7 +603,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     #[inline]
     fn render<'w>(
         _item: &P,
-        view_uniform_offset: &'_ ViewUniformOffset,
+        view_uniform_offset: Ref<'_, ViewUniformOffset>,
         _entity: (),
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

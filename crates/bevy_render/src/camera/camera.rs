@@ -15,7 +15,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Res}, world::{Mut, Ref},
 };
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -400,7 +400,7 @@ impl NormalizedRenderTarget {
 
     pub fn get_render_target_info<'a>(
         &self,
-        resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
+        resolutions: impl IntoIterator<Item = (Entity, Ref<'a, Window>)>,
         images: &Assets<Image>,
     ) -> Option<RenderTargetInfo> {
         match self {
@@ -469,7 +469,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
-    mut cameras: Query<(&mut Camera, &mut T)>,
+    mut cameras: Query<(&mut Camera, Mut<T>)>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -568,7 +568,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                 },
-                visible_entities.clone(),
+                visible_entities.into_inner().clone(),
             ));
         }
     }
