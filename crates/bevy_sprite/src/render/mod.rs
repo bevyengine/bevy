@@ -474,7 +474,7 @@ pub fn queue_sprites(
         };
     }
 
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let sprite_meta = &mut sprite_meta;

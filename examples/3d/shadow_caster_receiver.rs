@@ -100,15 +100,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
-            shadow_projection: OrthographicProjection {
-                left: -10.0,
-                right: 10.0,
-                bottom: -10.0,
-                top: 10.0,
-                near: -50.0,
-                far: 50.0,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },

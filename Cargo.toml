@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.66.0"
+rust-version = "1.67.0"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
@@ -48,7 +48,7 @@ default = [
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -294,6 +294,16 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blend_modes"
+path = "examples/3d/blend_modes.rs"
+
+[package.metadata.example.blend_modes]
+name = "Blend Modes"
+description = "Showcases different blend modes"
 category = "3D Rendering"
 wasm = true
 
@@ -1241,6 +1251,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_prepass"
+path = "examples/shader/shader_prepass.rs"
+
+[package.metadata.example.shader_prepass]
+name = "Material Prepass"
+description = "A shader that uses the depth texture generated in a prepass"
+category = "Shaders"
+wasm = false
+
+
+[[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
 
@@ -1299,6 +1320,16 @@ name = "Array Texture"
 description = "A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture."
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader/texture_binding_array.rs"
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
 
 # Stress tests
 [[package.metadata.category]]

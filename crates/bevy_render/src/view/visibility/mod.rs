@@ -281,7 +281,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection(
+        *frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
             &transform.translation(),
             &transform.back(),
@@ -350,9 +350,6 @@ fn propagate_recursive(
     Ok(())
 }
 
-// the batch size used for check_visibility, chosen because this number tends to perform well
-const VISIBLE_ENTITIES_QUERY_BATCH_SIZE: usize = 1024;
-
 /// System updating the visibility of entities each frame.
 ///
 /// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
@@ -376,9 +373,9 @@ pub fn check_visibility(
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
+
         visible_entities.entities.clear();
-        visible_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_aabb_query.par_iter_mut().for_each_mut(
             |(
                 entity,
                 mut computed_visibility,
@@ -410,7 +407,7 @@ pub fn check_visibility(
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
                         return;
                     }
                 }
@@ -423,8 +420,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_no_aabb_query.par_iter_mut().for_each_mut(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system

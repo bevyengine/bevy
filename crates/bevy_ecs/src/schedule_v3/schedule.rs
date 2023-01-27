@@ -77,7 +77,7 @@ impl Schedules {
         #[allow(unused_variables)]
         for (label, schedule) in self.inner.iter_mut() {
             #[cfg(feature = "trace")]
-            let name = format!("{:?}", label);
+            let name = format!("{label:?}");
             #[cfg(feature = "trace")]
             let _one_span = info_span!("check schedule ticks", name = &name).entered();
             schedule.check_change_ticks(change_tick);
@@ -341,9 +341,11 @@ impl ScheduleGraph {
 
         let id = NodeId::System(self.systems.len());
 
-        if graph_info.sets.is_empty() {
-            if let Some(default) = self.default_set.as_ref() {
-                graph_info.sets.push(default.dyn_clone());
+        if let [single_set] = graph_info.sets.as_slice() {
+            if single_set.is_system_type() {
+                if let Some(default) = self.default_set.as_ref() {
+                    graph_info.sets.push(default.dyn_clone());
+                }
             }
         }
 
@@ -517,8 +519,8 @@ impl ScheduleGraph {
 
         match ambiguous_with {
             Ambiguity::Check => (),
-            Ambiguity::IgnoreWithSet(ambigous_with) => {
-                for set in ambigous_with
+            Ambiguity::IgnoreWithSet(ambiguous_with) => {
+                for set in ambiguous_with
                     .into_iter()
                     .map(|set| self.system_set_ids[&set])
                 {

@@ -13,6 +13,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
+    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
@@ -23,11 +24,11 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 // uncomment for unthrottled FPS
                 // present_mode: bevy::window::PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(GameOfLifeComputePlugin)
@@ -215,7 +216,7 @@ impl render_graph::Node for GameOfLifeNode {
         let pipeline = world.resource::<GameOfLifePipeline>();
 
         let mut pass = render_context
-            .command_encoder
+            .command_encoder()
             .begin_compute_pass(&ComputePassDescriptor::default());
 
         pass.set_bind_group(0, texture_bind_group, &[]);

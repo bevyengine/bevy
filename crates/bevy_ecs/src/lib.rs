@@ -400,7 +400,8 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &A)>()
-            .par_for_each(&world, 2, |(e, &A(i))| {
+            .par_iter(&world)
+            .for_each(|(e, &A(i))| {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
@@ -420,11 +421,10 @@ mod tests {
         let e4 = world.spawn((SparseStored(4), A(1))).id();
         let e5 = world.spawn((SparseStored(5), A(1))).id();
         let results = Arc::new(Mutex::new(Vec::new()));
-        world.query::<(Entity, &SparseStored)>().par_for_each(
-            &world,
-            2,
-            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
-        );
+        world
+            .query::<(Entity, &SparseStored)>()
+            .par_iter(&world)
+            .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
         assert_eq!(
             &*results.lock().unwrap(),
@@ -1536,7 +1536,7 @@ mod tests {
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
         assert_eq!(4, query_min_size![ChangeTrackers<A>, ()],);
         // All the following should set minimum size to 0, as it's impossible to predict
-        // how many entites the filters will trim.
+        // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
         assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
         assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
@@ -1616,7 +1616,7 @@ mod tests {
         assert_eq!(
             world_b.get::<B>(high_non_existent_entity),
             Some(&B(10)),
-            "inserting into newly allocated high / non-continous entity id works"
+            "inserting into newly allocated high / non-continuous entity id works"
         );
 
         let high_non_existent_but_reserved_entity = Entity::new(5, 0);

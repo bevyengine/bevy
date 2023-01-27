@@ -352,20 +352,22 @@ pub fn animation_player(
     parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
-    animation_players.par_for_each_mut(10, |(root, maybe_parent, mut player)| {
-        update_transitions(&mut player, &time);
-        run_animation_player(
-            root,
-            player,
-            &time,
-            &animations,
-            &names,
-            &transforms,
-            maybe_parent,
-            &parents,
-            &children,
-        );
-    });
+    animation_players
+        .par_iter_mut()
+        .for_each_mut(|(root, maybe_parent, mut player)| {
+            update_transitions(&mut player, &time);
+            run_animation_player(
+                root,
+                player,
+                &time,
+                &animations,
+                &names,
+                &transforms,
+                maybe_parent,
+                &parents,
+                &children,
+            );
+        });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -466,7 +468,7 @@ fn apply_animation(
             // any of their descendant Transforms.
             //
             // The system scheduler prevents any other system from mutating Transforms at the same time,
-            // so the only way this fetch can alias is if two AnimationPlayers are targetting the same bone.
+            // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
             // This can only happen if there are two or more AnimationPlayers are ancestors to the same
             // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
             // running AnimationPlayer before animating any entity, this fetch cannot alias.

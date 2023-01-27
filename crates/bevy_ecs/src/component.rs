@@ -498,11 +498,38 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
+    /// Type-erased equivalent of [`Components::resource_id`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices
             .get(&type_id)
             .map(|index| ComponentId(*index))
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Resource` type has not
+    /// yet been initialized using [`Components::init_resource`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ResourceA;
+    ///
+    /// let resource_a_id = world.init_resource::<ResourceA>();
+    ///
+    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.get_resource_id(TypeId::of::<T>())
     }
 
     #[inline]
