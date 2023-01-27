@@ -75,7 +75,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
-    // the product of the transpose with a vector we can just post-multiply instead of pre-multplying.
+    // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
     // this allows us to keep the matrix construction code identical between CPU and GPU.
     let projected_position = offset_position * light_inv_rot;
 

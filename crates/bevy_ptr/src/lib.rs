@@ -461,13 +461,13 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
-        // Implemenation shamelessly borrowed from the currently unstable
+        // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert!(
             self as usize & (align - 1) == 0,
-            "pointer is not aligned. Address {:p} does not have alignemnt {} for type {}",
+            "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,
             align,
             core::any::type_name::<T>(),

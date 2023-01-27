@@ -1537,7 +1537,7 @@ mod tests {
         #[derive(Component)]
         struct Foo;
 
-        fn even_number_of_entities_critiera(query: Query<&Foo>) -> ShouldRun {
+        fn even_number_of_entities_criteria(query: Query<&Foo>) -> ShouldRun {
             if query.iter().len() % 2 == 0 {
                 ShouldRun::Yes
             } else {
@@ -1562,7 +1562,7 @@ mod tests {
             .with_system(spawn_entity.label(Spawn))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criteria(even_number_of_entities_critiera)
+                    .with_run_criteria(even_number_of_entities_criteria)
                     .with_system(count_entities.before(Spawn)),
             );
         stage.run(&mut world);
@@ -1579,7 +1579,7 @@ mod tests {
         #[derive(Component)]
         struct Foo;
 
-        fn even_number_of_entities_critiera(query: Query<&Foo>) -> ShouldRun {
+        fn even_number_of_entities_criteria(query: Query<&Foo>) -> ShouldRun {
             if query.iter().len() % 2 == 0 {
                 ShouldRun::Yes
             } else {
@@ -1599,7 +1599,7 @@ mod tests {
         world.init_resource::<EntityCount>();
         let mut stage_spawn = SystemStage::parallel().with_system(spawn_entity);
         let mut stage_count = SystemStage::parallel()
-            .with_run_criteria(even_number_of_entities_critiera)
+            .with_run_criteria(even_number_of_entities_criteria)
             .with_system(count_entities);
         stage_count.run(&mut world);
         stage_spawn.run(&mut world);
