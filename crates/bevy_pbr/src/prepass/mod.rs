@@ -97,9 +97,7 @@ where
         };
 
         render_app
-            .edit_schedule(&ExtractSchedule, |extract_schedule| {
-                extract_schedule.add_system(extract_camera_prepass_phase);
-            })
+            .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
             .add_system(prepare_prepass_textures.in_set(RenderSet::Prepare))
             .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
