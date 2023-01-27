@@ -1656,6 +1656,10 @@ hidden = true
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 
+[[example]]
+name = "run_criteria"
+path = "examples/ecs/run_criteria.rs"
+
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
