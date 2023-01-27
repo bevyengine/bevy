@@ -1991,24 +1991,35 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.run_schedule_ref(&label)
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
+    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        if let Some((extracted_label, mut schedule)) =
-            self.resource_mut::<Schedules>().remove_entry(label)
-        {
-            schedule.run(self);
-            self.resource_mut::<Schedules>()
-                .insert(extracted_label, schedule);
-        }
+        let (extracted_label, mut schedule) = self
+            .resource_mut::<Schedules>()
+            .remove_entry(label)
+            .unwrap();
+
+        schedule.run(self);
+        self.resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
     }
 }
 
