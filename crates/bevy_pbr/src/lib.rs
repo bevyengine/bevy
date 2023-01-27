@@ -260,6 +260,13 @@ impl Plugin for PbrPlugin {
                     .in_set(RenderLightSystems::PrepareLights)
                     .in_set(RenderSet::Prepare),
             )
+            // A sync is needed after prepare_lights, before prepare_view_uniforms,
+            // because prepare_lights creates new views for shadow mapping
+            .add_system(
+                apply_system_buffers
+                    .after(RenderLightSystems::PrepareLights)
+                    .before(ViewSet::PrepareUniforms),
+            )
             .add_system(
                 render::prepare_clusters
                     .after(render::prepare_lights)
