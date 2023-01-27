@@ -56,19 +56,22 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
-
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
-    - [Build & Run](#build--run)
+    - [Build \& Run](#build--run)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
   - [iOS](#ios)
     - [Setup](#setup-1)
-    - [Build & Run](#build--run-1)
+    - [Build \& Run](#build--run-1)
   - [WASM](#wasm)
     - [Setup](#setup-2)
-    - [Build & Run](#build--run-2)
+    - [Build \& Run](#build--run-2)
+    - [Optimizing](#optimizing)
+      - [1. Tweak your `Cargo.toml`](#1-tweak-your-cargotoml)
+      - [2. Use `wasm-opt` from the binaryen package](#2-use-wasm-opt-from-the-binaryen-package)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -299,6 +302,7 @@ Example | Description
 Example | Description
 --- | ---
 [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
+[Internal Ambiguities](../examples/tools/internal_ambiguities.rs) | Verify that `DefaultPlugins` works, and that the schedule is free of problematic execution order ambiguities.
 [Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
 ## Transforms
