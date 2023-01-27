@@ -55,7 +55,9 @@ impl Plugin for WinitPlugin {
                 CoreStage::PostUpdate,
                 SystemSet::new()
                     .label(ModifiesWindows)
+                    // Update the state of the window before checking if they have been closed to avoid delays and spurious exits
                     .with_system(changed_window.before(exit_on_all_closed))
+                    // Update the state of the window before attempting to despawn to avoid desynchronized state
                     .with_system(despawn_window.after(changed_window)),
             );
 
