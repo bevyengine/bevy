@@ -228,8 +228,8 @@ pub trait Graph<N, E> {
         self.try_add_edge(src, dst, value).unwrap()
     }
 
-    /// Returns `true` if the `node` is preset in the graph.
-    fn has_node(&self, node: NodeIdx) -> bool;
+    /// Returns `true` if the graph contains the `node`.
+    fn contains_node(&self, node: NodeIdx) -> bool;
 
     /// Returns `true` if an edge between the specified nodes exists.
     ///

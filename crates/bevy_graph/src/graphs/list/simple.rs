@@ -104,9 +104,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         dst: NodeIdx,
         value: E,
     ) -> Result<EdgeIdx, GraphError> {
-        if !self.has_node(src) {
+        if !self.contains_node(src) {
             Err(GraphError::NodeNotFound(src))
-        } else if !self.has_node(dst) {
+        } else if !self.contains_node(dst) {
             Err(GraphError::NodeNotFound(dst))
         } else if self.contains_edge_between(src, dst) {
             Err(GraphError::ContainsEdgeBetween)
@@ -129,7 +129,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
-    fn has_node(&self, node: NodeIdx) -> bool {
+    fn contains_node(&self, node: NodeIdx) -> bool {
         self.nodes.contains_key(node)
     }
 
@@ -142,7 +142,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
-        if self.has_node(index) {
+        if self.contains_node(index) {
             let edges_to_remove = self
                 .edges_of(index)
                 .into_inner()
