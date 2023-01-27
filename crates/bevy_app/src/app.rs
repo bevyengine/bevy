@@ -897,10 +897,7 @@ impl App {
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
-}
 
-/// Methods for working with schedules
-impl App {
     /// Adds a new `schedule` to the [`App`] under the provided `label`.
     ///
     /// # Warning
