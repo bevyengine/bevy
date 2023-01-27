@@ -86,7 +86,7 @@ pub enum TransformSystem {
 pub fn transform_propagate_schedule() -> Schedule {
     let mut schedule = Schedule::new();
     schedule
-        .add_system(systems::sync_simple_transforms.before(systems::propagate_transforms))
+        .add_system(systems::sync_simple_transforms)
         .add_system(systems::propagate_transforms);
     schedule
 }
