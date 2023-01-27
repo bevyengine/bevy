@@ -411,7 +411,7 @@ mod menu {
     }
 
     fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
-        let _ = menu_state.set(MenuState::Main);
+        menu_state.set(MenuState::Main);
     }
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
