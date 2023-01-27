@@ -465,6 +465,11 @@ where
         self.into_configs().after(set)
     }
 
+    /// Add this set to the [`OnUpdate(state)`](OnUpdate) set.
+    fn on_update(self, state: impl States) -> SystemConfigs {
+        self.into_configs().on_update(state)
+    }
+
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
@@ -541,6 +546,10 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         }
 
         self
+    }
+
+    fn on_update(self, state: impl States) -> Self {
+        self.in_set(OnUpdate(state))
     }
 
     fn chain(mut self) -> Self {
