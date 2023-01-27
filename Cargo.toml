@@ -1671,6 +1671,7 @@ path = "examples/ecs/run_criteria.rs"
 name = "Run Criteria"
 description = "Demonstrates using Run Criteria function conditions"
 category = "ECS (Entity Component System)"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"
