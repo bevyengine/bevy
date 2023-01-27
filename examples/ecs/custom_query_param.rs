@@ -100,7 +100,7 @@ struct NestedQuery {
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
 struct GenericQuery<T: Component, P: Component> {
-    generic: (&'static T, &'static P),
+    generic: (Ref<'static, T>, Ref<'static, P>),
 }
 
 #[derive(WorldQuery)]
