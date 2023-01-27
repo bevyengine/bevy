@@ -35,7 +35,9 @@ struct DirectionalCascade {
 }
     
 struct DirectionalLight {
+#ifdef MAX_CASCADES_PER_LIGHT
     cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
+#endif
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
