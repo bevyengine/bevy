@@ -60,12 +60,44 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
     )
 }
 
-pub(crate) fn generic_where_clause(
+/// Extends the `where` clause in reflection with any additional bounds needed.
+///
+/// * `where_clause`: existing `where` clause present on the object to be derived
+/// * `active_types`: any types that will be reflected and need an extra trait bound
+/// * `active_trait_bounds`: trait bounds to add to the active types
+/// * `ignored_types`: any types that won't be reflected and need an extra trait bound
+/// * `ignored_trait_bounds`: trait bounds to add to the ignored types
+///
+///
+/// This is mostly used to add additional bounds to reflected objects with generic types.
+/// For reflection purposes, we usually have:
+/// * `active_trait_bounds: Reflect`
+/// * `ignored_trait_bounds: Any + Send + Sync`
+///
+/// For example, the struct:
+/// ```rust
+/// #[derive(Reflect)]
+/// struct Foo<T, U> {
+///     a: T,
+///     #[reflect(ignore)]
+///     b: U
+/// }
+/// ```
+/// will have active types: `[T]` and ignored types: `[U]`
+///
+/// will yield the following `where` clause:
+/// ```ignore
+/// where
+///     T: Reflect,  // active_trait_bounds
+///     U: Any + Send + Sync,  // ignored_trait_bounds
+/// ```
+///
+pub(crate) fn extend_where_clause(
     where_clause: Option<&WhereClause>,
-    active_types: &Vec<Type>,
-    active_trait_bounds: TokenStream,
-    ignored_types: &Vec<Type>,
-    ignored_trait_bounds: TokenStream,
+    active_types: &[Type],
+    active_trait_bounds: &TokenStream,
+    ignored_types: &[Type],
+    ignored_trait_bounds: &TokenStream,
 ) -> TokenStream {
     let mut generic_where_clause = if where_clause.is_some() {
         quote! {#where_clause}
@@ -76,8 +108,6 @@ pub(crate) fn generic_where_clause(
     };
     generic_where_clause.extend(quote! {
         #(#active_types: #active_trait_bounds,)*
-    });
-    generic_where_clause.extend(quote! {
         #(#ignored_types: #ignored_trait_bounds,)*
     });
     generic_where_clause

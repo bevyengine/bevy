@@ -1,8 +1,8 @@
 //! Contains code related specifically to Bevy's type registration.
 
-use crate::utility::generic_where_clause;
+use crate::utility::extend_where_clause;
 use bit_set::BitSet;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Generics, Path, Type};
 
@@ -12,10 +12,12 @@ pub(crate) fn impl_get_type_registration(
     bevy_reflect_path: &Path,
     registration_data: &[Ident],
     generics: &Generics,
-    field_types: &Vec<Type>,
-    ignored_types: &Vec<Type>,
+    active_types: &[Type],
+    ignored_types: &[Type],
+    active_trait_bounds: &TokenStream,
+    ignored_trait_bounds: &TokenStream,
     serialization_denylist: Option<&BitSet<u32>>,
-) -> proc_macro2::TokenStream {
+) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let serialization_data = serialization_denylist.map(|denylist| {
         let denylist = denylist.into_iter();
@@ -25,13 +27,12 @@ pub(crate) fn impl_get_type_registration(
         }
     });
 
-    // Add Typed bound for each active field
-    let where_reflect_clause = generic_where_clause(
+    let where_reflect_clause = extend_where_clause(
         where_clause,
-        field_types,
-        quote! { #bevy_reflect_path::Reflect },
+        active_types,
+        active_trait_bounds,
         ignored_types,
-        quote! { 'static + std::marker::Send + std::marker::Sync },
+        ignored_trait_bounds,
     );
 
     quote! {

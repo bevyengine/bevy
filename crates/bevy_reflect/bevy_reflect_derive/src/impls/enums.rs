@@ -1,7 +1,8 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
-use crate::fq_std::{FQAny, FQBox, FQOption, FQResult};
+use crate::fq_std::{FQAny, FQBox, FQOption, FQResult, FQSend, FQSync};
 use crate::impls::impl_typed;
+use crate::utility::extend_where_clause;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -15,8 +16,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let ref_index = Ident::new("__index_param", Span::call_site());
     let ref_value = Ident::new("__value_param", Span::call_site());
 
-    let ignored_types = reflect_enum.ignored_types();
     let field_types = reflect_enum.active_types();
+    let ignored_types = reflect_enum.ignored_types();
+    let active_trait_bounds = quote! { #bevy_reflect_path::FromReflect };
+    let ignored_trait_bounds = quote! { #FQAny + #FQSend + #FQSync + Default };
 
     let EnumImpls {
         variant_info,
@@ -81,6 +84,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         reflect_enum.meta().generics(),
         &field_types,
         &ignored_types,
+        &active_trait_bounds,
+        &ignored_trait_bounds,
         quote! {
             let variants = [#(#variant_info),*];
             let info = #info_generator;
@@ -89,16 +94,29 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_enum.meta().get_type_registration();
+    let get_type_registration_impl = reflect_enum.meta().get_type_registration(
+        &field_types,
+        &ignored_types,
+        &active_trait_bounds,
+        &ignored_trait_bounds,
+    );
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();
+
+    let where_reflect_clause = extend_where_clause(
+        where_clause,
+        &field_types,
+        &active_trait_bounds,
+        &ignored_types,
+        &ignored_trait_bounds,
+    );
 
     TokenStream::from(quote! {
         #get_type_registration_impl
 
         #typed_impl
 
-        impl #impl_generics #bevy_reflect_path::Enum for #enum_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Enum for #enum_name #ty_generics #where_reflect_clause {
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                  match self {
                     #(#enum_field,)*
@@ -182,7 +200,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #enum_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Reflect for #enum_name #ty_generics #where_reflect_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 ::core::any::type_name::<Self>()

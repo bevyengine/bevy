@@ -1,6 +1,6 @@
-use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
+use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult, FQSend, FQSync};
 use crate::impls::impl_typed;
-use crate::utility::generic_where_clause;
+use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
@@ -17,13 +17,19 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         .active_fields()
         .map(|field| Member::Unnamed(Index::from(field.index)))
         .collect::<Vec<_>>();
-    let ignored_types = reflect_struct.ignored_types();
     let field_types = reflect_struct.active_types();
+    let ignored_types = reflect_struct.ignored_types();
+    let active_trait_bounds = quote! { #bevy_reflect_path::Reflect };
+    let ignored_trait_bounds = quote! { #FQAny + #FQSend + #FQSync };
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let get_type_registration_impl =
-        reflect_struct.get_type_registration(&field_types, &ignored_types);
+    let get_type_registration_impl = reflect_struct.get_type_registration(
+        &field_types,
+        &ignored_types,
+        &active_trait_bounds,
+        &ignored_trait_bounds,
+    );
 
     let hash_fn = reflect_struct
         .meta()
@@ -81,6 +87,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         reflect_struct.meta().generics(),
         &field_types,
         &ignored_types,
+        &active_trait_bounds,
+        &ignored_trait_bounds,
         quote! {
             let fields = [#field_generator];
             let info = #info_generator;
@@ -92,13 +100,12 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
 
-    // Add Reflect bound for each active field
-    let where_reflect_clause = generic_where_clause(
+    let where_reflect_clause = extend_where_clause(
         where_clause,
         &field_types,
-        quote! { #bevy_reflect_path::Reflect + #bevy_reflect_path::Typed },
+        &active_trait_bounds,
         &ignored_types,
-        quote! { 'static + std::marker::Send + std::marker::Sync },
+        &ignored_trait_bounds,
     );
 
     TokenStream::from(quote! {

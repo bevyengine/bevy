@@ -2,7 +2,9 @@ use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
+use proc_macro2::TokenStream;
 use quote::quote;
+use std::collections::HashSet;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
@@ -79,18 +81,6 @@ pub(crate) struct ReflectStruct<'a> {
 pub(crate) struct ReflectEnum<'a> {
     meta: ReflectMeta<'a>,
     variants: Vec<EnumVariant<'a>>,
-}
-
-impl<'a> ReflectEnum<'a> {
-    /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        Vec::default()
-    }
-
-    /// Get a collection of types which are ignored by the reflection API
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        Vec::default()
-    }
 }
 
 /// Represents a field on a struct or tuple struct.
@@ -328,14 +318,27 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
-    pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
+    ///
+    /// * `active_types`: types corresponding to active fields in the object (used to add specific trait bounds)
+    /// * `ignored_types`: types corresponding to ignored fields in the object (used to add specific trait bounds)
+    /// * `active_trait_bounds`: trait bounds to provide for the active types
+    /// * `ignored_trait_bounds`: trait bounds to provide for the ignored types
+    pub fn get_type_registration(
+        &self,
+        active_types: &[Type],
+        ignored_types: &[Type],
+        active_trait_bounds: &TokenStream,
+        ignored_trait_bounds: &TokenStream,
+    ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
             self.type_name,
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
-            &Vec::default(),
-            &Vec::default(),
+            active_types,
+            ignored_types,
+            active_trait_bounds,
+            ignored_trait_bounds,
             None,
         )
     }
@@ -363,11 +366,18 @@ impl<'a> ReflectStruct<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
+    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
+    ///
+    /// * `active_types`: types corresponding to active fields in the struct (used to add specific trait bounds)
+    /// * `ignored_types`: types corresponding to ignored fields in the struct (used to add specific trait bounds)
+    /// * `active_trait_bounds`: trait bounds to provide for the active types
+    /// * `ignored_trait_bounds`: trait bounds to provide for the ignored types
     pub fn get_type_registration(
         &self,
-        field_types: &Vec<Type>,
-        active_types: &Vec<Type>,
+        active_types: &[Type],
+        ignored_types: &[Type],
+        active_trait_bounds: &TokenStream,
+        ignored_trait_bounds: &TokenStream,
     ) -> proc_macro2::TokenStream {
         let reflect_path = self.meta.bevy_reflect_path();
 
@@ -376,42 +386,44 @@ impl<'a> ReflectStruct<'a> {
             reflect_path,
             self.meta.traits().idents(),
             self.meta.generics(),
-            field_types,
             active_types,
+            ignored_types,
+            active_trait_bounds,
+            ignored_trait_bounds,
             Some(&self.serialization_denylist),
         )
     }
 
-    /// Get a collection of types which are exposed to the reflection API
+    /// Get a collection of unique types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
-        self.fields
-            .iter()
-            .filter(move |field| field.attrs.ignore.is_active())
+        let dedup: HashSet<syn::Type> = self
+            .active_fields()
             .map(|field| field.data.ty.clone())
-            .collect::<Vec<_>>()
+            .collect();
+        dedup.into_iter().collect()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
             .iter()
-            .filter(move |field| field.attrs.ignore.is_active())
+            .filter(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of types which are ignored by the reflection API
+    /// Get a collection of unique types which are ignored by the reflection API
     pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.fields
-            .iter()
-            .filter(move |field| field.attrs.ignore.is_ignored())
+        let dedup: HashSet<syn::Type> = self
+            .ignored_fields()
             .map(|field| field.data.ty.clone())
-            .collect::<Vec<_>>()
+            .collect();
+        dedup.into_iter().collect()
     }
 
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
             .iter()
-            .filter(move |field| field.attrs.ignore.is_ignored())
+            .filter(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
@@ -438,5 +450,64 @@ impl<'a> ReflectEnum<'a> {
     /// The complete set of variants in this enum.
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
+    }
+
+    /// Get an iterator of fields which are exposed to the reflection API
+    pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
+        self.variants()
+            .iter()
+            .flat_map(|variant| variant.active_fields())
+    }
+
+    /// Get a collection of unique types which are exposed to the reflection API
+    pub fn active_types(&self) -> Vec<syn::Type> {
+        let dedup: HashSet<syn::Type> = self
+            .active_fields()
+            .map(|field| field.data.ty.clone())
+            .collect();
+        dedup.into_iter().collect()
+    }
+
+    /// Get an iterator of fields which are ignored by the reflection API
+    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
+        self.variants()
+            .iter()
+            .flat_map(|variant| variant.ignored_fields())
+    }
+
+    /// Get a collection of unique types which are ignored to the reflection API
+    pub fn ignored_types(&self) -> Vec<syn::Type> {
+        let dedup: HashSet<syn::Type> = self
+            .ignored_fields()
+            .map(|field| field.data.ty.clone())
+            .collect();
+        dedup.into_iter().collect()
+    }
+}
+
+impl<'a> EnumVariant<'a> {
+    /// Get an iterator of fields which are exposed to the reflection API
+    #[allow(dead_code)]
+    pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
+        self.fields()
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
+    }
+
+    /// Get an iterator of fields which are ignored by the reflection API
+    #[allow(dead_code)]
+    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
+        self.fields()
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_ignored())
+    }
+
+    /// The complete set of fields in this variant.
+    #[allow(dead_code)]
+    pub fn fields(&self) -> &[StructField<'a>] {
+        match &self.fields {
+            EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => fields,
+            EnumVariantFields::Unit => &[],
+        }
     }
 }

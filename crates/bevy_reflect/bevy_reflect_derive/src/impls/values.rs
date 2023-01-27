@@ -23,11 +23,15 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
     let field_types = Vec::default();
     let ignored_types = Vec::default();
+    let active_trait_bounds = quote! {};
+    let ignored_trait_bounds = quote! {};
     let typed_impl = impl_typed(
         type_name,
         meta.generics(),
         &field_types,
         &ignored_types,
+        &active_trait_bounds,
+        &ignored_trait_bounds,
         quote! {
             let info = #bevy_reflect_path::ValueInfo::new::<Self>() #with_docs;
             #bevy_reflect_path::TypeInfo::Value(info)
@@ -36,7 +40,12 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     );
 
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
-    let get_type_registration_impl = meta.get_type_registration();
+    let get_type_registration_impl = meta.get_type_registration(
+        &field_types,
+        &ignored_types,
+        &active_trait_bounds,
+        &ignored_trait_bounds,
+    );
 
     TokenStream::from(quote! {
         #get_type_registration_impl

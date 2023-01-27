@@ -159,38 +159,6 @@ mod tests {
     }
 
     #[test]
-    fn reflect_struct_generics() {
-        #[derive(Reflect)]
-        struct Foo<T, U> {
-            a: T,
-            #[reflect(ignore)]
-            _b: U,
-        }
-
-        // Type that doesn't implement Reflect
-        struct NoReflect(f32);
-
-        let mut foo = Foo::<u32, NoReflect> {
-            a: 42,
-            _b: NoReflect(1.0),
-        };
-
-        let a = *foo.get_field::<u32>("a").unwrap();
-        assert_eq!(a, 42);
-
-        *foo.get_field_mut::<u32>("a").unwrap() += 1;
-        assert_eq!(foo.a, 43);
-
-        // patch Foo with a dynamic struct
-        let mut dynamic_struct = DynamicStruct::default();
-        dynamic_struct.insert("a", 123u32);
-        dynamic_struct.insert("should_be_ignored", 456);
-
-        foo.apply(&dynamic_struct);
-        assert_eq!(foo.a, 123);
-    }
-
-    #[test]
     fn reflect_map() {
         #[derive(Reflect, Hash)]
         #[reflect(Hash)]
