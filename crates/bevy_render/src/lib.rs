@@ -136,7 +136,7 @@ impl RenderSet {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Shedule::apply_system_buffers`] until it is returned to the render world.
+/// via [`Schedule::apply_system_buffers`](bevy_ecs::scheduling::Schedule) until it is returned to the render world.
 ///
 /// This schedule is stored as a resource on the render world,
 /// which is mutable accessed from the main world via the borrow splitting enabled by [`App::add_subapp`].
