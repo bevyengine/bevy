@@ -976,7 +976,7 @@ mod tests {
                 w.entity_mut(id).insert(TestComponent(0));
 
                 // Ensure that the entity location still gets updated even in case of a panic.
-                panic!()
+                panic!("this should get caught by the outer scope")
             });
         }));
         assert!(res.is_err());
