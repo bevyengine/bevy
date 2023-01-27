@@ -15,6 +15,14 @@ enum GameState {
     Game,
 }
 
+impl States for GameState {
+    type Iter = std::array::IntoIter<GameState, 3>;
+
+    fn variants() -> Self::Iter {
+        [GameState::Splash, GameState::Menu, GameState::Game].into_iter()
+    }
+}
+
 // One of the two settings that can be set through the menu. It will be a resource in the app
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
@@ -112,12 +120,12 @@ mod splash {
 
     // Tick the timer, and change state when finished
     fn countdown(
-        mut game_state: ResMut<State<GameState>>,
+        mut game_state: ResMut<NextState<GameState>>,
         time: Res<Time>,
         mut timer: ResMut<SplashTimer>,
     ) {
         if timer.tick(time.delta()).finished() {
-            game_state.set(GameState::Menu).unwrap();
+            game_state.set(GameState::Menu);
         }
     }
 }
@@ -135,7 +143,7 @@ mod game {
         fn build(&self, app: &mut App) {
             app.add_system_to_schedule(OnEnter(GameState::Game), game_setup)
                 .add_system(game.on_update(GameState::Game))
-                .add_system_to_schedule(OnExit(GameState::Game), despawn_screen);
+                .add_system_to_schedule(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
 
@@ -241,11 +249,11 @@ mod game {
     // Tick the timer, and change state when finished
     fn game(
         time: Res<Time>,
-        mut game_state: ResMut<State<GameState>>,
+        mut game_state: ResMut<NextState<GameState>>,
         mut timer: ResMut<GameTimer>,
     ) {
         if timer.tick(time.delta()).finished() {
-            game_state.set(GameState::Menu).unwrap();
+            game_state.set(GameState::Menu);
         }
     }
 }
@@ -273,7 +281,7 @@ mod menu {
                 .add_system_to_schedule(OnEnter(MenuState::Main), main_menu_setup)
                 .add_system_to_schedule(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
                 // Systems to handle the settings menu screen
-                .add_system_to_schedule(settings_menu_setup, &OnEnter(MenuState::Settings))
+                .add_system_to_schedule(OnEnter(MenuState::Settings), settings_menu_setup)
                 .add_system_to_schedule(
                     OnExit(MenuState::Settings),
                     despawn_screen::<OnSettingsMenuScreen>,
@@ -312,6 +320,21 @@ mod menu {
         SettingsDisplay,
         SettingsSound,
         Disabled,
+    }
+
+    impl States for MenuState {
+        type Iter = std::array::IntoIter<MenuState, 5>;
+
+        fn variants() -> Self::Iter {
+            [
+                MenuState::Main,
+                MenuState::Settings,
+                MenuState::SettingsDisplay,
+                MenuState::SettingsSound,
+                MenuState::Disabled,
+            ]
+            .into_iter()
+        }
     }
 
     // Tag component used to tag entities added on the main menu screen
@@ -387,7 +410,7 @@ mod menu {
         }
     }
 
-    fn menu_setup(mut menu_state: ResMut<State<MenuState>>) {
+    fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
         let _ = menu_state.set(MenuState::Main);
     }
 
@@ -790,27 +813,27 @@ mod menu {
             (Changed<Interaction>, With<Button>),
         >,
         mut app_exit_events: EventWriter<AppExit>,
-        mut menu_state: ResMut<State<MenuState>>,
-        mut game_state: ResMut<State<GameState>>,
+        mut menu_state: ResMut<NextState<MenuState>>,
+        mut game_state: ResMut<NextState<GameState>>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Clicked {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {
-                        game_state.set(GameState::Game).unwrap();
-                        menu_state.set(MenuState::Disabled).unwrap();
+                        game_state.set(GameState::Game);
+                        menu_state.set(MenuState::Disabled);
                     }
-                    MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
+                    MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
                     MenuButtonAction::SettingsDisplay => {
-                        menu_state.set(MenuState::SettingsDisplay).unwrap();
+                        menu_state.set(MenuState::SettingsDisplay);
                     }
                     MenuButtonAction::SettingsSound => {
-                        menu_state.set(MenuState::SettingsSound).unwrap();
+                        menu_state.set(MenuState::SettingsSound);
                     }
-                    MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main).unwrap(),
+                    MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
                     MenuButtonAction::BackToSettings => {
-                        menu_state.set(MenuState::Settings).unwrap();
+                        menu_state.set(MenuState::Settings);
                     }
                 }
             }

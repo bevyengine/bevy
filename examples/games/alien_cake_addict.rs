@@ -2,20 +2,21 @@
 
 use std::f32::consts::PI;
 
-use bevy::{ecs::scheduling::SystemSet, prelude::*};
+use bevy::prelude::*;
 use rand::Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default)]
 enum GameState {
+    #[default]
     Playing,
     GameOver,
 }
 
 impl States for GameState {
-    type Iter = [GameState; 2];
+    type Iter = std::array::IntoIter<GameState, 2>;
 
     fn variants() -> Self::Iter {
-        [GameState::Playing, GameState::GameOver]
+        [GameState::Playing, GameState::GameOver].into_iter()
     }
 }
 
@@ -307,7 +308,7 @@ fn focus_camera(
 fn spawn_bonus(
     time: Res<Time>,
     mut timer: ResMut<BonusSpawnTimer>,
-    mut state: ResMut<State<GameState>>,
+    mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
 ) {
@@ -321,8 +322,7 @@ fn spawn_bonus(
         commands.entity(entity).despawn_recursive();
         game.bonus.entity = None;
         if game.score <= -5 {
-            // We don't particularly care if this operation fails
-            let _ = state.overwrite_set(GameState::GameOver);
+            next_state.set(GameState::GameOver);
             return;
         }
     }
@@ -380,9 +380,12 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 }
 
 // restart the game when pressing spacebar
-fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<Input<KeyCode>>) {
+fn gameover_keyboard(
+    mut next_state: ResMut<NextState<GameState>>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        state.set(GameState::Playing).unwrap();
+        next_state.set(GameState::Playing);
     }
 }
 

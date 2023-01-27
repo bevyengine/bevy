@@ -8,10 +8,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
         .add_startup_system(setup)
-        .add_system_to_schedule(setup_menu, &OnEnter(AppState::Menu))
+        .add_system_to_schedule(OnEnter(AppState::Menu), setup_menu)
         .add_system(menu.on_update(AppState::Menu))
-        .add_system_to_schedule(cleanup_menu, &OnExit(AppState::Menu))
-        .add_system_to_schedule(setup_game, &OnEnter(AppState::InGame))
+        .add_system_to_schedule(OnExit(AppState::Menu), cleanup_menu)
+        .add_system_to_schedule(OnEnter(AppState::InGame), setup_game)
         .add_systems((movement, change_color).on_update(AppState::InGame))
         .run();
 }
@@ -24,10 +24,10 @@ enum AppState {
 }
 
 impl States for AppState {
-    type Iter = [AppState; 2];
+    type Iter = std::array::IntoIter<AppState, 2>;
 
     fn variants() -> Self::Iter {
-        [AppState::Menu, AppState::InGame]
+        [AppState::Menu, AppState::InGame].into_iter()
     }
 }
 

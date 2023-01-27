@@ -1,12 +1,9 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, time::FixedUpdate};
+use bevy::{pbr::AmbientLight, prelude::*};
 use rand::{thread_rng, Rng};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
-
-const DELTA_TIME: f64 = 0.01;
+const DELTA_TIME: f32 = 0.01;
 
 fn main() {
     App::new()
@@ -16,7 +13,7 @@ fn main() {
             ..default()
         })
         .add_startup_system(generate_bodies)
-        .insert_resource(FixedTime::new(DELTA_TIME))
+        .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
         .add_systems_to_schedule(CoreSchedule::FixedUpdate, (interact_bodies, integrate))
         .add_system(look_at_star.in_set(CoreSet::Update))
         .insert_resource(ClearColor(Color::BLACK))

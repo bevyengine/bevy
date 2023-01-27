@@ -19,10 +19,10 @@ enum AppState {
 }
 
 impl States for AppState {
-    type Iter = [AppState; 2];
+    type Iter = std::array::IntoIter<AppState, 2>;
 
     fn variants() -> Self::Iter {
-        [AppState::Menu, AppState::InGame]
+        [AppState::MainMenu, AppState::InGame].into_iter()
     }
 }
 
@@ -78,11 +78,11 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextT
 }
 
 fn transition_to_in_game_system(
-    mut state: ResMut<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
-        state.set(AppState::InGame).unwrap();
+        next_state.set(AppState::InGame);
     }
 }
 

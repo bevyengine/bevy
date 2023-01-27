@@ -22,10 +22,10 @@ enum AppState {
 }
 
 impl States for AppState {
-    type Iter = [AppState; 2];
+    type Iter = std::array::IntoIter<AppState, 2>;
 
     fn variants() -> Self::Iter {
-        [AppState::Setup, AppState::Finished]
+        [AppState::Setup, AppState::Finished].into_iter()
     }
 }
 
@@ -39,14 +39,14 @@ fn load_textures(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server:
 }
 
 fn check_textures(
-    mut state: ResMut<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
 ) {
     if let LoadState::Loaded = asset_server
         .get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id()))
     {
-        state.set(AppState::Finished).unwrap();
+        next_state.set(AppState::Finished);
     }
 }
 
