@@ -3,8 +3,9 @@ use crate::ReflectMeta;
 use proc_macro2::Ident;
 use std::borrow::Cow;
 use quote::quote;
-use syn::{spanned::Spanned, GenericParam, LitStr};
-use crate::derive_data::{PathToType, ReflectMeta};
+use syn::{spanned::Spanned, LitStr};
+
+use crate::{derive_data::{PathToType, ReflectMeta}, fq_std::FQOption};
 
 /// Returns an expression for a `TypePathStorage`.
 pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStream {
@@ -19,12 +20,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
         };
     }
 
-    // Whether to use `GenericTypedCell` is not dependent on lifetimes
-    // (which all have to be 'static anyway).
-    let is_generic = !generics
-        .params
-        .iter()
-        .all(|param| matches!(param, GenericParam::Lifetime(_)));
+    let is_generic = meta.impl_is_generic();
 
     let ty_generic_paths: Vec<_> = generics
         .type_params()
@@ -48,9 +44,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
         })
         .collect();
 
-    let comma = quote! {
-        ", "
-    };
+    let comma = quote!(", ");
 
     let combine_generics = |ty_generics: Vec<proc_macro2::TokenStream>| {
         let mut generics = ty_generics
@@ -66,7 +60,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
     let ident = LitStr::new(&ident, path_to_type.span());
 
     let path = {
-        let path = path_to_type.long_type_path();
+        let path = path_to_type.non_generic_path();
 
         if is_generic {
             let ty_generics: Vec<_> = ty_generic_paths
@@ -81,7 +75,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
             let generics = combine_generics(ty_generics);
 
             quote! {
-                #path
+                ::std::borrow::ToOwned::to_owned(#path)
                     + "::<"
                     #(+ #generics)*
                     + ">"
@@ -107,7 +101,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
             let generics = combine_generics(ty_generics);
 
             quote! {
-                ::core::concat!(#ident, "<").to_owned()
+                ::std::borrow::ToOwned::to_owned(::core::concat!(#ident, "<"))
                     #(+ #generics)*
                     + ">"
             }
@@ -188,10 +182,41 @@ pub(crate) fn impl_type_path(
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    let type_path_cell =
-        static_typed_cell(meta, TypedProperty::TypePath, type_path_generator(meta));
+    let (type_path_storage, type_path, short_type_path) = if meta.impl_is_generic() {
+        let cell = static_typed_cell(meta, TypedProperty::TypePath, type_path_generator(meta));
 
-    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
+        (
+            Some(cell),
+            quote! {
+                Self::get_storage().path()
+            },
+            quote! {
+                Self::get_storage().short_path()
+            },
+        )
+    } else {
+        (
+            None,
+            path_to_type.non_generic_path(),
+            path_to_type.non_generic_short_path(),
+        )
+    };
+
+    let name = path_to_type.name().map(|name| quote! {
+        #FQOption::Some(#name)
+    }).unwrap_or_else(|| quote! {
+        #FQOption::None
+    });
+    let module_path = path_to_type.module_path().map(|name| quote! {
+        #FQOption::Some(#name)
+    }).unwrap_or_else(|| quote! {
+        #FQOption::None
+    });
+    let crate_name = path_to_type.crate_name().map(|name| quote! {
+        #FQOption::Some(#name)
+    }).unwrap_or_else(|| quote! {
+        #FQOption::None
+    });
 
     // Add Typed bound for each active field
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
@@ -207,10 +232,10 @@ pub(crate) fn impl_type_path(
         None
     };
 
-    quote! {
-        const _: () = {
-            #primitive_assert
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
 
+    let type_path_helper = type_path_storage.map(|storage| {
+        quote! {
             trait GetStorage {
                 fn get_storage() -> &'static #bevy_reflect_path::utility::TypePathStorage;
             }
@@ -218,38 +243,38 @@ pub(crate) fn impl_type_path(
             impl #impl_generics GetStorage for #path_to_type #ty_generics #where_reflect_clause {
                 #[inline]
                 fn get_storage() -> &'static #bevy_reflect_path::utility::TypePathStorage {
-                    #type_path_cell
+                    #storage
                 }
             }
+        }
+    });
+
+    quote! {
+        const _: () = {
+            #primitive_assert
+
+            #type_path_helper
+
 
             impl #impl_generics #bevy_reflect_path::TypePath for #path_to_type #ty_generics #where_reflect_clause {
                 fn type_path() -> &'static str {
-                    &Self::get_storage().path()
+                    #type_path
                 }
 
                 fn short_type_path() -> &'static str {
-                    &Self::get_storage().short_path()
+                    #short_type_path
                 }
 
                 fn type_ident() -> Option<&'static str> {
-                    match Self::get_storage().ident() {
-                        Some(x) => Some(x),
-                        None => None
-                    }
+                    #name
                 }
 
                 fn crate_name() -> Option<&'static str> {
-                    match Self::get_storage().crate_name() {
-                        Some(x) => Some(x),
-                        None => None
-                    }
+                    #crate_name
                 }
 
                 fn module_path() -> Option<&'static str> {
-                    match Self::get_storage().module_path() {
-                        Some(x) => Some(x),
-                        None => None
-                    }
+                    #module_path
                 }
             }
         };

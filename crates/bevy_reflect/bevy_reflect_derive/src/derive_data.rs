@@ -649,6 +649,14 @@ impl<'a> PathToType<'a> {
         matches!(self, Self::Internal { .. } | Self::External { .. })
     }
 
+    /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
+    pub fn ident(&self) -> Option<&Ident> {
+        self.named_as_ident().or(match self {
+            Self::Primitive(ident) => Some(ident),
+            _ => None,
+        })
+    }
+
     /// Returns an expression for an `AsRef<str>`.
     pub fn crate_name(&self) -> Option<proc_macro2::TokenStream> {
         if let Some(path) = self.named_as_path() {
@@ -670,23 +678,36 @@ impl<'a> PathToType<'a> {
     }
 
     /// Returns an expression for an `AsRef<str>`.
-    pub fn long_type_path(&self) -> proc_macro2::TokenStream {
+    pub fn non_generic_path(&self) -> proc_macro2::TokenStream {
         if let Some(ident) = self.named_as_ident() {
             let module_path = self.module_path();
             let ident = LitStr::new(&ident.to_string(), ident.span());
             return quote! {
-                #module_path.to_owned() + ::core::concat!("::", #ident)
+                ::core::concat!(#module_path, "::", #ident)
             };
         }
 
         match self {
             Self::Primitive(ident) => {
                 let ident = LitStr::new(&ident.to_string(), ident.span());
-                quote! {
-                    #ident.to_owned()
-                }
+                ident.to_token_stream()
             }
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Returns an expression for an `&str`.
+    pub fn non_generic_short_path(&self) -> proc_macro2::TokenStream {
+        if let Some(ident) = self.ident() {
+            let ident = LitStr::new(&ident.to_string(), ident.span());
+            return ident.to_token_stream();
+        }
+
+        match self {
+            Self::Anonymous {
+                short_type_path, ..
+            } => short_type_path.clone(),
             _ => unreachable!(),
         }
     }
@@ -718,10 +739,10 @@ impl<'a> PathToType<'a> {
     }
 
     /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
-    pub fn ident(&self) -> Option<&Ident> {
-        self.named_as_ident().or(match self {
-            Self::Primitive(ident) => Some(ident),
-            _ => None,
+    pub fn name(&self) -> Option<proc_macro2::TokenStream> {
+        self.ident().map(|ident| {
+            let lit = LitStr::new(&ident.to_string(), ident.span());
+            lit.to_token_stream()
         })
     }
 }
