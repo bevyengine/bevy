@@ -963,6 +963,7 @@ mod tests {
         assert!(entity.get_mut_by_id(invalid_component_id).is_none());
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/7387
     #[test]
     fn entity_mut_world_scope_panic() {
         let mut world = World::new();
