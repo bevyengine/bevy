@@ -541,8 +541,22 @@ impl<'w> EntityMut<'w> {
 
     /// Gives mutable access to this `EntityMut`'s [`World`] in a temporary scope.
     pub fn world_scope(&mut self, f: impl FnOnce(&mut World)) {
+        // Erase the lifetime of self, so we can get around the borrow checker.
+        let this_ptr = self as *mut Self;
+
+        // Update the stored `EntityLocation` for this instance.
+        // This will get called at the end of this scope, even if the closure `f` unwinds.
+        let _on_drop = bevy_utils::OnDrop::new(|| {
+            // SAFETY:
+            // - This will only be invoked at the end of the outer scope, at which point
+            //   `self` will no longer be borrowed, which ensures the references don't alias.
+            // - The pointer must otherwise be safe to dereference, since it was obtained
+            //   from a mutable reference.
+            let this = unsafe { &mut *this_ptr };
+            this.update_location();
+        });
+
         f(self.world);
-        self.update_location();
     }
 
     /// Updates the internal entity location to match the current location in the internal
