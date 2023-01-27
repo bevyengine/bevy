@@ -901,7 +901,7 @@ path = "examples/ecs/removal_detection.rs"
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
-description = "Query for entities that had a specific component removed earlier in the same current frame"
+description = "Query for entities that had a specific component removed earlier in the current frame"
 category = "ECS (Entity Component System)"
 wasm = false
 
