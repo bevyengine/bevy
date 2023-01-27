@@ -4,7 +4,6 @@ use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::collections::HashSet;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
@@ -394,13 +393,11 @@ impl<'a> ReflectStruct<'a> {
         )
     }
 
-    /// Get a collection of unique types which are exposed to the reflection API
+    /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
-        let dedup: HashSet<syn::Type> = self
-            .active_fields()
+        self.active_fields()
             .map(|field| field.data.ty.clone())
-            .collect();
-        dedup.into_iter().collect()
+            .collect()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
@@ -410,13 +407,11 @@ impl<'a> ReflectStruct<'a> {
             .filter(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of unique types which are ignored by the reflection API
+    /// Get a collection of types which are ignored by the reflection API
     pub fn ignored_types(&self) -> Vec<syn::Type> {
-        let dedup: HashSet<syn::Type> = self
-            .ignored_fields()
+        self.ignored_fields()
             .map(|field| field.data.ty.clone())
-            .collect();
-        dedup.into_iter().collect()
+            .collect()
     }
 
     /// Get an iterator of fields which are ignored by the reflection API
@@ -459,13 +454,11 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.active_fields())
     }
 
-    /// Get a collection of unique types which are exposed to the reflection API
+    /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
-        let dedup: HashSet<syn::Type> = self
-            .active_fields()
+        self.active_fields()
             .map(|field| field.data.ty.clone())
-            .collect();
-        dedup.into_iter().collect()
+            .collect()
     }
 
     /// Get an iterator of fields which are ignored by the reflection API
@@ -475,13 +468,11 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.ignored_fields())
     }
 
-    /// Get a collection of unique types which are ignored to the reflection API
+    /// Get a collection of types which are ignored to the reflection API
     pub fn ignored_types(&self) -> Vec<syn::Type> {
-        let dedup: HashSet<syn::Type> = self
-            .ignored_fields()
+        self.ignored_fields()
             .map(|field| field.data.ty.clone())
-            .collect();
-        dedup.into_iter().collect()
+            .collect()
     }
 }
 
