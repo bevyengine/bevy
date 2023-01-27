@@ -94,20 +94,16 @@ pub enum CoreSet {
     First,
     /// The copy of [`apply_system_buffers`] that runs immediately after `First`.
     FirstFlush,
-    /// Runs systems that should only occur after a fixed period of time.
-    ///
-    /// The `fixed_timestep` system runs the [`CoreSchedule::FixedTimestep`] system in this system set.
-    FixedTimestep,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `FixedTimeStep`.
-    FixedTimestepFlush,
     /// Runs before [`CoreSet::Update`].
     PreUpdate,
     /// The copy of [`apply_system_buffers`] that runs immediately after `PreUpdate`.
     PreUpdateFlush,
     /// Applies [`State`](bevy_ecs::schedule::State) transitions
     StateTransitions,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `StateTransitions`.
-    StateTransitionsFlush,
+    /// Runs systems that should only occur after a fixed period of time.
+    ///
+    /// The `fixed_timestep` system runs the [`CoreSchedule::FixedTimestep`] system in this system set.
+    FixedTimestep,
     /// Responsible for doing most app logic. Systems should be registered here by default.
     Update,
     /// The copy of [`apply_system_buffers`] that runs immediately after `Update`.
@@ -133,22 +129,16 @@ impl CoreSet {
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_system(apply_system_buffers.in_set(FirstFlush));
-        schedule.add_system(apply_system_buffers.in_set(FixedTimestepFlush));
         schedule.add_system(apply_system_buffers.in_set(PreUpdateFlush));
-        schedule.add_system(apply_system_buffers.in_set(StateTransitionsFlush));
         schedule.add_system(apply_system_buffers.in_set(UpdateFlush));
         schedule.add_system(apply_system_buffers.in_set(PostUpdateFlush));
         schedule.add_system(apply_system_buffers.in_set(LastFlush));
 
         schedule.configure_set(First.before(FirstFlush));
         schedule.configure_set(PreUpdate.after(FirstFlush).before(PreUpdateFlush));
-        schedule.configure_set(
-            StateTransitions
-                .after(PreUpdateFlush)
-                .before(StateTransitionsFlush),
-        );
-        schedule.configure_set(FixedTimestep.after(StateTransitionsFlush).before(FixedTimestepFlush));
-        schedule.configure_set(Update.after(FixedTimestepFlush).before(UpdateFlush));
+        schedule.configure_set(StateTransitions.after(PreUpdateFlush).before(FixedTimestep));
+        schedule.configure_set(FixedTimestep.after(StateTransitions).before(Update));
+        schedule.configure_set(Update.after(FixedTimestep).before(UpdateFlush));
         schedule.configure_set(PostUpdate.after(UpdateFlush).before(PostUpdateFlush));
         schedule.configure_set(Last.after(PostUpdateFlush).before(LastFlush));
 
