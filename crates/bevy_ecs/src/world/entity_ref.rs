@@ -923,4 +923,23 @@ mod tests {
         assert!(entity.get_by_id(invalid_component_id).is_none());
         assert!(entity.get_mut_by_id(invalid_component_id).is_none());
     }
+
+    #[test]
+    fn entity_mut_world_scope_panic() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn_empty();
+        let id = entity.id();
+        entity.world_scope(|w| {
+            // Change the entity's `EnityLocation`, which invalidates the original `EntityMut`.
+            // This will get updated at the end of the scope.
+            w.entity_mut(id).insert(TestComponent(0));
+
+            // Ensure that the entity location still gets updated even in case of a panic.
+            panic!()
+        });
+
+        // Despawn the entity. If the `EntityLocation` has not been updated, this will cause UB.
+        entity.despawn();
+    }
 }
