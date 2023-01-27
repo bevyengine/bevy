@@ -540,9 +540,33 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Gives mutable access to this `EntityMut`'s [`World`] in a temporary scope.
-    pub fn world_scope(&mut self, f: impl FnOnce(&mut World)) {
-        f(self.world);
+    /// This is a safe alternative to using [`Self::world_mut`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource, Default, Clone, Copy)]
+    /// struct R(u32);
+    ///
+    /// # let mut world = World::new();
+    /// # world.init_resource::<R>();
+    /// # let mut entity = world.spawn_empty();
+    /// // This closure gives us temporary access to the world.
+    /// let new_r = entity.world_scope(|world: &mut World| {
+    ///     // Mutate the world while we have access to it.
+    ///     let mut r = world.resource_mut::<R>();
+    ///     r.0 += 1;
+    ///     
+    ///     // Return a value from the world before giving it back to the `EntityMut`.
+    ///     *r
+    /// });
+    /// # assert_eq!(new_r.0, 1);
+    /// ```
+    pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
+        let val = f(self.world);
         self.update_location();
+        val
     }
 
     /// Updates the internal entity location to match the current location in the internal
