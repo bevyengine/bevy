@@ -944,7 +944,7 @@ mod tests {
         }));
         assert!(res.is_err());
 
-        // Despawn the entity. If the `EntityLocation` has not been updated, this will cause UB.
-        entity.despawn();
+        // If the `EntityLocation` has not been updated, this will cause UB.
+        entity.insert(TestComponent(0));
     }
 }
