@@ -1,5 +1,9 @@
-// Simple run criteria example
+//! Simple run criteria example
 
+/*
+    Basically, run criteria is the way to make a function run under certaion conditons.
+    It can be used everywhere and it's very useful.
+*/
 use bevy::{ecs::schedule::ShouldRun, prelude::*};
 
 // The criteria system

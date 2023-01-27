@@ -13,7 +13,6 @@ current changes on git with [previous release tags][git_tag_comparison].
 
 ### Added
 
-- [Added run criteria example][7388]
 - [Bloom][6397]
 - [Add FXAA postprocessing][6393]
 - [Fix color banding by dithering image before quantization][5264]
@@ -282,7 +281,6 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Freeing memory held by visible entities vector][3009]
 - [Correctly parse labels with '#'][5729]
 
-[7388]: https://github.com/bevyengine/bevy/pull/7388
 [6545]: https://github.com/bevyengine/bevy/pull/6545
 [6543]: https://github.com/bevyengine/bevy/pull/6543
 [6533]: https://github.com/bevyengine/bevy/pull/6533
