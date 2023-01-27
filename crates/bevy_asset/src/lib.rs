@@ -110,12 +110,14 @@ impl Plugin for AssetPlugin {
         app.configure_set(
             AssetSet::LoadAssets
                 .no_default_set()
-                .before(CoreSet::PreUpdate),
+                .before(CoreSet::PreUpdate)
+                .after(CoreSet::First),
         )
         .configure_set(
             AssetSet::AssetEvents
                 .no_default_set()
-                .after(CoreSet::PostUpdate),
+                .after(CoreSet::PostUpdate)
+                .before(CoreSet::Last),
         )
         .add_system(asset_server::free_unused_assets_system.in_set(CoreSet::PreUpdate));
 
