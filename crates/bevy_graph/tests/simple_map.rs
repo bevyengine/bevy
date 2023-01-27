@@ -6,6 +6,7 @@ use bevy_graph::{
     },
     utils::wrapped_iterator::WrappedIterator,
 };
+use hashbrown::HashSet;
 
 #[test]
 fn undirected() {
@@ -27,6 +28,11 @@ fn undirected() {
     assert_eq!(graph.find_node(&"Edgar"), Some(edgar));
     assert_eq!(graph.find_node(&"NoIReallyDon'tExist"), None);
 
+    assert_eq!(
+        &graph.node_indices().collect::<HashSet<NodeIdx>>(),
+        &[jakob, edgar, bernhard].into()
+    );
+
     assert_eq!(graph.edge_count(), 0);
     let je = graph.add_edge(jakob, edgar, 12);
     let eb = graph.add_edge(edgar, bernhard, 7);
@@ -46,29 +52,29 @@ fn undirected() {
         &graph
             .edges_of(jakob)
             .into_inner()
-            .collect::<Vec<&EdgeIdx>>(),
-        &[&je]
+            .collect::<HashSet<&EdgeIdx>>(),
+        &[&je].into()
     );
     assert_eq!(
         &graph
             .edges_of(edgar)
             .into_inner()
-            .collect::<Vec<&EdgeIdx>>(),
-        &[&je, &eb]
+            .collect::<HashSet<&EdgeIdx>>(),
+        &[&je, &eb].into()
     );
 
     assert_eq!(
         &graph
             .neighbors(jakob)
             .into_inner()
-            .collect::<Vec<&NodeIdx>>(),
-        &[&edgar]
+            .collect::<HashSet<&NodeIdx>>(),
+        &[&edgar].into()
     );
     assert_eq!(
         &graph
             .neighbors(edgar)
             .into_inner()
-            .collect::<Vec<&NodeIdx>>(),
-        &[&jakob, &bernhard]
+            .collect::<HashSet<&NodeIdx>>(),
+        &[&jakob, &bernhard].into()
     );
 }
