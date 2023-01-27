@@ -553,7 +553,7 @@ impl<'w> EntityMut<'w> {
     /// # world.init_resource::<R>();
     /// # let mut entity = world.spawn_empty();
     /// // This closure gives us temporary access to the world.
-    /// let val = entity.world_scope(|world: &mut World| {
+    /// let new_r = entity.world_scope(|world: &mut World| {
     ///     // Mutate the world while we have access to it.
     ///     let mut r = world.resource_mut::<R>();
     ///     r.0 += 1;
@@ -561,6 +561,7 @@ impl<'w> EntityMut<'w> {
     ///     // Return a value from the world before giving it back to the `EntityMut`.
     ///     *r
     /// });
+    /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
         let val = f(self.world);
