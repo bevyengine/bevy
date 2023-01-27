@@ -118,7 +118,9 @@ impl CommandQueue {
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
             // gaurantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
-            let cmd = unsafe { OwningPtr::new(std::ptr::NonNull::new_unchecked(cursor.cast())) };
+            let cmd = unsafe {
+                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
+            };
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
