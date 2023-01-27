@@ -832,6 +832,8 @@ pub(crate) unsafe fn take_component<'a>(
 
 #[cfg(test)]
 mod tests {
+    use std::panic::AssertUnwindSafe;
+
     use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::prelude::*; // for the `#[derive(Component)]`
@@ -930,14 +932,17 @@ mod tests {
 
         let mut entity = world.spawn_empty();
         let id = entity.id();
-        entity.world_scope(|w| {
-            // Change the entity's `EnityLocation`, which invalidates the original `EntityMut`.
-            // This will get updated at the end of the scope.
-            w.entity_mut(id).insert(TestComponent(0));
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.world_scope(|w| {
+                // Change the entity's `EnityLocation`, which invalidates the original `EntityMut`.
+                // This will get updated at the end of the scope.
+                w.entity_mut(id).insert(TestComponent(0));
 
-            // Ensure that the entity location still gets updated even in case of a panic.
-            panic!()
-        });
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!()
+            });
+        }));
+        assert!(res.is_err());
 
         // Despawn the entity. If the `EntityLocation` has not been updated, this will cause UB.
         entity.despawn();
