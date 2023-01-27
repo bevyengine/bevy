@@ -29,14 +29,23 @@ struct PointLight {
 let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
 let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
-struct DirectionalLight {
+struct DirectionalCascade {
     view_projection: mat4x4<f32>,
+    texel_size: f32,
+    far_bound: f32,
+}
+    
+struct DirectionalLight {
+    cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    num_cascades: u32,
+    cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
 };
 
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;

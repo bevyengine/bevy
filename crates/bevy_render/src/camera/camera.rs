@@ -567,6 +567,7 @@ pub fn extract_cameras(
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
+                    view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,

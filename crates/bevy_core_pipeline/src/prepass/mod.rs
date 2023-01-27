@@ -18,7 +18,7 @@
 //!
 //! When using the default mesh view bindings you should be able to use `prepass_depth()`,
 //! `prepass_normal`, and `prepass_velocity()` to load the related textures.
-//! These functions are defined in `bevy_pbr::utils`. See the `shader_prepass` example that shows how to use them.
+//! These functions are defined in `bevy_pbr::prepass_utils`. See the `shader_prepass` example that shows how to use them.
 //!
 //! The prepass runs for each `Material`. You can control if the prepass should run per-material by setting the `prepass_enabled`
 //! flag on the `MaterialPlugin`.
