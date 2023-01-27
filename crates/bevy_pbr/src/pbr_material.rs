@@ -190,7 +190,7 @@ pub struct StandardMaterial {
     /// When a triangle is in a viewport,
     /// if its vertices appear counter-clockwise from the viewport's perspective,
     /// then the viewport is seeing the triangle's front face.
-    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
+    /// Conversely, if the vertices appear clockwise, you are seeing the back face.
     ///
     /// In short, in bevy, front faces winds counter-clockwise.
     ///

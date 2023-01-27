@@ -349,7 +349,7 @@ impl<'a> ReflectStruct<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
+    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
     pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
         let reflect_path = self.meta.bevy_reflect_path();
 
