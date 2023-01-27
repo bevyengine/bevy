@@ -1426,6 +1426,16 @@ category = "Tools"
 wasm = false
 
 [[example]]
+name = "internal_ambiguities"
+path = "examples/tools/internal_ambiguities.rs"
+
+[package.metadata.example.internal_ambiguities]
+name = "Internal Ambiguities"
+description = "Verify that `DefaultPlugins` works, and that the schedule is free of problematic execution order ambiguities."
+category = "Tools"
+wasm = false
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 
