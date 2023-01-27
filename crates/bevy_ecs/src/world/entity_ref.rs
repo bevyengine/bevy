@@ -546,7 +546,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Resource, Clone, Copy)]
+    /// #[derive(Resource, Default, Clone, Copy)]
     /// struct R(u32);
     ///
     /// # let mut world = World::new();
