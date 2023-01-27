@@ -1956,7 +1956,7 @@ impl World {
         let (extracted_label, mut schedule) = self
             .resource_mut::<Schedules>()
             .remove_entry(label)
-            .unwrap();
+            .unwrap_or_else(|| panic!("The schedule with the label {label:?} was not found."));
 
         schedule.run(self);
         self.resource_mut::<Schedules>()
