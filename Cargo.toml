@@ -1656,15 +1656,21 @@ hidden = true
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 
-[[example]]
-name = "run_criteria"
-path = "examples/ecs/run_criteria.rs"
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "run_criteria"
+path = "examples/ecs/run_criteria.rs"
+
+[package.metadata.example.run_criteria]
+name = "Run Criteria"
+description = "Demonstrates using Run Criteria function conditions"
+category = "ECS (Entity Component System)"
 
 [profile.wasm-release]
 inherits = "release"
