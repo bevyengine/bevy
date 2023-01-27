@@ -1937,7 +1937,7 @@ impl World {
     ///
     /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.run_schedule_ref(&label)
+        self.run_schedule_ref(&label);
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
