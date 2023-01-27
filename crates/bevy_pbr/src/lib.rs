@@ -176,7 +176,9 @@ impl Plugin for PbrPlugin {
             )
             .configure_set(SimulationLightSystems::UpdateLightFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(SimulationLightSystems::CheckLightVisibility.in_set(CoreSet::PostUpdate))
-            .configure_set(SimulationLightSystems::UpdateDirectionalLightCascades.in_set(CoreSet::PostUpdate))
+            .configure_set(
+                SimulationLightSystems::UpdateDirectionalLightCascades.in_set(CoreSet::PostUpdate),
+            )
             .add_system(
                 add_clusters
                     .in_set(SimulationLightSystems::AddClusters)

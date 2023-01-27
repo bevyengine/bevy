@@ -16,7 +16,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, scheduling::SystemConfigs};
+use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use prelude::{GlobalTransform, Transform};
 use systems::{propagate_transforms, sync_simple_transforms};
