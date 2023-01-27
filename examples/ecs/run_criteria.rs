@@ -3,7 +3,12 @@
 /*
     Basically, run criteria is the way to make a function run under certaion conditons.
     It can be used everywhere and it's very useful.
+    For example, i have a multiplayer game that i want to run the server and the client separately, i can create two plugins, one for the server
+    and one for the client and each one runs a different run criteria, for example the server runs run_server criteria and the client runs run_client criteria.
+
+    Its really good to list program task so the task runs only when the user needs it!
 */
+
 use bevy::{ecs::schedule::ShouldRun, prelude::*};
 
 // The criteria system
