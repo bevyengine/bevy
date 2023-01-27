@@ -190,19 +190,20 @@ pub fn prepare_windows(
                     .unwrap();
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
-                // Explicitly request an sRGB format, otherwise fallback to the first available format.
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
-                let format = if formats.contains(&TextureFormat::Rgba8UnormSrgb) {
-                    TextureFormat::Rgba8UnormSrgb
-                } else if formats.contains(&TextureFormat::Bgra8UnormSrgb) {
-                    TextureFormat::Bgra8UnormSrgb
-                } else {
-                    // TODO: If this isn't an sRGB surface (eg. on webgpu), use an sRGB view_format on the SurfaceConfiguration.
-                    // TODO: webgpu doesn't support sRGB surfaces, and requires an sRGB view_format, but that was causing issues on Vulkan
-                    // so it's getting skipped for now.
-                    formats[0]
-                };
+                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+                let mut format = *formats.get(0).expect("No supported formats for surface");
+                for available_format in formats {
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    if available_format == TextureFormat::Rgba8UnormSrgb
+                        || available_format == TextureFormat::Bgra8UnormSrgb
+                    {
+                        format = available_format;
+                        break;
+                    }
+                }
+
                 SurfaceData { surface, format }
             });
 
@@ -225,7 +226,7 @@ pub fn prepare_windows(
                 CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
-            // TODO: Figure out why Vulkan is spitting out tons of validation errors when attempting to use an sRGB view_format on the surface.
+            // TODO: Use an sRGB view format here on platforms that don't support sRGB surfaces. (afaik only WebGPU)
             view_formats: vec![],
         };
 
