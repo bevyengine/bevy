@@ -19,6 +19,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use prelude::{GlobalTransform, Transform};
+use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
@@ -101,19 +102,25 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+                sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    // These systems cannot access the same entities,
+                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                    .ambiguous_with(propagate_transforms),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+                propagate_transforms.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+                sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .ambiguous_with(propagate_transforms),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+                propagate_transforms.label(TransformSystem::TransformPropagate),
             );
     }
 }
