@@ -12,6 +12,8 @@ use bevy_window::{
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
+use super::Msaa;
+
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
 pub struct NonSendMarker;
@@ -176,6 +178,7 @@ pub fn prepare_windows(
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
+    mut msaa: ResMut<Msaa>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
@@ -229,6 +232,24 @@ pub fn prepare_windows(
             // TODO: Use an sRGB view format here on platforms that don't support sRGB surfaces. (afaik only WebGPU)
             view_formats: vec![],
         };
+
+        // This is an ugly hack to work around drivers that don't support MSAA.
+        // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
+        // feature detection for MSAA.
+        let sample_flags = render_adapter
+            .get_texture_format_features(surface_configuration.format)
+            .flags;
+        match *msaa {
+            Msaa::Off => (),
+            Msaa::Sample4 => {
+                if !sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+                    bevy_log::warn!(
+                        "MSAA 4x is not supported on this device. Falling back to disabling MSAA."
+                    );
+                    *msaa = Msaa::Off;
+                }
+            }
+        }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.
