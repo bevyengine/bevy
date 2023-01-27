@@ -104,6 +104,7 @@ impl Plugin for TransformPlugin {
                 StartupStage::PostStartup,
                 sync_simple_transforms
                     .label(TransformSystem::TransformPropagate)
+                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
                     // These systems cannot access the same entities,
                     // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                     .ambiguous_with(propagate_transforms),
