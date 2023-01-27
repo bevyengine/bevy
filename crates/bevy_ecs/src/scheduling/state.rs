@@ -39,9 +39,7 @@ use crate::world::World;
 /// }
 ///
 /// ```
-pub trait States:
-    'static + Send + Sync + Clone + Copy + PartialEq + Eq + Hash + Debug + Default
-{
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.
@@ -98,7 +96,10 @@ impl<S: States> NextState<S> {
 pub fn apply_state_transition<S: States>(world: &mut World) {
     if world.resource::<NextState<S>>().0.is_some() {
         let entered_state = world.resource_mut::<NextState<S>>().0.take().unwrap();
-        let exited_state = mem::replace(&mut world.resource_mut::<State<S>>().0, entered_state);
+        let exited_state = mem::replace(
+            &mut world.resource_mut::<State<S>>().0,
+            entered_state.clone(),
+        );
         world.run_schedule(OnExit(exited_state));
         world.run_schedule(OnEnter(entered_state));
     }
