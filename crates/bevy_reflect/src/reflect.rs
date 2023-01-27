@@ -1,7 +1,7 @@
 use crate::{
-    array_debug, enum_debug, impl_type_path_stored, list_debug, map_debug, serde::Serializable,
-    struct_debug, tuple_debug, tuple_struct_debug, utility::TypePathStorage, Array, Enum, List,
-    Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
+    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
+    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, TypePath,
+    Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -228,10 +228,15 @@ impl Typed for dyn Reflect {
     }
 }
 
-impl_type_path_stored!(|| TypePathStorage::new_anonymous(
-    "dyn bevy_reflect::Reflect",
-    "dyn Reflect"
-), impl for dyn Reflect);
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
+        "dyn bevy_reflect::Reflect"
+    }
+
+    fn short_type_path() -> &'static str {
+        "dyn Reflect"
+    }
+}
 
 #[deny(rustdoc::broken_intra_doc_links)]
 impl dyn Reflect {

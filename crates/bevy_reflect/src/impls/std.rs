@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, impl_type_path_stored, ReflectFromPtr, ReflectOwned};
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map,
@@ -8,7 +8,7 @@ use crate::{
     ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
-use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell, TypePathStorage};
+use crate::utility::{GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
@@ -763,10 +763,17 @@ impl<T: Reflect + TypePath, const N: usize> Typed for [T; N] {
     }
 }
 
-impl_type_path_stored!(|| TypePathStorage::new_anonymous(
-    format!("[{t}; {N}]", t = T::type_path()),
-    format!("[{t}; {N}]", t = T::short_type_path()),
-), impl { T: TypePath, const N: usize } for [T; N]);
+impl<T: Reflect + TypePath, const N: usize> TypePath for [T; N] {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("[{t}; {N}]", t = T::type_path()))
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("[{t}; {N}]", t = T::short_type_path()))
+    }
+}
 
 // TODO:
 // `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
@@ -1125,13 +1132,29 @@ impl Typed for Cow<'static, str> {
     }
 }
 
-impl_type_path_stored!(|| TypePathStorage::new_named(
-    "core::borrow::Cow::<str>",
-    "Cow<str>",
-    "Cow",
-    "core",
-    "core::borrow"
-), impl for Cow<'static, str>);
+impl TypePath for Cow<'static, str> {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| "std::borrow::Cow::<str>".to_owned())
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| "Cow<str>".to_owned())
+    }
+
+    fn type_ident() -> Option<&'static str> {
+        Some("Cow")
+    }
+
+    fn crate_name() -> Option<&'static str> {
+        Some("std")
+    }
+
+    fn module_path() -> Option<&'static str> {
+        Some("std::borrow")
+    }
+}
 
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
@@ -1241,7 +1264,17 @@ impl Typed for &'static Path {
     }
 }
 
-impl_type_path_stored!(|| TypePathStorage::new_anonymous("&std::path::Path", "&Path"), impl for &'static Path);
+impl TypePath for &'static Path {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| "&std::path::Path".to_owned())
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| "&Path".to_owned())
+    }
+}
 
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {

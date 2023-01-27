@@ -641,14 +641,6 @@ impl<'a> PathToType<'a> {
         }
     }
 
-    /// Returns whether [`crate_name`](PathToType::crate_name)
-    /// and [`module_path`](PathToType::module_path) return [`Some`].
-    ///
-    /// This is false for primitives and anonymous paths.
-    pub fn is_named(&self) -> bool {
-        matches!(self, Self::Internal { .. } | Self::External { .. })
-    }
-
     /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
     pub fn ident(&self) -> Option<&Ident> {
         self.named_as_ident().or(match self {
@@ -689,8 +681,8 @@ impl<'a> PathToType<'a> {
 
         match self {
             Self::Primitive(ident) => {
-                let ident = LitStr::new(&ident.to_string(), ident.span());
-                ident.to_token_stream()
+                let lit = LitStr::new(&ident.to_string(), ident.span());
+                lit.to_token_stream()
             }
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
             _ => unreachable!(),

@@ -1,4 +1,4 @@
-use crate::utility::{impl_type_path_stored, NonGenericTypeInfoCell, TypePathStorage};
+use crate::utility::{GenericTypePathCell, NonGenericTypeInfoCell};
 use crate::{
     self as bevy_reflect, impl_type_path, DynamicInfo, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
@@ -583,13 +583,21 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl_type_path_stored!(
-            || TypePathStorage::new_anonymous(
-                "(".to_owned() $(+ <$name as TypePath>::type_path())* + ")",
-                "(".to_owned() $(+ <$name as TypePath>::short_type_path())* + ")",
-            ),
-            impl { $($name: Reflect + TypePath),* } for ($($name,)*)
-        );
+        impl <$($name: Reflect + TypePath),*> TypePath for ($($name,)*) {
+            fn type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() $(+ <$name as TypePath>::type_path())* + ")"
+                })
+            }
+
+            fn short_type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() $(+ <$name as TypePath>::short_type_path())* + ")"
+                })
+            }
+        }
 
 
         impl<$($name: Reflect + TypePath),*> GetTypeRegistration for ($($name,)*) {

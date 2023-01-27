@@ -75,15 +75,21 @@ pub trait TypePath: 'static {
     /// Returns the name of the type, or [`None`] if it is anonymous.
     ///
     /// For [`Option<()>`], this is `Option`.
-    fn type_ident() -> Option<&'static str>;
+    fn type_ident() -> Option<&'static str> {
+        None
+    }
 
     /// Returns the name of the crate the type is in, or [`None`] if it is anonymous or a primitive.
     ///
     /// For [`Option<()>`], this is `core`.
-    fn crate_name() -> Option<&'static str>;
+    fn crate_name() -> Option<&'static str> {
+        None
+    }
 
     /// Returns the path to the moudle the type is in, or [`None`] if it is anonymous or a primitive.
     ///
     /// For [`Option<()>`], this is `core::option`.
-    fn module_path() -> Option<&'static str>;
+    fn module_path() -> Option<&'static str> {
+        None
+    }
 }

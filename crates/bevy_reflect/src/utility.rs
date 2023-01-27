@@ -7,16 +7,16 @@ use parking_lot::RwLock;
 use std::any::{Any, TypeId};
 
 mod sealed {
-    use crate::{utility::TypePathStorage, TypeInfo};
+    use super::TypeInfo;
 
-    trait Sealed {}
+    pub trait Sealed {}
+
     impl Sealed for TypeInfo {}
-    impl Sealed for TypePathStorage {}
-
-    pub trait TypedProperty: 'static {}
-    impl<T: Sealed + 'static> TypedProperty for T {}
+    impl Sealed for String {}
 }
-pub use sealed::TypedProperty;
+
+pub trait TypedProperty: sealed::Sealed + 'static {}
+impl<T: sealed::Sealed + 'static> TypedProperty for T {}
 
 /// A container for [`TypeInfo`] or [`TypePathStorage`] over non-generic types, allowing instances to be stored statically.
 ///
@@ -66,7 +66,6 @@ pub use sealed::TypedProperty;
 pub struct NonGenericTypedCell<T: TypedProperty>(OnceBox<T>);
 
 pub type NonGenericTypeInfoCell = NonGenericTypedCell<TypeInfo>;
-pub type NonGenericTypePathCell = NonGenericTypedCell<TypePathStorage>;
 
 impl<T: TypedProperty> NonGenericTypedCell<T> {
     /// Initialize a [`NonGenericTypedCell`] for non-generic types.
@@ -130,7 +129,7 @@ impl<T: TypedProperty> NonGenericTypedCell<T> {
 pub struct GenericTypedCell<T: TypedProperty>(OnceBox<RwLock<HashMap<TypeId, &'static T>>>);
 
 pub type GenericTypeInfoCell = GenericTypedCell<TypeInfo>;
-pub type GenericTypePathCell = GenericTypedCell<TypePathStorage>;
+pub type GenericTypePathCell = GenericTypedCell<String>;
 
 impl<T: TypedProperty> GenericTypedCell<T> {
     /// Initialize a [`GenericTypedCell`] for generic types.
@@ -163,158 +162,3 @@ impl<T: TypedProperty> GenericTypedCell<T> {
         })
     }
 }
-
-pub struct TypePathStorage {
-    path: String,
-    short_path: String,
-    ident: Option<String>,
-    crate_name: Option<String>,
-    module_path: Option<String>,
-}
-
-impl TypePathStorage {
-    pub fn new_primitive<A: AsRef<str>>(name: A) -> Self {
-        Self {
-            path: name.as_ref().to_owned(),
-            short_path: name.as_ref().to_owned(),
-            ident: Some(name.as_ref().to_owned()),
-            crate_name: None,
-            module_path: None,
-        }
-    }
-
-    pub fn new_anonymous<A: AsRef<str>, B: AsRef<str>>(path: A, short_path: B) -> Self {
-        Self {
-            path: path.as_ref().to_owned(),
-            short_path: short_path.as_ref().to_owned(),
-            ident: None,
-            crate_name: None,
-            module_path: None,
-        }
-    }
-
-    pub fn new_named<A, B, C, D, E>(
-        path: A,
-        short_path: B,
-        ident: C,
-        crate_name: D,
-        module_path: E,
-    ) -> Self
-    where
-        A: AsRef<str>,
-        B: AsRef<str>,
-        C: AsRef<str>,
-        D: AsRef<str>,
-        E: AsRef<str>,
-    {
-        Self {
-            path: path.as_ref().to_owned(),
-            short_path: short_path.as_ref().to_owned(),
-            ident: Some(ident.as_ref().to_owned()),
-            crate_name: Some(crate_name.as_ref().to_owned()),
-            module_path: Some(module_path.as_ref().to_owned()),
-        }
-    }
-
-    #[inline]
-    pub fn path(&self) -> &str {
-        &self.path
-    }
-
-    #[inline]
-    pub fn short_path(&self) -> &str {
-        &self.short_path
-    }
-
-    #[inline]
-    pub fn ident(&self) -> Option<&str> {
-        self.ident.as_deref()
-    }
-
-    #[inline]
-    pub fn crate_name(&self) -> Option<&str> {
-        self.crate_name.as_deref()
-    }
-
-    #[inline]
-    pub fn module_path(&self) -> Option<&str> {
-        self.module_path.as_deref()
-    }
-}
-
-pub mod __private {
-    #[macro_export]
-    macro_rules! void_tokens {
-        ($($tokens: tt)*) => {};
-    }
-
-    #[macro_export]
-    macro_rules! first_present {
-        ({ $($first:tt)* } $( { $($rest:tt)* } )*) => {
-            $($first)*
-        }
-    }
-
-    pub use first_present;
-    pub use void_tokens;
-}
-
-#[macro_export]
-macro_rules! impl_type_path_stored {
-    ($storage_fn: expr, impl$({ $($param:tt)* })? for $($impl_tt: tt)+) => {
-        const _: () = {
-            trait GetStorage {
-                fn get_storage() -> &'static $crate::utility::TypePathStorage;
-            }
-
-            impl$(< $($param)* >)? GetStorage for $($impl_tt)+ {
-                #[inline]
-                fn get_storage() -> &'static $crate::utility::TypePathStorage {
-                    $crate::utility::__private::first_present!(
-                        $({
-                        $crate::utility::__private::void_tokens!($($param)*);
-                            static CELL: $crate::utility::GenericTypePathCell = $crate::utility::GenericTypePathCell::new();
-                            return CELL.get_or_insert::<Self, _>($storage_fn);
-                        })?
-                        {
-                            static CELL: $crate::utility::NonGenericTypePathCell = $crate::utility::NonGenericTypePathCell::new();
-                            return CELL.get_or_set($storage_fn);
-                        }
-                    );
-                }
-            }
-
-            impl $(< $($param)* >)? $crate::TypePath for $($impl_tt)+ {
-                fn type_path() -> &'static str {
-                    &Self::get_storage().path()
-                }
-
-                fn short_type_path() -> &'static str {
-                    &Self::get_storage().short_path()
-                }
-
-                fn type_ident() -> Option<&'static str> {
-                    match Self::get_storage().ident() {
-                        Some(x) => Some(x),
-                        None => None
-                    }
-                }
-
-                fn crate_name() -> Option<&'static str> {
-                    match Self::get_storage().crate_name() {
-                        Some(x) => Some(x),
-                        None => None
-                    }
-                }
-
-                fn module_path() -> Option<&'static str> {
-                    match Self::get_storage().module_path() {
-                        Some(x) => Some(x),
-                        None => None
-                    }
-                }
-            }
-        };
-    }
-}
-pub use impl_type_path_stored;
