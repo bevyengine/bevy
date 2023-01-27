@@ -510,8 +510,8 @@ impl ScheduleGraph {
 
         match ambiguous_with {
             Ambiguity::Check => (),
-            Ambiguity::IgnoreWithSet(ambigous_with) => {
-                for set in ambigous_with
+            Ambiguity::IgnoreWithSet(ambiguous_with) => {
+                for set in ambiguous_with
                     .into_iter()
                     .map(|set| self.system_set_ids[&set])
                 {

@@ -379,9 +379,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             }
             EnumVariantFields::Unnamed(fields) => {
                 let args = get_field_args(fields, |reflect_idx, declaration_index, field| {
-                    let declar_field = syn::Index::from(declaration_index);
+                    let declare_field = syn::Index::from(declaration_index);
                     enum_field_at.push(quote! {
-                        #unit { #declar_field : value, .. } if #ref_index == #reflect_idx => #FQOption::Some(value)
+                        #unit { #declare_field : value, .. } if #ref_index == #reflect_idx => #FQOption::Some(value)
                     });
 
                     #[cfg(feature = "documentation")]

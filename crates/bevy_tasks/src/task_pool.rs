@@ -710,7 +710,7 @@ mod tests {
                     scope.spawn_on_scope(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if std::thread::current().id() != spawner {
-                            // NOTE: This check is using an atomic rather than simply panicing the
+                            // NOTE: This check is using an atomic rather than simply panicking the
                             // thread to avoid deadlocking the barrier on failure
                             inner_thread_check_failed.store(true, Ordering::Release);
                         }
@@ -785,7 +785,7 @@ mod tests {
                         scope.spawn_on_scope(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
                             if std::thread::current().id() != spawner {
-                                // NOTE: This check is using an atomic rather than simply panicing the
+                                // NOTE: This check is using an atomic rather than simply panicking the
                                 // thread to avoid deadlocking the barrier on failure
                                 inner_thread_check_failed.store(true, Ordering::Release);
                             }

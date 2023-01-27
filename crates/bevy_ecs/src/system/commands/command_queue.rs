@@ -102,7 +102,7 @@ impl CommandQueue {
             // so this addition will not overflow its original allocation.
             let cmd = unsafe { self.bytes.as_mut_ptr().add(meta.offset) };
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
-            // gaurantees that nothing stored in the buffer will get observed after this function ends.
+            // guarantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe { OwningPtr::new(NonNull::new_unchecked(cmd.cast())) };
             // SAFETY: The underlying type of `cmd` matches the type expected by `meta.apply_command`.

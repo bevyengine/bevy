@@ -1,7 +1,7 @@
 //! A glTF scene viewer plugin.  Provides controls for animation, directional lighting, and switching between scene cameras.
 //! To use in your own application:
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
-//! - Insert an initalized `SceneHandle` resource into your App's `AssetServer`.
+//! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
 
