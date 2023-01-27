@@ -16,9 +16,10 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, scheduling::SystemConfigs};
 use bevy_hierarchy::ValidParentCheckPlugin;
 use prelude::{GlobalTransform, Transform};
+use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
@@ -83,12 +84,8 @@ pub enum TransformSystem {
 }
 
 /// A [`Schedule`] that contains correctly ordered transform propagation systems for third party plugin use
-pub fn transform_propagate_schedule() -> Schedule {
-    let mut schedule = Schedule::new();
-    schedule
-        .add_system(systems::sync_simple_transforms)
-        .add_system(systems::propagate_transforms);
-    schedule
+pub fn transform_propagate_systems() -> SystemConfigs {
+    IntoSystemConfigs::into_configs((sync_simple_transforms, propagate_transforms))
 }
 
 /// The base plugin for handling [`Transform`] components
@@ -102,22 +99,22 @@ impl Plugin for TransformPlugin {
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
             .add_startup_system(
-                systems::sync_simple_transforms
+                sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .in_set(StartupSet::PostStartup),
             )
             .add_startup_system(
-                systems::propagate_transforms
+                propagate_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .in_set(StartupSet::PostStartup),
             )
             .add_system(
-                systems::sync_simple_transforms
+                sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .in_set(CoreSet::PostUpdate),
             )
             .add_system(
-                systems::propagate_transforms
+                propagate_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .in_set(CoreSet::PostUpdate),
             );

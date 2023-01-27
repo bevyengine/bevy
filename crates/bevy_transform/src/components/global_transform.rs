@@ -28,7 +28,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
-/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
+/// Third party plugins should use [`transform_propagate_systems`](crate::transform_propagate_systems)
 /// to control when transforms are propagated from parents to children.
 ///
 /// # Examples
