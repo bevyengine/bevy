@@ -1,8 +1,8 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, Typed, DynamicTypePath,
+    self as bevy_reflect, utility::NonGenericTypeInfoCell, DynamicInfo, DynamicTypePath, Reflect,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -183,7 +183,7 @@ impl Reflect for DynamicArray {
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
-            
+
     #[inline]
     fn get_type_path(&self) -> &dyn DynamicTypePath {
         self

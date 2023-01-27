@@ -1,8 +1,8 @@
 use crate::utility::{GenericTypePathCell, NonGenericTypeInfoCell};
 use crate::{
-    self as bevy_reflect, impl_type_path, DynamicInfo, FromReflect, GetTypeRegistration, Reflect,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
-    UnnamedField, DynamicTypePath
+    self as bevy_reflect, impl_type_path, DynamicInfo, DynamicTypePath, FromReflect,
+    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};

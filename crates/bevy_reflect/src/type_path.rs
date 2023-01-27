@@ -94,7 +94,7 @@ pub trait TypePath: 'static {
     }
 }
 
-/// 
+///
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
     fn reflect_type_path(&self) -> &str;

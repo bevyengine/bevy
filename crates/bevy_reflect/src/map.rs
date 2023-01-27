@@ -7,8 +7,8 @@ use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    Typed, DynamicTypePath,
+    self as bevy_reflect, DynamicInfo, DynamicTypePath, Reflect, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, Typed,
 };
 
 /// An ordered mapping between [`Reflect`] values.
@@ -278,7 +278,7 @@ impl Reflect for DynamicMap {
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
-            
+
     #[inline]
     fn get_type_path(&self) -> &dyn DynamicTypePath {
         self

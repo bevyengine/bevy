@@ -3,8 +3,8 @@ use bevy_reflect_derive::impl_type_path;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct,
-    DynamicTuple, Enum, Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo,
-    Typed, VariantFieldIter, VariantType, DynamicTypePath,
+    DynamicTuple, DynamicTypePath, Enum, Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct,
+    Tuple, TypeInfo, Typed, VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -301,7 +301,7 @@ impl Reflect for DynamicEnum {
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
-            
+
     #[inline]
     fn get_type_path(&self) -> &dyn DynamicTypePath {
         self
