@@ -156,8 +156,6 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
-          # Not needed here as only one Linter is used.
-          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   run-examples:
     runs-on: ubuntu-latest
