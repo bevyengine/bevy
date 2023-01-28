@@ -323,7 +323,7 @@ impl FogFalloff {
     /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
     /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_squared(visibility: f32) -> FogFalloff {
-        FogFalloff::from_visibility_contrast(
+        FogFalloff::from_visibility_contrast_squared(
             visibility,
             FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
         )
@@ -335,8 +335,8 @@ impl FogFalloff {
         visibility: f32,
         contrast_threshold: f32,
     ) -> FogFalloff {
-        FogFalloff::Exponential {
-            density: FogFalloff::koschmieder(visibility, contrast_threshold).sqrt(),
+        FogFalloff::ExponentialSquared {
+            density: (FogFalloff::koschmieder(visibility, contrast_threshold) / visibility).sqrt(),
         }
     }
 
