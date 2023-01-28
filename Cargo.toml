@@ -13,7 +13,11 @@ repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
   "examples/android",
@@ -363,6 +367,16 @@ path = "examples/3d/bloom.rs"
 [package.metadata.example.bloom]
 name = "Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "debug_mesh"
+path = "examples/3d/debug_mesh.rs"
+
+[package.metadata.example.debug_mesh]
+name = "Debug mesh"
+description = "Debug meshes by displaying UVs, world normals, etc."
 category = "3D Rendering"
 wasm = false
 

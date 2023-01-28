@@ -1,3 +1,4 @@
+pub mod debug_mesh;
 pub mod wireframe;
 
 mod alpha;
