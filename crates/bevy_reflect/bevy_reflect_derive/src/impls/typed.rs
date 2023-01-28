@@ -6,7 +6,10 @@ use std::borrow::Cow;
 use quote::{quote, ToTokens};
 use syn::{spanned::Spanned, LitStr};
 
-use crate::{derive_data::{PathToType, ReflectMeta}, fq_std::FQOption};
+use crate::{
+    derive_data::{PathToType, ReflectMeta},
+    utility::wrap_in_option,
+};
 
 fn combine_generics(
     ty_generics: Vec<proc_macro2::TokenStream>,
@@ -63,8 +66,6 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
     let ident = LitStr::new(&ident, path_to_type.span());
 
     let path = if long_path {
-        let path = path_to_type.non_generic_path();
-
         let ty_generics: Vec<_> = ty_generic_paths
             .iter()
             .map(|cell| {
@@ -75,6 +76,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
             .collect();
 
         let generics = combine_generics(ty_generics, generics);
+        let path = path_to_type.non_generic_path();
 
         quote! {
             ::std::borrow::ToOwned::to_owned(::core::concat!(#path, "::<"))
@@ -174,42 +176,9 @@ pub(crate) fn impl_type_path(
         )
     };
 
-    let name = path_to_type
-        .name()
-        .map(|name| {
-            quote! {
-                #FQOption::Some(#name)
-            }
-        })
-        .unwrap_or_else(|| {
-            quote! {
-                #FQOption::None
-            }
-        });
-    let module_path = path_to_type
-        .module_path()
-        .map(|name| {
-            quote! {
-                #FQOption::Some(#name)
-            }
-        })
-        .unwrap_or_else(|| {
-            quote! {
-                #FQOption::None
-            }
-        });
-    let crate_name = path_to_type
-        .crate_name()
-        .map(|name| {
-            quote! {
-                #FQOption::Some(#name)
-            }
-        })
-        .unwrap_or_else(|| {
-            quote! {
-                #FQOption::None
-            }
-        });
+    let name = wrap_in_option(path_to_type.name());
+    let module_path = wrap_in_option(path_to_type.module_path());
+    let crate_name = wrap_in_option(path_to_type.crate_name());
 
     // Add Typed bound for each active field
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
@@ -218,7 +187,7 @@ pub(crate) fn impl_type_path(
         Some(quote! {
             const _: () = {
                 mod private_scope {
-                    // Compiles if it can be named with its ident when there are no imports.
+                    // Compiles if it can be named when there are no imports.
                     type AssertIsPrimitive = #path_to_type;
                 }
             };

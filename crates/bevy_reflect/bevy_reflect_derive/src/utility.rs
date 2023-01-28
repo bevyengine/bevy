@@ -1,6 +1,6 @@
 //! General-purpose utility functions for internal usage within this crate.
 
-use crate::field_attributes::ReflectIgnoreBehavior;
+use crate::{field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
@@ -212,4 +212,17 @@ where
     });
 
     bitset
+}
+
+/// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.
+pub(crate) fn wrap_in_option(tokens: Option<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+    tokens.map(|tokens| {
+        quote! {
+            #FQOption::Some(#tokens)
+        }
+    }).unwrap_or_else(|| {
+        quote! {
+            #FQOption::None
+        }
+    })
 }
