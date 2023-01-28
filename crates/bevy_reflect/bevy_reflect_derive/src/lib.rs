@@ -112,12 +112,12 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 /// ## `#[reflect(skip_serializing)]`
 ///
 /// This works similar to `#[reflect(ignore)]`, but rather than opting out of _all_ of reflection,
-/// it simply opts the field out of serialization.
+/// it simply opts the field out of both serialization and deserialization.
+/// This can be useful when a field should be accessible via reflection, but may not make
+/// sense in a serialized form, such as computed data.
 ///
-/// This is done by registering the `SerializationData` type within the `GetTypeRegistration` implementation,
+/// What this does is register the `SerializationData` type within the `GetTypeRegistration` implementation,
 /// which will be used by the reflection serializers to determine whether or not the field is serializable.
-///
-/// Note that this affects both serialization and deserialization.
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

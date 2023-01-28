@@ -6,8 +6,7 @@
 //! In other words, reflection allows us to inspect the program itself, its
 //! syntax, and its type information at runtime.
 //!
-//! While Rust doesn't yet provide much built-in tooling for reflection,
-//! this crate serves to help fill that role.
+//! This crate adds this missing reflection functionality to Rust.
 //! Though it was made with the [Bevy] game engine in mind,
 //! it's a general-purpose solution that can be used in any Rust project.
 //!
@@ -45,7 +44,7 @@
 //!
 //! We can implement `Reflect` on any type that satisfies _both_ of the following conditions:
 //! * The type implements `Any`.
-//!   This is true if and only if the type itself has a `'static` lifetime.
+//!   This is true if and only if the type itself has a [`'static` lifetime].
 //! * All fields and sub-elements themselves implement `Reflect`
 //!   (see the [derive macro documentation] for details on how to ignore certain fields when deriving).
 //!
@@ -356,6 +355,7 @@
 //! [`bevy_reflect`]: crate
 //! [runtime cost]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html#trait-objects-perform-dynamic-dispatch
 //! [derive macro]: bevy_reflect_derive::Reflect
+//! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [derive macro documentation]: bevy_reflect_derive::Reflect
 //! [type data]: TypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
