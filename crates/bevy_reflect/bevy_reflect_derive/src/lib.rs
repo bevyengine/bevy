@@ -249,6 +249,29 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     trait_reflection::reflect_trait(&args, input)
 }
 
+/// A macro used to generate reflection trait implementations for the given type.
+///
+/// This is functionally the same as [deriving `Reflect`] using the `#[reflect_value]` container attribute.
+///
+/// The only reason for this macro's existence is so that `bevy_reflect` can easily implement the reflection traits
+/// on primitives and other Rust types internally.
+///
+/// # Examples
+///
+/// Types can be passed with or without registering type data:
+///
+/// ```ignore
+/// impl_reflect_value!(foo);
+/// impl_reflect_value!(bar(Debug, Default, Serialize, Deserialize));
+/// ```
+///
+/// Generic types can also specify their parameters and bounds:
+///
+/// ```ignore
+/// impl_reflect_value!(foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
+/// ```
+///
+/// [deriving `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
@@ -330,6 +353,22 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     }
 }
 
+/// A macro used to generate a `FromReflect` trait implementation for the given type.
+///
+/// This is functionally the same as [deriving `FromReflect`] on a type that [derives `Reflect`] using
+/// the `#[reflect_value]` container attribute.
+///
+/// The only reason this macro exists is so that `bevy_reflect` can easily implement `FromReflect` on
+/// primitives and other Rust types internally.
+///
+/// # Examples
+///
+/// ```ignore
+/// impl_from_reflect_value!(foo<T1, T2: Baz> where T1: Bar);
+/// ```
+///
+/// [deriving `FromReflect`]: FromReflect
+/// [derives `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
