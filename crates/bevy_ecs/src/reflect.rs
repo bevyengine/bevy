@@ -119,8 +119,7 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
-    pub fn reflect_mut<'a>(&self, entity: &'a mut EntityMut<'a>) -> Option<Mut<'a, dyn Reflect>> {
-        // SAFETY: unique world access
+    pub fn reflect_mut<'a>(&self, entity: &'a mut EntityMut<'_>) -> Option<Mut<'a, dyn Reflect>> {
         (self.0.reflect_mut)(entity)
     }
 
@@ -215,7 +214,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
-                // `reflect_unchecked_mut` which must be called with an UnsafeWorldCellEntityReff with access to the the component `C` on the `entity`
+                // `reflect_unchecked_mut` which must be called with an UnsafeWorldCellEntityRef with access to the the component `C` on the `entity`
                 unsafe {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,
