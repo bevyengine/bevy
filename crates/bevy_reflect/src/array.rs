@@ -22,7 +22,7 @@ use std::{
 /// This trait has a blanket implementation over Rust arrays of up to 32 items.
 /// This implementation can technically contain more than 32,
 /// but the blanket [`GetTypeRegistration`] is only implemented up to the 32
-/// item limit due to a [limitation] on `Deserialize`.
+/// item limit due to a [limitation] on [`Deserialize`].
 ///
 /// # Example
 ///
@@ -42,6 +42,7 @@ use std::{
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
+/// [`Deserialize`]: ::serde::Deserialize
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;

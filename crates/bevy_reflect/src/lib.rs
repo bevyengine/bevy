@@ -8,7 +8,7 @@
 //!
 //! While Rust doesn't yet provide much built-in tooling for reflection,
 //! this crate serves to help fill that role.
-//! And while it was made with the [Bevy] game engine in mind,
+//! Though it was made with the [Bevy] game engine in mind,
 //! it's a general-purpose solution that can be used in any Rust project.
 //!
 //! At a very high level, this crate allows you to:
@@ -45,7 +45,7 @@
 //!
 //! We can implement `Reflect` on any type that satisfies _both_ of the following conditions:
 //! * The type implements `Any`.
-//!   In other words, the type itself has a `'static` lifetime.
+//!   This is true if and only if the type itself has a `'static` lifetime.
 //! * All fields and sub-elements themselves implement `Reflect`
 //!   (see the [derive macro documentation] for details on how to ignore certain fields when deriving).
 //!
@@ -101,7 +101,7 @@
 //! ```
 //!
 //! And to go back to a general-purpose `dyn Reflect`,
-//! we can just use of the matching [`Reflect::as_reflect`], [`Reflect::as_reflect_mut`],
+//! we can just use the matching [`Reflect::as_reflect`], [`Reflect::as_reflect_mut`],
 //! or [`Reflect::into_reflect`] methods.
 //!
 //! ## Value Types
@@ -138,7 +138,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`Reflect::clone_value`] will return a dynamic type for all non-value types,
+//! The [`Reflect::clone_value`] method will return a dynamic type for all non-value types,
 //! allowing all types to essentially be "cloned".
 //! And since dynamic types themselves implement [`Reflect`],
 //! we may pass them around just like any other reflected type.
@@ -174,7 +174,7 @@
 //!
 //! ## `FromReflect`
 //!
-//! It's important to remember that dynamics are _not_ the concrete type they may be representing.
+//! It's important to remember that dynamic types are _not_ the concrete type they may be representing.
 //! A common mistake is to treat them like such when trying to cast back to the original type
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
@@ -224,7 +224,7 @@
 //!
 //! # Type Registration
 //!
-//! This crate also comes with a [`TypeRegistry`] that can be used to store and retrieve additional data,
+//! This crate also comes with a [`TypeRegistry`] that can be used to store and retrieve additional type metadata at runtime,
 //! such as helper types and trait implementations.
 //!
 //! The [derive macro] for [`Reflect`] also generates an implementation of the [`GetTypeRegistration`] trait,
@@ -267,7 +267,7 @@
 //!
 //! ## Reflecting Traits
 //!
-//! Type data doesn't have to be tied to a trait, but they it's often extremely useful to create trait type data.
+//! Type data doesn't have to be tied to a trait, but it's often extremely useful to create trait type data.
 //! These allow traits to be used directly on a `dyn Reflect` while utilizing the underlying type's implementation.
 //!
 //! For any [object-safe] trait, we can easily generate a corresponding `ReflectTrait` type for our trait
@@ -310,9 +310,9 @@
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
 //! The `UntypedReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
-//! where the underlying type will be a dynamic representing some concrete type (except for value types).
+//! where the underlying type will be a dynamic type representing some concrete type (except for value types).
 //!
-//! Again, it's important to remember that dynamics may need to be converted to their concrete counterparts
+//! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
 //! in order to be used in certain cases.
 //! This can be achieved using [`FromReflect`].
 //!

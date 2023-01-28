@@ -18,7 +18,8 @@ use crate::{
 /// internal size to change.
 ///
 /// [`push`](List::push) and [`pop`](List::pop) have default implementations,
-/// however it will generally be more performant to implement them manually.
+/// however it will generally be more performant to implement them manually
+/// as the default implementation uses a very naive approach to find the correct position.
 ///
 /// This trait expects its elements to be ordered linearly from front to back.
 /// The _front_ element starts at index 0 with the _back_ element ending at the largest index.
