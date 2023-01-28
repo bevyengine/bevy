@@ -969,6 +969,7 @@ mod tests {
         let mut world = World::new();
 
         let mut entity = world.spawn_empty();
+        let old_location = entity.location();
         let id = entity.id();
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             entity.world_scope(|w| {
@@ -982,7 +983,7 @@ mod tests {
         }));
         assert!(res.is_err());
 
-        // If the `EntityLocation` has not been updated, this will cause UB.
-        entity.insert(TestComponent(0));
+        // Ensure that the location has been properly updated.
+        assert!(entity.location() != old_location);
     }
 }
