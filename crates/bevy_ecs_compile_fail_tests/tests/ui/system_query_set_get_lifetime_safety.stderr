@@ -20,4 +20,4 @@ error[E0499]: cannot borrow `queries` as mutable more than once at a time
    |                  ^^^^^^^^^^^^ second mutable borrow occurs here
 ...
 25 |     b.0 = a.0
-   |           --- first borrow later used here
+   |           - first borrow later used here

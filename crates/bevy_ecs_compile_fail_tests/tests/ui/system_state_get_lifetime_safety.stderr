@@ -8,4 +8,4 @@ error[E0502]: cannot borrow `*world` as mutable because it is also borrowed as i
    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 ...
 24 |         println!("{}", a1.0);
-   |                        ---- immutable borrow later used here
+   |                        -- immutable borrow later used here

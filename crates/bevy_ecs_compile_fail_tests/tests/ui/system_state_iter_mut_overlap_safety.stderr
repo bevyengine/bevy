@@ -4,7 +4,7 @@ error[E0502]: cannot borrow `query` as immutable because it is also borrowed as 
 15 |         let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<A>>>();
    |                       ---------------- mutable borrow occurs here
 ...
-18 |             query.iter().collect::<Vec<&A>>(),
+18 |             query.iter().map(|v| v.into_inner()).collect::<Vec<&A>>(),
    |             ^^^^^^^^^^^^ immutable borrow occurs here
 ...
 23 |             mut_vec.iter().map(|m| **m).collect::<Vec<A>>(),
