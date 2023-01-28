@@ -2,7 +2,7 @@ use bevy_graph::{
     graphs::{
         keys::{EdgeIdx, NodeIdx},
         list::SimpleListGraph,
-        Graph, DirectedGraph,
+        DirectedGraph, Graph,
     },
     utils::wrapped_indices_iterator::WrappedIndicesIterator,
 };
@@ -92,6 +92,25 @@ fn undirected() {
             .collect::<HashSet<NodeIdx>>(),
         [no_friends_manny].into()
     );
+
+    assert!(graph.contains_edge_between(edgar, bernhard));
+    graph.remove_edge(eb);
+    assert_eq!(graph.edge_count(), 1);
+
+    assert!(!graph.contains_edge_between(edgar, bernhard));
+    assert!(graph.contains_edge_between(jakob, edgar));
+    assert!(graph.contains_edge_between(edgar, jakob));
+    assert!(!graph.contains_edge_between(jakob, bernhard));
+
+    graph.remove_node(edgar);
+    assert_eq!(graph.node_count(), 3);
+
+    assert!(!graph.contains_node(edgar));
+    assert!(graph.contains_node(jakob));
+    assert!(graph.contains_node(bernhard));
+    assert!(graph.contains_node(no_friends_manny));
+
+    assert_eq!(graph.edge_count(), 0);
 }
 
 #[test]
@@ -236,4 +255,24 @@ fn directed() {
 
     assert!(graph.contains_edge_between(jakob, edgar));
     assert!(!graph.contains_edge_between(edgar, jakob));
+
+    graph.reverse_edge(eb); // just for more readable tests - rereverse it
+
+    assert!(graph.contains_edge_between(edgar, bernhard));
+    graph.remove_edge(eb);
+    assert_eq!(graph.edge_count(), 1);
+
+    assert!(!graph.contains_edge_between(edgar, bernhard));
+    assert!(graph.contains_edge_between(jakob, edgar));
+    assert!(!graph.contains_edge_between(jakob, bernhard));
+
+    graph.remove_node(edgar);
+    assert_eq!(graph.node_count(), 3);
+
+    assert!(!graph.contains_node(edgar));
+    assert!(graph.contains_node(jakob));
+    assert!(graph.contains_node(bernhard));
+    assert!(graph.contains_node(no_friends_manny));
+
+    assert_eq!(graph.edge_count(), 0);
 }

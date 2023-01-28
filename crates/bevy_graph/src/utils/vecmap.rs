@@ -90,10 +90,7 @@ impl<K: PartialEq + Ord, V> VecMap<K, V> for Vec<(K, V)> {
 
     #[inline]
     fn index_by_key(&self, key: &K) -> Option<usize> {
-        match self.binary_search_by(|l| l.0.cmp(key)) {
-            Ok(index) => Some(index),
-            _ => None,
-        }
+        self.iter().position(|l| l.0.eq(key))
     }
 
     fn remove_by_key(&mut self, key: K) -> Option<V> {

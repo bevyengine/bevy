@@ -149,9 +149,19 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
                 .edges_of(index)
                 .into_indices()
                 .collect::<Vec<EdgeIdx>>();
+            println!("{:?}", self.adjacencies[index].incoming());
+            println!("{:?}", self.adjacencies[index].outgoing());
+            println!("{edges_to_remove:?}");
+            println!(
+                "{:?}",
+                self.edges
+                    .iter()
+                    .map(|edge| edge.0)
+                    .collect::<Vec<EdgeIdx>>()
+            );
             for edge_idx in edges_to_remove {
                 unsafe {
-                    let Edge(src, dst, _) = self.edges.remove(edge_idx).unwrap_unchecked();
+                    let Edge(src, dst, _) = self.edges.remove(edge_idx).unwrap();
                     self.adjacencies
                         .get_unchecked_mut(src)
                         .outgoing_mut()
