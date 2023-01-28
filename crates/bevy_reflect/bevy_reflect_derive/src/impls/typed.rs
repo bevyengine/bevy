@@ -38,7 +38,7 @@ fn combine_generics(
 /// Returns an expression for a `&'static str`,
 /// representing either a [long path](long) or [short path](short).
 ///
-/// [long]: ReflectTypePath::non_generic_path
+/// [long]: ReflectTypePath::non_generic_type_path
 /// [short]: ReflectTypePath::non_generic_short_path
 fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let path_to_type = meta.path_to_type();
@@ -76,7 +76,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
             .collect();
 
         let generics = combine_generics(ty_generics, generics);
-        let path = path_to_type.non_generic_path();
+        let path = path_to_type.non_generic_type_path();
 
         quote! {
             ::std::borrow::ToOwned::to_owned(::core::concat!(#path, "::<"))
@@ -171,7 +171,7 @@ pub(crate) fn impl_type_path(
         )
     } else {
         (
-            path_to_type.non_generic_path(),
+            path_to_type.non_generic_type_path(),
             path_to_type.non_generic_short_path(),
         )
     };

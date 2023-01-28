@@ -568,6 +568,41 @@ impl<'a> EnumVariant<'a> {
 }
 
 /// Represents a path to a type.
+/// 
+/// This is used over [`struct@Ident`] or [`Path`]
+/// to have the correct semantics for deriving [`TypePath`].
+/// 
+/// The type can always be reached with its [`ToTokens`] implementation.
+/// 
+/// The [`non_generic_type_path`], [`non_generic_short_path`],
+/// [`type_ident`], [`crate_name`], and [`module_path`] methods
+/// are equivalent to the methods on the `TypePath` trait.
+/// 
+/// [`non_generic_type_path`]: ReflectTypePath::non_generic_type_path
+/// [`non_generic_short_path`]: ReflectTypePath::non_generic_short_path
+/// [`type_ident`]: ReflectTypePath::type_ident
+/// [`crate_name`]: ReflectTypePath::crate_name
+/// [`module_path`]: ReflectTypePath::module_path
+/// 
+/// # Example
+/// 
+/// ```
+/// # use quote::{quote, ToTokens};
+/// # use syn::parse_quote;
+/// 
+/// let path: Path = parse_quote!(::core::marker::PhantomData)?;
+/// 
+/// let type_path = ReflectTypePath::External {
+///     path,
+///     custom_path: None,
+/// };
+/// 
+/// // Equals "core::marker".
+/// let module_path = type_path.module_path();
+/// 
+/// # Ok::<(), syn::Error>(())
+/// ```
+/// 
 pub(crate) enum ReflectTypePath<'a> {
     /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),
@@ -579,6 +614,7 @@ pub(crate) enum ReflectTypePath<'a> {
         custom_path: Option<Path>,
     },
     /// The name of a type relative to its scope.
+    /// 
     /// The type must be able to be reached with just its name.
     ///
     /// May have a seperate alias path used for the `TypePath` implementation.
@@ -690,7 +726,7 @@ impl<'a> ReflectTypePath<'a> {
     /// Does not take generics into account.
     ///
     /// For `::core::option::Option`, this is `"core::option::Option"`.
-    pub fn non_generic_path(&self) -> proc_macro2::TokenStream {
+    pub fn non_generic_type_path(&self) -> proc_macro2::TokenStream {
         match self {
             Self::Primitive(ident) => {
                 let lit = LitStr::new(&ident.to_string(), ident.span());
