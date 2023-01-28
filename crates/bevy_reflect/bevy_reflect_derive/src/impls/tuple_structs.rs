@@ -58,7 +58,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         }
     };
 
-    let string_name = struct_path.ident().unwrap().to_string();
+    let string_name = struct_path.get_ident().unwrap().to_string();
 
     #[cfg(feature = "documentation")]
     let info_generator = {

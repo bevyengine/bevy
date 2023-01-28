@@ -59,7 +59,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
         });
 
-    let string_name = enum_path.ident().unwrap().to_string();
+    let string_name = enum_path.get_ident().unwrap().to_string();
 
     #[cfg(feature = "documentation")]
     let info_generator = {
