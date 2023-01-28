@@ -15,7 +15,7 @@ fn main() {
         let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<A>>>();
         assert_eq!(
             // this should fail to compile due to the later use of mut_vec
-            query.iter().collect::<Vec<&A>>(),
+            query.iter().map(|v| v.into_inner()).collect::<Vec<&A>>(),
             vec![&A(1), &A(2)],
             "both components returned by iter of &mut"
         );

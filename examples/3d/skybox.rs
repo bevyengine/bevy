@@ -168,7 +168,7 @@ fn asset_loaded(
         // spawn cube
         let mut updated = false;
         for handle in cubes.iter() {
-            if let Some(material) = cubemap_materials.get_mut(handle) {
+            if let Some(material) = cubemap_materials.get_mut(handle.into_inner()) {
                 updated = true;
                 material.base_color_texture = Some(cubemap.image_handle.clone_weak());
             }

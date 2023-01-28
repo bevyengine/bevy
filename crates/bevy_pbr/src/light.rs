@@ -1886,7 +1886,10 @@ pub fn check_light_mesh_visibility(
             continue;
         }
 
-        let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+        let view_mask = maybe_view_mask
+            .map(|v| v.into_inner())
+            .copied()
+            .unwrap_or_default();
 
         for (entity, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
             &mut visible_entity_query
@@ -1895,7 +1898,10 @@ pub fn check_light_mesh_visibility(
                 continue;
             }
 
-            let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+            let entity_mask = maybe_entity_mask
+                .map(|v| v.into_inner())
+                .copied()
+                .unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
                 continue;
             }
@@ -1912,7 +1918,12 @@ pub fn check_light_mesh_visibility(
                         view_frusta.iter().zip(view_visible_entities)
                     {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                        if !frustum.intersects_obb(aabb.into_inner(), &transform.compute_matrix(), false, true) {
+                        if !frustum.intersects_obb(
+                            aabb.into_inner(),
+                            &transform.compute_matrix(),
+                            false,
+                            true,
+                        ) {
                             continue;
                         }
 
@@ -1948,7 +1959,10 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+                let view_mask = maybe_view_mask
+                    .map(|v| v.into_inner())
+                    .copied()
+                    .unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -1966,7 +1980,10 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+                    let entity_mask = maybe_entity_mask
+                        .map(|v| v.into_inner())
+                        .copied()
+                        .unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
                     }
@@ -2012,7 +2029,10 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+                let view_mask = maybe_view_mask
+                    .map(|v| v.into_inner())
+                    .copied()
+                    .unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -2030,7 +2050,10 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+                    let entity_mask = maybe_entity_mask
+                        .map(|v| v.into_inner())
+                        .copied()
+                        .unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
                     }

@@ -63,7 +63,10 @@ impl Node for UiPassNode {
             return Ok(());
         }
         // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui.map(|v| v.into_inner()), Some(&UiCameraConfig { show_ui: false })) {
+        if matches!(
+            camera_ui.map(|v| v.into_inner()),
+            Some(&UiCameraConfig { show_ui: false })
+        ) {
             return Ok(());
         }
 

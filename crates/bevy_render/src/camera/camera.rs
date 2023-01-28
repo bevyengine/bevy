@@ -15,7 +15,8 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res}, world::{Mut, Ref},
+    system::{Commands, Query, Res},
+    world::{Mut, Ref},
 };
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -568,7 +569,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                 },
-                visible_entities.into_inner().clone(),
+                visible_entities.clone(),
             ));
         }
     }

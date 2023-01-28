@@ -204,7 +204,7 @@ mod tests {
         let mut results = world
             .query::<(&N, &Idx)>()
             .iter(&world)
-            .map(|(a, b)| (a.into_inner().clone(), *b))
+            .map(|(a, b)| (a.clone(), *b))
             .collect::<Vec<_>>();
         results.sort_unstable_by_key(|(_, index)| *index);
 

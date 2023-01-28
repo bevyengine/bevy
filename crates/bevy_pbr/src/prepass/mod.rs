@@ -14,7 +14,7 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
-    world::{FromWorld, World, Ref},
+    world::{FromWorld, Ref, World},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{

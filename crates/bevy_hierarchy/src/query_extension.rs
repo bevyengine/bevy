@@ -2,8 +2,9 @@ use std::collections::VecDeque;
 
 use bevy_ecs::{
     entity::Entity,
+    prelude::Component,
     query::{ReadOnlyWorldQuery, WorldQuery},
-    system::Query, prelude::Component,
+    system::Query,
 };
 
 use crate::{Children, Parent};
@@ -200,7 +201,10 @@ mod tests {
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);
 
-        let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).map(|v| v.into_inner()).collect();
+        let result: Vec<_> = a_query
+            .iter_many(parent_query.iter_ancestors(c))
+            .map(|v| v.into_inner())
+            .collect();
 
         assert_eq!([&A(1), &A(0)], result.as_slice());
     }

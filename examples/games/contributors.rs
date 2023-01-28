@@ -192,7 +192,12 @@ fn select_system(
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
         let mut text = text_query.single_mut();
-        select(&mut sprite, contributor.into_inner(), &mut transform, &mut text);
+        select(
+            &mut sprite,
+            contributor.into_inner(),
+            &mut transform,
+            &mut text,
+        );
     }
 }
 

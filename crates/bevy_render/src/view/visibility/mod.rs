@@ -372,7 +372,10 @@ pub fn check_visibility(
     >,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
-        let view_mask = maybe_view_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+        let view_mask = maybe_view_mask
+            .map(|v| v.into_inner())
+            .copied()
+            .unwrap_or_default();
 
         visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each_mut(
@@ -390,7 +393,10 @@ pub fn check_visibility(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+                let entity_mask = maybe_entity_mask
+                    .map(|v| v.into_inner())
+                    .copied()
+                    .unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
                     return;
                 }
@@ -428,7 +434,10 @@ pub fn check_visibility(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.map(|v| v.into_inner()).copied().unwrap_or_default();
+                let entity_mask = maybe_entity_mask
+                    .map(|v| v.into_inner())
+                    .copied()
+                    .unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
                     return;
                 }

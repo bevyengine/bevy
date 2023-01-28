@@ -923,13 +923,17 @@ mod tests {
             fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
                 let q = self.state_q.get(world);
                 let a = q.get_inner(entity).unwrap();
-                Holder { value: a.into_inner() }
+                Holder {
+                    value: a.into_inner(),
+                }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
                 let mut components = Vec::new();
                 let q = self.state_q.get(world);
                 for a in q.iter_inner() {
-                    components.push(Holder { value: a.into_inner() });
+                    components.push(Holder {
+                        value: a.into_inner(),
+                    });
                 }
                 components
             }

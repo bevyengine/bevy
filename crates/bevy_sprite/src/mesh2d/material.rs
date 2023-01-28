@@ -308,7 +308,10 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d = materials.into_inner().get(material2d_handle.into_inner()).unwrap();
+        let material2d = materials
+            .into_inner()
+            .get(material2d_handle.into_inner())
+            .unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
     }

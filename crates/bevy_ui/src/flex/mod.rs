@@ -262,7 +262,12 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style.into_inner(), *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(
+                    entity,
+                    style.into_inner(),
+                    *calculated_size,
+                    scaling_factor,
+                );
             } else {
                 flex_surface.upsert_node(entity, style.into_inner(), scaling_factor);
             }

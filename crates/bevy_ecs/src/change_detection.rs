@@ -372,7 +372,7 @@ impl<'a> From<TicksMut<'a>> for Ticks<'a> {
     }
 }
 
-pub trait BuildReadWrap<'a> : sealed::Sealed {
+pub trait BuildReadWrap<'a>: sealed::Sealed {
     type Inner;
     fn build(inner: &'a Self::Inner, ticks: Ticks<'a>) -> Self;
 }
@@ -387,11 +387,14 @@ impl<'a, T> BuildReadWrap<'a> for &'a T {
 impl<'a, T> BuildReadWrap<'a> for Ref<'a, T> {
     type Inner = T;
     fn build(inner: &'a T, ticks: Ticks<'a>) -> Self {
-        Ref{value: inner, ticks}
+        Ref {
+            value: inner,
+            ticks,
+        }
     }
 }
 
-pub trait BuildWriteWrap<'a> : sealed::Sealed {
+pub trait BuildWriteWrap<'a>: sealed::Sealed {
     type Inner;
     fn build(inner: &'a mut Self::Inner, ticks: TicksMut<'a>) -> Self;
 }
@@ -406,7 +409,10 @@ impl<'a, T> BuildWriteWrap<'a> for &'a mut T {
 impl<'a, T> BuildWriteWrap<'a> for Mut<'a, T> {
     type Inner = T;
     fn build(inner: &'a mut T, ticks: TicksMut<'a>) -> Self {
-        Mut{value: inner, ticks}
+        Mut {
+            value: inner,
+            ticks,
+        }
     }
 }
 
@@ -432,7 +438,7 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks.clone(),
+            ticks: this.ticks,
         }
     }
 
@@ -561,11 +567,20 @@ pub struct Ref<'a, T: ?Sized> {
     pub(crate) ticks: Ticks<'a>,
 }
 
+impl<'a, T: ?Sized + Clone> Ref<'a, T> {
+    // This allows `Ref<'a, T>` to act more like `&'a T` making it clearer not ambiguous
+    #[allow(clippy::should_implement_trait)]
+    /// Helper method to call `Clone::clone` on the referenced value
+    pub fn clone(&self) -> T {
+        self.value.clone()
+    }
+}
+
 impl<'a, T: ?Sized> Clone for Ref<'a, T> {
     fn clone(&self) -> Self {
         Ref {
             value: self.value,
-            ticks: self.ticks.clone(),
+            ticks: self.ticks,
         }
     }
 }

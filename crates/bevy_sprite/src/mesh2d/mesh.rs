@@ -509,7 +509,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &mesh2d_view_bind_group.into_inner().value, &[view_uniform.offset]);
+        pass.set_bind_group(
+            I,
+            &mesh2d_view_bind_group.into_inner().value,
+            &[view_uniform.offset],
+        );
 
         RenderCommandResult::Success
     }

@@ -132,9 +132,7 @@ pub fn queue_view_tonemapping_pipelines(
 ) {
     for (entity, tonemapping) in view_targets.iter() {
         if let Tonemapping::Enabled { deband_dither } = *tonemapping {
-            let key = TonemappingPipelineKey {
-                deband_dither: deband_dither,
-            };
+            let key = TonemappingPipelineKey { deband_dither };
             let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
             commands

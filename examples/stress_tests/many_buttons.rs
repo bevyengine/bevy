@@ -35,7 +35,10 @@ fn button_system(
         Changed<Interaction>,
     >,
 ) {
-    for (interaction, mut material, IdleColor(idle_color)) in interaction_query.iter_mut().map(|(i, b, c)| (i.into_inner(), b, c.into_inner())) {
+    for (interaction, mut material, IdleColor(idle_color)) in interaction_query
+        .iter_mut()
+        .map(|(i, b, c)| (i.into_inner(), b, c.into_inner()))
+    {
         if matches!(interaction, Interaction::Hovered) {
             *material = Color::ORANGE_RED.into();
         } else {

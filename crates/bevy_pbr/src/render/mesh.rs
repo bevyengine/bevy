@@ -238,9 +238,12 @@ pub fn extract_skinned_meshes(
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
-        if let Some(skinned_joints) =
-            SkinnedMeshJoints::build(skin.into_inner(), &inverse_bindposes, &joint_query, &mut uniform.buffer)
-        {
+        if let Some(skinned_joints) = SkinnedMeshJoints::build(
+            skin.into_inner(),
+            &inverse_bindposes,
+            &joint_query,
+            &mut uniform.buffer,
+        ) {
             last_start = last_start.max(skinned_joints.index as usize);
             values.push((entity, skinned_joints.to_buffer_index()));
         }
@@ -986,7 +989,10 @@ pub fn queue_mesh_view_bind_groups(
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
             // When using WebGL, and MSAA is disabled, we can't bind the textures either
             if cfg!(not(feature = "webgl")) {
-                let depth_view = match prepass_textures.map(|v| v.into_inner()).and_then(|x| x.depth.as_ref()) {
+                let depth_view = match prepass_textures
+                    .map(|v| v.into_inner())
+                    .and_then(|x| x.depth.as_ref())
+                {
                     Some(texture) => &texture.default_view,
                     None => {
                         &fallback_depths
@@ -999,7 +1005,10 @@ pub fn queue_mesh_view_bind_groups(
                     resource: BindingResource::TextureView(depth_view),
                 });
 
-                let normal_view = match prepass_textures.map(|v| v.into_inner()).and_then(|x| x.normal.as_ref()) {
+                let normal_view = match prepass_textures
+                    .map(|v| v.into_inner())
+                    .and_then(|x| x.normal.as_ref())
+                {
                     Some(texture) => &texture.default_view,
                     None => {
                         &fallback_images

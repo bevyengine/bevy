@@ -61,7 +61,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
-    use crate::prelude::{AnyOf, Entity, Ref, Or, QueryState, With, Without};
+    use crate::prelude::{AnyOf, Entity, Or, QueryState, Ref, With, Without};
     use crate::query::{ArchetypeFilter, QueryCombinationIter};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -86,13 +86,21 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(1)));
         world.spawn(A(2));
-        let values = world.query::<&A>().iter(&world).map(|v| v.into_inner()).collect::<Vec<&A>>();
+        let values = world
+            .query::<&A>()
+            .iter(&world)
+            .map(|v| v.into_inner())
+            .collect::<Vec<&A>>();
         assert_eq!(values, vec![&A(1), &A(2)]);
 
         for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
         }
-        let values = world.query::<&B>().iter(&world).map(|v| v.into_inner()).collect::<Vec<&B>>();
+        let values = world
+            .query::<&B>()
+            .iter(&world)
+            .map(|v| v.into_inner())
+            .collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
     }
 
@@ -244,7 +252,11 @@ mod tests {
         world.spawn(A(3));
         world.spawn(A(4));
 
-        let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: Vec<[&A; 2]> = world
+            .query::<&A>()
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             vec![
@@ -257,7 +269,10 @@ mod tests {
             ]
         );
         let mut a_query = world.query::<&A>();
-        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: Vec<[&A; 3]> = a_query
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             vec![
@@ -276,7 +291,10 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: Vec<[&A; 3]> = a_query
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             vec![
@@ -292,7 +310,10 @@ mod tests {
             b_query.iter_combinations::<2>(&world).size_hint(),
             (0, Some(0))
         );
-        let values: Vec<[&B; 2]> = b_query.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: Vec<[&B; 2]> = b_query
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(values, Vec::<[&B; 2]>::new());
     }
 
@@ -308,7 +329,10 @@ mod tests {
         world.spawn(A(4));
 
         let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
-        let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: HashSet<[&A; 2]> = a_wout_b
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]
@@ -316,14 +340,20 @@ mod tests {
                 .collect::<HashSet<_>>()
         );
 
-        let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: HashSet<[&A; 3]> = a_wout_b
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             [[&A(2), &A(3), &A(4)],].into_iter().collect::<HashSet<_>>()
         );
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
-        let values: HashSet<[&A; 2]> = query.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: HashSet<[&A; 2]> = query
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             [
@@ -346,7 +376,10 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: HashSet<[&A; 3]> = a_wout_b
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             [[&A(12), &A(103), &A(1004)],]
@@ -394,7 +427,10 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: HashSet<[&A; 3]> = query_changed.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: HashSet<[&A; 3]> = query_changed
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             [
@@ -423,7 +459,10 @@ mod tests {
         }
 
         let mut query = world.query::<&Sparse>();
-        let values: Vec<[&Sparse; 3]> = query.iter_combinations(&world).map(|l| l.map(|v| v.into_inner())).collect();
+        let values: Vec<[&Sparse; 3]> = query
+            .iter_combinations(&world)
+            .map(|l| l.map(|v| v.into_inner()))
+            .collect();
         assert_eq!(
             values,
             vec![
@@ -453,7 +492,11 @@ mod tests {
             b.0 = 3;
         }
 
-        let values = world.query::<&B>().iter(&world).map(|v| v.into_inner()).collect::<Vec<&B>>();
+        let values = world
+            .query::<&B>()
+            .iter(&world)
+            .map(|v| v.into_inner())
+            .collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
     }
 
@@ -465,8 +508,11 @@ mod tests {
         world.spawn(A(2));
         world.spawn(C(3));
 
-        let values: Vec<(Option<&A>, Option<&B>)> =
-            world.query::<AnyOf<(&A, &B)>>().iter(&world).map(|(a, b)| (a.map(|v| v.into_inner()), b.map(|v| v.into_inner()))).collect();
+        let values: Vec<(Option<&A>, Option<&B>)> = world
+            .query::<AnyOf<(&A, &B)>>()
+            .iter(&world)
+            .map(|(a, b)| (a.map(|v| v.into_inner()), b.map(|v| v.into_inner())))
+            .collect();
 
         assert_eq!(
             values,
@@ -544,12 +590,12 @@ mod tests {
             let custom_param_data = world
                 .query::<FancyParam>()
                 .iter(&world)
-                .map(|fancy| (fancy.e, *fancy.b, fancy.opt.map(|v| v.into_inner().clone())))
+                .map(|fancy| (fancy.e, *fancy.b, fancy.opt.map(|v| *v)))
                 .collect::<Vec<_>>();
             let normal_data = world
                 .query::<(Entity, &B, Option<&Sparse>)>()
                 .iter(&world)
-                .map(|(e, b, opt)| (e, *b, opt.map(|v| v.into_inner().clone())))
+                .map(|(e, b, opt)| (e, *b, opt.map(|v| *v)))
                 .collect::<Vec<_>>();
             assert_eq!(custom_param_data, normal_data);
         }
@@ -574,7 +620,7 @@ mod tests {
                          opt_bsparse: MaybeBSparseItem { blah: bsparse },
                      }| {
                         (
-                            (a.map(|v| v.into_inner().clone()), b.map(|v| v.into_inner().clone()), c.map(|v| v.into_inner().clone())),
+                            (a.map(|v| *v), b.map(|v| *v), c.map(|v| *v)),
                             bsparse.map(|(b, sparse)| (*b, *sparse)),
                         )
                     },
@@ -585,7 +631,7 @@ mod tests {
                 .iter(&world)
                 .map(|((a, b, c), bsparse)| {
                     (
-                        (a.map(|v| v.into_inner().clone()), b.map(|v| v.into_inner().clone()), c.map(|v| v.into_inner().clone())),
+                        (a.map(|v| *v), b.map(|v| *v), c.map(|v| *v)),
                         bsparse.map(|(b, sparse)| (*b, *sparse)),
                     )
                 })

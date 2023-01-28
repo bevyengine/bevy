@@ -281,7 +281,11 @@ pub fn ui_focus_system(
             }
         }
 
-        match node.focus_policy.map(|v| v.into_inner()).unwrap_or(&FocusPolicy::Block) {
+        match node
+            .focus_policy
+            .map(|v| v.into_inner())
+            .unwrap_or(&FocusPolicy::Block)
+        {
             FocusPolicy::Block => {
                 break;
             }
