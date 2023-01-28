@@ -3,10 +3,6 @@ name: Welcome new contributors
 # This workflow has write permissions on the repo
 # It must not checkout a PR and run untrusted code
 
-# Also requesting write permissions on PR to be able to comment
-permissions:
-  pull-requests: 'write'
-
 on: pull_request_target
 
 jobs:
