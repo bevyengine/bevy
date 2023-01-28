@@ -62,10 +62,8 @@ struct Lights {
 };
 
 struct Fog {
-    mode: u32,
     base_color: vec4<f32>,
     directional_light_color: vec4<f32>,
-    directional_light_exponent: f32,
     // `be` and `bi` are allocated differently depending on the fog mode
     //
     // For Linear Fog:
@@ -76,7 +74,9 @@ struct Fog {
     //     be = per-channel extinction density
     //     bi = per-channel inscattering density
     be: vec3<f32>,
+    directional_light_exponent: f32,
     bi: vec3<f32>,
+    mode: u32,
 }
 
 // Important: These must be kept in sync with `fog.rs`

@@ -16,20 +16,20 @@ use crate::{FogFalloff, FogSettings};
 /// The GPU-side representation of the fog configuration that's sent as a uniform to the shader
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuFog {
-    /// Unsigned int representation of the active fog falloff mode
-    mode: u32,
     /// Fog color
     base_color: Vec4,
     /// The color used for the fog where the view direction aligns with directional lights
     directional_light_color: Vec4,
+    /// Allocated differently depending on fog mode.
+    /// See `mesh_view_types.wgsl` for a detailed explanation
+    be: Vec3,
     /// The exponent applied to the directional light alignment calculation
     directional_light_exponent: f32,
     /// Allocated differently depending on fog mode.
     /// See `mesh_view_types.wgsl` for a detailed explanation
-    be: Vec3,
-    /// Allocated differently depending on fog mode.
-    /// See `mesh_view_types.wgsl` for a detailed explanation
     bi: Vec3,
+    /// Unsigned int representation of the active fog falloff mode
+    mode: u32,
 }
 
 // Important: These must be kept in sync with `mesh_view_types.wgsl`
