@@ -72,7 +72,7 @@ fn scheduled_spawner(
 ) {
     let window = match windows.get_single() {
         Ok(window) => window,
-        Err(_) => return
+        Err(_) => return,
     };
 
     if scheduled.wave > 0 {
