@@ -1,8 +1,8 @@
 use crate::{
     GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset,
-    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
+    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, ShadowPipeline,
+    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -407,12 +407,23 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Screen space ambient occlusion texture
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
             ];
 
             if cfg!(not(feature = "webgl")) {
                 // Depth texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 10,
+                    binding: 11,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -423,7 +434,7 @@ impl FromWorld for MeshPipeline {
                 });
                 // Normal texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 11,
+                    binding: 12,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -434,7 +445,7 @@ impl FromWorld for MeshPipeline {
                 });
                 // Velocity texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 12,
+                    binding: 13,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -576,19 +587,20 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
-        const NONE                        = 0;
-        const HDR                         = (1 << 0);
-        const TONEMAP_IN_SHADER           = (1 << 1);
-        const DEBAND_DITHER               = (1 << 2);
-        const DEPTH_PREPASS               = (1 << 3);
-        const NORMAL_PREPASS              = (1 << 4);
-        const VELOCITY_PREPASS            = (1 << 5);
-        const ALPHA_MASK                  = (1 << 6);
-        const BLEND_RESERVED_BITS         = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA   = (1 << Self::BLEND_SHIFT_BITS);                   //
-        const BLEND_MULTIPLY              = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const NONE                             = 0;
+        const HDR                              = (1 << 0);
+        const TONEMAP_IN_SHADER                = (1 << 1);
+        const DEBAND_DITHER                    = (1 << 2);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION   = (1 << 3);
+        const DEPTH_PREPASS                    = (1 << 4);
+        const NORMAL_PREPASS                   = (1 << 5);
+        const VELOCITY_PREPASS                 = (1 << 6);
+        const ALPHA_MASK                       = (1 << 7);
+        const BLEND_RESERVED_BITS              = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                     = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA        = (1 << Self::BLEND_SHIFT_BITS);                   //
+        const BLEND_MULTIPLY                   = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
+        const MSAA_RESERVED_BITS               = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
@@ -705,6 +717,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         } else {
             bind_group_layout.push(self.mesh_layout.clone());
         };
+
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -913,6 +929,7 @@ pub fn queue_mesh_view_bind_groups(
         Entity,
         &ViewShadowBindings,
         &ViewClusterBindings,
+        Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
     )>,
     mut fallback_images: FallbackImagesMsaa,
@@ -926,12 +943,25 @@ pub fn queue_mesh_view_bind_groups(
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
+        for (
+            entity,
+            view_shadow_bindings,
+            view_cluster_bindings,
+            ssao_textures,
+            prepass_textures,
+        ) in &views
+        {
             let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
                 &mesh_pipeline.view_layout
             };
+
+            let fallback_msaa = &fallback_images
+                .image_for_samplecount(msaa.samples())
+                .clone()
+                .texture_view;
+            let fallback_s1 = &fallback_images.image_for_samplecount(1).texture_view;
 
             let mut entries = vec![
                 BindGroupEntry {
@@ -978,6 +1008,17 @@ pub fn queue_mesh_view_bind_groups(
                     binding: 9,
                     resource: globals.clone(),
                 },
+                BindGroupEntry {
+                    binding: 10,
+                    resource: BindingResource::TextureView(match ssao_textures {
+                        Some(ssao_textures) => {
+                            &ssao_textures
+                                .screen_space_ambient_occlusion_texture
+                                .default_view
+                        }
+                        None => fallback_s1,
+                    }),
+                },
             ];
 
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
@@ -992,29 +1033,25 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 10,
+                    binding: 11,
                     resource: BindingResource::TextureView(depth_view),
                 });
 
-                let normal_velocity_fallback = &fallback_images
-                    .image_for_samplecount(msaa.samples())
-                    .texture_view;
-
                 let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
                     Some(texture) => &texture.default_view,
-                    None => normal_velocity_fallback,
+                    None => fallback_msaa,
                 };
                 entries.push(BindGroupEntry {
-                    binding: 11,
+                    binding: 12,
                     resource: BindingResource::TextureView(normal_view),
                 });
 
                 let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
                     Some(texture) => &texture.default_view,
-                    None => normal_velocity_fallback,
+                    None => fallback_msaa,
                 };
                 entries.push(BindGroupEntry {
-                    binding: 12,
+                    binding: 13,
                     resource: BindingResource::TextureView(velocity_view),
                 });
             }

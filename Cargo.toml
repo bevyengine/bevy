@@ -342,6 +342,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssao"
+path = "examples/3d/ssao.rs"
+
+[package.metadata.example.ssao]
+name = "Screen Space Ambient Occlusion"
+description = "A scene showcasing screen space ambient occlusion"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
 

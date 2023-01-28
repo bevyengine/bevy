@@ -1,6 +1,6 @@
 use crate::{
     AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin,
-    SetMeshBindGroup, SetMeshViewBindGroup,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -371,6 +371,7 @@ pub fn queue_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -382,6 +383,7 @@ pub fn queue_material_meshes<M: Material>(
         view,
         visible_entities,
         tonemapping,
+        ssao,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -402,6 +404,10 @@ pub fn queue_material_meshes<M: Material>(
                     view_key |= MeshPipelineKey::DEBAND_DITHER;
                 }
             }
+        }
+
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
         let rangefinder = view.rangefinder3d();
