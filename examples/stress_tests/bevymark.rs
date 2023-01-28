@@ -52,7 +52,7 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.2))
-                .with_system(scheduled_spawner),
+                .with_system(scheduled_spawner.pipe(ignore)),
         )
         .run();
 }
@@ -69,12 +69,8 @@ fn scheduled_spawner(
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
     bird_texture: Res<BirdTexture>,
-) {
-    let window = if let Ok(window) = windows.get_single() {
-        window
-    } else {
-        return;
-    };
+) -> Option<()> {
+    let window = windows.get_single().ok()?;
 
     if scheduled.wave > 0 {
         spawn_birds(
@@ -89,6 +85,7 @@ fn scheduled_spawner(
         counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
         scheduled.wave -= 1;
     }
+    Some(())
 }
 
 #[derive(Resource, Deref)]
