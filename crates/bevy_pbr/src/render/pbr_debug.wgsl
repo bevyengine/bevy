@@ -49,12 +49,11 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-    let N = prepare_normal(
+    let N = apply_normal_mapping(
         material.flags,
         in.world_normal,
         in.world_tangent,
-        in.uv,
-        in.is_front,
+        in.uv
     );
     return vec4<f32>(N, 1.0);
 #else
@@ -74,12 +73,11 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-    var N: vec3<f32> = prepare_normal(
+    var N: vec3<f32> = apply_normal_mapping(
         material.flags,
         in.world_normal,
         in.world_tangent,
-        in.uv,
-        in.is_front,
+        in.uv
     );
     // Normals should be transformed by the inverse transpose of the usual transform applied to a
     // vertex. The 'forward' transform is the inverse view transform. So in this case we want the
