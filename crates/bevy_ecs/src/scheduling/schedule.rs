@@ -179,9 +179,6 @@ impl Schedule {
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
         self.initialize(world).unwrap();
-        // TODO: label
-        #[cfg(feature = "trace")]
-        let _span = info_span!("schedule").entered();
         self.executor.run(&mut self.executable, world);
     }
 
@@ -234,8 +231,6 @@ impl Schedule {
     /// before applying their buffers in a different world.
     pub fn apply_system_buffers(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
-            #[cfg(feature = "trace")]
-            let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
             system.apply_buffers(world);
         }
     }
