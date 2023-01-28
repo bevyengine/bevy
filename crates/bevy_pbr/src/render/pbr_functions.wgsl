@@ -270,8 +270,10 @@ fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
 #endif // DEBAND_DITHER
 
 #ifndef NORMAL_PREPASS
-fn apply_fog(input_color: vec4<f32>, view_to_world: vec3<f32>) -> vec4<f32> {
-    // `length()` is used here instead of just `view_z` since that produces more
+fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+    let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
+
+    // `length()` is used here instead of just `view_to_world.z` since that produces more
     // high quality results, especially for denser/smaller fogs. we get a "curved"
     // fog shape that remains consistent with camera rotation, instead of a "linear"
     // fog shape that looks a bit fake
