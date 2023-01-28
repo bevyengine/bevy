@@ -143,7 +143,8 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// Component to apply screen space ambient occlusion to a 3d camera.
 ///
 /// Screen space ambient occlusion (SSAO) approximates small-scale,
-/// local occlusion of indirect diffuse light between objects.
+/// local occlusion of _indirect_ diffuse light between objects. SSAO does
+/// not apply to direct lighting, such as point or directional lights.
 ///
 /// This darkens creases, e.g. on staircases, and gives nice contact shadows
 /// where objects meet, giving entities a more "grounded" feel.
