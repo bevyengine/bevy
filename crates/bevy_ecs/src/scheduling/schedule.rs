@@ -428,7 +428,8 @@ impl ScheduleGraph {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
-                        return Err(ScheduleBuildError::HierarchyLoop(set.dyn_clone()));
+                        let string = format!("{:?}", &set);
+                        return Err(ScheduleBuildError::HierarchyLoop(string));
                     }
                 }
                 None => {
@@ -449,7 +450,8 @@ impl ScheduleGraph {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
-                        return Err(ScheduleBuildError::DependencyLoop(set.dyn_clone()));
+                        let string = format!("{:?}", &set);
+                        return Err(ScheduleBuildError::DependencyLoop(string));
                     }
                 }
                 None => {
@@ -578,7 +580,7 @@ impl ScheduleGraph {
 
         self.dependency.topsort = dep_scc.into_iter().flatten().rev().collect::<Vec<_>>();
 
-        // nodes can have dependent XOR hierarchical relationship
+        // check for systems or system sets depending on sets they belong to
         let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
         for &(a, b) in dep_results.connected.iter() {
             if hier_results.connected.contains(&(a, b)) || hier_results.connected.contains(&(b, a))
@@ -589,93 +591,114 @@ impl ScheduleGraph {
             }
         }
 
-        // map system sets to all their member systems
-        let mut systems_in_sets = HashMap::with_capacity(self.system_sets.len());
-        // iterate in reverse topological order (bottom-up)
+        // map all system sets to their systems
+        // go in reverse topological order (bottom-up) for efficiency
+        let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
+            HashMap::with_capacity(self.system_sets.len());
+        let mut set_system_bitsets = HashMap::with_capacity(self.system_sets.len());
         for &id in self.hierarchy.topsort.iter().rev() {
             if id.is_system() {
                 continue;
             }
 
-            let set = id;
-            systems_in_sets.insert(set, Vec::new());
+            let mut systems = Vec::new();
+            let mut system_bitset = FixedBitSet::with_capacity(self.systems.len());
 
             for child in self
                 .hierarchy
                 .graph
-                .neighbors_directed(set, Direction::Outgoing)
+                .neighbors_directed(id, Direction::Outgoing)
             {
                 match child {
                     NodeId::System(_) => {
-                        systems_in_sets.get_mut(&set).unwrap().push(child);
+                        systems.push(child);
+                        system_bitset.insert(child.index());
                     }
                     NodeId::Set(_) => {
-                        let [sys, child_sys] =
-                            systems_in_sets.get_many_mut([&set, &child]).unwrap();
-                        sys.extend_from_slice(child_sys);
+                        let child_systems = set_systems.get(&child).unwrap();
+                        let child_system_bitset = set_system_bitsets.get(&child).unwrap();
+                        systems.extend_from_slice(child_systems);
+                        system_bitset.union_with(child_system_bitset);
                     }
                 }
             }
+
+            set_systems.insert(id, systems);
+            set_system_bitsets.insert(id, system_bitset);
         }
 
-        // can't depend on or be ambiguous with system type sets that have many instances
-        for (&set, systems) in systems_in_sets.iter() {
-            let node = &self.system_sets[set.index()];
-            if node.is_system_type() {
-                let ambiguities = self.ambiguous_with.edges(set).count();
-                let mut dependencies = 0;
-                dependencies += self
+        // check that there is no ordering between system sets that intersect
+        for (a, b) in dep_results.connected.iter() {
+            if !(a.is_set() && b.is_set()) {
+                continue;
+            }
+
+            let a_systems = set_system_bitsets.get(a).unwrap();
+            let b_systems = set_system_bitsets.get(b).unwrap();
+
+            if !(a_systems.is_disjoint(b_systems)) {
+                return Err(ScheduleBuildError::SetsHaveOrderButIntersect(
+                    self.get_node_name(a),
+                    self.get_node_name(b),
+                ));
+            }
+        }
+
+        // check that there are no edges to system-type sets that have multiple instances
+        for (&id, systems) in set_systems.iter() {
+            let set = &self.system_sets[id.index()];
+            if set.is_system_type() {
+                let instances = systems.len();
+                let ambiguous_with = self.ambiguous_with.edges(id);
+                let before = self
                     .dependency
                     .graph
-                    .edges_directed(set, Direction::Incoming)
-                    .count();
-                dependencies += self
+                    .edges_directed(id, Direction::Incoming);
+                let after = self
                     .dependency
                     .graph
-                    .edges_directed(set, Direction::Outgoing)
-                    .count();
-                if systems.len() > 1 && (ambiguities > 0 || dependencies > 0) {
+                    .edges_directed(id, Direction::Outgoing);
+                let relations = before.count() + after.count() + ambiguous_with.count();
+                if instances > 1 && relations > 0 {
                     return Err(ScheduleBuildError::SystemTypeSetAmbiguity(
-                        node.inner.dyn_clone(),
+                        self.get_node_name(&id),
                     ));
                 }
             }
         }
 
-        // flatten dependency graph
-        let mut dependency_flattened = DiGraphMap::new();
-        for id in self.dependency.graph.nodes() {
-            if id.is_system() {
-                dependency_flattened.add_node(id);
-            }
-        }
+        // flatten: combine `in_set` with `before` and `after` information
+        // have to do it like this to preserve transitivity
+        let mut dependency_flattened = self.dependency.graph.clone();
+        let mut temp = Vec::new();
+        for (&set, systems) in set_systems.iter() {
+            if systems.is_empty() {
+                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
+                    for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                        temp.push((a, b));
+                    }
+                }
+            } else {
+                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
+                    for &sys in systems {
+                        temp.push((a, sys));
+                    }
+                }
 
-        for (lhs, rhs, _) in self.dependency.graph.all_edges() {
-            match (lhs, rhs) {
-                (NodeId::System(_), NodeId::System(_)) => {
-                    dependency_flattened.add_edge(lhs, rhs, ());
-                }
-                (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in &systems_in_sets[&lhs] {
-                        dependency_flattened.add_edge(lhs_, rhs, ());
-                    }
-                }
-                (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in &systems_in_sets[&rhs] {
-                        dependency_flattened.add_edge(lhs, rhs_, ());
-                    }
-                }
-                (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in &systems_in_sets[&lhs] {
-                        for &rhs_ in &systems_in_sets[&rhs] {
-                            dependency_flattened.add_edge(lhs_, rhs_, ());
-                        }
+                for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                    for &sys in systems {
+                        temp.push((sys, b));
                     }
                 }
             }
+
+            dependency_flattened.remove_node(set);
+            for (a, b) in temp.drain(..) {
+                dependency_flattened.add_edge(a, b, ());
+            }
         }
 
-        // check flattened dependencies for cycles
+        // topsort
         let flat_scc = tarjan_scc(&dependency_flattened);
         if self.contains_cycles(&flat_scc) {
             self.report_cycles(&flat_scc);
@@ -694,7 +717,7 @@ impl ScheduleGraph {
         // remove redundant edges
         self.dependency_flattened.graph = flat_results.transitive_reduction;
 
-        // flatten allowed ambiguities
+        // flatten: combine `in_set` with `ambiguous_with` information
         let mut ambiguous_with_flattened = UnGraphMap::new();
         for (lhs, rhs, _) in self.ambiguous_with.all_edges() {
             match (lhs, rhs) {
@@ -702,18 +725,18 @@ impl ScheduleGraph {
                     ambiguous_with_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in &systems_in_sets[&lhs] {
+                    for &lhs_ in set_systems.get(&lhs).unwrap() {
                         ambiguous_with_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in &systems_in_sets[&rhs] {
+                    for &rhs_ in set_systems.get(&rhs).unwrap() {
                         ambiguous_with_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in &systems_in_sets[&lhs] {
-                        for &rhs_ in &systems_in_sets[&rhs] {
+                    for &lhs_ in set_systems.get(&lhs).unwrap() {
+                        for &rhs_ in set_systems.get(&rhs).unwrap() {
                             ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }
@@ -1016,7 +1039,7 @@ impl ScheduleGraph {
 pub enum ScheduleBuildError {
     /// A system set contains itself.
     #[error("`{0:?}` contains itself.")]
-    HierarchyLoop(BoxedSystemSet),
+    HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
     #[error("System set hierarchy contains cycle(s).")]
     HierarchyCycle,
@@ -1027,16 +1050,19 @@ pub enum ScheduleBuildError {
     HierarchyRedundancy,
     /// A system (set) has been told to run before itself.
     #[error("`{0:?}` depends on itself.")]
-    DependencyLoop(BoxedSystemSet),
+    DependencyLoop(String),
     /// The dependency graph contains a cycle.
     #[error("System dependencies contain cycle(s).")]
     DependencyCycle,
     /// Tried to order a system (set) relative to a system set it belongs to.
     #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
+    /// Tried to order system sets that share systems.
+    #[error("`{0:?}` and `{1:?}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
     #[error("Tried to order against `fn {0:?}` in a schedule that has more than one `{0:?}` instance. `fn {0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
-    SystemTypeSetAmbiguity(BoxedSystemSet),
+    SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].

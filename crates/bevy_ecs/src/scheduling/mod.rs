@@ -162,9 +162,11 @@ mod tests {
 
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(named_exclusive_system);
-            schedule.add_system(make_exclusive_system(1).before(named_exclusive_system));
-            schedule.add_system(make_exclusive_system(0).after(named_exclusive_system));
+            schedule.add_systems((
+                named_exclusive_system,
+                make_exclusive_system(1).before(named_exclusive_system),
+                make_exclusive_system(0).after(named_exclusive_system),
+            ));
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, u32::MAX, 0]);
@@ -594,6 +596,31 @@ mod tests {
             assert!(matches!(
                 result,
                 Err(ScheduleBuildError::CrossDependency(_, _))
+            ));
+        }
+
+        #[test]
+        fn sets_have_order_but_intersect() {
+            let mut world = World::new();
+            let mut schedule = Schedule::new();
+
+            fn foo() {}
+
+            // Add `foo` to both `A` and `C`.
+            schedule.add_system(foo.in_set(TestSet::A).in_set(TestSet::C));
+
+            // Order `A -> B -> C`.
+            schedule.configure_sets((
+                TestSet::A,
+                TestSet::B.after(TestSet::A),
+                TestSet::C.after(TestSet::B),
+            ));
+
+            let result = schedule.initialize(&mut world);
+            // `foo` can't be in both `A` and `C` because they can't run at the same time.
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_, _))
             ));
         }
 
