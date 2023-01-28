@@ -103,21 +103,22 @@ pub enum FixedUpdateError {
 
 /// Ticks the [`FixedTime`] resource then runs the [`CoreSchedule::FixedUpdate`].
 pub fn run_fixed_update_schedule(world: &mut World) {
-    world.resource_scope(|world, mut fixed_time: Mut<FixedTime>| {
-        // Tick the time
-        let delta_time = world.resource::<Time>().delta();
-        fixed_time.tick(delta_time);
+    // Tick the time
+    let delta_time = world.resource::<Time>().delta();
+    let mut fixed_time = world.resource_mut::<FixedTime>();
+    fixed_time.tick(delta_time);
 
-        // Run the schedule until we run out of accumulated time
-        let mut check_again = true;
-        while check_again {
-            if fixed_time.expend().is_ok() {
-                world.run_schedule(CoreSchedule::FixedUpdate);
-            } else {
-                check_again = false;
-            }
+    // Run the schedule until we run out of accumulated time
+    let mut check_again = true;
+    while check_again {
+        let mut fixed_time = world.resource_mut::<FixedTime>();
+        let fixed_time_run = fixed_time.expend().is_ok();
+        if fixed_time_run {
+            world.run_schedule(CoreSchedule::FixedUpdate);
+        } else {
+            check_again = false;
         }
-    });
+    }
 }
 
 #[cfg(test)]
