@@ -460,9 +460,9 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
             .for_each(|map| map.for_each_mut(HashMap::clear));
 
         for (index, Edge(src, dst, _)) in &mut self.edges {
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst].outgoing_mut().insert(*src, index);
-            self.adjacencies[*src].incoming_mut().insert(*dst, index);
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src].outgoing_mut().insert(*dst, index);
+            self.adjacencies[*dst].incoming_mut().insert(*src, index);
         }
     }
 
@@ -470,9 +470,9 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
         if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
             self.adjacencies[*src].outgoing_mut().remove(dst);
             self.adjacencies[*dst].incoming_mut().remove(src);
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst].outgoing_mut().insert(*src, index);
-            self.adjacencies[*src].incoming_mut().insert(*dst, index);
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src].outgoing_mut().insert(*dst, index);
+            self.adjacencies[*dst].incoming_mut().insert(*src, index);
         }
     }
 

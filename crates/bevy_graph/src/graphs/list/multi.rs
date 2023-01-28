@@ -495,15 +495,15 @@ impl<N, E> DirectedGraph<N, E> for MultiListGraph<N, E, true> {
             .for_each(|list| list.for_each_mut(Vec::clear));
 
         for (index, Edge(src, dst, _)) in &mut self.edges {
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst]
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src]
                 .outgoing_mut()
-                .get_value_mut(*src)
+                .get_value_mut(*dst)
                 .unwrap()
                 .push(index);
-            self.adjacencies[*src]
+            self.adjacencies[*dst]
                 .incoming_mut()
-                .get_value_mut(*dst)
+                .get_value_mut(*src)
                 .unwrap()
                 .push(index);
         }
@@ -521,15 +521,15 @@ impl<N, E> DirectedGraph<N, E> for MultiListGraph<N, E, true> {
                 .get_value_mut(*src)
                 .unwrap()
                 .remove_by_value(&index);
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst]
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src]
                 .outgoing_mut()
-                .get_value_mut(*src)
+                .get_value_mut(*dst)
                 .unwrap()
                 .push(index);
-            self.adjacencies[*src]
+            self.adjacencies[*dst]
                 .incoming_mut()
-                .get_value_mut(*dst)
+                .get_value_mut(*src)
                 .unwrap()
                 .push(index);
         }

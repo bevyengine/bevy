@@ -465,9 +465,9 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
             .for_each(|list| list.for_each_mut(Vec::clear));
 
         for (index, Edge(src, dst, _)) in &mut self.edges {
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst].outgoing_mut().push((*src, index));
-            self.adjacencies[*src].incoming_mut().push((*dst, index));
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src].outgoing_mut().push((*dst, index));
+            self.adjacencies[*dst].incoming_mut().push((*src, index));
         }
     }
 
@@ -475,9 +475,9 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
         if let Some(Edge(src, dst, _)) = self.edges.get_mut(index) {
             self.adjacencies[*src].outgoing_mut().remove_by_key(*dst);
             self.adjacencies[*dst].incoming_mut().remove_by_key(*src);
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst].outgoing_mut().push((*src, index));
-            self.adjacencies[*src].incoming_mut().push((*dst, index));
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src].outgoing_mut().push((*dst, index));
+            self.adjacencies[*dst].incoming_mut().push((*src, index));
         }
     }
 

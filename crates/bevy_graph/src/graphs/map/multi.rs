@@ -498,15 +498,15 @@ impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
             .for_each(|map| map.for_each_mut(HashMap::clear));
 
         for (index, Edge(src, dst, _)) in &mut self.edges {
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst]
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src]
                 .outgoing_mut()
-                .get_mut(src)
+                .get_mut(dst)
                 .unwrap()
                 .push(index);
-            self.adjacencies[*src]
+            self.adjacencies[*dst]
                 .incoming_mut()
-                .get_mut(dst)
+                .get_mut(src)
                 .unwrap()
                 .push(index);
         }
@@ -524,15 +524,15 @@ impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
                 .get_mut(src)
                 .unwrap()
                 .remove_by_value(&index);
-            std::mem::swap(src, dst);
-            self.adjacencies[*dst]
+            std::mem::swap(src, dst); // *dst is now *src
+            self.adjacencies[*src]
                 .outgoing_mut()
-                .get_mut(src)
+                .get_mut(dst)
                 .unwrap()
                 .push(index);
-            self.adjacencies[*src]
+            self.adjacencies[*dst]
                 .incoming_mut()
-                .get_mut(dst)
+                .get_mut(src)
                 .unwrap()
                 .push(index);
         }
