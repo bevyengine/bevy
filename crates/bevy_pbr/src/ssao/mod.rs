@@ -55,6 +55,7 @@ const GTAO_UTILS_SHADER_HANDLE: HandleUntyped =
 
 // TODO: Support MSAA
 
+/// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
@@ -131,6 +132,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 }
 
+/// Bundle to apply screen space ambient occlusion.
 #[derive(Bundle, Default)]
 pub struct ScreenSpaceAmbientOcclusionBundle {
     pub settings: ScreenSpaceAmbientOcclusionSettings,
@@ -138,6 +140,22 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
     pub normal_prepass: NormalPrepass,
 }
 
+/// Component to apply screen space ambient occlusion to a 3d camera.
+///
+/// Screen space ambient occlusion (SSAO) approximates small-scale,
+/// local occlusion of indirect diffuse light between objects.
+///
+/// This darkens creases, e.g. on staircases, and gives nice contact shadows
+/// where objects meet, giving entities a more "grounded" feel.
+///
+/// # Usage Notes
+///
+/// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app,
+/// and add the [`DepthPrepass`] and [`NormalPrepass`] components to your camera.
+///
+/// It strongly recommended that you use SSAO in conjunction with
+/// TAA ([`bevy_core_pipeline::taa::TemporalAntialiasSettings`]).
+/// Doing so greatly reduces SSAO noise.
 #[derive(Component, Reflect, PartialEq, Eq, Hash, Clone)]
 pub enum ScreenSpaceAmbientOcclusionSettings {
     Low,
@@ -145,7 +163,9 @@ pub enum ScreenSpaceAmbientOcclusionSettings {
     High,
     Ultra,
     Custom {
+        /// Higher slice count means less noise, but worse performance.
         slice_count: u32,
+        /// Samples per slice side is also tweakable, but recommended to be left at 2 or 3.
         samples_per_slice_side: u32,
     },
 }
