@@ -1,4 +1,5 @@
-mod converters;
+pub mod converters;
+
 mod system;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
