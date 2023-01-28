@@ -43,7 +43,7 @@ fn setup(
         MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: debug_materials.add(PbrDebugMaterial {
-                pbr_debug: PbrDebug::Depth,
+                pbr_debug: PbrDebug::Uvs,
             }),
             transform: Transform::from_xyz(-1.5, 0.5, 0.0),
             ..default()
@@ -107,16 +107,39 @@ fn spawn_with_debug_materials(
 
                 // TODO: Enumerate all?
                 for (index, pbr_debug) in [
-                    PbrDebug::Depth,
                     PbrDebug::Uvs,
-                    PbrDebug::NormalMappedNormal,
-                    PbrDebug::ViewSpaceNormalMappedNormal,
+                    PbrDebug::Depth,
+                    PbrDebug::InterpolatedVertexNormals,
+                    PbrDebug::InterpolatedVertexTangents,
+                    PbrDebug::TangentSpaceNormalMap, // pink
+                    PbrDebug::NormalMappedNormal,    // pink
+                    PbrDebug::ViewSpaceNormalMappedNormal, // pink
+                                                     // PbrDebug::BaseColor, // crash
+                                                     // PbrDebug::BaseColorTexture, // crash
+                                                     // PbrDebug::Emissive, // crash
+                                                     // PbrDebug::EmissiveTexture,
+                                                     // PbrDebug::Roughness,
+                                                     // PbrDebug::RoughnessTexture,
+                                                     // PbrDebug::Metallic,
+                                                     // PbrDebug::MetallicTexture,
+                                                     // PbrDebug::Reflectance,
+                                                     // PbrDebug::OcclusionTexture,
+                                                     // PbrDebug::Opaque, // crash
+                                                     // PbrDebug::AlphaMask,
+                                                     // PbrDebug::AlphaBlend,
+                                                     // PbrDebug::ClusteredForwardDebugZSlices, // crash
+                                                     // PbrDebug::ClusteredForwardDebugClusterLightComplexity,
+                                                     // PbrDebug::ClusteredForwardDebugClusterCoherency,
                 ]
                 .iter()
                 .enumerate()
                 {
+                    let extra_z = (index % 4) as f32;
+                    let extra_x = (index / 4) as f32;
+
                     let mut transform = *transform;
-                    transform.translation.z += index as f32;
+                    transform.translation.z += extra_z;
+                    transform.translation.x += extra_x;
                     transform.scale = HELMET_SCALE;
                     let pbr_debug = *pbr_debug;
 

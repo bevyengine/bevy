@@ -2,7 +2,7 @@ use crate::{
     FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
     NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
     ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS, PBR_SHADER_HANDLE,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -309,6 +309,10 @@ impl From<&PbrDebugMaterial> for PbrDebug {
 }
 
 impl Material for PbrDebugMaterial {
+    fn fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.typed().into()
+    }
+
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
@@ -321,7 +325,6 @@ impl Material for PbrDebugMaterial {
             .unwrap()
             .shader_defs
             .extend(key.bind_group_data.shader_defs());
-        dbg!(&descriptor.fragment.as_ref().unwrap().shader_defs);
 
         Ok(())
     }
