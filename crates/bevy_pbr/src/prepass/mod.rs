@@ -57,6 +57,9 @@ pub const PREPASS_SHADER_HANDLE: HandleUntyped =
 pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5533152893177403494);
 
+pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
+
 pub struct PrepassPlugin<M: Material>(PhantomData<M>);
 
 impl<M: Material> Default for PrepassPlugin<M> {
@@ -81,6 +84,13 @@ where
             app,
             PREPASS_BINDINGS_SHADER_HANDLE,
             "prepass_bindings.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            PREPASS_UTILS_SHADER_HANDLE,
+            "prepass_utils.wgsl",
             Shader::from_wgsl
         );
 

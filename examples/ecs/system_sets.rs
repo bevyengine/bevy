@@ -109,7 +109,7 @@ fn is_done(done: Res<Done>) -> ShouldRun {
     done.0.into()
 }
 
-/// Used with [`RunCritera::pipe`], inverts the result of the
+/// Used with [`RunCriteria::pipe`], inverts the result of the
 /// passed system.
 fn inverse(input: In<ShouldRun>) -> ShouldRun {
     match input.0 {
