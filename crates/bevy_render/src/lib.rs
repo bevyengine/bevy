@@ -155,7 +155,9 @@ impl Plugin for RenderPlugin {
             let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
                 // SAFETY: Plugins should be set up on the main thread.
                 let handle = wrapper.get_handle();
-                instance.create_surface(&handle).expect("Failed to create wgpu surface")
+                instance
+                    .create_surface(&handle)
+                    .expect("Failed to create wgpu surface")
             });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
