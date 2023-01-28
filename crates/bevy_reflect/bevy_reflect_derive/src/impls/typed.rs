@@ -233,8 +233,6 @@ pub(crate) fn impl_typed(
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    let type_path_impl = impl_type_path(meta, where_clause_options);
-
     let type_info_cell = static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
 
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
@@ -242,8 +240,6 @@ pub(crate) fn impl_typed(
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
-        #type_path_impl
-
         impl #impl_generics #bevy_reflect_path::Typed for #path_to_type #ty_generics #where_reflect_clause {
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
                 #type_info_cell
