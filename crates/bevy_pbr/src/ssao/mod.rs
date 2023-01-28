@@ -291,7 +291,7 @@ impl Node for SSAONode {
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_spatial_denoise_pass"),
                     });
-            spatial_denoise_pass.set_pipeline(&spatial_denoise_pipeline);
+            spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
             spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
             spatial_denoise_pass.set_bind_group(
                 1,
@@ -971,6 +971,7 @@ fn queue_ssao_bind_groups(
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn generate_hilbert_index_texture() -> [[u16; 64]; 64] {
     let mut t = [[0; 64]; 64];
 
