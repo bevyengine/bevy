@@ -185,6 +185,11 @@ impl Plugin for PbrPlugin {
                     .before(assign_lights_to_clusters),
             )
             .add_system(
+                apply_system_buffers
+                    .after(SimulationLightSystems::AddClusters)
+                    .before(SimulationLightSystems::AssignLightsToClusters),
+            )
+            .add_system(
                 assign_lights_to_clusters
                     .in_set(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
