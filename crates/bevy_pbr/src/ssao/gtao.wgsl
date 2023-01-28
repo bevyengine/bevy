@@ -5,6 +5,8 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
+#import bevy_pbr::gtao_utils
+#import bevy_pbr::utils
 #import bevy_pbr::mesh_view_types
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
@@ -15,20 +17,6 @@
 @group(0) @binding(5) var<uniform> globals: Globals;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
-
-const PI = 3.1415926535897932384626433832795;
-const HALF_PI = 1.57079632679;
-
-fn fast_sqrt(x: f32) -> f32 {
-    return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
-}
-
-fn fast_acos(in_x: f32) -> f32 {
-    let x = abs(in_x);
-    var res = -0.156583 * x + HALF_PI;
-    res *= fast_sqrt(1.0 - x);
-    return select(PI - res, res, in_x >= 0.0);
-}
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;

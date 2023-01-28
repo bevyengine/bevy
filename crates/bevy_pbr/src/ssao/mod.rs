@@ -50,7 +50,7 @@ const GTAO_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 253938746510568);
 const SPATIAL_DENOISE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 466162052558226);
-const GTAO_MULTIBOUNCE_SHADER_HANDLE: HandleUntyped =
+const GTAO_UTILS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 366465052568786);
 
 // TODO: Support MSAA
@@ -74,8 +74,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
         load_internal_asset!(
             app,
-            GTAO_MULTIBOUNCE_SHADER_HANDLE,
-            "gtao_multibounce.wgsl",
+            GTAO_UTILS_SHADER_HANDLE,
+            "gtao_utils.wgsl",
             Shader::from_wgsl
         );
 

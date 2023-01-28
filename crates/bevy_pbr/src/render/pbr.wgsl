@@ -9,7 +9,7 @@
 #import bevy_pbr::pbr_functions
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-#import bevy_pbr::gtao_multibounce
+#import bevy_pbr::gtao_utils
 #endif
 
 struct FragmentInput {
@@ -106,7 +106,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
 
 #ifdef TONEMAP_IN_SHADER
-        output_color = tone_mapping(output_color);
+    output_color = tone_mapping(output_color);
 #endif
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
@@ -118,7 +118,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     output_color = vec4(output_rgb, output_color.a);
 #endif
 #ifdef PREMULTIPLY_ALPHA
-        output_color = premultiply_alpha(material.flags, output_color);
+    output_color = premultiply_alpha(material.flags, output_color);
 #endif
     return output_color;
 }

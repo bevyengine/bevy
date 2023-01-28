@@ -7,6 +7,7 @@
 
 // Note: The paper does a 4x4 (not quite centered) filter, offset by +/- 1 pixel every other frame
 // XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
+// We do a 3x3 filter, on 1 pixel per compute thread, applied once
 
 #import bevy_pbr::mesh_view_types
 
