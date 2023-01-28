@@ -233,7 +233,7 @@ fn exclusive_player_system(world: &mut World) {
 // For any type which is `Default`, like `u32` in this example, `FromWorld` creates the default value.
 fn print_at_end_round(mut counter: Local<u32>) {
     *counter += 1;
-    println!("In stage 'Last' for the {}th time", *counter);
+    println!("In set 'Last' for the {}th time", *counter);
     // Print an empty line between rounds
     println!();
 }
