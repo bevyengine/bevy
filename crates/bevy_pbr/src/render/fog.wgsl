@@ -48,8 +48,8 @@ fn exponential_squared_fog(
     scattering: vec3<f32>,
 ) -> vec4<f32> {
     var fog_color = scattering_adjusted_fog_color(scattering);
-    let density = fog.be.x;
-    fog_color.a *= 1.0 - 1.0 / exp(pow(distance * density, 2.0));
+    let distance_times_density = distance * fog.be.x;
+    fog_color.a *= 1.0 - 1.0 / exp(distance_times_density * distance_times_density);
     return vec4<f32>(mix(input_color.rgb, fog_color.rgb, fog_color.a), input_color.a);
 }
 
