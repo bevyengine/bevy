@@ -406,14 +406,15 @@ impl<'a> ReflectMeta<'a> {
     pub fn type_path_where_clause_options(&self) -> WhereClauseOptions {
         let bevy_reflect_path = self.bevy_reflect_path();
         WhereClauseOptions {
-            active_types: self.generics().type_params().map(|param| {
-                let path: Path = param.ident.clone().into();
-                let type_path = syn::TypePath {
-                    path,
-                    qself: None,
-                };
-                type_path.into()
-            }).collect(),
+            active_types: self
+                .generics()
+                .type_params()
+                .map(|param| {
+                    let path: Path = param.ident.clone().into();
+                    let type_path = syn::TypePath { path, qself: None };
+                    type_path.into()
+                })
+                .collect(),
             active_trait_bounds: quote! {
                 #bevy_reflect_path::TypePath
             },

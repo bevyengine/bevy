@@ -1,6 +1,6 @@
 use crate::utility::{extend_where_clause, WhereClauseOptions};
-use syn::Generics;
 use quote::{quote, ToTokens};
+use syn::Generics;
 use syn::{spanned::Spanned, LitStr};
 
 use crate::{
