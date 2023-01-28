@@ -144,11 +144,32 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 
 /// Derives the `FromReflect` trait.
 ///
-/// This macro supports the following field attributes:
-/// * `#[reflect(ignore)]`: Ignores the field. This requires the field to implement [`Default`].
-/// * `#[reflect(default)]`: If the field's value cannot be read, uses its [`Default`] implementation.
-/// * `#[reflect(default = "some_func")]`: If the field's value cannot be read, uses the function with the given name.
+/// # Field Attributes
 ///
+/// ## `#[reflect(ignore)]`
+///
+/// The `#[reflect(ignore)]` attribute is shared with the [`Reflect` derive macro] and has much of the same
+/// functionality in that it marks a field to be ignored by the reflection API.
+///
+/// The only major difference is that using it with this derive requires that the field implements [`Default`].
+/// Without this requirement, there would be no way for `FromReflect` to automatically construct missing fields
+/// that have been ignored.
+///
+/// ## `#[reflect(default)]`
+///
+/// If a field cannot be read, this attribute specifies a default value to be used in its place.
+///
+/// By default, this attribute denotes that the field's type implements [`Default`].
+/// However, it can also take in a path string to a user-defined function that will return the default value.
+/// This takes the form: `#[reflect(default = "path::to::my_function)]` where `my_function` is a parameterless
+/// function that must return some default value for the type.
+///
+/// Specifying a custom default can be used to give different fields their own specialized defaults,
+/// or to remove the `Default` requirement on fields marked with `#[reflect(ignore)]`.
+/// Additionally, either form of this attribute can be used to fill in fields that are simply missing,
+/// such as when converting a partially-constructed dynamic type to a concrete one.
+///
+/// [`Reflect` derive macro]: Reflect
 #[proc_macro_derive(FromReflect, attributes(reflect))]
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
