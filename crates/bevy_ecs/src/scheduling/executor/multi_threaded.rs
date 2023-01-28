@@ -206,7 +206,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 };
 
                 #[cfg(feature = "trace")]
-                let executor_span = info_span!("schedule_task");
+                let executor_span = info_span!("multithreaded executor");
                 #[cfg(feature = "trace")]
                 let executor = executor.instrument(executor_span);
                 scope.spawn(executor);
@@ -311,9 +311,6 @@ impl MultiThreadedExecutor {
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_access", name = &*system.name()).entered();
-
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
             return false;
@@ -372,9 +369,6 @@ impl MultiThreadedExecutor {
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_conditions", name = &*_system.name()).entered();
-
         let mut should_run = !self.skipped_systems.contains(system_index);
         for set_idx in conditions.sets_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
@@ -536,8 +530,6 @@ impl MultiThreadedExecutor {
     }
 
     fn signal_dependents(&mut self, system_index: usize) {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("signal_dependents").entered();
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];
             debug_assert!(*remaining >= 1);
@@ -566,8 +558,6 @@ fn apply_system_buffers(
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };
-        #[cfg(feature = "trace")]
-        let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
         system.apply_buffers(world);
     }
 

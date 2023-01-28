@@ -1958,6 +1958,9 @@ impl World {
             .remove_entry(label)
             .unwrap_or_else(|| panic!("The schedule with the label {label:?} was not found."));
 
+        // TODO: move this span to Schdule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
         schedule.run(self);
         self.resource_mut::<Schedules>()
             .insert(extracted_label, schedule);
