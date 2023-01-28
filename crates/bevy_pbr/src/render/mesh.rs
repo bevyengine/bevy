@@ -96,12 +96,14 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
+        app.init_resource::<PbrDebug>()
+            .add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
+                .add_system_to_stage(RenderStage::Extract, extract_pbr_debug)
                 .add_system_to_stage(RenderStage::Extract, extract_meshes)
                 .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
                 .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
@@ -221,6 +223,55 @@ impl SkinnedMeshJoints {
     }
 }
 
+#[derive(Clone, Debug, Resource)]
+pub enum PbrDebug {
+    None,
+    Uvs,
+    Depth,
+    InterpolatedVertexNormals,
+    InterpolatedVertexTangents,
+    TangentSpaceNormalMap,
+    NormalMappedNormal,
+    ViewSpaceNormalMappedNormal,
+    BaseColor,
+    BaseColorTexture,
+    Emissive,
+    EmissiveTexture,
+    Roughness,
+    RoughnessTexture,
+    Metallic,
+    MetallicTexture,
+    Reflectance,
+    OcclusionTexture,
+    Opaque,
+    AlphaMask,
+    AlphaBlend,
+    ClusteredForwardDebugZSlices,
+    ClusteredForwardDebugClusterLightComplexity,
+    ClusteredForwardDebugClusterCoherency,
+}
+
+impl Default for PbrDebug {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+fn extract_pbr_debug(
+    pbr_debug: Extract<Res<PbrDebug>>,
+    mut mesh_pipeline: ResMut<MeshPipeline>,
+    mut material_pipeline: ResMut<MaterialPipeline<StandardMaterial>>,
+    mut specialized_mesh_pipelines: ResMut<
+        SpecializedMeshPipelines<MaterialPipeline<StandardMaterial>>,
+    >,
+) {
+    if pbr_debug.is_changed() {
+        mesh_pipeline.pbr_debug = pbr_debug.clone();
+        material_pipeline.mesh_pipeline.pbr_debug = pbr_debug.clone();
+        specialized_mesh_pipelines.invalidate();
+    }
+}
+
 pub fn extract_skinned_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -264,6 +315,7 @@ pub struct MeshPipeline {
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
+    pub pbr_debug: PbrDebug,
 }
 
 impl FromWorld for MeshPipeline {
@@ -541,6 +593,7 @@ impl FromWorld for MeshPipeline {
             skinned_mesh_layout,
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
+            pbr_debug: PbrDebug::None,
         }
     }
 }
@@ -698,6 +751,69 @@ impl SpecializedMeshPipeline for MeshPipeline {
         };
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
+
+        match self.pbr_debug {
+            PbrDebug::None
+            | PbrDebug::Opaque
+            | PbrDebug::AlphaMask
+            | PbrDebug::AlphaBlend
+            | PbrDebug::ClusteredForwardDebugClusterCoherency
+            | PbrDebug::ClusteredForwardDebugClusterLightComplexity
+            | PbrDebug::ClusteredForwardDebugZSlices => {}
+            _ => shader_defs.push("PBR_DEBUG".into()),
+        }
+        match self.pbr_debug {
+            PbrDebug::None => {}
+            PbrDebug::Uvs => shader_defs.push("PBR_DEBUG_UVS".into()),
+            PbrDebug::Depth => shader_defs.push("PBR_DEBUG_DEPTH".into()),
+            PbrDebug::InterpolatedVertexNormals => {
+                shader_defs.push("PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS".into());
+            }
+            PbrDebug::InterpolatedVertexTangents => {
+                shader_defs.push("PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS".into());
+            }
+            PbrDebug::TangentSpaceNormalMap => {
+                shader_defs.push("PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP".into());
+            }
+            PbrDebug::NormalMappedNormal => {
+                shader_defs.push("PBR_DEBUG_NORMAL_MAPPED_NORMAL".into());
+            }
+            PbrDebug::ViewSpaceNormalMappedNormal => {
+                shader_defs.push("PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL".into());
+            }
+            PbrDebug::BaseColor => shader_defs.push("PBR_DEBUG_BASE_COLOR".into()),
+            PbrDebug::BaseColorTexture => {
+                shader_defs.push("PBR_DEBUG_BASE_COLOR_TEXTURE".into());
+            }
+            PbrDebug::Emissive => shader_defs.push("PBR_DEBUG_EMISSIVE".into()),
+            PbrDebug::EmissiveTexture => {
+                shader_defs.push("PBR_DEBUG_EMISSIVE_TEXTURE".into());
+            }
+            PbrDebug::Roughness => shader_defs.push("PBR_DEBUG_ROUGHNESS".into()),
+            PbrDebug::RoughnessTexture => {
+                shader_defs.push("PBR_DEBUG_ROUGHNESS_TEXTURE".into());
+            }
+            PbrDebug::Metallic => shader_defs.push("PBR_DEBUG_METALLIC".into()),
+            PbrDebug::MetallicTexture => {
+                shader_defs.push("PBR_DEBUG_METALLIC_TEXTURE".into());
+            }
+            PbrDebug::Reflectance => shader_defs.push("PBR_DEBUG_REFLECTANCE".into()),
+            PbrDebug::OcclusionTexture => {
+                shader_defs.push("PBR_DEBUG_OCCLUSION_TEXTURE".into());
+            }
+            PbrDebug::Opaque => shader_defs.push("PBR_DEBUG_OPAQUE".into()),
+            PbrDebug::AlphaMask => shader_defs.push("PBR_DEBUG_ALPHA_MASK".into()),
+            PbrDebug::AlphaBlend => shader_defs.push("PBR_DEBUG_ALPHA_BLEND".into()),
+            PbrDebug::ClusteredForwardDebugZSlices => {
+                shader_defs.push("CLUSTERED_FORWARD_DEBUG_Z_SLICES".into());
+            }
+            PbrDebug::ClusteredForwardDebugClusterLightComplexity => {
+                shader_defs.push("CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY".into())
+            }
+            PbrDebug::ClusteredForwardDebugClusterCoherency => {
+                shader_defs.push("CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY".into());
+            }
+        }
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);

@@ -15,17 +15,42 @@ struct FragmentInput {
     #import bevy_pbr::mesh_vertex_output
 };
 
+// NOTE: bevy_pbr::pbr_debug needs specific things from the fragment input and standard material
+#import bevy_pbr::pbr_debug
+
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+#ifdef PBR_DEBUG
+    return pbr_debug(in);
+#else
+#ifdef PBR_DEBUG_OPAQUE
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u
+            || (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) != 0u) {
+        discard;
+    }
+#endif
+#ifdef PBR_DEBUG_ALPHA_MASK
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u
+            || (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) != 0u) {
+        discard;
+    }
+#endif
+#ifdef PBR_DEBUG_ALPHA_BLEND
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u
+            || (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+        discard;
+    }
+#endif
+
     var output_color: vec4<f32> = material.base_color;
 #ifdef VERTEX_COLORS
     output_color = output_color * in.color;
-#endif
+#endif // VERTEX_COLORS
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
-#endif
+#endif // VERTEX_UVS
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
@@ -44,7 +69,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, in.uv).rgb, 1.0);
         }
-#endif
+#endif // VERTEX_UVS
         pbr_input.material.emissive = emissive;
 
         var metallic: f32 = material.metallic;
@@ -56,7 +81,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             metallic = metallic * metallic_roughness.b;
             perceptual_roughness = perceptual_roughness * metallic_roughness.g;
         }
-#endif
+#endif // VERTEX_UVS
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
@@ -65,7 +90,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
-#endif
+#endif // VERTEX_UVS
         pbr_input.occlusion = occlusion;
 
         pbr_input.frag_coord = in.frag_coord;
@@ -84,8 +109,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,
-#endif
-#endif
+#endif // STANDARDMATERIAL_NORMAL_MAP
+#endif // VERTEX_TANGENTS
 #ifdef VERTEX_UVS
             in.uv,
 #endif
@@ -117,4 +142,5 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         output_color = premultiply_alpha(material.flags, output_color);
 #endif
     return output_color;
+#endif // PBR_DEBUG
 }
