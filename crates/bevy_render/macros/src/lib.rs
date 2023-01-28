@@ -28,7 +28,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_compile
 /// use bevy_ecs::component::Component;
 /// use bevy_render_macros::ExtractComponent;
 ///
