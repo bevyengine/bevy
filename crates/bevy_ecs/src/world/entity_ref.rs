@@ -583,8 +583,10 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Updates the internal entity location to match the current location in the internal
-    /// [`World`]. This is only needed if the user called [`EntityMut::world`], which enables the
-    /// location to change.
+    /// [`World`].
+    ///
+    /// This is *only* required when using the unsafe function [`EntityMut::world_mut`],
+    /// which enables the location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
     }
