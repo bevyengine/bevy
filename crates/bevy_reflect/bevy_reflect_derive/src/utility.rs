@@ -4,8 +4,8 @@ use crate::{field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
-use quote::quote;
-use syn::{Member, Path, Type, WhereClause};
+use quote::{quote, ToTokens};
+use syn::{Member, Path, Type, WhereClause, Token};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -124,10 +124,11 @@ pub(crate) fn extend_where_clause(
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
 
-    let mut generic_where_clause = if where_clause.is_some() {
-        quote! {
-            #where_clause,
+    let mut generic_where_clause = if let Some(mut where_clause) = where_clause.cloned() {
+        if !where_clause.predicates.empty_or_trailing() {
+            where_clause.predicates.push_punct(Token![,](Span::call_site()));
         }
+        where_clause.to_token_stream()
     } else if !(active_types.is_empty() && ignored_types.is_empty()) {
         quote!(where)
     } else {
