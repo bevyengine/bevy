@@ -191,6 +191,7 @@ jobs:
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
+            echo $example > last_example_run
             echo "running $example_name - "`date`
             time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
@@ -201,6 +202,17 @@ jobs:
         with:
           name: example-traces.zip
           path: traces.zip
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./example-run
+          echo ${{ github.event.number }} > ./example-run/NR
+          mv last_example_run > ./example-run/
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: example-run
+          path: example-run/
 
   check-doc:
     runs-on: ubuntu-latest
