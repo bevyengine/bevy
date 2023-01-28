@@ -128,10 +128,11 @@ impl CommandQueue {
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
             let size = unsafe { (meta.apply_command_and_get_size)(cmd, world) };
-            // Advance the cursor past the command.
-            // For ZSTs, the cursor will not move.
-            // SAFETY: At this point, it will either point to the next `CommandMeta`,
+            // Advance the cursor past the command. For ZSTs, the cursor will not move.
+            // At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.
+            // SAFETY: The address just past the command is either within the buffer,
+            // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
             cursor = unsafe { cursor.add(size) };
         }
     }
