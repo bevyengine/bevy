@@ -61,6 +61,9 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 /// one for `ReflectFoo` and another for `ReflectBar`.
 /// This assumes these types are indeed in-scope wherever this macro is called.
 ///
+/// This is often used with traits that have been marked by the [`reflect_trait`] macro
+/// in order to register the type's implementation of that trait.
+///
 /// ### Special Identifiers
 ///
 /// There are a few "special" identifiers that work a bit differently:
@@ -118,6 +121,8 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 ///
 /// What this does is register the `SerializationData` type within the `GetTypeRegistration` implementation,
 /// which will be used by the reflection serializers to determine whether or not the field is serializable.
+///
+/// [`reflect_trait`]: macro@reflect_trait
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -169,6 +174,55 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
     type_uuid::type_uuid_derive(input)
 }
 
+/// A macro that automatically generates type data for traits, which their implementors can then register.
+///
+/// The output of this macro is a struct that takes reflected instances of the implementor's type
+/// and returns the value as a trait object.
+/// Because of this, **it can only be used on [object-safe] traits.**
+///
+/// For a trait named `MyTrait`, this will generate the struct `ReflectMyTrait`.
+/// The generated struct can be created using `FromType` with any type that implements the trait.
+/// The creation and registration of this generated struct as type data can be automatically handled
+/// by the [`Reflect` derive macro].
+///
+/// # Example
+///
+/// ```ignore
+/// # use std::any::TypeId;
+/// # use bevy_reflect_derive::{Reflect, reflect_trait};
+/// #[reflect_trait] // Generates `ReflectMyTrait`
+/// trait MyTrait {
+///   fn print(&self) -> &str;
+/// }
+///
+/// #[derive(Reflect)]
+/// #[reflect(MyTrait)] // Automatically registers `ReflectMyTrait`
+/// struct SomeStruct;
+///
+/// impl MyTrait for SomeStruct {
+///   fn print(&self) -> &str {
+///     "Hello, World!"
+///   }
+/// }
+///
+/// // We can create the type data manually if we wanted:
+/// let my_trait: ReflectMyTrait = FromType::<SomeStruct>::from_type();
+///
+/// // Or we can simply get it from the registry:
+/// let mut registry = TypeRegistry::default();
+/// registry.register::<SomeStruct>();
+/// let my_trait = registry
+///   .get_type_data::<ReflectMyTrait>(TypeId::of::<SomeStruct>())
+///   .unwrap();
+///
+/// // Then use it on reflected data
+/// let reflected: Box<dyn Reflect> = Box::new(SomeStruct);
+/// let reflected_my_trait: &dyn MyTrait = my_trait.get(&*reflected).unwrap();
+/// assert_eq!("Hello, World!", reflected_my_trait.print());
+/// ```
+///
+/// [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
+/// [`Reflect` derive macro]: Reflect
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     trait_reflection::reflect_trait(&args, input)
