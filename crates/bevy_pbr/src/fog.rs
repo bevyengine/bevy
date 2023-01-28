@@ -426,9 +426,9 @@ impl FogFalloff {
         }
     }
 
-    /// A 2% contrast threshold was proposed by Koschmieder, being the
-    /// minimum visual contrast at which a human observer can detect an object.
-    /// We use a revised 5% contrast threshold, deemed more realistic for typical human observers.    
+    /// A 2% contrast threshold was originally proposed by Koschmieder, being the
+    /// minimum visual contrast at which a human observer could detect an object.
+    /// We use a revised 5% contrast threshold, deemed more realistic for typical human observers.
     pub const REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD: f32 = 0.05;
 
     /// Calculates the extinction coefficient β, from V and Cₜ, where:
