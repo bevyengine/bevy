@@ -972,7 +972,7 @@ mod tests {
         let id = entity.id();
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             entity.world_scope(|w| {
-                // Change the entity's `EnityLocation`, which invalidates the original `EntityMut`.
+                // Change the entity's `EntityLocation`, which invalidates the original `EntityMut`.
                 // This will get updated at the end of the scope.
                 w.entity_mut(id).insert(TestComponent(0));
 
