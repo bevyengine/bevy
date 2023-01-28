@@ -6,6 +6,7 @@ use bevy::{
     prelude::*,
     render::camera::TemporalJitter,
 };
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -78,6 +79,20 @@ fn setup(
         },
         SphereMarker,
     ));
+
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI * -0.15,
+            PI * -0.15,
+        )),
+        ..default()
+    });
 
     commands.spawn(
         TextBundle::from_section(
