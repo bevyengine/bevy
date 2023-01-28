@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{UVec2, UVec4, Vec4};
-use bevy_reflect::{PartialReflect, TypeUuid, Reflect};
+use bevy_reflect::{PartialReflect, Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{

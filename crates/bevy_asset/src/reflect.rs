@@ -18,7 +18,8 @@ pub struct ReflectAsset {
     assets_resource_type_id: TypeId,
 
     get: fn(&World, HandleUntyped) -> Option<&dyn PartialReflect>,
-    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn PartialReflect>,
+    get_unchecked_mut:
+        unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn PartialReflect>,
     add: fn(&mut World, &dyn PartialReflect) -> HandleUntyped,
     set: fn(&mut World, HandleUntyped, &dyn PartialReflect) -> HandleUntyped,
     len: fn(&World) -> usize,

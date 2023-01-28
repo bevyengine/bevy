@@ -1,7 +1,7 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::fq_std::{FQBox, FQOption, FQResult};
-use crate::impls::{impl_typed, impl_full_reflect};
+use crate::impls::{impl_full_reflect, impl_typed};
 use crate::utility::extend_where_clause;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -91,8 +91,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let get_type_registration_impl = reflect_enum
         .meta()
         .get_type_registration(&where_clause_options);
-        
-    let impl_full_reflect = impl_full_reflect(reflect_enum.meta());
+
+    let impl_full_reflect = impl_full_reflect(reflect_enum.meta(), &where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();

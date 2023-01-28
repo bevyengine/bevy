@@ -89,7 +89,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let impl_full_reflect = impl_full_reflect(reflect_struct.meta());
+    let impl_full_reflect = impl_full_reflect(reflect_struct.meta(), &where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
