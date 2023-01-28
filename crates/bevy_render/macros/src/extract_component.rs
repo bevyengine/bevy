@@ -22,7 +22,10 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         .iter()
         .find(|a| a.path.is_ident("extract_component_filter"))
     {
-        let filter = attr.parse_args::<syn::Type>().unwrap();
+        let filter = match attr.parse_args::<syn::Type>() {
+            Ok(filter) => filter,
+            Err(e) => return e.to_compile_error().into(),
+        };
 
         quote! {
             #filter
