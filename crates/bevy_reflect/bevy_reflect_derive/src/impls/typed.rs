@@ -7,7 +7,7 @@ use quote::{quote, ToTokens};
 use syn::{spanned::Spanned, LitStr};
 
 use crate::{
-    derive_data::{PathToType, ReflectMeta},
+    derive_data::{ReflectMeta, ReflectTypePath},
     utility::wrap_in_option,
 };
 
@@ -38,14 +38,14 @@ fn combine_generics(
 /// Returns an expression for a `&'static str`,
 /// representing either a [long path](long) or [short path](short).
 ///
-/// [long]: PathToType::non_generic_path
-/// [short]: PathToType::non_generic_short_path
+/// [long]: ReflectTypePath::non_generic_path
+/// [short]: ReflectTypePath::non_generic_short_path
 fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let path_to_type = meta.path_to_type();
     let generics = meta.generics();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    if let PathToType::Primitive(name) = path_to_type {
+    if let ReflectTypePath::Primitive(name) = path_to_type {
         let name = LitStr::new(&name.to_string(), name.span());
         return quote! {
             #bevy_reflect_path::utility::TypePathStorage::new_primitive(#name)
@@ -62,7 +62,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
         })
         .collect();
 
-    let ident = path_to_type.ident().unwrap().to_string();
+    let ident = path_to_type.get_ident().unwrap().to_string();
     let ident = LitStr::new(&ident, path_to_type.span());
 
     let path = if long_path {
@@ -176,14 +176,14 @@ pub(crate) fn impl_type_path(
         )
     };
 
-    let name = wrap_in_option(path_to_type.name());
+    let type_ident = wrap_in_option(path_to_type.type_ident());
     let module_path = wrap_in_option(path_to_type.module_path());
     let crate_name = wrap_in_option(path_to_type.crate_name());
 
     // Add Typed bound for each active field
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
-    let primitive_assert = if let PathToType::Primitive(_) = path_to_type {
+    let primitive_assert = if let ReflectTypePath::Primitive(_) = path_to_type {
         Some(quote! {
             const _: () = {
                 mod private_scope {
@@ -211,7 +211,7 @@ pub(crate) fn impl_type_path(
             }
 
             fn type_ident() -> Option<&'static str> {
-                #name
+                #type_ident
             }
 
             fn crate_name() -> Option<&'static str> {

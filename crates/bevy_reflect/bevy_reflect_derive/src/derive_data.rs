@@ -43,7 +43,7 @@ pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
     traits: ReflectTraits,
     /// The name of this type.
-    path_to_type: PathToType<'a>,
+    path_to_type: ReflectTypePath<'a>,
     /// The generics defined on this type.
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
@@ -226,9 +226,9 @@ impl<'a> ReflectDerive<'a> {
             ));
         }
 
-        let path_to_type = PathToType::Internal {
-            name: &input.ident,
-            alias: alias_type_path,
+        let path_to_type = ReflectTypePath::Internal {
+            ident: &input.ident,
+            custom_path: alias_type_path,
         };
 
         let meta = ReflectMeta::new(path_to_type, &input.generics, traits);
@@ -339,7 +339,7 @@ impl<'a> ReflectDerive<'a> {
 
 impl<'a> ReflectMeta<'a> {
     pub fn new(
-        path_to_type: PathToType<'a>,
+        path_to_type: ReflectTypePath<'a>,
         generics: &'a Generics,
         traits: ReflectTraits,
     ) -> Self {
@@ -365,7 +365,7 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The name of this struct.
-    pub fn path_to_type(&self) -> &'a PathToType {
+    pub fn path_to_type(&self) -> &'a ReflectTypePath {
         &self.path_to_type
     }
 
@@ -568,23 +568,26 @@ impl<'a> EnumVariant<'a> {
 }
 
 /// Represents a path to a type.
-pub(crate) enum PathToType<'a> {
+pub(crate) enum ReflectTypePath<'a> {
     /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
-    /// May have a seperate alias path used for the `TypePath` implementation.
-    External { path: &'a Path, alias: Option<Path> },
+    /// May have a seperate custom path used for the `TypePath` implementation.
+    External {
+        path: &'a Path,
+        custom_path: Option<Path>,
+    },
     /// The name of a type relative to its scope.
-    /// The type must be able to be named from just its name.
+    /// The type must be able to be reached with just its name.
     ///
     /// May have a seperate alias path used for the `TypePath` implementation.
     ///
     /// Module and crate are found with [`module_path!()`](core::module_path),
-    /// if there is no alias specified.
+    /// if there is no custom path specified.
     Internal {
-        name: &'a Ident,
-        alias: Option<Path>,
+        ident: &'a Ident,
+        custom_path: Option<Path>,
     },
     /// Any [`syn::Type`] with only a defined `type_path` and `short_type_path`.
     #[allow(dead_code)]
@@ -596,19 +599,22 @@ pub(crate) enum PathToType<'a> {
     },
 }
 
-impl<'a> PathToType<'a> {
-    /// Returns the path interpreted as an [`struct@Ident`],
-    /// or [`None`] if anonymous or primitive.
-    fn named_as_ident(&self) -> Option<&Ident> {
+impl<'a> ReflectTypePath<'a> {
+    /// Returns the path interpreted as an [`struct@Ident`].
+    ///
+    /// Returns [`None`] if [anonymous].
+    ///
+    /// [anonymous]: ReflectTypePath::Anonymous
+    pub fn get_ident(&self) -> Option<&Ident> {
         match self {
-            Self::Internal { name: ident, alias } => Some(
-                alias
+            Self::Internal { ident, custom_path } => Some(
+                custom_path
                     .as_ref()
                     .map(|path| &path.segments.last().unwrap().ident)
                     .unwrap_or(ident),
             ),
-            Self::External { path, alias } => Some(
-                &alias
+            Self::External { path, custom_path } => Some(
+                &custom_path
                     .as_ref()
                     .unwrap_or(path)
                     .segments
@@ -616,42 +622,52 @@ impl<'a> PathToType<'a> {
                     .unwrap()
                     .ident,
             ),
+            Self::Primitive(ident) => Some(ident),
             _ => None,
         }
     }
 
-    /// Returns the path interpreted as a [`Path`],
-    /// or [`None`] if anonymous, primitive, or a non-aliased [`PathToType::Internal`].
-    fn named_as_path(&self) -> Option<&Path> {
-        match self {
-            Self::Internal { alias, .. } => alias.as_ref(),
-            Self::External { path, alias } => Some(alias.as_ref().unwrap_or(path)),
-            _ => None,
-        }
-    }
-
-    /// Returns whether this [internal] or [external] path is aliased.
+    /// Returns the path interpreted as a [`Path`].
     ///
-    /// [internal]: PathToType::Internal
-    /// [external]: PathToType::External
-    pub fn is_aliased(&self) -> bool {
+    /// Returns [`None`] if [anonymous], [primitive],
+    /// or a [`ReflectTypePath::Internal`] without a custom path.
+    ///
+    /// [primitive]: ReflectTypePath::Primitive
+    /// [anonymous]: ReflectTypePath::Anonymous
+    pub fn get_path(&self) -> Option<&Path> {
         match self {
-            Self::Internal { alias, .. } | Self::External { alias, .. } => alias.is_some(),
+            Self::Internal { custom_path, .. } => custom_path.as_ref(),
+            Self::External { path, custom_path } => Some(custom_path.as_ref().unwrap_or(path)),
+            _ => None,
+        }
+    }
+
+    /// Returns whether this [internal] or [external] path has a custom path.
+    ///
+    /// [internal]: ReflectTypePath::Internal
+    /// [external]: ReflectTypePath::External
+    pub fn has_custom_path(&self) -> bool {
+        match self {
+            Self::Internal { custom_path, .. } | Self::External { custom_path, .. } => {
+                custom_path.is_some()
+            }
             _ => false,
         }
     }
 
-    /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
-    pub fn ident(&self) -> Option<&Ident> {
-        self.named_as_ident().or(match self {
-            Self::Primitive(ident) => Some(ident),
-            _ => None,
-        })
-    }
-
-    /// Returns an expression for an `AsRef<str>`.
+    /// Returns tokens for a `&str` representing the name of the type's crate.
+    ///
+    /// Returns [`None`] if the type is [primitive] or [anonymous].
+    ///
+    /// For non-aliased [internal] paths this is created from [`module_path`].
+    ///
+    /// For `::core::option::Option`, this is `"core"`.
+    ///
+    /// [primitive]: ReflectTypePath::Primitive
+    /// [anonymous]: ReflectTypePath::Anonymous
+    /// [internal]: ReflectTypePath::Internal
     pub fn crate_name(&self) -> Option<proc_macro2::TokenStream> {
-        if let Some(path) = self.named_as_path() {
+        if let Some(path) = self.get_path() {
             let crate_name = path.segments.first().unwrap().ident.to_string();
             let crate_name = LitStr::new(&crate_name, path.span());
             return Some(quote!(#crate_name));
@@ -669,29 +685,39 @@ impl<'a> PathToType<'a> {
         }
     }
 
-    /// Returns an expression for an `AsRef<str>`.
+    /// Returns tokens for a `&str` representing the "type path" of the type.
+    ///
+    /// Does not take generics into account.
+    ///
+    /// For `::core::option::Option`, this is `"core::option::Option"`.
     pub fn non_generic_path(&self) -> proc_macro2::TokenStream {
-        if let Some(ident) = self.named_as_ident() {
-            let module_path = self.module_path();
-            let ident = LitStr::new(&ident.to_string(), ident.span());
-            return quote! {
-                ::core::concat!(#module_path, "::", #ident)
-            };
-        }
-
         match self {
             Self::Primitive(ident) => {
                 let lit = LitStr::new(&ident.to_string(), ident.span());
                 lit.to_token_stream()
             }
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
-            _ => unreachable!(),
+            _ => {
+                let Some(ident) = self.get_ident() else {
+                    unreachable!()
+                };
+
+                let module_path = self.module_path();
+                let ident = LitStr::new(&ident.to_string(), ident.span());
+                quote! {
+                    ::core::concat!(#module_path, "::", #ident)
+                }
+            }
         }
     }
 
-    /// Returns an expression for an `&str`.
+    /// Returns tokens for a `&str` representing the "short path" of the type.
+    ///
+    /// Does not take generics into account.
+    ///
+    /// For `::core::option::Option`, this is `"Option"`.
     pub fn non_generic_short_path(&self) -> proc_macro2::TokenStream {
-        if let Some(ident) = self.ident() {
+        if let Some(ident) = self.get_ident() {
             let ident = LitStr::new(&ident.to_string(), ident.span());
             return ident.to_token_stream();
         }
@@ -704,9 +730,20 @@ impl<'a> PathToType<'a> {
         }
     }
 
-    /// Returns an expression for an `AsRef<str>`.
+    /// Returns tokens for a string literal representing the path to the module
+    /// that the type is in.
+    ///
+    /// Returns [`None`] if the type is [primitive] or [anonymous].
+    ///
+    /// For non-aliased [internal] paths this is created from [`module_path`].
+    ///
+    /// For `::core::option::Option`, this is `"core::option"`.
+    ///
+    /// [primitive]: ReflectTypePath::Primitive
+    /// [anonymous]: ReflectTypePath::Anonymous
+    /// [internal]: ReflectTypePath::Internal
     pub fn module_path(&self) -> Option<proc_macro2::TokenStream> {
-        if let Some(path) = self.named_as_path() {
+        if let Some(path) = self.get_path() {
             let path = path
                 .segments
                 .pairs()
@@ -730,19 +767,27 @@ impl<'a> PathToType<'a> {
         }
     }
 
-    /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
-    pub fn name(&self) -> Option<proc_macro2::TokenStream> {
-        self.ident().map(|ident| {
-            let lit = LitStr::new(&ident.to_string(), ident.span());
-            lit.to_token_stream()
+    /// Returns tokens for a string literal representing the type's final ident.
+    ///
+    /// Returns [`None`] if the type is [anonymous].
+    ///
+    /// This is not necessarily a valid qualified path to the type.
+    ///
+    /// For `::core::option::Option`, this is `"Option"`.
+    ///
+    /// [anonymous]: ReflectTypePath::Anonymous
+    pub fn type_ident(&self) -> Option<proc_macro2::TokenStream> {
+        self.get_ident().map(|ident| {
+            let ident = LitStr::new(&ident.to_string(), ident.span());
+            ident.to_token_stream()
         })
     }
 }
 
-impl<'a> ToTokens for PathToType<'a> {
+impl<'a> ToTokens for ReflectTypePath<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
-            Self::Internal { name: ident, .. } | Self::Primitive(ident) => ident.to_tokens(tokens),
+            Self::Internal { ident, .. } | Self::Primitive(ident) => ident.to_tokens(tokens),
             Self::External { path, .. } => path.to_tokens(tokens),
             Self::Anonymous { qualified_type, .. } => qualified_type.to_tokens(tokens),
         }

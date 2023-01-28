@@ -32,7 +32,7 @@ mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ReflectTraits;
-use derive_data::PathToType;
+use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
@@ -121,11 +121,11 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let path_to_type = if def.type_path.leading_colon.is_none() && def.alias.is_empty() {
-        PathToType::Primitive(default_name)
+        ReflectTypePath::Primitive(default_name)
     } else {
-        PathToType::External {
+        ReflectTypePath::External {
             path: &def.type_path,
-            alias: def.alias.into_path(default_name),
+            custom_path: def.alias.into_path(default_name),
         }
     };
 
@@ -175,7 +175,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
     match derive_data {
         ReflectDerive::Struct(struct_data) => {
-            if !struct_data.meta().path_to_type().is_aliased() {
+            if !struct_data.meta().path_to_type().has_custom_path() {
                 return syn::Error::new(
                     struct_data.meta().path_to_type().span(),
                     format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using `impl_reflect_struct`")
@@ -218,11 +218,11 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let path_to_type = if def.type_path.leading_colon.is_none() && def.alias.is_empty() {
-        PathToType::Primitive(default_name)
+        ReflectTypePath::Primitive(default_name)
     } else {
-        PathToType::External {
+        ReflectTypePath::External {
             path: &def.type_path,
-            alias: def.alias.into_path(default_name),
+            custom_path: def.alias.into_path(default_name),
         }
     };
 
@@ -245,15 +245,15 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         } => {
             let default_name = &path.segments.last().unwrap().ident;
             (
-                PathToType::External {
+                ReflectTypePath::External {
                     path,
-                    alias: alias.into_path(default_name),
+                    custom_path: alias.into_path(default_name),
                 },
                 generics,
             )
         }
         NamedTypePathDef::Primtive(ref ident) => {
-            (PathToType::Primitive(ident), Generics::default())
+            (ReflectTypePath::Primitive(ident), Generics::default())
         }
     };
 
