@@ -70,9 +70,10 @@ fn scheduled_spawner(
     mut counter: ResMut<BevyCounter>,
     bird_texture: Res<BirdTexture>,
 ) {
-    let window = match windows.get_single() {
-        Ok(window) => window,
-        Err(_) => return,
+    let window = if let Ok(window) = windows.get_single() {
+        window
+    } else {
+        return;
     };
 
     if scheduled.wave > 0 {
