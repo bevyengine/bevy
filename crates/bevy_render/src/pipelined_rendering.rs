@@ -82,7 +82,7 @@ impl Plugin for PipelinedRenderingPlugin {
             RenderExtractStage::BeforeIoAfterRenderStart,
             SystemStage::parallel(),
         );
-        app.add_sub_app(RenderExtractApp, sub_app, update_rendering);
+        app.insert_sub_app(RenderExtractApp, SubApp::new(sub_app, update_rendering));
     }
 
     // Sets up the render thread and inserts resources into the main app used for controlling the render thread.

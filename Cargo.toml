@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.66.0"
+rust-version = "1.67.0"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
@@ -48,7 +48,7 @@ default = [
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -1321,6 +1321,16 @@ description = "A shader that shows how to reuse the core bevy PBR shading functi
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader/texture_binding_array.rs"
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
+
 # Stress tests
 [[package.metadata.category]]
 name = "Stress Tests"
@@ -1535,6 +1545,17 @@ name = "Text Debug"
 description = "An example for debugging text layout"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "text_layout"
+path = "examples/ui/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "UI (User Interface)"
+wasm = false
+
 
 [[example]]
 name = "transparency_ui"

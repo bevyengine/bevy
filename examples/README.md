@@ -273,6 +273,7 @@ Example | Description
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the depth texture generated in a prepass
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
+[Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
 ## Stress Tests
 
@@ -320,6 +321,7 @@ Example | Description
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Text Layout](../examples/ui/text_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
@@ -387,7 +389,7 @@ You can view the logs with the following command:
 adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
 ```
 
-In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more informations.
+In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more information.
 
 Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
 

@@ -2,7 +2,7 @@
 name = "bevy_internal"
 version = "0.9.0"
 edition = "2021"
-description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
+description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic_linking' feature"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -70,6 +70,9 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+# Used to disable code that is unsupported when Bevy is dynamically linked
+dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 
 [dependencies]
 # bevy

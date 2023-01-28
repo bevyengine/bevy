@@ -46,18 +46,8 @@ fn setup_terrain_scene(
     asset_server: Res<AssetServer>,
 ) {
     // Sun
-    const HALF_SIZE: f32 = 1.5;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -HALF_SIZE,
-                far: HALF_SIZE,
-                ..default()
-            },
             color: Color::rgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             ..default()

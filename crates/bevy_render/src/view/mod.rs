@@ -91,6 +91,10 @@ impl Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
+    // The view-projection matrix. When provided it is used instead of deriving it from
+    // `projection` and `transform` fields, which can be helpful in cases where numerical
+    // stability matters and there is a more direct way to derive the view-projection matrix.
+    pub view_projection: Option<Mat4>,
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
@@ -178,6 +182,20 @@ impl ViewTarget {
         }
     }
 
+    /// The _other_ "main" unsampled texture.
+    /// In most cases you should use [`Self::main_texture`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b
+        } else {
+            &self.main_textures.a
+        }
+    }
+
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&TextureView> {
         self.main_textures.sampled.as_ref()
@@ -251,7 +269,9 @@ fn prepare_view_uniforms(
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: projection * inverse_view,
+                view_proj: camera
+                    .view_projection
+                    .unwrap_or_else(|| projection * inverse_view),
                 inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,

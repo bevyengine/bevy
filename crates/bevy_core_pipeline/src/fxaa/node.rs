@@ -78,7 +78,7 @@ impl Node for FxaaNode {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .render_device
+                    .render_device()
                     .create_sampler(&SamplerDescriptor {
                         mipmap_filter: FilterMode::Linear,
                         mag_filter: FilterMode::Linear,
@@ -88,7 +88,7 @@ impl Node for FxaaNode {
 
                 let bind_group =
                     render_context
-                        .render_device
+                        .render_device()
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
                             layout: &fxaa_pipeline.texture_bind_group,
@@ -120,7 +120,7 @@ impl Node for FxaaNode {
         };
 
         let mut render_pass = render_context
-            .command_encoder
+            .command_encoder()
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
