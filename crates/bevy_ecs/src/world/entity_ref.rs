@@ -564,22 +564,22 @@ impl<'w> EntityMut<'w> {
     /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
-        // Erase the lifetime of self, so we can get around the borrow checker.
-        let this_ptr = self as *mut Self;
+        struct Guard<'w, 'a> {
+            entity_mut: &'a mut EntityMut<'w>,
+        }
 
-        // Update the stored `EntityLocation` for this instance.
-        // This will get called at the end of this scope, even if the closure `f` unwinds.
-        let _cleanup_guard = bevy_utils::OnDrop::new(move || {
-            // SAFETY:
-            // - When this closure gets called at the end of the outer scope,
-            //   the reference to `self` will be inactive, which ensures that this will not alias.
-            // - The pointer must otherwise be safe to dereference, since it was obtained
-            //   from a mutable reference.
-            let this = unsafe { &mut *this_ptr };
-            this.update_location();
-        });
+        impl Drop for Guard<'_, '_> {
+            #[inline]
+            fn drop(&mut self) {
+                self.entity_mut.update_location();
+            }
+        }
 
-        f(self.world)
+        // When `guard` is dropped at the end of this scope,
+        // it will update the cached `EntityLocation` for this instance.
+        // This will run even in case the closure `f` unwinds.
+        let guard = Guard { entity_mut: self };
+        f(guard.entity_mut.world)
     }
 
     /// Updates the internal entity location to match the current location in the internal
