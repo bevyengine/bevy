@@ -308,7 +308,7 @@ impl Typed for DynamicArray {
     }
 }
 
-impl_type_path!(DynamicArray in bevy_reflect::DynamicArray);
+impl_type_path!(DynamicArray in bevy_reflect);
 
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
