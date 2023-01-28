@@ -1,4 +1,5 @@
 mod as_bind_group;
+mod extract_component;
 mod extract_resource;
 
 use bevy_macro_utils::BevyManifest;
@@ -15,6 +16,11 @@ pub(crate) fn bevy_render_path() -> syn::Path {
 #[proc_macro_derive(ExtractResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     extract_resource::derive_extract_resource(input)
+}
+
+#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
+pub fn derive_extract_component(input: TokenStream) -> TokenStream {
+    extract_component::derive_extract_component(input)
 }
 
 #[proc_macro_derive(
