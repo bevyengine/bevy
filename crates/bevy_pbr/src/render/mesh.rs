@@ -222,7 +222,7 @@ impl SkinnedMeshJoints {
     }
 }
 
-#[derive(Clone, Copy, Debug, Resource)]
+#[derive(Clone, Copy, Debug, Resource, Hash, PartialEq, Eq)]
 pub enum PbrDebug {
     Uvs,
     Depth,
@@ -247,6 +247,84 @@ pub enum PbrDebug {
     ClusteredForwardDebugZSlices,
     ClusteredForwardDebugClusterLightComplexity,
     ClusteredForwardDebugClusterCoherency,
+}
+
+impl PbrDebug {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        let mut shader_defs = vec![];
+        match self {
+            PbrDebug::Opaque
+            | PbrDebug::AlphaMask
+            | PbrDebug::AlphaBlend
+            | PbrDebug::ClusteredForwardDebugClusterCoherency
+            | PbrDebug::ClusteredForwardDebugClusterLightComplexity
+            | PbrDebug::ClusteredForwardDebugZSlices => {}
+            _ => shader_defs.push("PBR_DEBUG".into()),
+        }
+        let def = match self {
+            PbrDebug::Uvs => "PBR_DEBUG_UVS",
+            PbrDebug::Depth => "PBR_DEBUG_DEPTH",
+            PbrDebug::InterpolatedVertexNormals => "PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS",
+            PbrDebug::InterpolatedVertexTangents => "PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS",
+            PbrDebug::TangentSpaceNormalMap => "PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP",
+            PbrDebug::NormalMappedNormal => "PBR_DEBUG_NORMAL_MAPPED_NORMAL",
+            PbrDebug::ViewSpaceNormalMappedNormal => "PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL",
+            PbrDebug::BaseColor => "PBR_DEBUG_BASE_COLOR",
+            PbrDebug::BaseColorTexture => "PBR_DEBUG_BASE_COLOR_TEXTURE",
+            PbrDebug::Emissive => "PBR_DEBUG_EMISSIVE",
+            PbrDebug::EmissiveTexture => "PBR_DEBUG_EMISSIVE_TEXTURE",
+            PbrDebug::Roughness => "PBR_DEBUG_ROUGHNESS",
+            PbrDebug::RoughnessTexture => "PBR_DEBUG_ROUGHNESS_TEXTURE",
+            PbrDebug::Metallic => "PBR_DEBUG_METALLIC",
+            PbrDebug::MetallicTexture => "PBR_DEBUG_METALLIC_TEXTURE",
+            PbrDebug::Reflectance => "PBR_DEBUG_REFLECTANCE",
+            PbrDebug::OcclusionTexture => "PBR_DEBUG_OCCLUSION_TEXTURE",
+            PbrDebug::Opaque => "PBR_DEBUG_OPAQUE",
+            PbrDebug::AlphaMask => "PBR_DEBUG_ALPHA_MASK",
+            PbrDebug::AlphaBlend => "PBR_DEBUG_ALPHA_BLEND",
+            PbrDebug::ClusteredForwardDebugZSlices => "CLUSTERED_FORWARD_DEBUG_Z_SLICES",
+            PbrDebug::ClusteredForwardDebugClusterLightComplexity => {
+                "CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY"
+            }
+            PbrDebug::ClusteredForwardDebugClusterCoherency => {
+                "CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY"
+            }
+        };
+        shader_defs.push(def.into());
+        shader_defs
+    }
+}
+
+#[derive(AsBindGroup, TypeUuid, Clone, Copy, Debug, Component)]
+#[uuid = "824e2d46-9f0a-11ed-b683-d3bb267e3f05"]
+#[bind_group_data(PbrDebug)]
+pub struct PbrDebugMaterial {
+    pub pbr_debug: PbrDebug,
+}
+
+impl From<&PbrDebugMaterial> for PbrDebug {
+    fn from(material: &PbrDebugMaterial) -> Self {
+        material.pbr_debug
+    }
+}
+
+impl Material for PbrDebugMaterial {
+    fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayout,
+        key: crate::MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        descriptor
+            .fragment
+            .as_mut()
+            .unwrap()
+            .shader_defs
+            .extend(key.bind_group_data.shader_defs());
+        dbg!(&descriptor.fragment.as_ref().unwrap().shader_defs);
+
+        Ok(())
+    }
 }
 
 fn extract_pbr_debug(
@@ -747,47 +825,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         if let Some(pbr_debug) = &self.pbr_debug {
-            match pbr_debug {
-                PbrDebug::Opaque
-                | PbrDebug::AlphaMask
-                | PbrDebug::AlphaBlend
-                | PbrDebug::ClusteredForwardDebugClusterCoherency
-                | PbrDebug::ClusteredForwardDebugClusterLightComplexity
-                | PbrDebug::ClusteredForwardDebugZSlices => {}
-                _ => shader_defs.push("PBR_DEBUG".into()),
-            }
-            let def = match pbr_debug {
-                PbrDebug::Uvs => "PBR_DEBUG_UVS",
-                PbrDebug::Depth => "PBR_DEBUG_DEPTH",
-                PbrDebug::InterpolatedVertexNormals => "PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS",
-                PbrDebug::InterpolatedVertexTangents => "PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS",
-                PbrDebug::TangentSpaceNormalMap => "PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP",
-                PbrDebug::NormalMappedNormal => "PBR_DEBUG_NORMAL_MAPPED_NORMAL",
-                PbrDebug::ViewSpaceNormalMappedNormal => {
-                    "PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL"
-                }
-                PbrDebug::BaseColor => "PBR_DEBUG_BASE_COLOR",
-                PbrDebug::BaseColorTexture => "PBR_DEBUG_BASE_COLOR_TEXTURE",
-                PbrDebug::Emissive => "PBR_DEBUG_EMISSIVE",
-                PbrDebug::EmissiveTexture => "PBR_DEBUG_EMISSIVE_TEXTURE",
-                PbrDebug::Roughness => "PBR_DEBUG_ROUGHNESS",
-                PbrDebug::RoughnessTexture => "PBR_DEBUG_ROUGHNESS_TEXTURE",
-                PbrDebug::Metallic => "PBR_DEBUG_METALLIC",
-                PbrDebug::MetallicTexture => "PBR_DEBUG_METALLIC_TEXTURE",
-                PbrDebug::Reflectance => "PBR_DEBUG_REFLECTANCE",
-                PbrDebug::OcclusionTexture => "PBR_DEBUG_OCCLUSION_TEXTURE",
-                PbrDebug::Opaque => "PBR_DEBUG_OPAQUE",
-                PbrDebug::AlphaMask => "PBR_DEBUG_ALPHA_MASK",
-                PbrDebug::AlphaBlend => "PBR_DEBUG_ALPHA_BLEND",
-                PbrDebug::ClusteredForwardDebugZSlices => "CLUSTERED_FORWARD_DEBUG_Z_SLICES",
-                PbrDebug::ClusteredForwardDebugClusterLightComplexity => {
-                    "CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY"
-                }
-                PbrDebug::ClusteredForwardDebugClusterCoherency => {
-                    "CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY"
-                }
-            };
-            shader_defs.push(def.into());
+            shader_defs.extend(pbr_debug.shader_defs());
         }
 
         let (label, blend, depth_write_enabled);

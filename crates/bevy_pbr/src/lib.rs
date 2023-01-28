@@ -1,4 +1,3 @@
-pub mod debug_mesh;
 pub mod wireframe;
 
 mod alpha;
@@ -176,6 +175,7 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..default()
             })
+            .add_plugin(MaterialPlugin::<PbrDebugMaterial>::default())
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()

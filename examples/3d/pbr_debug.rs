@@ -1,7 +1,8 @@
-//! Showcases displaying various mesh properties via debug materials.
+//! Display debugging information for PBR materials.
+//! See the scene viewer example for an interactive version.
 
 use bevy::{
-    pbr::debug_mesh::{DebugMeshKey, DebugMeshMaterial, DebugMeshPlugin},
+    pbr::{PbrDebug, PbrDebugMaterial},
     prelude::*,
 };
 
@@ -16,7 +17,6 @@ const HELMET_SCALE: Vec3 = Vec3::splat(2.0);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(DebugMeshPlugin)
         .add_startup_system(setup)
         .add_system(rotate)
         .add_system(spawn_with_debug_materials)
@@ -28,7 +28,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut debug_materials: ResMut<Assets<DebugMeshMaterial>>,
+    mut debug_materials: ResMut<Assets<PbrDebugMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     // plane
@@ -42,8 +42,8 @@ fn setup(
     commands.spawn((
         MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: debug_materials.add(DebugMeshMaterial {
-                variant: DebugMeshKey::UVs,
+            material: debug_materials.add(PbrDebugMaterial {
+                pbr_debug: PbrDebug::Depth,
             }),
             transform: Transform::from_xyz(-1.5, 0.5, 0.0),
             ..default()
@@ -91,7 +91,7 @@ fn rotate(mut query: Query<&mut Transform, With<ShouldRotate>>, time: Res<Time>)
 fn spawn_with_debug_materials(
     mut done: Local<bool>,
     mut commands: Commands,
-    mut debug_materials: ResMut<Assets<DebugMeshMaterial>>,
+    mut debug_materials: ResMut<Assets<PbrDebugMaterial>>,
     helmet_scene: Query<Entity, With<Helmet>>,
     children: Query<&Children>,
     meshes: Query<(&Handle<Mesh>, &Transform)>,
@@ -105,11 +105,12 @@ fn spawn_with_debug_materials(
             if let Ok((mesh, transform)) = meshes.get(entity) {
                 *done = true;
 
-                for (index, variant) in [
-                    DebugMeshKey::WorldPosition,
-                    DebugMeshKey::WorldNormal,
-                    DebugMeshKey::UVs,
-                    DebugMeshKey::WorldTangent,
+                // TODO: Enumerate all?
+                for (index, pbr_debug) in [
+                    PbrDebug::Depth,
+                    PbrDebug::Uvs,
+                    PbrDebug::NormalMappedNormal,
+                    PbrDebug::ViewSpaceNormalMappedNormal,
                 ]
                 .iter()
                 .enumerate()
@@ -117,11 +118,12 @@ fn spawn_with_debug_materials(
                     let mut transform = *transform;
                     transform.translation.z += index as f32;
                     transform.scale = HELMET_SCALE;
+                    let pbr_debug = *pbr_debug;
 
                     commands.spawn((
                         MaterialMeshBundle {
                             mesh: mesh.clone_weak(),
-                            material: debug_materials.add(DebugMeshMaterial { variant: *variant }),
+                            material: debug_materials.add(PbrDebugMaterial { pbr_debug }),
                             transform,
                             ..default()
                         },

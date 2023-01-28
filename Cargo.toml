@@ -371,16 +371,6 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
-name = "debug_mesh"
-path = "examples/3d/debug_mesh.rs"
-
-[package.metadata.example.debug_mesh]
-name = "Debug mesh"
-description = "Debug meshes by displaying UVs, world normals, etc."
-category = "3D Rendering"
-wasm = false
-
-[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
@@ -427,6 +417,17 @@ path = "examples/3d/parenting.rs"
 [package.metadata.example.parenting]
 name = "Parenting"
 description = "Demonstrates parent->child relationships and relative transformations"
+category = "3D Rendering"
+wasm = true
+
+
+[[example]]
+name = "pbr_debug"
+path = "examples/3d/pbr_debug.rs"
+
+[package.metadata.example.pbr_debug]
+name = "Physically Based Rendering Debug"
+description = "Shows properties and textures used in Physically Based Rendering (PBR) for debugging"
 category = "3D Rendering"
 wasm = true
 
