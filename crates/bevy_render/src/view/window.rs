@@ -190,7 +190,7 @@ pub fn prepare_windows(
                 // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                 let surface = render_instance
                     .create_surface(&window.handle.get_handle())
-                    .unwrap();
+                    .expect("Failed to create wgpu surface");
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
