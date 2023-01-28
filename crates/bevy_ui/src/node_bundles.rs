@@ -104,7 +104,7 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
-    /// The calculated size based on the given image
+    /// The calculated size based on the given text
     pub calculated_size: CalculatedSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
