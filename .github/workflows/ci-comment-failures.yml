@@ -121,3 +121,50 @@ jobs:
               });
             }
 
+  msrv:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: 'Download artifact'
+        id: find-artifact
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{github.event.workflow_run.id }},
+            });
+            var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "msrv"
+            });
+            if (matchArtifacts.length == 0) { return "false" }
+            var matchArtifact = matchArtifacts[0];
+            var download = await github.rest.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            var fs = require('fs');
+            fs.writeFileSync('${{github.workspace}}/msrv.zip', Buffer.from(download.data));
+            return "true"
+      - run: unzip msrv.zip
+        if: ${{ steps.find-artifact.outputs.result == 'true' }}
+      - name: 'Comment on PR'
+        if: ${{ steps.find-artifact.outputs.result == 'true' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            var fs = require('fs');
+            var issue_number = Number(fs.readFileSync('./NR'));
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              body: 'Your PR increases Bevy Minimum Supported Rust Version. Please update the `rust-version` field in the root Cargo.toml file.'
+            });

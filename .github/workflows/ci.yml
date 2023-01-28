@@ -325,3 +325,13 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Run cargo check
         run: cargo check
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./msrv
+          echo ${{ github.event.number }} > ./msrv/NR
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: msrv
+          path: msrv/
