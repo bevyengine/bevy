@@ -5,7 +5,7 @@ use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{Member, Path, Type, WhereClause, Token};
+use syn::{Member, Path, Token, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -126,7 +126,9 @@ pub(crate) fn extend_where_clause(
 
     let mut generic_where_clause = if let Some(mut where_clause) = where_clause.cloned() {
         if !where_clause.predicates.empty_or_trailing() {
-            where_clause.predicates.push_punct(Token![,](Span::call_site()));
+            where_clause
+                .predicates
+                .push_punct(Token![,](Span::call_site()));
         }
         where_clause.to_token_stream()
     } else if !(active_types.is_empty() && ignored_types.is_empty()) {
