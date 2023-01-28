@@ -19,24 +19,21 @@
 
 // Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
-    // TODO: Cleanup constants
-    // TODO: Document how the weights are determined, and what the parameters are doing
     let depth_range_scale_factor = 0.75;
     let effect_radius = depth_range_scale_factor * 0.5 * 1.457;
     let falloff_range = 0.615 * effect_radius;
     let falloff_from = effect_radius * (1.0 - 0.615);
     let falloff_mul = -1.0 / falloff_range;
     let falloff_add = falloff_from / falloff_range + 1.0;
-    let max_depth = max(max(depth0, depth1), max(depth2, depth3));
 
-    let weight0 = saturate((max_depth - depth0) * falloff_mul + falloff_add);
-    let weight1 = saturate((max_depth - depth1) * falloff_mul + falloff_add);
-    let weight2 = saturate((max_depth - depth2) * falloff_mul + falloff_add);
-    let weight3 = saturate((max_depth - depth3) * falloff_mul + falloff_add);
+    let min_depth = min(min(depth0, depth1), min(depth2, depth3));
+    let weight0 = saturate((depth0 - min_depth) * falloff_mul + falloff_add);
+    let weight1 = saturate((depth1 - min_depth) * falloff_mul + falloff_add);
+    let weight2 = saturate((depth2 - min_depth) * falloff_mul + falloff_add);
+    let weight3 = saturate((depth3 - min_depth) * falloff_mul + falloff_add);
     let weight_total = weight0 + weight1 + weight2 + weight3;
 
-    let depth = ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
-    return min(depth, 3.402823466e+38); // Clamp INF to f32::MAX
+    return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
 }
 
 // Used to share the depths from the previous MIP level between all invocations in a workgroup
