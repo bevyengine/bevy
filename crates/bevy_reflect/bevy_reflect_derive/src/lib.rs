@@ -101,7 +101,11 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    impls::impl_type_path(derive_data.meta()).into()
+    impls::impl_type_path(
+        derive_data.meta(),
+        &derive_data.meta().type_path_where_clause_options(),
+    )
+    .into()
 }
 
 // From https://github.com/randomPoison/type-uuid
@@ -240,7 +244,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
     let (path_to_type, generics) = match def {
         NamedTypePathDef::External {
             ref path,
-            alias,
+            custom_path: alias,
             generics,
         } => {
             let default_name = &path.segments.last().unwrap().ident;
@@ -257,10 +261,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         }
     };
 
-    impls::impl_type_path(&ReflectMeta::new(
-        path_to_type,
-        &generics,
-        ReflectTraits::default(),
-    ))
-    .into()
+    let meta = ReflectMeta::new(path_to_type, &generics, ReflectTraits::default());
+
+    impls::impl_type_path(&meta, &meta.type_path_where_clause_options()).into()
 }

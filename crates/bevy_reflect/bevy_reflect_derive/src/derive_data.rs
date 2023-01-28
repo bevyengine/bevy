@@ -1,9 +1,8 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
-use crate::type_path::parse_path_no_leading_colon;
 use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
+use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
-use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
 use quote::{quote, ToTokens};
 
@@ -141,9 +140,9 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
-        let mut alias_type_path: Option<Path> = None;
-
-        let mut alias_type_name: Option<Ident> = None;
+        let mut custom_path: Option<Path> = None;
+        // Should indicate whether `#[type_name = "..."]` was used.
+        let mut custom_type_name: Option<Ident> = None;
 
         #[cfg(feature = "documentation")]
         let mut doc = crate::documentation::Documentation::default();
@@ -192,7 +191,7 @@ impl<'a> ReflectDerive<'a> {
                         ));
                     };
 
-                    alias_type_path = Some(syn::parse::Parser::parse_str(
+                    custom_path = Some(syn::parse::Parser::parse_str(
                         parse_path_no_leading_colon,
                         &lit.value(),
                     )?);
@@ -205,7 +204,7 @@ impl<'a> ReflectDerive<'a> {
                         ));
                     };
 
-                    alias_type_name = Some(parse_str(&lit.value())?);
+                    custom_type_name = Some(parse_str(&lit.value())?);
                 }
                 #[cfg(feature = "documentation")]
                 Meta::NameValue(pair) if pair.path.is_ident("doc") => {
@@ -216,10 +215,10 @@ impl<'a> ReflectDerive<'a> {
                 _ => continue,
             }
         }
-        if let Some(path) = &mut alias_type_path {
-            let ident = alias_type_name.unwrap_or_else(|| input.ident.clone());
+        if let Some(path) = &mut custom_path {
+            let ident = custom_type_name.unwrap_or_else(|| input.ident.clone());
             path.segments.push(PathSegment::from(ident));
-        } else if let Some(name) = alias_type_name {
+        } else if let Some(name) = custom_type_name {
             return Err(syn::Error::new(
                 name.span(),
                 format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute."),
@@ -228,7 +227,7 @@ impl<'a> ReflectDerive<'a> {
 
         let path_to_type = ReflectTypePath::Internal {
             ident: &input.ident,
-            custom_path: alias_type_path,
+            custom_path,
         };
 
         let meta = ReflectMeta::new(path_to_type, &input.generics, traits);
@@ -395,17 +394,31 @@ impl<'a> ReflectMeta<'a> {
         &self,
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
-        crate::registration::impl_get_type_registration(
-            self,
-            where_clause_options,
-            None,
-        )
+        crate::registration::impl_get_type_registration(self, where_clause_options, None)
     }
 
     /// The collection of docstrings for this type, if any.
     #[cfg(feature = "documentation")]
     pub fn doc(&self) -> &crate::documentation::Documentation {
         &self.docs
+    }
+
+    pub fn type_path_where_clause_options(&self) -> WhereClauseOptions {
+        let bevy_reflect_path = self.bevy_reflect_path();
+        WhereClauseOptions {
+            active_types: self.generics().type_params().map(|param| {
+                let path: Path = param.ident.clone().into();
+                let type_path = syn::TypePath {
+                    path,
+                    qself: None,
+                };
+                type_path.into()
+            }).collect(),
+            active_trait_bounds: quote! {
+                #bevy_reflect_path::TypePath
+            },
+            ..Default::default()
+        }
     }
 }
 
@@ -475,7 +488,7 @@ impl<'a> ReflectStruct<'a> {
         let bevy_reflect_path = &self.meta().bevy_reflect_path;
         WhereClauseOptions {
             active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::Reflect },
+            active_trait_bounds: quote! { #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath },
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
         }
@@ -533,7 +546,7 @@ impl<'a> ReflectEnum<'a> {
         let bevy_reflect_path = &self.meta().bevy_reflect_path;
         WhereClauseOptions {
             active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect },
+            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect + #bevy_reflect_path::TypePath },
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
         }

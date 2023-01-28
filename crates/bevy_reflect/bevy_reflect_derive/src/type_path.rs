@@ -18,19 +18,19 @@ pub fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {
     }
 }
 
-pub struct AliasDef {
-    path_alias: Option<Path>,
-    name_alias: Option<Ident>,
+pub struct CustomPathDef {
+    custom_path: Option<Path>,
+    custom_name: Option<Ident>,
 }
 
-impl AliasDef {
+impl CustomPathDef {
     pub fn is_empty(&self) -> bool {
-        self.path_alias.is_none()
+        self.custom_path.is_none()
     }
 
     pub fn into_path(self, default_name: &Ident) -> Option<Path> {
-        if let Some(mut path) = self.path_alias {
-            let name = PathSegment::from(self.name_alias.unwrap_or_else(|| default_name.clone()));
+        if let Some(mut path) = self.custom_path {
+            let name = PathSegment::from(self.custom_name.unwrap_or_else(|| default_name.clone()));
             path.segments.push(name);
             Some(path)
         } else {
@@ -39,31 +39,31 @@ impl AliasDef {
     }
 }
 
-impl Parse for AliasDef {
+impl Parse for CustomPathDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if !input.peek(Token![in]) {
             return Ok(Self {
-                path_alias: None,
-                name_alias: None,
+                custom_path: None,
+                custom_name: None,
             });
         }
 
         input.parse::<Token![in]>()?;
-        let path_alias = parse_path_no_leading_colon(input)?;
+        let custom_path = parse_path_no_leading_colon(input)?;
 
         if !input.peek(Token![as]) {
             return Ok(Self {
-                path_alias: Some(path_alias),
-                name_alias: None,
+                custom_path: Some(custom_path),
+                custom_name: None,
             });
         }
 
         input.parse::<Token![as]>()?;
-        let name_alias: Ident = input.parse()?;
+        let custom_name: Ident = input.parse()?;
 
         Ok(Self {
-            path_alias: Some(path_alias),
-            name_alias: Some(name_alias),
+            custom_path: Some(custom_path),
+            custom_name: Some(custom_name),
         })
     }
 }
@@ -72,7 +72,7 @@ pub enum NamedTypePathDef {
     External {
         path: Path,
         generics: Generics,
-        alias: AliasDef,
+        custom_path: CustomPathDef,
     },
     Primtive(Ident),
 }
@@ -83,9 +83,9 @@ impl Parse for NamedTypePathDef {
         let mut generics = input.parse::<Generics>()?;
         generics.where_clause = input.parse()?;
 
-        let alias: AliasDef = input.parse()?;
+        let custom_path: CustomPathDef = input.parse()?;
 
-        if path.leading_colon.is_none() && alias.is_empty() {
+        if path.leading_colon.is_none() && custom_path.is_empty() {
             if path.segments.len() == 1 {
                 let ident = path.segments.into_iter().next().unwrap().ident;
                 Ok(NamedTypePathDef::Primtive(ident))
@@ -96,7 +96,7 @@ impl Parse for NamedTypePathDef {
             Ok(NamedTypePathDef::External {
                 path,
                 generics,
-                alias,
+                custom_path,
             })
         }
     }

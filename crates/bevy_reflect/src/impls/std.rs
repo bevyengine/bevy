@@ -404,7 +404,7 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl_type_path!($ty where T: FromReflect + TypePath);
+        impl_type_path!($ty where T: FromReflect);
 
         impl<T: FromReflect + TypePath> GetTypeRegistration for $ty {
             fn get_type_registration() -> TypeRegistration {

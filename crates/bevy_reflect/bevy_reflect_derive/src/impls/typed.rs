@@ -1,8 +1,5 @@
 use crate::utility::{extend_where_clause, WhereClauseOptions};
-use crate::ReflectMeta;
-use proc_macro2::Ident;
 use syn::Generics;
-use std::borrow::Cow;
 use quote::{quote, ToTokens};
 use syn::{spanned::Spanned, LitStr};
 
@@ -180,9 +177,6 @@ pub(crate) fn impl_type_path(
     let module_path = wrap_in_option(path_to_type.module_path());
     let crate_name = wrap_in_option(path_to_type.crate_name());
 
-    // Add Typed bound for each active field
-    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
-
     let primitive_assert = if let ReflectTypePath::Primitive(_) = path_to_type {
         Some(quote! {
             const _: () = {
@@ -197,6 +191,9 @@ pub(crate) fn impl_type_path(
     };
 
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
+
+    // Add Typed bound for each active field
+    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
         #primitive_assert

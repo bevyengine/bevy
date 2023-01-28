@@ -34,7 +34,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
     let type_path_impl = impl_type_path(meta, &where_clause_options);
 
-    let (impl_generics, ty_generics, where_clause) = meta.split_generics_for_impl();
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
 

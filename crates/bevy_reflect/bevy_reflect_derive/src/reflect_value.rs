@@ -1,5 +1,5 @@
 use crate::container_attributes::ReflectTraits;
-use crate::type_path::AliasDef;
+use crate::type_path::CustomPathDef;
 use syn::parse::{Parse, ParseStream};
 use syn::token::Paren;
 use syn::{parenthesized, Attribute, Generics, Path};
@@ -26,7 +26,7 @@ pub(crate) struct ReflectValueDef {
     pub type_path: Path,
     pub generics: Generics,
     pub traits: Option<ReflectTraits>,
-    pub alias: AliasDef,
+    pub alias: CustomPathDef,
 }
 
 impl Parse for ReflectValueDef {
@@ -43,7 +43,7 @@ impl Parse for ReflectValueDef {
             traits = Some(content.parse::<ReflectTraits>()?);
         }
 
-        let alias: AliasDef = input.parse()?;
+        let alias: CustomPathDef = input.parse()?;
 
         Ok(ReflectValueDef {
             attrs,
