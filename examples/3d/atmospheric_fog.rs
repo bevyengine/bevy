@@ -7,7 +7,10 @@
 //! | `Spacebar`         | Toggle Atmospheric Fog                 |
 //! | `S`                | Toggle Directional Light Fog Influence |
 
-use bevy::prelude::*;
+use bevy::{
+    pbr::{CascadeShadowConfig, NotShadowCaster},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -45,6 +48,11 @@ fn setup_terrain_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
+    // For WebGL we only support 1 cascade level for now
+    let cascade_shadow_config =
+        CascadeShadowConfig::new(if cfg!(feature = "webgl") { 1 } else { 4 }, 0.5, 2.5, 0.2);
+
     // Sun
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -54,6 +62,7 @@ fn setup_terrain_scene(
         },
         transform: Transform::from_xyz(0.0, 0.0, 0.0)
             .looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
+        cascade_shadow_config,
         ..default()
     });
 
@@ -64,17 +73,20 @@ fn setup_terrain_scene(
     });
 
     // Sky
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Box::default())),
-        material: materials.add(StandardMaterial {
-            base_color: Color::hex("888888").unwrap(),
-            unlit: true,
-            cull_mode: None,
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            material: materials.add(StandardMaterial {
+                base_color: Color::hex("888888").unwrap(),
+                unlit: true,
+                cull_mode: None,
+                ..default()
+            }),
+            transform: Transform::from_scale(Vec3::splat(20.0)),
             ..default()
-        }),
-        transform: Transform::from_scale(Vec3::splat(20.0)),
-        ..default()
-    });
+        },
+        NotShadowCaster,
+    ));
 }
 
 fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
