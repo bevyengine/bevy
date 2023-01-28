@@ -34,7 +34,7 @@ use bevy_render::{
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{prelude::default, tracing::warn, HashMap};
+use bevy_utils::{prelude::default, tracing::warn};
 use std::{mem, num::NonZeroU32};
 
 pub mod draw_3d_graph {
@@ -644,10 +644,6 @@ fn prepare_ssao_textures(
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
 ) {
-    let mut preprocessed_depth_textures = HashMap::default();
-    let mut ssao_noisy_textures = HashMap::default();
-    let mut ssao_textures = HashMap::default();
-    let mut depth_differences_textures = HashMap::default();
     for (entity, camera) in &views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
             let size = Extent3d {
@@ -656,65 +652,61 @@ fn prepare_ssao_textures(
                 depth_or_array_layers: 1,
             };
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("ssao_preprocessed_depth_texture"),
-                size,
-                mip_level_count: 5,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
-            let preprocessed_depth_texture = preprocessed_depth_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
-                .clone();
+            let preprocessed_depth_texture = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("ssao_preprocessed_depth_texture"),
+                    size,
+                    mip_level_count: 5,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::R16Float,
+                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            );
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("ssao_noisy_texture"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
-            let ssao_noisy_texture = ssao_noisy_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
-                .clone();
+            let ssao_noisy_texture = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("ssao_noisy_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::R16Float,
+                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            );
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("ssao_texture"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
-            let ssao_texture = ssao_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
-                .clone();
+            let ssao_texture = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("ssao_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::R16Float,
+                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            );
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("ssao_depth_differences_texture"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R32Uint,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
-            let depth_differences_texture = depth_differences_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
-                .clone();
+            let depth_differences_texture = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("ssao_depth_differences_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::R32Uint,
+                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            );
 
             commands
                 .entity(entity)
