@@ -74,7 +74,7 @@ fn doubles_b(mut b: ResMut<B>) {
 fn reads_b(b: Res<B>) {
     // This invariant is always true,
     // because we've fixed the system order so doubling always occurs after adding.
-    assert!((b.0 % 2 == 0) | (b.0 == usize::MAX));
+    assert!((b.0 % 2 == 0) || (b.0 == usize::MAX));
     dbg!(b);
 }
 
