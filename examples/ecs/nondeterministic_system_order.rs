@@ -12,7 +12,7 @@
 //!
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
 
-use bevy::{ecs::schedule::ReportExecutionOrderAmbiguities, prelude::*};
+use bevy::{app::AppExit, ecs::schedule::ReportExecutionOrderAmbiguities, prelude::*};
 
 fn main() {
     App::new()
@@ -42,9 +42,7 @@ fn main() {
         // please file a bug with the repo responsible!
         // Only *you* can prevent nondeterministic bugs due to greedy parallelism.
         .add_plugins(DefaultPlugins)
-        // We're only going to run one frame of this app,
-        // to make sure we can see the warnings at the start.
-        .update();
+        .run();
 }
 
 #[derive(Resource, Debug, Default)]
@@ -56,9 +54,7 @@ struct B(usize);
 // Data access is determined solely on the basis of the types of the system's parameters
 // Every implementation of the `SystemParam` and `WorldQuery` traits must declare which data is used
 // and whether or not it is mutably accessed.
-fn reads_a(a: Res<A>) {
-    dbg!(a);
-}
+fn reads_a(_a: Res<A>) {}
 
 fn writes_a(mut a: ResMut<A>) {
     a.0 += 1;
@@ -77,9 +73,13 @@ fn reads_b(b: Res<B>) {
     // This invariant is always true,
     // because we've fixed the system order so doubling always occurs after adding.
     assert!((b.0 % 2 == 0) || (b.0 == usize::MAX));
-    dbg!(b);
 }
 
-fn reads_a_and_b(a: Res<A>, b: Res<B>) {
-    dbg!(a, b);
+fn reads_a_and_b(a: Res<A>, b: Res<B>, mut app_exit: EventWriter<AppExit>) {
+    dbg!(a.0, b.0);
+
+    // Break early to make sure the debug output is easily seen
+    if b.0 > 10 {
+        app_exit.send_default();
+    }
 }
