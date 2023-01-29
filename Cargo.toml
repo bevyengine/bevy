@@ -1426,13 +1426,13 @@ category = "Tools"
 wasm = false
 
 [[example]]
-name = "internal_ambiguities"
-path = "examples/tools/internal_ambiguities.rs"
+name = "nondeterministic_system_order"
+path = "examples/ecs/nondeterministic_system_order.rs"
 
-[package.metadata.example.internal_ambiguities]
-name = "Internal Ambiguities"
-description = "Verify that `DefaultPlugins` works, and that the schedule is free of problematic execution order ambiguities."
-category = "Tools"
+[package.metadata.example.nondeterministic_system_order]
+name = "Nondeterministic System Order"
+description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+category = "ECS"
 wasm = false
 
 [[example]]
