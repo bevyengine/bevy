@@ -1,7 +1,4 @@
-use crate::{
-    mesh::{Mesh, VertexAttributeValues},
-    Resource,
-};
+use crate::mesh::{Mesh, VertexAttributeValues};
 
 /// The way Bevy will attempt to tile your texture
 #[derive(Debug)]
@@ -12,32 +9,18 @@ pub enum TextureTilingMode {
     Tiles(f32),
 }
 
-/// The resource used to tile textures.
-#[derive(Resource, Debug)]
-pub struct TextureTilingSettings(pub (TextureTilingMode, TextureTilingMode));
-
-impl Default for TextureTilingSettings {
-    fn default() -> Self {
-        Self((TextureTilingMode::Stretch, TextureTilingMode::Stretch))
-    }
-}
-
-impl TextureTilingSettings {
-    pub fn change_tiling_mode(&mut self, new_tiling_mode: TextureTilingSettings) {
-        *self = new_tiling_mode;
-    }
-
-    pub fn update_mesh_uvs(&self, mesh: &mut Mesh) {
-        if let Some(VertexAttributeValues::Float32x2(uvs)) =
-            mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)
-        {
-            for uv in uvs {
-                if let TextureTilingMode::Tiles(size) = self.0 .0 {
-                    uv[0] *= size;
-                }
-                if let TextureTilingMode::Tiles(size) = self.0 .1 {
-                    uv[1] *= size;
-                }
+/// Update a mesh's UVs so that the applied texture tiles as specified.
+pub fn update_mesh_uvs_with_tiling(
+    mesh: &mut Mesh,
+    new_tiling_mode: (TextureTilingMode, TextureTilingMode),
+) {
+    if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0) {
+        for uv in uvs {
+            if let TextureTilingMode::Tiles(size) = new_tiling_mode.0 {
+                uv[0] *= size;
+            }
+            if let TextureTilingMode::Tiles(size) = new_tiling_mode.1 {
+                uv[1] *= size;
             }
         }
     }

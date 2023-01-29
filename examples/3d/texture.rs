@@ -3,12 +3,11 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::render::texture::texture_tiling::{TextureTilingMode, TextureTilingSettings};
+use bevy_internal::render::texture::texture_tiling;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<TextureTilingSettings>()
         .add_startup_system(setup)
         .run();
 }
@@ -19,7 +18,6 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut texture_tiling: ResMut<TextureTilingSettings>,
 ) {
     // load a texture and retrieve its aspect ratio
     let texture_handle = asset_server.load("branding/bevy_logo_dark_big.png");
@@ -66,13 +64,15 @@ fn setup(
     });
 
     // textured quad - modulated (with texture tiling)
-    texture_tiling.change_tiling_mode(TextureTilingSettings((
-        TextureTilingMode::Stretch,
-        TextureTilingMode::Tiles(3.0),
-    )));
     let mut red_tiled_texture_mesh =
         Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
-    texture_tiling.update_mesh_uvs(&mut red_tiled_texture_mesh);
+    texture_tiling::update_mesh_uvs_with_tiling(
+        &mut red_tiled_texture_mesh,
+        (
+            texture_tiling::TextureTilingMode::Stretch,
+            texture_tiling::TextureTilingMode::Tiles(3.0),
+        ),
+    );
     commands.spawn(PbrBundle {
         mesh: meshes.add(red_tiled_texture_mesh),
         material: red_material_handle,
@@ -82,13 +82,15 @@ fn setup(
     });
 
     // textured quad - modulated (with texture tiling)
-    texture_tiling.change_tiling_mode(TextureTilingSettings((
-        TextureTilingMode::Tiles(3.0),
-        TextureTilingMode::Stretch,
-    )));
     let mut blue_tiled_texture_mesh =
         Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
-    texture_tiling.update_mesh_uvs(&mut blue_tiled_texture_mesh);
+    texture_tiling::update_mesh_uvs_with_tiling(
+        &mut blue_tiled_texture_mesh,
+        (
+            texture_tiling::TextureTilingMode::Tiles(3.0),
+            texture_tiling::TextureTilingMode::Stretch,
+        ),
+    );
     commands.spawn(PbrBundle {
         mesh: meshes.add(blue_tiled_texture_mesh),
         material: blue_material_handle,

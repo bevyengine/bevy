@@ -28,7 +28,6 @@ pub use fallback_image::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
-use crate::texture::texture_tiling::TextureTilingSettings;
 use crate::{
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
     renderer::RenderDevice,
@@ -116,7 +115,6 @@ impl Plugin for ImagePlugin {
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
-                .init_resource::<TextureTilingSettings>()
                 .init_resource::<FallbackImage>()
                 .init_resource::<FallbackImageMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>()
