@@ -342,7 +342,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         } else {
             unsafe {
                 // SAFETY: it should be ok - no data will be removed
-                let ptr: *mut HopSlotMap<EdgeIdx, Edge<E>> = &mut *(&mut self.edges);
+                let ptr: *mut HopSlotMap<EdgeIdx, Edge<E>> = &mut self.edges;
                 IterChoice::new_second(iters::LoopSafetyIter::new(
                     iters::TupleExtract::new_second(self.adjacencies[index].incoming().iter())
                         .flatten(),

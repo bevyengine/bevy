@@ -44,9 +44,8 @@ impl<'g, E: 'g, B: Borrow<EdgeIdx>, I: Iterator<Item = B>> Iterator
             if src == dst {
                 if self.loops.contains(&edge_idx) {
                     return self.next();
-                } else {
-                    self.loops.insert(edge_idx);
                 }
+                self.loops.insert(edge_idx);
             }
             Some(index)
         } else {

@@ -28,9 +28,8 @@ impl<B: Borrow<NodeIdx>, I: Iterator<Item = B>> Iterator for NodeJustOnceIter<B,
             let node_idx = *index.borrow();
             if self.duplicates.contains(&node_idx) {
                 return self.next();
-            } else {
-                self.duplicates.insert(node_idx);
             }
+            self.duplicates.insert(node_idx);
             Some(index)
         } else {
             None
