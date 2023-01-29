@@ -113,7 +113,7 @@ impl AsBindGroup for BindlessMaterial {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*fallback_image.sampler),
+                    resource: BindingResource::Sampler(&fallback_image.sampler),
                 },
             ],
         });
