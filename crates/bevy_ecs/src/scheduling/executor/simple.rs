@@ -78,8 +78,6 @@ impl SystemExecutor for SimpleExecutor {
             #[cfg(feature = "trace")]
             system_span.exit();
 
-            #[cfg(feature = "trace")]
-            let _apply_buffers_span = info_span!("apply_buffers", name = &*name).entered();
             system.apply_buffers(world);
         }
 

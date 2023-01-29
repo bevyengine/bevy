@@ -114,8 +114,6 @@ impl SingleThreadedExecutor {
     fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
-            #[cfg(feature = "trace")]
-            let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
             system.apply_buffers(world);
         }
 
