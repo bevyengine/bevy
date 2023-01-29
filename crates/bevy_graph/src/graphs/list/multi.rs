@@ -134,11 +134,10 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     }
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        self.adjacencies
-            .get(src)
-            .unwrap()
-            .outgoing()
-            .contains_key(dst)
+        match self.adjacencies.get(src).unwrap().outgoing().get_value(dst) {
+            Some(adjacencies) => !adjacencies.is_empty(),
+            None => false,
+        }
     }
 
     fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
@@ -305,43 +304,61 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         iters::EdgesMut::new(self.edges.values_mut())
     }
 
-    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, iters::LoopSafetyIter<'e, &'e Vec<EdgeIdx>, IterChoice<(&'e NodeIdx, &'e Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>>, false>>> where Self: 'e;
+    type EdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, std::iter::Chain<crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, iters::SkipIndexIter<'e, &'e Vec<EdgeIdx>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>>, false>>, iters::LoopSafetyIter<'e, E, &'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, false>>>>> where Self: 'e;
     fn edges_of(&self, index: NodeIdx) -> Self::EdgesOf<'_> {
         let inner = if DIRECTED {
             IterChoice::new_first(
-                self.adjacencies[index]
-                    .incoming()
-                    .tuple_iter()
-                    .chain(self.adjacencies[index].outgoing().tuple_iter()),
+                iters::TupleExtract::new_second(
+                    self.adjacencies[index].incoming().tuple_iter().chain(
+                        iters::SkipIndexIter::new(
+                            self.adjacencies[index].outgoing().tuple_iter(),
+                            index,
+                        ), // the outgoing will skip self to ensure loops will only come once (from incoming)
+                    ),
+                )
+                .flatten(),
             )
         } else {
-            IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
+            IterChoice::new_second(iters::LoopSafetyIter::new(
+                iters::TupleExtract::new_second(self.adjacencies[index].incoming().tuple_iter())
+                    .flatten(),
+                &self.edges,
+            ))
         };
-        iters::EdgesByIdx::new(
-            iters::TupleExtract::new_second(iters::LoopSafetyIter::new(inner, index)).flatten(),
-            &self.edges,
-        )
+        iters::EdgesByIdx::new(inner, &self.edges)
     }
 
-    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, iters::LoopSafetyIter<'e, &'e Vec<EdgeIdx>, IterChoice<(&'e NodeIdx, &'e Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>>, false>>> where Self: 'e;
+    type EdgesOfMut<'e> = iters::EdgesByIdxMut<'e, E, &'e EdgeIdx, IterChoice<&'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, std::iter::Chain<crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, iters::SkipIndexIter<'e, &'e Vec<EdgeIdx>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>>>, false>>, iters::LoopSafetyIter<'e, E, &'e EdgeIdx, std::iter::Flatten<iters::TupleExtract<&'e NodeIdx, &'e Vec<EdgeIdx>, crate::utils::vecmap::TupleIter<'e, NodeIdx, Vec<EdgeIdx>>, false>>>>> where Self: 'e;
     fn edges_of_mut(&mut self, index: NodeIdx) -> Self::EdgesOfMut<'_> {
         let inner = if DIRECTED {
             IterChoice::new_first(
-                self.adjacencies[index]
-                    .incoming()
-                    .tuple_iter()
-                    .chain(self.adjacencies[index].outgoing().tuple_iter()),
+                iters::TupleExtract::new_second(
+                    self.adjacencies[index].incoming().tuple_iter().chain(
+                        iters::SkipIndexIter::new(
+                            self.adjacencies[index].outgoing().tuple_iter(),
+                            index,
+                        ), // the outgoing will skip self to ensure loops will only come once (from incoming)
+                    ),
+                )
+                .flatten(),
             )
         } else {
-            IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
+            unsafe {
+                // SAFETY: it should be ok - no data will be removed
+                let ptr: *mut HopSlotMap<EdgeIdx, Edge<E>> = &mut *(&mut self.edges);
+                IterChoice::new_second(iters::LoopSafetyIter::new(
+                    iters::TupleExtract::new_second(
+                        self.adjacencies[index].incoming().tuple_iter(),
+                    )
+                    .flatten(),
+                    &*ptr,
+                ))
+            }
         };
-        iters::EdgesByIdxMut::new(
-            iters::TupleExtract::new_second(iters::LoopSafetyIter::new(inner, index)).flatten(),
-            &mut self.edges,
-        )
+        iters::EdgesByIdxMut::new(inner, &mut self.edges)
     }
 
-    type Neighbors<'n> = iters::NodesByIdx<'n, N, &'n NodeIdx, iters::TupleExtract<&'n NodeIdx, &'n Vec<EdgeIdx>, iters::LoopSafetyIter<'n, &'n Vec<EdgeIdx>, IterChoice<(&'n NodeIdx, &'n Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>>, true>> where Self: 'n;
+    type Neighbors<'n> = iters::NodesByIdx<'n, N, &'n NodeIdx, iters::NodeJustOnceIter<&'n NodeIdx, iters::TupleExtract<&'n NodeIdx, &'n Vec<EdgeIdx>, IterChoice<(&'n NodeIdx, &'n Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, true>>> where Self: 'n;
     fn neighbors(&self, index: NodeIdx) -> Self::Neighbors<'_> {
         let inner = if DIRECTED {
             IterChoice::new_first(
@@ -354,12 +371,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
         };
         iters::NodesByIdx::new(
-            iters::TupleExtract::new_first(iters::LoopSafetyIter::new(inner, index)),
+            iters::NodeJustOnceIter::new(iters::TupleExtract::new_first(inner)),
             &self.nodes,
         )
     }
 
-    type NeighborsMut<'n> = iters::NodesByIdxMut<'n, N, &'n NodeIdx, iters::TupleExtract<&'n NodeIdx, &'n Vec<EdgeIdx>, iters::LoopSafetyIter<'n, &'n Vec<EdgeIdx>, IterChoice<(&'n NodeIdx, &'n Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>>, true>> where Self: 'n;
+    type NeighborsMut<'n> = iters::NodesByIdxMut<'n, N, &'n NodeIdx, iters::NodeJustOnceIter<&'n NodeIdx, iters::TupleExtract<&'n NodeIdx, &'n Vec<EdgeIdx>, IterChoice<(&'n NodeIdx, &'n Vec<EdgeIdx>), std::iter::Chain<crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, crate::utils::vecmap::TupleIter<'n, NodeIdx, Vec<EdgeIdx>>>, true>>> where Self: 'n;
     fn neighbors_mut(&mut self, index: NodeIdx) -> Self::NeighborsMut<'_> {
         let inner = if DIRECTED {
             IterChoice::new_first(
@@ -372,7 +389,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             IterChoice::new_second(self.adjacencies[index].incoming().tuple_iter())
         };
         iters::NodesByIdxMut::new(
-            iters::TupleExtract::new_first(iters::LoopSafetyIter::new(inner, index)),
+            iters::NodeJustOnceIter::new(iters::TupleExtract::new_first(inner)),
             &mut self.nodes,
         )
     }
