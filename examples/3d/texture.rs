@@ -55,7 +55,10 @@ fn setup(
 
     // textured quad - normal
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)))),
+        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+            quad_width,
+            quad_width * aspect,
+        )))),
         material: material_handle,
         transform: Transform::from_xyz(0.0, 0.0, 1.5)
             .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
@@ -63,8 +66,12 @@ fn setup(
     });
 
     // textured quad - modulated (with texture tiling)
-    texture_tiling.change_tiling_mode(TextureTilingSettings((TextureTilingMode::Stretch, TextureTilingMode::Tiles(3.0))));
-    let mut red_tiled_texture_mesh = Mesh::from(shape::Quad::new(Vec2::new( quad_width, quad_width * aspect)));
+    texture_tiling.change_tiling_mode(TextureTilingSettings((
+        TextureTilingMode::Stretch,
+        TextureTilingMode::Tiles(3.0),
+    )));
+    let mut red_tiled_texture_mesh =
+        Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
     texture_tiling.update_mesh_uvs(&mut red_tiled_texture_mesh);
     commands.spawn(PbrBundle {
         mesh: meshes.add(red_tiled_texture_mesh),
@@ -75,8 +82,12 @@ fn setup(
     });
 
     // textured quad - modulated (with texture tiling)
-    texture_tiling.change_tiling_mode(TextureTilingSettings((TextureTilingMode::Tiles(3.0), TextureTilingMode::Stretch)));
-    let mut blue_tiled_texture_mesh = Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
+    texture_tiling.change_tiling_mode(TextureTilingSettings((
+        TextureTilingMode::Tiles(3.0),
+        TextureTilingMode::Stretch,
+    )));
+    let mut blue_tiled_texture_mesh =
+        Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
     texture_tiling.update_mesh_uvs(&mut blue_tiled_texture_mesh);
     commands.spawn(PbrBundle {
         mesh: meshes.add(blue_tiled_texture_mesh),

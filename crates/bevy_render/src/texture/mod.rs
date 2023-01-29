@@ -28,6 +28,7 @@ pub use fallback_image::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
+use crate::texture::texture_tiling::TextureTilingSettings;
 use crate::{
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
     renderer::RenderDevice,
@@ -35,7 +36,6 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
-use crate::texture::texture_tiling::TextureTilingSettings;
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
