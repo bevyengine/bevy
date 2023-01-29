@@ -149,7 +149,8 @@ impl AsBindGroup for BindlessMaterial {
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
-                    // note: we can also have an array of samplers
+                    // Note: as textures, multiple samplers can also be bound onto one binding slot.
+                    // One may need to pay attention to the limit of sampler binding amount on some platforms.
                     // count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
                 },
             ],
