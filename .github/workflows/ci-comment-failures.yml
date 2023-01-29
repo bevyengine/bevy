@@ -60,7 +60,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue_number,
-              body: 'Example ' + last_example_run + ' failed to run, please try running it locally and check the result.'
+              body: 'Example `' + last_example_run + '` failed to run, please try running it locally and check the result.'
             });
 
   missing-examples:
