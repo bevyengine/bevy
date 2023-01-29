@@ -94,16 +94,13 @@ impl AsBindGroup for BindlessMaterial {
         }
 
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
-        let samplers = vec![&fallback_image.sampler; MAX_TEXTURE_COUNT];
 
         // convert bevy's resource types to WGPU's references
         let mut textures: Vec<_> = textures.into_iter().map(|texture| &**texture).collect();
-        let mut samplers: Vec<_> = samplers.into_iter().map(|sampler| &**sampler).collect();
 
         // fill in up to the first `MAX_TEXTURE_COUNT` textures and samplers to the arrays
         for (id, image) in images.into_iter().enumerate() {
             textures[id] = &*image.texture_view;
-            samplers[id] = &*image.sampler;
         }
 
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -116,7 +113,7 @@ impl AsBindGroup for BindlessMaterial {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::SamplerArray(&samplers[..]),
+                    resource: BindingResource::Sampler(&*fallback_image.sampler),
                 },
             ],
         });
@@ -146,12 +143,14 @@ impl AsBindGroup for BindlessMaterial {
                     },
                     count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
                 },
-                // @group(1) @binding(1) var samplers: binding_array<sampler>;
+                // @group(1) @binding(1) var nearest_sampler: sampler;
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
+                    count: None,
+                    // note: we can also have an array of samplers
+                    // count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
                 },
             ],
         })
