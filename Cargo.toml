@@ -1432,7 +1432,7 @@ path = "examples/ecs/nondeterministic_system_order.rs"
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
 description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
-category = "ECS"
+category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]

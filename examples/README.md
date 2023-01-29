@@ -200,6 +200,7 @@ Example | Description
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this.
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
@@ -299,7 +300,6 @@ Example | Description
 Example | Description
 --- | ---
 [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
-[Internal Ambiguities](../examples/tools/internal_ambiguities.rs) | Verify that `DefaultPlugins` works, and that the schedule is free of problematic execution order ambiguities.
 [Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
 ## Transforms
