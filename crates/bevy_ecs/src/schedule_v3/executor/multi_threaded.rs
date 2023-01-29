@@ -450,7 +450,7 @@ impl MultiThreadedExecutor {
             scope.spawn(task);
         } else {
             self.local_thread_running = true;
-            scope.spawn_on_scope(task);
+            scope.spawn_on_external(task);
         }
     }
 
