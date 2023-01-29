@@ -529,6 +529,20 @@ impl App {
         self
     }
 
+    /// adds a single threaded outer schedule to the [`App`] that just runs the main schedule
+    pub fn add_simple_outer_schedule(&mut self) -> &mut Self {
+        fn run_main_schedule(world: &mut World) {
+            world.run_schedule(CoreSchedule::Main);
+        }
+
+        self.edit_schedule(CoreSchedule::Outer, |schedule| {
+            schedule.set_executor_kind(bevy_ecs::scheduling::ExecutorKind::SingleThreaded);
+            schedule.add_system(run_main_schedule);
+        });
+
+        self
+    }
+
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],

@@ -23,10 +23,7 @@
 
 use crate::Time;
 use bevy_app::CoreSchedule;
-use bevy_ecs::{
-    system::Resource,
-    world::{Mut, World},
-};
+use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::Duration;
 use thiserror::Error;
 
