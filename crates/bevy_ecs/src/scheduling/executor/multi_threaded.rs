@@ -205,6 +205,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         let world = unsafe { &mut *world.get() };
         // this is running on the executor thread when it should run on the scope's thread
         apply_system_buffers(&mut self.unapplied_systems, systems, world);
+        self.unapplied_systems.clear();
 
         debug_assert!(self.ready_systems.is_clear());
         debug_assert!(self.running_systems.is_clear());
@@ -469,6 +470,7 @@ impl MultiThreadedExecutor {
         if is_apply_system_buffers(system) {
             // TODO: avoid allocation
             let mut unapplied_systems = self.unapplied_systems.clone();
+            self.unapplied_systems.clear();
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
@@ -561,8 +563,6 @@ fn apply_system_buffers(
         let system = unsafe { &mut *systems[system_index].get() };
         system.apply_buffers(world);
     }
-
-    unapplied_systems.clear();
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
