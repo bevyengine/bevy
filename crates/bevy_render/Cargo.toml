@@ -68,8 +68,7 @@ parking_lot = "0.12.1"
 regex = "1.5"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
-#naga_oil = "0.4"
-naga_oil = { path = "../../../naga_oil" }
+naga_oil = "0.5"
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.2.4", optional = true }
