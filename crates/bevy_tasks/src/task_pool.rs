@@ -300,7 +300,7 @@ impl TaskPool {
         T: Send + 'static,
     {
         Self::THREAD_EXECUTOR.with(|scope_executor| {
-            // If a `thread_executor` is passed use that. Otherwise get the `thread_executor` stored
+            // If a `external_executor` is passed use that. Otherwise get the executor stored
             // in the `THREAD_EXECUTOR` thread local.
             if let Some(external_executor) = external_executor {
                 self.scope_with_executor_inner(
@@ -374,20 +374,21 @@ impl TaskPool {
 
                 // we get this from a thread local so we should always be on the scope executors thread.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                if let Some(thread_ticker) = external_executor.ticker() {
+                if let Some(external_ticker) = external_executor.ticker() {
                     if tick_task_pool_executor {
-                        Self::execute_external_scope_global(
-                            thread_ticker,
-                            scope_ticker,
+                        Self::execute_global_external_scope(
                             executor,
+                            external_ticker,
+                            scope_ticker,
                             get_results,
                         )
                         .await
                     } else {
-                        Self::execute_external_scope(thread_ticker, scope_ticker, get_results).await
+                        Self::execute_external_scope(external_ticker, scope_ticker, get_results)
+                            .await
                     }
                 } else if tick_task_pool_executor {
-                    Self::execute_scope_global(executor, scope_ticker, get_results).await
+                    Self::execute_global_scope(executor, scope_ticker, get_results).await
                 } else {
                     Self::execute_scope(scope_ticker, get_results).await
                 }
@@ -396,10 +397,10 @@ impl TaskPool {
     }
 
     #[inline]
-    async fn execute_external_scope_global<'scope, 'ticker, T>(
+    async fn execute_global_external_scope<'scope, 'ticker, T>(
+        executor: &'scope async_executor::Executor<'scope>,
         external_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
-        executor: &'scope async_executor::Executor<'scope>,
         get_results: impl Future<Output = Vec<T>>,
     ) -> Vec<T> {
         // we restart the executors if a task errors. if a scoped
@@ -442,7 +443,7 @@ impl TaskPool {
     }
 
     #[inline]
-    async fn execute_scope_global<'scope, 'ticker, T>(
+    async fn execute_global_scope<'scope, 'ticker, T>(
         executor: &'scope async_executor::Executor<'scope>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         get_results: impl Future<Output = Vec<T>>,
@@ -591,7 +592,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// This is typically the main thread. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
