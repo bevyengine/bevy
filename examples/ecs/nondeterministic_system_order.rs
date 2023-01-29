@@ -53,7 +53,9 @@ struct A(usize);
 #[derive(Resource, Debug, Default)]
 struct B(usize);
 
-// Data access is determined solely
+// Data access is determined solely on the basis of the types of the system's parameters
+// Every implementation of the `SystemParam` and `WorldQuery` traits must declare which data is used
+// and whether or not it is mutably accessed.
 fn reads_a(a: Res<A>) {
     dbg!(a);
 }
