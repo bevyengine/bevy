@@ -6,7 +6,7 @@ struct ColorMaterial {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
 };
-let COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;
+const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;
 
 @group(1) @binding(0)
 var<uniform> material: ColorMaterial;

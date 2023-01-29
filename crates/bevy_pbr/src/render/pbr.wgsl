@@ -5,7 +5,8 @@
 #import bevy_pbr::pbr_types as pbr_types
 
 #from bevy_pbr::mesh_vertex_output      import MeshVertexOutput
-#from bevy_pbr::mesh_view_bindings      import view
+#from bevy_pbr::mesh_view_bindings      import view, fog
+#from bevy_pbr::mesh_view_types         import FOG_MODE_OFF
 #from bevy_core_pipeline::tonemapping   import screen_space_dither
 // load user-defined function overrides
 #import bevy_pbr::user_overrides
@@ -95,6 +96,11 @@ fn fragment(
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
+    // fog
+    if (::fog.mode != ::FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        output_color = pbr_functions::apply_fog(output_color, mesh.world_position.xyz, ::view.world_position.xyz);
+    }
+
 #ifdef TONEMAP_IN_SHADER
         output_color = pbr_functions::tone_mapping(output_color);
 #endif
@@ -106,6 +112,9 @@ fn fragment(
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = pow(output_rgb, vec3<f32>(2.2));
     output_color = vec4(output_rgb, output_color.a);
+#endif
+#ifdef PREMULTIPLY_ALPHA
+        output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
     return output_color;
 }

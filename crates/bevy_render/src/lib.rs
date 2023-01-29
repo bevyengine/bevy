@@ -10,6 +10,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod mesh;
+pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
@@ -37,6 +38,7 @@ pub mod prelude {
     };
 }
 
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 pub use once_cell;
 
@@ -48,9 +50,9 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
@@ -70,6 +72,9 @@ pub enum RenderStage {
     /// This step should be kept as short as possible to increase the "pipelining potential" for
     /// running the next frame while rendering the current frame.
     Extract,
+
+    /// A stage for applying the commands from the [`Extract`] stage
+    ExtractCommands,
 
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
@@ -138,17 +143,22 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = self.wgpu_settings.backends {
-            let windows = app.world.resource_mut::<bevy_window::Windows>();
-            let instance = wgpu::Instance::new(backends);
+        let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
+            SystemState::new(&mut app.world);
+        let primary_window = system_state.get(&app.world);
 
-            let surface = windows
-                .get_primary()
-                .and_then(|window| window.raw_handle())
-                .map(|wrapper| unsafe {
-                    let handle = wrapper.get_handle();
-                    instance.create_surface(&handle)
-                });
+        if let Some(backends) = self.wgpu_settings.backends {
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends,
+                dx12_shader_compiler: self.wgpu_settings.dx12_shader_compiler.clone(),
+            });
+            let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
+                // SAFETY: Plugins should be set up on the main thread.
+                let handle = wrapper.get_handle();
+                instance
+                    .create_surface(&handle)
+                    .expect("Failed to create wgpu surface")
+            });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: self.wgpu_settings.power_preference,
@@ -190,14 +200,22 @@ impl Plugin for RenderPlugin {
             // after access to the main world is removed
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
+
+            // This stage applies the commands from the extract stage while the render schedule
+            // is running in parallel with the main app.
+            let mut extract_commands_stage = SystemStage::parallel();
+            extract_commands_stage.add_system(apply_extract_commands.at_start());
             render_app
                 .add_stage(RenderStage::Extract, extract_stage)
+                .add_stage(RenderStage::ExtractCommands, extract_commands_stage)
                 .add_stage(RenderStage::Prepare, SystemStage::parallel())
                 .add_stage(RenderStage::Queue, SystemStage::parallel())
                 .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
+                        // Note: Must run before `render_system` in order to
+                        // processed newly queued pipelines.
                         .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.at_end()),
                 )
@@ -218,9 +236,9 @@ impl Plugin for RenderPlugin {
             app.insert_resource(receiver);
             render_app.insert_resource(sender);
 
-            app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
+            app.insert_sub_app(RenderApp, SubApp::new(render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
+                let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
@@ -254,7 +272,7 @@ impl Plugin for RenderPlugin {
                     // extract
                     extract(app_world, render_app);
                 }
-            });
+            }));
         }
 
         app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
@@ -266,6 +284,7 @@ impl Plugin for RenderPlugin {
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();
     }
@@ -306,10 +325,12 @@ fn extract(app_world: &mut World, render_app: &mut App) {
             let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
             let scratch_world = std::mem::replace(app_world, inserted_world.0);
             app_world.insert_resource(ScratchMainWorld(scratch_world));
-
-            // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
-            // so that in future, pipelining will be able to do this too without any code relying on it.
-            // see <https://github.com/bevyengine/bevy/issues/5082>
-            extract_stage.0.apply_buffers(render_world);
         });
+}
+
+// system for render app to apply the extract commands
+fn apply_extract_commands(world: &mut World) {
+    world.resource_scope(|world, mut extract_stage: Mut<ExtractStage>| {
+        extract_stage.0.apply_buffers(world);
+    });
 }

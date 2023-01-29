@@ -9,6 +9,7 @@ use bevy::{
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
+    window::WindowPlugin,
 };
 
 mod camera_controller_plugin;
@@ -26,10 +27,10 @@ fn main() {
     .add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
-                window: WindowDescriptor {
+                primary_window: Some(Window {
                     title: "bevy scene viewer".to_string(),
                     ..default()
-                },
+                }),
                 ..default()
             })
             .set(AssetPlugin {
@@ -131,26 +132,9 @@ fn setup_scene_after_load(
 
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
-            let sphere = Sphere {
-                center: aabb.center,
-                radius: aabb.half_extents.length(),
-            };
-            let aabb = Aabb::from(sphere);
-            let min = aabb.min();
-            let max = aabb.max();
-
             info!("Spawning a directional light");
             commands.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    shadow_projection: OrthographicProjection {
-                        left: min.x,
-                        right: max.x,
-                        bottom: min.y,
-                        top: max.y,
-                        near: min.z,
-                        far: max.z,
-                        ..default()
-                    },
                     shadows_enabled: false,
                     ..default()
                 },

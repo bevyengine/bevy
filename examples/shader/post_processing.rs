@@ -34,16 +34,18 @@ struct MainCube;
 
 fn setup(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
+    windows: Query<&Window>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let window = windows.primary_mut();
+    // This assumes we only have a single window
+    let window = windows.single();
+
     let size = Extent3d {
-        width: window.physical_width(),
-        height: window.physical_height(),
+        width: window.resolution.physical_width(),
+        height: window.resolution.physical_height(),
         ..default()
     };
 
@@ -59,6 +61,7 @@ fn setup(
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         },
         ..default()
     };

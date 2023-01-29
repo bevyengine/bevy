@@ -11,17 +11,19 @@
 #import bevy_pbr::lighting as lighting
 #import bevy_pbr::clustered_forward as clustering
 #import bevy_pbr::shadows as shadows
+#import bevy_pbr::fog as fog
 
 #from bevy_pbr::mesh_bindings   import mesh
 #from bevy_pbr::mesh_types      import MESH_FLAGS_SHADOW_RECEIVER_BIT
 
-fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
+fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    if ((material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+    let alpha_mode = material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if ((material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-        if (color.a >= material.alpha_cutoff) {
+    } else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
@@ -85,7 +87,7 @@ fn apply_normal_mapping(
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv).rgb;
-    if ((standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -93,7 +95,7 @@ fn apply_normal_mapping(
         Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -116,7 +118,7 @@ fn calculate_view(
     is_orthographic: bool,
 ) -> vec3<f32> {
     var V: vec3<f32>;
-    if (is_orthographic) {
+    if is_orthographic {
         // Orthographic view vector
         V = normalize(vec3<f32>(view_bindings::view.view_proj[0].z, view_bindings::view.view_proj[1].z, view_bindings::view.view_proj[2].z));
     } else {
@@ -161,6 +163,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
+#ifndef NORMAL_PREPASS
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -233,7 +236,7 @@ fn pbr(
         var shadow: f32 = 1.0;
         if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal);
+            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
         let light_contrib = lighting::directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
@@ -243,10 +246,11 @@ fn pbr(
     let specular_ambient = lighting::EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
     output_color = vec4<f32>(
-        light_accum +
-            (diffuse_ambient + specular_ambient) * view_bindings::lights.ambient_color.rgb * occlusion +
-            emissive.rgb * output_color.a,
-        output_color.a);
+        light_accum
+            + (diffuse_ambient + specular_ambient) * view_bindings::lights.ambient_color.rgb * occlusion
+            + emissive.rgb * output_color.a,
+        output_color.a
+    );
 
     output_color = clustering::cluster_debug_visualization(
         output_color,
@@ -258,6 +262,7 @@ fn pbr(
 
     return output_color;
 }
+#endif // NORMAL_PREPASS
 
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
@@ -268,11 +273,114 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
-#endif
+#endif // TONEMAP_IN_SHADER
 
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + bevy_core_pipeline::tonemapping::screen_space_dither(pos.xy), color.a);
 }
+#endif // DEBAND_DITHER
+
+#ifndef NORMAL_PREPASS
+fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+    let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
+
+    // `length()` is used here instead of just `view_to_world.z` since that produces more
+    // high quality results, especially for denser/smaller fogs. we get a "curved"
+    // fog shape that remains consistent with camera rotation, instead of a "linear"
+    // fog shape that looks a bit fake
+    let distance = length(view_to_world);
+
+    var scattering = vec3<f32>(0.0);
+    if (view_bindings::fog.directional_light_color.a > 0.0) {
+        let view_to_world_normalized = view_to_world / distance;
+        let n_directional_lights = view_bindings::lights.n_directional_lights;
+        for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+            let light = view_bindings::lights.directional_lights[i];
+            scattering += pow(
+                max(
+                    dot(view_to_world_normalized, light.direction_to_light),
+                    0.0
+                ),
+                view_bindings::fog.directional_light_exponent
+            ) * light.color.rgb;
+        }
+    }
+
+    if (view_bindings::fog.mode == mesh_view_types::FOG_MODE_LINEAR) {
+        return fog::linear_fog(input_color, distance, scattering);
+    } else if (view_bindings::fog.mode == mesh_view_types::FOG_MODE_EXPONENTIAL) {
+        return fog::exponential_fog(input_color, distance, scattering);
+    } else if (view_bindings::fog.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED) {
+        return fog::exponential_squared_fog(input_color, distance, scattering);
+    } else if (view_bindings::fog.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC) {
+        return fog::atmospheric_fog(input_color, distance, scattering);
+    } else {
+        return input_color;
+    }
+}
 #endif
 
+#ifdef PREMULTIPLY_ALPHA
+fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
+// `Blend`, `Premultiplied` and `Alpha` all share the same `BlendState`. Depending
+// on the alpha mode, we premultiply the color channels by the alpha channel value,
+// (and also optionally replace the alpha value with 0.0) so that the result produces
+// the desired blend mode when sent to the blending operation.
+#ifdef BLEND_PREMULTIPLIED_ALPHA
+    // For `BlendState::PREMULTIPLIED_ALPHA_BLENDING` the blend function is:
+    //
+    //     result = 1 * src_color + (1 - src_alpha) * dst_color
+    let alpha_mode = standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) {
+        // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
+        //
+        //     src_color *= src_alpha
+        //
+        // We end up with:
+        //
+        //     result = 1 * (src_alpha * src_color) + (1 - src_alpha) * dst_color
+        //     result = src_alpha * src_color + (1 - src_alpha) * dst_color
+        //
+        // Which is the blend operation for regular alpha blending `BlendState::ALPHA_BLENDING`
+        return vec4<f32>(color.rgb * color.a, color.a);
+    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+        // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
+        //
+        //     src_color *= src_alpha
+        //     src_alpha = 0.0
+        //
+        // We end up with:
+        //
+        //     result = 1 * (src_alpha * src_color) + (1 - 0) * dst_color
+        //     result = src_alpha * src_color + 1 * dst_color
+        //
+        // Which is the blend operation for additive blending
+        return vec4<f32>(color.rgb * color.a, 0.0);
+    } else {
+        // Here, we don't do anything, so that we get premultiplied alpha blending. (As expected)
+        return color.rgba;
+    }
+#endif
+// `Multiply` uses its own `BlendState`, but we still need to premultiply here in the
+// shader so that we get correct results as we tweak the alpha channel
+#ifdef BLEND_MULTIPLY
+    // The blend function is:
+    //
+    //     result = dst_color * src_color + (1 - src_alpha) * dst_color
+    //
+    // We premultiply `src_color` by `src_alpha`:
+    //
+    //     src_color *= src_alpha
+    //
+    // We end up with:
+    //
+    //     result = dst_color * (src_color * src_alpha) + (1 - src_alpha) * dst_color
+    //     result = src_alpha * (src_color * dst_color) + (1 - src_alpha) * dst_color
+    //
+    // Which is the blend operation for multiplicative blending with arbitrary mixing
+    // controlled by the source alpha channel
+    return vec4<f32>(color.rgb * color.a, color.a);
+#endif
+}
+#endif

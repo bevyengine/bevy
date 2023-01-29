@@ -15,6 +15,7 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
+use parking_lot::Mutex;
 use naga::valid::Capabilities;
 use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
@@ -157,6 +158,18 @@ impl ShaderCache {
             (
                 Features::SHADER_PRIMITIVE_INDEX,
                 Capabilities::PRIMITIVE_INDEX,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
             ),
         ];
         let features = render_device.features();
@@ -440,6 +453,7 @@ pub struct PipelineCache {
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
+    new_pipelines: Mutex<Vec<CachedPipeline>>,
 }
 
 impl PipelineCache {
@@ -454,6 +468,7 @@ impl PipelineCache {
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
+            new_pipelines: default(),
             pipelines: default(),
         }
     }
@@ -552,15 +567,15 @@ impl PipelineCache {
     /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
     /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
     pub fn queue_render_pipeline(
-        &mut self,
+        &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let id = CachedRenderPipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -578,15 +593,15 @@ impl PipelineCache {
     /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
     /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
     pub fn queue_compute_pipeline(
-        &mut self,
+        &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let id = CachedComputePipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -729,8 +744,17 @@ impl PipelineCache {
     ///
     /// [`RenderStage::Render`]: crate::RenderStage::Render
     pub fn process_queue(&mut self) {
-        let waiting_pipelines = mem::take(&mut self.waiting_pipelines);
+        let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
+
+        {
+            let mut new_pipelines = self.new_pipelines.lock();
+            for new_pipeline in new_pipelines.drain(..) {
+                let id = pipelines.len();
+                pipelines.push(new_pipeline);
+                waiting_pipelines.insert(id);
+            }
+        }
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
@@ -797,7 +821,7 @@ impl PipelineCache {
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline cound not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
     )]
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]
