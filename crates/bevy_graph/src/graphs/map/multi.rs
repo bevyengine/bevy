@@ -257,7 +257,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         if DIRECTED {
             self.in_degree(index) + self.out_degree(index)
         } else {
-            self.adjacencies[index].incoming().len()
+            self.adjacencies[index]
+                .incoming()
+                .iter()
+                .map(|(_, vec)| vec.len())
+                .sum()
         }
     }
 
@@ -400,12 +404,20 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
 
     #[inline]
     fn in_degree(&self, index: NodeIdx) -> usize {
-        self.adjacencies[index].incoming().len()
+        self.adjacencies[index]
+            .incoming()
+            .iter()
+            .map(|(_, vec)| vec.len())
+            .sum()
     }
 
     #[inline]
     fn out_degree(&self, index: NodeIdx) -> usize {
-        self.adjacencies[index].outgoing().len()
+        self.adjacencies[index]
+            .outgoing()
+            .iter()
+            .map(|(_, vec)| vec.len())
+            .sum()
     }
 
     type IncomingEdgesOf<'e> = iters::EdgesByIdx<'e, E, &'e EdgeIdx, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
@@ -506,13 +518,13 @@ impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
             std::mem::swap(src, dst); // *dst is now *src
             self.adjacencies[*src]
                 .outgoing_mut()
-                .get_mut(dst)
-                .unwrap()
+                .entry(*dst)
+                .or_default()
                 .push(index);
             self.adjacencies[*dst]
                 .incoming_mut()
-                .get_mut(src)
-                .unwrap()
+                .entry(*src)
+                .or_default()
                 .push(index);
         }
     }
@@ -532,13 +544,13 @@ impl<N, E> DirectedGraph<N, E> for MultiMapGraph<N, E, true> {
             std::mem::swap(src, dst); // *dst is now *src
             self.adjacencies[*src]
                 .outgoing_mut()
-                .get_mut(dst)
-                .unwrap()
+                .entry(*dst)
+                .or_default()
                 .push(index);
             self.adjacencies[*dst]
                 .incoming_mut()
-                .get_mut(src)
-                .unwrap()
+                .entry(*src)
+                .or_default()
                 .push(index);
         }
     }
