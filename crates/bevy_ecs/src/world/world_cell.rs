@@ -91,10 +91,28 @@ impl<'w> Drop for WorldCell<'w> {
     }
 }
 
-pub struct WorldBorrow<'w, T> {
-    value: &'w T,
+// NOTE: this has to be a separate struct, because `map` and `try_map` consumes `self`, moves this
+// witness to the new borrow, and needs to bypass dropping `self` altogether. Therefore, it is
+// important that `WorldBorrow[Mut]` does not implement `Drop` manually.
+struct WorldBorrowWitness<const UNIQUE: bool> {
     archetype_component_id: ArchetypeComponentId,
     access: Rc<RefCell<ArchetypeComponentAccess>>,
+}
+
+impl<const UNIQUE: bool> Drop for WorldBorrowWitness<UNIQUE> {
+    fn drop(&mut self) {
+        let mut access = self.access.borrow_mut();
+        if UNIQUE {
+            access.drop_write(self.archetype_component_id);
+        } else {
+            access.drop_read(self.archetype_component_id);
+        }
+    }
+}
+
+pub struct WorldBorrow<'w, T> {
+    value: &'w T,
+    witness: WorldBorrowWitness<false>,
 }
 
 impl<'w, T> WorldBorrow<'w, T> {
@@ -111,9 +129,34 @@ impl<'w, T> WorldBorrow<'w, T> {
         let value = value()?;
         Some(Self {
             value,
-            archetype_component_id,
-            access,
+            witness: WorldBorrowWitness {
+                archetype_component_id,
+                access,
+            },
         })
+    }
+
+    /// Maps a `WorldBorrow<T>` to `WorldBorrow<U>` by applying a function to derive the borrow.
+    pub fn map<U>(this: Self, f: impl FnOnce(&T) -> &U) -> WorldBorrow<'w, U> {
+        WorldBorrow {
+            value: f(this.value),
+            witness: this.witness,
+        }
+    }
+
+    /// Attempt to map a `WorldBorrow<T>` to `WorldBorrow<U>` by applying a fallible function to
+    /// derive the borrow. If the transform fails, the original borrow is returned.
+    pub fn try_map<U>(
+        this: Self,
+        f: impl FnOnce(&T) -> Option<&U>,
+    ) -> Result<WorldBorrow<'w, U>, Self> {
+        match f(this.value) {
+            None => Err(this),
+            Some(value) => Ok(WorldBorrow {
+                value,
+                witness: this.witness,
+            }),
+        }
     }
 }
 
@@ -126,17 +169,9 @@ impl<'w, T> Deref for WorldBorrow<'w, T> {
     }
 }
 
-impl<'w, T> Drop for WorldBorrow<'w, T> {
-    fn drop(&mut self) {
-        let mut access = self.access.borrow_mut();
-        access.drop_read(self.archetype_component_id);
-    }
-}
-
 pub struct WorldBorrowMut<'w, T> {
     value: Mut<'w, T>,
-    archetype_component_id: ArchetypeComponentId,
-    access: Rc<RefCell<ArchetypeComponentAccess>>,
+    witness: WorldBorrowWitness<true>,
 }
 
 impl<'w, T> WorldBorrowMut<'w, T> {
@@ -153,8 +188,29 @@ impl<'w, T> WorldBorrowMut<'w, T> {
         let value = value()?;
         Some(Self {
             value,
-            archetype_component_id,
-            access,
+            witness: WorldBorrowWitness {
+                archetype_component_id,
+                access,
+            },
+        })
+    }
+
+    /// Maps a `WorldBorrow<T>` to `WorldBorrow<U>` by applying a function to derive the borrow.
+    pub fn map<U>(this: Self, f: impl FnOnce(&mut T) -> &mut U) -> WorldBorrowMut<'w, U> {
+        WorldBorrowMut {
+            value: this.value.map_unchanged(f),
+            witness: this.witness,
+        }
+    }
+
+    /// Attempt to map a `WorldBorrow<T>` to `WorldBorrow<U>` by applying a fallible function to derive the borrow.
+    pub fn try_map<U>(
+        this: Self,
+        f: impl FnOnce(&mut T) -> Option<&mut U>,
+    ) -> Option<WorldBorrowMut<'w, U>> {
+        Some(WorldBorrowMut {
+            value: this.value.try_map_unchanged(f)?,
+            witness: this.witness,
         })
     }
 }
@@ -171,13 +227,6 @@ impl<'w, T> Deref for WorldBorrowMut<'w, T> {
 impl<'w, T> DerefMut for WorldBorrowMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
-    }
-}
-
-impl<'w, T> Drop for WorldBorrowMut<'w, T> {
-    fn drop(&mut self) {
-        let mut access = self.access.borrow_mut();
-        access.drop_write(self.archetype_component_id);
     }
 }
 

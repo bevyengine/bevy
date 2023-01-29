@@ -283,6 +283,17 @@ macro_rules! impl_methods {
                     ticks: self.ticks,
                 }
             }
+
+            /// Attempt to map to an inner value by applying a function to the contained reference, without flagging a change.
+            ///
+            /// You should never modify the argument passed to the closure -- if you want to modify the data
+            /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
+            pub fn try_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'a, U>> {
+                Some(Mut {
+                    value: f(self.value)?,
+                    ticks: self.ticks,
+                })
+            }
         }
     };
 }
