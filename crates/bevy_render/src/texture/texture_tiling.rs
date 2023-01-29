@@ -18,7 +18,7 @@ pub struct TextureTilingSettings(pub (TextureTilingMode, TextureTilingMode));
 
 impl Default for TextureTilingSettings {
     fn default() -> Self {
-		Self((TextureTilingMode::Stretch, TextureTilingMode::Stretch))
+        Self((TextureTilingMode::Stretch, TextureTilingMode::Stretch))
     }
 }
 
