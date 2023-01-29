@@ -298,6 +298,26 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "atmospheric_fog"
+path = "examples/3d/atmospheric_fog.rs"
+
+[package.metadata.example.atmospheric_fog]
+name = "Atmospheric Fog"
+description = "A scene showcasing the atmospheric fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fog"
+path = "examples/3d/fog.rs"
+
+[package.metadata.example.fog]
+name = "Fog"
+description = "A scene showcasing the distance fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "blend_modes"
 path = "examples/3d/blend_modes.rs"
 
@@ -1127,6 +1147,16 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
+[[example]]
+name = "text_input"
+path = "examples/input/text_input.rs"
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Simple text input with IME support"
+category = "Input"
+wasm = false
+
 # Reflection
 [[example]]
 name = "reflection"
@@ -1535,6 +1565,17 @@ name = "Text Debug"
 description = "An example for debugging text layout"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "text_layout"
+path = "examples/ui/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "UI (User Interface)"
+wasm = false
+
 
 [[example]]
 name = "transparency_ui"
