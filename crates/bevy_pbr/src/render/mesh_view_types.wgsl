@@ -89,11 +89,11 @@ struct Fog {
 }
 
 // Important: These must be kept in sync with `fog.rs`
-let FOG_MODE_OFF: u32                   = 0u;
-let FOG_MODE_LINEAR: u32                = 1u;
-let FOG_MODE_EXPONENTIAL: u32           = 2u;
-let FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
-let FOG_MODE_ATMOSPHERIC: u32           = 4u;
+const FOG_MODE_OFF: u32                   = 0u;
+const FOG_MODE_LINEAR: u32                = 1u;
+const FOG_MODE_EXPONENTIAL: u32           = 2u;
+const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct PointLights {
