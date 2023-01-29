@@ -60,7 +60,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue_number,
-              body: 'Example ' + last_example_run + ' failed to run, please try running it locally and check the result.'
+              body: 'Example `' + last_example_run + '` failed to run, please try running it locally and check the result.'
             });
 
   missing-examples:
@@ -104,20 +104,20 @@ jobs:
           script: |
             var fs = require('fs');
             var issue_number = Number(fs.readFileSync('./NR'));
-            if (existsSync('./missing-metadata')) {
+            if (fs.existsSync('./missing-metadata')) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'You added a new example but didn't add metadata for it. Please update the root Cargo.toml file.'
+                body: 'You added a new example but didn\'t add metadata for it. Please update the root Cargo.toml file.'
               });
             }
-            if (existsSync('./missing-update')) {
+            if (fs.existsSync('./missing-update')) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'You added a new example but didn't update the readme. Please run `cargo run -p build-example-pages -- update` to update it, and commit the file change.'
+                body: 'You added a new example but didn\'t update the readme. Please run `cargo run -p build-example-pages -- update` to update it, and commit the file change.'
               });
             }
 
