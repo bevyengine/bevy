@@ -14,6 +14,8 @@ mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
 
+pub mod texture_tiling;
+
 pub use self::image::*;
 #[cfg(feature = "ktx2")]
 pub use self::ktx2::*;
@@ -33,6 +35,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
+use crate::texture::texture_tiling::TextureTilingSettings;
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -51,14 +54,26 @@ impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::linear_descriptor(),
+            default_sampler: wgpu::SamplerDescriptor {
+                // Address mode set to repeat for texture tiling.
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                ..ImageSampler::linear_descriptor()
+            },
         }
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::nearest_descriptor(),
+            default_sampler: wgpu::SamplerDescriptor {
+                // Address mode set to repeat for texture tiling.
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                ..ImageSampler::nearest_descriptor()
+            },
         }
     }
 }
@@ -101,6 +116,7 @@ impl Plugin for ImagePlugin {
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
+                .init_resource::<TextureTilingSettings>()
                 .init_resource::<FallbackImage>()
                 .init_resource::<FallbackImageMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>()

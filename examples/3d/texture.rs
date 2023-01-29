@@ -3,10 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_internal::render::texture::texture_tiling::{TextureTilingMode, TextureTilingSettings};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<TextureTilingSettings>()
         .add_startup_system(setup)
         .run();
 }
@@ -17,17 +19,13 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut texture_tiling: ResMut<TextureTilingSettings>,
 ) {
     // load a texture and retrieve its aspect ratio
     let texture_handle = asset_server.load("branding/bevy_logo_dark_big.png");
     let aspect = 0.25;
 
-    // create a new quad mesh. this is what we will apply the texture to
     let quad_width = 8.0;
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-        quad_width,
-        quad_width * aspect,
-    ))));
 
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
@@ -57,27 +55,37 @@ fn setup(
 
     // textured quad - normal
     commands.spawn(PbrBundle {
-        mesh: quad_handle.clone(),
+        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)))),
         material: material_handle,
         transform: Transform::from_xyz(0.0, 0.0, 1.5)
             .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         ..default()
     });
-    // textured quad - modulated
+
+    // textured quad - modulated (with texture tiling)
+    texture_tiling.change_tiling_mode(TextureTilingSettings((TextureTilingMode::Stretch, TextureTilingMode::Tiles(3.0))));
+    let mut red_tiled_texture_mesh = Mesh::from(shape::Quad::new(Vec2::new( quad_width, quad_width * aspect)));
+    texture_tiling.update_mesh_uvs(&mut red_tiled_texture_mesh);
     commands.spawn(PbrBundle {
-        mesh: quad_handle.clone(),
+        mesh: meshes.add(red_tiled_texture_mesh),
         material: red_material_handle,
-        transform: Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0)
+            .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         ..default()
     });
-    // textured quad - modulated
+
+    // textured quad - modulated (with texture tiling)
+    texture_tiling.change_tiling_mode(TextureTilingSettings((TextureTilingMode::Tiles(3.0), TextureTilingMode::Stretch)));
+    let mut blue_tiled_texture_mesh = Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
+    texture_tiling.update_mesh_uvs(&mut blue_tiled_texture_mesh);
     commands.spawn(PbrBundle {
-        mesh: quad_handle,
+        mesh: meshes.add(blue_tiled_texture_mesh),
         material: blue_material_handle,
         transform: Transform::from_xyz(0.0, 0.0, -1.5)
             .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         ..default()
     });
+
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
