@@ -13,6 +13,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
+    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
@@ -22,12 +23,14 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(WindowDescriptor {
-            // uncomment for unthrottled FPS
-            // present_mode: bevy::window::PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                // uncomment for unthrottled FPS
+                // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                ..default()
+            }),
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(GameOfLifeComputePlugin)
         .add_startup_system(setup)
         .run();
@@ -75,12 +78,10 @@ impl Plugin for GameOfLifeComputePlugin {
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph
-            .add_node_edge(
-                "game_of_life",
-                bevy::render::main_graph::node::CAMERA_DRIVER,
-            )
-            .unwrap();
+        render_graph.add_node_edge(
+            "game_of_life",
+            bevy::render::main_graph::node::CAMERA_DRIVER,
+        );
     }
 }
 
@@ -137,7 +138,7 @@ impl FromWorld for GameOfLifePipeline {
         let shader = world
             .resource::<AssetServer>()
             .load("shaders/game_of_life.wgsl");
-        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
+        let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
             layout: Some(vec![texture_bind_group_layout.clone()]),
@@ -215,7 +216,7 @@ impl render_graph::Node for GameOfLifeNode {
         let pipeline = world.resource::<GameOfLifePipeline>();
 
         let mut pass = render_context
-            .command_encoder
+            .command_encoder()
             .begin_compute_pass(&ComputePassDescriptor::default());
 
         pass.set_bind_group(0, texture_bind_group, &[]);

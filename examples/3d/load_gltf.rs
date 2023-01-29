@@ -1,8 +1,8 @@
 //! Loads and renders a glTF file as a scene.
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
-use bevy::prelude::*;
+use bevy::{pbr::CascadeShadowConfig, prelude::*};
 
 fn main() {
     App::new()
@@ -21,21 +21,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..default()
     });
-    const HALF_SIZE: f32 = 1.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },
+        // This is a relatively small scene, so use tighter shadow
+        // cascade bounds than the default for better quality.
+        cascade_shadow_config: CascadeShadowConfig::new(1, 1.1, 1.5, 0.3),
         ..default()
     });
     commands.spawn(SceneBundle {
@@ -52,8 +45,8 @@ fn animate_light_direction(
         transform.rotation = Quat::from_euler(
             EulerRot::ZYX,
             0.0,
-            time.seconds_since_startup() as f32 * PI / 5.0,
-            -PI / 4.,
+            time.elapsed_seconds() * PI / 5.0,
+            -FRAC_PI_4,
         );
     }
 }

@@ -20,7 +20,7 @@ use bevy::{
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
-        view::VisibleEntities,
+        view::{ExtractedView, ViewTarget, VisibleEntities},
         Extract, RenderApp, RenderStage,
     },
     sprite::{
@@ -102,15 +102,12 @@ fn star(
         ColoredMesh2d::default(),
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
-        // These other components are needed for 2d meshes to be rendered
-        Transform::default(),
-        GlobalTransform::default(),
-        Visibility::default(),
-        ComputedVisibility::default(),
+        // This bundle's components are needed for something to be rendered
+        SpatialBundle::INHERITED_IDENTITY,
     ));
-    commands
-        // And use an orthographic projection
-        .spawn(Camera2dBundle::default());
+
+    // Spawn the camera
+    commands.spawn(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes
@@ -149,6 +146,11 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
+        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
@@ -164,7 +166,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -298,7 +300,7 @@ pub fn extract_colored_mesh2d(
         if !computed_visibility.is_visible() {
             continue;
         }
-        values.push((entity, (ColoredMesh2d,)));
+        values.push((entity, ColoredMesh2d));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -310,23 +312,25 @@ pub fn queue_colored_mesh2d(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    mut views: Query<(
+        &VisibleEntities,
+        &mut RenderPhase<Transparent2d>,
+        &ExtractedView,
+    )>,
 ) {
     if colored_mesh2d.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase) in &mut views {
-        let draw_colored_mesh2d = transparent_draw_functions
-            .read()
-            .get_id::<DrawColoredMesh2d>()
-            .unwrap();
+    for (visible_entities, mut transparent_phase, view) in &mut views {
+        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
         for visible_entity in &visible_entities.entities {
@@ -339,7 +343,7 @@ pub fn queue_colored_mesh2d(
                 }
 
                 let pipeline_id =
-                    pipelines.specialize(&mut pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
+                    pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
                 let mesh_z = mesh2d_uniform.transform.w_axis.z;
                 transparent_phase.add(Transparent2d {

@@ -1,6 +1,5 @@
-use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
+use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
@@ -11,7 +10,7 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -25,8 +24,12 @@ bevy_utils::define_label!(
 
 /// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
 #[cfg(feature = "bevy_reflect")]
-#[derive(Resource, Clone, Deref, DerefMut, Default)]
+#[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
+
+pub(crate) enum AppError {
+    DuplicatePlugin { plugin_name: String },
+}
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -58,22 +61,117 @@ pub struct App {
     /// The main ECS [`World`] of the [`App`].
     /// This stores and provides access to all the main data of the application.
     /// The systems of the [`App`] will run using this [`World`].
-    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::add_sub_app)s.
+    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::insert_sub_app)s.
     pub world: World,
     /// The [runner function](Self::set_runner) is primarily responsible for managing
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App)>,
+    pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
+    plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_name_added: HashSet<String>,
+    /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
+    is_building_plugin: bool,
 }
 
-/// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
-struct SubApp {
-    app: App,
-    runner: Box<dyn Fn(&mut World, &mut App)>,
+impl Debug for App {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "App {{ sub_apps: ")?;
+        f.debug_map()
+            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
+}
+
+/// A [`SubApp`] contains its own [`Schedule`] and [`World`] separate from the main [`App`].
+/// This is useful for situations where data and data processing should be kept completely separate
+/// from the main application. The primary use of this feature in bevy is to enable pipelined rendering.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy_app::{App, AppLabel, SubApp};
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Resource, Default)]
+/// struct Val(pub i32);
+///
+/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// struct ExampleApp;
+///
+/// #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+/// struct ExampleStage;
+///
+/// let mut app = App::empty();
+/// // initialize the main app with a value of 0;
+/// app.insert_resource(Val(10));
+///
+/// // create a app with a resource and a single stage
+/// let mut sub_app = App::empty();
+/// sub_app.insert_resource(Val(100));
+/// let mut example_stage = SystemStage::single_threaded();
+/// example_stage.add_system(|counter: Res<Val>| {
+///     // since we assigned the value from the main world in extract
+///     // we see that value instead of 100
+///     assert_eq!(counter.0, 10);
+/// });
+/// sub_app.add_stage(ExampleStage, example_stage);
+///
+/// // add the sub_app to the app
+/// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
+///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
+/// }));
+///
+/// // This will run the schedules once, since we're using the default runner
+/// app.run();
+/// ```
+pub struct SubApp {
+    /// The [`SubApp`]'s instance of [`App`]
+    pub app: App,
+
+    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
+    /// useful for moving data between the sub app and the main app.
+    extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+}
+
+impl SubApp {
+    /// Creates a new [`SubApp`].
+    ///
+    /// The provided function `extract` is normally called by the [`update`](App::update) method.
+    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
+    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
+    /// reference to the `SubApp` itself.
+    pub fn new(app: App, extract: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
+        Self {
+            app,
+            extract: Box::new(extract),
+        }
+    }
+
+    /// Runs the `SubApp`'s schedule.
+    pub fn run(&mut self) {
+        self.app.schedule.run(&mut self.app.world);
+        self.app.world.clear_trackers();
+    }
+
+    /// Extracts data from main world to this sub-app.
+    pub fn extract(&mut self, main_world: &mut World) {
+        (self.extract)(main_world, &mut self.app);
+    }
+}
+
+impl Debug for SubApp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SubApp {{ app: ")?;
+        f.debug_map()
+            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
 }
 
 impl Default for App {
@@ -82,9 +180,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages()
-            .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
+        app.add_default_stages().add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -111,6 +207,9 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            plugin_registry: Vec::default(),
+            plugin_name_added: Default::default(),
+            is_building_plugin: false,
         }
     }
 
@@ -118,25 +217,65 @@ impl App {
     ///
     /// This method also updates sub apps.
     ///
-    /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    /// See [`insert_sub_app`](Self::insert_sub_app) and [`run_once`](Schedule::run_once) for more details.
     pub fn update(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_frame_update_span = info_span!("frame").entered();
-        self.schedule.run(&mut self.world);
-        for sub_app in self.sub_apps.values_mut() {
-            (sub_app.runner)(&mut self.world, &mut sub_app.app);
+        {
+            #[cfg(feature = "trace")]
+            let _bevy_frame_update_span = info_span!("main app").entered();
+            self.schedule.run(&mut self.world);
         }
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            #[cfg(feature = "trace")]
+            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
+            sub_app.extract(&mut self.world);
+            sub_app.run();
+        }
+
+        self.world.clear_trackers();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
     ///
     /// Finalizes the [`App`] configuration. For general usage, see the example on the item
     /// level documentation.
+    ///
+    /// # `run()` might not return
+    ///
+    /// Calls to [`App::run()`] might never return.
+    ///
+    /// In simple and *headless* applications, one can expect that execution will
+    /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
+    /// windowed applications.
+    ///
+    /// Windowed apps are typically driven by an *event loop* or *message loop* and
+    /// some window-manager APIs expect programs to terminate when their primary
+    /// window is closed and that event loop terminates – behaviour of processes that
+    /// do not is often platform dependent or undocumented.
+    ///
+    /// By default, *Bevy* uses the `winit` crate for window creation. See
+    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
+    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
+    /// *does* return – albeit one that carries its own caveats and disclaimers.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
+        if app.is_building_plugin {
+            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
+        }
+
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(&mut app);
+        }
+        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -772,7 +911,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send) -> &mut Self {
         self.runner = Box::new(run_fn);
         self
     }
@@ -801,13 +940,80 @@ impl App {
     /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was already added to the application.
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
         T: Plugin,
     {
+        match self.add_boxed_plugin(Box::new(plugin)) {
+            Ok(app) => app,
+            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                "Error adding plugin {plugin_name}: : plugin was already added in application"
+            ),
+        }
+    }
+
+    /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
+    pub(crate) fn add_boxed_plugin(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+            Err(AppError::DuplicatePlugin {
+                plugin_name: plugin.name().to_string(),
+            })?;
+        }
+        self.is_building_plugin = true;
         plugin.build(self);
-        self
+        self.is_building_plugin = false;
+        self.plugin_registry.push(plugin);
+        Ok(self)
+    }
+
+    /// Checks if a [`Plugin`] has already been added.
+    ///
+    /// This can be used by plugins to check if a plugin they depend upon has already been
+    /// added.
+    pub fn is_plugin_added<T>(&self) -> bool
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .any(|p| p.downcast_ref::<T>().is_some())
+    }
+
+    /// Returns a vector of references to any plugins of type `T` that have been added.
+    ///
+    /// This can be used to read the settings of any already added plugins.
+    /// This vector will be length zero if no plugins of that type have been added.
+    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct ImagePlugin {
+    /// #    default_sampler: bool,
+    /// # }
+    /// # impl Plugin for ImagePlugin {
+    /// #    fn build(&self, app: &mut App) {}
+    /// # }
+    /// # let mut app = App::new();
+    /// # app.add_plugin(ImagePlugin::default());
+    /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
+    /// ```
+    pub fn get_added_plugins<T>(&self) -> Vec<&T>
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .filter_map(|p| p.downcast_ref())
+            .collect()
     }
 
     /// Adds a group of [`Plugin`]s.
@@ -818,7 +1024,8 @@ impl App {
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
     /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
-    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
+    /// before / after another plugin), call [`build()`](PluginGroup::build) on the group,
+    /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
     ///
     /// ## Examples
     /// ```
@@ -827,61 +1034,13 @@ impl App {
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// ```
-    pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        group.build(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
-        self
-    }
-
-    /// Adds a group of [`Plugin`]s with an initializer method.
     ///
-    /// Can be used to add a group of [`Plugin`]s, where the group is modified
-    /// before insertion into a Bevy application. For example, you can add
-    /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
+    /// # Panics
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummies created to avoid using `bevy_internal` and `bevy_log`,
-    /// # // which pulls in too many dependencies and breaks rust-analyzer
-    /// # pub mod bevy_log {
-    /// #     use bevy_app::prelude::*;
-    /// #     #[derive(Default)]
-    /// #     pub struct LogPlugin;
-    /// #     impl Plugin for LogPlugin{
-    /// #        fn build(&self, app: &mut App) {}
-    /// #     }
-    /// # }
-    /// # struct DefaultPlugins;
-    /// # impl PluginGroup for DefaultPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){
-    /// #         group.add(bevy_log::LogPlugin::default());
-    /// #     }
-    /// # }
-    /// #
-    /// # struct MyOwnPlugin;
-    /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut App){;}
-    /// # }
-    /// #
-    /// App::new()
-    ///      .add_plugins_with(DefaultPlugins, |group| {
-    ///             group.add_before::<bevy_log::LogPlugin, _>(MyOwnPlugin)
-    ///         });
-    /// ```
-    pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
-    where
-        T: PluginGroup,
-        F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
-    {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        group.build(&mut plugin_group_builder);
-        func(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+    /// Panics if one of the plugin in the group was already added to the application.
+    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
+        let builder = group.build();
+        builder.finish(self);
         self
     }
 
@@ -935,27 +1094,6 @@ impl App {
         self
     }
 
-    /// Adds an [`App`] as a child of the current one.
-    ///
-    /// The provided function `f` is called by the [`update`](Self::update) method. The [`World`]
-    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
-    /// reference to the `SubApp` itself.
-    pub fn add_sub_app(
-        &mut self,
-        label: impl AppLabel,
-        app: App,
-        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
-    ) -> &mut Self {
-        self.sub_apps.insert(
-            label.as_label(),
-            SubApp {
-                app,
-                runner: Box::new(sub_app_runner),
-            },
-        );
-        self
-    }
-
     /// Retrieves a `SubApp` stored inside this [`App`].
     ///
     /// # Panics
@@ -990,6 +1128,16 @@ impl App {
         }
     }
 
+    /// Inserts an existing sub app into the app
+    pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
+        self.sub_apps.insert(label.as_label(), sub_app);
+    }
+
+    /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
+    pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
+        self.sub_apps.remove(&label.as_label())
+    }
+
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
@@ -1009,6 +1157,68 @@ fn run_once(mut app: App) {
 ///
 /// You can also use this event to detect that an exit was requested. In order to receive it, systems
 /// subscribing to this event should run after it was emitted and before the schedule of the same
-/// frame is over.
+/// frame is over. This is important since [`App::run()`] might never return.
+///
+/// If you don't require access to other components or resources, consider implementing the [`Drop`]
+/// trait on components/resources for code that runs on exit. That saves you from worrying about
+/// system schedule ordering, and is idiomatic Rust.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Plugin};
+
+    struct PluginA;
+    impl Plugin for PluginA {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginB;
+    impl Plugin for PluginB {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginC<T>(T);
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginD;
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut crate::App) {}
+        fn is_unique(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn can_add_two_plugins() {
+        App::new().add_plugin(PluginA).add_plugin(PluginB);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_add_twice_the_same_plugin() {
+        App::new().add_plugin(PluginA).add_plugin(PluginA);
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_with_different_type_param() {
+        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_not_unique() {
+        App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_call_app_run_from_plugin_build() {
+        struct PluginRun;
+        impl Plugin for PluginRun {
+            fn build(&self, app: &mut crate::App) {
+                app.run();
+            }
+        }
+        App::new().add_plugin(PluginRun);
+    }
+}

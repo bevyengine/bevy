@@ -6,7 +6,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeUuid;
 
-use crate::{InstanceInfo, SceneSpawnError};
+use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -23,6 +23,18 @@ pub struct Scene {
 impl Scene {
     pub fn new(world: World) -> Self {
         Self { world }
+    }
+
+    /// Create a new scene from a given dynamic scene.
+    pub fn from_dynamic_scene(
+        dynamic_scene: &DynamicScene,
+        type_registry: &AppTypeRegistry,
+    ) -> Result<Scene, SceneSpawnError> {
+        let mut world = World::new();
+        let mut entity_map = EntityMap::default();
+        dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
+
+        Ok(Self { world })
     }
 
     /// Clone the scene.
@@ -53,7 +65,7 @@ impl Scene {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
                     .entity_map
-                    .entry(*scene_entity)
+                    .entry(scene_entity.entity())
                     .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
                     let component_info = self
@@ -74,7 +86,7 @@ impl Scene {
                                 }
                             })
                         })?;
-                    reflect_component.copy(&self.world, world, *scene_entity, entity);
+                    reflect_component.copy(&self.world, world, scene_entity.entity(), entity);
                 }
             }
         }

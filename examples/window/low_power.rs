@@ -6,7 +6,7 @@
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, RequestRedraw},
+    window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::WinitSettings,
 };
 
@@ -24,13 +24,15 @@ fn main() {
             },
             ..default()
         })
-        // Turn off vsync to maximize CPU/GPU usage
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::AutoNoVsync,
-            ..default()
-        })
         .insert_resource(ExampleMode::Game)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                // Turn off vsync to maximize CPU/GPU usage
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_startup_system(test_setup::setup)
         .add_system(test_setup::cycle_modes)
         .add_system(test_setup::rotate_cube)

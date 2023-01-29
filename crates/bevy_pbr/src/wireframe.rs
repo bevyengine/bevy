@@ -70,7 +70,7 @@ pub struct WireframeConfig {
     pub global: bool,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
@@ -108,7 +108,7 @@ fn queue_wireframes(
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
@@ -116,21 +116,19 @@ fn queue_wireframes(
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
-    let draw_custom = opaque_3d_draw_functions
-        .read()
-        .get_id::<DrawWireframes>()
-        .unwrap();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 
+        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = msaa_key
+                    let key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &wireframe_pipeline,
                         key,
                         &mesh.layout,

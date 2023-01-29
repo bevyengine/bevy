@@ -2,8 +2,10 @@ use bevy_utils::tracing::info;
 use fixedbitset::FixedBitSet;
 
 use crate::component::ComponentId;
-use crate::schedule::{SystemContainer, SystemStage};
+use crate::schedule::{AmbiguityDetection, GraphNode, SystemContainer, SystemStage};
 use crate::world::World;
+
+use super::SystemLabelId;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct SystemOrderAmbiguity {
@@ -99,7 +101,7 @@ impl SystemStage {
                     last_segment_kind = Some(segment);
                 }
 
-                writeln!(string, " -- {:?} and {:?}", system_a, system_b).unwrap();
+                writeln!(string, " -- {system_a:?} and {system_b:?}").unwrap();
 
                 if !conflicts.is_empty() {
                     writeln!(string, "    conflicts: {conflicts:?}").unwrap();
@@ -194,6 +196,24 @@ impl SystemStage {
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+    // Check if we should ignore ambiguities between `system_a` and `system_b`.
+    fn should_ignore(system_a: &SystemContainer, system_b: &SystemContainer) -> bool {
+        fn should_ignore_inner(
+            system_a_detection: &AmbiguityDetection,
+            system_b_labels: &[SystemLabelId],
+        ) -> bool {
+            match system_a_detection {
+                AmbiguityDetection::Check => false,
+                AmbiguityDetection::IgnoreAll => true,
+                AmbiguityDetection::IgnoreWithLabel(labels) => {
+                    labels.iter().any(|l| system_b_labels.contains(l))
+                }
+            }
+        }
+        should_ignore_inner(&system_a.ambiguity_detection, system_b.labels())
+            || should_ignore_inner(&system_b.ambiguity_detection, system_a.labels())
+    }
+
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
@@ -215,9 +235,9 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
         }
         all_dependants[index] = dependants;
     }
-    let mut all_relations = all_dependencies
-        .drain(..)
-        .zip(all_dependants.drain(..))
+    let all_relations = all_dependencies
+        .into_iter()
+        .zip(all_dependants.into_iter())
         .enumerate()
         .map(|(index, (dependencies, dependants))| {
             let mut relations = FixedBitSet::with_capacity(systems.len());
@@ -230,12 +250,13 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
     let mut ambiguities = Vec::new();
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
     let mut processed = FixedBitSet::with_capacity(systems.len());
-    for (index_a, relations) in all_relations.drain(..).enumerate() {
+    for (index_a, relations) in all_relations.into_iter().enumerate() {
         // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
         for index_b in full_bitset.difference(&relations)
         // .take(index_a)
         {
-            if !processed.contains(index_b) {
+            if !processed.contains(index_b) && !should_ignore(&systems[index_a], &systems[index_b])
+            {
                 let system_a = &systems[index_a];
                 let system_b = &systems[index_b];
                 if system_a.is_exclusive() || system_b.is_exclusive() {
@@ -314,6 +335,7 @@ mod tests {
     fn read_only() {
         let mut world = World::new();
         world.insert_resource(R);
+        world.insert_non_send_resource(R);
         world.spawn(A);
         world.init_resource::<Events<E>>();
 
@@ -373,6 +395,7 @@ mod tests {
     fn nonsend() {
         let mut world = World::new();
         world.insert_resource(R);
+        world.insert_non_send_resource(R);
 
         let mut test_stage = SystemStage::parallel();
         test_stage
@@ -470,5 +493,120 @@ mod tests {
         test_stage.run(&mut world);
 
         assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
+
+    #[test]
+    fn ignore_all_ambiguities() {
+        let mut world = World::new();
+        world.insert_resource(R);
+        world.insert_non_send_resource(R);
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(resmut_system.ignore_all_ambiguities())
+            .add_system(res_system)
+            .add_system(nonsend_system);
+
+        test_stage.run(&mut world);
+
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
+
+    #[test]
+    fn ambiguous_with_label() {
+        let mut world = World::new();
+        world.insert_resource(R);
+        world.insert_non_send_resource(R);
+
+        #[derive(SystemLabel)]
+        struct IgnoreMe;
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(resmut_system.ambiguous_with(IgnoreMe))
+            .add_system(res_system.label(IgnoreMe))
+            .add_system(nonsend_system.label(IgnoreMe));
+
+        test_stage.run(&mut world);
+
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
+
+    #[test]
+    fn ambiguous_with_system() {
+        let mut world = World::new();
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(write_component_system.ambiguous_with(read_component_system))
+            .add_system(read_component_system);
+
+        test_stage.run(&mut world);
+
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
+
+    fn system_a(_res: ResMut<R>) {}
+    fn system_b(_res: ResMut<R>) {}
+    fn system_c(_res: ResMut<R>) {}
+    fn system_d(_res: ResMut<R>) {}
+    fn system_e(_res: ResMut<R>) {}
+
+    // Tests that the correct ambiguities were reported in the correct order.
+    #[test]
+    fn correct_ambiguities() {
+        use super::*;
+
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(system_a)
+            .add_system(system_b)
+            .add_system(system_c.ignore_all_ambiguities())
+            .add_system(system_d.ambiguous_with(system_b))
+            .add_system(system_e.after(system_a));
+
+        test_stage.run(&mut world);
+
+        let ambiguities = test_stage.ambiguities(&world);
+        assert_eq!(
+            ambiguities,
+            vec![
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_b".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_d".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_b".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_e".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_d".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_e".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+            ]
+        );
     }
 }

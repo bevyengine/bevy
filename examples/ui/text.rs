@@ -41,10 +41,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: Color::WHITE,
             },
         ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::TOP_CENTER)
+        .with_text_alignment(TextAlignment::Center)
         // Set the style of the TextBundle itself.
         .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
                 bottom: Val::Px(5.0),
@@ -72,18 +71,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 60.0,
                 color: Color::GOLD,
             }),
-        ])
-        .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
-            ..default()
-        }),
+        ]),
         FpsText,
     ));
 }
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
     for mut text in &mut query {
-        let seconds = time.seconds_since_startup() as f32;
+        let seconds = time.elapsed_seconds();
 
         // Update the color of the first and only section.
         text.sections[0].style.color = Color::Rgba {
@@ -98,9 +93,9 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
     for mut text in &mut query {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(average) = fps.average() {
+            if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
-                text.sections[1].value = format!("{average:.2}");
+                text.sections[1].value = format!("{value:.2}");
             }
         }
     }

@@ -3,7 +3,7 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{In, IntoChainSystem, Local, Res, ResMut, Resource},
+    system::{In, IntoPipeSystem, Local, Res, ResMut, Resource},
 };
 use std::{
     any::TypeId,
@@ -79,7 +79,7 @@ where
         (move |state: Res<State<T>>| {
             state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -95,7 +95,7 @@ where
             Some(_) => false,
             None => *is_inactive,
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -118,7 +118,7 @@ where
             Some(_) => false,
             None => *is_in_stack,
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -133,7 +133,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -148,7 +148,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -162,7 +162,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -176,7 +176,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 

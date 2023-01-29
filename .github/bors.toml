@@ -14,6 +14,10 @@ status = [
     "check-compiles",
     "build-and-install-on-iOS",
     "run-examples-on-windows-dx12",
+    "build-without-default-features (bevy)",
+    "build-without-default-features (bevy_ecs)",
+    "build-without-default-features (bevy_reflect)",
+    "msrv",
 ]
 
 use_squash_merge = true

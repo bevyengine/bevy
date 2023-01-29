@@ -2,6 +2,7 @@
 
 mod array;
 mod fields;
+mod from_reflect;
 mod list;
 mod map;
 mod path;
@@ -47,6 +48,7 @@ pub mod prelude {
 pub use array::*;
 pub use enums::*;
 pub use fields::*;
+pub use from_reflect::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -103,6 +105,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::any::TypeId;
     use std::fmt::{Debug, Formatter};
 
     use super::prelude::*;
@@ -242,6 +245,42 @@ mod tests {
             .map(|value| *value.downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    #[test]
+    fn should_call_from_reflect_dynamically() {
+        #[derive(Reflect, FromReflect)]
+        #[reflect(FromReflect)]
+        struct MyStruct {
+            foo: usize,
+        }
+
+        // Register
+        let mut registry = TypeRegistry::default();
+        registry.register::<MyStruct>();
+
+        // Get type data
+        let type_id = TypeId::of::<MyStruct>();
+        let rfr = registry
+            .get_type_data::<ReflectFromReflect>(type_id)
+            .expect("the FromReflect trait should be registered");
+
+        // Call from_reflect
+        let mut dynamic_struct = DynamicStruct::default();
+        dynamic_struct.insert("foo", 123usize);
+        let reflected = rfr
+            .from_reflect(&dynamic_struct)
+            .expect("the type should be properly reflected");
+
+        // Assert
+        let expected = MyStruct { foo: 123 };
+        assert!(expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
+        let not_expected = MyStruct { foo: 321 };
+        assert!(!not_expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
     }
 
     #[test]
@@ -835,6 +874,175 @@ mod tests {
         assert!(info.is::<MyDynamic>());
     }
 
+    #[cfg(feature = "documentation")]
+    mod docstrings {
+        use super::*;
+
+        #[test]
+        fn should_not_contain_docs() {
+            // Regular comments do not count as doc comments,
+            // and are therefore not reflected.
+            #[derive(Reflect)]
+            struct SomeStruct;
+
+            let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+
+            /*
+             * Block comments do not count as doc comments,
+             * and are therefore not reflected.
+             */
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+        }
+
+        #[test]
+        fn should_contain_docs() {
+            /// Some struct.
+            ///
+            /// # Example
+            ///
+            /// ```ignore
+            /// let some_struct = SomeStruct;
+            /// ```
+            #[derive(Reflect)]
+            struct SomeStruct;
+
+            let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(
+                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                info.docs()
+            );
+
+            #[doc = "The compiler automatically converts `///`-style comments into `#[doc]` attributes."]
+            #[doc = "Of course, you _could_ use the attribute directly if you wanted to."]
+            #[doc = "Both will be reflected."]
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(
+                Some("The compiler automatically converts `///`-style comments into `#[doc]` attributes.\nOf course, you _could_ use the attribute directly if you wanted to.\nBoth will be reflected."),
+                info.docs()
+            );
+
+            /// Some tuple struct.
+            #[derive(Reflect)]
+            struct SomeTupleStruct(usize);
+
+            let info = <SomeTupleStruct as Typed>::type_info();
+            assert_eq!(Some(" Some tuple struct."), info.docs());
+
+            /// Some enum.
+            #[derive(Reflect)]
+            enum SomeEnum {
+                Foo,
+            }
+
+            let info = <SomeEnum as Typed>::type_info();
+            assert_eq!(Some(" Some enum."), info.docs());
+
+            #[derive(Clone)]
+            struct SomePrimitive;
+            impl_reflect_value!(
+                /// Some primitive for which we have attributed custom documentation.
+                SomePrimitive
+            );
+
+            let info = <SomePrimitive as Typed>::type_info();
+            assert_eq!(
+                Some(" Some primitive for which we have attributed custom documentation."),
+                info.docs()
+            );
+        }
+
+        #[test]
+        fn fields_should_contain_docs() {
+            #[derive(Reflect)]
+            struct SomeStruct {
+                /// The name
+                name: String,
+                /// The index
+                index: usize,
+                // Not documented...
+                data: Vec<i32>,
+            }
+
+            let info = <SomeStruct as Typed>::type_info();
+            if let TypeInfo::Struct(info) = info {
+                let mut fields = info.iter();
+                assert_eq!(Some(" The name"), fields.next().unwrap().docs());
+                assert_eq!(Some(" The index"), fields.next().unwrap().docs());
+                assert_eq!(None, fields.next().unwrap().docs());
+            } else {
+                panic!("expected struct info");
+            }
+        }
+
+        #[test]
+        fn variants_should_contain_docs() {
+            #[derive(Reflect)]
+            enum SomeEnum {
+                // Not documented...
+                Nothing,
+                /// Option A
+                A(
+                    /// Index
+                    usize,
+                ),
+                /// Option B
+                B {
+                    /// Name
+                    name: String,
+                },
+            }
+
+            let info = <SomeEnum as Typed>::type_info();
+            if let TypeInfo::Enum(info) = info {
+                let mut variants = info.iter();
+                assert_eq!(None, variants.next().unwrap().docs());
+
+                let variant = variants.next().unwrap();
+                assert_eq!(Some(" Option A"), variant.docs());
+                if let VariantInfo::Tuple(variant) = variant {
+                    let field = variant.field_at(0).unwrap();
+                    assert_eq!(Some(" Index"), field.docs());
+                } else {
+                    panic!("expected tuple variant")
+                }
+
+                let variant = variants.next().unwrap();
+                assert_eq!(Some(" Option B"), variant.docs());
+                if let VariantInfo::Struct(variant) = variant {
+                    let field = variant.field_at(0).unwrap();
+                    assert_eq!(Some(" Name"), field.docs());
+                } else {
+                    panic!("expected struct variant")
+                }
+            } else {
+                panic!("expected enum info");
+            }
+        }
+    }
+
+    #[test]
+    fn into_reflect() {
+        trait TestTrait: Reflect {}
+
+        #[derive(Reflect)]
+        struct TestStruct;
+
+        impl TestTrait for TestStruct {}
+
+        let trait_object: Box<dyn TestTrait> = Box::new(TestStruct);
+
+        // Should compile:
+        let _ = trait_object.into_reflect();
+    }
+
     #[test]
     fn as_reflect() {
         trait TestTrait: Reflect {}
@@ -945,7 +1153,49 @@ bevy_reflect::tests::should_reflect_debug::Test {
     custom: Cool debug!,
 }"#;
 
-        assert_eq!(expected, format!("\n{:#?}", reflected));
+        assert_eq!(expected, format!("\n{reflected:#?}"));
+    }
+
+    #[test]
+    fn multiple_reflect_lists() {
+        #[derive(Hash, PartialEq, Reflect)]
+        #[reflect(Debug, Hash)]
+        #[reflect(PartialEq)]
+        struct Foo(i32);
+
+        impl Debug for Foo {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+
+        let foo = Foo(123);
+        let foo: &dyn Reflect = &foo;
+
+        assert!(foo.reflect_hash().is_some());
+        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
+        assert_eq!("Foo".to_string(), format!("{foo:?}"));
+    }
+
+    #[test]
+    fn multiple_reflect_value_lists() {
+        #[derive(Clone, Hash, PartialEq, Reflect)]
+        #[reflect_value(Debug, Hash)]
+        #[reflect_value(PartialEq)]
+        struct Foo(i32);
+
+        impl Debug for Foo {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+
+        let foo = Foo(123);
+        let foo: &dyn Reflect = &foo;
+
+        assert!(foo.reflect_hash().is_some());
+        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
+        assert_eq!("Foo".to_string(), format!("{foo:?}"));
     }
 
     #[cfg(feature = "glam")]
@@ -975,7 +1225,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
     ),
 }"#;
 
-            assert_eq!(expected, format!("\n{}", output));
+            assert_eq!(expected, format!("\n{output}"));
         }
 
         #[test]
@@ -1024,9 +1274,15 @@ bevy_reflect::tests::should_reflect_debug::Test {
         fn vec3_path_access() {
             let mut v = vec3(1.0, 2.0, 3.0);
 
-            assert_eq!(*v.path("x").unwrap().downcast_ref::<f32>().unwrap(), 1.0);
+            assert_eq!(
+                *v.reflect_path("x").unwrap().downcast_ref::<f32>().unwrap(),
+                1.0
+            );
 
-            *v.path_mut("y").unwrap().downcast_mut::<f32>().unwrap() = 6.0;
+            *v.reflect_path_mut("y")
+                .unwrap()
+                .downcast_mut::<f32>()
+                .unwrap() = 6.0;
 
             assert_eq!(v.y, 6.0);
         }

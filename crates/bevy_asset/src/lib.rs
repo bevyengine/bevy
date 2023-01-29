@@ -25,12 +25,13 @@ mod info;
 mod io;
 mod loader;
 mod path;
+mod reflect;
 
 /// The `bevy_asset` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AddAsset, AssetEvent, AssetServer, AssetServerSettings, Assets, Handle, HandleUntyped,
+        AddAsset, AssetEvent, AssetPlugin, AssetServer, Assets, Handle, HandleUntyped,
     };
 }
 
@@ -43,12 +44,10 @@ pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
+pub use reflect::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::{
-    schedule::{StageLabel, SystemStage},
-    system::Resource,
-};
+use bevy_ecs::schedule::{StageLabel, SystemStage};
 
 /// The names of asset stages in an [`App`] schedule.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -63,14 +62,8 @@ pub enum AssetStage {
 ///
 /// Assets are typed collections with change tracking, which are added as App Resources. Examples of
 /// assets: textures, sounds, 3d models, maps, scenes
-#[derive(Default)]
-pub struct AssetPlugin;
-
-/// Settings for the [`AssetServer`].
-///
-/// This resource must be added before the [`AssetPlugin`] or `DefaultPlugins` to take effect.
-#[derive(Resource)]
-pub struct AssetServerSettings {
+#[derive(Debug, Clone)]
+pub struct AssetPlugin {
     /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,
     /// Whether to watch for changes in asset files. Requires the `filesystem_watcher` feature,
@@ -78,7 +71,7 @@ pub struct AssetServerSettings {
     pub watch_for_changes: bool,
 }
 
-impl Default for AssetServerSettings {
+impl Default for AssetPlugin {
     fn default() -> Self {
         Self {
             asset_folder: "assets".to_string(),
@@ -87,29 +80,27 @@ impl Default for AssetServerSettings {
     }
 }
 
-/// Creates an instance of the platform's default `AssetIo`.
-///
-/// This is useful when providing a custom `AssetIo` instance that needs to
-/// delegate to the default `AssetIo` for the platform.
-pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
-    let settings = app
-        .world
-        .get_resource_or_insert_with(AssetServerSettings::default);
+impl AssetPlugin {
+    /// Creates an instance of the platform's default `AssetIo`.
+    ///
+    /// This is useful when providing a custom `AssetIo` instance that needs to
+    /// delegate to the default `AssetIo` for the platform.
+    pub fn create_platform_default_asset_io(&self) -> Box<dyn AssetIo> {
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        let source = FileAssetIo::new(&self.asset_folder, self.watch_for_changes);
+        #[cfg(target_arch = "wasm32")]
+        let source = WasmAssetIo::new(&self.asset_folder);
+        #[cfg(target_os = "android")]
+        let source = AndroidAssetIo::new(&self.asset_folder);
 
-    #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-    let source = FileAssetIo::new(&settings.asset_folder, settings.watch_for_changes);
-    #[cfg(target_arch = "wasm32")]
-    let source = WasmAssetIo::new(&settings.asset_folder);
-    #[cfg(target_os = "android")]
-    let source = AndroidAssetIo::new(&settings.asset_folder);
-
-    Box::new(source)
+        Box::new(source)
+    }
 }
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
         if !app.world.contains_resource::<AssetServer>() {
-            let source = create_platform_default_asset_io(app);
+            let source = self.create_platform_default_asset_io();
             let asset_server = AssetServer::with_boxed_io(source);
             app.insert_resource(asset_server);
         }

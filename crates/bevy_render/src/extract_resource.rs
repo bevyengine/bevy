@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
+use bevy_ecs::change_detection::DetectChanges;
 #[cfg(debug_assertions)]
 use bevy_ecs::system::Local;
 use bevy_ecs::system::{Commands, Res, ResMut, Resource};
@@ -48,7 +49,7 @@ pub fn extract_resource<R: ExtractResource>(
 ) {
     if let Some(mut target_resource) = target_resource {
         if main_resource.is_changed() {
-            *target_resource = R::extract_resource(&*main_resource);
+            *target_resource = R::extract_resource(&main_resource);
         }
     } else {
         #[cfg(debug_assertions)]
@@ -60,6 +61,6 @@ pub fn extract_resource<R: ExtractResource>(
                 std::any::type_name::<R>()
             );
         }
-        commands.insert_resource(R::extract_resource(&*main_resource));
+        commands.insert_resource(R::extract_resource(&main_resource));
     }
 }

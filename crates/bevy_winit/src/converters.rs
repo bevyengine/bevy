@@ -33,7 +33,7 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
 
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
-    location: winit::dpi::LogicalPosition<f32>,
+    location: winit::dpi::LogicalPosition<f64>,
 ) -> TouchInput {
     TouchInput {
         phase: match touch_input.phase {

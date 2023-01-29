@@ -1,9 +1,12 @@
 use crate::{
     component::ComponentId,
     query::Access,
-    schedule::{GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId},
+    schedule::{
+        AmbiguityDetection, GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId,
+    },
     system::System,
 };
+use core::fmt::Debug;
 use std::borrow::Cow;
 
 pub struct SystemContainer {
@@ -16,6 +19,7 @@ pub struct SystemContainer {
     labels: Vec<SystemLabelId>,
     before: Vec<SystemLabelId>,
     after: Vec<SystemLabelId>,
+    pub(crate) ambiguity_detection: AmbiguityDetection,
 }
 
 impl SystemContainer {
@@ -29,6 +33,7 @@ impl SystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
+            ambiguity_detection: descriptor.ambiguity_detection,
             is_exclusive: descriptor.exclusive_insertion_point.is_some(),
         }
     }
@@ -76,6 +81,12 @@ impl SystemContainer {
 
     pub fn is_exclusive(&self) -> bool {
         self.is_exclusive
+    }
+}
+
+impl Debug for SystemContainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{{:?}}}", &self.system())
     }
 }
 

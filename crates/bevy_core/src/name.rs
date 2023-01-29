@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,
@@ -8,13 +8,14 @@ use std::{
     ops::Deref,
 };
 
-/// Component used to identify an entity. Stores a hash for faster comparisons
+/// Component used to identify an entity. Stores a hash for faster comparisons.
+///
 /// The hash is eagerly re-computed upon each update to the name.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Reflect, FromReflect, Component, Debug, Clone)]
 #[reflect(Component, Default)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized

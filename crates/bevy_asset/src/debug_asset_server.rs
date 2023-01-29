@@ -16,8 +16,7 @@ use std::{
 };
 
 use crate::{
-    Asset, AssetEvent, AssetPlugin, AssetServer, AssetServerSettings, Assets, FileAssetIo, Handle,
-    HandleUntyped,
+    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, FileAssetIo, Handle, HandleUntyped,
 };
 
 /// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
@@ -75,12 +74,10 @@ impl Plugin for DebugAssetServerPlugin {
                 .build()
         });
         let mut debug_asset_app = App::new();
-        debug_asset_app
-            .insert_resource(AssetServerSettings {
-                asset_folder: "crates".to_string(),
-                watch_for_changes: true,
-            })
-            .add_plugin(AssetPlugin);
+        debug_asset_app.add_plugin(AssetPlugin {
+            asset_folder: "crates".to_string(),
+            watch_for_changes: true,
+        });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
         app.add_system(run_debug_asset_app);
     }
@@ -119,8 +116,8 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 ///
 /// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
-pub fn register_handle_with_loader<A: Asset>(
-    _loader: fn(&'static str) -> A,
+pub fn register_handle_with_loader<A: Asset, T>(
+    _loader: fn(T) -> A,
     app: &mut DebugAssetApp,
     handle: HandleUntyped,
     file_path: &str,

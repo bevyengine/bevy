@@ -13,18 +13,21 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::Added,
+    prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res},
+    system::{Commands, Query, Res},
 };
-use bevy_math::{Mat4, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
-use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
+use bevy_window::{
+    NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
+};
+
 use std::{borrow::Cow, ops::Range};
-use wgpu::Extent3d;
+use wgpu::{Extent3d, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -68,6 +71,8 @@ pub struct RenderTargetInfo {
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
+    // position and size of the `Viewport`
+    old_viewport_size: Option<UVec2>,
 }
 
 /// The defining component for camera entities, storing information about how and what to render
@@ -85,8 +90,8 @@ pub struct ComputedCameraValues {
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
-    /// Cameras with a lower priority will be rendered before cameras with a higher priority.
-    pub priority: isize,
+    /// Cameras with a higher order are rendered later, and thus on top of lower order cameras.
+    pub order: isize,
     /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
     /// camera will not be rendered.
     pub is_active: bool,
@@ -96,16 +101,23 @@ pub struct Camera {
     /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
+    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
+    /// Warning: we are still working on this feature. If MSAA is enabled, there will be artifacts in
+    /// some cases. When rendering with WebGL, this will crash if MSAA is enabled.
+    /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
+    // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
+    pub hdr: bool,
 }
 
 impl Default for Camera {
     fn default() -> Self {
         Self {
             is_active: true,
-            priority: 0,
+            order: 0,
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
+            hdr: false,
         }
     }
 }
@@ -212,9 +224,57 @@ impl Camera {
         Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
     }
 
+    /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
+    ///
+    /// The resulting ray starts on the near plane of the camera.
+    ///
+    /// If the camera's projection is orthographic the direction of the ray is always equal to `camera_transform.forward()`.
+    ///
+    /// To get the world space coordinates with Normalized Device Coordinates, you should use
+    /// [`ndc_to_world`](Self::ndc_to_world).
+    pub fn viewport_to_world(
+        &self,
+        camera_transform: &GlobalTransform,
+        viewport_position: Vec2,
+    ) -> Option<Ray> {
+        let target_size = self.logical_viewport_size()?;
+        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+
+        let ndc_to_world =
+            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+        let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
+        // Using EPSILON because an ndc with Z = 0 returns NaNs.
+        let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
+
+        (!world_near_plane.is_nan() && !world_far_plane.is_nan()).then_some(Ray {
+            origin: world_near_plane,
+            direction: (world_far_plane - world_near_plane).normalize(),
+        })
+    }
+
+    /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
+    ///
+    /// Useful for 2D cameras and other cameras with an orthographic projection pointing along the Z axis.
+    ///
+    /// To get the world space coordinates with Normalized Device Coordinates, you should use
+    /// [`ndc_to_world`](Self::ndc_to_world).
+    pub fn viewport_to_world_2d(
+        &self,
+        camera_transform: &GlobalTransform,
+        viewport_position: Vec2,
+    ) -> Option<Vec2> {
+        let target_size = self.logical_viewport_size()?;
+        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+
+        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
+
+        Some(world_near_plane.truncate())
+    }
+
     /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
     ///
-    /// Values returned will be between -1.0 and 1.0 when the position is within the viewport.
+    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
+    /// and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     pub fn world_to_ndc(
@@ -222,16 +282,29 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec3> {
-        // Build a transform to convert from world to NDC using camera data
+        // Build a transformation matrix to convert from world space to NDC using camera data
         let world_to_ndc: Mat4 =
             self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
 
-        if !ndc_space_coords.is_nan() {
-            Some(ndc_space_coords)
-        } else {
-            None
-        }
+        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
+    }
+
+    /// Given a position in Normalized Device Coordinates,
+    /// use the camera's viewport to compute the world space position.
+    ///
+    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
+    /// and between 0.0 and 1.0 on the Z axis.
+    /// To get the world space coordinates with the viewport position, you should use
+    /// [`world_to_viewport`](Self::world_to_viewport).
+    pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
+        // Build a transformation matrix to convert from NDC to world space using camera data
+        let ndc_to_world =
+            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+
+        let world_space_coords = ndc_to_world.project_point3(ndc);
+
+        (!world_space_coords.is_nan()).then_some(world_space_coords)
     }
 }
 
@@ -241,18 +314,36 @@ impl Camera {
 pub struct CameraRenderGraph(Cow<'static, str>);
 
 impl CameraRenderGraph {
+    /// Creates a new [`CameraRenderGraph`] from any string-like type.
     #[inline]
     pub fn new<T: Into<Cow<'static, str>>>(name: T) -> Self {
         Self(name.into())
+    }
+
+    #[inline]
+    /// Sets the graph name.
+    pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
+        self.0 = name.into();
     }
 }
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
-    Window(WindowId),
+    Window(WindowRef),
+    /// Image to which the camera's view is rendered.
+    Image(Handle<Image>),
+}
+
+/// Normalized version of the render target.
+///
+/// Once we have this we shouldn't need to resolve it down anymore.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NormalizedRenderTarget {
+    /// Window to which the camera's view is rendered.
+    Window(NormalizedWindowRef),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
 }
@@ -264,53 +355,89 @@ impl Default for RenderTarget {
 }
 
 impl RenderTarget {
+    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
+    pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
+        match self {
+            RenderTarget::Window(window_ref) => window_ref
+                .normalize(primary_window)
+                .map(NormalizedRenderTarget::Window),
+            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
+        }
+    }
+}
+
+impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<Image>,
     ) -> Option<&'a TextureView> {
         match self {
-            RenderTarget::Window(window_id) => windows
-                .get(window_id)
+            NormalizedRenderTarget::Window(window_ref) => windows
+                .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture.as_ref()),
-            RenderTarget::Image(image_handle) => {
+            NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
         }
     }
 
-    pub fn get_render_target_info(
+    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
+    pub fn get_texture_format<'a>(
         &self,
-        windows: &Windows,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<Image>,
+    ) -> Option<TextureFormat> {
+        match self {
+            NormalizedRenderTarget::Window(window_ref) => windows
+                .get(&window_ref.entity())
+                .and_then(|window| window.swap_chain_texture_format),
+            NormalizedRenderTarget::Image(image_handle) => {
+                images.get(image_handle).map(|image| image.texture_format)
+            }
+        }
+    }
+
+    pub fn get_render_target_info<'a>(
+        &self,
+        resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
     ) -> Option<RenderTargetInfo> {
-        Some(match self {
-            RenderTarget::Window(window_id) => {
-                let window = windows.get(*window_id)?;
-                RenderTargetInfo {
-                    physical_size: UVec2::new(window.physical_width(), window.physical_height()),
-                    scale_factor: window.scale_factor(),
-                }
-            }
-            RenderTarget::Image(image_handle) => {
+        match self {
+            NormalizedRenderTarget::Window(window_ref) => resolutions
+                .into_iter()
+                .find(|(entity, _)| *entity == window_ref.entity())
+                .map(|(_, window)| RenderTargetInfo {
+                    physical_size: UVec2::new(
+                        window.resolution.physical_width(),
+                        window.resolution.physical_height(),
+                    ),
+                    scale_factor: window.resolution.scale_factor(),
+                }),
+            NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
                 let Extent3d { width, height, .. } = image.texture_descriptor.size;
-                RenderTargetInfo {
+                Some(RenderTargetInfo {
                     physical_size: UVec2::new(width, height),
                     scale_factor: 1.0,
-                }
+                })
             }
-        })
+        }
     }
+
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &[WindowId],
+        changed_window_ids: &HashSet<Entity>,
         changed_image_handles: &HashSet<&Handle<Image>>,
     ) -> bool {
         match self {
-            RenderTarget::Window(window_id) => changed_window_ids.contains(window_id),
-            RenderTarget::Image(image_handle) => changed_image_handles.contains(&image_handle),
+            NormalizedRenderTarget::Window(window_ref) => {
+                changed_window_ids.contains(&window_ref.entity())
+            }
+            NormalizedRenderTarget::Image(image_handle) => {
+                changed_image_handles.contains(&image_handle)
+            }
         }
     }
 }
@@ -326,6 +453,11 @@ impl RenderTarget {
 /// the app, as well as the runtime-selected [`Projection`]. The system runs during the
 /// [`CoreStage::PostUpdate`] stage.
 ///
+/// ## World Resources
+///
+/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
+/// inspect information about the render target. This system will not access any other image assets.
+///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
@@ -334,32 +466,16 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
-    windows: Res<Windows>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+    windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
-    mut queries: ParamSet<(
-        Query<(Entity, &mut Camera, &mut T)>,
-        Query<Entity, Added<Camera>>,
-    )>,
+    mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
-    let mut changed_window_ids = Vec::new();
+    let primary_window = primary_window.iter().next();
 
-    // Collect all unique window IDs of changed windows by inspecting created windows
-    for event in window_created_events.iter() {
-        if changed_window_ids.contains(&event.id) {
-            continue;
-        }
-
-        changed_window_ids.push(event.id);
-    }
-
-    // Collect all unique window IDs of changed windows by inspecting resized windows
-    for event in window_resized_events.iter() {
-        if changed_window_ids.contains(&event.id) {
-            continue;
-        }
-
-        changed_window_ids.push(event.id);
-    }
+    let mut changed_window_ids = HashSet::new();
+    changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
+    changed_window_ids.extend(window_resized_events.iter().map(|event| event.window));
 
     let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
         .iter()
@@ -372,21 +488,24 @@ pub fn camera_system<T: CameraProjection + Component>(
         })
         .collect();
 
-    let mut added_cameras = vec![];
-    for entity in &queries.p1() {
-        added_cameras.push(entity);
-    }
-    for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
-        if camera
-            .target
-            .is_changed(&changed_window_ids, &changed_image_handles)
-            || added_cameras.contains(&entity)
-            || camera_projection.is_changed()
-        {
-            camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
-            if let Some(size) = camera.logical_viewport_size() {
-                camera_projection.update(size.x, size.y);
-                camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+    for (mut camera, mut camera_projection) in &mut cameras {
+        let viewport_size = camera
+            .viewport
+            .as_ref()
+            .map(|viewport| viewport.physical_size);
+
+        if let Some(normalized_target) = camera.target.normalize(primary_window) {
+            if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
+                || camera.is_added()
+                || camera_projection.is_changed()
+                || camera.computed.old_viewport_size != viewport_size
+            {
+                camera.computed.target_info =
+                    normalized_target.get_render_target_info(&windows, &images);
+                if let Some(size) = camera.logical_viewport_size() {
+                    camera_projection.update(size.x, size.y);
+                    camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+                }
             }
         }
     }
@@ -394,12 +513,12 @@ pub fn camera_system<T: CameraProjection + Component>(
 
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
-    pub target: RenderTarget,
+    pub target: Option<NormalizedRenderTarget>,
     pub physical_viewport_size: Option<UVec2>,
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
-    pub priority: isize,
+    pub order: isize,
 }
 
 pub fn extract_cameras(
@@ -413,7 +532,9 @@ pub fn extract_cameras(
             &VisibleEntities,
         )>,
     >,
+    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
 ) {
+    let primary_window = primary_window.iter().next();
     for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
         if !camera.is_active {
             continue;
@@ -428,16 +549,18 @@ pub fn extract_cameras(
             }
             commands.get_or_spawn(entity).insert((
                 ExtractedCamera {
-                    target: camera.target.clone(),
+                    target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
-                    priority: camera.priority,
+                    order: camera.order,
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
+                    view_projection: None,
+                    hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,

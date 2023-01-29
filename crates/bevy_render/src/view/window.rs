@@ -1,13 +1,14 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{RenderDevice, RenderInstance},
-    texture::BevyDefault,
+    renderer::{RenderAdapter, RenderDevice, RenderInstance},
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
+use bevy_window::{
+    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
@@ -28,7 +29,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_resource::<NonSendMarker>()
+                .init_non_send_resource::<NonSendMarker>()
                 .add_system_to_stage(RenderStage::Extract, extract_windows)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -39,23 +40,27 @@ impl Plugin for WindowRenderPlugin {
 }
 
 pub struct ExtractedWindow {
-    pub id: WindowId,
-    pub handle: RawWindowHandleWrapper,
+    /// An entity that contains the components in [`Window`].
+    pub entity: Entity,
+    pub handle: RawHandleWrapper,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
     pub swap_chain_texture: Option<TextureView>,
+    pub swap_chain_texture_format: Option<TextureFormat>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
+    pub alpha_mode: CompositeAlphaMode,
 }
 
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
-    pub windows: HashMap<WindowId, ExtractedWindow>,
+    pub primary: Option<Entity>,
+    pub windows: HashMap<Entity, ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = HashMap<WindowId, ExtractedWindow>;
+    type Target = HashMap<Entity, ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -71,34 +76,37 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     mut closed: Extract<EventReader<WindowClosed>>,
-    windows: Extract<Res<Windows>>,
+    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
 ) {
-    for window in windows.iter() {
-        let (new_width, new_height) = (
-            window.physical_width().max(1),
-            window.physical_height().max(1),
-        );
-        let new_present_mode = window.present_mode();
+    for (entity, window, handle, primary) in windows.iter() {
+        if primary.is_some() {
+            extracted_windows.primary = Some(entity);
+        }
 
-        let mut extracted_window =
-            extracted_windows
-                .entry(window.id())
-                .or_insert(ExtractedWindow {
-                    id: window.id(),
-                    handle: window.raw_window_handle(),
-                    physical_width: new_width,
-                    physical_height: new_height,
-                    present_mode: window.present_mode(),
-                    swap_chain_texture: None,
-                    size_changed: false,
-                    present_mode_changed: false,
-                });
+        let (new_width, new_height) = (
+            window.resolution.physical_width().max(1),
+            window.resolution.physical_height().max(1),
+        );
+
+        let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
+            entity,
+            handle: handle.clone(),
+            physical_width: new_width,
+            physical_height: new_height,
+            present_mode: window.present_mode,
+            swap_chain_texture: None,
+            size_changed: false,
+            swap_chain_texture_format: None,
+            present_mode_changed: false,
+            alpha_mode: window.composite_alpha_mode,
+        });
 
         // NOTE: Drop the swap chain frame here
         extracted_window.swap_chain_texture = None;
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
-        extracted_window.present_mode_changed = new_present_mode != extracted_window.present_mode;
+        extracted_window.present_mode_changed =
+            window.present_mode != extracted_window.present_mode;
 
         if extracted_window.size_changed {
             debug!(
@@ -115,21 +123,27 @@ fn extract_windows(
         if extracted_window.present_mode_changed {
             debug!(
                 "Window Present Mode changed from {:?} to {:?}",
-                extracted_window.present_mode, new_present_mode
+                extracted_window.present_mode, window.present_mode
             );
-            extracted_window.present_mode = new_present_mode;
+            extracted_window.present_mode = window.present_mode;
         }
     }
+
     for closed_window in closed.iter() {
-        extracted_windows.remove(&closed_window.id);
+        extracted_windows.remove(&closed_window.window);
     }
+}
+
+struct SurfaceData {
+    surface: wgpu::Surface,
+    format: TextureFormat,
 }
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: HashMap<WindowId, wgpu::Surface>,
+    surfaces: HashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
-    configured_windows: HashSet<WindowId>,
+    configured_windows: HashSet<Entity>,
 }
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
@@ -161,19 +175,29 @@ pub fn prepare_windows(
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
+    render_adapter: Res<RenderAdapter>,
 ) {
-    let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
-        let surface = window_surfaces
+        let window_surfaces = window_surfaces.deref_mut();
+        let surface_data = window_surfaces
             .surfaces
-            .entry(window.id)
+            .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance.create_surface(&window.handle.get_handle())
+                let surface = render_instance.create_surface(&window.handle.get_handle());
+                let format = *surface
+                    .get_supported_formats(&render_adapter)
+                    .get(0)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "No supported formats found for surface {surface:?} on adapter {render_adapter:?}"
+                        )
+                    });
+                SurfaceData { surface, format }
             });
 
-        let swap_chain_descriptor = wgpu::SurfaceConfiguration {
-            format: TextureFormat::bevy_default(),
+        let surface_configuration = wgpu::SurfaceConfiguration {
+            format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -184,28 +208,65 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
+            alpha_mode: match window.alpha_mode {
+                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
+                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
+                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+            },
         };
 
-        // Do the initial surface configuration if it hasn't been configured yet. Or if size or
-        // present mode changed.
-        if window_surfaces.configured_windows.insert(window.id)
-            || window.size_changed
-            || window.present_mode_changed
-        {
-            render_device.configure_surface(surface, &swap_chain_descriptor);
-        }
+        // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
+        // mesa driver implementations. This seems to be a quirk of some drivers.
+        // We'd rather keep panicking when not on Linux mesa, because in those case,
+        // the `Timeout` is still probably the symptom of a degraded unrecoverable
+        // application state.
+        // see https://github.com/bevyengine/bevy/pull/5957
+        // and https://github.com/gfx-rs/wgpu/issues/1218
+        #[cfg(target_os = "linux")]
+        let may_erroneously_timeout = || {
+            render_instance
+                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .any(|adapter| {
+                    let name = adapter.get_info().name;
+                    name.starts_with("AMD") || name.starts_with("Intel")
+                })
+        };
 
-        let frame = match surface.get_current_texture() {
-            Ok(swap_chain_frame) => swap_chain_frame,
-            Err(wgpu::SurfaceError::Outdated) => {
-                render_device.configure_surface(surface, &swap_chain_descriptor);
-                surface
-                    .get_current_texture()
-                    .expect("Error reconfiguring surface")
+        let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
+
+        let surface = &surface_data.surface;
+        if not_already_configured || window.size_changed || window.present_mode_changed {
+            render_device.configure_surface(surface, &surface_configuration);
+            let frame = surface
+                .get_current_texture()
+                .expect("Error configuring surface");
+            window.swap_chain_texture = Some(TextureView::from(frame));
+        } else {
+            match surface.get_current_texture() {
+                Ok(frame) => {
+                    window.swap_chain_texture = Some(TextureView::from(frame));
+                }
+                Err(wgpu::SurfaceError::Outdated) => {
+                    render_device.configure_surface(surface, &surface_configuration);
+                    let frame = surface
+                        .get_current_texture()
+                        .expect("Error reconfiguring surface");
+                    window.swap_chain_texture = Some(TextureView::from(frame));
+                }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+                    bevy_utils::tracing::trace!(
+                        "Couldn't get swap chain texture. This is probably a quirk \
+                        of your Linux GPU driver, so it can be safely ignored."
+                    );
+                }
+                Err(err) => {
+                    panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+                }
             }
-            err => err.expect("Failed to acquire next swap chain texture!"),
         };
-
-        window.swap_chain_texture = Some(TextureView::from(frame));
+        window.swap_chain_texture_format = Some(surface_data.format);
     }
 }

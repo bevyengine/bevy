@@ -41,9 +41,35 @@
 //!
 //! - **System Stages:** They determine hard execution synchronization boundaries inside of
 //!   which systems run in parallel by default.
-//! - **Labeling:** First, systems are labeled upon creation by calling `.label()`. Then,
-//!   methods such as `.before()` and `.after()` are appended to systems to determine
-//!   execution order in respect to other systems.
+//! - **Labels:** Systems may be ordered within a stage using the methods `.before()` and `.after()`,
+//!   which order systems based on their [`SystemLabel`]s. Each system is implicitly labeled with
+//!   its `fn` type, and custom labels may be added by calling `.label()`.
+//!
+//! [`SystemLabel`]: crate::schedule::SystemLabel
+//!
+//! ## Example
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # let mut app = SystemStage::single_threaded();
+//! // Prints "Hello, World!" each frame.
+//! app
+//!     .add_system(print_first.before(print_mid))
+//!     .add_system(print_mid)
+//!     .add_system(print_last.after(print_mid));
+//! # let mut world = World::new();
+//! # app.run(&mut world);
+//!
+//! fn print_first() {
+//!     print!("Hello");
+//! }
+//! fn print_mid() {
+//!     print!(", ");
+//! }
+//! fn print_last() {
+//!     println!("World!");
+//! }
+//! ```
 //!
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
@@ -75,8 +101,8 @@ mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
-mod system_chaining;
 mod system_param;
+mod system_piping;
 
 pub use commands::*;
 pub use exclusive_function_system::*;
@@ -84,8 +110,8 @@ pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
-pub use system_chaining::*;
 pub use system_param::*;
+pub use system_piping::*;
 
 /// Ensure that a given function is a system
 ///
@@ -104,20 +130,19 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 mod tests {
     use std::any::TypeId;
 
-    use crate::prelude::StageLabel;
-
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
+        change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, StageLabel},
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, RemovedComponents,
-            Res, ResMut, Resource, System, SystemState,
+            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
+            RemovedComponents, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -141,7 +166,7 @@ mod tests {
     #[derive(Component, Resource)]
     struct F;
 
-    #[derive(Component)]
+    #[derive(Component, Debug)]
     struct W<T>(T);
 
     #[derive(StageLabel)]
@@ -151,7 +176,7 @@ mod tests {
     fn simple_system() {
         fn sys(query: Query<&A>) {
             for a in &query {
-                println!("{:?}", a);
+                println!("{a:?}");
             }
         }
 
@@ -1162,5 +1187,29 @@ mod tests {
                 assert_eq!(a.0, 0);
             }
         });
+    }
+
+    #[test]
+    fn readonly_query_get_mut_component_fails() {
+        let mut world = World::new();
+        let entity = world.spawn(W(42u32)).id();
+        run_system(&mut world, move |q: Query<&mut W<u32>>| {
+            let mut rq = q.to_readonly();
+            assert_eq!(
+                QueryComponentError::MissingWriteAccess,
+                rq.get_component_mut::<W<u32>>(entity).unwrap_err(),
+            );
+        });
+    }
+
+    #[test]
+    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    fn query_validates_world_id() {
+        let mut world1 = World::new();
+        let world2 = World::new();
+        let qstate = world1.query::<()>();
+        // SAFETY: doesnt access anything
+        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
+        query.iter();
     }
 }

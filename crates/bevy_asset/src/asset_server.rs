@@ -83,8 +83,8 @@ pub struct AssetServerInternal {
 /// # use bevy_asset::*;
 /// # use bevy_app::*;
 /// # let mut app = App::new();
-/// // AssetServerSettings must be inserted before adding the AssetPlugin or DefaultPlugins.
-/// app.insert_resource(AssetServerSettings {
+/// // The asset plugin can be configured to watch for asset changes.
+/// app.add_plugin(AssetPlugin {
 ///     watch_for_changes: true,
 ///     ..Default::default()
 /// });
@@ -147,10 +147,7 @@ impl AssetServer {
             .server
             .asset_lifecycles
             .write()
-            .insert(
-                T::TYPE_UUID,
-                Box::new(AssetLifecycleChannel::<T>::default()),
-            )
+            .insert(T::TYPE_UUID, Box::<AssetLifecycleChannel<T>>::default())
             .is_some()
         {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
@@ -287,13 +284,13 @@ impl AssetServer {
     /// to look for loaders of `bar.baz` and `baz` assets.
     ///
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
-    /// setting the `"CARGO_MANIFEST_DIR"` environment variable
+    /// setting the `"BEVY_ASSET_ROOT"` or `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
     /// to another directory. When the application  is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
-    /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
+    /// [`AssetPlugin`](crate::AssetPlugin). The default name is
     /// `"assets"`.
     ///
     /// The asset is loaded asynchronously, and will generally not be available by the time
@@ -390,7 +387,7 @@ impl AssetServer {
             return Err(err);
         }
 
-        // if version has changed since we loaded and grabbed a lock, return. theres is a newer
+        // if version has changed since we loaded and grabbed a lock, return. there is a newer
         // version being loaded
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources
@@ -788,7 +785,7 @@ mod test {
 
     fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
         let asset_dir = tempfile::tempdir().unwrap();
-        std::fs::write(asset_dir.path().join(file), &[]).unwrap();
+        std::fs::write(asset_dir.path().join(file), []).unwrap();
         asset_dir
     }
 

@@ -1,9 +1,12 @@
 use bevy_utils::tracing::warn;
+use core::fmt::Debug;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
     query::Access, schedule::SystemLabelId, world::World,
 };
+
+use std::any::TypeId;
 use std::borrow::Cow;
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
@@ -25,6 +28,8 @@ pub trait System: Send + Sync + 'static {
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
+    /// Returns the [`TypeId`] of the underlying system type.
+    fn type_id(&self) -> TypeId;
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
@@ -63,6 +68,10 @@ pub trait System: Send + Sync + 'static {
     fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
+    /// Returns the system's default [system sets](crate::schedule_v3::SystemSet).
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        Vec::new()
+    }
     /// Gets the system's last change tick
     fn get_last_change_tick(&self) -> u32;
     /// Sets the system's last change tick
@@ -93,5 +102,23 @@ pub(crate) fn check_system_change_tick(
             MAX_CHANGE_AGE - 1,
         );
         *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+    }
+}
+
+impl Debug for dyn System<In = (), Out = ()> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "System {}: {{{}}}", self.name(), {
+            if self.is_send() {
+                if self.is_exclusive() {
+                    "is_send is_exclusive"
+                } else {
+                    "is_send"
+                }
+            } else if self.is_exclusive() {
+                "is_exclusive"
+            } else {
+                ""
+            }
+        },)
     }
 }

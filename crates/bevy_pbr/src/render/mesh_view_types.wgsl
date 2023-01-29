@@ -28,21 +28,30 @@ struct PointLight {
 let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
 let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
-struct DirectionalLight {
+struct DirectionalCascade {
     view_projection: mat4x4<f32>,
+    texel_size: f32,
+    far_bound: f32,
+}
+    
+struct DirectionalLight {
+    cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    num_cascades: u32,
+    cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
 };
 
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
-    directional_lights: array<DirectionalLight, 1u>,
+    directional_lights: array<DirectionalLight, #{MAX_DIRECTIONAL_LIGHTS}u>,
     ambient_color: vec4<f32>,
     // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>,
@@ -61,7 +70,17 @@ struct Lights {
     spot_light_shadowmap_offset: i32,
 };
 
-#ifdef NO_STORAGE_BUFFERS_SUPPORT
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+struct PointLights {
+    data: array<PointLight>,
+};
+struct ClusterLightIndexLists {
+    data: array<u32>,
+};
+struct ClusterOffsetsAndCounts {
+    data: array<vec4<u32>>,
+};
+#else
 struct PointLights {
     data: array<PointLight, 256u>,
 };
@@ -74,16 +93,6 @@ struct ClusterOffsetsAndCounts {
     // and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>,
 };
-#else
-struct PointLights {
-    data: array<PointLight>,
-};
-struct ClusterLightIndexLists {
-    data: array<u32>,
-};
-struct ClusterOffsetsAndCounts {
-    data: array<vec4<u32>>,
-};
 #endif
 
 struct Globals {
@@ -95,4 +104,8 @@ struct Globals {
     // Frame count since the start of the app.
     // It wraps to zero when it reaches the maximum value of a u32.
     frame_count: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    // WebGL2 structs must be 16 byte aligned.
+    _wasm_padding: f32
+#endif
 }

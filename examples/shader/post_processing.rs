@@ -34,16 +34,18 @@ struct MainCube;
 
 fn setup(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
+    windows: Query<&Window>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let window = windows.primary_mut();
+    // This assumes we only have a single window
+    let window = windows.single();
+
     let size = Extent3d {
-        width: window.physical_width(),
-        height: window.physical_height(),
+        width: window.resolution.physical_width(),
+        height: window.resolution.physical_height(),
         ..default()
     };
 
@@ -95,19 +97,24 @@ fn setup(
     });
 
     // Main camera, first to render
-    commands.spawn(Camera3dBundle {
-        camera_3d: Camera3d {
-            clear_color: ClearColorConfig::Custom(Color::WHITE),
+    commands.spawn((
+        Camera3dBundle {
+            camera_3d: Camera3d {
+                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                ..default()
+            },
+            camera: Camera {
+                target: RenderTarget::Image(image_handle.clone()),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+                .looking_at(Vec3::default(), Vec3::Y),
             ..default()
         },
-        camera: Camera {
-            target: RenderTarget::Image(image_handle.clone()),
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
-        ..default()
-    });
+        // Disable UI rendering for the first pass camera. This prevents double rendering of UI at
+        // the cost of rendering the UI without any post processing effects.
+        UiCameraConfig { show_ui: false },
+    ));
 
     // This specifies the layer used for the post processing camera, which will be attached to the post processing camera and 2d quad.
     let post_processing_pass_layer = RenderLayers::layer((RenderLayers::TOTAL_LAYERS - 1) as u8);
@@ -141,7 +148,7 @@ fn setup(
         Camera2dBundle {
             camera: Camera {
                 // renders after the first main camera which has default value: 0.
-                priority: 1,
+                order: 1,
                 ..default()
             },
             ..Camera2dBundle::default()

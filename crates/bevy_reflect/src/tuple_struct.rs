@@ -1,5 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed, UnnamedField};
+use crate::{
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
+};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -53,6 +55,8 @@ pub struct TupleStructInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl TupleStructInfo {
@@ -69,7 +73,15 @@ impl TupleStructInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this struct.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Get the field at the given index.
@@ -111,6 +123,12 @@ impl TupleStructInfo {
     /// Check if the given type matches the tuple struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this struct, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -290,6 +308,11 @@ impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -312,6 +335,11 @@ impl Reflect for DynamicTupleStruct {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::TupleStruct(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::TupleStruct(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -365,9 +393,7 @@ impl Typed for DynamicTupleStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let tuple_struct = if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {
-        tuple_struct
-    } else {
+    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
         return Some(false);
     };
 

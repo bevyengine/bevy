@@ -8,6 +8,8 @@ pub use render_device::*;
 
 use crate::{
     render_graph::RenderGraph,
+    render_phase::TrackedRenderPass,
+    render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -15,7 +17,9 @@ use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -44,7 +48,7 @@ pub fn render_system(world: &mut World) {
             }
         }
 
-        panic!("Error running render graph: {}", e);
+        panic!("Error running render graph: {e}");
     }
 
     {
@@ -88,6 +92,11 @@ pub fn render_system(world: &mut World) {
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderQueue(pub Arc<Queue>);
 
+/// The handle to the physical device being used for rendering.
+/// See [`wgpu::Adapter`] for more info.
+#[derive(Resource, Clone, Debug, Deref, DerefMut)]
+pub struct RenderAdapter(pub Arc<Adapter>);
+
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Deref, DerefMut)]
@@ -97,17 +106,23 @@ pub struct RenderInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
+const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
+    "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
+} else {
+    "Unable to find a GPU! Make sure you have installed required drivers!"
+};
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo) {
+) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
-        .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
 
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
@@ -126,7 +141,7 @@ pub async fn initialize_renderer(
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
-        features = adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
@@ -250,12 +265,13 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
-    let device = Arc::new(device);
     let queue = Arc::new(queue);
+    let adapter = Arc::new(adapter);
     (
         RenderDevice::from(device),
         RenderQueue(queue),
         RenderAdapterInfo(adapter_info),
+        RenderAdapter(adapter),
     )
 }
 
@@ -264,6 +280,68 @@ pub async fn initialize_renderer(
 /// The [`RenderDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext {
-    pub render_device: RenderDevice,
-    pub command_encoder: CommandEncoder,
+    render_device: RenderDevice,
+    command_encoder: Option<CommandEncoder>,
+    command_buffers: Vec<CommandBuffer>,
+}
+
+impl RenderContext {
+    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
+    pub fn new(render_device: RenderDevice) -> Self {
+        Self {
+            render_device,
+            command_encoder: None,
+            command_buffers: Vec::new(),
+        }
+    }
+
+    /// Gets the underlying [`RenderDevice`].
+    pub fn render_device(&self) -> &RenderDevice {
+        &self.render_device
+    }
+
+    /// Gets the current [`CommandEncoder`].
+    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
+        self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        })
+    }
+
+    /// Creates a new [`TrackedRenderPass`] for the context,
+    /// configured using the provided `descriptor`.
+    pub fn begin_tracked_render_pass<'a>(
+        &'a mut self,
+        descriptor: RenderPassDescriptor<'a, '_>,
+    ) -> TrackedRenderPass<'a> {
+        // Cannot use command_encoder() as we need to split the borrow on self
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+        let render_pass = command_encoder.begin_render_pass(&descriptor);
+        TrackedRenderPass::new(&self.render_device, render_pass)
+    }
+
+    /// Append a [`CommandBuffer`] to the queue.
+    ///
+    /// If present, this will flush the currently unflushed [`CommandEncoder`]
+    /// into a [`CommandBuffer`] into the queue before append the provided
+    /// buffer.
+    pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
+        self.flush_encoder();
+        self.command_buffers.push(command_buffer);
+    }
+
+    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
+    pub fn finish(mut self) -> Vec<CommandBuffer> {
+        self.flush_encoder();
+        self.command_buffers
+    }
+
+    fn flush_encoder(&mut self) {
+        if let Some(encoder) = self.command_encoder.take() {
+            self.command_buffers.push(encoder.finish());
+        }
+    }
 }

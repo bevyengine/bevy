@@ -1,7 +1,10 @@
-use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
+use crate::{
+    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_PREPASS_SHADER_HANDLE,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::Handle;
 use bevy_math::Vec4;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
@@ -12,10 +15,11 @@ use bevy_render::{
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
+#[reflect(Default, Debug)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
@@ -186,13 +190,15 @@ pub struct StandardMaterial {
     /// When a triangle is in a viewport,
     /// if its vertices appear counter-clockwise from the viewport's perspective,
     /// then the viewport is seeing the triangle's front face.
-    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
+    /// Conversely, if the vertices appear clockwise, you are seeing the back face.
     ///
     /// In short, in bevy, front faces winds counter-clockwise.
     ///
     /// Your 3D editing software should manage all of that.
     ///
     /// [`Mesh`]: bevy_render::mesh::Mesh
+    // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
+    #[reflect(ignore)]
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.
@@ -292,14 +298,23 @@ bitflags::bitflags! {
         const OCCLUSION_TEXTURE          = (1 << 3);
         const DOUBLE_SIDED               = (1 << 4);
         const UNLIT                      = (1 << 5);
-        const ALPHA_MODE_OPAQUE          = (1 << 6);
-        const ALPHA_MODE_MASK            = (1 << 7);
-        const ALPHA_MODE_BLEND           = (1 << 8);
-        const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
-        const FLIP_NORMAL_MAP_Y          = (1 << 10);
+        const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
+        const FLIP_NORMAL_MAP_Y          = (1 << 7);
+        const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
+        const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
+        const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
+        const ALPHA_MODE_BLEND           = (2 << Self::ALPHA_MODE_SHIFT_BITS);                          //
+        const ALPHA_MODE_PREMULTIPLIED   = (3 << Self::ALPHA_MODE_SHIFT_BITS);                          //
+        const ALPHA_MODE_ADD             = (4 << Self::ALPHA_MODE_SHIFT_BITS);                          //   Right now only values 0–5 are used, which still gives
+        const ALPHA_MODE_MULTIPLY        = (5 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← us "room" for two more modes without adding more bits
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
+}
+
+impl StandardMaterialFlags {
+    const ALPHA_MODE_MASK_BITS: u32 = 0b111;
+    const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
@@ -374,6 +389,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
                 flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
+            AlphaMode::Premultiplied => flags |= StandardMaterialFlags::ALPHA_MODE_PREMULTIPLIED,
+            AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
+            AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
 
         StandardMaterialUniform {
@@ -411,18 +429,21 @@ impl Material for StandardMaterial {
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.normal_map {
-            descriptor
-                .fragment
-                .as_mut()
-                .unwrap()
-                .shader_defs
-                .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
+            if let Some(fragment) = descriptor.fragment.as_mut() {
+                fragment
+                    .shader_defs
+                    .push("STANDARDMATERIAL_NORMAL_MAP".into());
+            }
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         Ok(())
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.typed().into()
     }
 
     fn fragment_shader() -> ShaderRef {

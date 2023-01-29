@@ -44,7 +44,7 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.seconds_since_startup() > 2.0 {
+    if time.elapsed_seconds() > 2.0 {
         if let Some(entity) = query.iter().next() {
             commands.entity(entity).remove::<MyComponent>();
         }
@@ -52,7 +52,7 @@ fn remove_component(
 }
 
 fn react_on_removal(removed: RemovedComponents<MyComponent>, mut query: Query<&mut Sprite>) {
-    // `RemovedComponents<T>::iter()` returns an interator with the `Entity`s that had their
+    // `RemovedComponents<T>::iter()` returns an iterator with the `Entity`s that had their
     // `Component` `T` (in this case `MyComponent`) removed at some point earlier during the frame.
     for entity in removed.iter() {
         if let Ok(mut sprite) = query.get_mut(entity) {

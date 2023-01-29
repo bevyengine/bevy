@@ -1,7 +1,6 @@
 use crate::Val;
-use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// A type which is commonly used to define positions, margins, paddings and borders.
 ///
@@ -120,7 +119,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
@@ -134,6 +133,13 @@ pub struct UiRect {
 }
 
 impl UiRect {
+    pub const DEFAULT: Self = Self {
+        left: Val::DEFAULT,
+        right: Val::DEFAULT,
+        top: Val::DEFAULT,
+        bottom: Val::DEFAULT,
+    };
+
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -153,7 +159,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -176,7 +182,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn all(value: Val) -> Self {
+    pub const fn all(value: Val) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -314,10 +320,16 @@ impl UiRect {
     }
 }
 
+impl Default for UiRect {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
@@ -327,6 +339,11 @@ pub struct Size {
 }
 
 impl Size {
+    pub const DEFAULT: Self = Self {
+        width: Val::DEFAULT,
+        height: Val::DEFAULT,
+    };
+
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -339,7 +356,7 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub fn new(width: Val, height: Val) -> Self {
+    pub const fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
 
@@ -356,39 +373,18 @@ impl Size {
     };
 }
 
-impl Add<Vec2> for Size {
-    type Output = Size;
+impl Default for Size {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
-    fn add(self, rhs: Vec2) -> Self::Output {
+impl From<(Val, Val)> for Size {
+    fn from(vals: (Val, Val)) -> Self {
         Self {
-            width: self.width + rhs.x,
-            height: self.height + rhs.y,
+            width: vals.0,
+            height: vals.1,
         }
-    }
-}
-
-impl AddAssign<Vec2> for Size {
-    fn add_assign(&mut self, rhs: Vec2) {
-        self.width += rhs.x;
-        self.height += rhs.y;
-    }
-}
-
-impl Sub<Vec2> for Size {
-    type Output = Size;
-
-    fn sub(self, rhs: Vec2) -> Self::Output {
-        Self {
-            width: self.width - rhs.x,
-            height: self.height - rhs.y,
-        }
-    }
-}
-
-impl SubAssign<Vec2> for Size {
-    fn sub_assign(&mut self, rhs: Vec2) {
-        self.width -= rhs.x;
-        self.height -= rhs.y;
     }
 }
 
@@ -433,27 +429,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_size_add() {
+    fn test_size_from() {
+        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
+
         assert_eq!(
-            Size::new(Val::Px(10.), Val::Px(10.)) + Vec2::new(10., 10.),
-            Size::new(Val::Px(20.), Val::Px(20.))
+            size,
+            Size {
+                width: Val::Px(20.),
+                height: Val::Px(30.),
+            }
         );
-
-        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
-        size += Vec2::new(10., 10.);
-        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
-    }
-
-    #[test]
-    fn test_size_sub() {
-        assert_eq!(
-            Size::new(Val::Px(20.), Val::Px(20.)) - Vec2::new(10., 10.),
-            Size::new(Val::Px(10.), Val::Px(10.))
-        );
-
-        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
-        size -= Vec2::new(10., 10.);
-        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
     }
 
     #[test]
