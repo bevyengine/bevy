@@ -160,6 +160,20 @@ impl<'w, T> WorldBorrow<'w, T> {
     }
 }
 
+impl<'w, T> Clone for WorldBorrow<'w, T> {
+    fn clone(&self) -> Self {
+        // NOTE: technically there is a redundant assert in the following call.
+        // `self.witness` guarantees that assertion is never violated.
+        // It should be cheap enough so let's keep it this way until profiling proves otherwise.
+        WorldBorrow::try_new(
+            || Some(self.value),
+            self.witness.archetype_component_id,
+            self.witness.access.clone(),
+        )
+        .unwrap()
+    }
+}
+
 impl<'w, T> Deref for WorldBorrow<'w, T> {
     type Target = T;
 
