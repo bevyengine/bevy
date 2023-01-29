@@ -1,6 +1,9 @@
 //! Example of a global override for pbr functions for all materials
 
-use bevy::{pbr::{PbrShaderFunctionOverrides, CascadeShadowConfig}, prelude::*};
+use bevy::{
+    pbr::{CascadeShadowConfig, PbrShaderFunctionOverrides},
+    prelude::*,
+};
 
 fn main() {
     App::new()

@@ -15,8 +15,8 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
-use parking_lot::Mutex;
 use naga::valid::Capabilities;
+use parking_lot::Mutex;
 use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{

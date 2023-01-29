@@ -158,7 +158,7 @@ impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> 
             .collect();
 
         let as_name = match &shader.import_path {
-            ShaderImport::AssetPath(asset_path) => Some(format!("\"{}\"", asset_path)),
+            ShaderImport::AssetPath(asset_path) => Some(format!("\"{asset_path}\"")),
             ShaderImport::Custom(_) => None,
         };
 
