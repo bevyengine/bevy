@@ -265,7 +265,7 @@ impl Plugin for RenderPlugin {
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush")
+                        bevy_utils::tracing::info_span!("reserve_and_flush")
                             .entered();
 
                     // reserve all existing main world entities for use in render_app
@@ -288,13 +288,7 @@ impl Plugin for RenderPlugin {
                 }
 
                 // run extract schedule
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "extract").entered();
-
-                    extract(main_world, render_app);
-                }
+                extract(main_world, render_app);
             }));
         }
 
