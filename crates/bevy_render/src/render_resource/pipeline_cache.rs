@@ -345,11 +345,7 @@ impl ShaderCache {
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
                 shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
 
-                if let Some(Shader {
-                    import_path: Some(import_path),
-                    ..
-                }) = self.shaders.get(&handle)
-                {
+                if let Some(Shader { import_path, .. }) = self.shaders.get(&handle) {
                     self.composer.remove_composable_module(import_path.as_str());
                 }
             }
@@ -360,19 +356,18 @@ impl ShaderCache {
 
     fn set_shader(&mut self, handle: &Handle<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
         let pipelines_to_queue = self.clear(handle);
-        if let Some(path) = shader.import_path() {
-            self.import_path_shaders
-                .insert(path.clone(), handle.clone_weak());
-            if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
-                for waiting_shader in waiting_shaders.drain(..) {
-                    // resolve waiting shader import
-                    let data = self.data.entry(waiting_shader.clone_weak()).or_default();
-                    data.resolved_imports
-                        .insert(path.clone(), handle.clone_weak());
-                    // add waiting shader as dependent of this shader
-                    let data = self.data.entry(handle.clone_weak()).or_default();
-                    data.dependents.insert(waiting_shader.clone_weak());
-                }
+        let path = shader.import_path();
+        self.import_path_shaders
+            .insert(path.clone(), handle.clone_weak());
+        if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
+            for waiting_shader in waiting_shaders.drain(..) {
+                // resolve waiting shader import
+                let data = self.data.entry(waiting_shader.clone_weak()).or_default();
+                data.resolved_imports
+                    .insert(path.clone(), handle.clone_weak());
+                // add waiting shader as dependent of this shader
+                let data = self.data.entry(handle.clone_weak()).or_default();
+                data.dependents.insert(waiting_shader.clone_weak());
             }
         }
 
@@ -398,9 +393,7 @@ impl ShaderCache {
     fn remove(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
         let pipelines_to_queue = self.clear(handle);
         if let Some(shader) = self.shaders.remove(handle) {
-            if let Some(import_path) = shader.import_path() {
-                self.import_path_shaders.remove(import_path);
-            }
+            self.import_path_shaders.remove(shader.import_path());
         }
 
         pipelines_to_queue

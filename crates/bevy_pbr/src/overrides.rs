@@ -1,8 +1,7 @@
 use crate::PBR_OVERRIDE_HANDLE;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::prelude::{DetectChanges, EventReader, Res, ResMut, Resource};
-use bevy_render::render_resource::{Shader, ShaderImport};
-use bevy_utils::tracing::warn;
+use bevy_render::render_resource::Shader;
 use naga_oil::compose::ImportDefinition;
 
 #[derive(Default, Resource)]
@@ -33,23 +32,8 @@ pub(crate) fn update_shader_overrides(
             .overrides
             .iter()
             // skip any handles that are not (yet) loaded
-            .flat_map(|handle| shaders.get(handle).map(|shader| (handle, shader)))
-            .flat_map(
-                |(handle, shader)| match (&shader.import_path, &shader.path) {
-                    // prefer import_path
-                    (Some(import_path), _) => Some(import_path.clone()),
-                    // fall back to "path"
-                    (None, Some(path)) => Some(ShaderImport::AssetPath(path.clone())),
-                    // skip any shaders that don't have an import path or a path
-                    _ => {
-                        warn!(
-                            "pbr shader function with handle {:?} has no `import_path` or `path`",
-                            handle
-                        );
-                        None
-                    }
-                },
-            )
+            .flat_map(|handle| shaders.get(handle))
+            .map(|shader| shader.import_path.clone())
             .collect();
 
         let mut shader = shaders.get_mut(&PBR_OVERRIDE_HANDLE.typed_weak()).unwrap();
