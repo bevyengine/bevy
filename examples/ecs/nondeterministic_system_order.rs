@@ -7,7 +7,7 @@
 //! Because their data accesses are **compatible**, there is no **observable** difference created based on the order they are run.
 //!
 //! But if instead we have two systems mutating the same data, or one reading it and the other mutating,
-//! than the actual observed value will vary based on the nondeterministic order of evaluation.
+//! then the actual observed value will vary based on the nondeterministic order of evaluation.
 //! These observable conflicts are called **system execution order ambiguities**.
 //!
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
