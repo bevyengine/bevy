@@ -175,6 +175,14 @@ impl Schedule {
         self
     }
 
+    /// Normally the schedule applies buffers one final time after all systems have run.
+    /// Setting this tells the schedule to skip the final sync. Any apply_systems_buffers
+    /// systems that have been added to the schedule will still run.
+    pub fn skip_final_apply_buffers(&mut self) -> &mut Self {
+        self.executor.skip_final_apply_buffers();
+        self
+    }
+
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();

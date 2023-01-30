@@ -22,6 +22,10 @@ impl SystemExecutor for SimpleExecutor {
         ExecutorKind::Simple
     }
 
+    fn skip_final_apply_buffers(&mut self) {
+        // do nothing. simple executor does not do a final sync
+    }
+
     fn init(&mut self, schedule: &SystemSchedule) {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();

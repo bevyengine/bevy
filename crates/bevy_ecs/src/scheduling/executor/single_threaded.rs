@@ -21,11 +21,17 @@ pub struct SingleThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
+    /// Setting when true applies system buffers after all systems have run
+    apply_system_buffers_at_end: bool,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::SingleThreaded
+    }
+
+    fn skip_final_apply_buffers(&mut self) {
+        self.apply_system_buffers_at_end = false;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -96,7 +102,9 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
         }
 
-        self.apply_system_buffers(schedule, world);
+        if self.apply_system_buffers_at_end {
+            self.apply_system_buffers(schedule, world);
+        }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
@@ -108,6 +116,7 @@ impl SingleThreadedExecutor {
             evaluated_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
+            apply_system_buffers_at_end: true,
         }
     }
 
