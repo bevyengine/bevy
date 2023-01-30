@@ -34,6 +34,7 @@ pub struct StorageBuffer<T: ShaderType> {
     capacity: usize,
     label: Option<String>,
     label_changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> From<T> for StorageBuffer<T> {
@@ -45,6 +46,7 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             capacity: 0,
             label: None,
             label_changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
         }
     }
 }
@@ -58,6 +60,7 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             capacity: 0,
             label: None,
             label_changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
         }
     }
 }
@@ -101,6 +104,10 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.label.as_deref()
     }
 
+    pub fn set_usage(&mut self, usage: BufferUsages) {
+        self.buffer_usage.set(usage, true);
+    }
+
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
@@ -114,7 +121,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
@@ -153,6 +160,7 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     capacity: usize,
     label: Option<String>,
     label_changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
@@ -164,6 +172,7 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             capacity: 0,
             label: None,
             label_changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
         }
     }
 }
@@ -214,6 +223,10 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         self.label.as_deref()
     }
 
+    pub fn set_usage(&mut self, usage: BufferUsages) {
+        self.buffer_usage.set(usage, true);
+    }
+
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
@@ -221,7 +234,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;

@@ -33,6 +33,7 @@ pub struct UniformBuffer<T: ShaderType> {
     buffer: Option<Buffer>,
     label: Option<String>,
     label_changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> From<T> for UniformBuffer<T> {
@@ -43,6 +44,7 @@ impl<T: ShaderType> From<T> for UniformBuffer<T> {
             buffer: None,
             label: None,
             label_changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
         }
     }
 }
@@ -55,6 +57,7 @@ impl<T: ShaderType + Default> Default for UniformBuffer<T> {
             buffer: None,
             label: None,
             label_changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
         }
     }
 }
@@ -99,6 +102,10 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.label.as_deref()
     }
 
+    pub fn set_usage(&mut self, usage: BufferUsages) {
+        self.buffer_usage.set(usage, true);
+    }
+
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue), if a GPU-side backing buffer already exists.
     ///
@@ -110,7 +117,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         if self.label_changed || self.buffer.is_none() {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.label_changed = false;
@@ -146,6 +153,7 @@ pub struct DynamicUniformBuffer<T: ShaderType> {
     capacity: usize,
     label: Option<String>,
     label_changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
@@ -157,6 +165,7 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
             capacity: 0,
             label: None,
             label_changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
         }
     }
 }
@@ -208,6 +217,10 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
+    pub fn set_usage(&mut self, usage: BufferUsages) {
+        self.buffer_usage.set(usage, true);
+    }
+
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
@@ -220,7 +233,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
