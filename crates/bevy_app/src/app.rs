@@ -97,7 +97,7 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel, SubApp};
+/// # use bevy_app::{App, AppLabel, SubApp, CoreSchedule};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::scheduling::ScheduleLabel;
 ///
@@ -107,26 +107,28 @@ impl Debug for App {
 /// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 /// struct ExampleApp;
 ///
-/// #[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
-/// struct ExampleSchedule;
-///
-/// let mut app = App::empty();
+/// let mut app = App::new();
+/// 
 /// // initialize the main app with a value of 0;
 /// app.insert_resource(Val(10));
 ///
 /// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
+/// // add an outer schedule that runs the main schedule
+/// sub_app.add_simple_outer_schedule();
 /// sub_app.insert_resource(Val(100));
-/// let mut example_schedule = Schedule::new();
-/// example_schedule.add_system(|counter: Res<Val>| {
+/// 
+/// // initialize main schedule
+/// sub_app.init_schedule(CoreSchedule::Main);
+/// sub_app.add_system(|counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
 /// });
-/// sub_app.add_schedule(ExampleSchedule, example_schedule);
-///
+/// 
 /// // add the sub_app to the app
 /// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
+///     // extract the value from the main app to the sub app
 ///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
 /// }));
 ///
