@@ -759,7 +759,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 /// Types that can be used with [`Deferred<T>`] in systems.
 /// This allows storing system-local data which is used to defer [`World`] mutations.
 ///
-/// When implementing `SystemBuffer`, you should take care to perform as many
+/// Types that implement `SystemBuffer` should take care to perform as many
 /// computations up-front as possible. Buffers cannot be applied in parallel,
 /// so you should try to minimize the time spent in [`SystemBuffer::apply`].
 pub trait SystemBuffer: FromWorld + Send + 'static {
