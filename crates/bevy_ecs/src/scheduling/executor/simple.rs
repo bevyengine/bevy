@@ -22,7 +22,7 @@ impl SystemExecutor for SimpleExecutor {
         ExecutorKind::Simple
     }
 
-    fn skip_final_apply_buffers(&mut self) {
+    fn set_apply_final_buffers(&mut self, _: bool) {
         // do nothing. simple executor does not do a final sync
     }
 

@@ -220,7 +220,7 @@ impl Plugin for RenderPlugin {
             // Prepare the schedule which extracts data from the main world to the render world
             render_app.edit_schedule(ExtractSchedule, |schedule| {
                 schedule
-                    .skip_final_apply_buffers()
+                    .set_apply_final_buffers(false)
                     .add_system(PipelineCache::extract_shaders);
             });
 

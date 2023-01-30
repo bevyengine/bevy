@@ -97,7 +97,7 @@ pub struct MultiThreadedExecutor {
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
     /// Setting when true applies system buffers after all systems have run
-    apply_system_buffers_at_end: bool,
+    apply_final_buffers: bool,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -111,8 +111,8 @@ impl SystemExecutor for MultiThreadedExecutor {
         ExecutorKind::MultiThreaded
     }
 
-    fn skip_final_apply_buffers(&mut self) {
-        self.apply_system_buffers_at_end = false;
+    fn set_apply_final_buffers(&mut self, value: bool) {
+        self.apply_final_buffers = value;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -207,10 +207,10 @@ impl SystemExecutor for MultiThreadedExecutor {
             },
         );
 
-        if self.apply_system_buffers_at_end {
-            // SAFETY: all systems have completed
+        if self.apply_final_buffers {
+            // SAFETY: all systems have completed, and so no outstanding accesses remain
             let world = unsafe { &mut *world.get() };
-            // this is running on the executor thread when it should run on the scope's thread
+            // Commands should be applied while on the scope's thread, not the executor's thread
             apply_system_buffers(&mut self.unapplied_systems, systems, world);
             self.unapplied_systems.clear();
             debug_assert!(self.unapplied_systems.is_clear());
@@ -245,7 +245,7 @@ impl MultiThreadedExecutor {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_system_buffers_at_end: true,
+            apply_final_buffers: true,
         }
     }
 
