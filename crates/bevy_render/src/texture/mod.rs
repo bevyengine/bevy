@@ -14,8 +14,6 @@ mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
 
-pub mod texture_tiling;
-
 pub use self::image::*;
 #[cfg(feature = "ktx2")]
 pub use self::ktx2::*;
@@ -53,26 +51,14 @@ impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: wgpu::SamplerDescriptor {
-                // Address mode set to repeat for texture tiling.
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                ..ImageSampler::linear_descriptor()
-            },
+            default_sampler: ImageSampler::linear_descriptor()
         }
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: wgpu::SamplerDescriptor {
-                // Address mode set to repeat for texture tiling.
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                ..ImageSampler::nearest_descriptor()
-            },
+            default_sampler: ImageSampler::nearest_descriptor()
         }
     }
 }
