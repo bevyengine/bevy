@@ -102,16 +102,16 @@ pub struct TemporalAntialiasBundle {
 
 /// Component to apply temporal antialiasing to a 3d perspective camera.
 ///
-/// Temporal antialiasing (TAA) is a form of post-processing image smoothing/filtering, like
-/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA). TAA works by
-/// blending (averaging) each frame with the past few frames.
+/// Temporal antialiasing (TAA) is a form of image smoothing/filtering, like
+/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA).
+/// TAA works by blending (averaging) each frame with the past few frames.
 ///
 /// # Tradeoffs
 ///
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Filters more types of aliasing than MSAA, such as textures and bright single pixels
-/// * Greatly increases quality of stochastic rendering techniques, such as SSAO and SSR
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
+/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO and SSR
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
@@ -132,7 +132,7 @@ pub struct TemporalAntialiasBundle {
 /// It is recommended that you use TAA with an HDR camera. Using an SDR camera
 /// will result in slight banding artifacts and shifted brightness.
 ///
-/// Cannot be used with `OrthographicProjection`.
+/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 #[derive(Component, Reflect, Clone, Default)]
 pub struct TemporalAntialiasSettings {}
 

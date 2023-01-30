@@ -595,6 +595,7 @@ pub fn extract_cameras(
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default)]
 pub struct TemporalJitter {
+    /// Offset is in range [0, 1].
     pub offset: Vec2,
 }
 
@@ -604,14 +605,15 @@ impl TemporalJitter {
             warn!(
                 "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
             );
-        } else {
-            let jitter = (2.0 * self.offset) / view_size;
-            let jitter_matrix = Mat4::from_translation(Vec3 {
-                x: jitter.x,
-                y: -jitter.y,
-                z: 0.0,
-            });
-            *projection = jitter_matrix * (*projection);
+            return;
         }
+
+        let jitter = (2.0 * self.offset) / view_size;
+        let jitter_matrix = Mat4::from_translation(Vec3 {
+            x: jitter.x,
+            y: -jitter.y,
+            z: 0.0,
+        });
+        *projection = jitter_matrix * (*projection);
     }
 }

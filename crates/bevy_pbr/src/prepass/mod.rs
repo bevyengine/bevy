@@ -96,20 +96,6 @@ where
             Shader::from_wgsl
         );
 
-        load_internal_asset!(
-            app,
-            PREPASS_UTILS_SHADER_HANDLE,
-            "prepass_utils.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            PREPASS_UTILS_SHADER_HANDLE,
-            "prepass_utils.wgsl",
-            Shader::from_wgsl
-        );
-
         app.add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
             .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
 
