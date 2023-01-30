@@ -8,7 +8,6 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    removal_detection::RemovedComponentEvents,
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -1102,27 +1101,6 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.bundles()
-    }
-}
-
-// SAFETY: Only reads World removed component events
-unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
-
-// SAFETY: no component value access
-unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
-    type State = ();
-    type Item<'w, 's> = &'w RemovedComponentEvents;
-
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        _state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        world: &'w World,
-        _change_tick: u32,
-    ) -> Self::Item<'w, 's> {
-        world.removed_components()
     }
 }
 

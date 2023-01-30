@@ -7,8 +7,9 @@ use crate::{
     event::{Events, ManualEventIterator, ManualEventReader},
     prelude::Local,
     storage::SparseSet,
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam},
+    world::World,
 };
-use bevy_ecs_macros::SystemParam;
 
 use std::{
     fmt::Debug,
@@ -118,7 +119,10 @@ pub struct RemovedComponents<'w, 's, T: Component> {
     event_sets: &'w RemovedComponentEvents,
 }
 
-type RemovedIter<'a> =
+/// Iterator over entities that had a specific component removed.
+///
+/// See [`RemovedComponents`].
+pub type RemovedIter<'a> =
     iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, Entity>>>>;
 
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
@@ -139,5 +143,27 @@ where
     type IntoIter = RemovedIter<'a>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+// SAFETY: Only reads World removed component events
+unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
+
+// SAFETY: no component value access, removed component events can be read in parallel and are
+// never mutably borrowed during system execution
+unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
+    type State = ();
+    type Item<'w, 's> = &'w RemovedComponentEvents;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item<'w, 's> {
+        world.removed_components()
     }
 }

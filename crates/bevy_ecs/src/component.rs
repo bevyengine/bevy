@@ -3,7 +3,7 @@
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::{Resource, Local},
+    system::{Local, Resource},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
