@@ -3,7 +3,10 @@ name: Welcome new contributors
 # This workflow has write permissions on the repo
 # It must not checkout a PR and run untrusted code
 
-on: pull_request_target
+on:
+  pull_request:
+    types:
+      - opened
 
 jobs:
   welcome:
@@ -28,7 +31,7 @@ jobs:
               }
 
               if (issue.pull_request) {
-                return // Creator is already a contributor.
+                // return // Creator is already a contributor.
               }
             }
 
@@ -38,5 +41,5 @@ jobs:
               repo: context.repo.repo,
               body: `**Welcome**, new contributor!
 
-                Please make sure you're read our [contributing guide](CONTRIBUTING.md) and we look forward to reviewing your Pull request shortly ✨`
+              Please make sure you're read our [contributing guide](CONTRIBUTING.md) and we look forward to reviewing your Pull request shortly ✨`
             })
