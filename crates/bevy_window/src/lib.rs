@@ -15,7 +15,7 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, MonitorSelection,
+        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
         ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
         WindowResizeConstraints,
     };
@@ -79,6 +79,7 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
+            .add_event::<Ime>()
             .add_event::<WindowFocused>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()

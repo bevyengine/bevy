@@ -411,6 +411,7 @@ pub fn prepare_prepass_textures(
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
                 })
@@ -432,6 +433,7 @@ pub fn prepare_prepass_textures(
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
                         },
                     )
                 })

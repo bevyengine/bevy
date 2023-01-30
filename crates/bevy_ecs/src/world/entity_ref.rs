@@ -564,14 +564,29 @@ impl<'w> EntityMut<'w> {
     /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
-        let val = f(self.world);
-        self.update_location();
-        val
+        struct Guard<'w, 'a> {
+            entity_mut: &'a mut EntityMut<'w>,
+        }
+
+        impl Drop for Guard<'_, '_> {
+            #[inline]
+            fn drop(&mut self) {
+                self.entity_mut.update_location();
+            }
+        }
+
+        // When `guard` is dropped at the end of this scope,
+        // it will update the cached `EntityLocation` for this instance.
+        // This will run even in case the closure `f` unwinds.
+        let guard = Guard { entity_mut: self };
+        f(guard.entity_mut.world)
     }
 
     /// Updates the internal entity location to match the current location in the internal
-    /// [`World`]. This is only needed if the user called [`EntityMut::world`], which enables the
-    /// location to change.
+    /// [`World`].
+    ///
+    /// This is *only* required when using the unsafe function [`EntityMut::world_mut`],
+    /// which enables the location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
     }
@@ -856,6 +871,8 @@ pub(crate) unsafe fn take_component<'a>(
 
 #[cfg(test)]
 mod tests {
+    use std::panic::AssertUnwindSafe;
+
     use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::prelude::*; // for the `#[derive(Component)]`
@@ -946,5 +963,29 @@ mod tests {
         let mut entity = world.spawn_empty();
         assert!(entity.get_by_id(invalid_component_id).is_none());
         assert!(entity.get_mut_by_id(invalid_component_id).is_none());
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7387
+    #[test]
+    fn entity_mut_world_scope_panic() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let id = entity.id();
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.world_scope(|w| {
+                // Change the entity's `EntityLocation`, which invalidates the original `EntityMut`.
+                // This will get updated at the end of the scope.
+                w.entity_mut(id).insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(res.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert!(entity.location() != old_location);
     }
 }

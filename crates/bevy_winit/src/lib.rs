@@ -25,9 +25,10 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows, ReceivedCharacter,
-    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
+    CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ModifiesWindows,
+    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    WindowScaleFactorChanged,
 };
 
 use winit::{
@@ -170,6 +171,7 @@ struct InputEvents<'w> {
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
     mouse_wheel_input: EventWriter<'w, MouseWheel>,
     touch_input: EventWriter<'w, TouchInput>,
+    ime_input: EventWriter<'w, Ime>,
 }
 
 #[derive(SystemParam)]
@@ -555,6 +557,25 @@ pub fn winit_runner(mut app: App) {
                             position,
                         });
                     }
+                    WindowEvent::Ime(event) => match event {
+                        event::Ime::Preedit(value, cursor) => {
+                            input_events.ime_input.send(Ime::Preedit {
+                                window: window_entity,
+                                value,
+                                cursor,
+                            });
+                        }
+                        event::Ime::Commit(value) => input_events.ime_input.send(Ime::Commit {
+                            window: window_entity,
+                            value,
+                        }),
+                        event::Ime::Enabled => input_events.ime_input.send(Ime::Enabled {
+                            window: window_entity,
+                        }),
+                        event::Ime::Disabled => input_events.ime_input.send(Ime::Disabled {
+                            window: window_entity,
+                        }),
+                    },
                     _ => {}
                 }
             }

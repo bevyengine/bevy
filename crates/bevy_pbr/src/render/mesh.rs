@@ -1,7 +1,7 @@
 use crate::{
-    environment_map::new_environment_map_bind_group_layout, GlobalLightMeta, GpuLights,
-    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    environment_map::new_environment_map_bind_group_layout, FogMeta, GlobalLightMeta, GpuFog,
+    GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
@@ -402,11 +402,22 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Fog
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(GpuFog::min_size()),
+                    },
+                    count: None,
+                },
             ];
             if cfg!(not(feature = "webgl")) {
                 // Depth texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 10,
+                    binding: 11,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -417,7 +428,7 @@ impl FromWorld for MeshPipeline {
                 });
                 // Normal texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 11,
+                    binding: 12,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -895,6 +906,7 @@ pub fn queue_mesh_view_bind_groups(
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
+    fog_meta: Res<FogMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(
         Entity,
@@ -907,11 +919,18 @@ pub fn queue_mesh_view_bind_groups(
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
+    if let (
+        Some(view_binding),
+        Some(light_binding),
+        Some(point_light_binding),
+        Some(globals),
+        Some(fog_binding),
+    ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
+        fog_meta.gpu_fogs.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
             let layout = if msaa.samples() > 1 {
@@ -965,6 +984,10 @@ pub fn queue_mesh_view_bind_groups(
                     binding: 9,
                     resource: globals.clone(),
                 },
+                BindGroupEntry {
+                    binding: 10,
+                    resource: fog_binding.clone(),
+                },
             ];
 
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
@@ -979,7 +1002,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 10,
+                    binding: 11,
                     resource: BindingResource::TextureView(depth_view),
                 });
 
@@ -992,7 +1015,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 11,
+                    binding: 12,
                     resource: BindingResource::TextureView(normal_view),
                 });
             }
@@ -1016,6 +1039,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     type ViewWorldQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<ViewFogUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemWorldQuery = ();
@@ -1023,7 +1047,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, mesh_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
+            'w,
+            Self::ViewWorldQuery,
+        >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -1031,7 +1058,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset],
+            &[view_uniform.offset, view_lights.offset, view_fog.offset],
         );
 
         RenderCommandResult::Success
