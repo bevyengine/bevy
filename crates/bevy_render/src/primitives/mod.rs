@@ -3,8 +3,8 @@ use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::HashMap;
 
-/// An Axis-Aligned Bounding Box
-#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
+/// An axis-aligned bounding box.
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
