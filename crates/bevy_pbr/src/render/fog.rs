@@ -53,6 +53,8 @@ pub fn prepare_fog(
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
+    fog_meta.gpu_fogs.clear();
+
     for (entity, fog) in &views {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.falloff {
