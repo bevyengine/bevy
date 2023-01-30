@@ -201,9 +201,9 @@ impl SystemExecutor for MultiThreadedExecutor {
             },
         );
 
-        // SAFETY: all systems have completed
+        // SAFETY: all systems have completed, and so no outstanding accesses remain
         let world = unsafe { &mut *world.get() };
-        // this is running on the executor thread when it should run on the scope's thread
+        // Commands should be applied while on the scope's thread, not the executor's thread
         apply_system_buffers(&mut self.unapplied_systems, systems, world);
         self.unapplied_systems.clear();
 
