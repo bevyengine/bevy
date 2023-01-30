@@ -142,7 +142,7 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
-    needs: check-examples-readme-update-needed
+    needs: check-missing-examples-in-docs
     if: always()
     steps:
       - uses: actions/checkout@v3
@@ -156,8 +156,6 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
-          # Not needed here as only one Linter is used.
-          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   run-examples:
     runs-on: ubuntu-latest
@@ -193,6 +191,7 @@ jobs:
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
+            echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
             time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
@@ -203,6 +202,17 @@ jobs:
         with:
           name: example-traces.zip
           path: traces.zip
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./example-run
+          echo ${{ github.event.number }} > ./example-run/NR
+          mv last_example_run ./example-run/
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: example-run
+          path: example-run/
 
   check-doc:
     runs-on: ubuntu-latest
@@ -239,19 +249,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: cargo run -p build-example-pages -- check-missing
-
-  check-examples-readme-update-needed:
-    needs: check-missing-examples-in-docs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: cargo run -p build-example-pages -- update
+      - name: check for missing metadata
+        id: missing-metadata
+        run: cargo run -p build-example-pages -- check-missing
+      - name: check for missing update
+        id: missing-update
+        run: cargo run -p build-example-pages -- update
       - name: Check for modified files
         run: |
           echo "if this step fails, run the following command and commit the changed file on your PR."
           echo " > cargo run -p build-example-pages -- update"
           git diff --quiet HEAD --
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./missing-examples
+          echo ${{ github.event.number }} > ./missing-examples/NR
+      - name: log failed task - missing metadata
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-metadata.conclusion == 'failure' }}
+        run: touch ./missing-examples/missing-metadata
+      - name: log failed task - missing update
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
+        run: touch ./missing-examples/missing-update
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: missing-examples
+          path: missing-examples/
 
   check-unused-dependencies:
     runs-on: ubuntu-latest
@@ -301,3 +325,13 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Run cargo check
         run: cargo check
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./msrv
+          echo ${{ github.event.number }} > ./msrv/NR
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: msrv
+          path: msrv/

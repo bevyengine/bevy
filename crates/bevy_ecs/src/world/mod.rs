@@ -1,5 +1,6 @@
 mod entity_ref;
 mod spawn_batch;
+pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
@@ -17,7 +18,6 @@ use crate::{
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
     system::Resource,
@@ -26,12 +26,15 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
+    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
 mod identifier;
 
 pub use identifier::WorldId;
+
+use self::unsafe_world_cell::UnsafeWorldCell;
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -60,8 +63,8 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
-    /// Access cache used by [WorldCell].
-    pub(crate) archetype_component_access: ArchetypeComponentAccess,
+    /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
+    pub(crate) archetype_component_access: UnsafeCell<ArchetypeComponentAccess>,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
     pub(crate) last_check_tick: u32,
@@ -103,6 +106,23 @@ impl World {
     #[inline]
     pub fn id(&self) -> WorldId {
         self.id
+    }
+
+    /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new(self)
+    }
+
+    /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new(self)
+    }
+
+    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
+    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
+    /// has been replaced.
+    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new(self)
     }
 
     /// Retrieves this world's [Entities] collection
@@ -991,7 +1011,7 @@ impl World {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        unsafe { self.get_resource_unchecked_mut() }
+        unsafe { self.as_unsafe_world_cell().get_resource_mut() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -1022,18 +1042,6 @@ impl World {
         };
         // SAFETY: The underlying type of the resource is `R`.
         unsafe { data.with_type::<R>() }
-    }
-
-    /// Gets a mutable reference to the resource of the given type, if it exists
-    /// Otherwise returns [None]
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given resource type. The caller must ensure
-    /// that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_resource_unchecked_mut_with_id(component_id)
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -1100,22 +1108,7 @@ impl World {
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        unsafe { self.get_non_send_resource_unchecked_mut() }
-    }
-
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
-    ///
-    /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given non-send resource type. The caller must
-    /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_non_send_unchecked_mut_with_id(component_id)
+        unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
@@ -1400,25 +1393,6 @@ impl World {
 
     /// # Safety
     /// `component_id` must be assigned to a component of type `R`
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<R>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
-        Some(Mut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(
-                ticks,
-                self.last_change_tick(),
-                self.read_change_tick(),
-            ),
-        })
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
     #[inline]
     pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
         &self,
@@ -1431,30 +1405,6 @@ impl World {
                 .get_data()?
                 .deref::<R>(),
         )
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`.
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self
-            .storages
-            .non_send_resources
-            .get(component_id)?
-            .get_with_ticks()?;
-        Some(Mut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            },
-        })
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -1655,7 +1605,7 @@ impl World {
 }
 
 impl World {
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
@@ -1666,7 +1616,7 @@ impl World {
         self.storages.resources.get(component_id)?.get_data()
     }
 
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
@@ -1674,20 +1624,11 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let change_tick = self.change_tick();
-        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
-
-        let ticks =
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
-
-        Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
-            value: unsafe { ptr.assert_unique() },
-            ticks,
-        })
+        // SAFETY: unique world access
+        unsafe {
+            self.as_unsafe_world_cell()
+                .get_resource_mut_by_id(component_id)
+        }
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
@@ -1811,7 +1752,7 @@ impl World {
 }
 
 impl World {
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
     ///
     /// # Safety
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
@@ -1830,7 +1771,7 @@ impl World {
         self.get_component_and_ticks(component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1862,7 +1803,7 @@ impl World {
         }
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1882,7 +1823,7 @@ impl World {
         self.get_component(component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1909,7 +1850,7 @@ impl World {
         }
     }
 
-    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
+    /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1929,7 +1870,7 @@ impl World {
         self.get_ticks(component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`]
+    /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
