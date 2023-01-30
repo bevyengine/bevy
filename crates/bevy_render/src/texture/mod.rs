@@ -43,7 +43,7 @@ pub struct ImagePlugin {
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear()
+        ImagePlugin::default_linear(),
     }
 }
 
@@ -51,7 +51,7 @@ impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::linear_descriptor()
+            default_sampler: ImageSampler::linear_descriptor(),
         }
     }
 
