@@ -3,7 +3,6 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::render::texture::texture_tiling;
 
 fn main() {
     App::new()
@@ -66,13 +65,7 @@ fn setup(
     // textured quad - modulated (with texture tiling)
     let mut red_tiled_texture_mesh =
         Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
-    texture_tiling::update_mesh_uvs_with_tiling(
-        &mut red_tiled_texture_mesh,
-        (
-            texture_tiling::TextureTilingMode::Stretch,
-            texture_tiling::TextureTilingMode::Tiles(3.0),
-        ),
-    );
+    update_mesh_uvs_with_tiling(&mut red_tiled_texture_mesh, (1.0, 3.0));
     commands.spawn(PbrBundle {
         mesh: meshes.add(red_tiled_texture_mesh),
         material: red_material_handle,
@@ -84,13 +77,7 @@ fn setup(
     // textured quad - modulated (with texture tiling)
     let mut blue_tiled_texture_mesh =
         Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
-    texture_tiling::update_mesh_uvs_with_tiling(
-        &mut blue_tiled_texture_mesh,
-        (
-            texture_tiling::TextureTilingMode::Tiles(3.0),
-            texture_tiling::TextureTilingMode::Stretch,
-        ),
-    );
+    update_mesh_uvs_with_tiling(&mut blue_tiled_texture_mesh, (3.0, 1.0));
     commands.spawn(PbrBundle {
         mesh: meshes.add(blue_tiled_texture_mesh),
         material: blue_material_handle,

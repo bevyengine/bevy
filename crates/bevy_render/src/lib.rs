@@ -33,7 +33,7 @@ pub mod prelude {
         mesh::{shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImagePlugin},
+        texture::{texture_tiling::*, Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
