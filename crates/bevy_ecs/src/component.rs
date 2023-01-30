@@ -3,7 +3,7 @@
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::Resource,
+    system::{Resource, Local},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
@@ -705,10 +705,11 @@ impl ComponentTicks {
 ///
 /// # Example
 /// ```rust
-/// # use bevy_ecs::{system::Local, component::{Component, ComponentIdFor}};
+/// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;
-/// fn my_system(my_component_id: Local<ComponentIdFor<Player>>) {
+/// fn my_system(component_id: Local<ComponentIdFor<Player>>) {
+///     let component_id: ComponentId = component_id.into();
 ///     // ...
 /// }
 /// ```
@@ -736,5 +737,11 @@ impl<T: Component> std::ops::Deref for ComponentIdFor<T> {
 impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
     fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
         *to_component_id
+    }
+}
+
+impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
+    fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
+        **to_component_id
     }
 }
