@@ -59,7 +59,7 @@ impl Plugin for EnvironmentMapPlugin {
 /// To prefilter your environment map, you can use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
 /// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
 ///
-/// `KhronoGroup` also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
+/// `KhronosGroup` also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
 #[derive(Component, Reflect, Clone)]
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,

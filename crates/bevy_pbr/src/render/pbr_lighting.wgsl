@@ -135,7 +135,7 @@ fn Fd_Burley(roughness: f32, NoV: f32, NoL: f32, LoH: f32) -> f32 {
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
-// Scale/biax approximation
+// Scale/bias approximation
 // https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
 // TODO: Use a LUT (more accurate)
 fn F_AB(perceptual_roughness: f32, NoV: f32) -> vec2<f32> {

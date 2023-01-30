@@ -235,12 +235,9 @@ fn pbr(
         direct_light += light_contrib * shadow;
     }
 
-    var indirect_diffuse_light = vec3(0.0);
-    var indirect_specular_light = vec3(0.0);
-
     // Ambient light (indirect)
-    indirect_diffuse_light += EnvBRDFApprox(diffuse_color, F_AB(1.0, NdotV)) * lights.ambient_color.rgb;
-    indirect_specular_light += EnvBRDFApprox(F0, f_ab) * lights.ambient_color.rgb;
+    var indirect_diffuse_light = EnvBRDFApprox(diffuse_color, F_AB(1.0, NdotV)) * lights.ambient_color.rgb;
+    var indirect_specular_light = EnvBRDFApprox(F0, f_ab) * lights.ambient_color.rgb;
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP

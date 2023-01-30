@@ -574,10 +574,10 @@ bitflags::bitflags! {
         const HDR                         = (1 << 0);
         const TONEMAP_IN_SHADER           = (1 << 1);
         const DEBAND_DITHER               = (1 << 2);
-        const ENVIRONMENT_MAP             = (1 << 3);
-        const DEPTH_PREPASS               = (1 << 4);
-        const NORMAL_PREPASS              = (1 << 5);
-        const ALPHA_MASK                  = (1 << 6);
+        const DEPTH_PREPASS               = (1 << 3);
+        const NORMAL_PREPASS              = (1 << 4);
+        const ALPHA_MASK                  = (1 << 5);
+        const ENVIRONMENT_MAP             = (1 << 6);
         const BLEND_RESERVED_BITS         = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA   = (1 << Self::BLEND_SHIFT_BITS);                   //
