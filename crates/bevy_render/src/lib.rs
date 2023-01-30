@@ -218,9 +218,11 @@ impl Plugin for RenderPlugin {
             let mut render_schedule = RenderSet::base_schedule();
 
             // Prepare the schedule which extracts data from the main world to the render world
-            render_app
-                .init_schedule(ExtractSchedule)
-                .add_system_to_schedule(ExtractSchedule, PipelineCache::extract_shaders);
+            render_app.edit_schedule(ExtractSchedule, |schedule| {
+                schedule
+                    .set_apply_final_buffers(false)
+                    .add_system(PipelineCache::extract_shaders);
+            });
 
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
             render_app.init_resource::<MainWorld>();

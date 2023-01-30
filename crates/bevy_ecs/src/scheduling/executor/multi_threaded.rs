@@ -96,6 +96,8 @@ pub struct MultiThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
+    /// Setting when true applies system buffers after all systems have run
+    apply_final_buffers: bool,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -107,6 +109,10 @@ impl Default for MultiThreadedExecutor {
 impl SystemExecutor for MultiThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::MultiThreaded
+    }
+
+    fn set_apply_final_buffers(&mut self, value: bool) {
+        self.apply_final_buffers = value;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -201,15 +207,17 @@ impl SystemExecutor for MultiThreadedExecutor {
             },
         );
 
-        // SAFETY: all systems have completed, and so no outstanding accesses remain
-        let world = unsafe { &mut *world.get() };
-        // Commands should be applied while on the scope's thread, not the executor's thread
-        apply_system_buffers(&mut self.unapplied_systems, systems, world);
-        self.unapplied_systems.clear();
+        if self.apply_final_buffers {
+            // SAFETY: all systems have completed, and so no outstanding accesses remain
+            let world = unsafe { &mut *world.get() };
+            // Commands should be applied while on the scope's thread, not the executor's thread
+            apply_system_buffers(&mut self.unapplied_systems, systems, world);
+            self.unapplied_systems.clear();
+            debug_assert!(self.unapplied_systems.is_clear());
+        }
 
         debug_assert!(self.ready_systems.is_clear());
         debug_assert!(self.running_systems.is_clear());
-        debug_assert!(self.unapplied_systems.is_clear());
         self.active_access.clear();
         self.evaluated_sets.clear();
         self.skipped_systems.clear();
@@ -237,6 +245,7 @@ impl MultiThreadedExecutor {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
+            apply_final_buffers: true,
         }
     }
 

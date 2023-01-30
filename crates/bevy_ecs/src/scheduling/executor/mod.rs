@@ -19,6 +19,7 @@ pub(super) trait SystemExecutor: Send + Sync {
     fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
+    fn set_apply_final_buffers(&mut self, value: bool);
 }
 
 /// Specifies how a [`Schedule`](super::Schedule) will be run.

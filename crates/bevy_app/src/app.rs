@@ -108,7 +108,7 @@ impl Debug for App {
 /// struct ExampleApp;
 ///
 /// let mut app = App::new();
-/// 
+///
 /// // initialize the main app with a value of 0;
 /// app.insert_resource(Val(10));
 ///
@@ -117,7 +117,7 @@ impl Debug for App {
 /// // add an outer schedule that runs the main schedule
 /// sub_app.add_simple_outer_schedule();
 /// sub_app.insert_resource(Val(100));
-/// 
+///
 /// // initialize main schedule
 /// sub_app.init_schedule(CoreSchedule::Main);
 /// sub_app.add_system(|counter: Res<Val>| {
@@ -125,7 +125,7 @@ impl Debug for App {
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
 /// });
-/// 
+///
 /// // add the sub_app to the app
 /// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
 ///     // extract the value from the main app to the sub app

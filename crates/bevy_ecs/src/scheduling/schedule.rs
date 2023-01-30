@@ -175,6 +175,15 @@ impl Schedule {
         self
     }
 
+    /// Set whether the schedule applies buffers on final time or not. This is a catchall
+    /// incase a system uses commands but was not explicitly ordered after a
+    /// [`apply_system_buffers`](crate::prelude::apply_system_buffers). By default this
+    /// setting is true, but may be disabled if needed.
+    pub fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) -> &mut Self {
+        self.executor.set_apply_final_buffers(apply_final_buffers);
+        self
+    }
+
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
