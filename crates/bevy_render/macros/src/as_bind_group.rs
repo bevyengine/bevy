@@ -30,7 +30,7 @@ enum BindingState<'a> {
         ident: &'a Ident,
     },
     OccupiedConvertedUniform,
-    OccupiedMergableUniform {
+    OccupiedMergeableUniform {
         uniform_fields: Vec<&'a syn::Field>,
     },
 }
@@ -144,7 +144,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             match &mut binding_states[binding_index as usize] {
                 value @ BindingState::Free => {
                     *value = match binding_type {
-                        BindingType::Uniform => BindingState::OccupiedMergableUniform {
+                        BindingType::Uniform => BindingState::OccupiedMergeableUniform {
                             uniform_fields: vec![field],
                         },
                         _ => {
@@ -179,7 +179,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a struct-level uniform binding at the same index.")
                     ));
                 }
-                BindingState::OccupiedMergableUniform { uniform_fields } => match binding_type {
+                BindingState::OccupiedMergeableUniform { uniform_fields } => match binding_type {
                     BindingType::Uniform => {
                         uniform_fields.push(field);
                     }
@@ -306,7 +306,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let mut field_struct_impls = Vec::new();
     for (binding_index, binding_state) in binding_states.iter().enumerate() {
         let binding_index = binding_index as u32;
-        if let BindingState::OccupiedMergableUniform { uniform_fields } = binding_state {
+        if let BindingState::OccupiedMergeableUniform { uniform_fields } = binding_state {
             let binding_vec_index = bind_group_entries.len();
             bind_group_entries.push(quote! {
                 #render_path::render_resource::BindGroupEntry {

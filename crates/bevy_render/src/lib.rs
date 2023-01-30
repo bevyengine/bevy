@@ -148,11 +148,16 @@ impl Plugin for RenderPlugin {
         let primary_window = system_state.get(&app.world);
 
         if let Some(backends) = self.wgpu_settings.backends {
-            let instance = wgpu::Instance::new(backends);
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends,
+                dx12_shader_compiler: self.wgpu_settings.dx12_shader_compiler.clone(),
+            });
             let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
                 // SAFETY: Plugins should be set up on the main thread.
                 let handle = wrapper.get_handle();
-                instance.create_surface(&handle)
+                instance
+                    .create_surface(&handle)
+                    .expect("Failed to create wgpu surface")
             });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
