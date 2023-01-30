@@ -1,6 +1,7 @@
+use super::{BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::With,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -10,17 +11,12 @@ use bevy_render::{
         BlendComponent, BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, FragmentState, MultisampleState, PipelineCache,
         PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureSampleType,
         TextureViewDimension,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
 };
-
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
-
-use super::{BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -35,7 +31,6 @@ pub struct BloomUpsamplingPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
-    hdr: bool,
     composite_mode: BloomCompositeMode,
     final_pipeline: bool,
 }
@@ -69,9 +64,7 @@ impl FromWorld for BloomUpsamplingPipeline {
                 ],
             });
 
-        BloomUpsamplingPipeline {
-            bind_group_layout,
-        }
+        BloomUpsamplingPipeline { bind_group_layout }
     }
 }
 
@@ -80,13 +73,41 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let texture_format = if key.final_pipeline {
-            if key.hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
-            } else {
-                TextureFormat::bevy_default()
-            }
+            ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             BLOOM_TEXTURE_FORMAT
+        };
+
+        let color_blend = match key.composite_mode {
+            BloomCompositeMode::EnergyConserving => {
+                // At the time of developing this we decided to blend our
+                // blur pyramid levels using native WGPU render pass blend
+                // constants. They are set in the bloom node's run function.
+                // This seemed like a good approach at the time which allowed
+                // us to perform complex calculations for blend levels on the CPU,
+                // however, we missed the fact that this prevented us from using
+                // textures to customize bloom apperance on individual parts
+                // of the screen and create effects such as lens dirt or
+                // screen blur behind certain UI elements.
+                //
+                // TODO: Use alpha instead of blend constants and move
+                // compute_blend_factor to the shader. The shader
+                // will likely need to know current mip number or
+                // mip "angle" (original texture is 0deg, max mip is 90deg)
+                // so make sure you give it that as a uniform.
+                // That does have to be provided per each pass unlike other
+                // uniforms that are set once.
+                BlendComponent {
+                    src_factor: BlendFactor::Constant,
+                    dst_factor: BlendFactor::OneMinusConstant,
+                    operation: BlendOperation::Add,
+                }
+            }
+            BloomCompositeMode::Additive => BlendComponent {
+                src_factor: BlendFactor::Constant,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
         };
 
         RenderPipelineDescriptor {
@@ -100,37 +121,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 targets: vec![Some(ColorTargetState {
                     format: texture_format,
                     blend: Some(BlendState {
-                        color: match key.composite_mode {
-                            BloomCompositeMode::EnergyConserving => {
-                                // At the time of developing this we decided to blend our
-                                // blur pyramid levels using native WGPU render pass blend
-                                // constants. They are set in the bloom node's run function.
-                                // This seemed like a good approach at the time which allowed
-                                // us to perform complex calculations for blend levels on the CPU,
-                                // however, we missed the fact that this prevented us from using
-                                // textures to customize bloom apperance on individual parts
-                                // of the screen and create effects such as lens dirt or
-                                // screen blur behind certain UI elements.
-                                //
-                                // TODO: Use alpha instead of blend constants and move
-                                // compute_blend_factor to the shader. The shader
-                                // will likely need to know current mip number or
-                                // mip "angle" (original texture is 0deg, max mip is 90deg)
-                                // so make sure you give it that as a uniform.
-                                // That does have to be provided per each pass unlike other
-                                // uniforms that are set once.
-                                BlendComponent {
-                                    src_factor: BlendFactor::Constant,
-                                    dst_factor: BlendFactor::OneMinusConstant,
-                                    operation: BlendOperation::Add,
-                                }
-                            }
-                            BloomCompositeMode::Additive => BlendComponent {
-                                src_factor: BlendFactor::Constant,
-                                dst_factor: BlendFactor::One,
-                                operation: BlendOperation::Add,
-                            },
-                        },
+                        color: color_blend,
                         alpha: BlendComponent {
                             src_factor: BlendFactor::Zero,
                             dst_factor: BlendFactor::One,
@@ -152,14 +143,13 @@ pub fn prepare_upsampling_pipeline(
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &ExtractedView, &BloomSettings), With<BloomSettings>>,
+    views: Query<(Entity, &BloomSettings)>,
 ) {
-    for (entity, view, settings) in &views {
+    for (entity, settings) in &views {
         let pipeline_id = pipelines.specialize(
             &mut pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                hdr: view.hdr,
                 composite_mode: settings.composite_mode,
                 final_pipeline: false,
             },
@@ -169,7 +159,6 @@ pub fn prepare_upsampling_pipeline(
             &mut pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                hdr: view.hdr,
                 composite_mode: settings.composite_mode,
                 final_pipeline: true,
             },

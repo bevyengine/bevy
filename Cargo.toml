@@ -147,8 +147,8 @@ hidden = true
 
 # 2D Rendering
 [[example]]
-name = "2d_bloom"
-path = "examples/2d/2d_bloom.rs"
+name = "bloom_2d"
+path = "examples/2d/bloom_2d.rs"
 
 [package.metadata.example.2d_bloom]
 name = "2D Bloom"
@@ -338,8 +338,8 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "3d_bloom"
-path = "examples/3d/3d_bloom.rs"
+name = "bloom_3d"
+path = "examples/3d/bloom_3d.rs"
 
 [package.metadata.example.3d_bloom]
 name = "3D Bloom"

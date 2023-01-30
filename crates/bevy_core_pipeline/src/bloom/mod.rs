@@ -1,83 +1,49 @@
-pub mod settings;
-pub use self::settings::*;
-
 mod downsampling_pipeline;
+mod settings;
 mod upsampling_pipeline;
-use self::{downsampling_pipeline::*, upsampling_pipeline::*};
+
+pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryItem, QueryState, With},
-    system::{Commands, Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    query::{QueryState, With},
+    system::{Commands, Query, Res, ResMut},
+    world::World,
 };
-use bevy_math::{UVec2, UVec4, Vec4};
+use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-        UniformComponentPlugin,
+        ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    prelude::{Camera, Color},
+    prelude::Color,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Extract, RenderApp, RenderStage,
+    RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::HashMap;
+use downsampling_pipeline::{
+    prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
+    BloomDownsamplingUniform,
+};
 use std::num::NonZeroU32;
+use upsampling_pipeline::{
+    prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
+};
 
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
-
-impl BloomSettings {
-    /// Calculates blend intensities of blur pyramid levels
-    /// during the upsampling + compositing stage.
-    ///
-    /// The function assumes all pyramid levels are upsampled and
-    /// blended into higher frequency ones using this function to
-    /// calculate blend levels every time. The final (highest frequency)
-    /// pyramid level in not blended into anything therefore this function
-    /// is not applied to it. As a result, the *mip* parameter of 0 indicates
-    /// the second-highest frequency pyramid level (in our case that is the
-    /// 0th mip of the bloom texture with the original image being the
-    /// actual highest frequency level).
-    ///
-    /// Parameters:
-    /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
-    /// * *max_mip* - the index of the lowest frequency pyramid level.
-    ///
-    /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
-    /// BloomSettings parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
-        let x = mip / max_mip;
-
-        let mut lf_boost =
-            (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
-        let high_pass_lq =
-            1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
-        // let high_pass_hq = 0.5 + 0.5 * ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0).mul(std::f32::consts::PI).cos();
-        let high_pass = high_pass_lq;
-
-        lf_boost *= match self.composite_mode {
-            BloomCompositeMode::EnergyConserving => 1.0 - self.intensity,
-            BloomCompositeMode::Additive => 1.0,
-        };
-
-        (self.intensity + lf_boost) * high_pass
-    }
-}
 
 pub struct BloomPlugin;
 
@@ -97,14 +63,11 @@ impl Plugin for BloomPlugin {
         };
 
         render_app
-            .init_resource::<BloomPipelines>()
             .init_resource::<BloomDownsamplingPipeline>()
             .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_bloom_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            // .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
             .add_system_to_stage(RenderStage::Prepare, prepare_downsampling_pipeline)
             .add_system_to_stage(RenderStage::Prepare, prepare_upsampling_pipeline)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
@@ -161,45 +124,6 @@ impl Plugin for BloomPlugin {
     }
 }
 
-impl ExtractComponent for BloomSettings {
-    type Query = (&'static Self, &'static Camera);
-
-    type Filter = ();
-    type Out = BloomDownsamplingUniform;
-
-    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        if !camera.is_active {
-            return None;
-        }
-
-        if let (Some((origin, _)), Some(size), Some(target_size)) = (
-            camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
-            camera.physical_target_size(),
-        ) {
-            // let min_view = size.x.min(size.y) / 2;
-            // let mip_count = calculate_mip_count(min_view);
-            // let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
-            let pref_sett = &settings.prefilter_settings;
-            let knee = pref_sett.threshold * pref_sett.threshold_softness.clamp(0.0, 1.0);
-
-            Some(BloomDownsamplingUniform {
-                threshold_precomputations: Vec4::new(
-                    pref_sett.threshold,
-                    pref_sett.threshold - knee,
-                    2.0 * knee,
-                    0.25 / (knee + 0.00001),
-                ),
-                viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
-                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
-                        .as_vec4(),
-            })
-        } else {
-            None
-        }
-    }
-}
-
 pub struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
@@ -244,12 +168,11 @@ impl Node for BloomNode {
         #[cfg(feature = "trace")]
         let _bloom_span = info_span!("bloom").entered();
 
-        let pipelines = world.resource::<BloomPipelines>();
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomDownsamplingUniform>>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (
+        let Ok((
             camera,
             view_target,
             bloom_texture,
@@ -258,32 +181,22 @@ impl Node for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ) = match self.view_query.get_manual(world, view_entity) {
-            Ok(result) => result,
-            _ => return Ok(()),
-        };
+        )) = self.view_query.get_manual(world, view_entity)
+        else { return Ok(()) };
 
-        // Downsampling pipelines
         let (
+            Some(uniforms),
             Some(downsampling_first_pipeline),
             Some(downsampling_pipeline),
-        ) = (
-            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_first),
-            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_main),
-        ) else {
-            return Ok(());
-        };
-
-        // Upsampling pipleines
-        let (
             Some(upsampling_pipeline),
             Some(upsampling_final_pipeline),
         ) = (
+            uniforms.binding(),
+            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_first),
+            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
-        ) else {
-            return Ok(());
-        };
+        ) else { return Ok(()) };
 
         // First downsample pass
         {
@@ -296,16 +209,16 @@ impl Node for BloomNode {
                         entries: &[
                             BindGroupEntry {
                                 binding: 0,
-                                // We read from main texture directly
+                                // Read from main texture directly
                                 resource: BindingResource::TextureView(view_target.main_texture()),
                             },
                             BindGroupEntry {
                                 binding: 1,
-                                resource: BindingResource::Sampler(&pipelines.sampler),
+                                resource: BindingResource::Sampler(&bind_groups.sampler),
                             },
                             BindGroupEntry {
                                 binding: 2,
-                                resource: uniforms.binding().unwrap().clone(),
+                                resource: uniforms.clone(),
                             },
                         ],
                     });
@@ -389,9 +302,8 @@ impl Node for BloomNode {
         }
 
         // Final upsample pass
-        // This is very similar to the upsampling_pass above with the only difference
-        // being the pipeline (which itself is barely different) and the color attachment.
-        // Too bad.
+        // This is very similar to the above upsampling passes with the only difference
+        // being the pipeline (which itself is barely different) and the color attachment
         {
             let mut upsampling_final_pass = TrackedRenderPass::new(
                 &render_context.render_device,
@@ -427,38 +339,6 @@ impl Node for BloomNode {
     }
 }
 
-#[derive(Resource)]
-struct BloomPipelines {
-    sampler: Sampler,
-}
-
-impl FromWorld for BloomPipelines {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            ..Default::default()
-        });
-
-        BloomPipelines { sampler }
-    }
-}
-
-fn extract_bloom_settings(
-    mut commands: Commands,
-    cameras: Extract<Query<(Entity, &Camera, &BloomSettings), With<Camera>>>,
-) {
-    for (entity, camera, bloom_settings) in &cameras {
-        if camera.is_active {
-            commands.get_or_spawn(entity).insert(bloom_settings.clone());
-        }
-    }
-}
-
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
@@ -480,9 +360,8 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomDownsamplingUniform>>,
+    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
 ) {
-    let mut textures = HashMap::default();
     for (entity, camera) in &views {
         if let Some(UVec2 {
             x: width,
@@ -507,14 +386,10 @@ fn prepare_bloom_textures(
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             };
 
-            let texture = textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
-                .clone();
-
-            commands
-                .entity(entity)
-                .insert(BloomTexture { texture, mip_count });
+            commands.entity(entity).insert(BloomTexture {
+                texture: texture_cache.get(&render_device, texture_descriptor),
+                mip_count,
+            });
         }
     }
 }
@@ -523,23 +398,30 @@ fn prepare_bloom_textures(
 struct BloomBindGroups {
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
+    sampler: Sampler,
 }
 
 fn queue_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    pipelines: Res<BloomPipelines>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
-    // bloom_uniforms: Res<BloomUniforms>,
     views: Query<(Entity, &BloomTexture)>,
 ) {
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
 
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            ..Default::default()
+        });
+
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in 1..bloom_texture.mip_count {
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            downsampling_bind_groups.push(render_device.create_bind_group(&BindGroupDescriptor {
                 label: Some("bloom_downsampling_bind_group"),
                 layout: &downsampling_pipeline.bind_group_layout,
                 entries: &[
@@ -549,17 +431,15 @@ fn queue_bloom_bind_groups(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(&pipelines.sampler),
+                        resource: BindingResource::Sampler(&sampler),
                     },
                 ],
-            });
-
-            downsampling_bind_groups.push(bind_group);
+            }));
         }
 
         let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in (0..bloom_texture.mip_count).rev() {
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            upsampling_bind_groups.push(render_device.create_bind_group(&BindGroupDescriptor {
                 label: Some("bloom_upsampling_bind_group"),
                 layout: &upsampling_pipeline.bind_group_layout,
                 entries: &[
@@ -569,17 +449,53 @@ fn queue_bloom_bind_groups(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(&pipelines.sampler),
+                        resource: BindingResource::Sampler(&sampler),
                     },
                 ],
-            });
-
-            upsampling_bind_groups.push(bind_group);
+            }));
         }
 
         commands.entity(entity).insert(BloomBindGroups {
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
+            sampler,
         });
+    }
+}
+
+impl BloomSettings {
+    /// Calculates blend intensities of blur pyramid levels
+    /// during the upsampling + compositing stage.
+    ///
+    /// The function assumes all pyramid levels are upsampled and
+    /// blended into higher frequency ones using this function to
+    /// calculate blend levels every time. The final (highest frequency)
+    /// pyramid level in not blended into anything therefore this function
+    /// is not applied to it. As a result, the *mip* parameter of 0 indicates
+    /// the second-highest frequency pyramid level (in our case that is the
+    /// 0th mip of the bloom texture with the original image being the
+    /// actual highest frequency level).
+    ///
+    /// Parameters:
+    /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
+    /// * *max_mip* - the index of the lowest frequency pyramid level.
+    ///
+    /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
+    /// BloomSettings parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
+    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
+        let x = mip / max_mip;
+
+        let mut lf_boost =
+            (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
+        let high_pass_lq =
+            1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
+        let high_pass = high_pass_lq;
+
+        lf_boost *= match self.composite_mode {
+            BloomCompositeMode::EnergyConserving => 1.0 - self.intensity,
+            BloomCompositeMode::Additive => 1.0,
+        };
+
+        (self.intensity + lf_boost) * high_pass
     }
 }

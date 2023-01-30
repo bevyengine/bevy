@@ -1,12 +1,19 @@
-use bevy_ecs::prelude::Component;
+use super::downsampling_pipeline::BloomDownsamplingUniform;
+use bevy_ecs::{prelude::Component, query::QueryItem};
+use bevy_math::{UVec4, Vec4};
 use bevy_reflect::Reflect;
+use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
-/// Applies a bloom effect to a 2d or 3d camera. Currently not compatible with WebGL2.
+/// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
 /// causing halos to appear around very bright parts of the scene.
 ///
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
+///
+/// # Usage Notes
+///
+/// **Bloom is currently not compatible with WebGL2.**
 ///
 /// Often used in conjunction with [`bevy_pbr::StandardMaterial::emissive`]
 /// for 3d meshes or [`bevy::Color::Hsla::lightness`] for 2d sprites.
@@ -91,7 +98,6 @@ pub struct BloomSettings {
 }
 
 impl BloomSettings {
-    /// Recommended for HDR rendering
     pub const NATURAL: Self = Self {
         intensity: 0.3,
         lf_boost: 0.7,
@@ -104,7 +110,6 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    /// Recommended for SDR rendering
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         lf_boost: 0.7,
@@ -136,13 +141,11 @@ impl Default for BloomSettings {
     }
 }
 
-/// Applies a threshold filter to the input image to
-/// extract the brightest regions before blurring them and compositing
-/// back onto the original image. These settings are useful if bloom is applied
-/// to an SDR image or when emulating the 1990s-2000s game look.
+/// Applies a threshold filter to the input image to extract the brightest
+/// regions before blurring them and compositing back onto the original image.
+/// These settings are useful when emulating the 1990s-2000s game look.
 ///
 /// # Considerations
-/// * It is recommended to use this only if HDR rendering is not possible
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
@@ -166,4 +169,42 @@ pub struct BloomPrefilterSettings {
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
+}
+
+impl ExtractComponent for BloomSettings {
+    type Query = (&'static Self, &'static Camera);
+
+    type Filter = ();
+    type Out = (Self, BloomDownsamplingUniform);
+
+    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        match (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+            camera.is_active,
+            camera.hdr,
+        ) {
+            (Some((origin, _)), Some(size), Some(target_size), true, true) => {
+                let threshold = settings.prefilter_settings.threshold;
+                let threshold_softness = settings.prefilter_settings.threshold_softness;
+                let knee = threshold * threshold_softness.clamp(0.0, 1.0);
+
+                let uniform = BloomDownsamplingUniform {
+                    threshold_precomputations: Vec4::new(
+                        threshold,
+                        threshold - knee,
+                        2.0 * knee,
+                        0.25 / (knee + 0.00001),
+                    ),
+                    viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
+                        / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
+                            .as_vec4(),
+                };
+
+                Some((settings.clone(), uniform))
+            }
+            _ => None,
+        }
+    }
 }

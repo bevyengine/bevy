@@ -15,7 +15,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_system(update_bloom_settings)
-        .add_system(update_camera_settings)
         .add_system(bounce_spheres)
         .run();
 }
@@ -29,7 +28,7 @@ fn setup_scene(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR can tremendously improve the look and realism of bloom
+                hdr: true, // 1. HDR is required for bloom
                 ..default()
             },
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -220,35 +219,12 @@ fn update_bloom_settings(
         }
 
         (entity, None) => {
-            *text = "Bloom: Off (Toggle: Space)\n".to_string();
+            *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(BloomSettings::default());
             }
         }
-    }
-}
-
-fn update_camera_settings(
-    mut camera: Query<(Entity, &mut Camera), With<Camera>>,
-    mut text: Query<&mut Text>,
-    keycode: Res<Input<KeyCode>>,
-) {
-    let mut camera = camera.single_mut();
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
-    text.push_str("-----------------------------\n");
-    text.push_str(&format!(
-        "Camera HDR: {} (Toggle: Return)\n",
-        match camera.1.hdr {
-            true => "On",
-            false => "Off",
-        }
-    ));
-
-    if keycode.just_pressed(KeyCode::Return) {
-        camera.1.hdr = !camera.1.hdr;
     }
 }
 
