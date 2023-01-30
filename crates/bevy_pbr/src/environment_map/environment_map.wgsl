@@ -7,7 +7,7 @@ var environment_map_specular: texture_cube<f32>;
 @group(3) @binding(2)
 var environment_map_sampler: sampler;
 
-let ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL = 10.0;
+const ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL = 10.0;
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -15,13 +15,13 @@ struct EnvironmentMapLight {
 };
 
 fn environment_map_light(
-    perceptual_roughness: f32, 
-    roughness: f32, 
-    diffuse_color: vec3<f32>, 
-    NdotV: f32, 
-    f_ab: vec2<f32>, 
-    N: vec3<f32>, 
-    R: vec3<f32>, 
+    perceptual_roughness: f32,
+    roughness: f32,
+    diffuse_color: vec3<f32>,
+    NdotV: f32,
+    f_ab: vec2<f32>,
+    N: vec3<f32>,
+    R: vec3<f32>,
     F0: vec3<f32>,
 ) -> EnvironmentMapLight {
 
