@@ -43,7 +43,7 @@ pub struct ImagePlugin {
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear(),
+        ImagePlugin::default_linear()
     }
 }
 
