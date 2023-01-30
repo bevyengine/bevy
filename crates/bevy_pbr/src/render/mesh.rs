@@ -1,8 +1,9 @@
 use crate::{
-    FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
-    NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS, PBR_SHADER_HANDLE,
+    FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, Material,
+    MaterialPipeline, NotShadowCaster, NotShadowReceiver, ShadowPipeline, StandardMaterial,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    PBR_SHADER_HANDLE,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
