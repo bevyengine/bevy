@@ -90,7 +90,7 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::R8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in levels.iter() {
+                    for level_data in &levels {
                         transcoded.push(
                             level_data
                                 .iter()
@@ -109,7 +109,7 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Rg8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in levels.iter() {
+                    for level_data in &levels {
                         transcoded.push(
                             level_data
                                 .iter()
