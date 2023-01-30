@@ -73,7 +73,7 @@ pub struct Text3dBundle {
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_text3d_layout(
     mut commands: Commands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
@@ -174,7 +174,7 @@ pub fn update_text3d_layout(
                                 base_color_texture: Some(atlas.texture.clone()),
                                 ..Default::default()
                             };
-                            match maybe_mesh.and_then(|handle| meshes.get_mut(&*handle)) {
+                            match maybe_mesh.and_then(|handle| meshes.get_mut(handle)) {
                                 Some(mesh) => {
                                     *mesh = new_mesh;
                                 }
@@ -184,7 +184,7 @@ pub fn update_text3d_layout(
                                     commands.entity(entity).insert(mesh);
                                 }
                             }
-                            match maybe_material.and_then(|handle| materials.get_mut(&*handle)) {
+                            match maybe_material.and_then(|handle| materials.get_mut(handle)) {
                                 Some(material) => {
                                     *material = new_material;
                                 }

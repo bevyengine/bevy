@@ -23,8 +23,8 @@ use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
-    scale_value, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    scale_value, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, YAxisOrientation,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
