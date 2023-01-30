@@ -27,7 +27,7 @@ fn skin_model(
         + weights.w * joint_matrices.data[indexes.w];
 }
 
-fn inverse_transpose_3x3(in: mat3x3<f32>) -> mat3x3<f32> {
+fn inverse_transpose_3x3m(in: mat3x3<f32>) -> mat3x3<f32> {
     let x = cross(in[1], in[2]);
     let y = cross(in[2], in[0]);
     let z = cross(in[0], in[1]);
@@ -44,7 +44,7 @@ fn skin_normals(
     normal: vec3<f32>,
 ) -> vec3<f32> {
     return normalize(
-        inverse_transpose_3x3(
+        inverse_transpose_3x3m(
             mat3x3<f32>(
                 model[0].xyz,
                 model[1].xyz,
