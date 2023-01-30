@@ -39,7 +39,7 @@ fn setup(
     commands.spawn((
         Text3dBundle {
             text: Text::from_section("Looking straight at you", style.clone()),
-            transform: Transform::from_xyz(2.0, 0.0, 2.0).with_scale(Vec3::splat(0.01)),
+            transform: Transform::from_xyz(2.0, 0.0, 1.0).with_scale(Vec3::splat(0.01)),
             ..default()
         },
         Billboard { rotate_z: true },
@@ -50,7 +50,7 @@ fn setup(
     commands.spawn((
         Text3dBundle {
             text: Text::from_section("Looking in your general direction", style.clone()),
-            transform: Transform::from_xyz(0.0, 2.0, 2.0).with_scale(Vec3::splat(0.01)),
+            transform: Transform::from_xyz(-2.0, 2.0, 3.0).with_scale(Vec3::splat(0.01)),
             ..default()
         },
         Billboard { rotate_z: false },
@@ -59,7 +59,7 @@ fn setup(
     // A generic text. We use the `Framecounter` tag to update this value every frame
     commands.spawn((
         Text3dBundle {
-            text: Text::from_section("Frame counter goes here", style.clone()),
+            text: Text::from_section("Frame counter goes here", style),
             transform: Transform::from_xyz(-3.0, -3.0, 2.0)
                 .looking_at(Vec3::new(-6.0, -6.0, 2.0), Vec3::Z)
                 .with_scale(Vec3::splat(0.1)),
@@ -80,7 +80,7 @@ fn setup(
 
     // camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(15.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
+        transform: Transform::from_xyz(15.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Z),
         ..default()
     });
     // light

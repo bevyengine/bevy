@@ -13,10 +13,11 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Rect, Vec2};
-use bevy_pbr::StandardMaterial;
+use bevy_pbr::{AlphaMode, StandardMaterial};
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::{Indices, Mesh},
+    prelude::Color,
     render_resource::PrimitiveTopology,
     texture::Image,
     view::{ComputedVisibility, Visibility},
@@ -172,6 +173,8 @@ pub fn update_text3d_layout(
                             let new_mesh = build_mesh(&info, atlas);
                             let new_material = StandardMaterial {
                                 base_color_texture: Some(atlas.texture.clone()),
+                                base_color: Color::WHITE, // TODO: Get this from the text
+                                alpha_mode: AlphaMode::Mask(1.0),
                                 ..Default::default()
                             };
                             match maybe_mesh.and_then(|handle| meshes.get_mut(handle)) {
@@ -245,6 +248,8 @@ fn build_mesh(info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
         indices.extend([start, start + 2, start + 1, start, start + 3, start + 2]);
 
         let Rect { min, max } = atlas.textures[atlas_info.glyph_index];
+        let min = min / atlas.size;
+        let max = max / atlas.size;
         uvs.extend([
             [min.x, max.y],
             [min.x, min.y],
@@ -252,11 +257,6 @@ fn build_mesh(info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
             [max.x, max.y],
         ]);
     }
-
-    assert_eq!(positions.len(), info.glyphs.len() * 4);
-    assert_eq!(normals.len(), info.glyphs.len() * 4);
-    assert_eq!(uvs.len(), info.glyphs.len() * 4);
-    assert_eq!(indices.len(), info.glyphs.len() * 6);
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.set_indices(Some(Indices::U32(indices)));
