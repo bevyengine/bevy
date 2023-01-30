@@ -8,6 +8,7 @@ pub mod fxaa;
 pub mod msaa_writeback;
 pub mod prepass;
 mod taa;
+pub mod contrast_adaptive_sharpening;
 pub mod tonemapping;
 pub mod upscaling;
 
@@ -38,7 +39,7 @@ use crate::{
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DepthPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
-    upscaling::UpscalingPlugin,
+    upscaling::UpscalingPlugin, contrast_adaptive_sharpening::ContrastAdaptiveSharpeningPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
@@ -69,6 +70,7 @@ impl Plugin for CorePipelinePlugin {
             .add_plugin(TonemappingPlugin)
             .add_plugin(UpscalingPlugin)
             .add_plugin(BloomPlugin)
-            .add_plugin(FxaaPlugin);
+            .add_plugin(FxaaPlugin)
+            .add_plugin(ContrastAdaptiveSharpeningPlugin);
     }
 }
