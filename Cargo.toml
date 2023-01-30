@@ -297,6 +297,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "3d_text"
+path = "examples/3d/3d_text.rs"
+
+[package.metadata.example.3d_text]
+name = "3D text"
+description = "A scene showcasing text in 3D"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
 

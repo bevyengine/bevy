@@ -7,6 +7,7 @@ mod glyph_brush;
 mod pipeline;
 mod text;
 mod text2d;
+mod text3d;
 
 pub use error::*;
 pub use font::*;
@@ -17,10 +18,13 @@ pub use glyph_brush::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
+pub use text3d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
+    pub use crate::{
+        Font, Text, Text2dBundle, Text3dBundle, TextAlignment, TextError, TextSection, TextStyle,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -89,6 +93,16 @@ impl Plugin for TextPlugin {
                     // will only ever observe its own render target, and `update_text2d_layout`
                     // will never modify a pre-existing `Image` asset.
                     .ambiguous_with(CameraUpdateSystem),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_text3d_layout
+                    .after(ModifiesWindows)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `update_text3d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -98,4 +112,8 @@ impl Plugin for TextPlugin {
             );
         }
     }
+}
+
+pub fn scale_value(value: f32, factor: f64) -> f32 {
+    (value as f64 * factor) as f32
 }
