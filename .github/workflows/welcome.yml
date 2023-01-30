@@ -41,5 +41,5 @@ jobs:
               repo: context.repo.repo,
               body: `**Welcome**, new contributor!
 
-              Please make sure you're read our [contributing guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md) and we look forward to reviewing your Pull request shortly ✨`
+              Please make sure you're read our [contributing guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md) and we look forward to reviewing your pull request shortly ✨`
             })
