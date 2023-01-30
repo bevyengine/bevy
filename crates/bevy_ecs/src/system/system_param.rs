@@ -1483,7 +1483,7 @@ mod tests {
     struct MyParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
-        marker: PhantomData<Marker>,
+        marker: std::marker::PhantomData<Marker>,
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
