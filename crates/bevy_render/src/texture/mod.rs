@@ -51,14 +51,14 @@ impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::linear_descriptor()
+            default_sampler: ImageSampler::linear_descriptor(),
         }
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::nearest_descriptor()
+            default_sampler: ImageSampler::nearest_descriptor(),
         }
     }
 }
