@@ -32,6 +32,7 @@ use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
     clear_color::{ClearColor, ClearColorConfig},
+    contrast_adaptive_sharpening::ContrastAdaptiveSharpeningPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
@@ -39,7 +40,7 @@ use crate::{
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DepthPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
-    upscaling::UpscalingPlugin, contrast_adaptive_sharpening::ContrastAdaptiveSharpeningPlugin,
+    upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;

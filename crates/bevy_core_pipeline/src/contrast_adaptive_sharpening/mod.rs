@@ -111,8 +111,6 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
                 ContrastAdaptiveSharpeningNode::IN_VIEW,
             );
 
-            // TODO: Edges
-
             graph.add_node_edge(
                 core_3d::graph::node::FXAA,
                 core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
@@ -135,8 +133,6 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
                 core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
                 ContrastAdaptiveSharpeningNode::IN_VIEW,
             );
-
-            // TODO: Edges
 
             graph.add_node_edge(
                 core_2d::graph::node::FXAA,
