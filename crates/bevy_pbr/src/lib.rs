@@ -2,16 +2,21 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod fog;
 mod light;
 mod material;
 mod pbr_material;
+mod prepass;
 mod render;
 
 pub use alpha::*;
+use bevy_utils::default;
 pub use bundle::*;
+pub use fog::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
+pub use prepass::*;
 pub use render::*;
 
 use bevy_window::ModifiesWindows;
@@ -24,6 +29,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
+        fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
@@ -67,14 +73,27 @@ pub const SHADOWS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
+pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
 /// Sets up the entire PBR infrastructure of bevy.
-#[derive(Default)]
-pub struct PbrPlugin;
+pub struct PbrPlugin {
+    /// Controls if the prepass is enabled for the StandardMaterial.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    pub prepass_enabled: bool,
+}
+
+impl Default for PbrPlugin {
+    fn default() -> Self {
+        Self {
+            prepass_enabled: true,
+        }
+    }
+}
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
@@ -122,25 +141,38 @@ impl Plugin for PbrPlugin {
             "render/depth.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PBR_PREPASS_SHADER_HANDLE,
+            "render/pbr_prepass.wgsl",
+            Shader::from_wgsl
+        );
 
-        app.register_type::<CubemapVisibleEntities>()
-            .register_type::<DirectionalLight>()
-            .register_type::<PointLight>()
-            .register_type::<SpotLight>()
-            .register_asset_reflect::<StandardMaterial>()
+        app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
-            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
+            .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterZConfig>()
             .register_type::<ClusterFarZMode>()
+            .register_type::<ClusterZConfig>()
+            .register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .add_plugin(MaterialPlugin::<StandardMaterial> {
+                prepass_enabled: self.prepass_enabled,
+                ..default()
+            })
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .add_plugin(FogPlugin)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
@@ -160,11 +192,18 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
+                update_directional_light_cascades
+                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateDirectionalLightCascades)
                     // We assume that no entity will be both a directional light and a spot light,
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.

@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
@@ -29,7 +30,6 @@ use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
-use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -203,22 +203,20 @@ pub fn extract_uinodes(
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
                 continue;
             }
+
             let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                // Skip loading images
+                if !images.contains(&image.texture) {
+                    continue;
+                }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-            // Skip completely transparent nodes
-            if color.0.a() == 0.0 {
-                continue;
-            }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
@@ -277,6 +275,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
+                    view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,
@@ -297,7 +296,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    windows: Extract<Res<Windows>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
@@ -310,7 +309,12 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor() as f32)
+        .unwrap_or(1.0);
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
@@ -520,11 +524,12 @@ pub fn prepare_uinodes(
             uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
         }
 
+        let color = extracted_uinode.background_color.as_linear_rgba_f32();
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color: extracted_uinode.background_color.as_linear_rgba_f32(),
+                color,
             });
         }
 
@@ -557,7 +562,7 @@ pub fn queue_uinodes(
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
@@ -586,7 +591,7 @@ pub fn queue_uinodes(
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey { hdr: view.hdr },
             );

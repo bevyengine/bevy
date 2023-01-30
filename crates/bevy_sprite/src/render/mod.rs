@@ -451,7 +451,7 @@ pub fn queue_sprites(
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
@@ -474,7 +474,7 @@ pub fn queue_sprites(
         };
     }
 
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let sprite_meta = &mut sprite_meta;
@@ -528,12 +528,12 @@ pub fn queue_sprites(
                 }
             }
             let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(false),
             );
             let colored_pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(true),
             );

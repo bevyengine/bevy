@@ -236,6 +236,12 @@ impl<const SEND: bool> Resources<SEND> {
         self.resources.get(component_id)
     }
 
+    /// Clears all resources.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.resources.clear();
+    }
+
     /// Gets mutable access to a resource, if it exists.
     #[inline]
     pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData<SEND>> {

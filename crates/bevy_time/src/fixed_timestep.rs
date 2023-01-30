@@ -177,6 +177,10 @@ impl System for FixedTimestep {
         Cow::Borrowed(std::any::type_name::<FixedTimestep>())
     }
 
+    fn type_id(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<FixedTimestep>()
+    }
+
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         self.internal_system.archetype_component_access()
     }

@@ -141,6 +141,18 @@ impl ProcessedShader {
                 Features::SHADER_PRIMITIVE_INDEX,
                 Capabilities::PRIMITIVE_INDEX,
             ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+            ),
         ];
         let mut capabilities = Capabilities::empty();
         for (feature, capability) in CAPABILITIES {

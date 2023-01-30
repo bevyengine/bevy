@@ -22,7 +22,6 @@ use bevy_render::{
     },
     prelude::Color,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::TrackedRenderPass,
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -202,7 +201,7 @@ impl Node for BloomNode {
         {
             let downsampling_first_bind_group =
                 render_context
-                    .render_device
+                    .render_device()
                     .create_bind_group(&BindGroupDescriptor {
                         label: Some("bloom_downsampling_first_bind_group"),
                         layout: &downsampling_pipeline_res.extended_bind_group_layout,
@@ -224,20 +223,16 @@ impl Node for BloomNode {
                     });
 
             let view = &bloom_texture.view(0);
-            let mut downsampling_first_pass = TrackedRenderPass::new(
-                &render_context.render_device,
-                render_context
-                    .command_encoder
-                    .begin_render_pass(&RenderPassDescriptor {
-                        label: Some("bloom_downsampling_first_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
-                        depth_stencil_attachment: None,
-                    }),
-            );
+            let mut downsampling_first_pass =
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_downsampling_first_pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view,
+                        resolve_target: None,
+                        ops: Operations::default(),
+                    })],
+                    depth_stencil_attachment: None,
+                });
             downsampling_first_pass.set_render_pipeline(downsampling_first_pipeline);
             downsampling_first_pass.set_bind_group(
                 0,
@@ -272,23 +267,19 @@ impl Node for BloomNode {
         // Upsample passes except the final one
         for mip in (1..bloom_texture.mip_count).rev() {
             let view = &bloom_texture.view(mip - 1);
-            let mut upsampling_pass = TrackedRenderPass::new(
-                &render_context.render_device,
-                render_context
-                    .command_encoder
-                    .begin_render_pass(&RenderPassDescriptor {
-                        label: Some("bloom_upsampling_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: Operations {
-                                load: LoadOp::Load,
-                                store: true,
-                            },
-                        })],
-                        depth_stencil_attachment: None,
-                    }),
-            );
+            let mut upsampling_pass =
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_upsampling_pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                });
             upsampling_pass.set_render_pipeline(upsampling_pipeline);
             upsampling_pass.set_bind_group(
                 0,
@@ -305,21 +296,17 @@ impl Node for BloomNode {
         // This is very similar to the above upsampling passes with the only difference
         // being the pipeline (which itself is barely different) and the color attachment
         {
-            let mut upsampling_final_pass = TrackedRenderPass::new(
-                &render_context.render_device,
-                render_context
-                    .command_encoder
-                    .begin_render_pass(&RenderPassDescriptor {
-                        label: Some("bloom_upsampling_final_pass"),
-                        color_attachments: &[Some(view_target.get_unsampled_color_attachment(
-                            Operations {
-                                load: LoadOp::Load,
-                                store: true,
-                            },
-                        ))],
-                        depth_stencil_attachment: None,
-                    }),
-            );
+            let mut upsampling_final_pass =
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_upsampling_final_pass"),
+                    color_attachments: &[Some(view_target.get_unsampled_color_attachment(
+                        Operations {
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    ))],
+                    depth_stencil_attachment: None,
+                });
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
                 0,
@@ -384,6 +371,7 @@ fn prepare_bloom_textures(
                 dimension: TextureDimension::D2,
                 format: BLOOM_TEXTURE_FORMAT,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             };
 
             commands.entity(entity).insert(BloomTexture {

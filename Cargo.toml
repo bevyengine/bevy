@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.66.0"
+rust-version = "1.67.0"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
@@ -48,7 +48,7 @@ default = [
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -150,7 +150,7 @@ hidden = true
 name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"
 
-[package.metadata.example.2d_bloom]
+[package.metadata.example.bloom_2d]
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
 category = "2D Rendering"
@@ -308,6 +308,36 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "atmospheric_fog"
+path = "examples/3d/atmospheric_fog.rs"
+
+[package.metadata.example.atmospheric_fog]
+name = "Atmospheric Fog"
+description = "A scene showcasing the atmospheric fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fog"
+path = "examples/3d/fog.rs"
+
+[package.metadata.example.fog]
+name = "Fog"
+description = "A scene showcasing the distance fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blend_modes"
+path = "examples/3d/blend_modes.rs"
+
+[package.metadata.example.blend_modes]
+name = "Blend Modes"
+description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 
@@ -341,7 +371,7 @@ wasm = true
 name = "bloom_3d"
 path = "examples/3d/bloom_3d.rs"
 
-[package.metadata.example.3d_bloom]
+[package.metadata.example.bloom_3d]
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
@@ -773,6 +803,16 @@ description = "Shows how to load and play an audio file, and control how it's pl
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "decodable"
+path = "examples/audio/decodable.rs"
+
+[package.metadata.example.decodable]
+name = "Decodable"
+description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -1117,6 +1157,16 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
+[[example]]
+name = "text_input"
+path = "examples/input/text_input.rs"
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Simple text input with IME support"
+category = "Input"
+wasm = false
+
 # Reflection
 [[example]]
 name = "reflection"
@@ -1221,6 +1271,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_prepass"
+path = "examples/shader/shader_prepass.rs"
+
+[package.metadata.example.shader_prepass]
+name = "Material Prepass"
+description = "A shader that uses the depth texture generated in a prepass"
+category = "Shaders"
+wasm = false
+
+
+[[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
 
@@ -1279,6 +1340,16 @@ name = "Array Texture"
 description = "A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture."
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader/texture_binding_array.rs"
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
 
 # Stress tests
 [[package.metadata.category]]
@@ -1466,6 +1537,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 
@@ -1484,6 +1565,17 @@ name = "Text Debug"
 description = "An example for debugging text layout"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "text_layout"
+path = "examples/ui/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "UI (User Interface)"
+wasm = false
+
 
 [[example]]
 name = "transparency_ui"
