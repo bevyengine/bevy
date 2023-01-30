@@ -1,8 +1,8 @@
 use crate::{
-    scale_value, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    scale_value, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
-use bevy_asset::Assets;
+use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -12,9 +12,12 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
+use bevy_pbr::StandardMaterial;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    mesh::{Indices, Mesh},
+    render_resource::PrimitiveTopology,
     texture::Image,
     view::{ComputedVisibility, Visibility},
 };
@@ -91,7 +94,11 @@ pub fn update_text3d_layout(
         Option<&Text3dBounds>,
         &mut Text3dSize,
         Option<&mut TextLayoutInfo>,
+        Option<&Handle<Mesh>>,
+        Option<&Handle<StandardMaterial>>,
     )>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
@@ -102,8 +109,16 @@ pub fn update_text3d_layout(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
-    for (entity, text_changed, text, maybe_bounds, mut calculated_size, text_layout_info) in
-        &mut text_query
+    for (
+        entity,
+        text_changed,
+        text,
+        maybe_bounds,
+        mut calculated_size,
+        text_layout_info,
+        maybe_mesh,
+        maybe_material,
+    ) in &mut text_query
     {
         if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
@@ -141,6 +156,51 @@ pub fn update_text3d_layout(
                         scale_value(info.size.x, 1. / scale_factor),
                         scale_value(info.size.y, 1. / scale_factor),
                     );
+
+                    if !info.glyphs.is_empty() {
+                        // we assume all glyphs are on the same texture
+                        // if not, we'll have to implement different materials
+                        debug_assert!(info
+                            .glyphs
+                            .iter()
+                            .zip(info.glyphs.iter().skip(1))
+                            .all(|(left, right)| left.atlas_info.texture_atlas
+                                == right.atlas_info.texture_atlas));
+                        if let Some(atlas) =
+                            texture_atlases.get(&info.glyphs[0].atlas_info.texture_atlas)
+                        {
+                            let new_mesh = build_mesh(&info, atlas);
+                            let new_material = StandardMaterial {
+                                base_color_texture: Some(atlas.texture.clone()),
+                                ..Default::default()
+                            };
+                            match maybe_mesh.and_then(|handle| meshes.get_mut(&*handle)) {
+                                Some(mesh) => {
+                                    *mesh = new_mesh;
+                                }
+                                None => {
+                                    let mesh = meshes.add(new_mesh);
+
+                                    commands.entity(entity).insert(mesh);
+                                }
+                            }
+                            match maybe_material.and_then(|handle| materials.get_mut(&*handle)) {
+                                Some(material) => {
+                                    *material = new_material;
+                                }
+                                None => {
+                                    let material = materials.add(new_material);
+                                    commands.entity(entity).insert(material);
+                                }
+                            }
+                        }
+                    } else {
+                        commands
+                            .entity(entity)
+                            .remove::<Handle<Mesh>>()
+                            .remove::<Handle<StandardMaterial>>();
+                    }
+
                     match text_layout_info {
                         Some(mut t) => *t = info,
                         None => {
@@ -151,4 +211,57 @@ pub fn update_text3d_layout(
             }
         }
     }
+}
+
+/// Build a mesh for the given text layout
+fn build_mesh(info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
+    let mut positions = Vec::with_capacity(info.glyphs.len() * 4);
+    let mut normals = Vec::with_capacity(info.glyphs.len() * 4);
+    let mut uvs = Vec::with_capacity(info.glyphs.len() * 4);
+    let mut indices = Vec::with_capacity(info.glyphs.len() * 6);
+
+    for PositionedGlyph {
+        position,
+        size,
+        atlas_info,
+        ..
+    } in &info.glyphs
+    {
+        let start = positions.len() as u32;
+        positions.extend([
+            [position.x, position.y, 0.0],
+            [position.x, position.y + size.y, 0.0],
+            [position.x + size.x, position.y + size.y, 0.0],
+            [position.x + size.x, position.y, 0.0],
+        ]);
+
+        normals.extend([
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+        ]);
+
+        indices.extend([start, start + 2, start + 1, start, start + 3, start + 2]);
+
+        let Rect { min, max } = atlas.textures[atlas_info.glyph_index];
+        uvs.extend([
+            [min.x, max.y],
+            [min.x, min.y],
+            [max.x, min.y],
+            [max.x, max.y],
+        ]);
+    }
+
+    assert_eq!(positions.len(), info.glyphs.len() * 4);
+    assert_eq!(normals.len(), info.glyphs.len() * 4);
+    assert_eq!(uvs.len(), info.glyphs.len() * 4);
+    assert_eq!(indices.len(), info.glyphs.len() * 6);
+
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    mesh.set_indices(Some(Indices::U32(indices)));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh
 }

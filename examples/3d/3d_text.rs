@@ -39,6 +39,7 @@ fn setup(
     commands.spawn((
         Text3dBundle {
             text: Text::from_section("Looking straight at you", style.clone()),
+            transform: Transform::from_xyz(2.0, 0.0, 2.0).with_scale(Vec3::splat(0.01)),
             ..default()
         },
         Billboard { rotate_z: true },
@@ -49,6 +50,7 @@ fn setup(
     commands.spawn((
         Text3dBundle {
             text: Text::from_section("Looking in your general direction", style.clone()),
+            transform: Transform::from_xyz(0.0, 2.0, 2.0).with_scale(Vec3::splat(0.01)),
             ..default()
         },
         Billboard { rotate_z: false },
@@ -58,6 +60,9 @@ fn setup(
     commands.spawn((
         Text3dBundle {
             text: Text::from_section("Frame counter goes here", style.clone()),
+            transform: Transform::from_xyz(-3.0, -3.0, 2.0)
+                .looking_at(Vec3::new(-6.0, -6.0, 2.0), Vec3::Z)
+                .with_scale(Vec3::splat(0.1)),
             ..default()
         },
         Framecounter,
@@ -92,7 +97,7 @@ fn rotate_billboard(
 ) {
     let camera = camera.single();
     for (mut transform, billboard) in billboards.iter_mut() {
-        let mut look_at = camera.translation;
+        let mut look_at = transform.translation - camera.translation;
         if !billboard.rotate_z {
             look_at.z = transform.translation.z;
         }
