@@ -178,19 +178,6 @@ impl SystemExecutor for MultiThreadedExecutor {
                         self.rebuild_active_access();
                     }
                 }
-
-                // SAFETY: all systems have completed
-                let world = unsafe { &mut *world.get() };
-                apply_system_buffers(&self.unapplied_systems, systems, world);
-                self.unapplied_systems.clear();
-                debug_assert!(self.unapplied_systems.is_clear());
-
-                debug_assert!(self.ready_systems.is_clear());
-                debug_assert!(self.running_systems.is_clear());
-                self.active_access.clear();
-                self.evaluated_sets.clear();
-                self.skipped_systems.clear();
-                self.completed_systems.clear();
             };
 
             #[cfg(feature = "trace")]
@@ -199,6 +186,20 @@ impl SystemExecutor for MultiThreadedExecutor {
             let executor = executor.instrument(executor_span);
             scope.spawn(executor);
         });
+
+        // Do one final apply buffers after all systems have completed
+        // SAFETY: all systems have completed, and so no outstanding accesses remain
+        let world = unsafe { &mut *world.get() };
+        apply_system_buffers(&self.unapplied_systems, systems, world);
+        self.unapplied_systems.clear();
+        debug_assert!(self.unapplied_systems.is_clear());
+
+        debug_assert!(self.ready_systems.is_clear());
+        debug_assert!(self.running_systems.is_clear());
+        self.active_access.clear();
+        self.evaluated_sets.clear();
+        self.skipped_systems.clear();
+        self.completed_systems.clear();
     }
 }
 
