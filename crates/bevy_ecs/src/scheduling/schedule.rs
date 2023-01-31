@@ -1102,7 +1102,7 @@ pub enum ScheduleBuildError {
 }
 
 /// Specifies how schedule construction should respond to detecting a certain kind of issue.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LogLevel {
     /// Occurences are completely ignored.
     Ignore,
@@ -1113,6 +1113,7 @@ pub enum LogLevel {
 }
 
 /// Specifies miscellaneous settings for schedule construction.
+#[derive(Clone, Debug)]
 pub struct ScheduleBuildSettings {
     ambiguity_detection: LogLevel,
     hierarchy_detection: LogLevel,
