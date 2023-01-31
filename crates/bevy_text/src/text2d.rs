@@ -64,14 +64,17 @@ pub fn extract_text2d_sprite(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
-        Query<(
-            Entity,
-            &ComputedVisibility,
-            &Text,
-            &TextLayoutInfo,
-            &Anchor,
-            &GlobalTransform,
-        )>,
+        Query<
+            (
+                Entity,
+                &ComputedVisibility,
+                &Text,
+                &TextLayoutInfo,
+                &Anchor,
+                &GlobalTransform,
+            ),
+            With<Text2dBounds>,
+        >,
     >,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
