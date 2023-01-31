@@ -51,7 +51,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
-            for set_idx in schedule.sets_of_systems[system_index].ones() {
+            for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {
                 if self.evaluated_sets.contains(set_idx) {
                     continue;
                 }
@@ -62,7 +62,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
                 if !set_conditions_met {
                     self.completed_systems
-                        .union_with(&schedule.systems_in_sets[set_idx]);
+                        .union_with(&schedule.systems_in_sets_with_conditions[set_idx]);
                 }
 
                 should_run &= set_conditions_met;

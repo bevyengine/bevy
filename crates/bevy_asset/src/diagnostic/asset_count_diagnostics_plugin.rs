@@ -19,7 +19,7 @@ impl<T: Asset> Default for AssetCountDiagnosticsPlugin<T> {
 impl<T: Asset> Plugin for AssetCountDiagnosticsPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_startup_system(Self::setup_system.in_set(StartupSet::Startup))
-            .add_system(Self::diagnostic_system.in_set(CoreSet::Update));
+            .add_system(Self::diagnostic_system);
     }
 }
 

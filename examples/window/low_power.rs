@@ -34,9 +34,9 @@ fn main() {
             ..default()
         }))
         .add_startup_system(test_setup::setup)
-        .add_system(test_setup::cycle_modes.in_set(CoreSet::Update))
-        .add_system(test_setup::rotate_cube.in_set(CoreSet::Update))
-        .add_system(test_setup::update_text.in_set(CoreSet::Update))
+        .add_system(test_setup::cycle_modes)
+        .add_system(test_setup::rotate_cube)
+        .add_system(test_setup::update_text)
         .add_system(update_winit)
         .run();
 }

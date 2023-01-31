@@ -101,14 +101,14 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
-            .configure_set(UiSystem::Focus.in_set(CoreSet::PreUpdate))
-            .configure_set(UiSystem::Flex.in_set(CoreSet::PostUpdate))
-            .configure_set(UiSystem::Stack.in_set(CoreSet::PostUpdate))
+            .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
+            .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
+            .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
             .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem))
             // add these systems to front because these must run before transform update systems
             .add_system(
                 widget::text_system
-                    .in_set(CoreSet::PostUpdate)
+                    .in_base_set(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
@@ -123,7 +123,7 @@ impl Plugin for UiPlugin {
             )
             .add_system(
                 widget::update_image_calculated_size_system
-                    .in_set(CoreSet::PostUpdate)
+                    .in_base_set(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe
@@ -142,7 +142,7 @@ impl Plugin for UiPlugin {
             .add_system(
                 update_clipping_system
                     .after(TransformSystem::TransformPropagate)
-                    .in_set(CoreSet::PostUpdate),
+                    .in_base_set(CoreSet::PostUpdate),
             );
 
         crate::render::build_ui_render(app);

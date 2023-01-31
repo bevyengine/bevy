@@ -328,14 +328,14 @@ impl App {
                 apply_state_transition::<S>,
             )
                 .chain()
-                .in_set(CoreSet::StateTransitions),
+                .in_base_set(CoreSet::StateTransitions),
         );
 
         let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
             main_schedule.configure_set(
                 OnUpdate(variant.clone())
-                    .in_set(CoreSet::StateTransitions)
+                    .in_base_set(CoreSet::StateTransitions)
                     .run_if(state_equals(variant))
                     .after(apply_state_transition::<S>),
             );
@@ -580,7 +580,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system(Events::<T>::update_system.in_set(CoreSet::First));
+                .add_system(Events::<T>::update_system.in_base_set(CoreSet::First));
         }
         self
     }

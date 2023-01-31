@@ -24,7 +24,7 @@ impl Plugin for GilrsPlugin {
                     .add_system(
                         gilrs_event_system
                             .before(InputSystem)
-                            .in_set(CoreSet::PreUpdate),
+                            .in_base_set(CoreSet::PreUpdate),
                     );
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),

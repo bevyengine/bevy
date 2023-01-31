@@ -11,7 +11,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(set_camera_viewports.in_set(CoreSet::Update))
+        .add_system(set_camera_viewports)
         .run();
 }
 

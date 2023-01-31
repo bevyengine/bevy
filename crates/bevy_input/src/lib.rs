@@ -51,7 +51,7 @@ pub struct InputSystem;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_set(InputSystem.in_set(CoreSet::PreUpdate))
+        app.configure_set(InputSystem.in_base_set(CoreSet::PreUpdate))
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()

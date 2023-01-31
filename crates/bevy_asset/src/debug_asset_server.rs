@@ -75,7 +75,7 @@ impl Plugin for DebugAssetServerPlugin {
             watch_for_changes: true,
         });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
-        app.add_system(run_debug_asset_app.in_set(CoreSet::Update));
+        app.add_system(run_debug_asset_app);
     }
 }
 

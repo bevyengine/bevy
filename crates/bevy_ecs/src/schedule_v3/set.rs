@@ -23,6 +23,12 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         false
     }
 
+    /// Returns `true` if this set is a "base system set", which systems
+    /// can only belong to one of.
+    fn is_base(&self) -> bool {
+        false
+    }
+
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }

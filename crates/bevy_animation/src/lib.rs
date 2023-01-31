@@ -552,7 +552,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system(
                 animation_player
-                    .in_set(CoreSet::PostUpdate)
+                    .in_base_set(CoreSet::PostUpdate)
                     .before(TransformSystem::TransformPropagate),
             );
     }
