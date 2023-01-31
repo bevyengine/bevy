@@ -569,10 +569,12 @@ impl ScheduleGraph {
         self.hierarchy.topsort = hier_scc.into_iter().flatten().rev().collect::<Vec<_>>();
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
-        if self.contains_hierarchy_conflicts(&hier_results.transitive_edges) {
-            self.report_hierarchy_conflicts(&hier_results.transitive_edges);
-            if matches!(self.settings.hierarchy_detection, LogLevel::Error) {
-                return Err(ScheduleBuildError::HierarchyRedundancy);
+        if self.settings.hierarchy_detection != LogLevel::Ignore {
+            if self.contains_hierarchy_conflicts(&hier_results.transitive_edges) {
+                self.report_hierarchy_conflicts(&hier_results.transitive_edges);
+                if matches!(self.settings.hierarchy_detection, LogLevel::Error) {
+                    return Err(ScheduleBuildError::HierarchyRedundancy);
+                }
             }
         }
 
@@ -778,10 +780,12 @@ impl ScheduleGraph {
             }
         }
 
-        if self.contains_conflicts(&conflicting_systems) {
-            self.report_conflicts(&conflicting_systems, components);
-            if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
-                return Err(ScheduleBuildError::Ambiguity);
+        if self.settings.ambiguity_detection != LogLevel::Ignore {
+            if self.contains_conflicts(&conflicting_systems) {
+                self.report_conflicts(&conflicting_systems, components);
+                if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
+                    return Err(ScheduleBuildError::Ambiguity);
+                }
             }
         }
 
@@ -1098,7 +1102,10 @@ pub enum ScheduleBuildError {
 }
 
 /// Specifies how schedule construction should respond to detecting a certain kind of issue.
+#[derive(Debug, PartialEq)]
 pub enum LogLevel {
+    /// Occurences are completely ignored.
+    Ignore,
     /// Occurrences are logged only.
     Warn,
     /// Occurrences are logged and result in errors.
