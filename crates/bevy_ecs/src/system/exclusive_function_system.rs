@@ -154,8 +154,8 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::scheduling::SystemSet>> {
-        let set = crate::scheduling::SystemTypeSet::<F>::new();
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        let set = crate::schedule_v3::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
     }
 }

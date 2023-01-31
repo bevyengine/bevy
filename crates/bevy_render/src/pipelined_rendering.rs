@@ -2,7 +2,7 @@ use async_channel::{Receiver, Sender};
 
 use bevy_app::{App, AppLabel, CoreSchedule, Plugin, SubApp};
 use bevy_ecs::{
-    scheduling::MainThreadExecutor,
+    schedule_v3::MainThreadExecutor,
     system::Resource,
     world::{Mut, World},
 };

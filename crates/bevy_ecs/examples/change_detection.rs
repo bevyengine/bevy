@@ -1,4 +1,4 @@
-use bevy_ecs::{prelude::*, scheduling::IntoSystemConfig};
+use bevy_ecs::{prelude::*, schedule_v3::IntoSystemConfig};
 use rand::Rng;
 use std::ops::Deref;
 

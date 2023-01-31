@@ -2,7 +2,7 @@ use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
-    scheduling::{
+    schedule_v3::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, ScheduleLabel,
     },
@@ -99,7 +99,7 @@ impl Debug for App {
 /// ```rust
 /// # use bevy_app::{App, AppLabel, SubApp, CoreSchedule};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::scheduling::ScheduleLabel;
+/// # use bevy_ecs::schedule_v3::ScheduleLabel;
 ///
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
@@ -515,7 +515,7 @@ impl App {
     ///
     /// ```
     /// use bevy_app::App;
-    /// use bevy_ecs::scheduling::Schedules;
+    /// use bevy_ecs::schedule_v3::Schedules;
     ///
     /// let app = App::empty()
     ///     .init_resource::<Schedules>()
@@ -538,7 +538,7 @@ impl App {
         }
 
         self.edit_schedule(CoreSchedule::Outer, |schedule| {
-            schedule.set_executor_kind(bevy_ecs::scheduling::ExecutorKind::SingleThreaded);
+            schedule.set_executor_kind(bevy_ecs::schedule_v3::ExecutorKind::SingleThreaded);
             schedule.add_system(run_main_schedule);
         });
 

@@ -143,7 +143,7 @@ mod tests {
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
-        scheduling::{apply_system_buffers, IntoSystemConfig, Schedule},
+        schedule_v3::{apply_system_buffers, IntoSystemConfig, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             RemovedComponents, Res, ResMut, Resource, System, SystemState,

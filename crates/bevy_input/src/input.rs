@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 // unused import, but needed for intra doc link to work
 #[allow(unused_imports)]
-use bevy_ecs::scheduling::State;
+use bevy_ecs::schedule_v3::State;
 
 /// A "press-able" input of type `T`.
 ///

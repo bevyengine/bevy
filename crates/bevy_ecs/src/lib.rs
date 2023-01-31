@@ -13,7 +13,7 @@ pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
-pub mod scheduling;
+pub mod schedule_v3;
 pub mod storage;
 pub mod system;
 pub mod world;
@@ -33,7 +33,7 @@ pub mod prelude {
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
-        scheduling::{
+        schedule_v3::{
             apply_state_transition, apply_system_buffers, common_conditions::*, IntoSystemConfig,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, NextState, OnEnter, OnExit,
             OnUpdate, Schedule, Schedules, State, States, SystemSet,

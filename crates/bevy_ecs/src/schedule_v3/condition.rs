@@ -25,7 +25,7 @@ mod sealed {
 }
 
 pub mod common_conditions {
-    use crate::scheduling::{State, States};
+    use crate::schedule_v3::{State, States};
     use crate::system::{Res, Resource};
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`

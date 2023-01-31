@@ -28,7 +28,7 @@ pub mod prelude {
 }
 
 use bevy_ecs::{
-    scheduling::{
+    schedule_v3::{
         apply_system_buffers, IntoSystemConfig, IntoSystemSetConfig, Schedule, ScheduleLabel,
         SystemSet,
     },
@@ -74,7 +74,7 @@ impl CoreSchedule {
     /// Initializes a single threaded schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`] system.
     pub fn outer_schedule() -> Schedule {
         let mut schedule = Schedule::new();
-        schedule.set_executor_kind(bevy_ecs::scheduling::ExecutorKind::SingleThreaded);
+        schedule.set_executor_kind(bevy_ecs::schedule_v3::ExecutorKind::SingleThreaded);
         schedule.add_system(Self::outer_loop);
         schedule
     }

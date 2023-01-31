@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::mem;
 
 use crate as bevy_ecs;
-use crate::scheduling::{ScheduleLabel, SystemSet};
+use crate::schedule_v3::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
