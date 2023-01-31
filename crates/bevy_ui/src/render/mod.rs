@@ -200,38 +200,51 @@ pub fn extract_uinodes(
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, background_color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+            // Skip invisible nodes
+            if !visibility.is_visible() {
                 continue;
             }
 
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
-                    continue;
-                }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
-            } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+            let clip = clip.map(|clip| clip.clip);
+            let rect = Rect {
+                min: Vec2::ZERO,
+                max: uinode.calculated_size,
             };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index,
-                transform: transform.compute_matrix(),
-                background_color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                image,
-                atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
-                flip_x,
-                flip_y,
-            });
+            // Fill the node with the background color if it isn't transparent
+            if background_color.0.a() != 0.0 {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    stack_index,
+                    transform: transform.compute_matrix(),
+                    background_color: background_color.0,
+                    rect,
+                    image: DEFAULT_IMAGE_HANDLE.typed().clone_weak(),
+                    atlas_size: None,
+                    clip,
+                    flip_x: false,
+                    flip_y: false,
+                });
+            }
+
+            if let Some(image) = maybe_image {
+                // only extract the image if its texture is loaded
+                if images.contains(&image.texture) {
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        stack_index,
+                        transform: transform.compute_matrix(),
+                        background_color: image.color,
+                        rect,
+                        image: image.texture.clone_weak(),
+                        atlas_size: None,
+                        clip,
+                        flip_x: image.flip_x,
+                        flip_y: image.flip_y,
+                    });
+                }
+            };
         }
     }
 }
