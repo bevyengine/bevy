@@ -61,7 +61,7 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct ImageBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -70,8 +70,6 @@ pub struct ImageBundle {
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
@@ -93,6 +91,25 @@ pub struct ImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+}
+
+impl Default for ImageBundle {
+    fn default() -> Self {
+        ImageBundle {
+            image: Default::default(),
+            calculated_size: Default::default(),
+            // Transparent background
+            background_color: Color::NONE.into(),
+            node: Default::default(),
+            style: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }
 
 /// A UI node that is text
