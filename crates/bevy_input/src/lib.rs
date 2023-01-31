@@ -75,6 +75,7 @@ impl Plugin for InputPlugin {
             .init_resource::<Axis<GamepadButton>>()
             .add_systems(
                 (
+                    gamepad_event_system,
                     gamepad_connection_system.after(gamepad_event_system),
                     gamepad_button_event_system
                         .after(gamepad_event_system)
