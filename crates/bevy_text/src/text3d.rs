@@ -18,7 +18,7 @@ use bevy_render::{
     render_resource::PrimitiveTopology,
     view::{ComputedVisibility, Visibility},
 };
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::{Anchor, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The calculated size of text drawn in 3D scene.
@@ -53,6 +53,7 @@ impl Default for Text3dBounds {
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text3dBundle {
     pub text: Text,
+    pub anchor: Anchor,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub text_3d_size: Text3dSize,
@@ -70,6 +71,7 @@ pub fn update_text3d_mesh(
             Entity,
             Ref<Text>,
             &TextLayoutInfo,
+            &Anchor,
             Option<&Handle<Mesh>>,
             Option<&Handle<StandardMaterial>>,
         ),
@@ -78,15 +80,17 @@ pub fn update_text3d_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (entity, text, info, maybe_mesh, maybe_material) in &mut text_query {
+    for (entity, text, info, anchor, maybe_mesh, maybe_material) in &mut text_query {
         if !info.glyphs.is_empty() {
             // we assume all glyphs are on the same texture
             // if not, we'll have to implement different materials
             debug_assert!(info.glyphs.iter().zip(info.glyphs.iter().skip(1)).all(
                 |(left, right)| left.atlas_info.texture_atlas == right.atlas_info.texture_atlas
             ));
+            let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
+            let alignment_offset = info.size * text_anchor;
             if let Some(atlas) = texture_atlases.get(&info.glyphs[0].atlas_info.texture_atlas) {
-                let new_mesh = build_mesh(&text.sections, &info, atlas);
+                let new_mesh = build_mesh(&text.sections, &info, atlas, alignment_offset);
                 let new_material = StandardMaterial {
                     base_color_texture: Some(atlas.texture.clone()),
                     base_color: Color::WHITE,
@@ -123,7 +127,12 @@ pub fn update_text3d_mesh(
 }
 
 /// Build a mesh for the given text layout
-fn build_mesh(sections: &[TextSection], info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
+fn build_mesh(
+    sections: &[TextSection],
+    info: &TextLayoutInfo,
+    atlas: &TextureAtlas,
+    alignment_offset: Vec2,
+) -> Mesh {
     let mut positions = Vec::with_capacity(info.glyphs.len() * 4);
     let mut normals = Vec::with_capacity(info.glyphs.len() * 4);
     let mut uvs = Vec::with_capacity(info.glyphs.len() * 4);
@@ -139,6 +148,7 @@ fn build_mesh(sections: &[TextSection], info: &TextLayoutInfo, atlas: &TextureAt
     } in &info.glyphs
     {
         let start = positions.len() as u32;
+        let position = *position + alignment_offset;
         positions.extend([
             [position.x, position.y, 0.0],
             [position.x, position.y + size.y, 0.0],
