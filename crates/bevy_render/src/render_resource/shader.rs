@@ -1,27 +1,16 @@
+use super::ShaderDefVal;
+use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::{TypeUuid, Uuid};
+use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
-use naga::back::wgsl::WriterFlags;
-use naga::valid::Capabilities;
-use naga::{valid::ModuleInfo, Module};
+use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use wgpu::Features;
-use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
 
-use super::ShaderDefVal;
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ShaderId(Uuid);
-
-impl ShaderId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        ShaderId(Uuid::new_v4())
-    }
-}
+define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {
@@ -151,6 +140,18 @@ impl ProcessedShader {
             (
                 Features::SHADER_PRIMITIVE_INDEX,
                 Capabilities::PRIMITIVE_INDEX,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
             ),
         ];
         let mut capabilities = Capabilities::empty();
@@ -425,7 +426,9 @@ impl ShaderProcessor {
 
         let shader_defs_unique =
             HashMap::<String, ShaderDefVal>::from_iter(shader_defs.iter().map(|v| match v {
-                ShaderDefVal::Bool(k, _) | ShaderDefVal::Int(k, _) => (k.clone(), v.clone()),
+                ShaderDefVal::Bool(k, _) | ShaderDefVal::Int(k, _) | ShaderDefVal::UInt(k, _) => {
+                    (k.clone(), v.clone())
+                }
             }));
         let mut scopes = vec![true];
         let mut final_string = String::new();
@@ -484,6 +487,16 @@ impl ShaderProcessor {
                         })?;
                         act_on(*def, val, op.as_str())?
                     }
+                    ShaderDefVal::UInt(name, def) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ProcessShaderError::InvalidShaderDefComparisonValue {
+                                shader_def_name: name.clone(),
+                                value: val.as_str().to_string(),
+                                expected: "uint".to_string(),
+                            }
+                        })?;
+                        act_on(*def, val, op.as_str())?
+                    }
                 };
                 scopes.push(*scopes.last().unwrap() && new_scope);
             } else if self.else_regex.is_match(line) {
@@ -536,24 +549,18 @@ impl ShaderProcessor {
                     for capture in self.def_regex.captures_iter(line) {
                         let def = capture.get(1).unwrap();
                         if let Some(def) = shader_defs_unique.get(def.as_str()) {
-                            let def = match def {
-                                ShaderDefVal::Bool(_, def) => def.to_string(),
-                                ShaderDefVal::Int(_, def) => def.to_string(),
-                            };
-                            line_with_defs =
-                                self.def_regex.replace(&line_with_defs, def).to_string();
+                            line_with_defs = self
+                                .def_regex
+                                .replace(&line_with_defs, def.value_as_string())
+                                .to_string();
                         }
                     }
                     for capture in self.def_regex_delimited.captures_iter(line) {
                         let def = capture.get(1).unwrap();
                         if let Some(def) = shader_defs_unique.get(def.as_str()) {
-                            let def = match def {
-                                ShaderDefVal::Bool(_, def) => def.to_string(),
-                                ShaderDefVal::Int(_, def) => def.to_string(),
-                            };
                             line_with_defs = self
                                 .def_regex_delimited
-                                .replace(&line_with_defs, def)
+                                .replace(&line_with_defs, def.value_as_string())
                                 .to_string();
                         }
                     }

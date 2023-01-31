@@ -55,6 +55,7 @@ fn setup(
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         },
         ..default()
     };
@@ -102,7 +103,7 @@ fn setup(
             },
             camera: Camera {
                 // render before the "main pass" camera
-                priority: -1,
+                order: -1,
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },

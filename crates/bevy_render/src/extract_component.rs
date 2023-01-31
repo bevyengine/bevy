@@ -14,6 +14,8 @@ use bevy_ecs::{
 };
 use std::{marker::PhantomData, ops::Deref};
 
+pub use bevy_render_macros::ExtractComponent;
+
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
 #[derive(Component)]
 pub struct DynamicUniformIndex<C: Component> {

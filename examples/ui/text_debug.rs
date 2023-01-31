@@ -3,16 +3,16 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -54,7 +54,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: Color::rgb(0.8, 0.2, 0.7),
             },
         )
-        .with_text_alignment(TextAlignment::CENTER)
+        .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -173,8 +173,7 @@ fn change_text_system(
         }
 
         text.sections[0].value = format!(
-            "This text changes in the bottom right - {:.1} fps, {:.3} ms/frame",
-            fps, frame_time,
+            "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
         text.sections[2].value = format!("{fps:.1}");

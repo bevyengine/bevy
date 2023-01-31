@@ -17,6 +17,7 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
+use parking_lot::Mutex;
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout};
@@ -123,6 +124,7 @@ struct ShaderCache {
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
+    UInt(String, u32),
 }
 
 impl From<&str> for ShaderDefVal {
@@ -134,6 +136,16 @@ impl From<&str> for ShaderDefVal {
 impl From<String> for ShaderDefVal {
     fn from(key: String) -> Self {
         ShaderDefVal::Bool(key, true)
+    }
+}
+
+impl ShaderDefVal {
+    pub fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefVal::Bool(_, def) => def.to_string(),
+            ShaderDefVal::Int(_, def) => def.to_string(),
+            ShaderDefVal::UInt(_, def) => def.to_string(),
+        }
     }
 }
 
@@ -176,9 +188,9 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                shader_defs.push(ShaderDefVal::Int(
+                shader_defs.push(ShaderDefVal::UInt(
                     String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage as i32,
+                    render_device.limits().max_storage_buffers_per_shader_stage,
                 ));
 
                 debug!(
@@ -207,7 +219,7 @@ impl ShaderCache {
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
+                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
@@ -332,6 +344,7 @@ pub struct PipelineCache {
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
+    new_pipelines: Mutex<Vec<CachedPipeline>>,
 }
 
 impl PipelineCache {
@@ -346,6 +359,7 @@ impl PipelineCache {
             layout_cache: default(),
             shader_cache: default(),
             waiting_pipelines: default(),
+            new_pipelines: default(),
             pipelines: default(),
         }
     }
@@ -444,15 +458,15 @@ impl PipelineCache {
     /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
     /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
     pub fn queue_render_pipeline(
-        &mut self,
+        &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let id = CachedRenderPipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -470,15 +484,15 @@ impl PipelineCache {
     /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
     /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
     pub fn queue_compute_pipeline(
-        &mut self,
+        &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let id = CachedComputePipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -621,8 +635,17 @@ impl PipelineCache {
     ///
     /// [`RenderStage::Render`]: crate::RenderStage::Render
     pub fn process_queue(&mut self) {
-        let waiting_pipelines = mem::take(&mut self.waiting_pipelines);
+        let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
+
+        {
+            let mut new_pipelines = self.new_pipelines.lock();
+            for new_pipeline in new_pipelines.drain(..) {
+                let id = pipelines.len();
+                pipelines.push(new_pipeline);
+                waiting_pipelines.insert(id);
+            }
+        }
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
@@ -783,7 +806,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline cound not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
     )]
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]

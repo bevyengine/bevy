@@ -2,6 +2,7 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
+pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
@@ -9,13 +10,16 @@ mod systems;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{components::*, TransformBundle, TransformPlugin};
+    pub use crate::{
+        commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
+    };
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use prelude::{GlobalTransform, Transform};
+use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
@@ -79,6 +83,13 @@ pub enum TransformSystem {
     TransformPropagate,
 }
 
+/// Transform propagation system set for third party plugins use
+pub fn transform_propagate_system_set() -> SystemSet {
+    SystemSet::new()
+        .with_system(systems::sync_simple_transforms)
+        .with_system(systems::propagate_transforms)
+}
+
 /// The base plugin for handling [`Transform`] components
 #[derive(Default)]
 pub struct TransformPlugin;
@@ -91,19 +102,26 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+                sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                    // These systems cannot access the same entities,
+                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                    .ambiguous_with(propagate_transforms),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+                propagate_transforms.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+                sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .ambiguous_with(propagate_transforms),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+                propagate_transforms.label(TransformSystem::TransformPropagate),
             );
     }
 }

@@ -350,7 +350,7 @@ mod menu {
     const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
     const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
-    // Tag component used to mark wich setting is currently selected
+    // Tag component used to mark which setting is currently selected
     #[derive(Component)]
     struct SelectedOption;
 

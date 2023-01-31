@@ -23,34 +23,42 @@ use crate::{
 };
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
-
-/// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
-/// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, FromReflect, Debug)]
+///
+/// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
+/// are set to `Inherited` will also be hidden.
+///
+/// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
+/// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
+#[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
-pub struct Visibility {
-    /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
-    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`] and [`Parent`] for
-    /// hierarchy info.
-    pub is_visible: bool,
+pub enum Visibility {
+    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
+    ///
+    /// A root-level entity that is set to `Inherited` will be visible.
+    #[default]
+    Inherited,
+    /// An entity with `Visibility::Hidden` will be unconditionally hidden.
+    Hidden,
+    /// An entity with `Visibility::Visible` will be unconditionally visible.
+    ///
+    /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
+    /// [`Parent`] entity is hidden.
+    Visible,
 }
 
-impl Default for Visibility {
-    fn default() -> Self {
-        Visibility::VISIBLE
+// Allows `&Visibility == Visibility`
+impl std::cmp::PartialEq<Visibility> for &Visibility {
+    #[inline]
+    fn eq(&self, other: &Visibility) -> bool {
+        **self == *other
     }
 }
 
-impl Visibility {
-    /// A [`Visibility`], set as visible.
-    pub const VISIBLE: Self = Visibility { is_visible: true };
-
-    /// A [`Visibility`], set as invisible.
-    pub const INVISIBLE: Self = Visibility { is_visible: false };
-
-    /// Toggle the visibility.
-    pub fn toggle(&mut self) {
-        self.is_visible = !self.is_visible;
+// Allows `Visibility == &Visibility`
+impl std::cmp::PartialEq<&Visibility> for Visibility {
+    #[inline]
+    fn eq(&self, other: &&Visibility) -> bool {
+        *self == **other
     }
 }
 
@@ -71,13 +79,13 @@ pub struct ComputedVisibility {
 
 impl Default for ComputedVisibility {
     fn default() -> Self {
-        Self::INVISIBLE
+        Self::HIDDEN
     }
 }
 
 impl ComputedVisibility {
     /// A [`ComputedVisibility`], set as invisible.
-    pub const INVISIBLE: Self = ComputedVisibility {
+    pub const HIDDEN: Self = ComputedVisibility {
         flags: ComputedVisibilityFlags::empty(),
     };
 
@@ -204,7 +212,7 @@ impl Plugin for VisibilityPlugin {
 
         app.add_system_to_stage(
             CoreStage::PostUpdate,
-            calculate_bounds.label(CalculateBounds),
+            calculate_bounds.label(CalculateBounds).before_commands(),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -244,7 +252,6 @@ impl Plugin for VisibilityPlugin {
             CoreStage::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
-                .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
                 .after(UpdateProjectionFrusta)
@@ -274,7 +281,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection(
+        *frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
             &transform.translation(),
             &transform.back(),
@@ -298,7 +305,8 @@ fn visibility_propagate_system(
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.reset(visibility.is_visible);
+        computed_visibility
+            .reset(visibility == Visibility::Inherited || visibility == Visibility::Visible);
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -329,7 +337,8 @@ fn propagate_recursive(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        let visible_in_hierarchy = visibility.is_visible && parent_visible;
+        let visible_in_hierarchy = (parent_visible && visibility == Visibility::Inherited)
+            || visibility == Visibility::Visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility.reset(visible_in_hierarchy);
         visible_in_hierarchy
@@ -340,9 +349,6 @@ fn propagate_recursive(
     }
     Ok(())
 }
-
-// the batch size used for check_visibility, chosen because this number tends to perform well
-const VISIBLE_ENTITIES_QUERY_BATCH_SIZE: usize = 1024;
 
 /// System updating the visibility of entities each frame.
 ///
@@ -367,9 +373,9 @@ pub fn check_visibility(
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
+
         visible_entities.entities.clear();
-        visible_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_aabb_query.par_iter_mut().for_each_mut(
             |(
                 entity,
                 mut computed_visibility,
@@ -401,7 +407,7 @@ pub fn check_visibility(
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
                         return;
                     }
                 }
@@ -414,8 +420,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_no_aabb_query.par_iter_mut().for_each_mut(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
@@ -458,10 +463,7 @@ mod test {
 
         let root1 = app
             .world
-            .spawn((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root1_child1 = app
             .world
@@ -469,10 +471,7 @@ mod test {
             .id();
         let root1_child2 = app
             .world
-            .spawn((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root1_child1_grandchild1 = app
             .world
@@ -503,10 +502,7 @@ mod test {
             .id();
         let root2_child2 = app
             .world
-            .spawn((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root2_child1_grandchild1 = app
             .world
@@ -577,5 +573,90 @@ mod test {
             !is_visible(root2_child2_grandchild1),
             "child's invisibility propagates down to grandchild"
         );
+    }
+
+    #[test]
+    fn visibility_propagation_unconditional_visible() {
+        let mut app = App::new();
+        app.add_system(visibility_propagate_system);
+
+        let root1 = app
+            .world
+            .spawn((Visibility::Visible, ComputedVisibility::default()))
+            .id();
+        let root1_child1 = app
+            .world
+            .spawn((Visibility::Inherited, ComputedVisibility::default()))
+            .id();
+        let root1_child2 = app
+            .world
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
+            .id();
+        let root1_child1_grandchild1 = app
+            .world
+            .spawn((Visibility::Visible, ComputedVisibility::default()))
+            .id();
+        let root1_child2_grandchild1 = app
+            .world
+            .spawn((Visibility::Visible, ComputedVisibility::default()))
+            .id();
+
+        let root2 = app
+            .world
+            .spawn((Visibility::Inherited, ComputedVisibility::default()))
+            .id();
+        let root3 = app
+            .world
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
+            .id();
+
+        app.world
+            .entity_mut(root1)
+            .push_children(&[root1_child1, root1_child2]);
+        app.world
+            .entity_mut(root1_child1)
+            .push_children(&[root1_child1_grandchild1]);
+        app.world
+            .entity_mut(root1_child2)
+            .push_children(&[root1_child2_grandchild1]);
+
+        app.update();
+
+        let is_visible = |e: Entity| {
+            app.world
+                .entity(e)
+                .get::<ComputedVisibility>()
+                .unwrap()
+                .is_visible_in_hierarchy()
+        };
+        assert!(
+            is_visible(root1),
+            "an unconditionally visible root is visible"
+        );
+        assert!(
+            is_visible(root1_child1),
+            "an inheriting child of an unconditionally visible parent is visible"
+        );
+        assert!(
+            !is_visible(root1_child2),
+            "a hidden child on an unconditionally visible parent is hidden"
+        );
+        assert!(
+            is_visible(root1_child1_grandchild1),
+            "an unconditionally visible child of an inheriting parent is visible"
+        );
+        assert!(
+            is_visible(root1_child2_grandchild1),
+            "an unconditionally visible child of a hidden parent is visible"
+        );
+        assert!(is_visible(root2), "an inheriting root is visible");
+        assert!(!is_visible(root3), "a hidden root is hidden");
+    }
+
+    #[test]
+    fn ensure_visibility_enum_size() {
+        use std::mem;
+        assert_eq!(1, mem::size_of::<Visibility>());
+        assert_eq!(1, mem::size_of::<Option<Visibility>>());
     }
 }

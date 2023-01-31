@@ -3,12 +3,12 @@ use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
     event::EventReader,
     prelude::{Bundle, World},
+    query::ROQueryItem,
     schedule::IntoSystemDescriptor,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
@@ -21,8 +21,8 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
@@ -218,6 +218,18 @@ where
     }
 }
 
+impl<M: Material2d> Clone for Material2dPipeline<M> {
+    fn clone(&self) -> Self {
+        Self {
+            mesh2d_pipeline: self.mesh2d_pipeline.clone(),
+            material2d_layout: self.material2d_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -281,15 +293,21 @@ type DrawMaterial2d<M> = (
 );
 
 pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<M: Material2d, const I: usize> EntityRenderCommand for SetMaterial2dBindGroup<M, I> {
-    type Param = (SRes<RenderMaterials2d<M>>, SQuery<Read<Handle<M>>>);
+impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
+    for SetMaterial2dBindGroup<M, I>
+{
+    type Param = SRes<RenderMaterials2d<M>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<M>>;
+
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d_handle = query.get(item).unwrap();
         let material2d = materials.into_inner().get(material2d_handle).unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
@@ -301,7 +319,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials2d<M>>,
@@ -322,7 +340,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
@@ -345,7 +363,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &material2d_pipeline,
                             Material2dKey {
                                 mesh_key,

@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -62,7 +62,8 @@ impl Node for MainPass2dNode {
         {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_pass_2d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_2d.clear_color {
@@ -75,23 +76,13 @@ impl Node for MainPass2dNode {
                     store: true,
                 }))],
                 depth_stencil_attachment: None,
-            };
+            });
 
-            let draw_functions = world.resource::<DrawFunctions<Transparent2d>>();
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(viewport);
             }
-            for item in &transparent_phase.items {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+
+            transparent_phase.render(&mut render_pass, world, view_entity);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
@@ -110,7 +101,7 @@ impl Node for MainPass2dNode {
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 
