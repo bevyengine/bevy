@@ -306,8 +306,6 @@ pub struct ArrayIter<'a> {
 
 impl<'a> ArrayIter<'a> {
     /// Creates a new [`ArrayIter`].
-    ///
-    /// It is an [`Iterator`] for [`Array`] whose elements start from `index`.
     #[inline]
     pub const fn new(array: &'a dyn Array) -> ArrayIter {
         ArrayIter { array, index: 0 }
