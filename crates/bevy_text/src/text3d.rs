@@ -55,7 +55,7 @@ pub struct Text3dBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
-/// Update the mesh and standard material for
+/// Update the mesh and standard material for the entities spawned with a [`Text3dBundle`]
 pub fn update_text3d_mesh(
     mut commands: Commands,
     texture_atlases: Res<Assets<TextureAtlas>>,
