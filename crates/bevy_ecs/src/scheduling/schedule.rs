@@ -1012,10 +1012,12 @@ impl ScheduleGraph {
     }
 
     fn report_conflicts(&self, ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)]) {
-        let mut string = String::from(
-            "Some systems with conflicting access have indeterminate execution order. \
+        let n_ambiguities = ambiguities.len();
+
+        let mut string = String::from(format!(
+            "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
-        );
+        ));
 
         for (system_a, system_b, conflicts) in ambiguities {
             let name_a = self.get_node_name(system_a);
