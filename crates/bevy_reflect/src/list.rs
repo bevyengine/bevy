@@ -176,7 +176,7 @@ impl Array for DynamicList {
     }
 
     fn iter(&self) -> ArrayIter {
-        ArrayIter::new(self, 0)
+        ArrayIter::new(self)
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {

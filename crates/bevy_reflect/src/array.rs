@@ -270,7 +270,7 @@ impl Array for DynamicArray {
 
     #[inline]
     fn iter(&self) -> ArrayIter {
-        ArrayIter::new(self, 0)
+        ArrayIter::new(self)
     }
 
     #[inline]
@@ -309,8 +309,8 @@ impl<'a> ArrayIter<'a> {
     ///
     /// It is an [`Iterator`] for [`Array`] whose elements start from `index`.
     #[inline]
-    pub fn new(array: &'a dyn Array, index: usize) -> ArrayIter {
-        ArrayIter { array, index }
+    pub const fn new(array: &'a dyn Array) -> ArrayIter {
+        ArrayIter { array, index: 0 }
     }
 }
 

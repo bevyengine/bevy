@@ -198,7 +198,7 @@ macro_rules! impl_reflect_for_veclike {
 
             #[inline]
             fn iter(&self) -> ArrayIter {
-                ArrayIter::new(self, 0)
+                ArrayIter::new(self)
             }
 
             #[inline]
@@ -549,7 +549,7 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
 
     #[inline]
     fn iter(&self) -> ArrayIter {
-        ArrayIter::new(self, 0)
+        ArrayIter::new(self)
     }
 
     #[inline]
