@@ -512,7 +512,7 @@ impl ScheduleGraph {
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
 
-            // ensure set also appears in dependency graph
+            // ensure set also appears in hierarchy graph
             self.hierarchy.graph.add_node(set);
         }
 
