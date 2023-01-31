@@ -492,16 +492,14 @@ impl ScheduleGraph {
             ..
         } = graph_info;
 
-        if !self.hierarchy.graph.contains_node(id) {
-            self.hierarchy.graph.add_node(id);
-        }
+        self.hierarchy.graph.add_node(id);
+        self.dependency.graph.add_node(id);
 
         for set in sets.into_iter().map(|set| self.system_set_ids[&set]) {
             self.hierarchy.graph.add_edge(set, id, ());
-        }
 
-        if !self.dependency.graph.contains_node(id) {
-            self.dependency.graph.add_node(id);
+            // ensure set also appears in dependency graph
+            self.dependency.graph.add_node(set);
         }
 
         for (kind, set) in dependencies
@@ -513,6 +511,9 @@ impl ScheduleGraph {
                 DependencyKind::After => (set, id),
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
+
+            // ensure set also appears in hierarchy graph
+            self.hierarchy.graph.add_node(set);
         }
 
         match ambiguous_with {
