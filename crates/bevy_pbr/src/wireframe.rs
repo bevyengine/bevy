@@ -17,7 +17,7 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     view::{ExtractedView, Msaa, VisibleEntities},
-    ExtractSchedule, RenderApp, RenderSet,
+    RenderApp, RenderSet,
 };
 use bevy_utils::tracing::error;
 
@@ -47,7 +47,6 @@ impl Plugin for WireframePlugin {
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system_to_schedule(ExtractSchedule, extract_wireframes)
                 .add_system(queue_wireframes.in_set(RenderSet::Queue));
         }
     }

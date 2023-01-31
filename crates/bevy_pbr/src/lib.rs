@@ -10,7 +10,8 @@ mod prepass;
 mod render;
 
 pub use alpha::*;
-use bevy_utils::default;
+use bevy_transform::TransformSystem;
+use bevy_window::ModifiesWindows;
 pub use bundle::*;
 pub use fog::*;
 pub use light::*;
@@ -18,8 +19,6 @@ pub use material::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
-
-use bevy_window::ModifiesWindows;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -57,7 +56,6 @@ use bevy_render::{
     view::{ViewSet, VisibilitySystems},
     ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_transform::TransformSystem;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
@@ -165,7 +163,7 @@ impl Plugin for PbrPlugin {
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial> {
                 prepass_enabled: self.prepass_enabled,
-                ..default()
+                ..Default::default()
             })
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
@@ -182,10 +180,8 @@ impl Plugin for PbrPlugin {
             .configure_set(
                 SimulationLightSystems::UpdateDirectionalLightCascades.in_set(CoreSet::PostUpdate),
             )
-            .add_system(
             .add_plugin(FogPlugin)
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_system(
                 // NOTE: Clusters need to have been added before update_clusters is run so
                 // add as an exclusive system
                 add_clusters
@@ -208,8 +204,6 @@ impl Plugin for PbrPlugin {
             .add_system(
                 update_directional_light_cascades
                     .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                    .after(TransformSystem::TransformPropagate),
-                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
                     .after(TransformSystem::TransformPropagate)
                     .after(CameraUpdateSystem),
             )

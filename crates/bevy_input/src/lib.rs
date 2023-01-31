@@ -51,7 +51,7 @@ pub struct InputSystem;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.configure_set(InputSystem.in_set(CoreSet::PreUpdate))
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
@@ -62,7 +62,6 @@ impl Plugin for InputPlugin {
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
-            .configure_set(InputSystem.in_set(CoreSet::PreUpdate))
             .add_system(mouse_button_input_system.in_set(InputSystem))
             // gamepad
             .add_event::<GamepadConnectionEvent>()
@@ -74,22 +73,17 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::new()
-                    .with_system(gamepad_event_system)
-                    .with_system(gamepad_connection_system.after(gamepad_event_system))
-                    .with_system(
-                        gamepad_button_event_system
-                            .after(gamepad_event_system)
-                            .after(gamepad_connection_system),
-                    )
-                    .with_system(
-                        gamepad_axis_event_system
-                            .after(gamepad_event_system)
-                            .after(gamepad_connection_system),
-                    )
-                    .label(InputSystem),
+            .add_systems(
+                (
+                    gamepad_connection_system.after(gamepad_event_system),
+                    gamepad_button_event_system
+                        .after(gamepad_event_system)
+                        .after(gamepad_connection_system),
+                    gamepad_axis_event_system
+                        .after(gamepad_event_system)
+                        .after(gamepad_connection_system),
+                )
+                    .in_set(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
