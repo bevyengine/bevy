@@ -1,6 +1,6 @@
 use crate::{
     scale_value, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
-    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextLayoutInfo, TextPipeline, TextSection, TextSettings, YAxisOrientation,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
@@ -170,11 +170,11 @@ pub fn update_text3d_layout(
                         if let Some(atlas) =
                             texture_atlases.get(&info.glyphs[0].atlas_info.texture_atlas)
                         {
-                            let new_mesh = build_mesh(&info, atlas);
+                            let new_mesh = build_mesh(&text.sections, &info, atlas);
                             let new_material = StandardMaterial {
                                 base_color_texture: Some(atlas.texture.clone()),
-                                base_color: Color::WHITE, // TODO: Get this from the text
-                                alpha_mode: AlphaMode::Mask(1.0),
+                                base_color: Color::WHITE,
+                                alpha_mode: AlphaMode::Blend,
                                 ..Default::default()
                             };
                             match maybe_mesh.and_then(|handle| meshes.get_mut(handle)) {
@@ -217,16 +217,18 @@ pub fn update_text3d_layout(
 }
 
 /// Build a mesh for the given text layout
-fn build_mesh(info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
+fn build_mesh(sections: &[TextSection], info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
     let mut positions = Vec::with_capacity(info.glyphs.len() * 4);
     let mut normals = Vec::with_capacity(info.glyphs.len() * 4);
     let mut uvs = Vec::with_capacity(info.glyphs.len() * 4);
     let mut indices = Vec::with_capacity(info.glyphs.len() * 6);
+    let mut colors = Vec::with_capacity(info.glyphs.len() * 4);
 
     for PositionedGlyph {
         position,
         size,
         atlas_info,
+        section_index,
         ..
     } in &info.glyphs
     {
@@ -256,6 +258,9 @@ fn build_mesh(info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
             [max.x, min.y],
             [max.x, max.y],
         ]);
+
+        let color = sections[*section_index].style.color.as_linear_rgba_f32();
+        colors.extend([color, color, color, color]);
     }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -263,5 +268,6 @@ fn build_mesh(info: &TextLayoutInfo, atlas: &TextureAtlas) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     mesh
 }
