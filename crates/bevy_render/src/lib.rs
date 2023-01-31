@@ -310,7 +310,7 @@ impl Plugin for RenderPlugin {
 }
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`MainWorld`] for [`RenderSet::Extract`].
+/// swapping out the [`MainWorld`] for [`ExtractSchedule`].
 #[derive(Resource, Default)]
 struct ScratchMainWorld(World);
 

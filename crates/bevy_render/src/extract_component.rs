@@ -151,7 +151,7 @@ fn prepare_uniform_components<C: Component>(
 
 /// This plugin extracts the components into the "render world".
 ///
-/// Therefore it sets up the [`RenderSet::Extract`](crate::RenderSet::Extract) step
+/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) step
 /// for the specified [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
