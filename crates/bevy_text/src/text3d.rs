@@ -8,9 +8,11 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::{Changed, With},
+    prelude::DetectChanges,
+    query::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
+    world::Ref,
 };
 use bevy_math::{Rect, Vec2};
 use bevy_pbr::{AlphaMode, StandardMaterial};
@@ -81,19 +83,17 @@ pub fn update_text3d_layout(
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Changed<Text>,
-        &Text,
-        Option<&Text3dBounds>,
-        &mut Text3dSize,
+        Ref<Text>,
+        &Text3dBounds,
         Option<&mut TextLayoutInfo>,
         Option<&Handle<Mesh>>,
         Option<&Handle<StandardMaterial>>,
@@ -110,25 +110,12 @@ pub fn update_text3d_layout(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
-    for (
-        entity,
-        text_changed,
-        text,
-        maybe_bounds,
-        mut calculated_size,
-        text_layout_info,
-        maybe_mesh,
-        maybe_material,
-    ) in &mut text_query
-    {
-        if factor_changed || text_changed || queue.remove(&entity) {
-            let text_bounds = match maybe_bounds {
-                Some(bounds) => Vec2::new(
-                    scale_value(bounds.size.x, scale_factor),
-                    scale_value(bounds.size.y, scale_factor),
-                ),
-                None => Vec2::new(f32::MAX, f32::MAX),
-            };
+    for (entity, text, bounds, text_layout_info, maybe_mesh, maybe_material) in &mut text_query {
+        if factor_changed || text.is_changed() || queue.remove(&entity) {
+            let text_bounds = Vec2::new(
+                scale_value(bounds.size.x, scale_factor),
+                scale_value(bounds.size.y, scale_factor),
+            );
 
             match text_pipeline.queue_text(
                 &fonts,
@@ -153,11 +140,6 @@ pub fn update_text3d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-                    calculated_size.size = Vec2::new(
-                        scale_value(info.size.x, 1. / scale_factor),
-                        scale_value(info.size.y, 1. / scale_factor),
-                    );
-
                     if !info.glyphs.is_empty() {
                         // we assume all glyphs are on the same texture
                         // if not, we'll have to implement different materials
