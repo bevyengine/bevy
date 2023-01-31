@@ -78,12 +78,8 @@ pub fn get_bindings<'a>(
     bindings: [u32; 3],
 ) -> [BindGroupEntry<'a>; 3] {
     let (diffuse_map, specular_map) = match (
-        environment_map_light
-            .map(|env_map| images.get(&env_map.diffuse_map))
-            .flatten(),
-        environment_map_light
-            .map(|env_map| images.get(&env_map.specular_map))
-            .flatten(),
+        environment_map_light.and_then(|env_map| images.get(&env_map.diffuse_map)),
+        environment_map_light.and_then(|env_map| images.get(&env_map.specular_map)),
     ) {
         (Some(diffuse_map), Some(specular_map)) => {
             (&diffuse_map.texture_view, &specular_map.texture_view)
