@@ -360,6 +360,7 @@ pub fn prepare_windows(
                 usage: TextureUsages::RENDER_ATTACHMENT
                     | TextureUsages::COPY_SRC
                     | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             });
             let texture_view = texture.create_view(&Default::default());
             let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
