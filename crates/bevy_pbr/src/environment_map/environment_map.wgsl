@@ -1,12 +1,5 @@
 #define_import_path bevy_pbr::environment_map
 
-@group(3) @binding(0)
-var environment_map_diffuse: texture_cube<f32>;
-@group(3) @binding(1)
-var environment_map_specular: texture_cube<f32>;
-@group(3) @binding(2)
-var environment_map_sampler: sampler;
-
 const ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL = 10.0;
 
 struct EnvironmentMapLight {

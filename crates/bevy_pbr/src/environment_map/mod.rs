@@ -1,25 +1,16 @@
-use crate::MeshPipeline;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::prelude::Camera3d;
-use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::With,
-    system::{lifetimeless::Read, Commands, Query, Res, SystemParamItem},
-};
+use bevy_ecs::{prelude::Component, query::With};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType, Shader,
-        ShaderStages, TextureSampleType, TextureViewDimension,
+        BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
+        Shader, ShaderStages, TextureSampleType, TextureViewDimension,
     },
-    renderer::RenderDevice,
-    texture::Image,
-    RenderApp, RenderStage,
+    texture::{FallbackImageCubemap, Image},
 };
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
@@ -38,10 +29,6 @@ impl Plugin for EnvironmentMapPlugin {
 
         app.register_type::<EnvironmentMapLight>()
             .add_plugin(ExtractComponentPlugin::<EnvironmentMapLight>::default());
-
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
-
-        render_app.add_system_to_stage(RenderStage::Queue, queue_environment_map_bind_groups);
     }
 }
 
@@ -84,99 +71,72 @@ impl ExtractComponent for EnvironmentMapLight {
     }
 }
 
-#[derive(Component)]
-pub struct EnvironmentMapBindGroup {
-    bind_group: BindGroup,
+pub fn get_bindings<'a>(
+    environment_map_light: Option<&EnvironmentMapLight>,
+    images: &'a RenderAssets<Image>,
+    fallback_image_cubemap: &'a FallbackImageCubemap,
+    bindings: [u32; 3],
+) -> [BindGroupEntry<'a>; 3] {
+    let (diffuse_map, specular_map) = match (
+        environment_map_light
+            .map(|env_map| images.get(&env_map.diffuse_map))
+            .flatten(),
+        environment_map_light
+            .map(|env_map| images.get(&env_map.specular_map))
+            .flatten(),
+    ) {
+        (Some(diffuse_map), Some(specular_map)) => {
+            (&diffuse_map.texture_view, &specular_map.texture_view)
+        }
+        _ => (
+            &fallback_image_cubemap.texture_view,
+            &fallback_image_cubemap.texture_view,
+        ),
+    };
+
+    [
+        BindGroupEntry {
+            binding: bindings[0],
+            resource: BindingResource::TextureView(diffuse_map),
+        },
+        BindGroupEntry {
+            binding: bindings[1],
+            resource: BindingResource::TextureView(specular_map),
+        },
+        BindGroupEntry {
+            binding: bindings[2],
+            resource: BindingResource::Sampler(&fallback_image_cubemap.sampler),
+        },
+    ]
 }
 
-fn queue_environment_map_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
-    pipeline: Res<MeshPipeline>,
-    views: Query<(Entity, &EnvironmentMapLight)>,
-) {
-    for (entity, environment_map) in &views {
-        let (Some(diffuse_map), Some(specular_map)) = (
-            images.get(&environment_map.diffuse_map),
-            images.get(&environment_map.specular_map)
-        ) else { return };
-
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("environment_map_bind_group"),
-            layout: &pipeline.environment_map_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&diffuse_map.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&specular_map.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&specular_map.sampler),
-                },
-            ],
-        });
-
-        commands
-            .entity(entity)
-            .insert(EnvironmentMapBindGroup { bind_group });
-    }
-}
-
-pub fn new_environment_map_bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-    render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: Some("environment_map_bind_group_layout"),
-        entries: &[
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::Cube,
-                    multisampled: false,
-                },
-                count: None,
+pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {
+    [
+        BindGroupLayoutEntry {
+            binding: bindings[0],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: TextureViewDimension::Cube,
+                multisampled: false,
             },
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::Cube,
-                    multisampled: false,
-                },
-                count: None,
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: bindings[1],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: TextureViewDimension::Cube,
+                multisampled: false,
             },
-            BindGroupLayoutEntry {
-                binding: 2,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: None,
-            },
-        ],
-    })
-}
-
-pub struct SetMeshViewEnvironmentMapBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewEnvironmentMapBindGroup<I> {
-    type Param = ();
-    type ViewWorldQuery = Read<EnvironmentMapBindGroup>;
-    type ItemWorldQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        environment_map: bevy_ecs::query::ROQueryItem<'w, Self::ViewWorldQuery>,
-        _entity: bevy_ecs::query::ROQueryItem<'w, Self::ItemWorldQuery>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        pass.set_bind_group(I, &environment_map.bind_group, &[]);
-
-        RenderCommandResult::Success
-    }
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: bindings[2],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        },
+    ]
 }
