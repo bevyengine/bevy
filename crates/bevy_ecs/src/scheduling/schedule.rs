@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::ComponentId,
+    component::{ComponentId, Components},
     scheduling::*,
     system::{BoxedSystem, Resource},
     world::World,
@@ -196,7 +196,8 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            self.graph.update_schedule(&mut self.executable)?;
+            self.graph
+                .update_schedule(&mut self.executable, world.components())?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -554,7 +555,10 @@ impl ScheduleGraph {
         }
     }
 
-    fn build_schedule(&mut self) -> Result<SystemSchedule, ScheduleBuildError> {
+    fn build_schedule(
+        &mut self,
+        components: &Components,
+    ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         let hier_scc = tarjan_scc(&self.hierarchy.graph);
         if self.contains_cycles(&hier_scc) {
@@ -775,7 +779,7 @@ impl ScheduleGraph {
         }
 
         if self.contains_conflicts(&conflicting_systems) {
-            self.report_conflicts(&conflicting_systems);
+            self.report_conflicts(&conflicting_systems, components);
             if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
                 return Err(ScheduleBuildError::Ambiguity);
             }
@@ -881,7 +885,11 @@ impl ScheduleGraph {
         })
     }
 
-    fn update_schedule(&mut self, schedule: &mut SystemSchedule) -> Result<(), ScheduleBuildError> {
+    fn update_schedule(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        components: &Components,
+    ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
         }
@@ -905,7 +913,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = Some(conditions);
         }
 
-        *schedule = self.build_schedule()?;
+        *schedule = self.build_schedule(components)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -1011,7 +1019,11 @@ impl ScheduleGraph {
         true
     }
 
-    fn report_conflicts(&self, ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)]) {
+    fn report_conflicts(
+        &self,
+        ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
+        components: &Components,
+    ) {
         let n_ambiguities = ambiguities.len();
 
         let mut string = String::from(format!(
@@ -1028,7 +1040,12 @@ impl ScheduleGraph {
 
             writeln!(string, " -- {name_a} and {name_b}").unwrap();
             if !conflicts.is_empty() {
-                writeln!(string, "    conflict on: {conflicts:?}").unwrap();
+                let conflict_names: Vec<_> = conflicts
+                    .iter()
+                    .map(|id| components.get_name(*id).unwrap())
+                    .collect();
+
+                writeln!(string, "    conflict on: {conflict_names:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
                 let world = std::any::type_name::<World>();
