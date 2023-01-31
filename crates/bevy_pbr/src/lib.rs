@@ -2,6 +2,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod fog;
 mod light;
 mod material;
 mod pbr_material;
@@ -11,6 +12,7 @@ mod render;
 pub use alpha::*;
 use bevy_utils::default;
 pub use bundle::*;
+pub use fog::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
@@ -27,6 +29,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
+        fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
@@ -145,17 +148,20 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<CubemapVisibleEntities>()
-            .register_type::<DirectionalLight>()
-            .register_type::<PointLight>()
-            .register_type::<SpotLight>()
-            .register_asset_reflect::<StandardMaterial>()
+        app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
-            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
+            .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterZConfig>()
             .register_type::<ClusterFarZMode>()
+            .register_type::<ClusterZConfig>()
+            .register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial> {
                 prepass_enabled: self.prepass_enabled,
@@ -166,6 +172,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .add_plugin(FogPlugin)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
@@ -185,11 +192,19 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
+                update_directional_light_cascades
+                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateDirectionalLightCascades)
                     // We assume that no entity will be both a directional light and a spot light,
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.

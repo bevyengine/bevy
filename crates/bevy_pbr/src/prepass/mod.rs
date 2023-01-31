@@ -46,7 +46,7 @@ use bevy_utils::{tracing::error, HashMap};
 use crate::{
     AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
     MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
-    MAX_DIRECTIONAL_LIGHTS,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -56,6 +56,9 @@ pub const PREPASS_SHADER_HANDLE: HandleUntyped =
 
 pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5533152893177403494);
+
+pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
 
 pub struct PrepassPlugin<M: Material>(PhantomData<M>);
 
@@ -81,6 +84,13 @@ where
             app,
             PREPASS_BINDINGS_SHADER_HANDLE,
             "prepass_bindings.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            PREPASS_UTILS_SHADER_HANDLE,
+            "prepass_utils.wgsl",
             Shader::from_wgsl
         );
 
@@ -200,6 +210,10 @@ where
         shader_defs.push(ShaderDefVal::Int(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as i32,
+        ));
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as i32,
         ));
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
@@ -401,6 +415,7 @@ pub fn prepare_prepass_textures(
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
                 })
@@ -422,6 +437,7 @@ pub fn prepare_prepass_textures(
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
                         },
                     )
                 })

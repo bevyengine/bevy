@@ -1,4 +1,6 @@
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
+};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
@@ -8,7 +10,8 @@ use std::{
     ops::Deref,
 };
 
-/// Component used to identify an entity. Stores a hash for faster comparisons
+/// Component used to identify an entity. Stores a hash for faster comparisons.
+///
 /// The hash is eagerly re-computed upon each update to the name.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
@@ -73,6 +76,40 @@ impl std::fmt::Display for Name {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.name, f)
+    }
+}
+
+/// Convenient query for giving a human friendly name to an entity.
+///
+/// ```rust
+/// # use bevy_core::prelude::*;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] pub struct Score(f32);
+/// fn increment_score(mut scores: Query<(DebugName, &mut Score)>) {
+///     for (name, mut score) in &mut scores {
+///         score.0 += 1.0;
+///         if score.0.is_nan() {
+///             bevy_utils::tracing::error!("Score for {:?} is invalid", name);
+///         }
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(increment_score);
+/// ```
+#[derive(WorldQuery)]
+pub struct DebugName {
+    /// A [`Name`] that the entity might have that is displayed if available.
+    pub name: Option<&'static Name>,
+    /// The unique identifier of the entity as a fallback.
+    pub entity: Entity,
+}
+
+impl<'a> std::fmt::Debug for DebugNameItem<'a> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.name {
+            Some(name) => write!(f, "{:?} ({:?})", &name, &self.entity),
+            None => std::fmt::Debug::fmt(&self.entity, f),
+        }
     }
 }
 

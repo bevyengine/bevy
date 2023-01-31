@@ -64,7 +64,7 @@ impl ArchetypeRow {
 /// Archetype IDs are only valid for a given World, and are not globally unique.
 /// Attempting to use an archetype ID on a world that it wasn't sourced from will
 /// not return the archetype with the same components. The only exception to this is
-/// [`EMPTY`] which is guarenteed to be identical for all Worlds.
+/// [`EMPTY`] which is guaranteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
 /// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
