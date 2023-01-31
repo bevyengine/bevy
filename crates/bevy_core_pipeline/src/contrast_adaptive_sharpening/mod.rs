@@ -18,6 +18,9 @@ mod node;
 
 pub use node::ContrastAdaptiveSharpeningNode;
 
+/// Applies a contrast adaptive sharpening filter to the camera.
+///
+/// To use this, add the [`ContrastAdaptiveSharpeningSettings`] component to a camera.
 #[derive(Component, Reflect, Clone)]
 pub struct ContrastAdaptiveSharpeningSettings {
     /// Enable render passes for Sharpening.
@@ -71,6 +74,7 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
 const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6925381244141981602);
 
+/// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct ContrastAdaptiveSharpeningPlugin;
 
 impl Plugin for ContrastAdaptiveSharpeningPlugin {
