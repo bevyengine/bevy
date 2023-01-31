@@ -2,7 +2,6 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
@@ -145,7 +144,8 @@ pub fn queue_view_tonemapping_pipelines(
     }
 }
 
-#[derive(Component, Clone, Reflect, Default)]
+#[derive(Component, Clone, Reflect, Default, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub enum Tonemapping {
     #[default]
@@ -158,15 +158,5 @@ pub enum Tonemapping {
 impl Tonemapping {
     pub fn is_enabled(&self) -> bool {
         matches!(self, Tonemapping::Enabled { .. })
-    }
-}
-
-impl ExtractComponent for Tonemapping {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
     }
 }

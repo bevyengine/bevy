@@ -2,6 +2,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod fog;
 mod light;
 mod material;
 mod pbr_material;
@@ -11,6 +12,7 @@ mod render;
 pub use alpha::*;
 use bevy_utils::default;
 pub use bundle::*;
+pub use fog::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
@@ -27,6 +29,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
+        fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
@@ -180,6 +183,11 @@ impl Plugin for PbrPlugin {
                 SimulationLightSystems::UpdateDirectionalLightCascades.in_set(CoreSet::PostUpdate),
             )
             .add_system(
+            .add_plugin(FogPlugin)
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                // NOTE: Clusters need to have been added before update_clusters is run so
+                // add as an exclusive system
                 add_clusters
                     .in_set(SimulationLightSystems::AddClusters)
                     .before(assign_lights_to_clusters),
@@ -201,6 +209,9 @@ impl Plugin for PbrPlugin {
                 update_directional_light_cascades
                     .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                     .after(TransformSystem::TransformPropagate),
+                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem),
             )
             .add_system(
                 update_directional_light_frusta

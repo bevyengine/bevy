@@ -28,7 +28,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::{DetectChanges, DetectChangesMut},
+        change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
@@ -44,7 +44,7 @@ pub mod prelude {
             Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{FromWorld, Mut, World},
+        world::{FromWorld, World},
     };
 }
 

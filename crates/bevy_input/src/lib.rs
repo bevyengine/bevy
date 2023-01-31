@@ -74,14 +74,22 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_systems(
-                (
-                    gamepad_event_system,
-                    gamepad_button_event_system.after(gamepad_event_system),
-                    gamepad_axis_event_system.after(gamepad_event_system),
-                    gamepad_connection_system.after(gamepad_event_system),
-                )
-                    .in_set(InputSystem),
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::new()
+                    .with_system(gamepad_event_system)
+                    .with_system(gamepad_connection_system.after(gamepad_event_system))
+                    .with_system(
+                        gamepad_button_event_system
+                            .after(gamepad_event_system)
+                            .after(gamepad_connection_system),
+                    )
+                    .with_system(
+                        gamepad_axis_event_system
+                            .after(gamepad_event_system)
+                            .after(gamepad_connection_system),
+                    )
+                    .label(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()

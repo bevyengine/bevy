@@ -25,9 +25,10 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows, ReceivedCharacter,
-    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
+    exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    ModifiesWindows, ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    WindowScaleFactorChanged,
 };
 
 use winit::{
@@ -52,6 +53,16 @@ impl Plugin for WinitPlugin {
             .set_runner(winit_runner)
             .configure_set(ModifiesWindows.in_set(CoreSet::PostUpdate))
             .add_systems((changed_window, despawn_window).in_set(ModifiesWindows));
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate,
+                SystemSet::new()
+                    .label(ModifiesWindows)
+                    // exit_on_all_closed only uses the query to determine if the query is empty,
+                    // and so doesn't care about ordering relative to changed_window
+                    .with_system(changed_window.ambiguous_with(exit_on_all_closed))
+                    // Update the state of the window before attempting to despawn to ensure consistent event ordering
+                    .with_system(despawn_window.after(changed_window)),
+            );
 
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(CanvasParentResizePlugin);
@@ -165,6 +176,7 @@ struct InputEvents<'w> {
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
     mouse_wheel_input: EventWriter<'w, MouseWheel>,
     touch_input: EventWriter<'w, TouchInput>,
+    ime_input: EventWriter<'w, Ime>,
 }
 
 #[derive(SystemParam)]
@@ -550,6 +562,25 @@ pub fn winit_runner(mut app: App) {
                             position,
                         });
                     }
+                    WindowEvent::Ime(event) => match event {
+                        event::Ime::Preedit(value, cursor) => {
+                            input_events.ime_input.send(Ime::Preedit {
+                                window: window_entity,
+                                value,
+                                cursor,
+                            });
+                        }
+                        event::Ime::Commit(value) => input_events.ime_input.send(Ime::Commit {
+                            window: window_entity,
+                            value,
+                        }),
+                        event::Ime::Enabled => input_events.ime_input.send(Ime::Enabled {
+                            window: window_entity,
+                        }),
+                        event::Ime::Disabled => input_events.ime_input.send(Ime::Disabled {
+                            window: window_entity,
+                        }),
+                    },
                     _ => {}
                 }
             }

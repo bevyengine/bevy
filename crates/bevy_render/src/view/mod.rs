@@ -343,6 +343,8 @@ fn prepare_view_targets(
                             format: main_texture_format,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            // TODO: Consider changing this if main_texture_format is not sRGB
+                            view_formats: &[],
                         };
                         MainTargetTextures {
                             a: texture_cache
@@ -375,6 +377,7 @@ fn prepare_view_targets(
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
+                                            view_formats: &[],
                                         },
                                     )
                                     .default_view

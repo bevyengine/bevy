@@ -153,6 +153,52 @@ pub struct ReceivedCharacter {
     pub char: char,
 }
 
+/// A Input Method Editor event.
+///
+/// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
+///
+/// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
+#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum Ime {
+    /// Notifies when a new composing text should be set at the cursor position.
+    Preedit {
+        /// Window that received the event.
+        window: Entity,
+        /// Current value.
+        value: String,
+        /// Cursor begin and end position.
+        ///
+        /// `None` indicated the cursor should be hidden
+        cursor: Option<(usize, usize)>,
+    },
+    /// Notifies when text should be inserted into the editor widget.
+    Commit {
+        /// Window that received the event.
+        window: Entity,
+        /// Input string
+        value: String,
+    },
+    /// Notifies when the IME was enabled.
+    ///
+    /// After this event, you will receive events `Ime::Preedit` and `Ime::Commit`,
+    /// and stop receiving events [`ReceivedCharacter`].
+    Enabled {
+        /// Window that received the event.
+        window: Entity,
+    },
+    /// Notifies when the IME was disabled.
+    Disabled {
+        /// Window that received the event.
+        window: Entity,
+    },
+}
+
 /// An event that indicates a window has received or lost focus.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]

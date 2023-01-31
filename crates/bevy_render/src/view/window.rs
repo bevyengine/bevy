@@ -12,6 +12,8 @@ use bevy_window::{
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
+use super::Msaa;
+
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
 pub struct NonSendMarker;
@@ -177,6 +179,7 @@ pub fn prepare_windows(
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
+    mut msaa: ResMut<Msaa>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
@@ -185,15 +188,26 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance.create_surface(&window.handle.get_handle());
-                let format = *surface
-                    .get_supported_formats(&render_adapter)
-                    .get(0)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No supported formats found for surface {surface:?} on adapter {render_adapter:?}"
-                        )
-                    });
+                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                let surface = render_instance
+                    .create_surface(&window.handle.get_handle())
+                    .expect("Failed to create wgpu surface");
+                let caps = surface.get_capabilities(&render_adapter);
+                let formats = caps.formats;
+                // For future HDR output support, we'll need to request a format that supports HDR,
+                // but as of wgpu 0.15 that is not yet supported.
+                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+                let mut format = *formats.get(0).expect("No supported formats for surface");
+                for available_format in formats {
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    if available_format == TextureFormat::Rgba8UnormSrgb
+                        || available_format == TextureFormat::Bgra8UnormSrgb
+                    {
+                        format = available_format;
+                        break;
+                    }
+                }
+
                 SurfaceData { surface, format }
             });
 
@@ -216,7 +230,27 @@ pub fn prepare_windows(
                 CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
+            // TODO: Use an sRGB view format here on platforms that don't support sRGB surfaces. (afaik only WebGPU)
+            view_formats: vec![],
         };
+
+        // This is an ugly hack to work around drivers that don't support MSAA.
+        // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
+        // feature detection for MSAA.
+        let sample_flags = render_adapter
+            .get_texture_format_features(surface_configuration.format)
+            .flags;
+        match *msaa {
+            Msaa::Off => (),
+            Msaa::Sample4 => {
+                if !sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+                    bevy_log::warn!(
+                        "MSAA 4x is not supported on this device. Falling back to disabling MSAA."
+                    );
+                    *msaa = Msaa::Off;
+                }
+            }
+        }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.

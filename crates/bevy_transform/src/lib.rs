@@ -104,5 +104,28 @@ impl Plugin for TransformPlugin {
             .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
             .add_system(sync_simple_transforms.in_set(TransformSystem::TransformPropagate))
             .add_system(propagate_transforms.in_set(TransformSystem::TransformPropagate));
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                    // These systems cannot access the same entities,
+                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                    .ambiguous_with(propagate_transforms),
+            )
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                propagate_transforms.label(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .ambiguous_with(propagate_transforms),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                propagate_transforms.label(TransformSystem::TransformPropagate),
+            );
     }
 }
