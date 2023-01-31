@@ -288,7 +288,7 @@ mod menu {
                 )
                 // Systems to handle the display settings screen
                 .add_system_to_schedule(
-                    OnExit(MenuState::SettingsDisplay),
+                    OnEnter(MenuState::SettingsDisplay),
                     display_settings_menu_setup,
                 )
                 .add_system(setting_button::<DisplayQuality>.on_update(MenuState::SettingsDisplay))
@@ -314,11 +314,11 @@ mod menu {
     // State used for the current menu screen
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
     enum MenuState {
-        #[default]
         Main,
         Settings,
         SettingsDisplay,
         SettingsSound,
+        #[default]
         Disabled,
     }
 
