@@ -7,7 +7,7 @@ use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Aabb, Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial,
@@ -23,7 +23,7 @@ use bevy_render::{
         Indices, Mesh, VertexAttributeValues,
     },
     prelude::SpatialBundle,
-    primitives::{Aabb, Frustum},
+    primitives::{CullingAabb, Frustum},
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
@@ -789,10 +789,10 @@ fn load_node(
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()
                 });
-                mesh_entity.insert(Aabb::from_min_max(
+                mesh_entity.insert(CullingAabb(Aabb::from_min_max(
                     Vec3::from_slice(&bounds.min),
                     Vec3::from_slice(&bounds.max),
-                ));
+                )));
 
                 if let Some(extras) = primitive.extras() {
                     mesh_entity.insert(super::GltfExtras {

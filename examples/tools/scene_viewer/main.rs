@@ -6,9 +6,9 @@
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
 
 use bevy::{
-    math::Vec3A,
+    math::{Aabb, Vec3A},
     prelude::*,
-    render::primitives::{Aabb, Sphere},
+    render::primitives::{CullingAabb, Sphere},
     window::WindowPlugin,
 };
 
@@ -76,7 +76,7 @@ fn setup_scene_after_load(
     mut commands: Commands,
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
-    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
+    meshes: Query<(&GlobalTransform, Option<&CullingAabb>), With<Handle<Mesh>>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
@@ -87,18 +87,18 @@ fn setup_scene_after_load(
 
         let mut min = Vec3A::splat(f32::MAX);
         let mut max = Vec3A::splat(f32::MIN);
-        for (transform, maybe_aabb) in &meshes {
-            let aabb = maybe_aabb.unwrap();
+        for (transform, maybe_culling_aabb) in &meshes {
+            let culling_aabb = maybe_culling_aabb.unwrap();
             // If the Aabb had not been rotated, applying the non-uniform scale would produce the
             // correct bounds. However, it could very well be rotated and so we first convert to
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
-                center: Vec3A::from(transform.transform_point(Vec3::from(aabb.center))),
-                radius: transform.radius_vec3a(aabb.half_extents),
+                center: Vec3A::from(transform.transform_point(Vec3::from(culling_aabb.0.center))),
+                radius: transform.radius_vec3a(culling_aabb.0.half_extents),
             };
-            let aabb = Aabb::from(sphere);
-            min = min.min(aabb.min());
-            max = max.max(aabb.max());
+            let aabb = CullingAabb::from(sphere);
+            min = min.min(aabb.0.min());
+            max = max.max(aabb.0.max());
         }
 
         let size = (max - min).length();

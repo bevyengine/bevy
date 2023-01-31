@@ -19,7 +19,7 @@ use crate::{
         Projection,
     },
     mesh::Mesh,
-    primitives::{Aabb, Frustum, Sphere},
+    primitives::{CullingAabb, Frustum, Sphere},
 };
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -264,12 +264,15 @@ impl Plugin for VisibilityPlugin {
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    without_culling_aabb: Query<
+        (Entity, &Handle<Mesh>),
+        (Without<CullingAabb>, Without<NoFrustumCulling>),
+    >,
 ) {
-    for (entity, mesh_handle) in &without_aabb {
+    for (entity, mesh_handle) in &without_culling_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
+                commands.entity(entity).insert(CullingAabb(aabb));
             }
         }
     }
@@ -362,13 +365,13 @@ pub fn check_visibility(
         Entity,
         &mut ComputedVisibility,
         Option<&RenderLayers>,
-        &Aabb,
+        &CullingAabb,
         &GlobalTransform,
         Option<&NoFrustumCulling>,
     )>,
     mut visible_no_aabb_query: Query<
         (Entity, &mut ComputedVisibility, Option<&RenderLayers>),
-        Without<Aabb>,
+        Without<CullingAabb>,
     >,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
@@ -380,7 +383,7 @@ pub fn check_visibility(
                 entity,
                 mut computed_visibility,
                 maybe_entity_mask,
-                model_aabb,
+                model_culling_aabb,
                 transform,
                 maybe_no_frustum_culling,
             )| {
@@ -399,15 +402,15 @@ pub fn check_visibility(
                 if maybe_no_frustum_culling.is_none() {
                     let model = transform.compute_matrix();
                     let model_sphere = Sphere {
-                        center: model.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
+                        center: model.transform_point3a(model_culling_aabb.0.center),
+                        radius: transform.radius_vec3a(model_culling_aabb.0.half_extents),
                     };
                     // Do quick sphere-based frustum culling
                     if !frustum.intersects_sphere(&model_sphere, false) {
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                    if !frustum.intersects_obb(&model_culling_aabb.0, &model, true, false) {
                         return;
                     }
                 }
