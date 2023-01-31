@@ -406,9 +406,13 @@ pub enum DataFormat {
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
+    Uastc(DataFormat),
+    // Has to be transcoded to R8Unorm for use with `wgpu`
+    R8UnormSrgb,
+    // Has to be transcoded to R8G8Unorm for use with `wgpu`
+    Rg8UnormSrgb,
     // Has to be transcoded to Rgba8 for use with `wgpu`
     Rgb8,
-    Uastc(DataFormat),
 }
 
 /// An error that occurs when loading a texture
