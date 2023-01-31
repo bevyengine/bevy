@@ -38,7 +38,24 @@ fn setup(
     // A billboard that always looks directly at the camera
     commands.spawn((
         Text3dBundle {
-            text: Text::from_section("Looking straight at you", style.clone()),
+            text: Text::from_sections(
+                [
+                    ("Looking ", Color::BLUE),
+                    ("straight ", Color::DARK_GRAY),
+                    ("at ", Color::RED),
+                    ("you", Color::PURPLE),
+                ]
+                .into_iter()
+                .map(|(text, color)| {
+                    TextSection::new(
+                        text,
+                        TextStyle {
+                            color,
+                            ..style.clone()
+                        },
+                    )
+                }),
+            ),
             transform: Transform::from_xyz(2.0, 0.0, 1.0).with_scale(Vec3::splat(0.01)),
             ..default()
         },
@@ -59,10 +76,16 @@ fn setup(
     // A generic text. We use the `Framecounter` tag to update this value every frame
     commands.spawn((
         Text3dBundle {
-            text: Text::from_section("Frame counter goes here", style),
+            text: Text::from_section(
+                "Frame counter goes here",
+                TextStyle {
+                    font_size: 128.,
+                    ..style
+                },
+            ),
             transform: Transform::from_xyz(-3.0, -3.0, 2.0)
                 .looking_at(Vec3::new(-6.0, -6.0, 2.0), Vec3::Z)
-                .with_scale(Vec3::splat(0.1)),
+                .with_scale(Vec3::splat(0.025)),
             ..default()
         },
         Framecounter,
