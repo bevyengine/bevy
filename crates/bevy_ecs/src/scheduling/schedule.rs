@@ -1127,7 +1127,7 @@ impl Default for ScheduleBuildSettings {
 impl ScheduleBuildSettings {
     pub const fn new() -> Self {
         Self {
-            ambiguity_detection: LogLevel::Warn,
+            ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
         }
     }
