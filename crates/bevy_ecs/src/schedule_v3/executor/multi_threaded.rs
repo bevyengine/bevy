@@ -1,14 +1,16 @@
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Instrument};
+use std::sync::Arc;
 
 use async_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
 
 use crate::{
     archetype::ArchetypeComponentId,
+    prelude::Resource,
     query::Access,
     schedule_v3::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
@@ -16,6 +18,8 @@ use crate::{
     system::BoxedSystem,
     world::World,
 };
+
+use crate as bevy_ecs;
 
 /// A funky borrow split of [`SystemSchedule`] required by the [`MultiThreadedExecutor`].
 struct SyncUnsafeSchedule<'a> {
@@ -145,47 +149,56 @@ impl SystemExecutor for MultiThreadedExecutor {
             }
         }
 
+        let thread_executor = world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+        let thread_executor = thread_executor.as_deref();
+
         let world = SyncUnsafeCell::from_mut(world);
         let SyncUnsafeSchedule {
             systems,
             mut conditions,
         } = SyncUnsafeSchedule::new(schedule);
 
-        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
-            // the executor itself is a `Send` future so that it can run
-            // alongside systems that claim the local thread
-            let executor = async {
-                while self.num_completed_systems < num_systems {
-                    // SAFETY: self.ready_systems does not contain running systems
-                    unsafe {
-                        self.spawn_system_tasks(scope, systems, &mut conditions, world);
-                    }
-
-                    if self.num_running_systems > 0 {
-                        // wait for systems to complete
-                        let index = self
-                            .receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
-
-                        self.finish_system_and_signal_dependents(index);
-
-                        while let Ok(index) = self.receiver.try_recv() {
-                            self.finish_system_and_signal_dependents(index);
+        ComputeTaskPool::init(TaskPool::default).scope_with_executor(
+            false,
+            thread_executor,
+            |scope| {
+                // the executor itself is a `Send` future so that it can run
+                // alongside systems that claim the local thread
+                let executor = async {
+                    while self.num_completed_systems < num_systems {
+                        // SAFETY: self.ready_systems does not contain running systems
+                        unsafe {
+                            self.spawn_system_tasks(scope, systems, &mut conditions, world);
                         }
 
-                        self.rebuild_active_access();
-                    }
-                }
-            };
+                        if self.num_running_systems > 0 {
+                            // wait for systems to complete
+                            let index = self
+                                .receiver
+                                .recv()
+                                .await
+                                .unwrap_or_else(|error| unreachable!("{}", error));
 
-            #[cfg(feature = "trace")]
-            let executor_span = info_span!("schedule_task");
-            #[cfg(feature = "trace")]
-            let executor = executor.instrument(executor_span);
-            scope.spawn(executor);
-        });
+                            self.finish_system_and_signal_dependents(index);
+
+                            while let Ok(index) = self.receiver.try_recv() {
+                                self.finish_system_and_signal_dependents(index);
+                            }
+
+                            self.rebuild_active_access();
+                        }
+                    }
+                };
+
+                #[cfg(feature = "trace")]
+                let executor_span = info_span!("schedule_task");
+                #[cfg(feature = "trace")]
+                let executor = executor.instrument(executor_span);
+                scope.spawn(executor);
+            },
+        );
 
         // Do one final apply buffers after all systems have completed
         // SAFETY: all systems have completed, and so no outstanding accesses remain
@@ -573,4 +586,14 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
             unsafe { condition.run_unsafe((), world) }
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
+#[derive(Resource, Default, Clone)]
+pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+
+impl MainThreadExecutor {
+    pub fn new() -> Self {
+        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+    }
 }
