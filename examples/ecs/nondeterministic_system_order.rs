@@ -12,7 +12,7 @@
 //!
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
 
-use bevy::{app::AppExit, ecs::schedule::ReportExecutionOrderAmbiguities, prelude::*};
+use bevy::{ecs::schedule::ReportExecutionOrderAmbiguities, prelude::*};
 
 fn main() {
     App::new()
@@ -24,12 +24,14 @@ fn main() {
         // as their data access conflicts, and there's no order between them.
         .add_system(reads_a)
         .add_system(writes_a)
-        // This trio of systems has conflicting data access,
-        // but it's resolved with an explicit ordering
+        // This pair of systems has conflicting data access,
+        // but it's resolved with an explicit ordering:
+        // the .after relationship here means that we will always double after adding.
         .add_system(adds_one_to_b)
         .add_system(doubles_b.after(adds_one_to_b))
         // This system isn't ambiguous with adds_one_to_b,
-        // due to the transitive ordering created.
+        // due to the transitive ordering created by our constraints:
+        // if A is before B is before C, then A must be before C as well.
         .add_system(reads_b.after(doubles_b))
         // This system will conflict with all of our writing systems
         // but we've silenced its ambiguity with adds_one_to_b.
@@ -75,11 +77,9 @@ fn reads_b(b: Res<B>) {
     assert!((b.0 % 2 == 0) || (b.0 == usize::MAX));
 }
 
-fn reads_a_and_b(a: Res<A>, b: Res<B>, mut app_exit: EventWriter<AppExit>) {
-    dbg!(a.0, b.0);
-
-    // Break early to make sure the debug output is easily seen
-    if b.0 > 10 {
-        app_exit.send_default();
+fn reads_a_and_b(a: Res<A>, b: Res<B>) {
+    // Only display the first few steps to avoid burying the ambiguities in the console
+    if b.0 < 10 {
+        info!("{}, {}", a.0, b.0);
     }
 }
