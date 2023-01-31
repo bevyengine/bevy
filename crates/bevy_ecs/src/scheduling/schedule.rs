@@ -1018,10 +1018,11 @@ impl ScheduleGraph {
         );
 
         for (system_a, system_b, conflicts) in ambiguities {
-            debug_assert!(system_a.is_system());
-            debug_assert!(system_b.is_system());
             let name_a = self.get_node_name(system_a);
             let name_b = self.get_node_name(system_b);
+
+            debug_assert!(system_a.is_system(), "{name_a} is not a system.");
+            debug_assert!(system_b.is_system(), "{name_b} is not a system.");
 
             writeln!(string, " -- {name_a} and {name_b}").unwrap();
             if !conflicts.is_empty() {
