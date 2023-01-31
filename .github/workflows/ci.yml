@@ -17,6 +17,7 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -41,6 +42,7 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -96,6 +98,7 @@ jobs:
 
   check-compiles:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: ci
     steps:
       - uses: actions/checkout@v3
@@ -122,6 +125,7 @@ jobs:
 
   build-wasm:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: build
     steps:
       - uses: actions/checkout@v3
@@ -142,6 +146,7 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-missing-examples-in-docs
     if: always()
     steps:
@@ -216,6 +221,7 @@ jobs:
 
   check-doc:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v2
@@ -247,6 +253,7 @@ jobs:
 
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - name: check for missing metadata
@@ -279,6 +286,7 @@ jobs:
 
   check-unused-dependencies:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -302,6 +310,7 @@ jobs:
 
   msrv:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: build
     steps:
       - uses: actions/checkout@v3
