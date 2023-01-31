@@ -5,6 +5,7 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph_brush;
 mod pipeline;
+mod systems;
 mod text;
 mod text2d;
 mod text3d;
@@ -16,6 +17,7 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph_brush::*;
 pub use pipeline::*;
+pub use systems::*;
 pub use text::*;
 pub use text2d::*;
 pub use text3d::*;
@@ -85,7 +87,7 @@ impl Plugin for TextPlugin {
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
             .add_system(
-                update_text2d_layout
+                systems::update_text_layout::<Text2dBounds>
                     .in_base_set(CoreSet::PostUpdate)
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
@@ -94,15 +96,19 @@ impl Plugin for TextPlugin {
                     // will never modify a pre-existing `Image` asset.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_text3d_layout
-                    .after(ModifiesWindows)
+            .add_system(
+                systems::update_text_layout::<Text3dBounds>
+                    .in_base_set(CoreSet::PostUpdate)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `update_text3d_layout`
                     // will never modify a pre-existing `Image` asset.
                     .ambiguous_with(CameraUpdateSystem),
+            )
+            .add_system(
+                text3d::update_text3d_mesh
+                    .in_base_set(CoreSet::PostUpdate)
+                    .after(systems::update_text_layout::<Text3dBounds>),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -114,6 +120,5 @@ impl Plugin for TextPlugin {
     }
 }
 
-pub fn scale_value(value: f32, factor: f64) -> f32 {
-    (value as f64 * factor) as f32
-}
+// #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+// pub struct UpdateText3dLayout;

@@ -119,7 +119,7 @@ impl Plugin for UiPlugin {
                     // Potential conflict: `Assets<Image>`
                     // Since both systems will only ever insert new [`Image`] assets,
                     // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
+                    .ambiguous_with(bevy_text::update_text_layout::<bevy_text::Text2dBounds>),
             )
             .add_system(
                 widget::update_image_calculated_size_system
@@ -129,7 +129,7 @@ impl Plugin for UiPlugin {
                     // They run independently since `widget::image_node_system` will only ever observe
                     // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
                     // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    .ambiguous_with(bevy_text::update_text_layout::<bevy_text::Text2dBounds>)
                     .ambiguous_with(widget::text_system),
             )
             .add_system(

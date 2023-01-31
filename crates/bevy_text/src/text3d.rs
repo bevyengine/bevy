@@ -1,17 +1,12 @@
-use crate::{
-    scale_value, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
-    TextLayoutInfo, TextPipeline, TextSection, TextSettings, YAxisOrientation,
-};
+use crate::{PositionedGlyph, Text, TextLayoutInfo, TextSection};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
-    event::EventReader,
-    prelude::DetectChanges,
-    query::With,
+    query::Changed,
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut},
     world::Ref,
 };
 use bevy_math::{Rect, Vec2};
@@ -21,13 +16,10 @@ use bevy_render::{
     mesh::{Indices, Mesh},
     prelude::Color,
     render_resource::PrimitiveTopology,
-    texture::Image,
     view::{ComputedVisibility, Visibility},
 };
 use bevy_sprite::TextureAtlas;
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_utils::HashSet;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 /// The calculated size of text drawn in 3D scene.
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
@@ -69,131 +61,63 @@ pub struct Text3dBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
-/// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the `TextPipeline` on insertion, then stored.
-///
-/// ## World Resources
-///
-/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
-/// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn update_text3d_layout(
+pub fn update_text3d_mesh(
     mut commands: Commands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<HashSet<Entity>>,
-    mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
-    text_settings: Res<TextSettings>,
-    mut font_atlas_warning: ResMut<FontAtlasWarning>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
-    mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
-        Ref<Text>,
-        &Text3dBounds,
-        Option<&mut TextLayoutInfo>,
-        Option<&Handle<Mesh>>,
-        Option<&Handle<StandardMaterial>>,
-    )>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
+    mut text_query: Query<
+        (
+            Entity,
+            Ref<Text>,
+            &TextLayoutInfo,
+            Option<&Handle<Mesh>>,
+            Option<&Handle<StandardMaterial>>,
+        ),
+        Changed<TextLayoutInfo>,
+    >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // We need to consume the entire iterator, hence `last`
-    let factor_changed = scale_factor_changed.iter().last().is_some();
-
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
-
-    for (entity, text, bounds, text_layout_info, maybe_mesh, maybe_material) in &mut text_query {
-        if factor_changed || text.is_changed() || queue.remove(&entity) {
-            let text_bounds = Vec2::new(
-                scale_value(bounds.size.x, scale_factor),
-                scale_value(bounds.size.y, scale_factor),
-            );
-
-            match text_pipeline.queue_text(
-                &fonts,
-                &text.sections,
-                scale_factor,
-                text.alignment,
-                text.linebreak_behaviour,
-                text_bounds,
-                &mut font_atlas_set_storage,
-                &mut texture_atlases,
-                &mut textures,
-                text_settings.as_ref(),
-                &mut font_atlas_warning,
-                YAxisOrientation::BottomToTop,
-            ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    queue.insert(entity);
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Ok(info) => {
-                    if !info.glyphs.is_empty() {
-                        // we assume all glyphs are on the same texture
-                        // if not, we'll have to implement different materials
-                        debug_assert!(info
-                            .glyphs
-                            .iter()
-                            .zip(info.glyphs.iter().skip(1))
-                            .all(|(left, right)| left.atlas_info.texture_atlas
-                                == right.atlas_info.texture_atlas));
-                        if let Some(atlas) =
-                            texture_atlases.get(&info.glyphs[0].atlas_info.texture_atlas)
-                        {
-                            let new_mesh = build_mesh(&text.sections, &info, atlas);
-                            let new_material = StandardMaterial {
-                                base_color_texture: Some(atlas.texture.clone()),
-                                base_color: Color::WHITE,
-                                alpha_mode: AlphaMode::Blend,
-                                ..Default::default()
-                            };
-                            match maybe_mesh.and_then(|handle| meshes.get_mut(handle)) {
-                                Some(mesh) => {
-                                    *mesh = new_mesh;
-                                }
-                                None => {
-                                    let mesh = meshes.add(new_mesh);
-
-                                    commands.entity(entity).insert(mesh);
-                                }
-                            }
-                            match maybe_material.and_then(|handle| materials.get_mut(handle)) {
-                                Some(material) => {
-                                    *material = new_material;
-                                }
-                                None => {
-                                    let material = materials.add(new_material);
-                                    commands.entity(entity).insert(material);
-                                }
-                            }
-                        }
-                    } else {
-                        commands
-                            .entity(entity)
-                            .remove::<Handle<Mesh>>()
-                            .remove::<Handle<StandardMaterial>>();
+    for (entity, text, info, maybe_mesh, maybe_material) in &mut text_query {
+        if !info.glyphs.is_empty() {
+            // we assume all glyphs are on the same texture
+            // if not, we'll have to implement different materials
+            debug_assert!(info.glyphs.iter().zip(info.glyphs.iter().skip(1)).all(
+                |(left, right)| left.atlas_info.texture_atlas == right.atlas_info.texture_atlas
+            ));
+            if let Some(atlas) = texture_atlases.get(&info.glyphs[0].atlas_info.texture_atlas) {
+                let new_mesh = build_mesh(&text.sections, &info, atlas);
+                let new_material = StandardMaterial {
+                    base_color_texture: Some(atlas.texture.clone()),
+                    base_color: Color::WHITE,
+                    alpha_mode: AlphaMode::Blend,
+                    ..Default::default()
+                };
+                match maybe_mesh.and_then(|handle| meshes.get_mut(handle)) {
+                    Some(mesh) => {
+                        *mesh = new_mesh;
                     }
+                    None => {
+                        let mesh = meshes.add(new_mesh);
 
-                    match text_layout_info {
-                        Some(mut t) => *t = info,
-                        None => {
-                            commands.entity(entity).insert(info);
-                        }
+                        commands.entity(entity).insert(mesh);
+                    }
+                }
+                match maybe_material.and_then(|handle| materials.get_mut(handle)) {
+                    Some(material) => {
+                        *material = new_material;
+                    }
+                    None => {
+                        let material = materials.add(new_material);
+                        commands.entity(entity).insert(material);
                     }
                 }
             }
+        } else {
+            commands
+                .entity(entity)
+                .remove::<Handle<Mesh>>()
+                .remove::<Handle<StandardMaterial>>();
         }
     }
 }
