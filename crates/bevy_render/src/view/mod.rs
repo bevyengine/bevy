@@ -223,6 +223,11 @@ impl ViewTarget {
         self.sampled_main_texture().unwrap_or(&self.main_textures.a)
     }
 
+    /// is the last written texture also the base texture
+    pub fn is_current_base(&self) -> bool {
+        self.sampled_main_texture().is_none() && self.main_texture.load(Ordering::SeqCst) == 0
+    }
+
     /// The format of the final texture this view will render to
     #[inline]
     pub fn out_texture_format(&self) -> TextureFormat {

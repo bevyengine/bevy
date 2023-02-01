@@ -56,6 +56,11 @@ impl Node for UpscalingNode {
             Err(_) => return Ok(()),
         };
 
+        if !upscaling_target.is_final && target.is_current_base() {
+            // input is already output, nothing to do
+            return Ok(());
+        }
+
         let upscaled_texture = target.main_texture();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
