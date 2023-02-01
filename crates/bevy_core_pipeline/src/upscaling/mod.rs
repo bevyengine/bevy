@@ -3,12 +3,17 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
-use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
+use bevy_render::{
+    camera::{ExtractedCamera, NormalizedRenderTarget},
+    renderer::RenderDevice,
+    view::Msaa,
+};
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 mod node;
 
+use bevy_utils::HashMap;
 pub use node::UpscalingNode;
 
 const UPSCALING_SHADER_HANDLE: HandleUntyped =
@@ -80,6 +85,7 @@ pub enum UpscalingMode {
 pub struct UpscalingPipelineKey {
     upscaling_mode: UpscalingMode,
     texture_format: TextureFormat,
+    msaa_samples: u32,
 }
 
 impl SpecializedRenderPipeline for UpscalingPipeline {
@@ -102,30 +108,61 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: None,
-            multisample: MultisampleState::default(),
+            multisample: MultisampleState {
+                count: key.msaa_samples,
+                ..Default::default()
+            },
         }
     }
 }
 
 #[derive(Component)]
-pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
+pub struct ViewUpscalingPipeline {
+    pipeline: CachedRenderPipelineId,
+    is_final: bool,
+}
 
 fn queue_view_upscaling_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
-    view_targets: Query<(Entity, &ViewTarget)>,
+    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera)>,
+    msaa: Res<Msaa>,
 ) {
-    for (entity, view_target) in view_targets.iter() {
+    // record the highest camera order number for each view target
+    let mut final_order = HashMap::<NormalizedRenderTarget, isize>::default();
+    for (_, _, camera) in view_targets.iter() {
+        if let Some(target) = camera.target.as_ref() {
+            let entry = final_order.entry(target.clone()).or_default();
+            *entry = camera.order.max(*entry);
+        }
+    }
+
+    for (entity, view_target, camera) in view_targets.iter() {
+        let is_final = camera
+            .target
+            .as_ref()
+            .map(|target| final_order.get(target) == Some(&camera.order))
+            .unwrap_or(true);
+        let texture_format = if is_final {
+            // write to output
+            view_target.out_texture_format()
+        } else {
+            // write back to input
+            view_target.base_texture_format()
+        };
+        let msaa_samples = if is_final { 1 } else { msaa.samples() };
+
         let key = UpscalingPipelineKey {
             upscaling_mode: UpscalingMode::Filtering,
-            texture_format: view_target.out_texture_format(),
+            texture_format,
+            msaa_samples,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
         commands
             .entity(entity)
-            .insert(ViewUpscalingPipeline(pipeline));
+            .insert(ViewUpscalingPipeline { pipeline, is_final });
     }
 }

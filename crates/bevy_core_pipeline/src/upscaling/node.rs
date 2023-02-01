@@ -89,15 +89,21 @@ impl Node for UpscalingNode {
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
+        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.pipeline) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
+        };
+
+        let view_attachment = if upscaling_target.is_final {
+            target.out_texture()
+        } else {
+            target.base_texture()
         };
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: target.out_texture(),
+                view: view_attachment,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()),
