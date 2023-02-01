@@ -1137,10 +1137,10 @@ impl<T: FromReflect + Clone + Send + Sync> Typed for Cow<'static, [T]> {
 
 impl<T: FromReflect + Clone + Send + Sync> GetTypeRegistration for Cow<'static, [T]> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
+        let mut registration = TypeRegistration::of::<Cow<'static, [T]>>();
+        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, [T]>>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, [T]>>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, [T]>>::from_type());
         registration
     }
 }
