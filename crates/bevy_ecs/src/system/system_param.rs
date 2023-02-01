@@ -1574,4 +1574,13 @@ mod tests {
     {
         _q: Query<'w, 's, Q, ()>,
     }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/7447.
+    #[derive(SystemParam)]
+    pub struct InputResources<'w, 's> {
+        pub keyboard_input: Res<'w, R<0>>,
+        pub egui_input: ResMut<'w, R<1>>,
+        #[system_param(ignore)]
+        _marker: PhantomData<&'s ()>,
+    }
 }
