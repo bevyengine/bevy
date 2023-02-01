@@ -353,8 +353,8 @@ impl CascadeShadowConfigBuilder {
             self.num_cascades
         );
         assert!(
-            self.minimum_distance >= 0.0,
-            "minimum_distance must be non-negative, but was {}",
+            (0.0..self.first_cascade_far_bound).contains(&self.minimum_distance),
+            "minimum_distance must be in [0.0, first_cascade_far_bound), but was {}",
             self.minimum_distance
         );
         assert!(
