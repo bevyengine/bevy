@@ -134,7 +134,7 @@ fn queue_view_upscaling_pipelines(
     let mut final_order = HashMap::<NormalizedRenderTarget, isize>::default();
     for (_, _, camera) in view_targets.iter() {
         if let Some(target) = camera.target.as_ref() {
-            let entry = final_order.entry(target.clone()).or_default();
+            let entry = final_order.entry(target.clone()).or_insert(isize::MIN);
             *entry = camera.order.max(*entry);
         }
     }
