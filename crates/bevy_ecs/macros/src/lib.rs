@@ -5,7 +5,7 @@ mod fetch;
 
 use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{
-    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest,
+    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest, transform_lifetimes_in_type,
 };
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -382,6 +382,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }
     }
 
+    let shadowed_ignored_field_types: Vec<_> =
+        ignored_field_types.iter()
+            .map(|&ty| {
+                let mut new_ty = ty.clone();
+                transform_lifetimes_in_type(&mut new_ty, &|lifetime| lifetime.ident = format_ident!("_{}", lifetime.ident));
+                new_ty
+            })
+            .collect();
+
     let generics = ast.generics;
 
     // Emit an error if there's any unrecognized lifetime names.
@@ -495,18 +504,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <(#(#tuple_types,)*) as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
-                unsafe fn get_param<'w2, 's2>(
-                    state: &'s2 mut Self::State,
+                unsafe fn get_param<'_w, '_s>(
+                    state: &'_s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w2 #path::world::World,
+                    world: &'_w #path::world::World,
                     change_tick: u32,
-                ) -> Self::Item<'w2, 's2> {
+                ) -> Self::Item<'_w, '_s> {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
-                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                        #(#ignored_fields: <#shadowed_ignored_field_types>::default(),)*
                     }
                 }
             }

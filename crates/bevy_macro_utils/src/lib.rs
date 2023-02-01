@@ -283,3 +283,108 @@ pub fn derive_label(
     })
     .into()
 }
+
+pub fn transform_lifetimes_in_type<F>(ty: &mut syn::Type, f: &F) where F: Fn(&mut syn::Lifetime) {
+    match ty {
+        syn::Type::Array(array) => 
+            transform_lifetimes_in_type(&mut array.elem, f),
+        syn::Type::BareFn(bare_fn) => {
+            if let Some(bound_lt) = &mut bare_fn.lifetimes {
+                transform_lifetimes_in_bound_lifetimes(bound_lt, f);
+            }
+
+            for input in &mut bare_fn.inputs {
+                transform_lifetimes_in_type(&mut input.ty, f)
+            }
+
+            match &mut bare_fn.output {
+                syn::ReturnType::Default => (),
+                syn::ReturnType::Type(_, output_ty) => transform_lifetimes_in_type(output_ty, f),
+            }
+        },  
+        syn::Type::Group(group) => 
+            transform_lifetimes_in_type(&mut group.elem, f),
+        syn::Type::ImplTrait(impl_trait) =>
+            for bound in &mut impl_trait.bounds {
+                transform_lifetimes_in_type_param_bound(bound, f);
+            }
+        syn::Type::Infer(_infer) => (),
+        syn::Type::Macro(_mac) => (),
+        syn::Type::Never(_never) => (),
+        syn::Type::Paren(paren) => transform_lifetimes_in_type(&mut paren.elem, f),
+        syn::Type::Path(path) => {
+            if let Some(qself) = &mut path.qself {
+                transform_lifetimes_in_type(&mut qself.ty, f);
+            }
+
+            transform_lifetimes_in_path(&mut path.path, f);
+        },
+        syn::Type::Ptr(ptr) => 
+            transform_lifetimes_in_type(&mut ptr.elem, f),
+        syn::Type::Reference(reference) =>  {
+            if let Some(lt) = &mut reference.lifetime {
+                f(lt);
+            }
+            transform_lifetimes_in_type(&mut reference.elem, f);
+        }
+        syn::Type::Slice(slice) => 
+            transform_lifetimes_in_type(&mut slice.elem, f),
+        syn::Type::TraitObject(trait_object) =>  {
+            for bound in &mut trait_object.bounds {
+                transform_lifetimes_in_type_param_bound(bound, f)
+            }
+        },
+        syn::Type::Tuple(tuple) => 
+            for elem in &mut tuple.elems {
+                transform_lifetimes_in_type(elem, f);
+            }
+        syn::Type::Verbatim(_verbatim) => (),
+        _ => (),
+    }
+}
+
+fn transform_lifetimes_in_bound_lifetimes<F>(bound_lt: &mut syn::BoundLifetimes, f: &F) where F: Fn(&mut syn::Lifetime) {
+    for lt_def in &mut bound_lt.lifetimes {
+        f(&mut lt_def.lifetime)
+    }
+}
+
+fn transform_lifetimes_in_type_param_bound<F>(bound: &mut syn::TypeParamBound, f: &F) where F: Fn(&mut syn::Lifetime) {
+    match bound {
+        syn::TypeParamBound::Trait(trait_bound) =>  {
+            if let Some(lifetime) = &mut trait_bound.lifetimes {
+                transform_lifetimes_in_bound_lifetimes(lifetime, f)
+            }
+
+            transform_lifetimes_in_path(&mut trait_bound.path, f);
+        }
+
+        syn::TypeParamBound::Lifetime(lt) => f(lt),
+    }
+}
+
+fn transform_lifetimes_in_path<F>(path: &mut syn::Path, f: &F) where F: Fn(&mut syn::Lifetime) {
+    for segment in &mut path.segments {
+        match &mut segment.arguments {
+            syn::PathArguments::None => (),
+            syn::PathArguments::AngleBracketed(generic_arguments) =>
+             for arg in &mut generic_arguments.args {
+                match arg {
+                    syn::GenericArgument::Type(ty) => transform_lifetimes_in_type(ty, f),
+                    syn::GenericArgument::Lifetime(lt) => f(lt),
+                    _ => (),
+                }
+             },
+            syn::PathArguments::Parenthesized(generic_arguments) => {
+                for input in &mut generic_arguments.inputs {
+                    transform_lifetimes_in_type(input, f);
+                }
+
+                match &mut generic_arguments.output {
+                    syn::ReturnType::Default => (),
+                    syn::ReturnType::Type(_, output_ty) => transform_lifetimes_in_type(output_ty, f),
+                }
+            }
+        }
+    }
+}

@@ -1574,4 +1574,11 @@ mod tests {
     {
         _q: Query<'w, 's, Q, ()>,
     }
+
+    // regression test for https://github.com/bevyengine/bevy/issues/7447.
+    #[derive(SystemParam)]
+    pub struct IgnoredPhantomDataWithLifetime<'s> {
+        #[system_param(ignore)]
+        marker: PhantomData<&'s ()>
+    }
 }
