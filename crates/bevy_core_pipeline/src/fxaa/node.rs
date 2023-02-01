@@ -4,6 +4,7 @@ use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
@@ -21,6 +22,7 @@ pub struct FxaaNode {
             &'static ViewTarget,
             &'static CameraFxaaPipeline,
             &'static Fxaa,
+            &'static ExtractedCamera,
         ),
         With<ExtractedView>,
     >,
@@ -57,7 +59,7 @@ impl Node for FxaaNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let fxaa_pipeline = world.resource::<FxaaPipeline>();
 
-        let (target, pipeline, fxaa) = match self.query.get_manual(world, view_entity) {
+        let (target, pipeline, fxaa, camera) = match self.query.get_manual(world, view_entity) {
             Ok(result) => result,
             Err(_) => return Ok(()),
         };
@@ -125,6 +127,18 @@ impl Node for FxaaNode {
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
+
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_viewport(
+                viewport.physical_position.x as f32,
+                viewport.physical_position.y as f32,
+                viewport.physical_size.x as f32,
+                viewport.physical_size.y as f32,
+                viewport.depth.start,
+                viewport.depth.end,
+            );
+        }
+
         render_pass.draw(0..3, 0..1);
 
         Ok(())
