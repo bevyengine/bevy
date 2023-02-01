@@ -1039,6 +1039,161 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
+impl<T: FromReflect + Clone> Array for Cow<'static, [T]> {
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        <[T]>::get(self, index).map(|value| value as &dyn Reflect)
+    }
+
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        <[T]>::get_mut(self.to_mut(), index).map(|value| value as &mut dyn Reflect)
+    }
+
+    fn len(&self) -> usize {
+        <[T]>::len(self)
+    }
+
+    fn iter(&self) -> ArrayIter {
+        ArrayIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_owned()
+            .into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
+}
+
+impl<T: FromReflect + Clone> List for Cow<'static, [T]> {
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
+        let value = element.take::<T>().unwrap_or_else(|value| {
+            T::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to insert invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        self.to_mut().insert(index, value);
+    }
+
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+        Box::new(self.to_mut().remove(index))
+    }
+
+    fn push(&mut self, value: Box<dyn Reflect>) {
+        let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+            panic!(
+                "Attempted to push invalid value of type {}.",
+                value.type_name()
+            )
+        });
+        self.to_mut().push(value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.to_mut()
+            .pop()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
+}
+
+impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::list_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::List(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::List(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(List::clone_dynamic(self))
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::array_hash(self)
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::list_partial_eq(self, value)
+    }
+}
+
+impl<T: FromReflect + Clone> Typed for Cow<'static, [T]> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+    }
+}
+
+impl<T: FromReflect + Clone> GetTypeRegistration for Cow<'static, [T]> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Cow<'static, [T]>>();
+        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, [T]>>::from_type());
+        registration
+    }
+}
+
+impl<T: FromReflect + Clone> FromReflect for Cow<'static, [T]> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
+            let mut new_list = Vec::<T>::with_capacity(ref_list.len());
+            for field in ref_list.iter() {
+                new_list.push(T::from_reflect(field)?);
+            }
+            Some(Cow::Owned(new_list))
+        } else {
+            None
+        }
+    }
+}
+
 impl Reflect for &'static Path {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
