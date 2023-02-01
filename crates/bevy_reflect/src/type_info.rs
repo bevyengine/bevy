@@ -23,7 +23,9 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo};
+/// # use bevy_reflect::{
+/// #   NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo
+/// # };
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -58,6 +60,7 @@ use std::any::{Any, TypeId};
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #   fn reflect_kind(&self) -> ReflectKind { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }

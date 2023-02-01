@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, FromReflectError, GetTypeRegistration, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -337,6 +337,11 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Tuple
+    }
+
+    #[inline]
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Tuple(self)
     }
@@ -546,6 +551,10 @@ macro_rules! impl_reflect_tuple {
                 Ok(())
             }
 
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Tuple
+            }
+
             fn reflect_ref(&self) -> ReflectRef {
                 ReflectRef::Tuple(self)
             }
@@ -588,17 +597,35 @@ macro_rules! impl_reflect_tuple {
 
         impl<$($name: FromReflect),*> FromReflect for ($($name,)*)
         {
-            fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+            fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
-                    Some(
+                    Ok(
                         (
                             $(
-                                <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                                <$name as FromReflect>::from_reflect(
+                                    _ref_tuple.field($index)
+                                    .ok_or_else(|| FromReflectError::MissingUnnamedField {
+                                        from_type: reflect.get_type_info(),
+                                        from_kind: reflect.reflect_kind(),
+                                        to_type: Self::type_info(),
+                                        index: $index,
+                                    })?
+                                ).map_err(|err| FromReflectError::UnnamedFieldError {
+                                    from_type: reflect.get_type_info(),
+                                    from_kind: reflect.reflect_kind(),
+                                    to_type: Self::type_info(),
+                                    index: $index,
+                                    source: Box::new(err),
+                                })?,
                             )*
                         )
                     )
                 } else {
-                    None
+                    Err(FromReflectError::InvalidType {
+                        from_type: reflect.get_type_info(),
+                        from_kind: reflect.reflect_kind(),
+                        to_type: Self::type_info()
+                    })
                 }
             }
         }

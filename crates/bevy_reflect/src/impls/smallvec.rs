@@ -3,8 +3,9 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    Array, ArrayIter, FromReflect, FromReflectError, FromType, GetTypeRegistration, List, ListInfo,
+    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -48,7 +49,7 @@ where
 {
     fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
                     value.type_name()
@@ -64,7 +65,7 @@ where
 
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.type_name()
@@ -124,6 +125,10 @@ where
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::List(self)
     }
@@ -159,15 +164,27 @@ impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
+            for (idx, field) in ref_list.iter().enumerate() {
+                new_list.push(<T as smallvec::Array>::Item::from_reflect(field).map_err(
+                    |err| FromReflectError::IndexError {
+                        from_type: reflect.get_type_info(),
+                        from_kind: reflect.reflect_kind(),
+                        to_type: Self::type_info(),
+                        index: idx,
+                        source: Box::new(err),
+                    },
+                )?);
             }
-            Some(new_list)
+            Ok(new_list)
         } else {
-            None
+            Err(FromReflectError::InvalidType {
+                from_type: reflect.get_type_info(),
+                from_kind: reflect.reflect_kind(),
+                to_type: Self::type_info(),
+            })
         }
     }
 }
