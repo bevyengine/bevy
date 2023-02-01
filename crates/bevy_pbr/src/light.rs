@@ -337,6 +337,14 @@ impl CascadeShadowConfigBuilder {
         self
     }
 
+    /// Sets the overlap proportion between cascades.
+    /// The overlap is used to make the transition from one cascade's shadow map to the next
+    /// less abrupt by blending between both shadow maps.
+    pub fn overlap_proportion(mut self, p: f32) -> Self {
+        self.overlap_proportion = p;
+        self
+    }
+
     /// Returns the cascade config as specified by this builder.
     pub fn build(&self) -> CascadeShadowConfig {
         assert!(
