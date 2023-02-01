@@ -39,7 +39,7 @@ use std::slice::Iter;
 ///
 /// # Implementation
 ///
-/// > 💡 This trait can be automatically implemented using the [`Reflect` derive macro]
+/// > 💡 This trait can be automatically implemented using [`#[derive(Reflect)]`](derive@crate::Reflect)
 /// > on an enum definition.
 ///
 /// Despite the fact that enums can represent multiple states, traits only exist in one state
@@ -52,7 +52,7 @@ use std::slice::Iter;
 /// accessing fields!
 /// Again, this is to account for _all three_ variant types.
 ///
-/// We recommend using the built-in [`Reflect` derive macro] to automatically handle all the
+/// We recommend using the built-in [`#[derive(Reflect)]`](derive@crate::Reflect) macro to automatically handle all the
 /// implementation details for you.
 /// However, if you _must_ implement this trait manually, there are a few things to keep in mind...
 ///
@@ -87,7 +87,6 @@ use std::slice::Iter;
 /// [`None`]: core::option::Option<T>::None
 /// [`Some`]: core::option::Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 pub trait Enum: Reflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///

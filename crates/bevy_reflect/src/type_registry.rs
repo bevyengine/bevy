@@ -11,13 +11,12 @@ use std::{any::TypeId, fmt::Debug, sync::Arc};
 /// This struct is used as the central store for type information.
 /// [Registering] a type will generate a new [`TypeRegistration`] entry in this store
 /// using a type's [`GetTypeRegistration`] implementation
-/// (which will is automatically implemented when using the [`Reflect` derive macro]).
+/// (which is automatically implemented when using [`#[derive(Reflect)]`](derive@crate::Reflect)).
 ///
 /// See the [crate-level documentation] for more information.
 ///
 /// [reflected]: crate
 /// [Registering]: TypeRegistry::register
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
@@ -43,12 +42,11 @@ impl Debug for TypeRegistryArc {
 /// A trait which allows a type to generate its [`TypeRegistration`]
 /// for registration into the [`TypeRegistry`].
 ///
-/// This trait is automatically implemented for items using the [`Reflect` derive macro].
+/// This trait is automatically implemented for items using [`#[derive(Reflect)]`](derive@crate::Reflect).
 /// The macro also allows [`TypeData`] to be more easily registered.
 ///
 /// See the [crate-level documentation] for more information on type registration.
 ///
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 pub trait GetTypeRegistration {
     fn get_type_registration() -> TypeRegistration;
@@ -279,7 +277,7 @@ impl TypeRegistryArc {
 /// Runtime storage for type metadata, registered into the [`TypeRegistry`].
 ///
 /// An instance of `TypeRegistration` can be created using the [`TypeRegistration::of`] method,
-/// but is more often automatically generated using the [`Reflect` derive macro] which itself generates
+/// but is more often automatically generated using [`#[derive(Reflect)]`](derive@crate::Reflect) which itself generates
 /// an implementation of the [`GetTypeRegistration`] trait.
 ///
 /// Along with the type's [`TypeInfo`] and [short name],
@@ -300,7 +298,6 @@ impl TypeRegistryArc {
 /// assert!(registration.data::<ReflectDefault>().is_some())
 /// ```
 ///
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 /// [short name]: bevy_utils::get_short_name
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
@@ -403,13 +400,12 @@ impl Clone for TypeRegistration {
 ///
 /// Type data can be registered to the [`TypeRegistry`] and stored on a type's [`TypeRegistration`].
 ///
-/// While type data is often generated using the [`#[reflect_trait]`][0] macro,
+/// While type data is often generated using the [`#[reflect_trait]`](crate::reflect_trait) macro,
 /// almost any type that implements [`Clone`] can be considered "type data".
 /// This is because it has a blanket implementation over all `T` where `T: Clone + Send + Sync + 'static`.
 ///
 /// See the [crate-level documentation] for more information on type data and type registration.
 ///
-/// [0]: crate::reflect_trait
 /// [crate-level documentation]: crate
 pub trait TypeData: Downcast + Send + Sync {
     fn clone_type_data(&self) -> Box<dyn TypeData>;

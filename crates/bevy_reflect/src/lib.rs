@@ -217,7 +217,7 @@
 //!
 //! With the derive macro, fields can be ignored or given default values for when a field is missing
 //! in the passed value.
-//! See the [derive macro documentation](bevy_reflect_derive::FromReflect) for details.
+//! See the [derive macro documentation](derive@crate::FromReflect) for details.
 //!
 //! All primitives and simple types implement `FromReflect` by relying on their [`Default`] implementation.
 //!
@@ -270,7 +270,7 @@
 //! These allow traits to be used directly on a `dyn Reflect` while utilizing the underlying type's implementation.
 //!
 //! For any [object-safe] trait, we can easily generate a corresponding `ReflectTrait` type for our trait
-//! using the [`reflect_trait`] macro.
+//! using the [`#[reflect_trait]`](reflect_trait) macro.
 //!
 //! ```
 //! # use bevy_reflect::{Reflect, reflect_trait, TypeRegistry};
@@ -380,9 +380,9 @@
 //! [Bevy]: https://bevyengine.org/
 //! [`bevy_reflect`]: crate
 //! [runtime cost]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html#trait-objects-perform-dynamic-dispatch
-//! [derive macro]: bevy_reflect_derive::Reflect
+//! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
-//! [derive macro documentation]: bevy_reflect_derive::Reflect
+//! [derive macro documentation]: derive@crate::Reflect
 //! [type data]: TypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
 //! [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
@@ -399,7 +399,7 @@
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
-//! [derive `Reflect`]: bevy_reflect_derive::Reflect
+//! [derive `Reflect`]: derive@crate::Reflect
 
 mod array;
 mod fields;

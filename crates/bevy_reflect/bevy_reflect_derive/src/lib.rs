@@ -61,8 +61,8 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 /// one for `ReflectFoo` and another for `ReflectBar`.
 /// This assumes these types are indeed in-scope wherever this macro is called.
 ///
-/// This is often used with traits that have been marked by the [`reflect_trait`] macro
-/// in order to register the type's implementation of that trait.
+/// This is often used with traits that have been marked by the [`#[reflect_trait]`](macro@reflect_trait)
+/// macro in order to register the type's implementation of that trait.
 ///
 /// ### Special Identifiers
 ///
@@ -148,7 +148,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// ## `#[reflect(ignore)]`
 ///
-/// The `#[reflect(ignore)]` attribute is shared with the [`Reflect` derive macro] and has much of the same
+/// The `#[reflect(ignore)]` attribute is shared with the [`#[derive(Reflect)]`](Reflect) macro and has much of the same
 /// functionality in that it marks a field to be ignored by the reflection API.
 ///
 /// The only major difference is that using it with this derive requires that the field implements [`Default`].
@@ -168,8 +168,6 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// or to remove the `Default` requirement on fields marked with `#[reflect(ignore)]`.
 /// Additionally, either form of this attribute can be used to fill in fields that are simply missing,
 /// such as when converting a partially-constructed dynamic type to a concrete one.
-///
-/// [`Reflect` derive macro]: Reflect
 #[proc_macro_derive(FromReflect, attributes(reflect))]
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -204,7 +202,7 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 /// For a trait named `MyTrait`, this will generate the struct `ReflectMyTrait`.
 /// The generated struct can be created using `FromType` with any type that implements the trait.
 /// The creation and registration of this generated struct as type data can be automatically handled
-/// by the [`Reflect` derive macro].
+/// by [`#[derive(Reflect)]`](Reflect).
 ///
 /// # Example
 ///
@@ -243,7 +241,6 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
-/// [`Reflect` derive macro]: Reflect
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     trait_reflection::reflect_trait(&args, input)

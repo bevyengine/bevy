@@ -11,7 +11,7 @@ use std::slice::Iter;
 /// This trait uses the [`Reflect`] trait to allow implementors to have their fields
 /// be dynamically addressed by index.
 ///
-/// When using the [`Reflect` derive macro] on a tuple struct,
+/// When using [`#[derive(Reflect)]`](derive@crate::Reflect) on a tuple struct,
 /// this trait will be automatically implemented.
 ///
 /// # Example
@@ -32,7 +32,6 @@ use std::slice::Iter;
 ///
 /// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 /// [reflection]: crate
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 pub trait TupleStruct: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.

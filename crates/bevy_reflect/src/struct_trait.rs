@@ -15,7 +15,7 @@ use std::{
 /// This trait uses the [`Reflect`] trait to allow implementors to have their fields
 /// be dynamically addressed by both name and index.
 ///
-/// When using the [`Reflect` derive macro] on a standard struct,
+/// When using [`#[derive(Reflect)]`](derive@crate::Reflect) on a standard struct,
 /// this trait will be automatically implemented.
 /// This goes for [unit structs] as well.
 ///
@@ -40,7 +40,7 @@ use std::{
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 /// [reflection]: crate
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
+
 /// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
 pub trait Struct: Reflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn

@@ -16,7 +16,7 @@ use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo
 /// # Hashing
 ///
 /// All keys are expected to return a valid hash value from [`Reflect::reflect_hash`].
-/// If using the [`Reflect` derive macro], this can be done by adding `#[reflect(Hash)]`
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
 /// to the entire struct or enum.
 /// This is true even for manual implementors who do not use the hashed value,
 /// as it is still relied on by [`DynamicMap`].
@@ -39,7 +39,6 @@ use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
 /// [`HashMap`]: bevy_utils::HashMap
-/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///
