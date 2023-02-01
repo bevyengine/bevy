@@ -3,6 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
+use bevy_utils::HashSet;
 
 use crate::{
     archetype::{
@@ -709,7 +710,7 @@ impl Bundles {
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures info was created
-                unsafe { initialize_bundle(std::any::type_name::<T>(), component_ids, id) };
+                unsafe { initialize_bundle(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -723,16 +724,37 @@ impl Bundles {
 /// `component_id` must be valid [`ComponentId`]'s
 unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
+    components: &Components,
     component_ids: Vec<ComponentId>,
     id: BundleId,
 ) -> BundleInfo {
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
-    assert!(
-        deduped.len() == component_ids.len(),
-        "Bundle {bundle_type_name} has duplicate components",
-    );
+
+    if deduped.len() != component_ids.len() {
+        let mut seen = HashSet::new();
+        let mut dups = Vec::new();
+        for id in component_ids {
+            if !seen.insert(id) {
+                dups.push(id);
+            }
+        }
+
+        let names = dups
+            .into_iter()
+            .map(|id| {
+                // SAFETY: component_id exists and is therefore valid
+                components.get_info_unchecked(id).name()
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        panic!(
+            "Bundle {bundle_type_name} has duplicate components: {}",
+            names
+        );
+    }
 
     BundleInfo { id, component_ids }
 }
