@@ -305,9 +305,9 @@ impl CascadeShadowConfigBuilder {
     ///
     /// This does come at the cost increased rendering overhead, however this overhead is still less
     /// than if you were to use fewer cascades and much larger shadow map textures to achieve the
-    /// same quality leveland much larger shadow map textures to achieve the same quality level
+    /// same quality level.
     ///
-    /// In cases rendered geometry covers a relatively narrow and static depth relative to camera, it may
+    /// In case rendered geometry covers a relatively narrow and static depth relative to camera, it may
     /// make more sense to use fewer cascades and a higher resolution shadow map texture as perspective aliasing
     /// is not as much an issue. Be sure to adjust `minimum_distance` and `maximum_distance` appropriately.
     pub fn num_cascades(mut self, n: usize) -> Self {
