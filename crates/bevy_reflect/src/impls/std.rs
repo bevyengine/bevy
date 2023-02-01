@@ -12,7 +12,6 @@ use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
-use std::borrow::Borrow;
 use std::{
     any::Any,
     borrow::Cow,
@@ -1065,9 +1064,7 @@ impl<T: FromReflect + Clone + Send + Sync> Array for Cow<'static, [T]> {
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync>
-    Reflect for Cow<'static, [T]>
-{
+impl<T: FromReflect + Clone + Send + Sync> Reflect for Cow<'static, [T]> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -1139,8 +1136,7 @@ impl<T: FromReflect + Clone + Send + Sync>
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> Typed for Cow<'static, [T]>
-{
+impl<T: FromReflect + Clone + Send + Sync> Typed for Cow<'static, [T]> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(0)))
@@ -1157,8 +1153,7 @@ impl<T: FromReflect + Clone + Send + Sync> GetTypeRegistration for Cow<'static, 
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> FromReflect for Cow<'static, [T]>
-{
+impl<T: FromReflect + Clone + Send + Sync> FromReflect for Cow<'static, [T]> {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
         Some(
             reflect
