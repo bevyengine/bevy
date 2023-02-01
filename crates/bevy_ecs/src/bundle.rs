@@ -750,10 +750,7 @@ unsafe fn initialize_bundle(
             .collect::<Vec<_>>()
             .join(", ");
 
-        panic!(
-            "Bundle {bundle_type_name} has duplicate components: {}",
-            names
-        );
+        panic!("Bundle {bundle_type_name} has duplicate components: {names}");
     }
 
     BundleInfo { id, component_ids }
