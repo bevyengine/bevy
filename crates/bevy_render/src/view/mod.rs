@@ -234,11 +234,6 @@ impl ViewTarget {
         self.out_texture_format
     }
 
-    /// the format of the initial texture that will be written to.
-    pub fn base_texture_format(&self) -> TextureFormat {
-        self.main_texture_format
-    }
-
     /// This will start a new "post process write", which assumes that the caller
     /// will write the [`PostProcessWrite`]'s `source` to the `destination`.
     ///

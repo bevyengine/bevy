@@ -150,7 +150,7 @@ fn queue_view_upscaling_pipelines(
             view_target.out_texture_format()
         } else {
             // write back to input
-            view_target.base_texture_format()
+            view_target.main_texture_format()
         };
         let msaa_samples = if is_final { 1 } else { msaa.samples() };
 
