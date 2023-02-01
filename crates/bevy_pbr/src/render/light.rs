@@ -17,7 +17,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
+        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -1633,7 +1634,7 @@ pub fn queue_shadows<M: Material>(
 
                         shadow_phase.add(Shadow {
                             draw_function: draw_shadow_mesh,
-                            pipeline: pipeline_id,
+                            pipeline_id,
                             entity,
                             distance: 0.0, // TODO: sort back-to-front
                         });
@@ -1647,7 +1648,7 @@ pub fn queue_shadows<M: Material>(
 pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -1678,10 +1679,10 @@ impl PhaseItem for Shadow {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for Shadow {
+impl RenderPipelinePhaseItem for Shadow {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> RenderPipelineId {
+        self.pipeline_id
     }
 }
 

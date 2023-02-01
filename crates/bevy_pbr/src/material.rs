@@ -484,7 +484,7 @@ pub fn queue_material_meshes<M: Material>(
                             opaque_phase.add(Opaque3d {
                                 entity: *visible_entity,
                                 draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
+                                pipeline_id,
                                 distance,
                             });
                         }
@@ -492,7 +492,7 @@ pub fn queue_material_meshes<M: Material>(
                             alpha_mask_phase.add(AlphaMask3d {
                                 entity: *visible_entity,
                                 draw_function: draw_alpha_mask_pbr,
-                                pipeline: pipeline_id,
+                                pipeline_id,
                                 distance,
                             });
                         }
@@ -503,7 +503,7 @@ pub fn queue_material_meshes<M: Material>(
                             transparent_phase.add(Transparent3d {
                                 entity: *visible_entity,
                                 draw_function: draw_transparent_pbr,
-                                pipeline: pipeline_id,
+                                pipeline_id,
                                 distance,
                             });
                         }

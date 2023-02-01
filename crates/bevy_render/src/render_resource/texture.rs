@@ -1,7 +1,5 @@
-use crate::define_atomic_id;
+use crate::{define_atomic_id, render_resource::ResourceId, render_resource_wrapper};
 use std::ops::Deref;
-
-use crate::render_resource::resource_macros::*;
 
 define_atomic_id!(TextureId);
 render_resource_wrapper!(ErasedTexture, wgpu::Texture);

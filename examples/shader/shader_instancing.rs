@@ -120,12 +120,12 @@ fn queue_custom(
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
                     view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline = pipelines
+                let pipeline_id = pipelines
                     .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                     .unwrap();
                 transparent_phase.add(Transparent3d {
                     entity,
-                    pipeline,
+                    pipeline_id,
                     draw_function: draw_custom,
                     distance: rangefinder.distance(&mesh_uniform.transform),
                 });

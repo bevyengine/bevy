@@ -27,10 +27,10 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        batch_phase_system, sort_phase_system, BatchedPhaseItem, DrawFunctionId, DrawFunctions,
+        PhaseItem, RenderPhase, RenderPipelinePhaseItem,
     },
-    render_resource::CachedRenderPipelineId,
+    render_resource::RenderPipelineId,
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
@@ -108,7 +108,7 @@ impl Plugin for Core2dPlugin {
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
     pub draw_function: DrawFunctionId,
     /// Range in the vertex buffer of this item
     pub batch_range: Option<Range<u32>>,
@@ -138,10 +138,10 @@ impl PhaseItem for Transparent2d {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for Transparent2d {
+impl RenderPipelinePhaseItem for Transparent2d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> RenderPipelineId {
+        self.pipeline_id
     }
 }
 

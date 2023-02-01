@@ -1,7 +1,7 @@
-use super::ShaderDefVal;
 use crate::{
     define_atomic_id,
-    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
+    render_resource::{BindGroupLayout, Shader, ShaderDefVal},
+    render_resource_wrapper,
 };
 use bevy_asset::Handle;
 use std::{borrow::Cow, ops::Deref};
@@ -16,7 +16,7 @@ render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
-/// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
+/// Can be created via the [`PipelineCache`](crate::render_resource::PipelineCache).
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
@@ -25,17 +25,16 @@ pub struct RenderPipeline {
 
 impl RenderPipeline {
     #[inline]
-    pub fn id(&self) -> RenderPipelineId {
-        self.id
-    }
-}
-
-impl From<wgpu::RenderPipeline> for RenderPipeline {
-    fn from(value: wgpu::RenderPipeline) -> Self {
-        RenderPipeline {
-            id: RenderPipelineId::new(),
+    pub fn new(id: RenderPipelineId, value: wgpu::RenderPipeline) -> Self {
+        Self {
+            id,
             value: ErasedRenderPipeline::new(value),
         }
+    }
+
+    #[inline]
+    pub fn id(&self) -> RenderPipelineId {
+        self.id
     }
 }
 
@@ -54,7 +53,7 @@ render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
-/// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
+/// Can be created via the [`PipelineCache`](crate::render_resource::PipelineCache).
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
@@ -62,19 +61,18 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
+    #[inline]
+    pub fn new(id: ComputePipelineId, value: wgpu::ComputePipeline) -> Self {
+        Self {
+            id,
+            value: ErasedComputePipeline::new(value),
+        }
+    }
+
     /// Returns the [`ComputePipelineId`].
     #[inline]
     pub fn id(&self) -> ComputePipelineId {
         self.id
-    }
-}
-
-impl From<wgpu::ComputePipeline> for ComputePipeline {
-    fn from(value: wgpu::ComputePipeline) -> Self {
-        ComputePipeline {
-            id: ComputePipelineId::new(),
-            value: ErasedComputePipeline::new(value),
-        }
     }
 }
 

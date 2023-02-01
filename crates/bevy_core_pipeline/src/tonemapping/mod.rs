@@ -270,7 +270,7 @@ impl FromWorld for TonemappingPipeline {
 }
 
 #[derive(Component)]
-pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
+pub struct ViewTonemappingPipeline(RenderPipelineId);
 
 pub fn queue_view_tonemapping_pipelines(
     mut commands: Commands,

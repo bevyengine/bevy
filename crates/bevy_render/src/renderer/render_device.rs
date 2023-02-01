@@ -1,13 +1,13 @@
-use crate::render_resource::{
-    BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
-    RenderPipeline, Sampler, Texture,
+use crate::{
+    render_resource::{
+        BindGroup, BindGroupLayout, Buffer, ComputePipeline, ComputePipelineId,
+        RawRenderPipelineDescriptor, RenderPipeline, RenderPipelineId, Sampler, Texture,
+    },
+    render_resource_wrapper,
+    renderer::RenderQueue,
 };
 use bevy_ecs::system::Resource;
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
-
-use super::RenderQueue;
-
-use crate::render_resource::resource_macros::*;
 
 render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 
@@ -101,19 +101,24 @@ impl RenderDevice {
 
     /// Creates a [`RenderPipeline`].
     #[inline]
-    pub fn create_render_pipeline(&self, desc: &RawRenderPipelineDescriptor) -> RenderPipeline {
+    pub(crate) fn create_render_pipeline(
+        &self,
+        id: RenderPipelineId,
+        desc: &RawRenderPipelineDescriptor,
+    ) -> RenderPipeline {
         let wgpu_render_pipeline = self.device.create_render_pipeline(desc);
-        RenderPipeline::from(wgpu_render_pipeline)
+        RenderPipeline::new(id, wgpu_render_pipeline)
     }
 
     /// Creates a [`ComputePipeline`].
     #[inline]
-    pub fn create_compute_pipeline(
+    pub(crate) fn create_compute_pipeline(
         &self,
+        id: ComputePipelineId,
         desc: &wgpu::ComputePipelineDescriptor,
     ) -> ComputePipeline {
         let wgpu_compute_pipeline = self.device.create_compute_pipeline(desc);
-        ComputePipeline::from(wgpu_compute_pipeline)
+        ComputePipeline::new(id, wgpu_compute_pipeline)
     }
 
     /// Creates a [`Buffer`].

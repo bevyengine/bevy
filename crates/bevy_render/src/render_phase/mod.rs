@@ -33,7 +33,7 @@ pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
+use crate::render_resource::{PipelineCache, RenderPipelineId};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
@@ -169,16 +169,16 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 /// cached in the [`PipelineCache`].
 ///
 /// You can use the [`SetItemPipeline`] render command to set the pipeline for this item.
-pub trait CachedRenderPipelinePhaseItem: PhaseItem {
+pub trait RenderPipelinePhaseItem: PhaseItem {
     /// The id of the render pipeline, cached in the [`PipelineCache`], that will be used to draw
     /// this phase item.
-    fn cached_pipeline(&self) -> CachedRenderPipelineId;
+    fn pipeline_id(&self) -> RenderPipelineId;
 }
 
-/// A [`RenderCommand`] that sets the pipeline for the [`CachedRenderPipelinePhaseItem`].
+/// A [`RenderCommand`] that sets the pipeline for the [`RenderPipelinePhaseItem`].
 pub struct SetItemPipeline;
 
-impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
+impl<P: RenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = ();
@@ -192,7 +192,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     ) -> RenderCommandResult {
         if let Some(pipeline) = pipeline_cache
             .into_inner()
-            .get_render_pipeline(item.cached_pipeline())
+            .get_render_pipeline(item.pipeline_id())
         {
             pass.set_render_pipeline(pipeline);
             RenderCommandResult::Success

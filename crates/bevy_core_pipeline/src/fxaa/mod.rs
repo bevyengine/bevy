@@ -178,7 +178,7 @@ impl FromWorld for FxaaPipeline {
 
 #[derive(Component)]
 pub struct CameraFxaaPipeline {
-    pub pipeline_id: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]

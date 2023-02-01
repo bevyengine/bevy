@@ -3,6 +3,7 @@ use crate::{
         Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext,
         RenderGraphError, SlotInfo, SlotLabel,
     },
+    render_resource::ResourceId,
     renderer::RenderContext,
 };
 use bevy_ecs::{prelude::World, system::Resource};

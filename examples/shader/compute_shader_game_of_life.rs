@@ -113,8 +113,8 @@ fn queue_bind_group(
 #[derive(Resource)]
 pub struct GameOfLifePipeline {
     texture_bind_group_layout: BindGroupLayout,
-    init_pipeline: CachedComputePipelineId,
-    update_pipeline: CachedComputePipelineId,
+    init_pipeline: ComputePipelineId,
+    update_pipeline: ComputePipelineId,
 }
 
 impl FromWorld for GameOfLifePipeline {
@@ -190,15 +190,15 @@ impl render_graph::Node for GameOfLifeNode {
         // if the corresponding pipeline has loaded, transition to the next stage
         match self.state {
             GameOfLifeState::Loading => {
-                if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
+                if let PipelineState::Ok(_) =
+                    pipeline_cache.compute_pipeline_state(pipeline.init_pipeline)
                 {
                     self.state = GameOfLifeState::Init;
                 }
             }
             GameOfLifeState::Init => {
-                if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
+                if let PipelineState::Ok(_) =
+                    pipeline_cache.compute_pipeline_state(pipeline.update_pipeline)
                 {
                     self.state = GameOfLifeState::Update;
                 }

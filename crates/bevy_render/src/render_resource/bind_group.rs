@@ -2,7 +2,8 @@ use crate::{
     define_atomic_id,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{BindGroupLayout, Buffer, ResourceId, Sampler, TextureView},
+    render_resource_wrapper,
     renderer::RenderDevice,
     texture::FallbackImage,
 };

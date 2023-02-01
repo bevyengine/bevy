@@ -31,11 +31,11 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        RenderPhase,
+        sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        RenderPipelinePhaseItem,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
+        Extent3d, RenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
     renderer::RenderDevice,
@@ -135,7 +135,7 @@ impl Plugin for Core3dPlugin {
 
 pub struct Opaque3d {
     pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -166,16 +166,16 @@ impl PhaseItem for Opaque3d {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for Opaque3d {
+impl RenderPipelinePhaseItem for Opaque3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> RenderPipelineId {
+        self.pipeline_id
     }
 }
 
 pub struct AlphaMask3d {
     pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -206,16 +206,16 @@ impl PhaseItem for AlphaMask3d {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for AlphaMask3d {
+impl RenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> RenderPipelineId {
+        self.pipeline_id
     }
 }
 
 pub struct Transparent3d {
     pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -245,10 +245,10 @@ impl PhaseItem for Transparent3d {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for Transparent3d {
+impl RenderPipelinePhaseItem for Transparent3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> RenderPipelineId {
+        self.pipeline_id
     }
 }
 

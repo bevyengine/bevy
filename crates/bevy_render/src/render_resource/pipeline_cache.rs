@@ -1,17 +1,9 @@
-use crate::{
-    render_resource::{
-        AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ComputePipeline,
-        ComputePipelineDescriptor, ProcessShaderError, ProcessedShader,
-        RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
-        RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
-        ShaderProcessor, ShaderReflectError,
-    },
-    renderer::RenderDevice,
-    Extract,
-};
+use crate::{render_resource::*, render_resource_wrapper, renderer::RenderDevice, Extract};
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::{
+    event::EventReader,
+    system::{Res, ResMut, Resource},
+};
 use bevy_utils::{
     default,
     tracing::{debug, error},
@@ -24,96 +16,8 @@ use wgpu::{
     PipelineLayoutDescriptor, PushConstantRange, VertexBufferLayout as RawVertexBufferLayout,
 };
 
-use crate::render_resource::resource_macros::*;
-
 render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
 render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
-
-/// A descriptor for a [`Pipeline`].
-///
-/// Used to store an heterogenous collection of render and compute pipeline descriptors together.
-#[derive(Debug)]
-pub enum PipelineDescriptor {
-    RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
-    ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
-}
-
-/// A pipeline defining the data layout and shader logic for a specific GPU task.
-///
-/// Used to store an heterogenous collection of render and compute pipelines together.
-#[derive(Debug)]
-pub enum Pipeline {
-    RenderPipeline(RenderPipeline),
-    ComputePipeline(ComputePipeline),
-}
-
-type CachedPipelineId = usize;
-
-/// Index of a cached render pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct CachedRenderPipelineId(CachedPipelineId);
-
-impl CachedRenderPipelineId {
-    /// An invalid cached render pipeline index, often used to initialize a variable.
-    pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
-
-    #[inline]
-    pub fn id(&self) -> usize {
-        self.0
-    }
-}
-
-/// Index of a cached compute pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct CachedComputePipelineId(CachedPipelineId);
-
-impl CachedComputePipelineId {
-    /// An invalid cached compute pipeline index, often used to initialize a variable.
-    pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
-
-    #[inline]
-    pub fn id(&self) -> usize {
-        self.0
-    }
-}
-
-pub struct CachedPipeline {
-    pub descriptor: PipelineDescriptor,
-    pub state: CachedPipelineState,
-}
-
-/// State of a cached pipeline inserted into a [`PipelineCache`].
-#[derive(Debug)]
-pub enum CachedPipelineState {
-    /// The pipeline GPU object is queued for creation.
-    Queued,
-    /// The pipeline GPU object was created successfully and is available (allocated on the GPU).
-    Ok(Pipeline),
-    /// An error occurred while trying to create the pipeline GPU object.
-    Err(PipelineCacheError),
-}
-
-impl CachedPipelineState {
-    /// Convenience method to "unwrap" a pipeline state into its underlying GPU object.
-    ///
-    /// # Returns
-    ///
-    /// The method returns the allocated pipeline GPU object.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the pipeline GPU object is not available, either because it is
-    /// pending creation or because an error occurred while attempting to create GPU object.
-    pub fn unwrap(&self) -> &Pipeline {
-        match self {
-            CachedPipelineState::Ok(pipeline) => pipeline,
-            CachedPipelineState::Queued => {
-                panic!("Pipeline has not been compiled yet. It is still in the 'Queued' state.")
-            }
-            CachedPipelineState::Err(err) => panic!("{}", err),
-        }
-    }
-}
 
 #[derive(Default)]
 struct ShaderData {
@@ -130,35 +34,6 @@ struct ShaderCache {
     import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<Handle<Shader>>>,
     processor: ShaderProcessor,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
-pub enum ShaderDefVal {
-    Bool(String, bool),
-    Int(String, i32),
-    UInt(String, u32),
-}
-
-impl From<&str> for ShaderDefVal {
-    fn from(key: &str) -> Self {
-        ShaderDefVal::Bool(key.to_string(), true)
-    }
-}
-
-impl From<String> for ShaderDefVal {
-    fn from(key: String) -> Self {
-        ShaderDefVal::Bool(key, true)
-    }
-}
-
-impl ShaderDefVal {
-    pub fn value_as_string(&self) -> String {
-        match self {
-            ShaderDefVal::Bool(_, def) => def.to_string(),
-            ShaderDefVal::Int(_, def) => def.to_string(),
-            ShaderDefVal::UInt(_, def) => def.to_string(),
-        }
-    }
 }
 
 impl ShaderCache {
@@ -342,220 +217,115 @@ impl LayoutCache {
     }
 }
 
-/// Cache for render and compute pipelines.
-///
-/// The cache stores existing render and compute pipelines allocated on the GPU, as well as
-/// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
-/// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
-/// graph starts being processed, as this requires access to the GPU.
-///
-/// Note that the cache do not perform automatic deduplication of identical pipelines. It is
-/// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
-///
-/// [`RenderSet::Render`]: crate::RenderSet::Render
-#[derive(Resource)]
-pub struct PipelineCache {
-    layout_cache: LayoutCache,
-    shader_cache: ShaderCache,
-    device: RenderDevice,
-    pipelines: Vec<CachedPipeline>,
-    waiting_pipelines: HashSet<CachedPipelineId>,
-    new_pipelines: Mutex<Vec<CachedPipeline>>,
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+enum CachedPipelineId {
+    Render(RenderPipelineId),
+    Compute(ComputePipelineId),
 }
 
-impl PipelineCache {
-    pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
-        self.pipelines.iter()
+impl From<RenderPipelineId> for CachedPipelineId {
+    fn from(value: RenderPipelineId) -> Self {
+        Self::Render(value)
     }
+}
 
-    /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+impl From<ComputePipelineId> for CachedPipelineId {
+    fn from(value: ComputePipelineId) -> Self {
+        Self::Compute(value)
+    }
+}
+
+struct CachedPipeline<I, D, P> {
+    pub id: I,
+    pub descriptor: D,
+    pub state: PipelineState<P>,
+}
+
+struct PipelineCacheInternal<I: ResourceId, D, P> {
+    pipelines: Vec<CachedPipeline<I, D, P>>,
+    waiting_pipelines: HashSet<I>,
+    new_pipelines: Mutex<Vec<CachedPipeline<I, D, P>>>,
+}
+
+impl<I: ResourceId, D, P> Default for PipelineCacheInternal<I, D, P> {
+    fn default() -> Self {
         Self {
-            device,
-            layout_cache: default(),
-            shader_cache: default(),
+            pipelines: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
-            pipelines: default(),
+        }
+    }
+}
+
+impl<I: ResourceId, D, P> PipelineCacheInternal<I, D, P> {
+    #[inline]
+    fn pipeline_state(&self, id: I) -> &PipelineState<P> {
+        &self.pipelines[id.index()].state
+    }
+
+    #[inline]
+    fn pipeline_descriptor(&self, id: I) -> &D {
+        &self.pipelines[id.index()].descriptor
+    }
+
+    #[inline]
+    fn get_pipeline(&self, id: I) -> Option<&P> {
+        match &self.pipelines[id.index()].state {
+            PipelineState::Ok(pipeline) => Some(pipeline),
+            _ => None,
         }
     }
 
-    /// Get the state of a cached render pipeline.
-    ///
-    /// See [`PipelineCache::queue_render_pipeline()`].
     #[inline]
-    pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+    fn reset_pipeline(&mut self, id: I) {
+        self.pipelines[id.index()].state = PipelineState::Queued;
+        self.waiting_pipelines.insert(id);
     }
 
-    /// Get the state of a cached compute pipeline.
-    ///
-    /// See [`PipelineCache::queue_compute_pipeline()`].
     #[inline]
-    pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
-    }
-
-    /// Get the render pipeline descriptor a cached render pipeline was inserted from.
-    ///
-    /// See [`PipelineCache::queue_render_pipeline()`].
-    #[inline]
-    pub fn get_render_pipeline_descriptor(
-        &self,
-        id: CachedRenderPipelineId,
-    ) -> &RenderPipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
-            PipelineDescriptor::RenderPipelineDescriptor(descriptor) => descriptor,
-            PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
-        }
-    }
-
-    /// Get the compute pipeline descriptor a cached render pipeline was inserted from.
-    ///
-    /// See [`PipelineCache::queue_compute_pipeline()`].
-    #[inline]
-    pub fn get_compute_pipeline_descriptor(
-        &self,
-        id: CachedComputePipelineId,
-    ) -> &ComputePipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
-            PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
-            PipelineDescriptor::ComputePipelineDescriptor(descriptor) => descriptor,
-        }
-    }
-
-    /// Try to retrieve a render pipeline GPU object from a cached ID.
-    ///
-    /// # Returns
-    ///
-    /// This method returns a successfully created render pipeline if any, or `None` if the pipeline
-    /// was not created yet or if there was an error during creation. You can check the actual creation
-    /// state with [`PipelineCache::get_render_pipeline_state()`].
-    #[inline]
-    pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
-        if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines[id.0].state
-        {
-            Some(pipeline)
-        } else {
-            None
-        }
-    }
-
-    /// Try to retrieve a compute pipeline GPU object from a cached ID.
-    ///
-    /// # Returns
-    ///
-    /// This method returns a successfully created compute pipeline if any, or `None` if the pipeline
-    /// was not created yet or if there was an error during creation. You can check the actual creation
-    /// state with [`PipelineCache::get_compute_pipeline_state()`].
-    #[inline]
-    pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
-        if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
-            &self.pipelines[id.0].state
-        {
-            Some(pipeline)
-        } else {
-            None
-        }
-    }
-
-    /// Insert a render pipeline into the cache, and queue its creation.
-    ///
-    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
-    /// an already cached pipeline.
-    ///
-    /// # Returns
-    ///
-    /// This method returns the unique render shader ID of the cached pipeline, which can be used to query
-    /// the caching state with [`get_render_pipeline_state()`] and to retrieve the created GPU pipeline once
-    /// it's ready with [`get_render_pipeline()`].
-    ///
-    /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
-    /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
-    pub fn queue_render_pipeline(
-        &self,
-        descriptor: RenderPipelineDescriptor,
-    ) -> CachedRenderPipelineId {
+    fn queue_pipeline(&self, descriptor: D) -> I {
         let mut new_pipelines = self.new_pipelines.lock();
-        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        let id = I::new();
         new_pipelines.push(CachedPipeline {
-            descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
-            state: CachedPipelineState::Queued,
-        });
-        id
-    }
-
-    /// Insert a compute pipeline into the cache, and queue its creation.
-    ///
-    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
-    /// an already cached pipeline.
-    ///
-    /// # Returns
-    ///
-    /// This method returns the unique compute shader ID of the cached pipeline, which can be used to query
-    /// the caching state with [`get_compute_pipeline_state()`] and to retrieve the created GPU pipeline once
-    /// it's ready with [`get_compute_pipeline()`].
-    ///
-    /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
-    /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
-    pub fn queue_compute_pipeline(
-        &self,
-        descriptor: ComputePipelineDescriptor,
-    ) -> CachedComputePipelineId {
-        let mut new_pipelines = self.new_pipelines.lock();
-        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
-        new_pipelines.push(CachedPipeline {
-            descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
-            state: CachedPipelineState::Queued,
-        });
-        id
-    }
-
-    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
-        let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
-        for cached_pipeline in pipelines_to_queue {
-            self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
-            self.waiting_pipelines.insert(cached_pipeline);
-        }
-    }
-
-    fn remove_shader(&mut self, shader: &Handle<Shader>) {
-        let pipelines_to_queue = self.shader_cache.remove(shader);
-        for cached_pipeline in pipelines_to_queue {
-            self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
-            self.waiting_pipelines.insert(cached_pipeline);
-        }
-    }
-
-    fn process_render_pipeline(
-        &mut self,
-        id: CachedPipelineId,
-        descriptor: &RenderPipelineDescriptor,
-    ) -> CachedPipelineState {
-        let vertex_module = match self.shader_cache.get(
-            &self.device,
             id,
+            descriptor,
+            state: PipelineState::Queued,
+        });
+        id
+    }
+}
+
+impl PipelineCacheInternal<RenderPipelineId, RenderPipelineDescriptor, RenderPipeline> {
+    fn process_pipeline(
+        &mut self,
+        id: RenderPipelineId,
+        descriptor: &RenderPipelineDescriptor,
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) -> PipelineState<RenderPipeline> {
+        let vertex_module = match shader_cache.get(
+            device,
+            id.into(),
             &descriptor.vertex.shader,
             &descriptor.vertex.shader_defs,
         ) {
             Ok(module) => module,
             Err(err) => {
-                return CachedPipelineState::Err(err);
+                return PipelineState::Err(err);
             }
         };
 
         let fragment_data = if let Some(fragment) = &descriptor.fragment {
-            let fragment_module = match self.shader_cache.get(
-                &self.device,
-                id,
+            let fragment_module = match shader_cache.get(
+                device,
+                id.into(),
                 &fragment.shader,
                 &fragment.shader_defs,
             ) {
                 Ok(module) => module,
                 Err(err) => {
-                    return CachedPipelineState::Err(err);
+                    return PipelineState::Err(err);
                 }
             };
             Some((
@@ -609,85 +379,40 @@ impl PipelineCache {
                 }),
         };
 
-        let pipeline = self.device.create_render_pipeline(&descriptor);
+        let pipeline = device.create_render_pipeline(id, &descriptor);
 
-        CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline))
+        PipelineState::Ok(pipeline)
     }
 
-    fn process_compute_pipeline(
+    // TODO: elevate this method to remove the duplication
+    fn process_queue(
         &mut self,
-        id: CachedPipelineId,
-        descriptor: &ComputePipelineDescriptor,
-    ) -> CachedPipelineState {
-        let compute_module = match self.shader_cache.get(
-            &self.device,
-            id,
-            &descriptor.shader,
-            &descriptor.shader_defs,
-        ) {
-            Ok(module) => module,
-            Err(err) => {
-                return CachedPipelineState::Err(err);
-            }
-        };
-
-        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-            None
-        } else {
-            Some(self.layout_cache.get(
-                &self.device,
-                &descriptor.layout,
-                descriptor.push_constant_ranges.to_vec(),
-            ))
-        };
-
-        let descriptor = RawComputePipelineDescriptor {
-            label: descriptor.label.as_deref(),
-            layout,
-            module: &compute_module,
-            entry_point: descriptor.entry_point.as_ref(),
-        };
-
-        let pipeline = self.device.create_compute_pipeline(&descriptor);
-
-        CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline))
-    }
-
-    /// Process the pipeline queue and create all pending pipelines if possible.
-    ///
-    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
-    /// be called manually to force creation at a different time.
-    ///
-    /// [`RenderSet::Render`]: crate::RenderSet::Render
-    pub fn process_queue(&mut self) {
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
 
         {
             let mut new_pipelines = self.new_pipelines.lock();
             for new_pipeline in new_pipelines.drain(..) {
-                let id = pipelines.len();
+                let id = new_pipeline.id;
                 pipelines.push(new_pipeline);
                 waiting_pipelines.insert(id);
             }
         }
 
         for id in waiting_pipelines {
-            let pipeline = &mut pipelines[id];
-            if matches!(pipeline.state, CachedPipelineState::Ok(_)) {
+            let pipeline = &mut pipelines[id.index()];
+            if matches!(pipeline.state, PipelineState::Ok(_)) {
                 continue;
             }
 
-            pipeline.state = match &pipeline.descriptor {
-                PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
-                    self.process_render_pipeline(id, descriptor)
-                }
-                PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-                    self.process_compute_pipeline(id, descriptor)
-                }
-            };
+            pipeline.state =
+                self.process_pipeline(id, &pipeline.descriptor, device, shader_cache, layout_cache);
 
-            if let CachedPipelineState::Err(err) = &pipeline.state {
+            if let PipelineState::Err(err) = &pipeline.state {
                 match err {
                     PipelineCacheError::ShaderNotLoaded(_)
                     | PipelineCacheError::ShaderImportNotYetAvailable => {
@@ -712,6 +437,284 @@ impl PipelineCache {
         }
 
         self.pipelines = pipelines;
+    }
+}
+
+impl PipelineCacheInternal<ComputePipelineId, ComputePipelineDescriptor, ComputePipeline> {
+    fn process_pipeline(
+        &mut self,
+        id: ComputePipelineId,
+        descriptor: &ComputePipelineDescriptor,
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) -> PipelineState<ComputePipeline> {
+        let compute_module = match shader_cache.get(
+            device,
+            id.into(),
+            &descriptor.shader,
+            &descriptor.shader_defs,
+        ) {
+            Ok(module) => module,
+            Err(err) => {
+                return PipelineState::Err(err);
+            }
+        };
+
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+            None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
+        };
+
+        let descriptor = RawComputePipelineDescriptor {
+            label: descriptor.label.as_deref(),
+            layout,
+            module: &compute_module,
+            entry_point: descriptor.entry_point.as_ref(),
+        };
+
+        let pipeline = device.create_compute_pipeline(id, &descriptor);
+
+        PipelineState::Ok(pipeline)
+    }
+
+    // TODO: elevate this method to remove the duplication
+    fn process_queue(
+        &mut self,
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) {
+        let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
+        let mut pipelines = mem::take(&mut self.pipelines);
+
+        {
+            let mut new_pipelines = self.new_pipelines.lock();
+            for new_pipeline in new_pipelines.drain(..) {
+                let id = new_pipeline.id;
+                pipelines.push(new_pipeline);
+                waiting_pipelines.insert(id);
+            }
+        }
+
+        for id in waiting_pipelines {
+            let pipeline = &mut pipelines[id.index()];
+            if matches!(pipeline.state, PipelineState::Ok(_)) {
+                continue;
+            }
+
+            pipeline.state =
+                self.process_pipeline(id, &pipeline.descriptor, device, shader_cache, layout_cache);
+
+            if let PipelineState::Err(err) = &pipeline.state {
+                match err {
+                    PipelineCacheError::ShaderNotLoaded(_)
+                    | PipelineCacheError::ShaderImportNotYetAvailable => {
+                        // retry
+                        self.waiting_pipelines.insert(id);
+                    }
+                    // shader could not be processed ... retrying won't help
+                    PipelineCacheError::ProcessShaderError(err) => {
+                        error!("failed to process shader: {}", err);
+                        continue;
+                    }
+                    PipelineCacheError::AsModuleDescriptorError(err, source) => {
+                        log_shader_error(source, err);
+                        continue;
+                    }
+                    PipelineCacheError::CreateShaderModule(description) => {
+                        error!("failed to create shader module: {}", description);
+                        continue;
+                    }
+                }
+            }
+        }
+
+        self.pipelines = pipelines;
+    }
+}
+
+/// State of a cached pipeline inserted into the [`PipelineCache`].
+#[derive(Debug)]
+pub enum PipelineState<P> {
+    /// The pipeline GPU object is queued for creation.
+    Queued,
+    /// The pipeline GPU object was created successfully and is available (allocated on the GPU).
+    Ok(P),
+    /// An error occurred while trying to create the pipeline GPU object.
+    Err(PipelineCacheError),
+}
+
+/// Cache for render and compute pipelines.
+///
+/// The cache stores existing render and compute pipelines allocated on the GPU, as well as
+/// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
+/// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
+/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
+/// graph starts being processed, as this requires access to the GPU.
+///
+/// Note that the cache do not perform automatic deduplication of identical pipelines. It is
+/// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
+///
+/// [`RenderSet::Render`]: crate::RenderSet::Render
+#[derive(Resource)]
+pub struct PipelineCache {
+    layout_cache: LayoutCache,
+    shader_cache: ShaderCache,
+    device: RenderDevice,
+    render_pipeline_cache:
+        PipelineCacheInternal<RenderPipelineId, RenderPipelineDescriptor, RenderPipeline>,
+    compute_pipeline_cache:
+        PipelineCacheInternal<ComputePipelineId, ComputePipelineDescriptor, ComputePipeline>,
+}
+
+impl PipelineCache {
+    /// Create a new pipeline cache associated with the given render device.
+    pub fn new(device: RenderDevice) -> Self {
+        Self {
+            device,
+            layout_cache: default(),
+            shader_cache: default(),
+            render_pipeline_cache: default(),
+            compute_pipeline_cache: default(),
+        }
+    }
+
+    /// Get the state of the render pipeline.
+    ///
+    /// See [`PipelineCache::queue_render_pipeline()`].
+    #[inline]
+    pub fn render_pipeline_state(&self, id: RenderPipelineId) -> &PipelineState<RenderPipeline> {
+        self.render_pipeline_cache.pipeline_state(id)
+    }
+
+    /// Get the state of the compute pipeline.
+    ///
+    /// See [`PipelineCache::queue_compute_pipeline()`].
+    #[inline]
+    pub fn compute_pipeline_state(&self, id: ComputePipelineId) -> &PipelineState<ComputePipeline> {
+        self.compute_pipeline_cache.pipeline_state(id)
+    }
+
+    /// Get the render pipeline descriptor the render pipeline was inserted from.
+    ///
+    /// See [`PipelineCache::queue_render_pipeline()`].
+    #[inline]
+    pub fn render_pipeline_descriptor(&self, id: RenderPipelineId) -> &RenderPipelineDescriptor {
+        self.render_pipeline_cache.pipeline_descriptor(id)
+    }
+
+    /// Get the compute pipeline descriptor the render pipeline was inserted from.
+    ///
+    /// See [`PipelineCache::queue_compute_pipeline()`].
+    #[inline]
+    pub fn compute_pipeline_descriptor(&self, id: ComputePipelineId) -> &ComputePipelineDescriptor {
+        self.compute_pipeline_cache.pipeline_descriptor(id)
+    }
+
+    /// Try to retrieve a render pipeline GPU object.
+    ///
+    /// # Returns
+    ///
+    /// This method returns a successfully created render pipeline if any, or `None` if the pipeline
+    /// was not created yet or if there was an error during creation. You can check the actual
+    /// creation state with [`PipelineCache::render_pipeline_state()`].
+    #[inline]
+    pub fn get_render_pipeline(&self, id: RenderPipelineId) -> Option<&RenderPipeline> {
+        self.render_pipeline_cache.get_pipeline(id)
+    }
+
+    /// Try to retrieve a compute pipeline GPU object.
+    ///
+    /// # Returns
+    ///
+    /// This method returns a successfully created compute pipeline if any, or `None` if the pipeline
+    /// was not created yet or if there was an error during creation. You can check the actual
+    /// creation state with [`PipelineCache::compute_pipeline_state()`].
+    #[inline]
+    pub fn get_compute_pipeline(&self, id: ComputePipelineId) -> Option<&ComputePipeline> {
+        self.compute_pipeline_cache.get_pipeline(id)
+    }
+
+    /// Insert a render pipeline into the cache, and queue its creation.
+    ///
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate
+    /// it with an already cached pipeline.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the unique render pipeline ID of the pipeline, which can be used to
+    /// query the caching state with [`render_pipeline_state()`] and to retrieve the created GPU
+    /// pipeline once it's ready with [`get_render_pipeline()`].
+    ///
+    /// [`render_pipeline_state()`]: PipelineCache::render_pipeline_state
+    /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
+    pub fn queue_render_pipeline(&self, descriptor: RenderPipelineDescriptor) -> RenderPipelineId {
+        self.render_pipeline_cache.queue_pipeline(descriptor)
+    }
+
+    /// Insert a compute pipeline into the cache, and queue its creation.
+    ///
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate
+    /// it with an already cached pipeline.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the unique compute pipeline ID of the pipeline, which can be used to
+    /// query the caching state with [`compute_pipeline_state()`] and to retrieve the created GPU
+    /// pipeline once it's ready with [`get_compute_pipeline()`].
+    ///
+    /// [`compute_pipeline_state()`]: PipelineCache::compute_pipeline_state
+    /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
+    pub fn queue_compute_pipeline(
+        &self,
+        descriptor: ComputePipelineDescriptor,
+    ) -> ComputePipelineId {
+        self.compute_pipeline_cache.queue_pipeline(descriptor)
+    }
+
+    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
+        let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
+        for id in pipelines_to_queue {
+            match id {
+                CachedPipelineId::Render(id) => self.render_pipeline_cache.reset_pipeline(id),
+                CachedPipelineId::Compute(id) => self.compute_pipeline_cache.reset_pipeline(id),
+            }
+        }
+    }
+
+    fn remove_shader(&mut self, shader: &Handle<Shader>) {
+        let pipelines_to_queue = self.shader_cache.remove(shader);
+        for id in pipelines_to_queue {
+            match id {
+                CachedPipelineId::Render(id) => self.render_pipeline_cache.reset_pipeline(id),
+                CachedPipelineId::Compute(id) => self.compute_pipeline_cache.reset_pipeline(id),
+            }
+        }
+    }
+
+    /// Process the pipeline queue and create all pending pipelines if possible.
+    ///
+    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
+    /// be called manually to force creation at a different time.
+    ///
+    /// [`RenderSet::Render`]: crate::RenderSet::Render
+    pub fn process_queue(&mut self) {
+        let Self {
+            layout_cache,
+            shader_cache,
+            ref device,
+            render_pipeline_cache,
+            compute_pipeline_cache,
+        } = self;
+
+        render_pipeline_cache.process_queue(device, shader_cache, layout_cache);
+        compute_pipeline_cache.process_queue(device, shader_cache, layout_cache);
     }
 
     pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
