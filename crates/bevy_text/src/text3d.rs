@@ -98,7 +98,7 @@ pub fn update_text3d_mesh(
             continue;
 
         };
-        let new_mesh = build_mesh(&text.sections, &info, atlas, alignment_offset);
+        let new_mesh = build_mesh(&text.sections, info, atlas, alignment_offset);
         let new_material = StandardMaterial {
             base_color_texture: Some(atlas.texture.clone()),
             base_color: Color::WHITE,
