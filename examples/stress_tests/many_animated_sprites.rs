@@ -13,6 +13,7 @@ use bevy::{
     math::Quat,
     prelude::*,
     render::camera::Camera,
+    window::PresentMode,
 };
 
 use rand::Rng;
