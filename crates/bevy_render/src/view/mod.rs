@@ -218,10 +218,20 @@ impl ViewTarget {
         &self.out_texture
     }
 
+    /// the initial texture that will be written to.
+    pub fn base_texture(&self) -> &TextureView {
+        self.sampled_main_texture().unwrap_or(&self.main_textures.a)
+    }
+
     /// The format of the final texture this view will render to
     #[inline]
     pub fn out_texture_format(&self) -> TextureFormat {
         self.out_texture_format
+    }
+
+    /// the format of the initial texture that will be written to.
+    pub fn base_texture_format(&self) -> TextureFormat {
+        self.main_texture_format
     }
 
     /// This will start a new "post process write", which assumes that the caller
