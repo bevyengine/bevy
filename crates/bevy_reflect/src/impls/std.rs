@@ -1057,10 +1057,7 @@ impl<T: FromReflect + Clone + Send + Sync> Array for Cow<'static, [T]> {
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        self.into_owned()
-            .into_iter()
-            .map(|x| Box::new(x) as Box<dyn Reflect>)
-            .collect()
+        self.iter().map(Reflect::clone_value).collect()
     }
 }
 
@@ -1098,12 +1095,7 @@ impl<T: FromReflect + Clone + Send + Sync> Reflect for Cow<'static, [T]> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
-        }
+        crate::array_apply(self, value);
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1124,7 +1116,7 @@ impl<T: FromReflect + Clone + Send + Sync> Reflect for Cow<'static, [T]> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1154,13 +1146,16 @@ impl<T: FromReflect + Clone + Send + Sync> GetTypeRegistration for Cow<'static, 
 }
 
 impl<T: FromReflect + Clone + Send + Sync> FromReflect for Cow<'static, [T]> {
-    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
-        Some(
-            reflect
-                .as_any()
-                .downcast_ref::<Cow<'static, [T]>>()?
-                .clone(),
-        )
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
+            let mut temp_vec = Vec::with_capacity(ref_array.len());
+            for field in ref_array.iter() {
+                temp_vec.push(T::from_reflect(field)?);
+            }
+            temp_vec.try_into().ok()
+        } else {
+            None
+        }
     }
 }
 
