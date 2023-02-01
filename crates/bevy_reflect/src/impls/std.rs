@@ -1039,6 +1039,130 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
+impl<T: Clone + std::marker::Sync + std::marker::Send + std::hash::Hash + std::cmp::PartialEq>
+    Reflect for Cow<'static, [T]>
+{
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            panic!("Value is not a {}.", std::any::type_name::<Self>());
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = crate::ReflectHasher::default();
+        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq<'a>(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            Some(match (self, value) {
+                (Cow::Borrowed(l0), Cow::Borrowed(r0)) => l0 == r0,
+                (Cow::Owned(l0), Cow::Owned(r0)) => l0 == r0,
+                _ => false,
+            })
+        } else {
+            Some(false)
+        }
+    }
+}
+
+impl<
+        T: Clone
+            + std::marker::Sync
+            + std::marker::Send
+            + std::hash::Hash
+            + std::cmp::PartialEq
+            + 'static,
+    > Typed for Cow<'static, [T]>
+{
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+impl<T: Clone + std::marker::Sync + std::marker::Send> GetTypeRegistration for Cow<'static, [T]> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
+        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
+        registration
+    }
+}
+
+impl<T: Clone + std::marker::Sync + std::marker::Send + std::hash::Hash + std::cmp::PartialEq>
+    FromReflect for Cow<'static, [T]>
+{
+    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+        Some(
+            reflect
+                .as_any()
+                .downcast_ref::<Cow<'static, [T]>>()?
+                .clone(),
+        )
+    }
+}
+
 impl Reflect for &'static Path {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
