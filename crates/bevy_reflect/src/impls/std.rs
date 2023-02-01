@@ -12,6 +12,7 @@ use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     borrow::Cow,
@@ -1039,7 +1040,7 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> Array for Cow<'static, [T]> {
+impl<T: FromReflect + Clone> Array for Cow<'static, [T]> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.as_ref().get(index).map(|x| x as &dyn Reflect)
     }
@@ -1057,11 +1058,49 @@ impl<T: FromReflect + Clone + Send + Sync> Array for Cow<'static, [T]> {
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        self.iter().map(Reflect::clone_value).collect()
+        #[allow(clippy::unnecessary_to_owned)]
+        self.into_owned()
+            .into_iter()
+            .map(|value| value.clone_value())
+            .collect()
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> Reflect for Cow<'static, [T]> {
+impl<T: FromReflect + Clone> List for Cow<'static, [T]> {
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
+        let value = element.take::<T>().unwrap_or_else(|value| {
+            T::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to insert invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        self.to_mut().insert(index, value);
+    }
+
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+        Box::new(self.to_mut().remove(index))
+    }
+
+    fn push(&mut self, value: Box<dyn Reflect>) {
+        let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+            panic!(
+                "Attempted to push invalid value of type {}.",
+                value.type_name()
+            )
+        });
+        self.to_mut().push(value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.to_mut()
+            .pop()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
+}
+
+impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -1104,19 +1143,19 @@ impl<T: FromReflect + Clone + Send + Sync> Reflect for Cow<'static, [T]> {
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Array(self)
+        ReflectRef::List(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Array(self.to_mut())
+        ReflectMut::List(self.to_mut())
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Array(Box::new(self.to_vec()))
+        ReflectOwned::List(Box::new(self.to_vec()))
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(bevy_reflect::list::List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1128,14 +1167,16 @@ impl<T: FromReflect + Clone + Send + Sync> Reflect for Cow<'static, [T]> {
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> Typed for Cow<'static, [T]> {
+impl<T: FromReflect + Clone> Typed for Cow<'static, [T]> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(0)))
+        CELL.get_or_set(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> GetTypeRegistration for Cow<'static, [T]> {
+impl<T: FromReflect + Clone + Serialize + for<'de> Deserialize<'de>> GetTypeRegistration
+    for Cow<'static, [T]>
+{
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, [T]>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, [T]>>::from_type());
@@ -1145,11 +1186,11 @@ impl<T: FromReflect + Clone + Send + Sync> GetTypeRegistration for Cow<'static, 
     }
 }
 
-impl<T: FromReflect + Clone + Send + Sync> FromReflect for Cow<'static, [T]> {
+impl<T: FromReflect + Clone> FromReflect for Cow<'static, [T]> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
-            let mut temp_vec = Vec::with_capacity(ref_array.len());
-            for field in ref_array.iter() {
+        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
+            let mut temp_vec = Vec::with_capacity(ref_list.len());
+            for field in ref_list.iter() {
                 temp_vec.push(T::from_reflect(field)?);
             }
             temp_vec.try_into().ok()
