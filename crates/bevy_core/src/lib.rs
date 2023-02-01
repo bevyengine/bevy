@@ -15,7 +15,7 @@ pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
-        FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
+        DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
     };
 }
 

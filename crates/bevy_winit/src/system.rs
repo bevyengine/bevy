@@ -13,7 +13,7 @@ use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
 };
 
@@ -87,14 +87,18 @@ pub struct WindowTitleCache(HashMap<Entity, String>);
 
 pub(crate) fn despawn_window(
     closed: RemovedComponents<Window>,
+    window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
     for window in closed.iter() {
         info!("Closing window {:?}", window);
-
-        winit_windows.remove_window(window);
-        close_events.send(WindowClosed { window });
+        // Guard to verify that the window is in fact actually gone,
+        // rather than having the component added and removed in the same frame.
+        if !window_entities.contains(window) {
+            winit_windows.remove_window(window);
+            close_events.send(WindowClosed { window });
+        }
     }
 }
 
@@ -276,6 +280,17 @@ pub(crate) fn changed_window(
                 warn!(
                     "Bevy currently doesn't support modifying the window canvas after initialization."
                 );
+            }
+
+            if window.ime_enabled != previous.ime_enabled {
+                winit_window.set_ime_allowed(window.ime_enabled);
+            }
+
+            if window.ime_position != previous.ime_position {
+                winit_window.set_ime_position(LogicalPosition::new(
+                    window.ime_position.x,
+                    window.ime_position.y,
+                ));
             }
 
             info.previous = window.clone();

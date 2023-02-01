@@ -19,7 +19,6 @@ members = [
   "examples/android",
   "examples/ios",
   "tools/ci",
-  "tools/spancmp",
   "tools/build-example-pages",
   "tools/build-wasm-example",
   "errors",
@@ -294,6 +293,26 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "atmospheric_fog"
+path = "examples/3d/atmospheric_fog.rs"
+
+[package.metadata.example.atmospheric_fog]
+name = "Atmospheric Fog"
+description = "A scene showcasing the atmospheric fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fog"
+path = "examples/3d/fog.rs"
+
+[package.metadata.example.fog]
+name = "Fog"
+description = "A scene showcasing the distance fog effect"
 category = "3D Rendering"
 wasm = true
 
@@ -1127,6 +1146,16 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
+[[example]]
+name = "text_input"
+path = "examples/input/text_input.rs"
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Simple text input with IME support"
+category = "Input"
+wasm = false
+
 # Reflection
 [[example]]
 name = "reflection"
@@ -1423,6 +1452,16 @@ path = "examples/tools/gamepad_viewer.rs"
 name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
+wasm = false
+
+[[example]]
+name = "nondeterministic_system_order"
+path = "examples/ecs/nondeterministic_system_order.rs"
+
+[package.metadata.example.nondeterministic_system_order]
+name = "Nondeterministic System Order"
+description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
