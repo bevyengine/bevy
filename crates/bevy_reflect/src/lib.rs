@@ -350,6 +350,32 @@
 //! assert_eq!(original_value, converted_value);
 //! ```
 //!
+//! # Features
+//!
+//! ## `bevy`
+//!
+//! | Default | Dependencies                              |
+//! | :-----: | :---------------------------------------: |
+//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`] |
+//!
+//! This feature makes it so that the appropriate reflection traits are implemented on all the types
+//! necessary for the [Bevy] game engine.
+//! enables the optional dependencies: [`bevy_math`], [`glam`], and [`smallvec`].
+//! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
+//! within this crate due to Rust's [orphan rule].
+//!
+//! ## `documentation`
+//!
+//! | Default | Dependencies                                  |
+//! | :-----: | :-------------------------------------------: |
+//! | ❌      | [`bevy_reflect_derive/documentation`]         |
+//!
+//! This feature enables capturing doc comments as strings for items that [derive `Reflect`].
+//! Documentation information can then be accessed at runtime on the [`TypeInfo`] of that item.
+//!
+//! This can be useful for generating documentation for scripting language interop or
+//! for displaying tooltips in an editor.
+//!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
 //! [Bevy]: https://bevyengine.org/
 //! [`bevy_reflect`]: crate
@@ -368,6 +394,12 @@
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
 //! [type name]: Reflect::type_name
+//! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
+//! [`glam`]: https://docs.rs/glam/latest/glam/
+//! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
+//! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
+//! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
+//! [derive `Reflect`]: bevy_reflect_derive::Reflect
 
 mod array;
 mod fields;
