@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -109,6 +109,9 @@ fn setup(
             PI / 2.,
             -PI / 4.,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder::new()
+            .maximum_distance(30.0)
+            .build(),
         ..default()
     });
 

@@ -234,6 +234,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// Controls how cascaded shadow mapping works.
+/// Prefer using [`CascadeShadowConfigBuilder`] to construct an instance.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CascadeShadowConfig {
@@ -241,16 +242,13 @@ pub struct CascadeShadowConfig {
     pub bounds: Vec<f32>,
     /// The proportion of overlap each cascade has with the previous cascade.
     pub overlap_proportion: f32,
+    /// The (positive) distance to the near boundary of the first cascade.
+    pub minimum_distance: f32,
 }
 
 impl Default for CascadeShadowConfig {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
-            // Currently only support one cascade in webgl.
-            Self::new(1, 5.0, 100.0, 0.2)
-        } else {
-            Self::new(4, 5.0, 1000.0, 0.2)
-        }
+        CascadeShadowConfigBuilder::new().build()
     }
 }
 
@@ -268,28 +266,114 @@ fn calculate_cascade_bounds(
         .collect()
 }
 
-impl CascadeShadowConfig {
-    /// Returns a cascade config for `num_cascades` cascades, with the first cascade
-    /// having far bound `nearest_bound` and the last cascade having far bound `shadow_maximum_distance`.
-    /// In-between cascades will be exponentially spaced.
-    pub fn new(
-        num_cascades: usize,
-        nearest_bound: f32,
-        shadow_maximum_distance: f32,
-        overlap_proportion: f32,
-    ) -> Self {
-        assert!(
-            num_cascades > 0,
-            "num_cascades must be positive, but was {num_cascades}",
-        );
-        assert!(
-            (0.0..1.0).contains(&overlap_proportion),
-            "overlap_proportion must be in [0.0, 1.0) but was {overlap_proportion}",
-        );
-        Self {
-            bounds: calculate_cascade_bounds(num_cascades, nearest_bound, shadow_maximum_distance),
-            overlap_proportion,
+/// Builder for [`CascadeShadowConfig`].
+pub struct CascadeShadowConfigBuilder {
+    num_cascades: usize,
+    minimum_distance: f32,
+    maximum_distance: f32,
+    first_cascade_far_bound: f32,
+    overlap_proportion: f32,
+}
+
+impl CascadeShadowConfigBuilder {
+    /// Constructs a new builder.
+    pub fn new() -> Self {
+        if cfg!(feature = "webgl") {
+            // Currently only support one cascade in webgl.
+            Self {
+                num_cascades: 1,
+                minimum_distance: 0.1,
+                maximum_distance: 100.0,
+                first_cascade_far_bound: 5.0,
+                overlap_proportion: 0.2,
+            }
+        } else {
+            Self {
+                num_cascades: 4,
+                minimum_distance: 0.1,
+                maximum_distance: 1000.0,
+                first_cascade_far_bound: 5.0,
+                overlap_proportion: 0.2,
+            }
         }
+    }
+
+    /// Sets the number of shadow cascades.
+    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenom where areas
+    /// nearer the camera are covered by fewer shadow map texels than areas further from the camera, causing
+    /// blocky looking shadows.
+    ///
+    /// This does come at the cost increased rendering overhead, however this overhead is still less
+    /// than if you were to use fewer cascades and much larger shadow map textures to achieve the
+    /// same quality leveland much larger shadow map textures to achieve the same quality level
+    ///
+    /// In cases rendered geometry covers a relatively narrow and static depth relative to camera, it may
+    /// make more sense to use fewer cascades and a higher resolution shadow map texture as perspective aliasing
+    /// is not as much an issue. Be sure to adjust `minimum_distance` and `maximum_distance` appropriately.
+    pub fn num_cascades(mut self, n: usize) -> Self {
+        self.num_cascades = n;
+        self
+    }
+
+    /// Sets the minimum shadow distance.
+    /// Areas nearer to the camera than this will likely receive no shadows.
+    pub fn minimum_distance(mut self, d: f32) -> Self {
+        self.minimum_distance = d;
+        self
+    }
+
+    /// Sets the maximum shadow distance.
+    /// Areas further from the camera than this will likely receive no shadows.
+    pub fn maximum_distance(mut self, d: f32) -> Self {
+        self.maximum_distance = d;
+        self
+    }
+
+    /// Sets the far bound of the first cascade.
+    /// In-between cascades will be exponentially spaced relative to the maximum shadow distance.
+    /// NOTE: This is ignored if there is only one cascade, the maximum distance takes precedence.
+    pub fn first_cascade_far_bound(mut self, bound: f32) -> Self {
+        self.first_cascade_far_bound = bound;
+        self
+    }
+
+    /// Returns the cascade config as specified by this builder.
+    pub fn build(&self) -> CascadeShadowConfig {
+        assert!(
+            self.num_cascades > 0,
+            "num_cascades must be positive, but was {}",
+            self.num_cascades
+        );
+        assert!(
+            self.minimum_distance >= 0.0,
+            "minimum_distance must be non-negative, but was {}",
+            self.minimum_distance
+        );
+        assert!(
+            self.maximum_distance >= 0.0,
+            "maximum_distance must be non-negative, but was {}",
+            self.maximum_distance
+        );
+        assert!(
+            (0.0..1.0).contains(&self.overlap_proportion),
+            "overlap_proportion must be in [0.0, 1.0) but was {}",
+            self.overlap_proportion
+        );
+        CascadeShadowConfig {
+            bounds: calculate_cascade_bounds(
+                self.num_cascades,
+                self.first_cascade_far_bound,
+                self.maximum_distance,
+            ),
+            overlap_proportion: self.overlap_proportion,
+            minimum_distance: self.minimum_distance,
+        }
+    }
+}
+
+impl Default for CascadeShadowConfigBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -375,7 +459,7 @@ pub fn update_directional_light_cascades(
                             (1.0 - cascades_config.overlap_proportion)
                                 * -cascades_config.bounds[idx - 1]
                         } else {
-                            0.0
+                            -cascades_config.minimum_distance
                         },
                         -far_bound,
                     )

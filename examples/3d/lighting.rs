@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfig, prelude::*};
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -199,7 +199,10 @@ fn setup(
         // The default cascade config is designed to handle large scenes.
         // As this example has a much smaller world, we can tighten the shadow
         // far bound for better visual quality.
-        cascade_shadow_config: CascadeShadowConfig::new(4, 5.0, 30.0, 0.2),
+        cascade_shadow_config: CascadeShadowConfigBuilder::new()
+            .first_cascade_far_bound(5.0)
+            .maximum_distance(30.0)
+            .build(),
         ..default()
     });
 

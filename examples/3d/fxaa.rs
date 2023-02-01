@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::fxaa::{Fxaa, Sensitivity},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -81,6 +82,10 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder::new()
+            .maximum_distance(3.0)
+            .first_cascade_far_bound(0.7)
+            .build(),
         ..default()
     });
 

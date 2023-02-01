@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
@@ -172,6 +173,10 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder::new()
+            .first_cascade_far_bound(1.2 * radius)
+            .maximum_distance(2.0 * radius)
+            .build(),
         ..default()
     });
 
