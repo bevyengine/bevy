@@ -1541,11 +1541,12 @@ mod tests {
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/6919.
+    // Regression test for https://github.com/bevyengine/bevy/issues/7447.
     #[derive(SystemParam)]
-    struct MyParam<'w, T: Resource, Marker: 'static> {
+    struct IgnoredParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
-        marker: PhantomData<Marker>,
+        marker: PhantomData<&'w Marker>,
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
@@ -1573,14 +1574,5 @@ mod tests {
         Q: 'static + WorldQuery,
     {
         _q: Query<'w, 's, Q, ()>,
-    }
-
-    // Regression test for https://github.com/bevyengine/bevy/issues/7447.
-    #[derive(SystemParam)]
-    pub struct InputResources<'w, 's> {
-        pub keyboard_input: Res<'w, R<0>>,
-        pub egui_input: ResMut<'w, R<1>>,
-        #[system_param(ignore)]
-        _marker: PhantomData<&'s ()>,
     }
 }
