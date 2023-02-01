@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::camera::Camera;
+use bevy_render::camera::{Camera, ExtractedCamera, NormalizedRenderTarget};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
@@ -12,6 +12,7 @@ use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 mod node;
 
+use bevy_utils::HashMap;
 pub use node::TonemappingNode;
 
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
@@ -129,9 +130,29 @@ pub fn queue_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, &Tonemapping)>,
+    view_targets: Query<(Entity, &Tonemapping, &ExtractedCamera)>,
 ) {
-    for (entity, tonemapping) in view_targets.iter() {
+    // record the highest camera order number for each view target
+    let mut final_order = HashMap::<NormalizedRenderTarget, isize>::default();
+    for (_, _, camera) in view_targets.iter() {
+        if let Some(target) = camera.target.as_ref() {
+            let entry = final_order.entry(target.clone()).or_default();
+            *entry = camera.order.max(*entry);
+        }
+    }
+
+    for (entity, tonemapping, camera) in view_targets.iter() {
+        let is_final = camera
+            .target
+            .as_ref()
+            .map(|target| final_order.get(target) == Some(&camera.order))
+            .unwrap_or(true);
+
+        // only apply tonemapping if this is the final camera
+        if !is_final {
+            continue;
+        }
+
         if let Tonemapping::Enabled { deband_dither } = tonemapping {
             let key = TonemappingPipelineKey {
                 deband_dither: *deband_dither,
