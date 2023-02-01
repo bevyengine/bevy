@@ -34,7 +34,7 @@ use bevy_render::{
         RenderPhase,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
+        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages
     },
     renderer::RenderDevice,
     texture::TextureCache,

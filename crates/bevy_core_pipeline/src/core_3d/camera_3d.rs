@@ -12,7 +12,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, Clone, Default, ExtractComponent)]
+#[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub struct Camera3d {
