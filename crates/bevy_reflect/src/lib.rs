@@ -850,11 +850,11 @@ mod tests {
         type MyCowSlice = Cow<'static, [u8]>;
 
         let info = MyCowSlice::type_info();
-        if let TypeInfo::Value(info) = info {
+        if let TypeInfo::Array(info) = info {
             assert!(info.is::<MyCowSlice>());
             assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_name());
         } else {
-            panic!("Expected `TypeInfo::Value`");
+            panic!("Expected `TypeInfo::Array`");
         }
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);

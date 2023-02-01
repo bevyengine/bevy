@@ -12,6 +12,7 @@ use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
+use std::borrow::Borrow;
 use std::{
     any::Any,
     borrow::Cow,
@@ -1039,7 +1040,32 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl<T: Clone + std::marker::Sync + std::marker::Send + std::hash::Hash + std::cmp::PartialEq>
+impl<T: FromReflect + Clone + Send + Sync> Array for Cow<'static, [T]> {
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        self.as_ref().get(index).map(|x| x as &dyn Reflect)
+    }
+
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        self.to_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
+    }
+
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ArrayIter {
+        ArrayIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_owned()
+            .into_iter()
+            .map(|x| Box::new(x) as Box<dyn Reflect>)
+            .collect()
+    }
+}
+
+impl<T: FromReflect + Clone + Send + Sync>
     Reflect for Cow<'static, [T]>
 {
     fn type_name(&self) -> &str {
@@ -1089,15 +1115,15 @@ impl<T: Clone + std::marker::Sync + std::marker::Send + std::hash::Hash + std::c
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
+        ReflectRef::Array(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
+        ReflectMut::Array(self.to_mut())
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
+        ReflectOwned::Array(Box::new(self.to_vec()))
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
@@ -1105,42 +1131,23 @@ impl<T: Clone + std::marker::Sync + std::marker::Send + std::hash::Hash + std::c
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
-        Hash::hash(self, &mut hasher);
-        Some(hasher.finish())
+        crate::array_hash(self)
     }
 
-    fn reflect_partial_eq<'a>(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(match (self, value) {
-                (Cow::Borrowed(l0), Cow::Borrowed(r0)) => l0 == r0,
-                (Cow::Owned(l0), Cow::Owned(r0)) => l0 == r0,
-                _ => false,
-            })
-        } else {
-            Some(false)
-        }
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::array_partial_eq(self, value)
     }
 }
 
-impl<
-        T: Clone
-            + std::marker::Sync
-            + std::marker::Send
-            + std::hash::Hash
-            + std::cmp::PartialEq
-            + 'static,
-    > Typed for Cow<'static, [T]>
+impl<T: FromReflect + Clone + Send + Sync> Typed for Cow<'static, [T]>
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(0)))
     }
 }
 
-impl<T: Clone + std::marker::Sync + std::marker::Send> GetTypeRegistration for Cow<'static, [T]> {
+impl<T: FromReflect + Clone + Send + Sync> GetTypeRegistration for Cow<'static, [T]> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
@@ -1150,8 +1157,7 @@ impl<T: Clone + std::marker::Sync + std::marker::Send> GetTypeRegistration for C
     }
 }
 
-impl<T: Clone + std::marker::Sync + std::marker::Send + std::hash::Hash + std::cmp::PartialEq>
-    FromReflect for Cow<'static, [T]>
+impl<T: FromReflect + Clone + Send + Sync> FromReflect for Cow<'static, [T]>
 {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
         Some(
