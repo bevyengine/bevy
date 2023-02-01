@@ -1134,7 +1134,7 @@ impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        crate::array_apply(self, value);
+        crate::list_apply(self, value);
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1147,15 +1147,15 @@ impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::List(self.to_mut())
+        ReflectMut::List(self)
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::List(Box::new(self.to_vec()))
+        ReflectOwned::List(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(bevy_reflect::list::List::clone_dynamic(self))
+        Box::new(List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1163,7 +1163,7 @@ impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        crate::array_partial_eq(self, value)
+        crate::list_partial_eq(self, value)
     }
 }
 
