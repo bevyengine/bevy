@@ -1304,6 +1304,7 @@ mod tests {
     };
     use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
+    use std::borrow::Cow;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
 
@@ -1355,10 +1356,28 @@ mod tests {
     }
 
     #[test]
+    fn should_partial_eq_cow_str() {
+        let a: &dyn Reflect = &Cow::<'static, str>::Borrowed("Hello");
+        let b: &dyn Reflect = &Cow::<'static, str>::Owned(String::from("Hello"));
+        let c: &dyn Reflect = &Cow::<'static, str>::Borrowed("World");
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
     fn should_partial_eq_vec() {
         let a: &dyn Reflect = &vec![1, 2, 3];
         let b: &dyn Reflect = &vec![1, 2, 3];
         let c: &dyn Reflect = &vec![3, 2, 1];
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_cow_slice() {
+        let a: &dyn Reflect = &Cow::<'static, [i32]>::Borrowed(&[1, 2, 3]);
+        let b: &dyn Reflect = &Cow::<'static, [i32]>::Owned(vec![1, 2, 3]);
+        let c: &dyn Reflect = &Cow::<'static, [i32]>::Borrowed(&[3, 2, 1]);
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
