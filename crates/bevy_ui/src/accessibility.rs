@@ -6,7 +6,7 @@ use bevy_app::{App, CoreStage, Plugin};
 
 use bevy_ecs::{
     prelude::Entity,
-    query::{Changed, Or, Without},
+    query::{Changed, Or, With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::Children;
@@ -48,12 +48,11 @@ fn button_changed(
     mut commands: Commands,
     query: Query<
         (Entity, &GlobalTransform, &Node, &Children),
-        Or<(Changed<Button>, Changed<Node>)>,
+        (With<Button>, Or<(Changed<Button>, Changed<Node>)>),
     >,
     texts: Query<&Text>,
 ) {
     for (entity, transform, node, children) in &query {
-        println!("Transform: {:?}", transform.translation());
         let node = AccessKitNode {
             role: Role::Button,
             bounds: Some(calc_bounds(transform, node)),
@@ -70,7 +69,11 @@ fn image_changed(
     mut commands: Commands,
     query: Query<
         (Entity, &GlobalTransform, &Node, &Children),
-        (Or<(Changed<UiImage>, Changed<Node>)>, Without<Button>),
+        (
+            Or<(Changed<UiImage>, Changed<Node>)>,
+            With<UiImage>,
+            Without<Button>,
+        ),
     >,
     texts: Query<&Text>,
 ) {

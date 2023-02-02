@@ -12,9 +12,10 @@ use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
-    query::{Changed, With},
+    query::With,
     system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
 };
+use bevy_hierarchy::{Children, Parent};
 use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowClosed, WindowFocused};
 
@@ -80,7 +81,13 @@ fn update_accessibility_nodes(
     adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    nodes: Query<(Entity, &AccessibilityNode), Changed<AccessibilityNode>>,
+    nodes: Query<(
+        Entity,
+        &AccessibilityNode,
+        Option<&Children>,
+        Option<&Parent>,
+    )>,
+    node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
     if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
         if let Some(adapter) = adapters.get(&primary_window_id) {
@@ -100,16 +107,31 @@ fn update_accessibility_nodes(
                     } else {
                         None
                     };
-                    for (entity, node) in &nodes {
-                        to_update.push((entity.to_node_id(), Arc::new((**node).clone())));
+                    let mut root_children = vec![];
+                    for (entity, node, children, parent) in &nodes {
+                        let mut node = (**node).clone();
+                        if let Some(parent) = parent {
+                            if node_entities.get(**parent).is_err() {
+                                root_children.push(entity.to_node_id());
+                            }
+                        } else {
+                            root_children.push(entity.to_node_id());
+                        }
+                        if let Some(children) = children {
+                            for child in children.iter() {
+                                if node_entities.get(*child).is_ok() {
+                                    node.children.push(child.to_node_id());
+                                }
+                            }
+                        }
+                        to_update.push((entity.to_node_id(), Arc::new(node)));
                     }
-                    let children = to_update.iter().map(|v| v.0).collect::<Vec<NodeId>>();
                     let window_update = (
                         primary_window_id.to_node_id(),
                         Arc::new(Node {
                             role: Role::Window,
                             name,
-                            children,
+                            children: root_children,
                             ..default()
                         }),
                     );
