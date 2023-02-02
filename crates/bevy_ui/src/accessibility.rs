@@ -6,7 +6,7 @@ use bevy_app::{App, CoreStage, Plugin};
 
 use bevy_ecs::{
     prelude::Entity,
-    query::{Changed, Without},
+    query::{Changed, Or, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::Children;
@@ -46,10 +46,14 @@ fn calc_bounds(transform: &GlobalTransform, node: &Node) -> Rect {
 
 fn button_changed(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform, &Node, &Children), Changed<Button>>,
+    query: Query<
+        (Entity, &GlobalTransform, &Node, &Children),
+        Or<(Changed<Button>, Changed<Node>)>,
+    >,
     texts: Query<&Text>,
 ) {
     for (entity, transform, node, children) in &query {
+        println!("Transform: {:?}", transform.translation());
         let node = AccessKitNode {
             role: Role::Button,
             bounds: Some(calc_bounds(transform, node)),
@@ -64,7 +68,10 @@ fn button_changed(
 
 fn image_changed(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform, &Node, &Children), (Changed<UiImage>, Without<Button>)>,
+    query: Query<
+        (Entity, &GlobalTransform, &Node, &Children),
+        (Or<(Changed<UiImage>, Changed<Node>)>, Without<Button>),
+    >,
     texts: Query<&Text>,
 ) {
     for (entity, transform, node, children) in &query {
@@ -82,7 +89,7 @@ fn image_changed(
 
 fn label_changed(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform, &Node, &Text), Changed<Label>>,
+    query: Query<(Entity, &GlobalTransform, &Node, &Text), Or<(Changed<Label>, Changed<Node>)>>,
 ) {
     for (entity, transform, node, text) in &query {
         let values = text
