@@ -237,7 +237,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// For usage, see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
-        self.reader.clear(&self.events)
+        self.reader.clear(&self.events);
     }
 }
 
