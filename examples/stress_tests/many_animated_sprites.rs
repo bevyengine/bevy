@@ -1,10 +1,10 @@
 //! Renders a lot of animated sprites to allow performance testing.
 //!
-//! It sets up many animated sprites in different sizes and rotations, and at different scales in the world,
-//! and moves the camera over them to see how well frustum culling works.
+//! It sets up many animated sprites in different sizes and rotations,
+//! and at different scales in the world, and moves the camera over them.
 //!
-//! To measure performance realistically, be sure to run this in release mode.
-//! `cargo run --example many_animated_sprites --release`
+//! Having sprites out of the camera's field of view should also help stress
+//! test any future potential 2d frustum culling implementation.
 
 use std::time::Duration;
 
@@ -13,6 +13,7 @@ use bevy::{
     math::Quat,
     prelude::*,
     render::camera::Camera,
+    window::PresentMode,
 };
 
 use rand::Rng;
@@ -24,7 +25,13 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_startup_system(setup)
         .add_system(animate_sprite)
         .add_system(print_sprite_count)
@@ -37,6 +44,8 @@ fn setup(
     assets: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);

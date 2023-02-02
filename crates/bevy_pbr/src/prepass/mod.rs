@@ -46,7 +46,7 @@ use bevy_utils::{tracing::error, HashMap};
 use crate::{
     AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
     MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
-    MAX_DIRECTIONAL_LIGHTS,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -210,6 +210,10 @@ where
         shader_defs.push(ShaderDefVal::Int(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as i32,
+        ));
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as i32,
         ));
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {

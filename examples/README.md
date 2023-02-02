@@ -202,6 +202,7 @@ Example | Description
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this.
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)

@@ -98,14 +98,18 @@ pub struct WindowTitleCache(HashMap<Entity, String>);
 
 pub(crate) fn despawn_window(
     closed: RemovedComponents<Window>,
+    window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
     for window in closed.iter() {
         info!("Closing window {:?}", window);
-
-        winit_windows.remove_window(window);
-        close_events.send(WindowClosed { window });
+        // Guard to verify that the window is in fact actually gone,
+        // rather than having the component added and removed in the same frame.
+        if !window_entities.contains(window) {
+            winit_windows.remove_window(window);
+            close_events.send(WindowClosed { window });
+        }
     }
 }
 

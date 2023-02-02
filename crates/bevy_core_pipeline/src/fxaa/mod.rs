@@ -2,7 +2,7 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -40,7 +40,8 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -64,16 +65,6 @@ impl Default for Fxaa {
             edge_threshold: Sensitivity::High,
             edge_threshold_min: Sensitivity::High,
         }
-    }
-}
-
-impl ExtractComponent for Fxaa {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self> {
-        Some(item.clone())
     }
 }
 
