@@ -48,7 +48,7 @@ fn setup(
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(10.0, 10., -5.0).looking_at(Vec3::ZERO, Vec3::Y),
         camera_3d: Camera3d {
-            clear_color: ClearColorConfig::None,
+            clear_color: ClearColorConfig::Custom(Color::NONE),
             ..default()
         },
         camera: Camera {

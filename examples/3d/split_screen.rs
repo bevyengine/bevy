@@ -64,7 +64,7 @@ fn setup(
             },
             camera_3d: Camera3d {
                 // don't clear on the second camera because the first camera already cleared the window
-                clear_color: ClearColorConfig::None,
+                clear_color: ClearColorConfig::Custom(Color::NONE),
                 ..default()
             },
             ..default()
