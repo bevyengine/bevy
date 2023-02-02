@@ -100,7 +100,7 @@ impl Node for UpscalingNode {
                 view: target.out_texture(),
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Default::default()),
+                    load: LoadOp::Load,
                     store: true,
                 },
             })],
