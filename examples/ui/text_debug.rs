@@ -62,10 +62,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 right: Val::Px(15.0),
                 ..default()
             },
-            max_size: Size {
-                width: Val::Px(400.),
-                height: Val::Undefined,
-            },
+            max_size: Size::width(Val::Px(400.)),
             ..default()
         })
     );

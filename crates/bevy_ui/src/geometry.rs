@@ -134,10 +134,14 @@ pub struct UiRect {
 
 impl UiRect {
     pub const DEFAULT: Self = Self {
-        left: Val::DEFAULT,
-        right: Val::DEFAULT,
-        top: Val::DEFAULT,
-        bottom: Val::DEFAULT,
+        // left: Val::DEFAULT,
+        // right: Val::DEFAULT,
+        // top: Val::DEFAULT,
+        // bottom: Val::DEFAULT,
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
     };
 
     /// Creates a new [`UiRect`] from the values specified.
@@ -374,18 +378,15 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where `height` takes the given value.
-    pub const fn height(width: Val) -> Self {
+    pub const fn height(height: Val) -> Self {
         Self {
-            width,
-            height: Val::DEFAULT,
+            width: Val::DEFAULT,
+            height,
         }
     }
 
     /// Creates a Size where both values are [`Val::Auto`].
     pub const AUTO: Self = Self::all(Val::Auto);
-
-    /// Creates a Size where both values are [`Val::Undefined`].
-    pub const UNDEFINED: Self = Self::all(Val::Undefined);
 }
 
 impl Default for Size {

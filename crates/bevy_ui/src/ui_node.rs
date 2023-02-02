@@ -44,8 +44,6 @@ impl Default for Node {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// No value defined
-    Undefined,
     /// Automatically determine this value
     Auto,
     /// Set this value in pixels
@@ -55,7 +53,7 @@ pub enum Val {
 }
 
 impl Val {
-    pub const DEFAULT: Self = Self::Undefined;
+    pub const DEFAULT: Self = Self::Auto;
 }
 
 impl Default for Val {
@@ -69,7 +67,6 @@ impl Mul<f32> for Val {
 
     fn mul(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Undefined => Val::Undefined,
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value * rhs),
             Val::Percent(value) => Val::Percent(value * rhs),
@@ -80,7 +77,7 @@ impl Mul<f32> for Val {
 impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
-            Val::Undefined | Val::Auto => {}
+            Val::Auto => {}
             Val::Px(value) | Val::Percent(value) => *value *= rhs,
         }
     }
@@ -91,7 +88,6 @@ impl Div<f32> for Val {
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Undefined => Val::Undefined,
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value / rhs),
             Val::Percent(value) => Val::Percent(value / rhs),
@@ -102,7 +98,7 @@ impl Div<f32> for Val {
 impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
-            Val::Undefined | Val::Auto => {}
+            Val::Auto => {}
             Val::Px(value) | Val::Percent(value) => *value /= rhs,
         }
     }
@@ -122,7 +118,7 @@ impl Val {
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Undefined, Val::Undefined) | (Val::Auto, Val::Auto) => Ok(*self),
+            (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
@@ -140,7 +136,7 @@ impl Val {
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Undefined, Val::Undefined) | (Val::Auto, Val::Auto) => Ok(*self),
+            (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
@@ -287,7 +283,7 @@ impl Style {
         max_size: Size::AUTO,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        gap: Size::UNDEFINED,
+        gap: Size::AUTO,
     };
 }
 
@@ -676,12 +672,10 @@ mod tests {
 
     #[test]
     fn val_try_add() {
-        let undefined_sum = Val::Undefined.try_add(Val::Undefined).unwrap();
         let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
         let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
         let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
 
-        assert_eq!(undefined_sum, Val::Undefined);
         assert_eq!(auto_sum, Val::Auto);
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(100.));
@@ -698,12 +692,10 @@ mod tests {
 
     #[test]
     fn val_try_sub() {
-        let undefined_sum = Val::Undefined.try_sub(Val::Undefined).unwrap();
         let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
         let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
         let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
 
-        assert_eq!(undefined_sum, Val::Undefined);
         assert_eq!(auto_sum, Val::Auto);
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(50.));
@@ -711,9 +703,8 @@ mod tests {
 
     #[test]
     fn different_variant_val_try_add() {
-        let different_variant_sum_1 = Val::Undefined.try_add(Val::Auto);
-        let different_variant_sum_2 = Val::Px(50.).try_add(Val::Percent(50.));
-        let different_variant_sum_3 = Val::Percent(50.).try_add(Val::Undefined);
+        let different_variant_sum_1 = Val::Px(50.).try_add(Val::Percent(50.));
+        let different_variant_sum_2 = Val::Percent(50.).try_add(Val::Auto);
 
         assert_eq!(
             different_variant_sum_1,
@@ -723,17 +714,13 @@ mod tests {
             different_variant_sum_2,
             Err(ValArithmeticError::NonIdenticalVariants)
         );
-        assert_eq!(
-            different_variant_sum_3,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
+
     }
 
     #[test]
     fn different_variant_val_try_sub() {
-        let different_variant_diff_1 = Val::Undefined.try_sub(Val::Auto);
-        let different_variant_diff_2 = Val::Px(50.).try_sub(Val::Percent(50.));
-        let different_variant_diff_3 = Val::Percent(50.).try_sub(Val::Undefined);
+        let different_variant_diff_1 = Val::Px(50.).try_sub(Val::Percent(50.));
+        let different_variant_diff_2 = Val::Percent(50.).try_sub(Val::Auto);
 
         assert_eq!(
             different_variant_diff_1,
@@ -741,10 +728,6 @@ mod tests {
         );
         assert_eq!(
             different_variant_diff_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-        assert_eq!(
-            different_variant_diff_3,
             Err(ValArithmeticError::NonIdenticalVariants)
         );
     }
@@ -768,10 +751,8 @@ mod tests {
     #[test]
     fn val_invalid_evaluation() {
         let size = 250.;
-        let evaluate_undefined = Val::Undefined.evaluate(size);
         let evaluate_auto = Val::Auto.evaluate(size);
 
-        assert_eq!(evaluate_undefined, Err(ValArithmeticError::NonEvaluateable));
         assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
     }
 
@@ -813,10 +794,8 @@ mod tests {
     fn val_try_add_non_numeric_with_size() {
         let size = 250.;
 
-        let undefined_sum = Val::Undefined.try_add_with_size(Val::Undefined, size);
         let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
 
-        assert_eq!(undefined_sum, Err(ValArithmeticError::NonEvaluateable));
         assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
     }
 
