@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                size: Size::FILL,
+                size: Size::all(Val::Percent(100.)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
