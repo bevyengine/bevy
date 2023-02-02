@@ -1,3 +1,7 @@
+//! Accessibility for Bevy
+
+#![warn(missing_docs)]
+
 use std::num::NonZeroU128;
 
 pub use accesskit;
@@ -9,6 +13,8 @@ use bevy_ecs::{
     system::Resource,
 };
 
+/// Component to wrap a [`Node`], representing this entity to the platform's
+/// accessibility API.
 #[derive(Component, Clone, Default, Deref, DerefMut)]
 pub struct AccessibilityNode(pub Node);
 
@@ -18,7 +24,9 @@ impl From<Node> for AccessibilityNode {
     }
 }
 
+/// Extensions to ease integrating entities with [AccessKit](https://accesskit.dev).
 pub trait AccessKitEntityExt {
+    /// Convert an entity to a stable [`NodeId`].
     fn to_node_id(&self) -> NodeId;
 }
 
@@ -29,9 +37,11 @@ impl AccessKitEntityExt for Entity {
     }
 }
 
+/// Resource representing which entity has keyboard focus, if any.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct Focus(Option<Entity>);
 
+/// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
