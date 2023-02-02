@@ -382,6 +382,7 @@ pub struct ScheduleGraph {
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
+    pub conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
     default_base_set: Option<BoxedSystemSet>,
@@ -403,6 +404,7 @@ impl ScheduleGraph {
             ambiguous_with: UnGraphMap::new(),
             ambiguous_with_flattened: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
+            conflicting_systems: Vec::new(),
             changed: false,
             settings: default(),
             default_base_set: None,
@@ -503,6 +505,14 @@ impl ScheduleGraph {
     /// a system or set has to run before another system or set.
     pub fn dependency(&self) -> &Dag {
         &self.dependency
+    }
+
+    /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
+    ///
+    /// If the `Vec<ComponentId>` is empty, the systems conflict on [`World`] access.
+    /// Must be called after [`ScheduleGraph::build_schedule`] to be non-empty.
+    pub fn conflicting_systems(&self) -> &[(NodeId, NodeId, Vec<ComponentId>)] {
+        &self.conflicting_systems
     }
 
     fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
@@ -1154,6 +1164,7 @@ impl ScheduleGraph {
                 return Err(ScheduleBuildError::Ambiguity);
             }
         }
+        self.conflicting_systems = conflicting_systems;
 
         // build the schedule
         let dg_system_ids = self.dependency_flattened.topsort.clone();
