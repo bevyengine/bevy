@@ -19,7 +19,7 @@ fn setup(
     commands.spawn((
         Camera2dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR can tremendously improve the look and realism of bloom
+                hdr: true, // 1. HDR is required for bloom
                 ..default()
             },
             ..default()
