@@ -229,7 +229,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// # bevy_ecs::system::assert_is_system(play_collision_sound);
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.reader.is_empty(&self.events)
     }
 
     /// Consumes the iterator.
