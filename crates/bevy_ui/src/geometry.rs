@@ -386,9 +386,6 @@ impl Size {
 
     /// Creates a Size where both values are [`Val::Undefined`].
     pub const UNDEFINED: Self = Self::all(Val::Undefined);
-
-    /// Creates a Size where both values are [`Val::Percent(100.)`].
-    pub const FILL: Self = Self::all(Val::Percent(100.));
 }
 
 impl Default for Size {
