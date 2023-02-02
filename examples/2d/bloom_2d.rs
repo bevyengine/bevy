@@ -1,5 +1,5 @@
 //! Illustrates bloom post-processing in 2d.
-//!
+
 use bevy::{core_pipeline::bloom::BloomSettings, prelude::*, sprite::MaterialMesh2dBundle};
 
 fn main() {
