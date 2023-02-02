@@ -1354,6 +1354,52 @@ fn vertex(
     }
 
     #[test]
+    fn process_shader_def_else_ifdef_complicated_nesting() {
+        // Test some nesting including #else ifdef statements
+        // 1. Enter an #else ifdef
+        // 2. Then enter an #else
+        // 3. Then enter another #else ifdef
+
+        #[rustfmt::skip]
+        const WGSL_COMPLICATED_ELSE_IFDEF: &str = r"
+#ifdef NOT_DEFINED
+// not defined
+#else ifdef IS_DEFINED
+// defined 1
+#ifdef NOT_DEFINED
+// not defined
+#else
+// should be here
+#ifdef NOT_DEFINED
+// not defined
+#else ifdef ALSO_NOT_DEFINED
+// not defined
+#else ifdef IS_DEFINED
+// defined 2
+#endif
+#endif
+#endif
+";
+
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+// defined 1
+// should be here
+// defined 2
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL_COMPLICATED_ELSE_IFDEF),
+                &["IS_DEFINED".into()],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
     fn process_shader_def_unclosed() {
         #[rustfmt::skip]
         const INPUT: &str = r"
