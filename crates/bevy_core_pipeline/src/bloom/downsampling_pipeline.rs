@@ -157,7 +157,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
 
 pub fn prepare_downsampling_pipeline(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
     pipeline: Res<BloomDownsamplingPipeline>,
     views: Query<(Entity, &BloomSettings)>,
@@ -166,7 +166,7 @@ pub fn prepare_downsampling_pipeline(
         let prefilter = settings.prefilter_settings.threshold > 0.0;
 
         let pipeline_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &pipeline,
             BloomDownsamplingPipelineKeys {
                 prefilter,
@@ -175,7 +175,7 @@ pub fn prepare_downsampling_pipeline(
         );
 
         let pipeline_first_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &pipeline,
             BloomDownsamplingPipelineKeys {
                 prefilter,

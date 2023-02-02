@@ -140,14 +140,14 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
 
 pub fn prepare_upsampling_pipeline(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomSettings)>,
 ) {
     for (entity, settings) in &views {
         let pipeline_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
@@ -156,7 +156,7 @@ pub fn prepare_upsampling_pipeline(
         );
 
         let pipeline_final_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
