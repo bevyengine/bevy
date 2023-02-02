@@ -339,7 +339,7 @@ pub struct Size {
 }
 
 impl Size {
-    pub const DEFAULT: Self = Self::all(Val::Auto);
+    pub const DEFAULT: Self = Self::all(Val::DEFAULT);
 
     /// Creates a new [`Size`] from a width and a height.
     ///
