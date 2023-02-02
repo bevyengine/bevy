@@ -19,7 +19,6 @@ members = [
   "examples/android",
   "examples/ios",
   "tools/ci",
-  "tools/spancmp",
   "tools/build-example-pages",
   "tools/build-wasm-example",
   "errors",
@@ -1463,6 +1462,16 @@ path = "examples/tools/gamepad_viewer.rs"
 name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
+wasm = false
+
+[[example]]
+name = "nondeterministic_system_order"
+path = "examples/ecs/nondeterministic_system_order.rs"
+
+[package.metadata.example.nondeterministic_system_order]
+name = "Nondeterministic System Order"
+description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]

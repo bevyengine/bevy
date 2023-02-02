@@ -1,5 +1,5 @@
 use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
@@ -12,7 +12,8 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, Clone, Default)]
+#[derive(Component, Reflect, Clone, Default, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
@@ -44,16 +45,6 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
             Camera3dDepthLoadOp::Clear(x) => LoadOp::Clear(x),
             Camera3dDepthLoadOp::Load => LoadOp::Load,
         }
-    }
-}
-
-impl ExtractComponent for Camera3d {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
-        Some(item.clone())
     }
 }
 
