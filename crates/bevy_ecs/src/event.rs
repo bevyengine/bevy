@@ -241,7 +241,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// For more information see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
-        self.iter().last();
+        self.reader.clear(&self.events)
     }
 }
 
@@ -365,6 +365,11 @@ impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::is_empty`]
     pub fn is_empty(&self, events: &Events<E>) -> bool {
         self.len(events) == 0
+    }
+
+    /// See [`EventReader::clear()`]
+    pub fn clear(&mut self, events: &Events<E>) {
+        self.last_event_count = events.event_count;
     }
 }
 
