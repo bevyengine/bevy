@@ -86,16 +86,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn(
-                        TextBundle::from_section(
-                            "Scrolling list",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 25.,
-                                color: Color::WHITE,
-                            },
-                        )
-                    );
+                    parent.spawn(TextBundle::from_section(
+                        "Scrolling list",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 25.,
+                            color: Color::WHITE,
+                        },
+                    ));
                     // List with hidden overflow
                     parent
                         .spawn(NodeBundle {
