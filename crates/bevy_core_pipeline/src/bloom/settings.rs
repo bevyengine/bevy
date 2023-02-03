@@ -52,7 +52,7 @@ pub struct BloomSettings {
     /// Comparable to a low shelf boost on an equalizer.
     ///
     /// # In energy-conserving mode
-    /// The value should be clamed between 0.0 and 1.0 where:
+    /// The value should be between 0.0 and 1.0 where:
     /// * 0.0 means low frequency light uses base intensity for blend factor calculation
     /// * 1.0 means low frequency light contributes at full power
     ///
