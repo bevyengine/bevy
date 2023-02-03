@@ -368,7 +368,7 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android_example
+cargo apk run -p bevy_mobile_example
 ```
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
@@ -415,7 +415,7 @@ min_sdk_version = >>API or less<<
 
 Example | File | Description
 --- | --- | ---
-`android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android
+`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## iOS
 
@@ -459,7 +459,7 @@ for the magic.
 
 Example | File | Description
 --- | --- | ---
-`ios` | [`ios/src/lib.rs`](./ios/src/lib.rs) | The `3d/3d_scene.rs` example for iOS
+`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## WASM
 
