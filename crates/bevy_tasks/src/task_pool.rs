@@ -383,17 +383,21 @@ impl TaskPool {
                             }
                         }
 
-                        std::mem::swap(&mut pending_tasks, &mut pending_tasks_next);
-                        debug_assert!(pending_tasks_next.is_empty());
-
                         if task_failed {
                             // cancel the remaining pending tasks
-                            for index in pending_tasks.into_iter() {
+                            for index in pending_tasks
+                                .into_iter()
+                                .chain(pending_tasks_next.into_iter())
+                            {
                                 let task = tasks[index].take().unwrap();
                                 task.cancel().await;
                             }
 
                             panic!("scoped task failed");
+                        } else {
+                            debug_assert!(pending_tasks.is_empty());
+                            std::mem::swap(&mut pending_tasks, &mut pending_tasks_next);
+                            debug_assert!(pending_tasks_next.is_empty());
                         }
 
                         if pending_tasks.is_empty() && spawned_ref.is_empty() {
