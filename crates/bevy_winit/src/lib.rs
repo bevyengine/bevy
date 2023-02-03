@@ -615,6 +615,13 @@ pub fn winit_runner(mut app: App) {
             }
             event::Event::Suspended => {
                 winit_state.active = false;
+                #[cfg(target_os = "android")]
+                {
+                    // Bevy doesn't support suspend/resume so we just exit
+                    // and Android will restart the application on resume
+                    // TODO: Save save some state and load on resume
+                    *control_flow = ControlFlow::Exit;
+                }
             }
             event::Event::Resumed => {
                 winit_state.active = true;
