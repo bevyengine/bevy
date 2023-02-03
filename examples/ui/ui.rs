@@ -165,11 +165,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
                         position_type: PositionType::Absolute,
-                        position: UiRect {
+                        inset: Inset {
                             left: Val::Px(210.0),
                             bottom: Val::Px(10.0),
-                            top: Val::Auto,
-                            right: Val::Auto,
+                            ..Default::default()
                         },
                         border: UiRect::all(Val::Px(20.0)),
                         ..default()
@@ -214,11 +213,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                    inset: Inset {
                                         left: Val::Px(20.0),
                                         bottom: Val::Px(20.0),
-                                        top: Val::Auto,
-                                        right: Val::Auto,
+                                        ..Default::default()
                                     },
                                     ..default()
                                 },
@@ -229,11 +227,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                    inset: Inset {
                                         left: Val::Px(40.0),
                                         bottom: Val::Px(40.0),
-                                        top: Val::Auto,
-                                        right: Val::Auto,
+                                        ..Default::default()
                                     },
                                     ..default()
                                 },
@@ -244,11 +241,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                    inset: Inset {
                                         left: Val::Px(60.0),
                                         bottom: Val::Px(60.0),
-                                        top: Val::Auto,
-                                        right: Val::Auto,
+                                        ..Default::default()
                                     },
                                     ..default()
                                 },
@@ -260,11 +256,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                    inset: Inset {
                                         left: Val::Px(80.0),
                                         bottom: Val::Px(80.0),
-                                        top: Val::Auto,
-                                        right: Val::Auto,
+                                        ..Default::default()
                                     },
                                     ..default()
                                 },
@@ -323,7 +318,7 @@ fn mouse_scroll(
             };
             scrolling_list.position += dy;
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.position.top = Val::Px(scrolling_list.position);
+            style.inset.top = Val::Px(scrolling_list.position);
         }
     }
 }

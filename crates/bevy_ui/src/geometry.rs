@@ -2,33 +2,33 @@ use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// A type which is commonly used to define positions, margins, paddings and borders.
+/// A type which is commonly used to define insets, margins, paddings and borders.
 ///
 /// # Examples
 ///
-/// ## Position
+/// ## Inset
 ///
-/// A position is used to determine where to place a UI element.
+/// A inset is used to determine where to place a UI element.
 ///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
 /// # use bevy_utils::default;
 /// #
-/// let position = UiRect {
+/// let inset = UiRect {
 ///     left: Val::Px(100.0),
 ///     top: Val::Px(50.0),
 ///     ..default()
 /// };
 /// ```
 ///
-/// If you define opposite sides of the position, the size of the UI element will automatically be calculated
+/// If you define opposite sides of the inset, the size of the UI element will automatically be calculated
 /// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Undefined`](crate::Val::Undefined)
-/// as a width and height, the size would be determined by the window size and the values specified in the position.
+/// as a width and height, the size would be determined by the window size and the values specified in the inset.
 ///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
 /// #
-/// let position = UiRect {
+/// let inset = UiRect {
 ///     left: Val::Px(100.0),
 ///     right: Val::Px(200.0),
 ///     top: Val::Px(300.0),
@@ -37,8 +37,8 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// ```
 ///
 /// To determine the width of the UI element you have to take the width of the window and subtract it by the
-/// left and right values of the position. To determine the height of the UI element you have to take the height
-/// of the window and subtract it by the top and bottom values of the position. If we had a window with a width
+/// left and right values of the inset. To determine the height of the UI element you have to take the height
+/// of the window and subtract it by the top and bottom values of the inset. If we had a window with a width
 /// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
 ///
 /// ```
@@ -46,7 +46,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// let window_width = 1000.0;
 /// let window_height = 1000.0;
 ///
-/// // Values of the position
+/// // Values of the inset
 /// let left = 100.0;
 /// let right = 200.0;
 /// let top = 300.0;
@@ -60,16 +60,16 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// assert_eq!(ui_element_height, 300.0);
 /// ```
 ///
-/// If you define a [`Size`] and also all four sides of the position, the top and left values of the position
+/// If you define a [`Size`] and also all four sides of the inset, the top and left values of the inset
 /// are used to determine where to place the UI element. The size will not be calculated using the bottom and
-/// right values of the position because the size of the UI element is already explicitly specified.
+/// right values of the inset because the size of the UI element is already explicitly specified.
 ///
 /// ```
 /// # use bevy_ui::{UiRect, Size, Val, Style};
 /// # use bevy_utils::default;
 /// #
 /// let style = Style {
-///     position: UiRect { // Defining all four sides
+///     inset: Inset { // Defining all four sides
 ///         left: Val::Px(100.0),
 ///         right: Val::Px(200.0),
 ///         top: Val::Px(300.0),
@@ -134,14 +134,10 @@ pub struct UiRect {
 
 impl UiRect {
     pub const DEFAULT: Self = Self {
-        // left: Val::DEFAULT,
-        // right: Val::DEFAULT,
-        // top: Val::DEFAULT,
-        // bottom: Val::DEFAULT,
-        left: Val::Auto,
-        right: Val::Auto,
-        top: Val::Auto,
-        bottom: Val::Auto,
+        left: Val::Px(0.),
+        right: Val::Px(0.),
+        top: Val::Px(0.),
+        bottom: Val::Px(0.),
     };
 
     /// Creates a new [`UiRect`] from the values specified.
@@ -329,6 +325,291 @@ impl Default for UiRect {
         Self::DEFAULT
     }
 }
+
+/// A [`Inset`] is used to determine where to place a UI element.
+///
+/// ```
+/// # use bevy_ui::{Inset, Val};
+/// # use bevy_utils::default;
+/// #
+/// let inset = Inset {
+///     left: Val::Px(100.0),
+///     top: Val::Px(50.0),
+///     ..default()
+/// };
+/// ```
+///
+/// If you define opposite sides of the inset, the size of the UI element will automatically be calculated
+/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Auto`](crate::Val::Auto)
+/// as a width and height, the size would be determined by the window size and the values specified in the inset.
+///
+/// ```
+/// # use bevy_ui::{Inset, Val};
+/// #
+/// let inset = Inset {
+///     left: Val::Px(100.0),
+///     right: Val::Px(200.0),
+///     top: Val::Px(300.0),
+///     bottom: Val::Px(400.0),
+/// };
+/// ```
+///
+/// To determine the width of the UI element you have to take the width of the window and subtract it by the
+/// left and right values of the inset. To determine the height of the UI element you have to take the height
+/// of the window and subtract it by the top and bottom values of the inset. If we had a window with a width
+/// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
+///
+/// ```
+/// // Size of the window
+/// let window_width = 1000.0;
+/// let window_height = 1000.0;
+///
+/// // Values of the inset
+/// let left = 100.0;
+/// let right = 200.0;
+/// let top = 300.0;
+/// let bottom = 400.0;
+///
+/// // Calculation to get the size of the UI element
+/// let ui_element_width = window_width - left - right;
+/// let ui_element_height = window_height - top - bottom;
+///
+/// assert_eq!(ui_element_width, 700.0);
+/// assert_eq!(ui_element_height, 300.0);
+/// ```
+///
+/// If you define a [`Size`] and also all four sides of the inset, the top and left values of the inset
+/// are used to determine where to place the UI element. The size will not be calculated using the bottom and
+/// right values of the inset because the size of the UI element is already explicitly specified.
+///
+/// ```
+/// # use bevy_ui::{Inset, Size, Val, Style};
+/// # use bevy_utils::default;
+/// #
+/// let style = Style {
+///     inset: Inset { // Defining all four sides
+///         left: Val::Px(100.0),
+///         right: Val::Px(200.0),
+///         top: Val::Px(300.0),
+///         bottom: Val::Px(400.0),
+///     },
+///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
+///     ..default()
+/// };
+/// ```
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Inset {
+    /// The value corresponding to the left side of the `Inset`.
+    pub left: Val,
+    /// The value corresponding to the right side of the `Inset`.
+    pub right: Val,
+    /// The value corresponding to the top side of the `Inset`.
+    pub top: Val,
+    /// The value corresponding to the bottom side of the `Inset`.
+    pub bottom: Val,
+}
+
+impl Inset {
+    pub const DEFAULT: Self = Self::all(Val::Auto);
+
+    /// Creates a new [`Inset`] from the values specified.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::new(
+    ///     Val::Px(10.0),
+    ///     Val::Px(20.0),
+    ///     Val::Px(30.0),
+    ///     Val::Px(40.0),
+    /// );
+    ///
+    /// assert_eq!(inset.left, Val::Px(10.0));
+    /// assert_eq!(inset.right, Val::Px(20.0));
+    /// assert_eq!(inset.top, Val::Px(30.0));
+    /// assert_eq!(inset.bottom, Val::Px(40.0));
+    /// ```
+    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+        Inset {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+
+    /// Creates a new [`Inset`] where all sides have the same value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::all(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Px(10.0));
+    /// assert_eq!(inset.right, Val::Px(10.0));
+    /// assert_eq!(inset.top, Val::Px(10.0));
+    /// assert_eq!(inset.bottom, Val::Px(10.0));
+    /// ```
+    pub const fn all(value: Val) -> Self {
+        Inset {
+            left: value,
+            right: value,
+            top: value,
+            bottom: value,
+        }
+    }
+
+    /// Creates a new [`Inset`] where `left` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::left(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Px(10.0));
+    /// assert_eq!(inset.right, Val::Auto);
+    /// assert_eq!(inset.top, Val::Auto);
+    /// assert_eq!(inset.bottom, Val::Auto);
+    /// ```
+    pub fn left(value: Val) -> Self {
+        Inset {
+            left: value,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new [`Inset`] where `right` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::right(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Auto);
+    /// assert_eq!(inset.right, Val::Px(10.0));
+    /// assert_eq!(inset.top, Val::Auto);
+    /// assert_eq!(inset.bottom, Val::Auto);
+    /// ```
+    pub fn right(value: Val) -> Self {
+        Inset {
+            right: value,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new [`Inset`] where `top` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::top(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Auto);
+    /// assert_eq!(inset.right, Val::Auto);
+    /// assert_eq!(inset.top, Val::Px(10.0));
+    /// assert_eq!(inset.bottom, Val::Auto);
+    /// ```
+    pub fn top(value: Val) -> Self {
+        Inset {
+            top: value,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new [`Inset`] where `bottom` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::bottom(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Auto);
+    /// assert_eq!(inset.right, Val::Auto);
+    /// assert_eq!(inset.top, Val::Auto);:Undefined
+    /// assert_eq!(inset.bottom, Val::Px(10.0));
+    /// ```
+    pub fn bottom(value: Val) -> Self {
+        Inset {
+            bottom: value,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new [`Inset`] where `left` and `right` take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::horizontal(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Px(10.0));
+    /// assert_eq!(inset.right, Val::Px(10.0));
+    /// assert_eq!(inset.top, Val::Auto);
+    /// assert_eq!(inset.bottom, Val::Auto);
+    /// ```
+    pub fn horizontal(value: Val) -> Self {
+        Inset {
+            left: value,
+            right: value,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new [`Inset`] where `top` and `bottom` take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Inset, Val};
+    /// #
+    /// let inset = Inset::vertical(Val::Px(10.0));
+    ///
+    /// assert_eq!(inset.left, Val::Auto);
+    /// assert_eq!(inset.right, Val::Auto);
+    /// assert_eq!(inset.top, Val::Px(10.0));
+    /// assert_eq!(inset.bottom, Val::Px(10.0));
+    /// ```
+    pub fn vertical(value: Val) -> Self {
+        Inset {
+            top: value,
+            bottom: value,
+            ..Default::default()
+        }
+    }
+}
+
+impl Default for Inset {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<Inset> for UiRect {
+    fn from(inset: Inset) -> Self {
+        Self {
+            left: inset.left,
+            right: inset.right,
+            top: inset.top,
+            bottom: inset.bottom,
+        }
+    }
+}
+
 
 /// A 2-dimensional area defined by a width and height.
 ///

@@ -38,7 +38,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            inset: Inset {
                 top: Val::Px(5.0),
                 left: Val::Px(15.0),
                 ..default()
@@ -57,7 +57,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            inset: Inset {
                 top: Val::Px(5.0),
                 right: Val::Px(15.0),
                 ..default()
@@ -113,7 +113,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            inset: Inset {
                 bottom: Val::Px(5.0),
                 right: Val::Px(15.0),
                 ..default()
@@ -134,7 +134,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-            position: UiRect {
+            inset: Inset {
                 bottom: Val::Px(5.0),
                 left: Val::Px(15.0),
                 ..default()

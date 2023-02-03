@@ -102,7 +102,7 @@ fn setup_scene(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
-                position: UiRect {
+                inset: Inset {
                     left: Val::Px(50.0),
                     right: Val::Px(50.0),
                     top: Val::Auto,

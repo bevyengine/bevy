@@ -421,11 +421,10 @@ mod menu {
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            position: UiRect {
+            inset: Inset {
                 left: Val::Px(10.0),
                 right: Val::Auto,
-                top: Val::Auto,
-                bottom: Val::Auto,
+                ..Default::default()
             },
             ..default()
         };
