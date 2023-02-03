@@ -31,21 +31,40 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 
+#[cfg(target_os = "android")]
+pub use winit::platform::android::activity::AndroidApp;
+
 use winit::{
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
 use crate::system::WinitWindowInfo;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+#[cfg(target_os = "android")]
+pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
+
 #[derive(Default)]
 pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let event_loop = EventLoop::new();
+        let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        #[cfg(target_os = "android")]
+        {
+            use winit::platform::android::EventLoopBuilderExtAndroid;
+            event_loop_builder.with_android_app(
+                ANDROID_APP
+                    .get()
+                    .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                    .clone(),
+            );
+        }
+
+        let event_loop = event_loop_builder.build();
         app.insert_non_send_resource(event_loop);
 
         app.init_non_send_resource::<WinitWindows>()
