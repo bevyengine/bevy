@@ -400,13 +400,13 @@ impl Default for UiRect {
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Inset {
-    /// The value corresponding to the left side of the `Inset`.
+    /// Distance inset from the left.
     pub left: Val,
-    /// The value corresponding to the right side of the `Inset`.
+    /// Distance inset from the right.
     pub right: Val,
-    /// The value corresponding to the top side of the `Inset`.
+    /// Distance inset from the top.
     pub top: Val,
-    /// The value corresponding to the bottom side of the `Inset`.
+    /// Distance inset from the bottom.
     pub bottom: Val,
 }
 
