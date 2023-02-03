@@ -62,10 +62,7 @@ impl Node for ContrastAdaptiveSharpeningNode {
         let sharpening_pipeline = world.resource::<ContrastAdaptiveSharpeningPipeline>();
         let uniforms = world.resource::<ComponentUniforms<CASUniform>>();
 
-        let (target, pipeline) = match self.query.get_manual(world, view_entity) {
-            Ok(result) => result,
-            Err(_) => return Ok(()),
-        };
+        let Ok((target, pipeline)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
 
         let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
 
