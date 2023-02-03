@@ -104,8 +104,14 @@ impl HslRepresentation {
 
 pub struct LchRepresentation;
 impl LchRepresentation {
+    // References available at http://brucelindbloom.com/ in the "Math" section
+
+    // CIE Constants
+    // http://brucelindbloom.com/index.html?LContinuity.html (16) (17)
     const CIE_EPSILON: f32 = 216.0 / 24389.0;
     const CIE_KAPPA: f32 = 24389.0 / 27.0;
+    // D65 White Reference:
+    // https://en.wikipedia.org/wiki/Illuminant_D65#Definition
     const D65_WHITE_X: f32 = 0.95047;
     const D65_WHITE_Y: f32 = 1.0;
     const D65_WHITE_Z: f32 = 1.08883;
@@ -116,12 +122,14 @@ impl LchRepresentation {
         let lightness = lightness * 100.0;
         let chroma = chroma * 100.0;
 
-        // convert LCH to Lab http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
+        // convert LCH to Lab
+        // http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
         let l = lightness;
         let a = chroma * hue.to_radians().cos();
         let b = chroma * hue.to_radians().sin();
 
-        // convert Lab to XYZ http://www.brucelindbloom.com/index.html?Eqn_Lab_to_XYZ.html
+        // convert Lab to XYZ
+        // http://www.brucelindbloom.com/index.html?Eqn_Lab_to_XYZ.html
         let fy = (l + 16.0) / 116.0;
         let fx = a / 500.0 + fy;
         let fz = fy - b / 200.0;
@@ -152,7 +160,9 @@ impl LchRepresentation {
         let y = yr * Self::D65_WHITE_Y;
         let z = zr * Self::D65_WHITE_Z;
 
-        // XYZ to sRGB http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
+        // XYZ to sRGB
+        // http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
+        // http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html (sRGB, XYZ to RGB [M]-1)
         let red = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
         let green = x * -0.969266 + y * 1.8760108 + z * 0.041556;
         let blue = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
@@ -167,16 +177,19 @@ impl LchRepresentation {
     /// converts a color in sRGB space to LCH space
     #[inline]
     pub fn nonlinear_srgb_to_lch([red, green, blue]: [f32; 3]) -> (f32, f32, f32) {
-        // RGB to XYZ http://www.brucelindbloom.com/index.html?Eqn_RGB_to_XYZ.html
+        // RGB to XYZ
+        // http://www.brucelindbloom.com/index.html?Eqn_RGB_to_XYZ.html
         let red = red.nonlinear_to_linear_srgb();
         let green = green.nonlinear_to_linear_srgb();
         let blue = blue.nonlinear_to_linear_srgb();
 
+        // http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html (sRGB, RGB to XYZ [M])
         let x = red * 0.4124564 + green * 0.3575761 + blue * 0.1804375;
         let y = red * 0.2126729 + green * 0.7151522 + blue * 0.072175;
         let z = red * 0.0193339 + green * 0.119192 + blue * 0.9503041;
 
-        // XYZ to Lab http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_Lab.html
+        // XYZ to Lab
+        // http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_Lab.html
         let xr = x / Self::D65_WHITE_X;
         let yr = y / Self::D65_WHITE_Y;
         let zr = z / Self::D65_WHITE_Z;
@@ -199,7 +212,8 @@ impl LchRepresentation {
         let a = 500.0 * (fx - fy);
         let b = 200.0 * (fy - fz);
 
-        // Lab to LCH http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
+        // Lab to LCH
+        // http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
         let c = (a.powf(2.0) + b.powf(2.0)).sqrt();
         let h = {
             let h = b.to_radians().atan2(a.to_radians()).to_degrees();
@@ -334,6 +348,8 @@ mod test {
 
     #[test]
     fn lch_to_srgb() {
+        // "truth" from http://www.brucelindbloom.com/ColorCalculator.html
+
         // black
         let (lightness, chroma, hue) = (0.0, 0.0, 0.0);
         let [r, g, b] = LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
@@ -378,6 +394,8 @@ mod test {
 
     #[test]
     fn srgb_to_lch() {
+        // "truth" from http://www.brucelindbloom.com/ColorCalculator.html
+
         // black
         let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([0.0, 0.0, 0.0]);
         assert_eq!((lightness * 100.0).round() as u32, 0);
