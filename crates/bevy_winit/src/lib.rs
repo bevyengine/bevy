@@ -474,14 +474,7 @@ pub fn winit_runner(mut app: App) {
                         }
                     },
                     WindowEvent::Touch(touch) => {
-                        let mut location =
-                            touch.location.to_logical(window.resolution.scale_factor());
-
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                        // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            location.y = window.height() as f64 - location.y;
-                        }
+                        let location = touch.location.to_logical(window.resolution.scale_factor());
 
                         // Event
                         input_events
