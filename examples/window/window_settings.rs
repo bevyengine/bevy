@@ -63,6 +63,7 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
             WindowLevel::Normal => WindowLevel::AlwaysOnTop,
             WindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnBottom,
         };
+        info!("WINDOW_LEVEL: {:?}", window.window_level);
     }
 }
 
