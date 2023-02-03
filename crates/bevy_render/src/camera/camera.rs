@@ -89,13 +89,15 @@ pub enum CameraOutputMode {
     /// camera writing to a target will use `Flush(None)` to clear the target and write the current render results.
     /// If multiple flushing cameras are used, later cameras may prefer to use `Flush(Some(BlendState::ALPHA_BLENDING))`
     /// to combine render results with previously flushed results.
-    /// if a camera uses `Flush`, the next camera on the the same target should clear the internal render results with
-    /// `ClearColorConfig::Custom(Color::NONE)` to avoid double writing of the first results on the next flush.
+    /// if a camera uses `Flush`, the next camera on the the same target should clear the internal render results
+    /// to avoid double writing of the existing results on the next flush. `ClearColorConfig::Default` will do this
+    /// automatically, or you can manually specify `ClearColorConfig::Custom(Color::NONE)` which will have the same effect.
     Flush(Option<wgpu::BlendState>),
     /// Keep the current render results internally. A later camera must output with `Flush` for any results to be output.
     /// This is useful for combining the results of several cameras before applying post-processing to the full set of results.
-    /// If a camera uses `Retain`, the next camera on the same target should make sure NOT to clear the render results by
-    /// using `ClearColorConfig::None`, else they will be discarded.
+    /// if a camera uses `Retain`, the next camera on the the same target should NOT clear the internal render results
+    /// to avoid discarding the existing results before the next flush. `ClearColorConfig::Default` will do this
+    /// automatically, or you can manually specify `ClearColorConfig::None` which will have the same effect.
     Retain,
 }
 
@@ -132,7 +134,7 @@ pub struct Camera {
     // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
     pub hdr: bool,
     // todo: reflect this when #6042 lands
-    /// The [`CameraOutputNode`] for this camera.
+    /// The [`CameraOutputMode`] for this camera.
     #[reflect(ignore)]
     pub output_mode: CameraOutputMode,
 }
@@ -542,7 +544,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 
 /// describes the camera's position within the set of cameras rendering
 /// to the same [`RenderTarget`].
-/// This position affects the default behaviour of [`ClearColorConfig::Default`].
+/// This position affects the default behaviour of `ClearColorConfig::Default`.
 #[derive(Debug, Clone, Copy)]
 pub enum CameraChainPosition {
     First,

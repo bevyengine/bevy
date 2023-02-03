@@ -108,7 +108,7 @@ impl Node for UpscalingNode {
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: &view_attachment,
+                view: view_attachment,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,

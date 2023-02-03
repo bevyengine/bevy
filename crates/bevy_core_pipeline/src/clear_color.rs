@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 #[reflect(Serialize, Deserialize)]
 pub enum ClearColorConfig {
     #[default]
+    /// For a single camera, clears the camera to the [`ClearColor`]. For multi-camera setups
+    /// the default behaviour depends on current camera position, see [`CameraOutputMode`].
+    ///
+    /// [`CameraOutputMode`]: bevy_render::camera::CameraOutputMode
     Default,
     Custom(Color),
     None,
