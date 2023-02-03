@@ -356,11 +356,12 @@ impl TaskPool {
                 let get_results = async {
                     let mut tasks = Vec::with_capacity(spawned_ref.len());
                     let mut results = Vec::with_capacity(spawned_ref.len());
-                    let mut nodes = Vec::with_capacity(spawned_ref.len());
-                    let mut head = None;
-                    let mut completed_count = 0;
-                    let mut total_count = 0;
-                    let mut failed = false;
+                    // linked list of pending tasks
+                    let mut pending_list = Vec::with_capacity(spawned_ref.len());
+                    let mut pending_head = None;
+
+                    let mut task_failed = false;
+                    let mut num_tasks_completed = 0;
                     loop {
                         // collect any new tasks
                         while let Ok(task) = spawned_ref.pop() {
@@ -368,70 +369,66 @@ impl TaskPool {
                             tasks.push(Some(task));
                             results.push(None);
 
-                            // add to linked list of pending tasks
-                            nodes.push(Node {
+                            pending_list.push(Node {
                                 prev: None,
-                                next: head,
+                                next: pending_head,
                             });
 
-                            if let Some(head_index) = head {
-                                nodes[head_index].prev = Some(index);
+                            if let Some(head_index) = pending_head {
+                                pending_list[head_index].prev = Some(index);
                             }
-                            head = Some(index);
-
-                            total_count += 1;
+                            pending_head = Some(index);
                         }
 
                         // poll pending tasks for completion
-                        let mut next = head;
+                        let mut next = pending_head;
                         while let Some(index) = next {
                             let task = tasks[index].as_mut().unwrap();
                             if let Some(result) = future::poll_once(task).await {
                                 // result is ready
+                                // remove task from the pending list
+                                let node = &mut pending_list[index];
+                                let prev = node.prev.take();
+                                let next = node.next.take();
+
+                                if let Some(p) = prev {
+                                    pending_list[p].next = next;
+                                } else {
+                                    // task was the head
+                                    pending_head = next;
+                                }
+
+                                if let Some(n) = next {
+                                    pending_list[n].prev = prev;
+                                }
+
+                                num_tasks_completed += 1;
                                 if result.is_some() {
                                     // task completed
                                     results[index] = result;
-
-                                    // remove it from the pending list
-                                    let node = &mut nodes[index];
-                                    let prev = node.prev.take();
-                                    let next = node.next.take();
-
-                                    if let Some(p) = prev {
-                                        nodes[p].next = next;
-                                    } else {
-                                        // task was the head
-                                        head = next;
-                                    }
-
-                                    if let Some(n) = next {
-                                        nodes[n].prev = prev;
-                                    }
-
-                                    completed_count += 1;
                                 } else {
                                     // task failed
-                                    failed = true;
+                                    task_failed = true;
                                     break;
                                 }
                             }
 
-                            next = nodes[index].next;
+                            next = pending_list[index].next;
                         }
 
-                        if failed {
+                        if task_failed {
                             // cancel the remaining pending tasks
-                            let mut next = head;
+                            let mut next = pending_head;
                             while let Some(index) = next {
                                 let task = tasks[index].take().unwrap();
                                 task.cancel().await;
-                                next = nodes[index].next;
+                                next = pending_list[index].next;
                             }
 
                             panic!("scoped task failed");
                         }
 
-                        if completed_count == total_count && spawned_ref.is_empty() {
+                        if num_tasks_completed == tasks.len() && spawned_ref.is_empty() {
                             // all tasks have completed
                             // TODO: prove that it's impossible for there to be tasks remaining
                             return results.into_iter().flatten().collect();
