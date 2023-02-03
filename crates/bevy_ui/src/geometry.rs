@@ -65,16 +65,14 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// right values of the position because the size of the UI element is already explicitly specified.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Size, Val, Style};
+/// # use bevy_ui::{Size, Val, Style};
 /// # use bevy_utils::default;
 /// #
 /// let style = Style {
-///     position: UiRect { // Defining all four sides
-///         left: Val::Px(100.0),
-///         right: Val::Px(200.0),
-///         top: Val::Px(300.0),
-///         bottom: Val::Px(400.0),
-///     },
+///     left: Val::Px(100.0),
+///     right: Val::Px(200.0),
+///     top: Val::Px(300.0),
+///     bottom: Val::Px(400.0),
 ///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
 ///     ..default()
 /// };
