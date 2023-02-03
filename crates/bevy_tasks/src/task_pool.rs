@@ -409,6 +409,11 @@ impl TaskPool {
                                         nodes[n].prev = prev;
                                     }
 
+                                    if head == Some(index) {
+                                        // this task was the head
+                                        head = next;
+                                    }
+
                                     must_cancel_on_failure[index] = false;
                                     completed_count += 1;
                                 } else {
