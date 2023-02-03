@@ -72,6 +72,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::all(Val::Px(5.0)),
                                     ..default()
                                 }),
+                                // Because this is a distinct label widget and
+                                // not button/list item text, this is necessary
+                                // for accessibility to treat the text accordingly.
                                 Label,
                             ));
                         });
