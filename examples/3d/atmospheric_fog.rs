@@ -100,7 +100,7 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
     )
     .with_style(Style {
         position_type: PositionType::Absolute,
-        inset: Inset {
+        position: Position {
             bottom: Val::Px(10.0),
             left: Val::Px(10.0),
             ..default()

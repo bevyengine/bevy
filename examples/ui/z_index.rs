@@ -45,7 +45,7 @@ fn setup(mut commands: Commands) {
                         background_color: Color::RED.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            inset: Inset {
+                            position: Position {
                                 left: Val::Px(10.0),
                                 bottom: Val::Px(40.0),
                                 ..default()
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
                         background_color: Color::BLUE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            inset: Inset {
+                            position: Position {
                                 left: Val::Px(45.0),
                                 bottom: Val::Px(30.0),
                                 ..default()
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands) {
                         background_color: Color::GREEN.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            inset: Inset {
+                            position: Position {
                                 left: Val::Px(70.0),
                                 bottom: Val::Px(20.0),
                                 ..default()
@@ -100,7 +100,7 @@ fn setup(mut commands: Commands) {
                         background_color: Color::PURPLE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            inset: Inset {
+                            position: Position {
                                 left: Val::Px(15.0),
                                 bottom: Val::Px(10.0),
                                 ..default()
@@ -119,7 +119,7 @@ fn setup(mut commands: Commands) {
                         background_color: Color::YELLOW.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            inset: Inset {
+                            position: Position {
                                 left: Val::Px(-15.0),
                                 bottom: Val::Px(-15.0),
                                 ..default()

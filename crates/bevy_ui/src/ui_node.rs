@@ -1,4 +1,4 @@
-use crate::{Inset, Size, UiRect};
+use crate::{Position, Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -230,8 +230,8 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The inset of this UI node, relative to its default position
-    pub inset: Inset,
+    /// The position of the node
+    pub position: Position,
     /// The margin of the node
     pub margin: UiRect,
     /// The padding of the node
@@ -271,7 +271,7 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        inset: Inset::DEFAULT,
+        position: Position::DEFAULT,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,

@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        size: Size::width(Val::Px(200.0)),
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                size: Size::width(Val::Percent(100.0)),
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -77,7 +77,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        align_items: AlignItems::Center,
+                        size: Size::width(Val::Px(200.0)),
                         ..default()
                     },
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -94,23 +95,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 color: Color::WHITE,
                             },
                         )
-                        .with_style(Style {
-                            size: Size::height(Val::Px(25.)),
-                            margin: UiRect {
-                                left: Val::Auto,
-                                right: Val::Auto,
-                                ..default()
-                            },
-                            ..default()
-                        }),
                     );
                     // List with hidden overflow
                     parent
                         .spawn(NodeBundle {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
-                                align_self: AlignSelf::Center,
-                                size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                                align_self: AlignSelf::Stretch,
+                                size: Size::height(Val::Percent(50.0)),
                                 overflow: Overflow::Hidden,
                                 ..default()
                             },
@@ -125,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         style: Style {
                                             flex_direction: FlexDirection::Column,
                                             flex_grow: 1.0,
-
+                                            align_items: AlignItems::Center,
                                             ..default()
                                         },
                                         ..default()
@@ -148,11 +140,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             .with_style(Style {
                                                 flex_shrink: 0.,
                                                 size: Size::height(Val::Px(20.)),
-                                                margin: UiRect {
-                                                    left: Val::Auto,
-                                                    right: Val::Auto,
-                                                    ..default()
-                                                },
                                                 ..default()
                                             }),
                                         );
@@ -163,9 +150,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Px(200.0)),
+                        size: Size::all(Val::Px(200.0)),
                         position_type: PositionType::Absolute,
-                        inset: Inset {
+                        position: Position {
                             left: Val::Px(210.0),
                             bottom: Val::Px(10.0),
                             ..Default::default()
@@ -179,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn(NodeBundle {
                         style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                            size: Size::all(Val::Percent(100.0)),
                             ..default()
                         },
                         background_color: Color::rgb(0.8, 0.8, 1.0).into(),
@@ -190,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        size: Size::all(Val::Percent(100.0)),
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -202,7 +189,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                size: Size::all(Val::Px(100.0)),
                                 ..default()
                             },
                             background_color: Color::rgb(1.0, 0.0, 0.0).into(),
@@ -211,9 +198,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.0)),
                                     position_type: PositionType::Absolute,
-                                    inset: Inset {
+                                    position: Position {
                                         left: Val::Px(20.0),
                                         bottom: Val::Px(20.0),
                                         ..Default::default()
@@ -225,9 +212,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.0)),
                                     position_type: PositionType::Absolute,
-                                    inset: Inset {
+                                    position: Position {
                                         left: Val::Px(40.0),
                                         bottom: Val::Px(40.0),
                                         ..Default::default()
@@ -239,9 +226,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.0)),
                                     position_type: PositionType::Absolute,
-                                    inset: Inset {
+                                    position: Position {
                                         left: Val::Px(60.0),
                                         bottom: Val::Px(60.0),
                                         ..Default::default()
@@ -254,9 +241,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // alpha test
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.0)),
                                     position_type: PositionType::Absolute,
-                                    inset: Inset {
+                                    position: Position {
                                         left: Val::Px(80.0),
                                         bottom: Val::Px(80.0),
                                         ..Default::default()
@@ -272,7 +259,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        size: Size::width(Val::Percent(100.0)),
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
@@ -284,7 +271,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // bevy logo (image)
                     parent.spawn(ImageBundle {
                         style: Style {
-                            size: Size::new(Val::Px(500.0), Val::Auto),
+                            size: Size::width(Val::Px(500.0)),
                             ..default()
                         },
                         image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
@@ -318,7 +305,7 @@ fn mouse_scroll(
             };
             scrolling_list.position += dy;
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.inset.top = Val::Px(scrolling_list.position);
+            style.position.top = Val::Px(scrolling_list.position);
         }
     }
 }

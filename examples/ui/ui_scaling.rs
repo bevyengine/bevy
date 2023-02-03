@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
                 position_type: PositionType::Absolute,
-                inset: Inset {
+                position: Position {
                     left: Val::Percent(25.),
                     top: Val::Percent(25.),
                     ..default()
