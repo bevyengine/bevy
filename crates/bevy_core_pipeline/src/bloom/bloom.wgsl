@@ -9,7 +9,7 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
 #import bevy_core_pipeline::tonemapping
 
-struct BloomUniforms {
+struct BloomDownsamplingUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
 };
