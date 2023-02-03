@@ -391,24 +391,23 @@ impl TaskPool {
                         let mut next = head;
                         while let Some(index) = next {
                             if let Some(result) = future::poll_once(&mut tasks[index]).await {
+                                // result is ready
                                 if result.is_some() {
-                                    // task completed, store its result
+                                    // task completed
                                     results[index] = result;
 
-                                    // remove it from the list
+                                    // remove it from the pending list
                                     let node = &mut nodes[index];
                                     let prev = node.prev.take();
                                     let next = node.next.take();
 
-                                    // connect prev.next -> next
                                     if let Some(p) = prev {
                                         nodes[p].next = next;
                                     } else {
-                                        // this was the head
+                                        // task was the head
                                         head = next;
                                     }
 
-                                    // connect prev <- next.prev
                                     if let Some(n) = next {
                                         nodes[n].prev = prev;
                                     }
@@ -416,6 +415,7 @@ impl TaskPool {
                                     must_cancel_on_failure[index] = false;
                                     completed_count += 1;
                                 } else {
+                                    // task failed
                                     failure = true;
                                     break;
                                 }
