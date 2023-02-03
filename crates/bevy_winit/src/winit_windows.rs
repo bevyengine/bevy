@@ -15,7 +15,10 @@ use winit::{
     monitor::MonitorHandle,
 };
 
-use crate::accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers};
+use crate::{
+    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
+    converters::convert_window_level,
+};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -81,7 +84,7 @@ impl WinitWindows {
         };
 
         winit_window_builder = winit_window_builder
-            .with_always_on_top(window.always_on_top)
+            .with_window_level(convert_window_level(window.window_level))
             .with_resizable(window.resizable)
             .with_decorations(window.decorations)
             .with_transparent(window.transparent);
