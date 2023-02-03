@@ -1,15 +1,12 @@
-use std::sync::Arc;
-
-use crate as bevy_ecs;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
     schedule::{ParallelSystemExecutor, SystemContainer},
-    system::Resource,
+    schedule_v3::MainThreadExecutor,
     world::World,
 };
 use async_channel::{Receiver, Sender};
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use event_listener::Event;
@@ -17,16 +14,6 @@ use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
 use scheduling_event::*;
-
-/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
-#[derive(Resource, Default, Clone)]
-pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
-
-impl MainThreadExecutor {
-    pub fn new() -> Self {
-        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
-    }
-}
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
@@ -138,7 +125,10 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        let thread_executor = world.get_resource::<MainThreadExecutor>().map(|e| &*e.0);
+        let thread_executor = world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+        let thread_executor = thread_executor.as_deref();
 
         ComputeTaskPool::init(TaskPool::default).scope_with_executor(
             false,
