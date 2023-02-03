@@ -788,6 +788,11 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// #[derive(Resource, Default)]
 /// pub struct Alarm(bool);
 ///
+/// #[derive(Component)]
+/// pub struct Settlement {
+///     // ...
+/// }
+///
 /// // A threat from inside the settlement.
 /// #[derive(Component)]
 /// pub struct Criminal;
@@ -818,28 +823,42 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     }
 /// }
 ///
-/// // Sound the alarm if there is a criminal.
+/// // Sound the alarm if there are any criminals who pose a threat.
 /// fn alert_criminal(
+///     settlements: Query<&Settlement>,
 ///     criminals: Query<&Criminal>,
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
-///     if criminals.iter().next().is_some() {
-///         alarm.flag();
+///     let settlement = settlements.single();
+///     for criminal in &criminals {
+///         // Only sound the alarm if the criminal is a threat.
+///         // For this example, assume that this check is expensive to run.
+///         // Since the majority of this system's run-time is dominated
+///         // by calling `is_threat()`, we defer sounding the alarm to
+///         // allow this system to run in parallel with other alarm systems.
+///         if criminal.is_threat(settlement) {
+///             alarm.flag();
+///         }
 ///     }
 /// }
 ///
 /// // Sound the alarm if there is a monster.
 /// fn alert_monster(
 ///     monsters: Query<&Monster>,
-///     mut alarm: Deferred<AlarmFlag>
+///     mut alarm: ResMut<Alarm>
 /// ) {
 ///     if monsters.iter().next().is_some() {
-///         alarm.flag();
+///         // Since this system does nothing except for sounding the alarm,
+///         // it would be pointless to defer it, so we sound the alarm directly.
+///         alarm.0 = true;
 ///     }
 /// }
 ///
 /// let mut world = World::new();
 /// world.init_resource::<Alarm>();
+/// world.spawn(Settlement {
+///     // ...
+/// });
 ///
 /// let mut stage = SystemStage::parallel();
 /// stage
