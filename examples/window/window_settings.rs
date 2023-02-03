@@ -47,7 +47,7 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     }
 }
 
-/// This system switch the window level when pressing the T button
+/// This system switches the window level when pressing the T button
 /// You'll notice it won't be covered by other windows, or will be covered by all the other
 /// windows depending on the level.
 ///
