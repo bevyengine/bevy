@@ -356,20 +356,16 @@ impl TaskPool {
                 let get_results = async {
                     let mut tasks = Vec::with_capacity(spawned_ref.len());
                     let mut results = Vec::with_capacity(spawned_ref.len());
-
                     let mut nodes = Vec::with_capacity(spawned_ref.len());
                     let mut head = None;
-
-                    let mut failed = false;
-                    let mut completed = Vec::with_capacity(spawned_ref.len());
-
                     let mut completed_count = 0;
                     let mut total_count = 0;
+                    let mut failed = false;
                     loop {
                         // collect any new tasks
                         while let Ok(task) = spawned_ref.pop() {
                             let index = tasks.len();
-                            tasks.push(task);
+                            tasks.push(Some(task));
                             results.push(None);
 
                             // add to linked list of pending tasks
@@ -383,14 +379,14 @@ impl TaskPool {
                             }
                             head = Some(index);
 
-                            completed.push(false);
                             total_count += 1;
                         }
 
                         // poll pending tasks for completion
                         let mut next = head;
                         while let Some(index) = next {
-                            if let Some(result) = future::poll_once(&mut tasks[index]).await {
+                            let task = tasks[index].as_mut().unwrap();
+                            if let Some(result) = future::poll_once(task).await {
                                 // result is ready
                                 if result.is_some() {
                                     // task completed
@@ -412,7 +408,6 @@ impl TaskPool {
                                         nodes[n].prev = prev;
                                     }
 
-                                    completed[index] = true;
                                     completed_count += 1;
                                 } else {
                                     // task failed
@@ -425,11 +420,12 @@ impl TaskPool {
                         }
 
                         if failed {
-                            // cancel any unfinished tasks that we've taken from the queue
-                            for (task, finished) in tasks.into_iter().zip(completed.into_iter()) {
-                                if !finished {
-                                    task.cancel().await;
-                                }
+                            // cancel the remaining pending tasks
+                            let mut next = head;
+                            while let Some(index) = next {
+                                let task = tasks[index].take().unwrap();
+                                task.cancel().await;
+                                next = nodes[index].next;
                             }
 
                             panic!("scoped task failed");
