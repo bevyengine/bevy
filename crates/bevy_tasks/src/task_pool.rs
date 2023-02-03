@@ -347,88 +347,56 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            struct Node {
-                prev: Option<usize>,
-                next: Option<usize>,
-            }
-
             future::block_on(async move {
                 let get_results = async {
                     let mut tasks = Vec::with_capacity(spawned_ref.len());
                     let mut results = Vec::with_capacity(spawned_ref.len());
-                    // linked list of pending tasks
-                    let mut pending_list = Vec::with_capacity(spawned_ref.len());
-                    let mut pending_head = None;
+                    let mut pending_tasks = Vec::with_capacity(spawned_ref.len());
+                    let mut pending_tasks_next = Vec::with_capacity(spawned_ref.len());
 
                     let mut task_failed = false;
-                    let mut num_tasks_completed = 0;
                     loop {
                         // collect any new tasks
                         while let Ok(task) = spawned_ref.pop() {
                             let index = tasks.len();
                             tasks.push(Some(task));
                             results.push(None);
-
-                            pending_list.push(Node {
-                                prev: None,
-                                next: pending_head,
-                            });
-
-                            if let Some(head_index) = pending_head {
-                                pending_list[head_index].prev = Some(index);
-                            }
-                            pending_head = Some(index);
+                            pending_tasks.push(index);
                         }
 
-                        // poll pending tasks for completion
-                        let mut next = pending_head;
-                        while let Some(index) = next {
+                        // poll pending tasks
+                        for index in pending_tasks.drain(..) {
                             let task = tasks[index].as_mut().unwrap();
                             if let Some(result) = future::poll_once(task).await {
-                                // result is ready
-                                // remove task from the pending list
-                                let node = &mut pending_list[index];
-                                let prev = node.prev.take();
-                                let next = node.next.take();
-
-                                if let Some(p) = prev {
-                                    pending_list[p].next = next;
-                                } else {
-                                    // task was the head
-                                    pending_head = next;
-                                }
-
-                                if let Some(n) = next {
-                                    pending_list[n].prev = prev;
-                                }
-
-                                num_tasks_completed += 1;
+                                // task is complete
                                 if result.is_some() {
-                                    // task completed
+                                    // task succeeded
                                     results[index] = result;
                                 } else {
                                     // task failed
                                     task_failed = true;
                                     break;
                                 }
+                            } else {
+                                // task is still pending
+                                pending_tasks_next.push(index);
                             }
-
-                            next = pending_list[index].next;
                         }
+
+                        std::mem::swap(&mut pending_tasks, &mut pending_tasks_next);
+                        debug_assert!(pending_tasks_next.is_empty());
 
                         if task_failed {
                             // cancel the remaining pending tasks
-                            let mut next = pending_head;
-                            while let Some(index) = next {
+                            for index in pending_tasks.into_iter() {
                                 let task = tasks[index].take().unwrap();
                                 task.cancel().await;
-                                next = pending_list[index].next;
                             }
 
                             panic!("scoped task failed");
                         }
 
-                        if num_tasks_completed == tasks.len() && spawned_ref.is_empty() {
+                        if pending_tasks.is_empty() && spawned_ref.is_empty() {
                             // all tasks have completed
                             // TODO: prove that it's impossible for there to be tasks remaining
                             return results.into_iter().flatten().collect();
