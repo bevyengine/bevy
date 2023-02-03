@@ -32,7 +32,7 @@ pub struct BloomSettings {
     /// # In energy-conserving mode
     /// The value represents how likely the light is to scatter.
     ///
-    /// The value should be clamed between 0.0 and 1.0 where:
+    /// The value should be between 0.0 and 1.0 where:
     /// * 0.0 means no bloom
     /// * 1.0 means the light is scattered as much as possible
     ///
