@@ -207,17 +207,15 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.len(&self.events)
     }
 
-    /// Determines if no events are available to be read without consuming any.
-    /// If you need to consume the iterator you can use [`EventReader::clear`].
+    /// Returns `true` if there are no events available to read.
     ///
     /// # Example
     ///
-    /// The following example shows a common pattern of this function in conjunction with `clear`
-    /// to avoid leaking events to the next schedule iteration while also checking if it was emitted.
+    /// The following example shows a useful pattern where some behaviour is triggered if new events are available.
+    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behaviour the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
@@ -229,19 +227,17 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// # bevy_ecs::system::assert_is_system(play_collision_sound);
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.reader.is_empty(&self.events)
     }
 
-    /// Consumes the iterator.
+    /// Consumes all available events.
     ///
-    /// This means all currently available events will be removed before the next frame.
-    /// This is useful when multiple events are sent in a single frame and you want
-    /// to react to one or more events without needing to know how many were sent.
-    /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
+    /// This means these events will not appear in calls to [`EventReader::iter()`] or
+    /// [`EventReader::iter_with_id()`] and [`EventReader::is_empty()`] will return `true`.
     ///
-    /// For more information see [`EventReader::is_empty()`].
+    /// For usage, see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
-        self.iter().last();
+        self.reader.clear(&self.events);
     }
 }
 
@@ -362,9 +358,14 @@ impl<E: Event> ManualEventReader<E> {
             .saturating_sub(self.last_event_count)
     }
 
-    /// See [`EventReader::is_empty`]
+    /// See [`EventReader::is_empty()`]
     pub fn is_empty(&self, events: &Events<E>) -> bool {
         self.len(events) == 0
+    }
+
+    /// See [`EventReader::clear()`]
+    pub fn clear(&mut self, events: &Events<E>) {
+        self.last_event_count = events.event_count;
     }
 }
 

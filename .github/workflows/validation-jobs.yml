@@ -13,6 +13,7 @@ env:
 jobs:
   build-and-install-on-iOS:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
 
@@ -32,6 +33,7 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
 
@@ -147,6 +149,7 @@ jobs:
           path: .github/start-wasm-example/screenshot-*.png
 
   build-without-default-features:
+    timeout-minutes: 30
     strategy:
       matrix:
         crate: [bevy_ecs, bevy_reflect, bevy]

@@ -32,10 +32,7 @@ where
     }
 
     fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+        ArrayIter::new(self)
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {

@@ -121,9 +121,16 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
     tick_global_task_pools_on_main_thread();
 }
 
-/// Keeps a count of rendered frames since the start of the app
+/// Maintains a count of frames rendered since the start of the application.
 ///
-/// Wraps to 0 when it reaches the maximum u32 value
+/// [`FrameCount`] is incremented during [`CoreStage::Last`], providing predictable
+/// behaviour: it will be 0 during the first update, 1 during the next, and so forth.
+///
+/// # Overflows
+///
+/// [`FrameCount`] will wrap to 0 after exceeding [`u32::MAX`]. Within reasonable
+/// assumptions, one may exploit wrapping arithmetic to determine the number of frames
+/// that have elapsed between two observations – see [`u32::wrapping_sub()`].
 #[derive(Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
 
@@ -134,7 +141,7 @@ pub struct FrameCountPlugin;
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
-        app.add_system(update_frame_count.in_set(CoreSet::Update));
+        app.add_system(update_frame_count.in_set(CoreSet::Last));
     }
 }
 
