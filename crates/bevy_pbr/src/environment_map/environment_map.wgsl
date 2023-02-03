@@ -1,6 +1,5 @@
 #define_import_path bevy_pbr::environment_map
 
-const ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL = 10.0;
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -19,8 +18,10 @@ fn environment_map_light(
 ) -> EnvironmentMapLight {
 
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    let smallest_specular_mip_level = textureNumLevels(environment_map_specular) - 1i;
+    let radiance_level = perceptual_roughness * f32(smallest_specular_mip_level);
     let irradiance = textureSample(environment_map_diffuse, environment_map_sampler, N).rgb;
-    let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, perceptual_roughness * ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL).rgb;
+    let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, radiance_level).rgb;
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
     // Useful reference: https://bruop.github.io/ibl
