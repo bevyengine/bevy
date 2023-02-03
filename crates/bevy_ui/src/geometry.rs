@@ -245,9 +245,9 @@ impl UiRect {
     /// let ui_rect = UiRect::left(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn left(value: Val) -> Self {
         UiRect {
@@ -265,10 +265,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::right(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn right(value: Val) -> Self {
         UiRect {
@@ -286,10 +286,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::top(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn top(value: Val) -> Self {
         UiRect {
@@ -307,9 +307,9 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::bottom(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
