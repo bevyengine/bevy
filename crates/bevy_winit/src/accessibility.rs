@@ -19,12 +19,15 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowClosed, WindowFocused};
 
+/// Maps window entities to their AccessKit [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub HashMap<Entity, Adapter>);
 
+/// Maps window entities to their respective [`WinitActionHandler`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct WinitActionHandlers(pub HashMap<Entity, WinitActionHandler>);
 
+/// Forwards AccessKit [`ActionRequest`]s from winit to an event channel.
 #[derive(Clone, Default, Deref, DerefMut)]
 pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
@@ -190,6 +193,7 @@ fn remove_accessibility_nodes(
     }
 }
 
+/// Implements winit-specific AccessKit functionality.
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {

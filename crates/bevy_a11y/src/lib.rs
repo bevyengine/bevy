@@ -15,6 +15,12 @@ use bevy_ecs::{
 
 /// Component to wrap a [`Node`], representing this entity to the platform's
 /// accessibility API.
+///
+/// If an entity has a parent, and that parent also has an `AccessibilityNode`,
+/// the entity's node will be a child of the parent's node.
+///
+/// If the entity doesn't have a parent, or if the immediate parent doesn't have
+/// an `AccessibilityNode`, its node will be an immediate child of the primary window.
 #[derive(Component, Clone, Default, Deref, DerefMut)]
 pub struct AccessibilityNode(pub Node);
 
