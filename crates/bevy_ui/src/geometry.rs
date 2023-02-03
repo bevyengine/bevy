@@ -2,83 +2,9 @@ use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// A type which is commonly used to define insets, margins, paddings and borders.
+/// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-///
-/// ## Inset
-///
-/// A inset is used to determine where to place a UI element.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// # use bevy_utils::default;
-/// #
-/// let inset = UiRect {
-///     left: Val::Px(100.0),
-///     top: Val::Px(50.0),
-///     ..default()
-/// };
-/// ```
-///
-/// If you define opposite sides of the inset, the size of the UI element will automatically be calculated
-/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Auto`](crate::Val::Auto)
-/// as a width and height, the size would be determined by the window size and the values specified in the inset.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let inset = UiRect {
-///     left: Val::Px(100.0),
-///     right: Val::Px(200.0),
-///     top: Val::Px(300.0),
-///     bottom: Val::Px(400.0),
-/// };
-/// ```
-///
-/// To determine the width of the UI element you have to take the width of the window and subtract it by the
-/// left and right values of the inset. To determine the height of the UI element you have to take the height
-/// of the window and subtract it by the top and bottom values of the inset. If we had a window with a width
-/// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
-///
-/// ```
-/// // Size of the window
-/// let window_width = 1000.0;
-/// let window_height = 1000.0;
-///
-/// // Values of the inset
-/// let left = 100.0;
-/// let right = 200.0;
-/// let top = 300.0;
-/// let bottom = 400.0;
-///
-/// // Calculation to get the size of the UI element
-/// let ui_element_width = window_width - left - right;
-/// let ui_element_height = window_height - top - bottom;
-///
-/// assert_eq!(ui_element_width, 700.0);
-/// assert_eq!(ui_element_height, 300.0);
-/// ```
-///
-/// If you define a [`Size`] and also all four sides of the inset, the top and left values of the inset
-/// are used to determine where to place the UI element. The size will not be calculated using the bottom and
-/// right values of the inset because the size of the UI element is already explicitly specified.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Size, Val, Style};
-/// # use bevy_utils::default;
-/// #
-/// let style = Style {
-///     inset: UiRect { // Defining all four sides
-///         left: Val::Px(100.0),
-///         right: Val::Px(200.0),
-///         top: Val::Px(300.0),
-///         bottom: Val::Px(400.0),
-///     },
-///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
-///     ..default()
-/// };
-/// ```
 ///
 /// ## Margin
 ///
