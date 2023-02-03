@@ -69,7 +69,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// # use bevy_utils::default;
 /// #
 /// let style = Style {
-///     inset: Inset { // Defining all four sides
+///     inset: UiRect { // Defining all four sides
 ///         left: Val::Px(100.0),
 ///         right: Val::Px(200.0),
 ///         top: Val::Px(300.0),
