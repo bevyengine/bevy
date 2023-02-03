@@ -132,10 +132,7 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, world: &mut World) {
-        let param_state = self.param_state.as_mut().expect(PARAM_MESSAGE);
-        Param::apply(param_state, world);
-    }
+    fn apply_buffers(&mut self, _world: &mut World) {}
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
