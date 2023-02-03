@@ -132,7 +132,11 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, _world: &mut World) {}
+    fn apply_buffers(&mut self, _world: &mut World) {
+        // "pure" exclusive systems do not have any buffers to apply.
+        // Systems made by piping a normal system with an exclusive system
+        // might have buffers to apply, but this is handled by `PipeSystem`.
+    }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
