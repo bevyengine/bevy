@@ -797,6 +797,13 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// #[derive(Resource, Default)]
 /// struct AlarmFlag(bool);
 ///
+/// impl AlarmFlag {
+///     /// Sounds the alarm at the end of the current stage.
+///     pub fn flag(&mut self) {
+///         self.0 = true;
+///     }
+/// }
+///
 /// impl SystemBuffer for AlarmFlag {
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
@@ -812,7 +819,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
 ///     if criminals.iter().next().is_some() {
-///         alarm.0 = true;
+///         alarm.flag();
 ///     }
 /// }
 ///
@@ -822,7 +829,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
 ///     if monsters.iter().next().is_some() {
-///         alarm.0 = true;
+///         alarm.flag();
 ///     }
 /// }
 ///
