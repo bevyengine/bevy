@@ -357,7 +357,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StateError {
     AlreadyInState,
     StateAlreadyQueued,
