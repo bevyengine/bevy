@@ -150,49 +150,6 @@ fn update_accessibility_nodes(
     }
 }
 
-fn remove_accessibility_nodes(
-    adapters: NonSend<AccessKitAdapters>,
-    mut focus: ResMut<Focus>,
-    removed: RemovedComponents<AccessibilityNode>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    remaining_nodes: Query<Entity, With<AccessibilityNode>>,
-) {
-    if removed.iter().len() != 0 {
-        if let Ok(primary_window_id) = primary_window.get_single() {
-            if let Some(adapter) = adapters.get(&primary_window_id) {
-                adapter.update_if_active(|| {
-                    if let Some(last_focused_entity) = **focus {
-                        for entity in removed.iter() {
-                            if entity == last_focused_entity {
-                                **focus = None;
-                                break;
-                            }
-                        }
-                    }
-                    let children = remaining_nodes
-                        .iter()
-                        .map(|v| v.to_node_id())
-                        .collect::<Vec<NodeId>>();
-                    let window_update = (
-                        primary_window_id.to_node_id(),
-                        Arc::new(Node {
-                            role: Role::Window,
-                            children,
-                            ..default()
-                        }),
-                    );
-                    let focus = (**focus).unwrap_or(primary_window_id);
-                    TreeUpdate {
-                        nodes: vec![window_update],
-                        focus: Some(focus.to_node_id()),
-                        ..default()
-                    }
-                });
-            }
-        }
-    }
-}
-
 /// Implements winit-specific AccessKit functionality.
 pub struct AccessibilityPlugin;
 
@@ -204,7 +161,6 @@ impl Plugin for AccessibilityPlugin {
             .add_system_to_stage(CoreStage::PreUpdate, handle_window_focus)
             .add_system_to_stage(CoreStage::PreUpdate, window_closed)
             .add_system_to_stage(CoreStage::PreUpdate, poll_receivers)
-            .add_system_to_stage(CoreStage::PreUpdate, update_accessibility_nodes)
-            .add_system_to_stage(CoreStage::PostUpdate, remove_accessibility_nodes);
+            .add_system_to_stage(CoreStage::PreUpdate, update_accessibility_nodes);
     }
 }
