@@ -1168,8 +1168,8 @@ impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
 
 impl<T: FromReflect + Clone> Typed for Cow<'static, [T]> {
     fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
 
