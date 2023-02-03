@@ -1,4 +1,4 @@
-use crate::{Size, UiRect, Inset};
+use crate::{Inset, Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -230,7 +230,7 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-     /// The inset of this UI node, relative to its default position
+    /// The inset of this UI node, relative to its default position
     pub inset: Inset,
     /// The margin of the node
     pub margin: UiRect,
@@ -714,7 +714,6 @@ mod tests {
             different_variant_sum_2,
             Err(ValArithmeticError::NonIdenticalVariants)
         );
-
     }
 
     #[test]

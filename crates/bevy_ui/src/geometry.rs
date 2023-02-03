@@ -610,7 +610,6 @@ impl From<Inset> for UiRect {
     }
 }
 
-
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
