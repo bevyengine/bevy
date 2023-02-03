@@ -208,10 +208,11 @@ impl SystemExecutor for MultiThreadedExecutor {
         );
 
         if self.apply_final_buffers {
+            // Do one final apply buffers after all systems have completed
             // SAFETY: all systems have completed, and so no outstanding accesses remain
             let world = unsafe { &mut *world.get() };
             // Commands should be applied while on the scope's thread, not the executor's thread
-            apply_system_buffers(&mut self.unapplied_systems, systems, world);
+            apply_system_buffers(&self.unapplied_systems, systems, world);
             self.unapplied_systems.clear();
             debug_assert!(self.unapplied_systems.is_clear());
         }
@@ -478,12 +479,12 @@ impl MultiThreadedExecutor {
         let sender = self.sender.clone();
         if is_apply_system_buffers(system) {
             // TODO: avoid allocation
-            let mut unapplied_systems = self.unapplied_systems.clone();
+            let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                apply_system_buffers(&mut unapplied_systems, systems, world);
+                apply_system_buffers(&unapplied_systems, systems, world);
                 #[cfg(feature = "trace")]
                 drop(system_guard);
                 sender
@@ -563,7 +564,7 @@ impl MultiThreadedExecutor {
 }
 
 fn apply_system_buffers(
-    unapplied_systems: &mut FixedBitSet,
+    unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
 ) {
