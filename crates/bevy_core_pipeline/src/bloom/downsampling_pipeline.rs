@@ -40,7 +40,7 @@ pub struct BloomDownsamplingPipelineKeys {
 /// The uniform struct extracted from [`BloomSettings`] attached to a [`Camera`].
 /// Will be available for use in the Bloom shader in the first downsample pass.
 #[derive(Component, ShaderType, Clone)]
-pub struct BloomDownsamplingUniform {
+pub struct BloomDownsamplingUniforms {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
