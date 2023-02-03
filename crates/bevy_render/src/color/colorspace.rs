@@ -391,28 +391,24 @@ mod test {
         assert_eq!(hue.round() as u32, 0);
 
         let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([0.75, 0.25, 0.75]);
-        println!("{} {} {}", lightness, chroma, hue);
         assert_eq!((lightness * 100.0).round() as u32, 50);
         assert_eq!((chroma * 100.0).round() as u32, 78);
         assert_eq!(hue.round() as u32, 328);
 
         // a red
-        let (lightness, chroma, hue) =
-            LchRepresentation::nonlinear_srgb_to_lch([0.70, 0.19, 0.90]);
+        let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([0.70, 0.19, 0.90]);
         assert_eq!((lightness * 100.0).round() as u32, 49);
         assert_eq!((chroma * 100.0).round() as u32, 100);
         assert_eq!(hue.round() as u32, 319);
 
         // a green
-        let (lightness, chroma, hue) =
-            LchRepresentation::nonlinear_srgb_to_lch([0.10, 0.80, 0.59]);
+        let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([0.10, 0.80, 0.59]);
         assert_eq!((lightness * 100.0).round() as u32, 73);
         assert_eq!((chroma * 100.0).round() as u32, 56);
         assert_eq!(hue.round() as u32, 164);
 
         // a blue
-        let (lightness, chroma, hue) =
-            LchRepresentation::nonlinear_srgb_to_lch([0.25, 0.10, 0.92]);
+        let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([0.25, 0.10, 0.92]);
         assert_eq!((lightness * 100.0).round() as u32, 34);
         assert_eq!((chroma * 100.0).round() as u32, 118);
         assert_eq!(hue.round() as u32, 307);
