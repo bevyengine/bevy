@@ -6,6 +6,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::system::{SystemParam, SystemState};
 use system::{changed_window, create_window, despawn_window};
 
@@ -78,6 +79,7 @@ impl Plugin for WinitPlugin {
             NonSendMut<WinitWindows>,
             NonSendMut<AccessKitAdapters>,
             ResMut<WinitActionHandlers>,
+            ResMut<AccessibilityRequested>,
         )> = SystemState::from_world(&mut app.world);
 
         #[cfg(target_arch = "wasm32")]
@@ -89,6 +91,7 @@ impl Plugin for WinitPlugin {
             NonSendMut<WinitWindows>,
             NonSendMut<AccessKitAdapters>,
             ResMut<WinitActionHandlers>,
+            ResMut<AccessibilityRequested>,
             ResMut<CanvasParentResizeEventChannel>,
         )> = SystemState::from_world(&mut app.world);
 
@@ -105,6 +108,7 @@ impl Plugin for WinitPlugin {
                 winit_windows,
                 adapters,
                 handlers,
+                accessibility_requested,
             ) = create_window_system_state.get_mut(&mut app.world);
 
             #[cfg(target_arch = "wasm32")]
@@ -116,6 +120,7 @@ impl Plugin for WinitPlugin {
                 winit_windows,
                 adapters,
                 handlers,
+                accessibility_requested,
                 event_channel,
             ) = create_window_system_state.get_mut(&mut app.world);
 
@@ -130,6 +135,7 @@ impl Plugin for WinitPlugin {
                 winit_windows,
                 adapters,
                 handlers,
+                accessibility_requested,
                 #[cfg(target_arch = "wasm32")]
                 event_channel,
             );
@@ -273,6 +279,7 @@ pub fn winit_runner(mut app: App) {
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
         ResMut<WinitActionHandlers>,
+        ResMut<AccessibilityRequested>,
     )> = SystemState::from_world(&mut app.world);
 
     #[cfg(target_arch = "wasm32")]
@@ -283,6 +290,7 @@ pub fn winit_runner(mut app: App) {
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
         ResMut<WinitActionHandlers>,
+        ResMut<AccessibilityRequested>,
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
@@ -308,6 +316,7 @@ pub fn winit_runner(mut app: App) {
                 winit_windows,
                 adapters,
                 handlers,
+                accessibility_requested,
             ) = create_window_system_state.get_mut(&mut app.world);
 
             #[cfg(target_arch = "wasm32")]
@@ -318,6 +327,7 @@ pub fn winit_runner(mut app: App) {
                 winit_windows,
                 adapters,
                 handlers,
+                accessibility_requested,
                 canvas_parent_resize_channel,
             ) = create_window_system_state.get_mut(&mut app.world);
 
@@ -330,6 +340,7 @@ pub fn winit_runner(mut app: App) {
                 winit_windows,
                 adapters,
                 handlers,
+                accessibility_requested,
                 #[cfg(target_arch = "wasm32")]
                 canvas_parent_resize_channel,
             );

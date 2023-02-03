@@ -1,3 +1,4 @@
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -38,6 +39,7 @@ pub(crate) fn create_window<'a>(
     mut winit_windows: NonSendMut<WinitWindows>,
     mut adapters: NonSendMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionHandlers>,
+    mut accessibility_requested: ResMut<AccessibilityRequested>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut component) in created_windows {
@@ -57,6 +59,7 @@ pub(crate) fn create_window<'a>(
             &component,
             &mut adapters,
             &mut handlers,
+            &mut accessibility_requested,
         );
         let current_size = winit_window.inner_size();
         component

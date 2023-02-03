@@ -2,7 +2,10 @@
 
 #![warn(missing_docs)]
 
-use std::num::NonZeroU128;
+use std::{
+    num::NonZeroU128,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 pub use accesskit;
 use accesskit::{Node, NodeId};
@@ -12,6 +15,14 @@ use bevy_ecs::{
     prelude::{Component, Entity},
     system::Resource,
 };
+
+/// Resource that tracks whether an assistive technology has requested
+/// accessibility information.
+///
+/// Useful if a third-party plugin needs to conditionally integrate with
+/// AccessKit
+#[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
+pub struct AccessibilityRequested(Arc<AtomicBool>);
 
 /// Component to wrap a [`Node`], representing this entity to the platform's
 /// accessibility API.
@@ -52,6 +63,7 @@ pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<Focus>();
+        app.init_resource::<AccessibilityRequested>()
+            .init_resource::<Focus>();
     }
 }
