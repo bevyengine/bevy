@@ -436,7 +436,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 Using bash:
 
 ```sh
-cd examples/ios
+cd examples/mobile
 make run
 ```
 
@@ -451,7 +451,7 @@ DEVICE_ID=${YOUR_DEVICE_ID} make run
 If you'd like to see xcode do stuff, you can run
 
 ```sh
-open bevy_ios_example.xcodeproj/
+open bevy_mobile_example.xcodeproj/
 ```
 
 which will open xcode. You then must push the zoom zoom play button and wait

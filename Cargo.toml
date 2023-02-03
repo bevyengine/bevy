@@ -16,8 +16,7 @@ rust-version = "1.67.0"
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
-  "examples/android",
-  "examples/ios",
+  "examples/mobile",
   "tools/ci",
   "tools/build-example-pages",
   "tools/build-wasm-example",
