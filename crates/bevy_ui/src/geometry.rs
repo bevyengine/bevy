@@ -374,10 +374,10 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where `height` takes the given value.
-    pub const fn height(width: Val) -> Self {
+    pub const fn height(height: Val) -> Self {
         Self {
-            width,
-            height: Val::DEFAULT,
+            width: Val::DEFAULT,
+            height,
         }
     }
 
