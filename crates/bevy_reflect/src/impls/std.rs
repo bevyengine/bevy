@@ -12,7 +12,6 @@ use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
-use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     borrow::Cow,
@@ -1174,15 +1173,9 @@ impl<T: FromReflect + Clone> Typed for Cow<'static, [T]> {
     }
 }
 
-impl<T: FromReflect + Clone + Serialize + for<'de> Deserialize<'de>> GetTypeRegistration
-    for Cow<'static, [T]>
-{
+impl<T: FromReflect + Clone> GetTypeRegistration for Cow<'static, [T]> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Cow<'static, [T]>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, [T]>>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, [T]>>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, [T]>>::from_type());
-        registration
+        TypeRegistration::of::<Cow<'static, [T]>>()
     }
 }
 

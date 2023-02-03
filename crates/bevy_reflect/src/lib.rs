@@ -852,7 +852,9 @@ mod tests {
         let info = MyCowSlice::type_info();
         if let TypeInfo::List(info) = info {
             assert!(info.is::<MyCowSlice>());
+            assert!(info.item_is::<u8>());
             assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_name());
+            assert_eq!(std::any::type_name::<u8>(), info.item_type_name());
         } else {
             panic!("Expected `TypeInfo::List`");
         }
