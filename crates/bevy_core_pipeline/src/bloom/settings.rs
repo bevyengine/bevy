@@ -23,7 +23,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 ///
 /// Bevy's implementation uses a parametric curve to blend between a set of
 /// blurred (lower frequency) images generated from the camera's view.
-/// See <https://starlederer.github.io/bloom/> for a vizualization of the parametric curve
+/// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a vislualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
