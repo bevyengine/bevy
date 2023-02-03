@@ -19,8 +19,8 @@ use bevy_render::{
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
-    pub id_main: CachedRenderPipelineId,
-    pub id_first: CachedRenderPipelineId,
+    pub main: CachedRenderPipelineId,
+    pub first: CachedRenderPipelineId,
 }
 
 #[derive(Resource)]
@@ -186,8 +186,8 @@ pub fn prepare_downsampling_pipeline(
         commands
             .entity(entity)
             .insert(BloomDownsamplingPipelineIds {
-                id_first: pipeline_first_id,
-                id_main: pipeline_id,
+                first: pipeline_first_id,
+                main: pipeline_id,
             });
     }
 }

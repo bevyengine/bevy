@@ -191,8 +191,8 @@ impl Node for BloomNode {
             Some(upsampling_final_pipeline),
         ) = (
             uniforms.binding(),
-            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_first),
-            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_main),
+            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.first),
+            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
         ) else { return Ok(()) };
