@@ -230,7 +230,7 @@ struct WinitPersistentState {
 impl Default for WinitPersistentState {
     fn default() -> Self {
         Self {
-            active: true,
+            active: false,
             low_power_event: false,
             redraw_request_sent: false,
             timeout_reached: false,
@@ -289,7 +289,7 @@ pub fn winit_runner(mut app: App) {
             }
         }
 
-        {
+        if winit_state.active {
             #[cfg(not(target_arch = "wasm32"))]
             let (commands, mut new_windows, created_window_writer, winit_windows) =
                 create_window_system_state.get_mut(&mut app.world);
