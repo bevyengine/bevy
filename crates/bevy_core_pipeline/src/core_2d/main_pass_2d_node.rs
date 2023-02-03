@@ -92,7 +92,7 @@ impl Node for MainPass2dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
+                    load: wgpu::LoadOp::Load,
                     store: true,
                 }))],
                 depth_stencil_attachment: None,
