@@ -1,19 +1,19 @@
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{atomic::Ordering, Arc, Mutex},
 };
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate},
-    AccessKitEntityExt, AccessibilityNode, Focus,
+    accesskit::{ActionHandler, ActionRequest, Node, Role, TreeUpdate},
+    AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
 };
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
-    system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
+    system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_utils::{default, HashMap};
@@ -83,6 +83,7 @@ fn poll_receivers(handlers: Res<WinitActionHandlers>, mut actions: EventWriter<A
 fn update_accessibility_nodes(
     adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
+    accessibility_requested: Res<AccessibilityRequested>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
         Entity,
@@ -92,59 +93,61 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
-        if let Some(adapter) = adapters.get(&primary_window_id) {
-            let should_run = focus.is_changed() || !nodes.is_empty();
-            if should_run {
-                adapter.update_if_active(|| {
-                    let mut to_update = vec![];
-                    let mut has_focus = false;
-                    let mut name = None;
-                    if primary_window.focused {
-                        has_focus = true;
-                        let title = primary_window.title.clone();
-                        name = Some(title.into_boxed_str());
-                    }
-                    let focus_id = if has_focus {
-                        (*focus).or_else(|| Some(primary_window_id))
-                    } else {
-                        None
-                    };
-                    let mut root_children = vec![];
-                    for (entity, node, children, parent) in &nodes {
-                        let mut node = (**node).clone();
-                        if let Some(parent) = parent {
-                            if node_entities.get(**parent).is_err() {
+    if accessibility_requested.load(Ordering::SeqCst) {
+        if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
+            if let Some(adapter) = adapters.get(&primary_window_id) {
+                let should_run = focus.is_changed() || !nodes.is_empty();
+                if should_run {
+                    adapter.update_if_active(|| {
+                        let mut to_update = vec![];
+                        let mut has_focus = false;
+                        let mut name = None;
+                        if primary_window.focused {
+                            has_focus = true;
+                            let title = primary_window.title.clone();
+                            name = Some(title.into_boxed_str());
+                        }
+                        let focus_id = if has_focus {
+                            (*focus).or_else(|| Some(primary_window_id))
+                        } else {
+                            None
+                        };
+                        let mut root_children = vec![];
+                        for (entity, node, children, parent) in &nodes {
+                            let mut node = (**node).clone();
+                            if let Some(parent) = parent {
+                                if node_entities.get(**parent).is_err() {
+                                    root_children.push(entity.to_node_id());
+                                }
+                            } else {
                                 root_children.push(entity.to_node_id());
                             }
-                        } else {
-                            root_children.push(entity.to_node_id());
-                        }
-                        if let Some(children) = children {
-                            for child in children.iter() {
-                                if node_entities.get(*child).is_ok() {
-                                    node.children.push(child.to_node_id());
+                            if let Some(children) = children {
+                                for child in children.iter() {
+                                    if node_entities.get(*child).is_ok() {
+                                        node.children.push(child.to_node_id());
+                                    }
                                 }
                             }
+                            to_update.push((entity.to_node_id(), Arc::new(node)));
                         }
-                        to_update.push((entity.to_node_id(), Arc::new(node)));
-                    }
-                    let window_update = (
-                        primary_window_id.to_node_id(),
-                        Arc::new(Node {
-                            role: Role::Window,
-                            name,
-                            children: root_children,
+                        let window_update = (
+                            primary_window_id.to_node_id(),
+                            Arc::new(Node {
+                                role: Role::Window,
+                                name,
+                                children: root_children,
+                                ..default()
+                            }),
+                        );
+                        to_update.insert(0, window_update);
+                        TreeUpdate {
+                            nodes: to_update,
+                            focus: focus_id.map(|v| v.to_node_id()),
                             ..default()
-                        }),
-                    );
-                    to_update.insert(0, window_update);
-                    TreeUpdate {
-                        nodes: to_update,
-                        focus: focus_id.map(|v| v.to_node_id()),
-                        ..default()
-                    }
-                });
+                        }
+                    });
+                }
             }
         }
     }
