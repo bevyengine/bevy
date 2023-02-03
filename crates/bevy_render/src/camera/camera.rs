@@ -15,13 +15,13 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res},
+    system::{Commands, Local, Query, Res},
 };
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
@@ -75,6 +75,30 @@ pub struct ComputedCameraValues {
     old_viewport_size: Option<UVec2>,
 }
 
+/// Control how this camera outputs once rendering is completed.
+#[derive(Default, Debug, Clone, Copy)]
+pub enum CameraOutputMode {
+    /// If the camera is the last camera for a given [`RenderTarget`], defaults to `Flush(None)`,
+    /// which will clear the target and output the render results.
+    /// If the camera is not the last camera, defaults to `Retain` which will keep the running
+    /// results internal to the camera.
+    #[default]
+    Default,
+    /// Flush the current render results to the [`RenderTarget`].
+    /// The blend mode is used to combine results with previous contents of the target. Typically the first flushing
+    /// camera writing to a target will use `Flush(None)` to clear the target and write the current render results.
+    /// If multiple flushing cameras are used, later cameras may prefer to use `Flush(Some(BlendState::ALPHA_BLENDING))`
+    /// to combine render results with previously flushed results.
+    /// if a camera uses `Flush`, the next camera on the the same target should clear the internal render results with
+    /// `ClearColorConfig::Custom(Color::NONE)` to avoid double writing of the first results on the next flush.
+    Flush(Option<wgpu::BlendState>),
+    /// Keep the current render results internally. A later camera must output with `Flush` for any results to be output.
+    /// This is useful for combining the results of several cameras before applying post-processing to the full set of results.
+    /// If a camera uses `Retain`, the next camera on the same target should make sure NOT to clear the render results by
+    /// using `ClearColorConfig::None`, else they will be discarded.
+    Retain,
+}
+
 /// The defining component for camera entities, storing information about how and what to render
 /// through this camera.
 ///
@@ -107,6 +131,10 @@ pub struct Camera {
     /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
     // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
     pub hdr: bool,
+    // todo: reflect this when #6042 lands
+    /// The [`CameraOutputNode`] for this camera.
+    #[reflect(ignore)]
+    pub output_mode: CameraOutputMode,
 }
 
 impl Default for Camera {
@@ -118,6 +146,7 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             hdr: false,
+            output_mode: Default::default(),
         }
     }
 }
@@ -511,6 +540,22 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
 }
 
+/// describes the camera's position within the set of cameras rendering
+/// to the same [`RenderTarget`].
+/// This position affects the default behaviour of [`ClearColorConfig::Default`].
+#[derive(Debug, Clone, Copy)]
+pub enum CameraChainPosition {
+    First,
+    FirstAfterFlush,
+    NotFirst,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ExtractedCameraOutputMode {
+    Flush(Option<wgpu::BlendState>),
+    Retain,
+}
+
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
@@ -519,6 +564,8 @@ pub struct ExtractedCamera {
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
     pub order: isize,
+    pub chain_position: CameraChainPosition,
+    pub output_mode: ExtractedCameraOutputMode,
 }
 
 pub fn extract_cameras(
@@ -533,8 +580,36 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    mut camera_order: Local<HashMap<Option<NormalizedRenderTarget>, Vec<(isize, bool)>>>,
 ) {
     let primary_window = primary_window.iter().next();
+
+    // clear existing camera order
+    for camera_list in camera_order.values_mut() {
+        camera_list.clear();
+    }
+
+    // capture current camera order and record whether they flush
+    for (_, camera, ..) in query.iter() {
+        if !camera.is_active {
+            continue;
+        }
+        let Some(target_size) = camera.physical_target_size() else { continue };
+        if target_size.x == 0 || target_size.y == 0 {
+            continue;
+        }
+
+        let target = camera.target.normalize(primary_window);
+        let camera_list = camera_order.entry(target).or_default();
+        let is_flushing = matches!(camera.output_mode, CameraOutputMode::Flush(_));
+        camera_list.push((camera.order, is_flushing));
+    }
+
+    // sort by priority
+    for camera_list in camera_order.values_mut() {
+        camera_list.sort_by_key(|(order, _)| *order);
+    }
+
     for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
         if !camera.is_active {
             continue;
@@ -547,14 +622,57 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
+
+            let target = camera.target.normalize(primary_window);
+            let camera_list = camera_order
+                .get(&target)
+                .expect("target should have been added");
+            let camera_index = camera_list
+                .iter()
+                .position(|(order, _)| order == &camera.order)
+                .expect("camera should have been added");
+
+            let chain_position = match camera_index {
+                0 => CameraChainPosition::First,
+                i => {
+                    if camera_list[i - 1].1 {
+                        CameraChainPosition::FirstAfterFlush
+                    } else {
+                        CameraChainPosition::NotFirst
+                    }
+                }
+            };
+
+            let output_mode = match camera.output_mode {
+                CameraOutputMode::Default => {
+                    if camera_index == camera_list.len() - 1 {
+                        // we are last so should flush
+                        if camera_list.iter().any(|(_, flushes)| *flushes) {
+                            // some previous camera has already written to output so we will blend
+                            ExtractedCameraOutputMode::Flush(Some(wgpu::BlendState::ALPHA_BLENDING))
+                        } else {
+                            // this is the first flush for the target, so overwrite
+                            ExtractedCameraOutputMode::Flush(None)
+                        }
+                    } else {
+                        // we are not last so default to retaining results
+                        ExtractedCameraOutputMode::Retain
+                    }
+                }
+                CameraOutputMode::Flush(f) => ExtractedCameraOutputMode::Flush(f),
+                CameraOutputMode::Retain => ExtractedCameraOutputMode::Retain,
+            };
+
             commands.get_or_spawn(entity).insert((
                 ExtractedCamera {
-                    target: camera.target.normalize(primary_window),
+                    target,
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
                     order: camera.order,
+                    chain_position,
+                    output_mode,
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),

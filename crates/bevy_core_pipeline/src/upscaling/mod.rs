@@ -3,8 +3,12 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
-use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
+use bevy_render::{
+    camera::{ExtractedCamera, ExtractedCameraOutputMode},
+    renderer::RenderDevice,
+    view::Msaa,
+};
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 mod node;
@@ -80,6 +84,8 @@ pub enum UpscalingMode {
 pub struct UpscalingPipelineKey {
     upscaling_mode: UpscalingMode,
     texture_format: TextureFormat,
+    blend_state: Option<wgpu::BlendState>,
+    samples: u32,
 }
 
 impl SpecializedRenderPipeline for UpscalingPipeline {
@@ -96,36 +102,55 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
-                    blend: None,
+                    blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: None,
-            multisample: MultisampleState::default(),
+            multisample: MultisampleState {
+                count: key.samples,
+                ..Default::default()
+            },
         }
     }
 }
 
 #[derive(Component)]
-pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
+pub struct ViewUpscalingPipeline {
+    pipeline: CachedRenderPipelineId,
+    retain: bool,
+}
 
 fn queue_view_upscaling_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
-    view_targets: Query<(Entity, &ViewTarget)>,
+    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera)>,
+    msaa: Res<Msaa>,
 ) {
-    for (entity, view_target) in view_targets.iter() {
-        let key = UpscalingPipelineKey {
-            upscaling_mode: UpscalingMode::Filtering,
-            texture_format: view_target.out_texture_format(),
+    for (entity, view_target, camera) in view_targets.iter() {
+        let key = match camera.output_mode {
+            ExtractedCameraOutputMode::Flush(f) => UpscalingPipelineKey {
+                upscaling_mode: UpscalingMode::Filtering,
+                texture_format: view_target.out_texture_format(),
+                blend_state: f.clone(),
+                samples: 1,
+            },
+            ExtractedCameraOutputMode::Retain => UpscalingPipelineKey {
+                upscaling_mode: UpscalingMode::Filtering,
+                texture_format: view_target.main_texture_format(),
+                blend_state: None,
+                samples: msaa.samples(),
+            },
         };
+
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
-        commands
-            .entity(entity)
-            .insert(ViewUpscalingPipeline(pipeline));
+        commands.entity(entity).insert(ViewUpscalingPipeline {
+            pipeline,
+            retain: matches!(camera.output_mode, ExtractedCameraOutputMode::Retain),
+        });
     }
 }

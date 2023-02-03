@@ -512,7 +512,11 @@ impl FromWorld for BloomPipelines {
                                 dst_factor: BlendFactor::One,
                                 operation: BlendOperation::Add,
                             },
-                            alpha: BlendComponent::REPLACE,
+                            alpha: BlendComponent {
+                                src_factor: BlendFactor::One,
+                                dst_factor: BlendFactor::One,
+                                operation: BlendOperation::Max,
+                            },
                         }),
                         write_mask: ColorWrites::ALL,
                     })],

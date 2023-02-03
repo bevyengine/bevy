@@ -224,6 +224,16 @@ impl ViewTarget {
         self.out_texture_format
     }
 
+    /// is the last written texture also the base texture
+    pub fn is_current_base(&self) -> bool {
+        self.sampled_main_texture().is_none() && self.main_texture.load(Ordering::SeqCst) == 0
+    }
+
+    /// the initial texture that will be written to.
+    pub fn base_texture(&self) -> &TextureView {
+        self.sampled_main_texture().unwrap_or(&self.main_textures.a)
+    }
+
     /// This will start a new "post process write", which assumes that the caller
     /// will write the [`PostProcessWrite`]'s `source` to the `destination`.
     ///

@@ -56,6 +56,11 @@ impl Node for UpscalingNode {
             Err(_) => return Ok(()),
         };
 
+        if upscaling_target.retain && target.is_current_base() {
+            // input is already output, nothing to do
+            return Ok(());
+        }
+
         let upscaled_texture = target.main_texture();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
@@ -89,18 +94,24 @@ impl Node for UpscalingNode {
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
+        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.pipeline) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
+        };
+
+        let view_attachment = if upscaling_target.retain {
+            target.base_texture()
+        } else {
+            target.out_texture()
         };
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: target.out_texture(),
+                view: &view_attachment,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Default::default()),
+                    load: LoadOp::Load,
                     store: true,
                 },
             })],
