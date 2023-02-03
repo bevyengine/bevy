@@ -801,6 +801,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// #[derive(Component)]
 /// pub struct Monster;
 ///
+/// # impl Criminal { pub fn is_threat(&self, _: &Settlement) -> bool { true } }
+///
 /// use bevy_ecs::system::{Deferred, SystemBuffer, SystemMeta};
 ///
 /// // Uses deferred mutations to allow signalling the alarm from multiple systems in parallel.
@@ -871,12 +873,12 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// assert_eq!(world.resource::<Alarm>().0, false);
 ///
 /// // Spawn a monster, which will cause the alarm to be sounded.
-/// world.spawn(Monster);
+/// let m_id = world.spawn(Monster).id();
 /// stage.run(&mut world);
 /// assert_eq!(world.resource::<Alarm>().0, true);
 ///
 /// // Remove the monster and reset the alarm.
-/// world.clear_entities();
+/// world.entity_mut(m_id).despawn();
 /// world.resource_mut::<Alarm>().0 = false;
 ///
 /// // Spawn a criminal, which will cause the alarm to be sounded.
