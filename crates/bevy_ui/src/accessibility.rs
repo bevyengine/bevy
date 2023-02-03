@@ -54,54 +54,77 @@ fn calc_bounds(
 
 fn button_changed(
     mut commands: Commands,
-    query: Query<(Entity, &Children), Changed<Button>>,
+    mut query: Query<(Entity, &Children, Option<&mut AccessibilityNode>), Changed<Button>>,
     texts: Query<&Text>,
 ) {
-    for (entity, children) in &query {
-        let node = AccessKitNode {
-            role: Role::Button,
-            name: calc_name(&texts, children),
-            ..default()
-        };
-        commands
-            .entity(entity)
-            .insert(AccessibilityNode::from(node));
+    for (entity, children, accessible) in &mut query {
+        let name = calc_name(&texts, children);
+        if let Some(mut accessible) = accessible {
+            accessible.role = Role::Button;
+            accessible.name = name;
+        } else {
+            let node = AccessKitNode {
+                role: Role::Button,
+                name,
+                ..default()
+            };
+            commands
+                .entity(entity)
+                .insert(AccessibilityNode::from(node));
+        }
     }
 }
 
 fn image_changed(
     mut commands: Commands,
-    query: Query<(Entity, &Children), (Changed<UiImage>, Without<Button>)>,
+    mut query: Query<
+        (Entity, &Children, Option<&mut AccessibilityNode>),
+        (Changed<UiImage>, Without<Button>),
+    >,
     texts: Query<&Text>,
 ) {
-    for (entity, children) in &query {
-        let node = AccessKitNode {
-            role: Role::Image,
-            name: calc_name(&texts, children),
-            ..default()
-        };
-        commands
-            .entity(entity)
-            .insert(AccessibilityNode::from(node));
+    for (entity, children, accessible) in &mut query {
+        let name = calc_name(&texts, children);
+        if let Some(mut accessible) = accessible {
+            accessible.role = Role::Image;
+            accessible.name = name;
+        } else {
+            let node = AccessKitNode {
+                role: Role::Image,
+                name,
+                ..default()
+            };
+            commands
+                .entity(entity)
+                .insert(AccessibilityNode::from(node));
+        }
     }
 }
 
-fn label_changed(mut commands: Commands, query: Query<(Entity, &Text), Changed<Label>>) {
-    for (entity, text) in &query {
+fn label_changed(
+    mut commands: Commands,
+    mut query: Query<(Entity, &Text, Option<&mut AccessibilityNode>), Changed<Label>>,
+) {
+    for (entity, text, accessible) in &mut query {
         let values = text
             .sections
             .iter()
             .map(|v| v.value.to_string())
             .collect::<Vec<String>>();
-        let name = values.join(" ");
-        let node = AccessKitNode {
-            role: Role::LabelText,
-            name: Some(name.into_boxed_str()),
-            ..default()
-        };
-        commands
-            .entity(entity)
-            .insert(AccessibilityNode::from(node));
+        let name = Some(values.join(" ").into_boxed_str());
+        if let Some(mut accessible) = accessible {
+            accessible.role = Role::LabelText;
+            accessible.name = name;
+        } else {
+            let node = AccessKitNode {
+                role: Role::LabelText,
+                name,
+                ..default()
+            };
+            commands
+                .entity(entity)
+                .insert(AccessibilityNode::from(node));
+        }
     }
 }
 
