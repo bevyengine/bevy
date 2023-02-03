@@ -438,6 +438,9 @@ impl TaskPool {
                             // TODO: prove that it's impossible for there to be tasks remaining
                             return results;
                         }
+
+                        // give the tasks a chance to make progress
+                        future::yield_now().await;
                     }
                 };
 
