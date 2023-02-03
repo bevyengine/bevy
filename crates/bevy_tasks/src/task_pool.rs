@@ -370,6 +370,7 @@ impl TaskPool {
                         while let Ok(task) = spawned_ref.pop() {
                             let index = tasks.len();
                             tasks.push(task);
+                            results.push(None);
 
                             // add to linked list of pending tasks
                             nodes.push(Node {
@@ -390,9 +391,9 @@ impl TaskPool {
                         let mut next = head;
                         while let Some(index) = next {
                             if let Some(result) = future::poll_once(&mut tasks[index]).await {
-                                if let Some(value) = result {
+                                if result.is_some() {
                                     // task completed, store its result
-                                    results.push(value);
+                                    results[index] = result;
 
                                     // remove it from the list
                                     let node = &mut nodes[index];
@@ -402,16 +403,14 @@ impl TaskPool {
                                     // connect prev.next -> next
                                     if let Some(p) = prev {
                                         nodes[p].next = next;
+                                    } else {
+                                        // this was the head
+                                        head = next;
                                     }
 
                                     // connect prev <- next.prev
                                     if let Some(n) = next {
                                         nodes[n].prev = prev;
-                                    }
-
-                                    if head == Some(index) {
-                                        // this task was the head
-                                        head = next;
                                     }
 
                                     must_cancel_on_failure[index] = false;
@@ -441,7 +440,7 @@ impl TaskPool {
                         if completed_count == total_count && spawned_ref.is_empty() {
                             // all tasks have completed
                             // TODO: prove that it's impossible for there to be tasks remaining
-                            return results;
+                            return results.into_iter().flatten().collect();
                         }
 
                         // give the tasks a chance to make progress
