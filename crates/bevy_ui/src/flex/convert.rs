@@ -42,7 +42,10 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         align_self: value.align_self.into(),
         align_content: value.align_content.into(),
         justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position.into()),
+        position: from_rect(
+            scale_factor,
+            UiRect::new(value.left, value.right, value.top, value.bottom),
+        ),
         margin: from_rect(scale_factor, value.margin),
         padding: from_rect(scale_factor, value.padding),
         border: from_rect(scale_factor, value.border),

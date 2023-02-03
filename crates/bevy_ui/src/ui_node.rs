@@ -1,4 +1,4 @@
-use crate::{Position, Size, UiRect};
+use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -215,6 +215,10 @@ pub struct Style {
     pub display: Display,
     /// Whether to arrange this node relative to other nodes, or positioned absolutely
     pub position_type: PositionType,
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
     /// Which direction the content of this node should go
     pub direction: Direction,
     /// Whether to use column or row layout
@@ -230,8 +234,6 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The position of the node
-    pub position: Position,
     /// The margin of the node
     pub margin: UiRect,
     /// The padding of the node
@@ -256,7 +258,7 @@ pub struct Style {
     pub overflow: Overflow,
     /// The size of the gutters between the rows and columns of the flexbox layout
     ///
-    /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
+    /// A value of `Size::AUTO` is treated as zero.
     pub gap: Size,
 }
 
@@ -264,6 +266,10 @@ impl Style {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
         position_type: PositionType::DEFAULT,
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
         direction: Direction::DEFAULT,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
@@ -271,7 +277,6 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        position: Position::DEFAULT,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,

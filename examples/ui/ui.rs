@@ -150,11 +150,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         size: Size::all(Val::Px(200.)),
                         position_type: PositionType::Absolute,
-                        position: Position {
-                            left: Val::Px(210.),
-                            bottom: Val::Px(10.),
-                            ..Default::default()
-                        },
+                        left: Val::Px(210.),
+                        bottom: Val::Px(10.),
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
@@ -198,11 +195,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: Position {
-                                        left: Val::Px(20.),
-                                        bottom: Val::Px(20.),
-                                        ..Default::default()
-                                    },
+                                    left: Val::Px(20.),
+                                    bottom: Val::Px(20.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
@@ -212,11 +206,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: Position {
-                                        left: Val::Px(40.),
-                                        bottom: Val::Px(40.),
-                                        ..Default::default()
-                                    },
+                                    left: Val::Px(40.),
+                                    bottom: Val::Px(40.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
@@ -226,11 +217,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: Position {
-                                        left: Val::Px(60.),
-                                        bottom: Val::Px(60.),
-                                        ..Default::default()
-                                    },
+                                    left: Val::Px(60.),
+                                    bottom: Val::Px(60.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
@@ -241,11 +229,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: Position {
-                                        left: Val::Px(80.),
-                                        bottom: Val::Px(80.),
-                                        ..Default::default()
-                                    },
+                                    left: Val::Px(80.),
+                                    bottom: Val::Px(80.),
                                     ..default()
                                 },
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
@@ -303,7 +288,7 @@ fn mouse_scroll(
             };
             scrolling_list.position += dy;
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.position.top = Val::Px(scrolling_list.position);
+            style.top = Val::Px(scrolling_list.position);
         }
     }
 }

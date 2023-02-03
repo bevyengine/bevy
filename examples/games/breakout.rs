@@ -235,11 +235,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: Position {
-                top: SCOREBOARD_TEXT_PADDING,
-                left: SCOREBOARD_TEXT_PADDING,
-                ..default()
-            },
+            top: SCOREBOARD_TEXT_PADDING,
+            left: SCOREBOARD_TEXT_PADDING,
             ..default()
         }),
     );

@@ -421,11 +421,8 @@ mod menu {
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            position: Position {
-                left: Val::Px(10.0),
-                right: Val::Auto,
-                ..Default::default()
-            },
+            left: Val::Px(10.0),
+            right: Val::Auto,
             ..default()
         };
         let button_text_style = TextStyle {

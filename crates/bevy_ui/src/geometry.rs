@@ -2,9 +2,83 @@ use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// A type which is commonly used to define margins, paddings and borders.
+/// A type which is commonly used to define positions, margins, paddings and borders.
 ///
 /// # Examples
+///
+/// ## Position
+///
+/// A position is used to determine where to place a UI element.
+///
+/// ```
+/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_utils::default;
+/// #
+/// let position = UiRect {
+///     left: Val::Px(100.0),
+///     top: Val::Px(50.0),
+///     ..default()
+/// };
+/// ```
+///
+/// If you define opposite sides of the position, the size of the UI element will automatically be calculated
+/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Auto`](crate::Val::Auto)
+/// as a width and height, the size would be determined by the window size and the values specified in the position.
+///
+/// ```
+/// # use bevy_ui::{UiRect, Val};
+/// #
+/// let position = UiRect {
+///     left: Val::Px(100.0),
+///     right: Val::Px(200.0),
+///     top: Val::Px(300.0),
+///     bottom: Val::Px(400.0),
+/// };
+/// ```
+///
+/// To determine the width of the UI element you have to take the width of the window and subtract it by the
+/// left and right values of the position. To determine the height of the UI element you have to take the height
+/// of the window and subtract it by the top and bottom values of the position. If we had a window with a width
+/// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
+///
+/// ```
+/// // Size of the window
+/// let window_width = 1000.0;
+/// let window_height = 1000.0;
+///
+/// // Values of the position
+/// let left = 100.0;
+/// let right = 200.0;
+/// let top = 300.0;
+/// let bottom = 400.0;
+///
+/// // Calculation to get the size of the UI element
+/// let ui_element_width = window_width - left - right;
+/// let ui_element_height = window_height - top - bottom;
+///
+/// assert_eq!(ui_element_width, 700.0);
+/// assert_eq!(ui_element_height, 300.0);
+/// ```
+///
+/// If you define a [`Size`] and also all four sides of the position, the top and left values of the position
+/// are used to determine where to place the UI element. The size will not be calculated using the bottom and
+/// right values of the position because the size of the UI element is already explicitly specified.
+///
+/// ```
+/// # use bevy_ui::{UiRect, Size, Val, Style};
+/// # use bevy_utils::default;
+/// #
+/// let style = Style {
+///     position: UiRect { // Defining all four sides
+///         left: Val::Px(100.0),
+///         right: Val::Px(200.0),
+///         top: Val::Px(300.0),
+///         bottom: Val::Px(400.0),
+///     },
+///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
+///     ..default()
+/// };
+/// ```
 ///
 /// ## Margin
 ///
@@ -171,9 +245,9 @@ impl UiRect {
     /// let ui_rect = UiRect::left(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::Undefined);
+    /// assert_eq!(ui_rect.top, Val::Undefined);
+    /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn left(value: Val) -> Self {
         UiRect {
@@ -191,10 +265,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::right(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::Undefined);
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::Undefined);
+    /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn right(value: Val) -> Self {
         UiRect {
@@ -212,10 +286,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::top(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::Undefined);
+    /// assert_eq!(ui_rect.right, Val::Undefined);
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn top(value: Val) -> Self {
         UiRect {
@@ -233,9 +307,9 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::bottom(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::Undefined);
+    /// assert_eq!(ui_rect.right, Val::Undefined);
+    /// assert_eq!(ui_rect.top, Val::Undefined);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
@@ -249,286 +323,6 @@ impl UiRect {
 impl Default for UiRect {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-/// A [`Position`] is used to determine where to place a UI element.
-///
-/// ```
-/// # use bevy_ui::{Position, Val};
-/// # use bevy_utils::default;
-/// #
-/// let position = Position {
-///     left: Val::Px(100.0),
-///     top: Val::Px(50.0),
-///     ..default()
-/// };
-/// ```
-///
-/// If you define opposite sides of the position, the size of the UI element will automatically be calculated
-/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Auto`](crate::Val::Auto)
-/// as a width and height, the size would be determined by the window size and the values specified in the position.
-///
-/// ```
-/// # use bevy_ui::{Position, Val};
-/// #
-/// let position = Position {
-///     left: Val::Px(100.0),
-///     right: Val::Px(200.0),
-///     top: Val::Px(300.0),
-///     bottom: Val::Px(400.0),
-/// };
-/// ```
-///
-/// To determine the width of the UI element you have to take the width of the window and subtract it by the
-/// left and right values of the position. To determine the height of the UI element you have to take the height
-/// of the window and subtract it by the top and bottom values of the position. If we had a window with a width
-/// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
-///
-/// ```
-/// // Size of the window
-/// let window_width = 1000.0;
-/// let window_height = 1000.0;
-///
-/// // Values of the position
-/// let left = 100.0;
-/// let right = 200.0;
-/// let top = 300.0;
-/// let bottom = 400.0;
-///
-/// // Calculation to get the size of the UI element
-/// let ui_element_width = window_width - left - right;
-/// let ui_element_height = window_height - top - bottom;
-///
-/// assert_eq!(ui_element_width, 700.0);
-/// assert_eq!(ui_element_height, 300.0);
-/// ```
-///
-/// If you define a [`Size`] and also all four sides of the position, the top and left values of the position
-/// are used to determine where to place the UI element. The size will not be calculated using the bottom and
-/// right values of the position because the size of the UI element is already explicitly specified.
-///
-/// ```
-/// # use bevy_ui::{Position, Size, Val, Style};
-/// # use bevy_utils::default;
-/// #
-/// let style = Style {
-///     position: Position { // Defining all four sides
-///         left: Val::Px(100.0),
-///         right: Val::Px(200.0),
-///         top: Val::Px(300.0),
-///         bottom: Val::Px(400.0),
-///     },
-///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
-///     ..default()
-/// };
-/// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
-pub struct Position {
-    pub left: Val,
-    pub right: Val,
-    pub top: Val,
-    pub bottom: Val,
-}
-
-impl Position {
-    pub const DEFAULT: Self = Self::all(Val::Auto);
-
-    /// Creates a new [`Position`] from the values specified.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::new(
-    ///     Val::Px(10.0),
-    ///     Val::Px(20.0),
-    ///     Val::Px(30.0),
-    ///     Val::Px(40.0),
-    /// );
-    ///
-    /// assert_eq!(position.left, Val::Px(10.0));
-    /// assert_eq!(position.right, Val::Px(20.0));
-    /// assert_eq!(position.top, Val::Px(30.0));
-    /// assert_eq!(position.bottom, Val::Px(40.0));
-    /// ```
-    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        Position {
-            left,
-            right,
-            top,
-            bottom,
-        }
-    }
-
-    /// Creates a new [`Position`] where all sides have the same value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::all(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Px(10.0));
-    /// assert_eq!(position.right, Val::Px(10.0));
-    /// assert_eq!(position.top, Val::Px(10.0));
-    /// assert_eq!(position.bottom, Val::Px(10.0));
-    /// ```
-    pub const fn all(value: Val) -> Self {
-        Position {
-            left: value,
-            right: value,
-            top: value,
-            bottom: value,
-        }
-    }
-
-    /// Creates a new [`Position`] where `left` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::left(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Px(10.0));
-    /// assert_eq!(position.right, Val::Auto);
-    /// assert_eq!(position.top, Val::Auto);
-    /// assert_eq!(position.bottom, Val::Auto);
-    /// ```
-    pub fn left(value: Val) -> Self {
-        Position {
-            left: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`Position`] where `right` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::right(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Auto);
-    /// assert_eq!(position.right, Val::Px(10.0));
-    /// assert_eq!(position.top, Val::Auto);
-    /// assert_eq!(position.bottom, Val::Auto);
-    /// ```
-    pub fn right(value: Val) -> Self {
-        Position {
-            right: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`Position`] where `top` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::top(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Auto);
-    /// assert_eq!(position.right, Val::Auto);
-    /// assert_eq!(position.top, Val::Px(10.0));
-    /// assert_eq!(position.bottom, Val::Auto);
-    /// ```
-    pub fn top(value: Val) -> Self {
-        Position {
-            top: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`Position`] where `bottom` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::bottom(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Auto);
-    /// assert_eq!(position.right, Val::Auto);
-    /// assert_eq!(position.top, Val::Auto);
-    /// assert_eq!(position.bottom, Val::Px(10.0));
-    /// ```
-    pub fn bottom(value: Val) -> Self {
-        Position {
-            bottom: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`Position`] where `left` and `right` take the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::horizontal(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Px(10.0));
-    /// assert_eq!(position.right, Val::Px(10.0));
-    /// assert_eq!(position.top, Val::Auto);
-    /// assert_eq!(position.bottom, Val::Auto);
-    /// ```
-    pub fn horizontal(value: Val) -> Self {
-        Position {
-            left: value,
-            right: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`Position`] where `top` and `bottom` take the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Position, Val};
-    /// #
-    /// let position = Position::vertical(Val::Px(10.0));
-    ///
-    /// assert_eq!(position.left, Val::Auto);
-    /// assert_eq!(position.right, Val::Auto);
-    /// assert_eq!(position.top, Val::Px(10.0));
-    /// assert_eq!(position.bottom, Val::Px(10.0));
-    /// ```
-    pub fn vertical(value: Val) -> Self {
-        Position {
-            top: value,
-            bottom: value,
-            ..Default::default()
-        }
-    }
-}
-
-impl Default for Position {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<Position> for UiRect {
-    fn from(position: Position) -> Self {
-        Self {
-            left: position.left,
-            right: position.right,
-            top: position.top,
-            bottom: position.bottom,
-        }
     }
 }
 
