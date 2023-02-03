@@ -181,11 +181,12 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                 // SAFETY: all systems have completed
                 let world = unsafe { &mut *world.get() };
-                apply_system_buffers(&mut self.unapplied_systems, systems, world);
+                apply_system_buffers(&self.unapplied_systems, systems, world);
+                self.unapplied_systems.clear();
+                debug_assert!(self.unapplied_systems.is_clear());
 
                 debug_assert!(self.ready_systems.is_clear());
                 debug_assert!(self.running_systems.is_clear());
-                debug_assert!(self.unapplied_systems.is_clear());
                 self.active_access.clear();
                 self.evaluated_sets.clear();
                 self.skipped_systems.clear();
@@ -459,11 +460,12 @@ impl MultiThreadedExecutor {
         let sender = self.sender.clone();
         if is_apply_system_buffers(system) {
             // TODO: avoid allocation
-            let mut unapplied_systems = self.unapplied_systems.clone();
+            let unapplied_systems = self.unapplied_systems.clone();
+            self.unapplied_systems.clear();
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                apply_system_buffers(&mut unapplied_systems, systems, world);
+                apply_system_buffers(&unapplied_systems, systems, world);
                 #[cfg(feature = "trace")]
                 drop(system_guard);
                 sender
@@ -545,7 +547,7 @@ impl MultiThreadedExecutor {
 }
 
 fn apply_system_buffers(
-    unapplied_systems: &mut FixedBitSet,
+    unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
 ) {
@@ -556,8 +558,6 @@ fn apply_system_buffers(
         let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
         system.apply_buffers(world);
     }
-
-    unapplied_systems.clear();
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
