@@ -347,13 +347,98 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
+            struct Node {
+                prev: Option<usize>,
+                next: Option<usize>,
+            }
+
             future::block_on(async move {
                 let get_results = async {
+                    let mut tasks = Vec::with_capacity(spawned_ref.len());
                     let mut results = Vec::with_capacity(spawned_ref.len());
-                    while let Ok(task) = spawned_ref.pop() {
-                        results.push(task.await.unwrap());
+
+                    let mut nodes = Vec::with_capacity(spawned_ref.len());
+                    let mut head = None;
+
+                    let mut failure = false;
+                    let mut must_cancel_on_failure = Vec::with_capacity(spawned_ref.len());
+
+                    let mut completed_count = 0;
+                    let mut total_count = 0;
+                    loop {
+                        // collect any new tasks
+                        while let Ok(task) = spawned_ref.pop() {
+                            let index = tasks.len();
+                            tasks.push(task);
+
+                            // add to linked list of pending tasks
+                            nodes.push(Node {
+                                prev: None,
+                                next: head,
+                            });
+
+                            if let Some(head_index) = head {
+                                nodes[head_index].prev = Some(index);
+                            }
+                            head = Some(index);
+
+                            must_cancel_on_failure.push(true);
+                            total_count += 1;
+                        }
+
+                        // poll pending tasks for completion
+                        let mut next = head;
+                        while let Some(index) = next {
+                            if let Some(result) = future::poll_once(&mut tasks[index]).await {
+                                if let Some(value) = result {
+                                    // task completed, store its result
+                                    results.push(value);
+
+                                    // remove it from the list
+                                    let node = &mut nodes[index];
+                                    let prev = node.prev.take();
+                                    let next = node.next.take();
+
+                                    // connect prev.next -> next
+                                    if let Some(p) = prev {
+                                        nodes[p].next = next;
+                                    }
+
+                                    // connect prev <- next.prev
+                                    if let Some(n) = next {
+                                        nodes[n].prev = prev;
+                                    }
+
+                                    must_cancel_on_failure[index] = false;
+                                    completed_count += 1;
+                                } else {
+                                    failure = true;
+                                    break;
+                                }
+                            }
+
+                            next = nodes[index].next;
+                        }
+
+                        if failure {
+                            // cancel any unfinished tasks that we've taken from the queue
+                            for (cancel, task) in
+                                must_cancel_on_failure.into_iter().zip(tasks.into_iter())
+                            {
+                                if cancel {
+                                    task.cancel().await;
+                                }
+                            }
+
+                            panic!("scoped task failed");
+                        }
+
+                        if completed_count == total_count && spawned_ref.is_empty() {
+                            // all tasks have completed
+                            // TODO: prove that it's impossible for there to be tasks remaining
+                            return results;
+                        }
                     }
-                    results
                 };
 
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
