@@ -3,7 +3,7 @@
 //!
 //! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedUpdate`] [`Schedule`].
 //! This schedules is run in the [`CoreSet::FixedUpdate`] near the start of each frame,
-//! via the [`run_fixed_update_schedule`] exclsuive system.
+//! via the [`run_fixed_update_schedule`] exclusive system.
 //!
 //! This schedule will be run a number of times each frame,
 //! equal to the accumulated divided by the period resource, rounded down,
