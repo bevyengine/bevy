@@ -768,14 +768,14 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] at the end of a stage.
-/// By using this to defer mutations, you can avoid mutable `World` data access within a system
-/// and allow it to run in parallel with more systems.
-///
-/// The most common example of this pattern is [`Commands`], which uses [`Deferred<T>`] to defer mutations.
+/// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
 ///
 /// # Examples
+///
+/// By using this type to defer mutations, you can avoid mutable `World` access within
+/// a system, which allows it to run in parallel with more systems.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
