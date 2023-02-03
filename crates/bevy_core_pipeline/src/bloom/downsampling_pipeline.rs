@@ -76,7 +76,7 @@ impl FromWorld for BloomDownsamplingPipeline {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
-                min_binding_size: Some(BloomDownsamplingUniform::min_size()),
+                min_binding_size: Some(BloomDownsamplingUniforms::min_size()),
             },
             visibility: ShaderStages::FRAGMENT,
             count: None,

@@ -32,7 +32,7 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
-    BloomDownsamplingUniform,
+    BloomDownsamplingUniforms,
 };
 use std::num::NonZeroU32;
 use upsampling_pipeline::{
@@ -54,7 +54,7 @@ impl Plugin for BloomPlugin {
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
         app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<BloomDownsamplingUniform>::default());
+        app.add_plugin(UniformComponentPlugin::<BloomDownsamplingUniforms>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -129,7 +129,7 @@ pub struct BloomNode {
         &'static ViewTarget,
         &'static BloomTexture,
         &'static BloomBindGroups,
-        &'static DynamicUniformIndex<BloomDownsamplingUniform>,
+        &'static DynamicUniformIndex<BloomDownsamplingUniforms>,
         &'static BloomSettings,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
@@ -169,7 +169,7 @@ impl Node for BloomNode {
 
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let uniforms = world.resource::<ComponentUniforms<BloomDownsamplingUniform>>();
+        let uniforms = world.resource::<ComponentUniforms<BloomDownsamplingUniforms>>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let Ok((
             camera,

@@ -21,7 +21,7 @@ var s: sampler;
 
 #ifdef FIRST_DOWNSAMPLE
 @group(0) @binding(2)
-var<uniform> uniforms: BloomUniforms;
+var<uniform> uniforms: BloomDownsamplingUniforms;
 
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
