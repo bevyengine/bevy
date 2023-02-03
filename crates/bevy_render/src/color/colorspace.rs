@@ -153,9 +153,9 @@ impl LchRepresentation {
         let z = zr * Self::D65_WHITE_Z;
 
         // XYZ to sRGB http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
-        let red = x * 3.2404541621141045 + y * -1.5371385127977166 + z * -0.498531409556016;
-        let green = x * -0.9692660305051868 + y * 1.8760108454466942 + z * 0.041556017530349834;
-        let blue = x * 0.055643430959114726 + y * -0.2040259135167538 + z * 1.0572251882231791;
+        let red = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
+        let green = x * -0.969266 + y * 1.8760108 + z * 0.041556;
+        let blue = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
 
         [
             red.linear_to_nonlinear_srgb().max(0.0).min(1.0),
@@ -172,9 +172,9 @@ impl LchRepresentation {
         let green = green.nonlinear_to_linear_srgb();
         let blue = blue.nonlinear_to_linear_srgb();
 
-        let x = red * 0.4124564390896922 + green * 0.357576077643909 + blue * 0.18043748326639894;
-        let y = red * 0.21267285140562253 + green * 0.715152155287818 + blue * 0.07217499330655958;
-        let z = red * 0.0193338955823293 + green * 0.11919202588130297 + blue * 0.9503040785363679;
+        let x = red * 0.4124564 + green * 0.3575761 + blue * 0.1804375;
+        let y = red * 0.2126729 + green * 0.7151522 + blue * 0.072175;
+        let z = red * 0.0193339 + green * 0.119192 + blue * 0.9503041;
 
         // XYZ to Lab http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_Lab.html
         let xr = x / Self::D65_WHITE_X;
