@@ -360,8 +360,8 @@ impl TaskPool {
                     let mut nodes = Vec::with_capacity(spawned_ref.len());
                     let mut head = None;
 
-                    let mut failure = false;
-                    let mut must_cancel_on_failure = Vec::with_capacity(spawned_ref.len());
+                    let mut failed = false;
+                    let mut completed = Vec::with_capacity(spawned_ref.len());
 
                     let mut completed_count = 0;
                     let mut total_count = 0;
@@ -383,7 +383,7 @@ impl TaskPool {
                             }
                             head = Some(index);
 
-                            must_cancel_on_failure.push(true);
+                            completed.push(false);
                             total_count += 1;
                         }
 
@@ -412,11 +412,11 @@ impl TaskPool {
                                         nodes[n].prev = prev;
                                     }
 
-                                    must_cancel_on_failure[index] = false;
+                                    completed[index] = true;
                                     completed_count += 1;
                                 } else {
                                     // task failed
-                                    failure = true;
+                                    failed = true;
                                     break;
                                 }
                             }
@@ -424,12 +424,10 @@ impl TaskPool {
                             next = nodes[index].next;
                         }
 
-                        if failure {
+                        if failed {
                             // cancel any unfinished tasks that we've taken from the queue
-                            for (cancel, task) in
-                                must_cancel_on_failure.into_iter().zip(tasks.into_iter())
-                            {
-                                if cancel {
+                            for (task, finished) in tasks.into_iter().zip(completed.into_iter()) {
+                                if !finished {
                                     task.cancel().await;
                                 }
                             }
