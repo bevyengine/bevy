@@ -16,7 +16,7 @@ use bevy_render::{
 
 mod node;
 
-pub use node::ContrastAdaptiveSharpeningNode;
+pub use node::CASNode;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -24,7 +24,7 @@ pub use node::ContrastAdaptiveSharpeningNode;
 /// such as FXAA or TAA to regain some of the lost detail from the blurring that they introduce.
 ///
 /// CAS is designed to adjust the amount of sharpening applied to different areas of an image
-/// based on the local contrast.This can help avoid over-sharpening areas with high contrast
+/// based on the local contrast. This can help avoid over-sharpening areas with high contrast
 /// and under-sharpening areas with low contrast.
 ///
 /// To use this, add the [`ContrastAdaptiveSharpeningSettings`] component to a 2D or 3D camera.
@@ -82,9 +82,9 @@ const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6925381244141981602);
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
-pub struct ContrastAdaptiveSharpeningPlugin;
+pub struct CASPlugin;
 
-impl Plugin for ContrastAdaptiveSharpeningPlugin {
+impl Plugin for CASPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -102,14 +102,11 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
             Err(_) => return,
         };
         render_app
-            .init_resource::<ContrastAdaptiveSharpeningPipeline>()
-            .init_resource::<SpecializedRenderPipelines<ContrastAdaptiveSharpeningPipeline>>()
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_contrast_adaptive_sharpening_pipelines,
-            );
+            .init_resource::<CASPipeline>()
+            .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
+            .add_system_to_stage(RenderStage::Prepare, prepare_cas_pipelines);
         {
-            let cas_node = ContrastAdaptiveSharpeningNode::new(&mut render_app.world);
+            let cas_node = CASNode::new(&mut render_app.world);
             let mut binding = render_app.world.resource_mut::<RenderGraph>();
             let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
 
@@ -119,7 +116,7 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
                 graph.input_node().id,
                 core_3d::graph::input::VIEW_ENTITY,
                 core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-                ContrastAdaptiveSharpeningNode::IN_VIEW,
+                CASNode::IN_VIEW,
             );
 
             graph.add_node_edge(
@@ -132,7 +129,7 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
             );
         }
         {
-            let cas_node = ContrastAdaptiveSharpeningNode::new(&mut render_app.world);
+            let cas_node = CASNode::new(&mut render_app.world);
             let mut binding = render_app.world.resource_mut::<RenderGraph>();
             let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
 
@@ -142,7 +139,7 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
                 graph.input_node().id,
                 core_2d::graph::input::VIEW_ENTITY,
                 core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-                ContrastAdaptiveSharpeningNode::IN_VIEW,
+                CASNode::IN_VIEW,
             );
 
             graph.add_node_edge(
@@ -158,12 +155,12 @@ impl Plugin for ContrastAdaptiveSharpeningPlugin {
 }
 
 #[derive(Resource)]
-pub struct ContrastAdaptiveSharpeningPipeline {
+pub struct CASPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
 }
 
-impl FromWorld for ContrastAdaptiveSharpeningPipeline {
+impl FromWorld for CASPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
         let texture_bind_group =
@@ -191,7 +188,7 @@ impl FromWorld for ContrastAdaptiveSharpeningPipeline {
                         binding: 2,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
+                            has_dynamic_offset: true,
                             min_binding_size: Some(CASUniform::min_size()),
                         },
                         visibility: ShaderStages::FRAGMENT,
@@ -202,7 +199,7 @@ impl FromWorld for ContrastAdaptiveSharpeningPipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        ContrastAdaptiveSharpeningPipeline {
+        CASPipeline {
             texture_bind_group,
             sampler,
         }
@@ -210,12 +207,12 @@ impl FromWorld for ContrastAdaptiveSharpeningPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct SharpeningPipelineKey {
+pub struct CASPipelineKey {
     texture_format: TextureFormat,
 }
 
-impl SpecializedRenderPipeline for ContrastAdaptiveSharpeningPipeline {
-    type Key = SharpeningPipelineKey;
+impl SpecializedRenderPipeline for CASPipeline {
+    type Key = CASPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
@@ -239,11 +236,11 @@ impl SpecializedRenderPipeline for ContrastAdaptiveSharpeningPipeline {
     }
 }
 
-pub fn prepare_contrast_adaptive_sharpening_pipelines(
+pub fn prepare_cas_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ContrastAdaptiveSharpeningPipeline>>,
-    sharpening_pipeline: Res<ContrastAdaptiveSharpeningPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<CASPipeline>>,
+    sharpening_pipeline: Res<CASPipeline>,
     views: Query<(Entity, &ExtractedView, &CASUniform)>,
 ) {
     for (entity, view, sharpening) in &views {
@@ -253,7 +250,7 @@ pub fn prepare_contrast_adaptive_sharpening_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            SharpeningPipelineKey {
+            CASPipelineKey {
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
@@ -262,11 +259,9 @@ pub fn prepare_contrast_adaptive_sharpening_pipelines(
             },
         );
 
-        commands
-            .entity(entity)
-            .insert(ViewContrastAdaptiveSharpeningPipeline(pipeline_id));
+        commands.entity(entity).insert(ViewCASPipeline(pipeline_id));
     }
 }
 
 #[derive(Component)]
-pub struct ViewContrastAdaptiveSharpeningPipeline(CachedRenderPipelineId);
+pub struct ViewCASPipeline(CachedRenderPipelineId);

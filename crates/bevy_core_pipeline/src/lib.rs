@@ -32,7 +32,7 @@ use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
     clear_color::{ClearColor, ClearColorConfig},
-    contrast_adaptive_sharpening::ContrastAdaptiveSharpeningPlugin,
+    contrast_adaptive_sharpening::CASPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
@@ -72,6 +72,6 @@ impl Plugin for CorePipelinePlugin {
             .add_plugin(UpscalingPlugin)
             .add_plugin(BloomPlugin)
             .add_plugin(FxaaPlugin)
-            .add_plugin(ContrastAdaptiveSharpeningPlugin);
+            .add_plugin(CASPlugin);
     }
 }

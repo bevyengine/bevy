@@ -1,10 +1,10 @@
 use std::sync::Mutex;
 
-use crate::contrast_adaptive_sharpening::ViewContrastAdaptiveSharpeningPipeline;
+use crate::contrast_adaptive_sharpening::ViewCASPipeline;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
-    extract_component::ComponentUniforms,
+    extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Operations, PipelineCache,
@@ -14,21 +14,21 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use super::{CASUniform, ContrastAdaptiveSharpeningPipeline};
+use super::{CASPipeline, CASUniform};
 
-pub struct ContrastAdaptiveSharpeningNode {
+pub struct CASNode {
     query: QueryState<
         (
             &'static ViewTarget,
-            &'static ViewContrastAdaptiveSharpeningPipeline,
-            // &'static CASUniform,
+            &'static ViewCASPipeline,
+            &'static DynamicUniformIndex<CASUniform>,
         ),
         With<ExtractedView>,
     >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl ContrastAdaptiveSharpeningNode {
+impl CASNode {
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -39,12 +39,9 @@ impl ContrastAdaptiveSharpeningNode {
     }
 }
 
-impl Node for ContrastAdaptiveSharpeningNode {
+impl Node for CASNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(
-            ContrastAdaptiveSharpeningNode::IN_VIEW,
-            SlotType::Entity,
-        )]
+        vec![SlotInfo::new(CASNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -59,10 +56,12 @@ impl Node for ContrastAdaptiveSharpeningNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
-        let sharpening_pipeline = world.resource::<ContrastAdaptiveSharpeningPipeline>();
+        let sharpening_pipeline = world.resource::<CASPipeline>();
         let uniforms = world.resource::<ComponentUniforms<CASUniform>>();
 
-        let Ok((target, pipeline)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
+        let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
+
+        let Some(uniforms) = uniforms.binding() else { return Ok(()) };
 
         let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
 
@@ -93,7 +92,7 @@ impl Node for ContrastAdaptiveSharpeningNode {
                                 },
                                 BindGroupEntry {
                                     binding: 2,
-                                    resource: uniforms.binding().unwrap(),
+                                    resource: uniforms,
                                 },
                             ],
                         });
@@ -118,7 +117,7 @@ impl Node for ContrastAdaptiveSharpeningNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, bind_group, &[]);
+        render_pass.set_bind_group(0, bind_group, &[uniform_index.index()]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
