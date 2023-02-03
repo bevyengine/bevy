@@ -777,6 +777,11 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// By using this type to defer mutations, you can avoid mutable `World` access within
 /// a system, which allows it to run in parallel with more systems.
 ///
+/// Note that deferring mutations is *not* free, and should only be used if
+/// the gains in parallelization outweigh the time it takes to apply deferred mutations.
+/// In general, [`Deferred`] should only be used for mutations that are infrequent,
+/// or which otherwise take up a small portion of a system's run-time.
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// // Tracks whether or not there is a threat the player should be aware of.
