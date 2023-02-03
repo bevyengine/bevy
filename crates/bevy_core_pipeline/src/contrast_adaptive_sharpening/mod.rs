@@ -18,12 +18,19 @@ mod node;
 
 pub use node::ContrastAdaptiveSharpeningNode;
 
-/// Applies a contrast adaptive sharpening filter to the camera.
+/// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
-/// To use this, add the [`ContrastAdaptiveSharpeningSettings`] component to a camera.
+/// CAS is usually used in combination with shader based anti-aliasing methods
+/// such as FXAA or TAA to regain some of the lost detail from the blurring that they introduce.
+///
+/// CAS is designed to adjust the amount of sharpening applied to different areas of an image
+/// based on the local contrast.This can help avoid over-sharpening areas with high contrast
+/// and under-sharpening areas with low contrast.
+///
+/// To use this, add the [`ContrastAdaptiveSharpeningSettings`] component to a 2D or 3D camera.
 #[derive(Component, Reflect, Clone)]
 pub struct ContrastAdaptiveSharpeningSettings {
-    /// Enable render passes for Sharpening.
+    /// Enable or disable sharpening.
     pub enabled: bool,
     /// Adjusts how the shader adapts to high contrast.
     /// Higher values = more high contrast sharpening.
