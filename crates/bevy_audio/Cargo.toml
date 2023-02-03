@@ -21,6 +21,9 @@ anyhow = "1.0.4"
 rodio = { version = "0.16", default-features = false }
 parking_lot = "0.12.1"
 
+[target.'cfg(target_os = "android")'.dependencies]
+oboe = { version = "0.4", features = ["shared-stdcxx"] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rodio = { version = "0.16", default-features = false, features = ["wasm-bindgen"] }
 
