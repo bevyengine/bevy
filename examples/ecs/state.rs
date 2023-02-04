@@ -1,5 +1,9 @@
-//! This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
-//! an `InGame` state.
+//! This example illustrates how to use [`States`] for high-level app control flow.
+//! States are a powerful but intuitive tool for controlling which logic runs when.
+//! You can have multiple independent states, and the [`OnEnter`] and [`OnExit`] schedules
+//! can be used to great effect to ensure that you handle setup and teardown appropriately.
+//!
+//! In this case, we're transitioning from a `Menu` state to  an `InGame` state.
 
 use bevy::prelude::*;
 
@@ -8,7 +12,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
         .add_startup_system(setup)
+        // This system runs when we enter `AppState::Menu`, during `CoreSet::StateTransitions`.
+        // All systems from the exit schedule of the state we're leaving are run first,
+        // and then all systems from the enter schedule of the state we're leaving are run second.
         .add_system_to_schedule(OnEnter(AppState::Menu), setup_menu)
+        // By contrast, on_update systems are stored in the main schedule, during CoreSet::Update,
+        // and simply check the value of the `State<T>` resource to see if they should run each frame.
         .add_system(menu.on_update(AppState::Menu))
         .add_system_to_schedule(OnExit(AppState::Menu), cleanup_menu)
         .add_system_to_schedule(OnEnter(AppState::InGame), setup_game)
