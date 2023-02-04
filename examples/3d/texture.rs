@@ -127,7 +127,7 @@ fn setup(
     // make the bevy logo take up (1.0, 0.25) units, and tile.
     let mut blue_tiled_texture_mesh =
         Mesh::from(shape::Quad::new(Vec2::new(quad_width, quad_width * aspect)));
-    update_plane_uvs_for_world_space_texture_size(&mut blue_tiled_texture_mesh, (1.0, 0.25));
+    update_quad_uvs_for_world_space_texture_size(&mut blue_tiled_texture_mesh, (1.0, 0.25));
     commands.spawn(PbrBundle {
         mesh: meshes.add(blue_tiled_texture_mesh),
         material: blue_material_handle,
