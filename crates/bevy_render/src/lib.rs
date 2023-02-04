@@ -229,10 +229,6 @@ impl Plugin for RenderPlugin {
                     .add_system(PipelineCache::extract_shaders);
             });
 
-            // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
-            render_app.init_resource::<MainWorld>();
-            render_app.world.remove_resource::<MainWorld>();
-
             // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
             render_schedule.add_system(apply_extract_commands.in_set(RenderSet::ExtractCommands));
