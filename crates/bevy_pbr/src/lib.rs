@@ -234,6 +234,7 @@ impl Plugin for PbrPlugin {
             .add_system(
                 check_light_mesh_visibility
                     .in_set(SimulationLightSystems::CheckLightVisibility)
+                    .after(VisibilitySystems::CalculateBoundsFlush)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check

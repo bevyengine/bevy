@@ -194,6 +194,7 @@ impl VisibleEntities {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     CalculateBounds,
+    CalculateBoundsFlush,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
@@ -210,6 +211,9 @@ impl Plugin for VisibilityPlugin {
         use VisibilitySystems::*;
 
         app.configure_set(CalculateBounds.in_set(CoreSet::PostUpdate))
+            // We add an AABB component in CaclulateBounds, which must be ready on the same frame.
+            .add_system(apply_system_buffers.in_set(CalculateBoundsFlush))
+            .configure_set(CalculateBoundsFlush.after(CalculateBounds))
             .configure_set(UpdateOrthographicFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(UpdatePerspectiveFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(UpdateProjectionFrusta.in_set(CoreSet::PostUpdate))
@@ -247,6 +251,7 @@ impl Plugin for VisibilityPlugin {
             .add_system(
                 check_visibility
                     .in_set(CheckVisibility)
+                    .after(CalculateBoundsFlush)
                     .after(UpdateOrthographicFrusta)
                     .after(UpdatePerspectiveFrusta)
                     .after(UpdateProjectionFrusta)
