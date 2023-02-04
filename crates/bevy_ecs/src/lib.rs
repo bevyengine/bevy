@@ -35,8 +35,8 @@ pub mod prelude {
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule_v3::{
             apply_state_transition, apply_system_buffers, common_conditions::*, IntoSystemConfig,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, NextState, OnEnter, OnExit,
-            OnUpdate, Schedule, Schedules, State, States, SystemSet,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
+            OnEnter, OnExit, OnUpdate, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,

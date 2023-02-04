@@ -4,7 +4,8 @@ use bevy_ecs::{
     prelude::*,
     schedule_v3::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, ScheduleLabel,
+        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
+        ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -487,13 +488,23 @@ impl App {
         self.add_systems_to_schedule(CoreSchedule::Startup, systems)
     }
 
-    /// Configures a system set in the default schedule, adding it if it does not exist.
+    /// Configures a system set in the default schedule, adding the set if it does not exist.
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.world
             .resource_mut::<Schedules>()
             .get_mut(&*self.default_schedule_label)
             .unwrap()
             .configure_set(set);
+        self
+    }
+
+    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .get_mut(&*self.default_schedule_label)
+            .unwrap()
+            .configure_sets(sets);
         self
     }
 
