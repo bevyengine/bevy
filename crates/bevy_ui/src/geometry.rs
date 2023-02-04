@@ -490,28 +490,37 @@ mod tests {
 
     #[test]
     fn test_size_all() {
-        let s = 10.;
-        let size = Size::all(s);
+        let length = 10.;
+        let size = Size::all(length);
 
-        assert_eq!(size, Size::new(s, s));
-        assert_eq!(size, Size::all(Val::Px(s)));
+        assert_eq!(size, Size::new(length, length));
+        assert_eq!(size, Size::all(Val::Px(length)));
     }
 
     #[test]
-    fn test_size_width_height() {
+    fn test_size_width() {
         let w = 10.;
-        let h = 20.;
 
         assert_eq!(Size::width(w), Size::new(w, Val::Auto));
-        assert_eq!(Size::height(h), Size::new(Val::Auto, h));
         assert_eq!(
+            Size::width(w),
             Size {
                 width: Val::Px(w),
-                ..Size::height(h)
-            },
+                height: Val::Auto
+            }
+        );
+    }
+
+    #[test]
+    fn test_height() {
+        let height = 7.;
+
+        assert_eq!(Size::height(height), Size::new(Val::Auto, height));
+        assert_eq!(
+            Size::height(height),
             Size {
-                height: Val::Px(h),
-                ..Size::width(w)
+                width: Val::Auto,
+                height: Val::Px(height)
             }
         );
     }
