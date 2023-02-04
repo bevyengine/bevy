@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use std::panic::AssertUnwindSafe;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Instrument};
+use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
