@@ -30,7 +30,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
     Extract, RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
@@ -62,7 +62,10 @@ impl Plugin for TemporalAntialiasPlugin {
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_taa_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_jitter.at_start())
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_taa_jitter.before(prepare_view_uniforms),
+            )
             .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures)
             .add_system_to_stage(RenderStage::Prepare, prepare_taa_pipelines);
 

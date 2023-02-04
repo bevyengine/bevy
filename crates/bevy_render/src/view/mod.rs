@@ -255,7 +255,7 @@ pub struct ViewDepthTexture {
     pub view: TextureView,
 }
 
-fn prepare_view_uniforms(
+pub fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
