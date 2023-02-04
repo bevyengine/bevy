@@ -25,27 +25,46 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ModifiesWindows,
-    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    ModifiesWindows, ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
     WindowScaleFactorChanged,
 };
 
+#[cfg(target_os = "android")]
+pub use winit::platform::android::activity::AndroidApp;
+
 use winit::{
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
 use crate::system::WinitWindowInfo;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+#[cfg(target_os = "android")]
+pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
+
 #[derive(Default)]
 pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let event_loop = EventLoop::new();
+        let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        #[cfg(target_os = "android")]
+        {
+            use winit::platform::android::EventLoopBuilderExtAndroid;
+            event_loop_builder.with_android_app(
+                ANDROID_APP
+                    .get()
+                    .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                    .clone(),
+            );
+        }
+
+        let event_loop = event_loop_builder.build();
         app.insert_non_send_resource(event_loop);
 
         app.init_non_send_resource::<WinitWindows>()
@@ -55,8 +74,11 @@ impl Plugin for WinitPlugin {
                 CoreStage::PostUpdate,
                 SystemSet::new()
                     .label(ModifiesWindows)
-                    .with_system(changed_window)
-                    .with_system(despawn_window),
+                    // exit_on_all_closed only uses the query to determine if the query is empty,
+                    // and so doesn't care about ordering relative to changed_window
+                    .with_system(changed_window.ambiguous_with(exit_on_all_closed))
+                    // Update the state of the window before attempting to despawn to ensure consistent event ordering
+                    .with_system(despawn_window.after(changed_window)),
             );
 
         #[cfg(target_arch = "wasm32")]

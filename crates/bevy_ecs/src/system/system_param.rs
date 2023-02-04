@@ -1457,11 +1457,12 @@ mod tests {
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/6919.
+    // Regression test for https://github.com/bevyengine/bevy/issues/7447.
     #[derive(SystemParam)]
-    struct MyParam<'w, T: Resource, Marker: 'static> {
+    struct IgnoredParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
-        marker: std::marker::PhantomData<Marker>,
+        marker: PhantomData<&'w Marker>,
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
