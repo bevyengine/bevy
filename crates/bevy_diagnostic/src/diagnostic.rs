@@ -28,6 +28,32 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
+/// The number of digits that should be displayed for a diagnostic.
+///
+/// Choose `IntegerValue` for discrete values and `DecimalValue(num_of_decimals)` to specify the number of decimals.
+#[derive(Debug)]
+pub enum DisplayPrecision {
+    IntegerValue,
+    DecimalValue(usize),
+}
+
+impl DisplayPrecision {
+    pub fn num_decimals(&self) -> usize {
+        match self {
+            DisplayPrecision::IntegerValue => 0,
+            DisplayPrecision::DecimalValue(x) => *x,
+        }
+    }
+}
+
+// trait DiagnosticDisplayPercision {
+//     type DisplayPercision;
+// }
+
+// impl DiagnosticDisplayPercision for Diagnostic {
+//     type DisplayPercision = DisplayPercision;
+// }
+
 /// A timeline of [`DiagnosticMeasurement`]s of a specific type.
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
@@ -41,6 +67,7 @@ pub struct Diagnostic {
     ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
+    pub precision: DisplayPrecision,
 }
 
 impl Diagnostic {
@@ -73,11 +100,12 @@ impl Diagnostic {
             .push_back(DiagnosticMeasurement { time, value });
     }
 
-    /// Create a new diagnostic with the given ID, name and maximum history.
+    /// Create a new diagnostic with the given ID, name, maximum history and decimal precision.
     pub fn new(
         id: DiagnosticId,
         name: impl Into<Cow<'static, str>>,
         max_history_length: usize,
+        precision: DisplayPrecision, // Choose number of decimals for display precision.
     ) -> Diagnostic {
         let name = name.into();
         if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
@@ -98,6 +126,7 @@ impl Diagnostic {
             ema: 0.0,
             ema_smoothing_factor: 2.0 / 21.0,
             is_enabled: true,
+            precision,
         }
     }
 
@@ -194,6 +223,11 @@ impl Diagnostic {
     /// Clear the history of this diagnostic.
     pub fn clear_history(&mut self) {
         self.history.clear();
+    }
+
+    /// Get the number of decimals to display for this diagnostic.
+    pub fn num_decimals(&self) -> usize {
+        self.precision.num_decimals()
     }
 }
 
