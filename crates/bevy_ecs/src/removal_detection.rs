@@ -23,12 +23,6 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct RemovedComponentEntity(pub Entity);
 
-impl Into<Entity> for RemovedComponentEntity {
-    fn into(self) -> Entity {
-        self.0
-    }
-}
-
 /// Wrapper around a [`ManualEventReader<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
 #[derive(Debug)]
