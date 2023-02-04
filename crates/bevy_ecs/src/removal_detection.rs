@@ -20,6 +20,7 @@ use std::{
 };
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
+/// These are produced when iterating through `RemovedComponents`.
 #[derive(Debug, Clone)]
 pub struct RemovedComponentEntity(pub Entity);
 
