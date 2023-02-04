@@ -1208,4 +1208,11 @@ mod tests {
         let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
         query.iter();
     }
+
+    #[test]
+    #[should_panic]
+    fn panic_inside_system() {
+        let mut world = World::new();
+        run_system(&mut world, || panic!("this system panics"));
+    }
 }

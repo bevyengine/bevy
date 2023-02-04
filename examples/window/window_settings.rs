@@ -4,7 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode},
+    window::{CursorGrabMode, PresentMode, WindowLevel},
 };
 
 fn main() {
@@ -28,7 +28,7 @@ fn main() {
         .add_system(toggle_cursor)
         .add_system(toggle_vsync)
         .add_system(cycle_cursor_icon)
-        .add_system(toggle_always_on_top)
+        .add_system(switch_level)
         .run();
 }
 
@@ -47,23 +47,23 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     }
 }
 
-/// This system toggles whether the window is always on top when pressing the T button
-/// You'll notice it won't be covered by other windows.
+/// This system switches the window level when pressing the T button
+/// You'll notice it won't be covered by other windows, or will be covered by all the other
+/// windows depending on the level.
 ///
 /// This feature only works on some platforms. Please check the
-/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.always_on_top)
+/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
-fn toggle_always_on_top(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     if input.just_pressed(KeyCode::T) {
         let mut window = windows.single_mut();
 
-        window.always_on_top = !window.always_on_top;
-
-        if window.always_on_top {
-            info!("LOCKING WINDOW ON TOP");
-        } else {
-            info!("UNLOCKING WINDOW");
-        }
+        window.window_level = match window.window_level {
+            WindowLevel::AlwaysOnBottom => WindowLevel::Normal,
+            WindowLevel::Normal => WindowLevel::AlwaysOnTop,
+            WindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnBottom,
+        };
+        info!("WINDOW_LEVEL: {:?}", window.window_level);
     }
 }
 

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use std::panic::AssertUnwindSafe;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
@@ -182,11 +183,10 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                         if self.num_running_systems > 0 {
                             // wait for systems to complete
-                            let index = self
-                                .receiver
-                                .recv()
-                                .await
-                                .unwrap_or_else(|error| unreachable!("{}", error));
+                            let index =
+                                self.receiver.recv().await.expect(
+                                    "A system has panicked so the executor cannot continue.",
+                                );
 
                             self.finish_system_and_signal_dependents(index);
 
@@ -434,14 +434,22 @@ impl MultiThreadedExecutor {
         let task = async move {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
-            // SAFETY: access is compatible
-            unsafe { system.run_unsafe((), world) };
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                // SAFETY: access is compatible
+                unsafe { system.run_unsafe((), world) };
+            }));
             #[cfg(feature = "trace")]
             drop(system_guard);
-            sender
-                .send(system_index)
-                .await
-                .unwrap_or_else(|error| unreachable!("{}", error));
+            if res.is_err() {
+                // close the channel to propagate the error to the
+                // multithreaded executor
+                sender.close();
+            } else {
+                sender
+                    .send(system_index)
+                    .await
+                    .unwrap_or_else(|error| unreachable!("{}", error));
+            }
         };
 
         #[cfg(feature = "trace")]
@@ -484,13 +492,21 @@ impl MultiThreadedExecutor {
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                apply_system_buffers(&unapplied_systems, systems, world);
+                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    apply_system_buffers(&unapplied_systems, systems, world);
+                }));
                 #[cfg(feature = "trace")]
                 drop(system_guard);
-                sender
-                    .send(system_index)
-                    .await
-                    .unwrap_or_else(|error| unreachable!("{}", error));
+                if res.is_err() {
+                    // close the channel to propagate the error to the
+                    // multithreaded executor
+                    sender.close();
+                } else {
+                    sender
+                        .send(system_index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                }
             };
 
             #[cfg(feature = "trace")]
@@ -500,13 +516,21 @@ impl MultiThreadedExecutor {
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                system.run((), world);
+                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    system.run((), world);
+                }));
                 #[cfg(feature = "trace")]
                 drop(system_guard);
-                sender
-                    .send(system_index)
-                    .await
-                    .unwrap_or_else(|error| unreachable!("{}", error));
+                if res.is_err() {
+                    // close the channel to propagate the error to the
+                    // multithreaded executor
+                    sender.close();
+                } else {
+                    sender
+                        .send(system_index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                }
             };
 
             #[cfg(feature = "trace")]
