@@ -50,8 +50,6 @@ pub struct DepthPrepass;
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space velocities will be copied to a separate texture available to the main pass.
-///
-/// Make sure to enable the prepass on your `Material` for this to do anything.
 #[derive(Component, Default, Reflect)]
 pub struct VelocityPrepass;
 
