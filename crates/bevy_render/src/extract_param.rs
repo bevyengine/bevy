@@ -57,12 +57,13 @@ unsafe impl<P> ReadOnlySystemParam for Extract<'_, '_, P> where P: ReadOnlySyste
 
 // SAFETY: The only `World` access is properly registered by `Res<MainWorld>::init_state`.
 // This call will also ensure that there are no conflicts with prior params.
-unsafe impl<P> SystemParam for Extract<'_, '_, P>
+unsafe impl<'a, 'b, P> SystemParam for Extract<'a, 'b, P>
 where
     P: ReadOnlySystemParam,
 {
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
+    type ReadOnly = Extract<'a, 'b, P>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();

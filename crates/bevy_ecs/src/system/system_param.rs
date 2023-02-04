@@ -139,6 +139,8 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    type ReadOnly: ReadOnlySystemParam;
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](Self::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
@@ -189,11 +191,12 @@ unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'st
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
-    for Query<'_, '_, Q, F>
+unsafe impl<'a, 'b, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+    for Query<'a, 'b, Q, F>
 {
     type State = QueryState<Q, F>;
     type Item<'w, 's> = Query<'w, 's, Q, F>;
+    type ReadOnly = Query<'a, 'b, Q::ReadOnly, F::ReadOnly>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
@@ -416,6 +419,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
+    type ReadOnly = Res<'a, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -475,6 +479,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<Res<'w, T>>;
+    type ReadOnly = Option<Res<'a, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Res::<T>::init_state(world, system_meta)
@@ -506,6 +511,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
+    type ReadOnly = Res<'a, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -566,6 +572,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<ResMut<'w, T>>;
+    type ReadOnly = Option<Res<'a, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         ResMut::<T>::init_state(world, system_meta)
@@ -600,6 +607,8 @@ unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
 unsafe impl SystemParam for Commands<'_, '_> {
     type State = CommandQueue;
     type Item<'w, 's> = Commands<'w, 's>;
+    // `Commands` is only useful in mutable contexts
+    type ReadOnly = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         Default::default()
@@ -628,9 +637,10 @@ unsafe impl SystemParam for Commands<'_, '_> {
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
 // SAFETY: `read_all` access is set and conflicts result in a panic
-unsafe impl SystemParam for &'_ World {
+unsafe impl<'_w> SystemParam for &'_w World {
     type State = ();
     type Item<'w, 's> = &'w World;
+    type ReadOnly = &'_w World;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut access = Access::default();
@@ -771,6 +781,8 @@ where
 unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Local<'s, T>;
+    // `Local` is only useful in mutable contexts
+    type ReadOnly = ();
 
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         SyncCell::new(T::from_world(world))
@@ -850,6 +862,7 @@ unsafe impl<'a, T: Component> ReadOnlySystemParam for RemovedComponents<'a, T> {
 unsafe impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = RemovedComponents<'w, T>;
+    type ReadOnly = RemovedComponents<'a, T>;
 
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         world.init_component::<T>()
@@ -940,6 +953,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
+    type ReadOnly = NonSend<'a, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -996,9 +1010,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
 
 // SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
-unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
+unsafe impl<'a, T: 'static> SystemParam for Option<NonSend<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
+    type ReadOnly = Option<NonSend<'a, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         NonSend::<T>::init_state(world, system_meta)
@@ -1027,6 +1042,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
+    type ReadOnly = NonSend<'a, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1083,6 +1099,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
+    type ReadOnly = Option<NonSend<'a, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         NonSendMut::<T>::init_state(world, system_meta)
@@ -1111,6 +1128,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
 unsafe impl<'a> SystemParam for &'a Archetypes {
     type State = ();
     type Item<'w, 's> = &'w Archetypes;
+    type ReadOnly = &'a Archetypes;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1132,6 +1150,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
 unsafe impl<'a> SystemParam for &'a Components {
     type State = ();
     type Item<'w, 's> = &'w Components;
+    type ReadOnly = &'a Components;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1153,6 +1172,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 unsafe impl<'a> SystemParam for &'a Entities {
     type State = ();
     type Item<'w, 's> = &'w Entities;
+    type ReadOnly = &'a Entities;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1174,6 +1194,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
 unsafe impl<'a> SystemParam for &'a Bundles {
     type State = ();
     type Item<'w, 's> = &'w Bundles;
+    type ReadOnly = &'a Bundles;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1224,6 +1245,7 @@ unsafe impl ReadOnlySystemParam for SystemChangeTick {}
 unsafe impl SystemParam for SystemChangeTick {
     type State = ();
     type Item<'w, 's> = SystemChangeTick;
+    type ReadOnly = SystemChangeTick;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1288,9 +1310,10 @@ impl<'s> std::fmt::Display for SystemName<'s> {
 }
 
 // SAFETY: no component value access
-unsafe impl SystemParam for SystemName<'_> {
+unsafe impl<'a> SystemParam for SystemName<'a> {
     type State = Cow<'static, str>;
     type Item<'w, 's> = SystemName<'s>;
+    type ReadOnly = SystemName<'a>;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.name.clone()
@@ -1321,6 +1344,7 @@ macro_rules! impl_system_param_tuple {
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
+            type ReadOnly = ($($param::ReadOnly,)*);
 
             #[inline]
             fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
@@ -1447,9 +1471,10 @@ unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
 }
 
 // SAFETY: all methods are just delegated to `P`'s `SystemParam` implementation
-unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, P> {
+unsafe impl<'w, 's, P: SystemParam + 'static> SystemParam for StaticSystemParam<'w, 's, P> {
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
+    type ReadOnly = StaticSystemParam<'w, 's, <P as SystemParam>::ReadOnly>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         P::init_state(world, system_meta)
