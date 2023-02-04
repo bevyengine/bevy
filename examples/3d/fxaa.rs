@@ -84,7 +84,7 @@ fn setup(
         )),
         cascade_shadow_config: CascadeShadowConfigBuilder::new()
             .maximum_distance(3.0)
-            .first_cascade_far_bound(0.7)
+            .first_cascade_far_bound(0.9)
             .build(),
         ..default()
     });

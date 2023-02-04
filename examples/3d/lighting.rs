@@ -198,10 +198,10 @@ fn setup(
         },
         // The default cascade config is designed to handle large scenes.
         // As this example has a much smaller world, we can tighten the shadow
-        // far bound for better visual quality.
+        // bounds for better visual quality.
         cascade_shadow_config: CascadeShadowConfigBuilder::new()
-            .first_cascade_far_bound(5.0)
-            .maximum_distance(30.0)
+            .first_cascade_far_bound(4.0)
+            .maximum_distance(10.0)
             .build(),
         ..default()
     });
