@@ -19,7 +19,7 @@ pub fn update_mesh_uvs_for_number_of_tiles(mesh: &mut Mesh, number_of_tiles: (f3
     }
 }
 
-// Update a planes's UVs so that the applied texture tiles with the calculated number of tiles,
+// Update a quad's UVs so that the applied texture tiles with the calculated number of tiles,
 // given the intended size of the texture in bevy units.
 pub fn update_quad_uvs_for_world_space_texture_size(
     mesh: &mut Mesh,
