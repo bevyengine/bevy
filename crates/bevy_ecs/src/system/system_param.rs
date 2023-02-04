@@ -1398,6 +1398,7 @@ mod tests {
         query::{ReadOnlyWorldQuery, WorldQuery},
         system::Query,
     };
+    use std::marker::PhantomData;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[derive(SystemParam)]
