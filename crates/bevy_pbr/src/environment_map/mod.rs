@@ -41,7 +41,6 @@ impl Plugin for EnvironmentMapPlugin {
 ///
 /// The environment map must be prefiltered into a diffuse and specular map based on the
 /// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
-/// The specular map must have exactly 11 mips [0, 10].
 ///
 /// To prefilter your environment map, you can use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
 /// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
