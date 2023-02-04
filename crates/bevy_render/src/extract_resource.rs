@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{any::type_name, marker::PhantomData};
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::change_detection::DetectChanges;
@@ -34,9 +34,11 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
-        }
+        let render_app = app.get_sub_app_mut(RenderApp).expect(&format!(
+            "Render app does not exist when adding `extract_resource` for <{}>.",
+            type_name::<R>()
+        ));
+        render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
     }
 }
 
