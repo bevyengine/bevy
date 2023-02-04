@@ -641,7 +641,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let get_param_output = quote! {
         #struct_name {
             #(#field_idents: #field_getters,)*
-            #(#ignored_fields: <#ignored_field_types>::default(),)*
+            #(#ignored_fields: ::std::default::Default::default(),)*
         }
     };
 

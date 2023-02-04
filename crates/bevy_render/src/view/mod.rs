@@ -182,6 +182,20 @@ impl ViewTarget {
         }
     }
 
+    /// The _other_ "main" unsampled texture.
+    /// In most cases you should use [`Self::main_texture`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b
+        } else {
+            &self.main_textures.a
+        }
+    }
+
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&TextureView> {
         self.main_textures.sampled.as_ref()
@@ -324,6 +338,8 @@ fn prepare_view_targets(
                             format: main_texture_format,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            // TODO: Consider changing this if main_texture_format is not sRGB
+                            view_formats: &[],
                         };
                         MainTargetTextures {
                             a: texture_cache
@@ -356,6 +372,7 @@ fn prepare_view_targets(
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
+                                            view_formats: &[],
                                         },
                                     )
                                     .default_view

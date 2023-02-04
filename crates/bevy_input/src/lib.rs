@@ -83,9 +83,17 @@ impl Plugin for InputPlugin {
                 CoreStage::PreUpdate,
                 SystemSet::new()
                     .with_system(gamepad_event_system)
-                    .with_system(gamepad_button_event_system.after(gamepad_event_system))
-                    .with_system(gamepad_axis_event_system.after(gamepad_event_system))
                     .with_system(gamepad_connection_system.after(gamepad_event_system))
+                    .with_system(
+                        gamepad_button_event_system
+                            .after(gamepad_event_system)
+                            .after(gamepad_connection_system),
+                    )
+                    .with_system(
+                        gamepad_axis_event_system
+                            .after(gamepad_event_system)
+                            .after(gamepad_connection_system),
+                    )
                     .label(InputSystem),
             )
             // touch
