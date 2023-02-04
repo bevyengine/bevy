@@ -19,7 +19,10 @@ use winit::{
 
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
-use crate::{converters, get_best_videomode, get_fitting_videomode, WinitWindows};
+use crate::{
+    converters::{self, convert_window_level},
+    get_best_videomode, get_fitting_videomode, WinitWindows,
+};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::ResMut;
 
@@ -87,14 +90,18 @@ pub struct WindowTitleCache(HashMap<Entity, String>);
 
 pub(crate) fn despawn_window(
     closed: RemovedComponents<Window>,
+    window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
     for window in closed.iter() {
         info!("Closing window {:?}", window);
-
-        winit_windows.remove_window(window);
-        close_events.send(WindowClosed { window });
+        // Guard to verify that the window is in fact actually gone,
+        // rather than having the component added and removed in the same frame.
+        if !window_entities.contains(window) {
+            winit_windows.remove_window(window);
+            close_events.send(WindowClosed { window });
+        }
     }
 }
 
@@ -258,8 +265,8 @@ pub(crate) fn changed_window(
                 winit_window.focus_window();
             }
 
-            if window.always_on_top != previous.always_on_top {
-                winit_window.set_always_on_top(window.always_on_top);
+            if window.window_level != previous.window_level {
+                winit_window.set_window_level(convert_window_level(window.window_level));
             }
 
             // Currently unsupported changes

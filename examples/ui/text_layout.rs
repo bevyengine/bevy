@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                size: Size::all(Val::Percent(100.)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -124,7 +124,7 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                size: Size::new(Val::Px(160.), Val::Px(160.)),
+                size: Size::all(Val::Px(160.)),
                 margin: UiRect::all(MARGIN),
                 ..Default::default()
             },
