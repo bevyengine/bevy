@@ -1,4 +1,4 @@
-pub use crate::change_detection::{NonSendMut, Res, ResMut};
+pub use crate::change_detection::{NonSendMut, Res, ResMut, ChangeDetectionMode};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -358,7 +358,7 @@ fn assert_component_access_compatibility(
 ///         # let _event = event;
 ///     }
 ///     set.p1().send(MyEvent::new());
-///     
+///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
@@ -405,7 +405,24 @@ impl_param_set!();
 /// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```
-pub trait Resource: Send + Sync + 'static {}
+///
+/// # Disabling Change Detection
+///
+/// By default, Bevy will track every mutative access made to a given resource.
+/// This may incur a performance cost on types that do not need it.
+/// To disable tracking these changes, add an additional `#[resource(change_detection = false)]`
+/// attribute to the derive one.
+///
+/// ```
+/// # use bevy_ecs::prelude::Resource;
+/// #
+/// #[derive(Resource)]
+/// #[resource(change_detection = false)]
+/// struct YourResource { value: u32 };
+/// ```
+pub trait Resource: Send + Sync + 'static {
+    const CHANGE_DETECTION_MODE: ChangeDetectionMode = ChangeDetectionMode::DerefMut;
+}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
