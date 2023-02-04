@@ -532,7 +532,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
+        <<T as Component>::Refs as ComponentRefs<T>>::shrink_ref(item)
     }
 
     const IS_DENSE: bool = {
@@ -826,7 +826,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
+        <<T as Component>::Refs as ComponentRefs<T>>::shrink_mut(item)
     }
 
     const IS_DENSE: bool = {

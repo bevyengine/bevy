@@ -153,6 +153,9 @@ pub trait Component: Send + Sync + Sized + 'static {
 pub trait ComponentRefs<T> {
     type Ref<'w>: ComponentRef<'w, T>;
     type MutRef<'w>: ComponentRefMut<'w, T>;
+
+    fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort>;
+    fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort>;
 }
 
 pub trait ComponentRef<'w, T> {

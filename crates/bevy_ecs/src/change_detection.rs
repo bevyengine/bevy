@@ -1,6 +1,6 @@
 //! Types that detect when their internal data mutate.
 
-use crate::component::ComponentRefs;
+use crate::component::{ComponentRef, ComponentRefMut, ComponentRefs};
 use crate::prelude::Component;
 use crate::{
     component::{Tick, TickCells},
@@ -592,6 +592,14 @@ where
 {
     type Ref<'w> = &'w T; //Ref<'w, T>;
     type MutRef<'w> = Mut<'w, T>;
+
+    fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort> {
+        item
+    }
+
+    fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort> {
+        item
+    }
 }
 
 /// Unique mutable borrow of resources or an entity's component.
