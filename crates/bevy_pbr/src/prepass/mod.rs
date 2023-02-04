@@ -147,12 +147,17 @@ pub struct PreviousGlobalTransform(pub Mat4);
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+    views: Query<&Camera, (With<Camera3d>, With<VelocityPrepass>)>,
+    meshes: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
 ) {
-    for (entity, transform) in &query {
-        commands
-            .entity(entity)
-            .insert(PreviousGlobalTransform(transform.compute_matrix()));
+    let should_run = views.iter().any(|camera| camera.is_active);
+
+    if should_run {
+        for (entity, transform) in &meshes {
+            commands
+                .entity(entity)
+                .insert(PreviousGlobalTransform(transform.compute_matrix()));
+        }
     }
 }
 
