@@ -393,6 +393,11 @@ impl TaskPool {
                                 task.cancel().await;
                             }
 
+                            // cancel the tasks in the queue too
+                            while let Ok(task) = spawned_ref.pop() {
+                                task.cancel().await;
+                            }
+
                             panic!("scoped task failed");
                         } else {
                             debug_assert!(pending_tasks.is_empty());
@@ -590,19 +595,6 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
-    }
-}
-
-impl<'scope, 'env, T> Drop for Scope<'scope, 'env, T>
-where
-    T: 'scope,
-{
-    fn drop(&mut self) {
-        future::block_on(async {
-            while let Ok(task) = self.spawned.pop() {
-                task.cancel().await;
-            }
-        });
     }
 }
 
