@@ -159,12 +159,17 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+    pub fn new(
+        left: impl Into<Val>,
+        right: impl Into<Val>,
+        top: impl Into<Val>,
+        bottom: impl Into<Val>,
+    ) -> Self {
         UiRect {
-            left,
-            right,
-            top,
-            bottom,
+            left: left.into(),
+            right: right.into(),
+            top: top.into(),
+            bottom: bottom.into(),
         }
     }
 
@@ -182,12 +187,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn all(value: Val) -> Self {
+    pub fn all(value: impl Into<Val> + Copy) -> Self {
         UiRect {
-            left: value,
-            right: value,
-            top: value,
-            bottom: value,
+            left: value.into(),
+            right: value.into(),
+            top: value.into(),
+            bottom: value.into(),
         }
     }
 
@@ -205,10 +210,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Undefined);
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
-    pub fn horizontal(value: Val) -> Self {
+    pub fn horizontal(value: impl Into<Val> + Copy) -> Self {
         UiRect {
-            left: value,
-            right: value,
+            left: value.into(),
+            right: value.into(),
             ..Default::default()
         }
     }
@@ -227,10 +232,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn vertical(value: Val) -> Self {
+    pub fn vertical(value: impl Into<Val> + Copy) -> Self {
         UiRect {
-            top: value,
-            bottom: value,
+            top: value.into(),
+            bottom: value.into(),
             ..Default::default()
         }
     }
@@ -249,9 +254,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Undefined);
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
-    pub fn left(value: Val) -> Self {
+    pub fn left(value: impl Into<Val>) -> Self {
         UiRect {
-            left: value,
+            left: value.into(),
             ..Default::default()
         }
     }
@@ -270,9 +275,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Undefined);
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
-    pub fn right(value: Val) -> Self {
+    pub fn right(value: impl Into<Val>) -> Self {
         UiRect {
-            right: value,
+            right: value.into(),
             ..Default::default()
         }
     }
@@ -291,9 +296,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
-    pub fn top(value: Val) -> Self {
+    pub fn top(value: impl Into<Val>) -> Self {
         UiRect {
-            top: value,
+            top: value.into(),
             ..Default::default()
         }
     }
@@ -312,9 +317,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Undefined);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn bottom(value: Val) -> Self {
+    pub fn bottom(value: impl Into<Val>) -> Self {
         UiRect {
-            bottom: value,
+            bottom: value.into(),
             ..Default::default()
         }
     }
@@ -339,7 +344,10 @@ pub struct Size {
 }
 
 impl Size {
-    pub const DEFAULT: Self = Self::all(Val::Auto);
+    pub const DEFAULT: Self = Self {
+        width: Val::Auto,
+        height: Val::Auto,
+    };
 
     /// Creates a new [`Size`] from a width and a height.
     ///
@@ -353,39 +361,48 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub const fn new(width: Val, height: Val) -> Self {
-        Size { width, height }
+    pub fn new(width: impl Into<Val>, height: impl Into<Val>) -> Self {
+        Size {
+            width: width.into(),
+            height: height.into(),
+        }
     }
 
     /// Creates a new [`Size`] where both sides take the given value.
-    pub const fn all(value: Val) -> Self {
+    pub fn all(value: impl Into<Val> + Copy) -> Self {
         Self {
-            width: value,
-            height: value,
+            width: value.into(),
+            height: value.into(),
         }
     }
 
     /// Creates a new [`Size`] where `width` takes the given value.
-    pub const fn width(width: Val) -> Self {
+    pub fn width(width: impl Into<Val>) -> Self {
         Self {
-            width,
-            height: Val::DEFAULT,
+            width: width.into(),
+            ..Default::default()
         }
     }
 
     /// Creates a new [`Size`] where `height` takes the given value.
-    pub const fn height(height: Val) -> Self {
+    pub fn height(height: impl Into<Val>) -> Self {
         Self {
-            width: Val::DEFAULT,
-            height,
+            height: height.into(),
+            ..Default::default()
         }
     }
 
     /// Creates a Size where both values are [`Val::Auto`].
-    pub const AUTO: Self = Self::all(Val::Auto);
+    pub const AUTO: Self = Self {
+        width: Val::Auto,
+        height: Val::Auto,
+    };
 
     /// Creates a Size where both values are [`Val::Undefined`].
-    pub const UNDEFINED: Self = Self::all(Val::Undefined);
+    pub const UNDEFINED: Self = Self {
+        width: Val::Undefined,
+        height: Val::Undefined,
+    };
 }
 
 impl Default for Size {
@@ -395,11 +412,8 @@ impl Default for Size {
 }
 
 impl From<(Val, Val)> for Size {
-    fn from(vals: (Val, Val)) -> Self {
-        Self {
-            width: vals.0,
-            height: vals.1,
-        }
+    fn from((width, height): (Val, Val)) -> Self {
+        Self { width, height }
     }
 }
 
@@ -458,22 +472,47 @@ mod tests {
 
     #[test]
     fn test_size_mul() {
-        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
+        assert_eq!(Size::all(10.) * 2., Size::all(20.));
 
-        let mut size = Size::all(Val::Px(10.));
+        let mut size = Size::all(10.);
         size *= 2.;
-        assert_eq!(size, Size::all(Val::Px(20.)));
+        assert_eq!(size, Size::all(20.));
     }
 
     #[test]
     fn test_size_div() {
-        assert_eq!(
-            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
-            Size::new(Val::Px(10.), Val::Px(10.))
-        );
+        assert_eq!(Size::new(20., 20.) / 2., Size::new(10., 10.));
 
-        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
+        let mut size = Size::new(20., 20.);
         size /= 2.;
-        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
+        assert_eq!(size, Size::new(10., 10.));
+    }
+
+    #[test]
+    fn test_size_all() {
+        let s = 10.;
+        let size = Size::all(s);
+
+        assert_eq!(size, Size::new(s, s));
+        assert_eq!(size, Size::all(Val::Px(s)));
+    }
+
+    #[test]
+    fn test_size_width_height() {
+        let w = 10.;
+        let h = 20.;
+
+        assert_eq!(Size::width(w), Size::new(w, Val::Auto));
+        assert_eq!(Size::height(h), Size::new(Val::Auto, h));
+        assert_eq!(
+            Size {
+                width: Val::Px(w),
+                ..Size::height(h)
+            },
+            Size {
+                height: Val::Px(h),
+                ..Size::width(w)
+            }
+        );
     }
 }

@@ -116,6 +116,12 @@ pub enum ValArithmeticError {
     NonEvaluateable,
 }
 
+impl From<f32> for Val {
+    fn from(value: f32) -> Self {
+        Val::Px(value)
+    }
+}
+
 impl Val {
     /// Tries to add the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
@@ -830,5 +836,12 @@ mod tests {
             format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
         );
+    }
+
+    #[test]
+    fn test_val_from_f32() {
+        let x = 7.;
+
+        assert_eq!(Val::from(x), Val::Px(x));
     }
 }
