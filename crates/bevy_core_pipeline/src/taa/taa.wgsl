@@ -93,32 +93,32 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)
     // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 27
     let offset = texel_size * 2.0;
-    let v_tl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, offset.y)).rg;
-    let v_tr = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, offset.y)).rg;
-    var closest_velocity = textureSample(velocity, nearest_sampler, uv).rg;
-    let v_bl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, -offset.y)).rg;
-    let v_br = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, -offset.y)).rg;
-    let d_tl = textureSample(depth, nearest_sampler, uv + vec2(-offset.x, offset.y));
-    let d_tr = textureSample(depth, nearest_sampler, uv + vec2(offset.x, offset.y));
+    let d_uv_tl = uv + vec2(-offset.x, offset.y);
+    let d_uv_tr = uv + vec2(offset.x, offset.y);
+    let d_uv_bl = uv + vec2(-offset.x, -offset.y);
+    let d_uv_br = uv + vec2(offset.x, -offset.y);
+    var closest_uv = uv;
+    let d_tl = textureSample(depth, nearest_sampler, d_uv_tl);
+    let d_tr = textureSample(depth, nearest_sampler, d_uv_tr);
     var closest_depth = textureSample(depth, nearest_sampler, uv);
-    let d_bl = textureSample(depth, nearest_sampler, uv + vec2(-offset.x, -offset.y));
-    let d_br = textureSample(depth, nearest_sampler, uv + vec2(offset.x, -offset.y));
+    let d_bl = textureSample(depth, nearest_sampler, d_uv_bl);
+    let d_br = textureSample(depth, nearest_sampler, d_uv_br);
     if d_tl > closest_depth {
-        closest_velocity = v_tl;
+        closest_uv = d_uv_tl;
         closest_depth = d_tl;
     }
     if d_tr > closest_depth {
-        closest_velocity = v_tr;
+        closest_uv = d_uv_tr;
         closest_depth = d_tr;
     }
     if d_bl > closest_depth {
-        closest_velocity = v_bl;
+        closest_uv = d_uv_bl;
         closest_depth = d_bl;
     }
     if d_br > closest_depth {
-        closest_velocity = v_br;
+        closest_uv = d_uv_br;
     }
-    let previous_uv = uv - closest_velocity;
+    let closest_velocity = textureSample(velocity, nearest_sampler, closest_uv).rg;
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
@@ -126,6 +126,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // https://vec3.ca/bicubic-filtering-in-fewer-taps
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
+    let previous_uv = uv - closest_velocity;
     let sample_position = previous_uv * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
     let f = sample_position - texel_center;
