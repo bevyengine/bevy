@@ -209,7 +209,7 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.configure_set(CalculateBounds.in_set(CoreSet::Update))
+        app.configure_set(CalculateBounds.in_set(CoreSet::PostUpdate))
             .configure_set(UpdateOrthographicFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(UpdatePerspectiveFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(UpdateProjectionFrusta.in_set(CoreSet::PostUpdate))
