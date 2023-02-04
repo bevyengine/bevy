@@ -10,11 +10,8 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use parking_lot::Mutex;
-use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
+use std::{hash::Hash, iter::FusedIterator, mem};
 use thiserror::Error;
-use wgpu::{
-    PipelineLayoutDescriptor, PushConstantRange, VertexBufferLayout as RawVertexBufferLayout,
-};
 
 render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
 render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
@@ -28,7 +25,7 @@ struct ShaderData {
 }
 
 #[derive(Default)]
-struct ShaderCache {
+pub(crate) struct ShaderCache {
     data: HashMap<Handle<Shader>, ShaderData>,
     shaders: HashMap<Handle<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
@@ -36,8 +33,37 @@ struct ShaderCache {
     processor: ShaderProcessor,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderDefVal {
+    Bool(String, bool),
+    Int(String, i32),
+    UInt(String, u32),
+}
+
+impl From<&str> for ShaderDefVal {
+    fn from(key: &str) -> Self {
+        ShaderDefVal::Bool(key.to_string(), true)
+    }
+}
+
+impl From<String> for ShaderDefVal {
+    fn from(key: String) -> Self {
+        ShaderDefVal::Bool(key, true)
+    }
+}
+
+impl ShaderDefVal {
+    pub fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefVal::Bool(_, def) => def.to_string(),
+            ShaderDefVal::Int(_, def) => def.to_string(),
+            ShaderDefVal::UInt(_, def) => def.to_string(),
+        }
+    }
+}
+
 impl ShaderCache {
-    fn get(
+    pub(crate) fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
@@ -187,12 +213,12 @@ impl ShaderCache {
 
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
-struct LayoutCache {
+pub(crate) struct LayoutCache {
     layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
-    fn get(
+    pub(crate) fn get(
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
@@ -218,7 +244,7 @@ impl LayoutCache {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-enum CachedPipelineId {
+pub(crate) enum CachedPipelineId {
     Render(RenderPipelineId),
     Compute(ComputePipelineId),
 }
@@ -236,9 +262,9 @@ impl From<ComputePipelineId> for CachedPipelineId {
 }
 
 struct CachedPipeline<I, D, P> {
-    pub id: I,
-    pub descriptor: D,
-    pub state: PipelineState<P>,
+    id: I,
+    descriptor: D,
+    state: PipelineState<P>,
 }
 
 struct PipelineCacheInternal<I: ResourceId, D, P> {
@@ -257,7 +283,7 @@ impl<I: ResourceId, D, P> Default for PipelineCacheInternal<I, D, P> {
     }
 }
 
-impl<I: ResourceId, D, P> PipelineCacheInternal<I, D, P> {
+impl<I: ResourceId, D, P: Pipeline<I, D, P>> PipelineCacheInternal<I, D, P> {
     #[inline]
     fn pipeline_state(&self, id: I) -> &PipelineState<P> {
         &self.pipelines[id.index()].state
@@ -293,60 +319,6 @@ impl<I: ResourceId, D, P> PipelineCacheInternal<I, D, P> {
         });
         id
     }
-}
-
-impl PipelineCacheInternal<RenderPipelineId, RenderPipelineDescriptor, RenderPipeline> {
-    fn process_pipeline(
-        &mut self,
-        id: RenderPipelineId,
-        descriptor: &RenderPipelineDescriptor,
-        device: &RenderDevice,
-        shader_cache: &mut ShaderCache,
-        layout_cache: &mut LayoutCache,
-    ) -> PipelineState<RenderPipeline> {
-        let vertex_module = match shader_cache.get(
-            device,
-            id.into(),
-            &descriptor.vertex.shader,
-            &descriptor.vertex.shader_defs,
-        ) {
-            Ok(module) => module,
-            Err(err) => {
-                return PipelineState::Err(err);
-            }
-        };
-
-        let fragment_data = if let Some(fragment) = &descriptor.fragment {
-            let fragment_module = match shader_cache.get(
-                device,
-                id.into(),
-                &fragment.shader,
-                &fragment.shader_defs,
-            ) {
-                Ok(module) => module,
-                Err(err) => {
-                    return PipelineState::Err(err);
-                }
-            };
-            Some((
-                fragment_module,
-                fragment.entry_point.deref(),
-                fragment.targets.as_slice(),
-            ))
-        } else {
-            None
-        };
-
-        let vertex_buffer_layouts = descriptor
-            .vertex
-            .buffers
-            .iter()
-            .map(|layout| RawVertexBufferLayout {
-                array_stride: layout.array_stride,
-                attributes: &layout.attributes,
-                step_mode: layout.step_mode,
-            })
-            .collect::<Vec<_>>();
 
         let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
@@ -410,106 +382,7 @@ impl PipelineCacheInternal<RenderPipelineId, RenderPipelineDescriptor, RenderPip
             }
 
             pipeline.state =
-                self.process_pipeline(id, &pipeline.descriptor, device, shader_cache, layout_cache);
-
-            if let PipelineState::Err(err) = &pipeline.state {
-                match err {
-                    PipelineCacheError::ShaderNotLoaded(_)
-                    | PipelineCacheError::ShaderImportNotYetAvailable => {
-                        // retry
-                        self.waiting_pipelines.insert(id);
-                    }
-                    // shader could not be processed ... retrying won't help
-                    PipelineCacheError::ProcessShaderError(err) => {
-                        error!("failed to process shader: {}", err);
-                        continue;
-                    }
-                    PipelineCacheError::AsModuleDescriptorError(err, source) => {
-                        log_shader_error(source, err);
-                        continue;
-                    }
-                    PipelineCacheError::CreateShaderModule(description) => {
-                        error!("failed to create shader module: {}", description);
-                        continue;
-                    }
-                }
-            }
-        }
-
-        self.pipelines = pipelines;
-    }
-}
-
-impl PipelineCacheInternal<ComputePipelineId, ComputePipelineDescriptor, ComputePipeline> {
-    fn process_pipeline(
-        &mut self,
-        id: ComputePipelineId,
-        descriptor: &ComputePipelineDescriptor,
-        device: &RenderDevice,
-        shader_cache: &mut ShaderCache,
-        layout_cache: &mut LayoutCache,
-    ) -> PipelineState<ComputePipeline> {
-        let compute_module = match shader_cache.get(
-            device,
-            id.into(),
-            &descriptor.shader,
-            &descriptor.shader_defs,
-        ) {
-            Ok(module) => module,
-            Err(err) => {
-                return PipelineState::Err(err);
-            }
-        };
-
-        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-            None
-        } else {
-            Some(self.layout_cache.get(
-                &self.device,
-                &descriptor.layout,
-                descriptor.push_constant_ranges.to_vec(),
-            ))
-        };
-
-        let descriptor = RawComputePipelineDescriptor {
-            label: descriptor.label.as_deref(),
-            layout,
-            module: &compute_module,
-            entry_point: descriptor.entry_point.as_ref(),
-        };
-
-        let pipeline = device.create_compute_pipeline(id, &descriptor);
-
-        PipelineState::Ok(pipeline)
-    }
-
-    // TODO: elevate this method to remove the duplication
-    fn process_queue(
-        &mut self,
-        device: &RenderDevice,
-        shader_cache: &mut ShaderCache,
-        layout_cache: &mut LayoutCache,
-    ) {
-        let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
-        let mut pipelines = mem::take(&mut self.pipelines);
-
-        {
-            let mut new_pipelines = self.new_pipelines.lock();
-            for new_pipeline in new_pipelines.drain(..) {
-                let id = new_pipeline.id;
-                pipelines.push(new_pipeline);
-                waiting_pipelines.insert(id);
-            }
-        }
-
-        for id in waiting_pipelines {
-            let pipeline = &mut pipelines[id.index()];
-            if matches!(pipeline.state, PipelineState::Ok(_)) {
-                continue;
-            }
-
-            pipeline.state =
-                self.process_pipeline(id, &pipeline.descriptor, device, shader_cache, layout_cache);
+                P::process_pipeline(id, &pipeline.descriptor, device, shader_cache, layout_cache);
 
             if let PipelineState::Err(err) = &pipeline.state {
                 match err {
