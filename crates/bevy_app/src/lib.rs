@@ -38,7 +38,7 @@ use bevy_ecs::{
 
 /// The names of the default [`App`] schedules.
 ///
-/// The corresponding [`Schedule`](bevy_ecs::schedule::Schedule) objects are added by [`App::add_default_schedules`].
+/// The corresponding [`Schedule`](bevy_ecs::schedule_v3::Schedule) objects are added by [`App::add_default_schedules`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CoreSchedule {
     /// The schedule that runs once when the app starts.
@@ -84,7 +84,7 @@ impl CoreSchedule {
 ///
 /// These are ordered in the same order they are listed.
 ///
-/// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
+/// The corresponding [`SystemSets`](bevy_ecs::schedule_v3::SystemSet) are added by [`App::add_default_sets`].
 ///
 /// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
 /// that runs immediately after the matching system set.
@@ -99,7 +99,7 @@ pub enum CoreSet {
     PreUpdate,
     /// The copy of [`apply_system_buffers`] that runs immediately after `PreUpdate`.
     PreUpdateFlush,
-    /// Applies [`State`](bevy_ecs::schedule::State) transitions
+    /// Applies [`State`](bevy_ecs::schedule_v3::State) transitions
     StateTransitions,
     /// Runs systems that should only occur after a fixed period of time.
     ///
@@ -149,7 +149,7 @@ impl CoreSet {
 
 /// The names of the default [`App`] startup sets, which live in [`CoreSchedule::Startup`].
 ///
-/// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
+/// The corresponding [`SystemSets`](bevy_ecs::schedule_v3::SystemSet) are added by [`App::add_default_sets`].
 ///
 /// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
 /// that runs immediately after the matching system set.

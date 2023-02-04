@@ -315,7 +315,7 @@ impl App {
     /// These systems sets only run if the [`State<S>`] resource matches their label.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
+    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule_v3::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
