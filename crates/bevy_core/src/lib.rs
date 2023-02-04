@@ -124,7 +124,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 
 /// Maintains a count of frames rendered since the start of the application.
 ///
-/// [`FrameCount`] is incremented during [`CoreStage::Last`], providing predictable
+/// [`FrameCount`] is incremented during [`CoreSet::Last`], providing predictable
 /// behaviour: it will be 0 during the first update, 1 during the next, and so forth.
 ///
 /// # Overflows
