@@ -317,7 +317,7 @@ impl CascadeShadowConfigBuilder {
 
     /// Sets the minimum shadow distance, which can help improve the texel resolution of the first cascade.
     /// Areas nearer to the camera than this will likely receive no shadows.
-    /// 
+    ///
     /// NOTE: Due to implementation details, this usually does not impact shadow quality as much as
     /// `first_cascade_far_bound` and `maximum_distance`. At many view frustum field-of-views, the
     /// texel resolution of the first cascade is dominated by the width / height of the view frustum plane

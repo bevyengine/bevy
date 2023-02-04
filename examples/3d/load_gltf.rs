@@ -2,7 +2,10 @@
 
 use std::f32::consts::*;
 
-use bevy::{pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap}, prelude::*};
+use bevy::{
+    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    prelude::*,
+};
 
 fn main() {
     App::new()
