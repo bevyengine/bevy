@@ -96,12 +96,13 @@ pub(crate) fn despawn_window(
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
     for window in closed.iter() {
-        info!("Closing window {:?}", window);
+        let entity = window.0;
+        info!("Closing window {:?}", entity);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added and removed in the same frame.
-        if !window_entities.contains(window) {
-            winit_windows.remove_window(window);
-            close_events.send(WindowClosed { window });
+        if !window_entities.contains(entity) {
+            winit_windows.remove_window(entity);
+            close_events.send(WindowClosed { window: entity });
         }
     }
 }
