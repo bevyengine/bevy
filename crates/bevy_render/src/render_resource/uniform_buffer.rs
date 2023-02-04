@@ -44,7 +44,7 @@ impl<T: ShaderType> From<T> for UniformBuffer<T> {
             buffer: None,
             label: None,
             changed: false,
-            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            buffer_usage: BufferUsages::COPY_DST,
         }
     }
 }
@@ -57,7 +57,7 @@ impl<T: ShaderType + Default> Default for UniformBuffer<T> {
             buffer: None,
             label: None,
             changed: false,
-            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            buffer_usage: BufferUsages::COPY_DST,
         }
     }
 }
@@ -102,6 +102,9 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.label.as_deref()
     }
 
+    /// Set the buffer usage of the buffer.
+    ///
+    /// The default values for buffer usage are BufferUsages::COPY_DST and BufferUsages::UNIFORM.
     pub fn set_usage(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;
@@ -118,7 +121,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         if self.changed || self.buffer.is_none() {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: self.buffer_usage,
+                usage: BufferUsages::UNIFORM | self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.changed = false;
@@ -166,7 +169,7 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
             capacity: 0,
             label: None,
             changed: false,
-            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            buffer_usage: BufferUsages::COPY_DST,
         }
     }
 }
@@ -218,6 +221,9 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
+    /// Set the buffer usage of the buffer.
+    ///
+    /// The default values for buffer usage are BufferUsages::COPY_DST and BufferUsages::UNIFORM.
     pub fn set_usage(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;
@@ -235,7 +241,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         if self.capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: self.buffer_usage,
+                usage: BufferUsages::UNIFORM | self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
