@@ -318,7 +318,7 @@ impl CascadeShadowConfigBuilder {
     /// Sets the minimum shadow distance.
     /// Areas nearer to the camera than this will likely receive no shadows.
     /// NOTE: Due to implementation details, this usually does not impact shadow quality as much as
-    /// [`first_cascade_far_bound`] and [`maximum_distance`].
+    /// `first_cascade_far_bound` and `maximum_distance`.
     pub fn minimum_distance(mut self, d: f32) -> Self {
         self.minimum_distance = d;
         self
