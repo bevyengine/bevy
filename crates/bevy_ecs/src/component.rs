@@ -1,5 +1,8 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::entity::Entity;
+use crate::query::{ReadFetch, WriteFetch};
+use crate::storage::TableRow;
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
@@ -142,8 +145,21 @@ use std::{
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-pub trait Component: Send + Sync + 'static {
+pub trait Component: Send + Sync + Sized + 'static {
     type Storage: ComponentStorage;
+    type Refs: ComponentRefs<Self>;
+}
+
+pub trait ComponentRefs<T> {
+    type Ref<'w>: ComponentRef<'w, T>;
+    type MutRef<'w>: ComponentRefMut<'w, T>;
+}
+
+pub trait ComponentRef<'w, T> {
+    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
+}
+pub trait ComponentRefMut<'w, T> {
+    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
 }
 
 pub struct TableStorage;

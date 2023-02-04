@@ -1,3 +1,4 @@
+use crate::component::{ComponentRef, ComponentRefMut, ComponentRefs};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::{Ticks, TicksMut},
@@ -526,11 +527,11 @@ pub struct ReadFetch<'w, T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
-    type Item<'w> = &'w T;
+    type Item<'w> = <<T as Component>::Refs as ComponentRefs<T>>::Ref<'w>;
     type ReadOnly = Self;
     type State = ComponentId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
 
@@ -601,19 +602,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => fetch
-                .table_components
-                .debug_checked_unwrap()
-                .get(table_row.index())
-                .deref(),
-            StorageType::SparseSet => fetch
-                .sparse_set
-                .debug_checked_unwrap()
-                .get(entity)
-                .debug_checked_unwrap()
-                .deref(),
-        }
+        Self::Item::new(fetch, entity, table_row)
     }
 
     fn update_component_access(
@@ -832,11 +821,11 @@ pub struct WriteFetch<'w, T> {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
-    type Item<'w> = Mut<'w, T>;
+    type Item<'w> = <<T as Component>::Refs as ComponentRefs<T>>::MutRef<'w>;
     type ReadOnly = &'__w T;
     type State = ComponentId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
 
@@ -910,36 +899,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                let (table_components, added_ticks, changed_ticks) =
-                    fetch.table_data.debug_checked_unwrap();
-                Mut {
-                    value: table_components.get(table_row.index()).deref_mut(),
-                    ticks: TicksMut {
-                        added: added_ticks.get(table_row.index()).deref_mut(),
-                        changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
-                }
-            }
-            StorageType::SparseSet => {
-                let (component, ticks) = fetch
-                    .sparse_set
-                    .debug_checked_unwrap()
-                    .get_with_ticks(entity)
-                    .debug_checked_unwrap();
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(
-                        ticks,
-                        fetch.last_change_tick,
-                        fetch.change_tick,
-                    ),
-                }
-            }
-        }
+        Self::Item::new(fetch, entity, table_row)
     }
 
     fn update_component_access(
@@ -973,6 +933,64 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
+    }
+}
+
+impl<'w, T> ComponentRef<'w, T> for &'w T
+where
+    T: Component,
+{
+    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => fetch
+                .table_components
+                .debug_checked_unwrap()
+                .get(table_row.index())
+                .deref(),
+            StorageType::SparseSet => fetch
+                .sparse_set
+                .debug_checked_unwrap()
+                .get(entity)
+                .debug_checked_unwrap()
+                .deref(),
+        }
+    }
+}
+impl<'w, T> ComponentRefMut<'w, T> for Mut<'w, T>
+where
+    T: Component,
+{
+    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => {
+                let (table_components, added_ticks, changed_ticks) =
+                    fetch.table_data.debug_checked_unwrap();
+                Mut {
+                    value: table_components.get(table_row.index()).deref_mut(),
+                    ticks: TicksMut {
+                        added: added_ticks.get(table_row.index()).deref_mut(),
+                        changed: changed_ticks.get(table_row.index()).deref_mut(),
+                        change_tick: fetch.change_tick,
+                        last_change_tick: fetch.last_change_tick,
+                    },
+                }
+            }
+            StorageType::SparseSet => {
+                let (component, ticks) = fetch
+                    .sparse_set
+                    .debug_checked_unwrap()
+                    .get_with_ticks(entity)
+                    .debug_checked_unwrap();
+                Mut {
+                    value: component.assert_unique().deref_mut(),
+                    ticks: TicksMut::from_tick_cells(
+                        ticks,
+                        fetch.last_change_tick,
+                        fetch.change_tick,
+                    ),
+                }
+            }
+        }
     }
 }
 
