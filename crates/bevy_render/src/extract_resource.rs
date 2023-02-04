@@ -36,6 +36,8 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
+        } else {
+            bevy_log::warn!("ExtractResourcePlugin could not find a RenderApp to extract to. Did you add this plugin to the render app instead of the base app?");
         }
     }
 }
