@@ -147,15 +147,15 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
     // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
-    let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
-    let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
-    let s_tr = sample_view_target(uv + texel_size);
-    let s_ml = sample_view_target(uv - vec2(texel_size.x, 0.0));
+    let s_tl = sample_view_target(uv + vec2(-texel_size.x,  texel_size.y));
+    let s_tm = sample_view_target(uv + vec2( 0.0,           texel_size.y));
+    let s_tr = sample_view_target(uv + vec2( texel_size.x,  texel_size.y));
+    let s_ml = sample_view_target(uv + vec2(-texel_size.x,  0.0));
     let s_mm = RGB_to_YCoCg(current_color);
-    let s_mr = sample_view_target(uv + vec2(texel_size.x, 0.0));
-    let s_bl = sample_view_target(uv - texel_size);
-    let s_bm = sample_view_target(uv - vec2(0.0, texel_size.y));
-    let s_br = sample_view_target(uv + vec2(texel_size.x, -texel_size.y));
+    let s_mr = sample_view_target(uv + vec2( texel_size.x,  0.0));
+    let s_bl = sample_view_target(uv + vec2(-texel_size.x, -texel_size.y));
+    let s_bm = sample_view_target(uv + vec2( 0.0,          -texel_size.y));
+    let s_br = sample_view_target(uv + vec2( texel_size.x, -texel_size.y));
     let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
     let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
     let mean = moment_1 / 9.0;
