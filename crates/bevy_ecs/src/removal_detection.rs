@@ -20,7 +20,7 @@ use std::{
 };
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
-/// Internally, `RemovedComponents` stores these as an `Events<RemovedComponentEntity>`.
+/// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
 #[derive(Debug, Clone)]
 pub struct RemovedComponentEntity(Entity);
 
@@ -148,7 +148,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(|events| self.reader.iter(events).cloned())
             .into_iter()
             .flatten()
-            .map(|e| e.0)
+            .map(RemovedComponentEntity::into)
     }
 }
 
