@@ -1,7 +1,7 @@
 use crate::change_detection::{Mut, Ref, Ticks, TicksMut};
 use crate::component::{Component, ComponentStorage, StorageType};
 use crate::entity::Entity;
-use crate::query::{DebugCheckedUnwrap, ReadFetch, WriteFetch};
+use crate::query::{ComponentFetch, DebugCheckedUnwrap};
 use crate::storage::TableRow;
 use bevy_ptr::UnsafeCellDeref;
 use std::marker::PhantomData;
@@ -9,17 +9,14 @@ use std::marker::PhantomData;
 /// Trait for defining the types returned by &T and &mut T component queries.
 pub trait ComponentRefs<T> {
     type Ref<'w>: ComponentRef<'w, T>;
-    type MutRef<'w>: ComponentRefMut<'w, T>;
+    type MutRef<'w>: ComponentRef<'w, T>;
 
     fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort>;
     fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort>;
 }
 
 pub trait ComponentRef<'w, T> {
-    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
-}
-pub trait ComponentRefMut<'w, T> {
-    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
+    unsafe fn new(fetch: &ComponentFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
 }
 
 /// Pass this to your component derives to override the default type returned by &T
@@ -78,7 +75,7 @@ impl<'w, T> ComponentRef<'w, T> for &'w T
 where
     T: Component,
 {
-    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
+    unsafe fn new(fetch: &ComponentFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => fetch
                 .table_data
@@ -99,7 +96,7 @@ impl<'w, T> ComponentRef<'w, T> for Ref<'w, T>
 where
     T: Component,
 {
-    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
+    unsafe fn new(fetch: &ComponentFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
@@ -128,11 +125,11 @@ where
         }
     }
 }
-impl<'w, T> ComponentRefMut<'w, T> for &'w mut T
+impl<'w, T> ComponentRef<'w, T> for &'w mut T
 where
     T: Component,
 {
-    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
+    unsafe fn new(fetch: &ComponentFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => fetch
                 .table_data
@@ -152,11 +149,11 @@ where
     }
 }
 
-impl<'w, T> ComponentRefMut<'w, T> for Mut<'w, T>
+impl<'w, T> ComponentRef<'w, T> for Mut<'w, T>
 where
     T: Component,
 {
-    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
+    unsafe fn new(fetch: &ComponentFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =

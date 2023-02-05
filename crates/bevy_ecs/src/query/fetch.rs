@@ -2,7 +2,7 @@ use crate::component_refs::ComponentRefs;
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
-    component_refs::{ComponentRef, ComponentRefMut},
+    component_refs::ComponentRef,
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -517,7 +517,7 @@ unsafe impl WorldQuery for Entity {
 unsafe impl ReadOnlyWorldQuery for Entity {}
 
 #[doc(hidden)]
-pub struct ReadFetch<'w, T> {
+pub struct ComponentFetch<'w, T> {
     // T::Storage = TableStorage
     pub(crate) table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
@@ -533,7 +533,7 @@ pub struct ReadFetch<'w, T> {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> WorldQuery for &T {
-    type Fetch<'w> = ReadFetch<'w, T>;
+    type Fetch<'w> = ComponentFetch<'w, T>;
     type Item<'w> = <<T as Component>::Refs as ComponentRefs<T>>::Ref<'w>;
     type ReadOnly = Self;
     type State = ComponentId;
@@ -556,8 +556,8 @@ unsafe impl<T: Component> WorldQuery for &T {
         &component_id: &ComponentId,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> ReadFetch<'w, T> {
-        ReadFetch {
+    ) -> ComponentFetch<'w, T> {
+        ComponentFetch {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
@@ -572,7 +572,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadFetch {
+        ComponentFetch {
             table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
             last_change_tick: fetch.last_change_tick,
@@ -582,7 +582,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut ReadFetch<'w, T>,
+        fetch: &mut ComponentFetch<'w, T>,
         component_id: &ComponentId,
         _archetype: &'w Archetype,
         table: &'w Table,
@@ -594,7 +594,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut ReadFetch<'w, T>,
+        fetch: &mut ComponentFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
@@ -652,24 +652,9 @@ unsafe impl<T: Component> WorldQuery for &T {
 /// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyWorldQuery for &T {}
 
-#[doc(hidden)]
-pub struct WriteFetch<'w, T> {
-    // T::Storage = TableStorage
-    pub(crate) table_data: Option<(
-        ThinSlicePtr<'w, UnsafeCell<T>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-    )>,
-    // T::Storage = SparseStorage
-    pub(crate) sparse_set: Option<&'w ComponentSparseSet>,
-
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
-}
-
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
-    type Fetch<'w> = WriteFetch<'w, T>;
+    type Fetch<'w> = ComponentFetch<'w, T>;
     type Item<'w> = <<T as Component>::Refs as ComponentRefs<T>>::MutRef<'w>;
     type ReadOnly = &'__w T;
     type State = ComponentId;
@@ -692,8 +677,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> WriteFetch<'w, T> {
-        WriteFetch {
+    ) -> ComponentFetch<'w, T> {
+        ComponentFetch {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
@@ -708,7 +693,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteFetch {
+        ComponentFetch {
             table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
             last_change_tick: fetch.last_change_tick,
@@ -718,7 +703,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteFetch<'w, T>,
+        fetch: &mut ComponentFetch<'w, T>,
         component_id: &ComponentId,
         _archetype: &'w Archetype,
         table: &'w Table,
@@ -730,7 +715,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteFetch<'w, T>,
+        fetch: &mut ComponentFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
