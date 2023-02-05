@@ -590,7 +590,8 @@ impl<T> ComponentRefs<T> for ChangeDetectionRefs<T>
 where
     T: Sized + Component,
 {
-    type Ref<'w> = &'w T; //Ref<'w, T>;
+    type Ref<'w> = &'w T;
+    // type Ref<'w> = Ref<'w, T>;
     type MutRef<'w> = Mut<'w, T>;
 
     fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort> {

@@ -11,6 +11,7 @@ use crate::{
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
+use std::marker::PhantomData;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -163,6 +164,24 @@ pub trait ComponentRef<'w, T> {
 }
 pub trait ComponentRefMut<'w, T> {
     unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
+}
+pub struct UnwrappedRefs<T: ?Sized> {
+    phantom: PhantomData<T>,
+}
+impl<T> ComponentRefs<T> for UnwrappedRefs<T>
+where
+    T: Sized + Component,
+{
+    type Ref<'w> = &'w T;
+    type MutRef<'w> = &'w mut T;
+
+    fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort> {
+        item
+    }
+
+    fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort> {
+        item
+    }
 }
 
 pub struct TableStorage;
