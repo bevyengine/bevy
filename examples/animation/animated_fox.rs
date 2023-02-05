@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 
 fn main() {
@@ -55,6 +56,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 400.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
