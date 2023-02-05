@@ -270,7 +270,8 @@ fn setup(
 
     // Because we need to round the number of columns,
     // the space on the top and sides of the bricks only captures a lower bound, not an exact value
-    let center_of_bricks = (LEFT_WALL + RIGHT_WALL) / 2.0;
+    //
+    let center_of_bricks = 0.0;
     let left_edge_of_bricks = center_of_bricks
         // Space taken up by the bricks
         - (n_columns as f32 / 2.0 * BRICK_SIZE.x)
