@@ -788,6 +788,7 @@ impl World {
             .map(|removed| removed.iter_current_update_events().cloned())
             .into_iter()
             .flatten()
+            .map(|e| e.into())
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
