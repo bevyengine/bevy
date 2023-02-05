@@ -11,7 +11,6 @@ mod render;
 
 pub use alpha::*;
 use bevy_transform::TransformSystem;
-use bevy_window::ModifiesWindows;
 pub use bundle::*;
 pub use fog::*;
 pub use light::*;
@@ -199,8 +198,7 @@ impl Plugin for PbrPlugin {
                     .in_set(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CheckVisibility)
-                    .after(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .after(CameraUpdateSystem),
             )
             .add_system(
                 update_directional_light_cascades

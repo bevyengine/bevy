@@ -26,7 +26,7 @@ use bevy_utils::{
 };
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
-    ModifiesWindows, ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
     WindowScaleFactorChanged,
 };
