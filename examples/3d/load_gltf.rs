@@ -2,7 +2,10 @@
 
 use std::f32::consts::*;
 
-use bevy::{pbr::CascadeShadowConfig, prelude::*};
+use bevy::{
+    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -10,6 +13,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
         })
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(animate_light_direction.in_set(CoreSet::Update))
@@ -28,7 +32,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         // This is a relatively small scene, so use tighter shadow
         // cascade bounds than the default for better quality.
-        cascade_shadow_config: CascadeShadowConfig::new(1, 1.1, 1.5, 0.3),
+        // We also adjusted the shadow map to be larger since we're
+        // only using a single cascade.
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 1,
+            maximum_distance: 1.6,
+            ..default()
+        }
+        .into(),
         ..default()
     });
     commands.spawn(SceneBundle {

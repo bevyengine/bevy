@@ -19,8 +19,9 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    removal_detection::RemovedComponentEvents,
     schedule_v3::{Schedule, ScheduleLabel, Schedules},
-    storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
+    storage::{Column, ComponentSparseSet, ResourceData, Storages, TableRow},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -63,7 +64,7 @@ pub struct World {
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
-    pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
+    pub(crate) removed_components: RemovedComponentEvents,
     /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
     pub(crate) archetype_component_access: UnsafeCell<ArchetypeComponentAccess>,
     pub(crate) change_tick: AtomicU32,
@@ -164,6 +165,12 @@ impl World {
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
+    }
+
+    /// Retrieves this world's [`RemovedComponentEvents`] collection
+    #[inline]
+    pub fn removed_components(&self) -> &RemovedComponentEvents {
+        &self.removed_components
     }
 
     /// Retrieves a [`WorldCell`], which safely enables multiple mutable World accesses at the same
@@ -667,12 +674,9 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::system::RemovedComponents
+    /// [`RemovedComponents`]: crate::removal_detection::RemovedComponents
     pub fn clear_trackers(&mut self) {
-        for entities in self.removed_components.values_mut() {
-            entities.clear();
-        }
-
+        self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();
     }
 
@@ -769,25 +773,23 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
-            self.removed_with_id(component_id)
-        } else {
-            [].iter().cloned()
-        }
+    pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.components
+            .get_id(TypeId::of::<T>())
+            .map(|component_id| self.removed_with_id(component_id))
+            .into_iter()
+            .flatten()
     }
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed_with_id(
-        &self,
-        component_id: ComponentId,
-    ) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        if let Some(removed) = self.removed_components.get(component_id) {
-            removed.iter().cloned()
-        } else {
-            [].iter().cloned()
-        }
+    pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
+        self.removed_components
+            .get(component_id)
+            .map(|removed| removed.iter_current_update_events().cloned())
+            .into_iter()
+            .flatten()
+            .map(|e| e.into())
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
