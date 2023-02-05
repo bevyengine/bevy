@@ -14,14 +14,11 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_DEPTH
+#else ifdef PBR_DEBUG_DEPTH
     return vec4<f32>(in.frag_coord.z, in.frag_coord.z, in.frag_coord.z, 1.0);
-#else
-#ifdef PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS
+#else ifdef PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS
     return vec4<f32>(in.world_normal, 1.0);
-#else
-#ifdef PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS
+#else ifdef PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS
 
 #ifdef VERTEX_TANGENTS
     return vec4<f32>(in.world_tangent.rgb, 1.0);
@@ -29,8 +26,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_TANGENTS
 
-#else
-#ifdef PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP
+#else ifdef PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP
 
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -43,8 +39,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_NORMAL_MAPPED_NORMAL
+#else ifdef PBR_DEBUG_NORMAL_MAPPED_NORMAL
 
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
@@ -67,8 +62,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
 #endif // VERTEX_UVS
 
 
-#else
-#ifdef PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL
+#else ifdef PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL
 
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
@@ -99,11 +93,9 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_BASE_COLOR
+#else ifdef PBR_DEBUG_BASE_COLOR
     return material.base_color;
-#else
-#ifdef PBR_DEBUG_BASE_COLOR_TEXTURE
+#else ifdef PBR_DEBUG_BASE_COLOR_TEXTURE
 
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
@@ -115,11 +107,9 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_EMISSIVE
+#else ifdef PBR_DEBUG_EMISSIVE
     return material.emissive;
-#else
-#ifdef PBR_DEBUG_EMISSIVE_TEXTURE
+#else ifdef PBR_DEBUG_EMISSIVE_TEXTURE
 
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
@@ -134,16 +124,14 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_ROUGHNESS
+#else ifdef PBR_DEBUG_ROUGHNESS
     return vec4<f32>(
         material.perceptual_roughness,
         material.perceptual_roughness,
         material.perceptual_roughness,
         1.0
     );
-#else
-#ifdef PBR_DEBUG_ROUGHNESS_TEXTURE
+#else ifdef PBR_DEBUG_ROUGHNESS_TEXTURE
 
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
@@ -161,16 +149,14 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_METALLIC
+#else ifdef PBR_DEBUG_METALLIC
     return vec4<f32>(
         material.metallic,
         material.metallic,
         material.metallic,
         1.0
     );
-#else
-#ifdef PBR_DEBUG_METALLIC_TEXTURE
+#else ifdef PBR_DEBUG_METALLIC_TEXTURE
 
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
@@ -188,16 +174,14 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#else
-#ifdef PBR_DEBUG_REFLECTANCE
+#else ifdef PBR_DEBUG_REFLECTANCE
     return vec4<f32>(
         material.reflectance,
         material.reflectance,
         material.reflectance,
         1.0
     );
-#else
-#ifdef PBR_DEBUG_OCCLUSION_TEXTURE
+#else ifdef PBR_DEBUG_OCCLUSION_TEXTURE
 
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
@@ -215,23 +199,9 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return pink;
 #endif // VERTEX_UVS
 
-#endif // PBR_DEBUG_OCCLUSION_TEXTURE
-#endif // PBR_DEBUG_REFLECTANCE
-#endif // PBR_DEBUG_METALLIC_TEXTURE
-#endif // PBR_DEBUG_METALLIC
-#endif // PBR_DEBUG_ROUGHNESS_TEXTURE
-#endif // PBR_DEBUG_ROUGHNESS
-#endif // PBR_DEBUG_EMISSIVE_TEXTURE
-#endif // PBR_DEBUG_EMISSIVE
-#endif // PBR_DEBUG_BASE_COLOR_TEXTURE
-#endif // PBR_DEBUG_BASE_COLOR
-#endif // PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL
-#endif // PBR_DEBUG_NORMAL_MAPPED_NORMAL
-#endif // PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP
-#endif // PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS
-#endif // PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS
-#endif // PBR_DEBUG_DEPTH
-#endif // PBR_DEBUG_UVS
+#else // Nothing in the else-ifdef chain matched
+    return pink;
+#endif // The whole else-ifdef chain
 }
 
 #endif // PBR_DEBUG
