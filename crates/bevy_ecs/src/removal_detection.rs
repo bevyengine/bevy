@@ -20,9 +20,15 @@ use std::{
 };
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
-/// These are produced when iterating through `RemovedComponents`.
+/// Internally, `RemovedComponents` stores these as an `Events<RemovedComponentEntity>`.
 #[derive(Debug, Clone)]
-pub struct RemovedComponentEntity(pub Entity);
+pub struct RemovedComponentEntity(Entity);
+
+impl From<RemovedComponentEntity> for Entity {
+    fn from(value: RemovedComponentEntity) -> Self {
+        value.0
+    }
+}
 
 /// Wrapper around a [`ManualEventReader<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
@@ -57,7 +63,7 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
     }
 }
 
-/// Wrapper around a map of components to [`Events<Entity>`].
+/// Wrapper around a map of components to [`Events<RemovedComponentEntity>`].
 /// So that we can find the events without naming the type directly.
 #[derive(Default, Debug)]
 pub struct RemovedComponentEvents {
@@ -130,8 +136,12 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
-pub type RemovedIter<'a> =
-    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>>;
+pub type RemovedIter<'a> = iter::Map<
+    iter::Flatten<
+        option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>,
+    >,
+    fn(RemovedComponentEntity) -> Entity,
+>;
 
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     pub fn iter(&mut self) -> RemovedIter<'_> {
@@ -140,6 +150,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(|events| self.reader.iter(events).cloned())
             .into_iter()
             .flatten()
+            .map(|e| e.0)
     }
 }
 
@@ -147,7 +158,7 @@ impl<'a, 'w, 's: 'a, T> IntoIterator for &'a mut RemovedComponents<'w, 's, T>
 where
     T: Component,
 {
-    type Item = RemovedComponentEntity;
+    type Item = Entity;
     type IntoIter = RemovedIter<'a>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

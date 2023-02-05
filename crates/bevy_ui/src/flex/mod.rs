@@ -281,14 +281,14 @@ pub fn flex_node_system(
     }
 
     // clean up removed nodes
-    flex_surface.remove_entities(removed_nodes.iter().map(|e| e.0));
+    flex_surface.remove_entities(removed_nodes.iter());
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
     for entity in removed_children.iter() {
-        flex_surface.try_remove_children(entity.0);
+        flex_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
         flex_surface.update_children(entity, children);
