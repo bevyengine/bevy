@@ -746,7 +746,7 @@ unsafe fn initialize_bundle(
             .into_iter()
             .map(|id| {
                 // SAFETY: component_id exists and is therefore valid
-                components.get_info_unchecked(id).name()
+                unsafe { components.get_info_unchecked(id).name() }
             })
             .collect::<Vec<_>>()
             .join(", ");
