@@ -226,7 +226,7 @@ pub struct DirectionalLightShadowMap {
 
 impl Default for DirectionalLightShadowMap {
     fn default() -> Self {
-        return Self { size: 2048 };
+        Self { size: 2048 }
     }
 }
 
