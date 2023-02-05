@@ -137,9 +137,7 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<
-        option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>,
-    >,
+    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>>,
     fn(RemovedComponentEntity) -> Entity,
 >;
 
