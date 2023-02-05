@@ -1,18 +1,20 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val};
+use crate::{CalculatedSize, Size, Style, UiScale, UiSystem, Val};
+use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
+    schedule::IntoSystemDescriptor,
     system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_render::texture::Image;
+use bevy_render::{camera::CameraUpdateSystem, texture::Image};
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
     TextSettings, YAxisOrientation,
 };
-use bevy_window::{PrimaryWindow, Window};
+use bevy_window::{ModifiesWindows, PrimaryWindow, Window};
 
 fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
@@ -151,4 +153,28 @@ pub fn text_system(
     }
 
     *queued_text_ids = new_queue;
+}
+
+/// A plugin for adding text rendering
+#[derive(Default)]
+pub struct TextPlugin;
+
+impl Plugin for TextPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system_to_stage(
+            CoreStage::PostUpdate,
+            text_system
+                .before(UiSystem::Flex)
+                .after(ModifiesWindows)
+                // Potential conflict: `Assets<Image>`
+                // In practice, they run independently since `bevy_render::camera_update_system`
+                // will only ever observe its own render target, and `widget::text_system`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(CameraUpdateSystem)
+                // Potential conflict: `Assets<Image>`
+                // Since both systems will only ever insert new [`Image`] assets,
+                // they will never observe each other's effects.
+                .ambiguous_with(bevy_text::update_text2d_layout),
+        );
+    }
 }

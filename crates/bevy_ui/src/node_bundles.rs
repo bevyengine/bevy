@@ -1,7 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
+    widget::{Button, Slider, SliderHandle},
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, RelativeCursorPosition, Style,
     UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -197,6 +198,41 @@ pub struct ButtonBundle {
     pub z_index: ZIndex,
 }
 
+/// A UI node that is a slider
+#[derive(Bundle, Clone, Debug, Default)]
+pub struct SliderBundle {
+    /// Describes the size of the node
+    pub node: Node,
+    /// Slider specific values
+    pub slider: Slider,
+    /// Describes the cursor position relative to the slider node
+    pub relative_cursor: RelativeCursorPosition,
+    /// Describes whether and how the slider has been interacted with by the input
+    pub interaction: Interaction,
+    /// Describes the style including flexbox settings
+    pub style: Style,
+    /// The background color, which serves as a "fill" for this node
+    ///
+    /// When combined with `UiImage`, tints the provided image.
+    pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+}
+
 impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
@@ -212,6 +248,57 @@ impl Default for ButtonBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+        }
+    }
+}
+
+/// A UI node that is a slider
+#[derive(Bundle, Clone, Debug)]
+pub struct SliderHandleBundle {
+    /// Describes the size of the node
+    pub node: Node,
+    /// Marker component that signals this node is a slider handle
+    pub slider_handle: SliderHandle,
+    /// Describes the style including flexbox settings
+    /// The Slider parent is responsible for managing the position field, all user-made changes will be overwritten.
+    pub style: Style,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The background color, which serves as a "fill" for this node
+    ///
+    /// When combined with `UiImage`, tints the provided image.
+    pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+}
+
+impl Default for SliderHandleBundle {
+    fn default() -> Self {
+        Self {
+            node: Node::default(),
+            slider_handle: SliderHandle,
+            style: Style::default(),
+            focus_policy: FocusPolicy::Pass,
+            background_color: BackgroundColor::default(),
+            image: UiImage::default(),
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::default(),
+            computed_visibility: ComputedVisibility::default(),
         }
     }
 }
