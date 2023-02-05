@@ -76,8 +76,7 @@ fn cluster_debug_visualization(
         (1.0 - cluster_overlay_alpha) * shaded_color.rgb + cluster_overlay_alpha * slice_color,
         shaded_color.a
     );
-#else
-#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
+#else ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
     // NOTE: This debug mode visualises the number of lights within the cluster that contains
     // the fragment. It shows a sort of lighting complexity measure.
     let cluster_overlay_alpha = 0.1;
@@ -92,8 +91,7 @@ fn cluster_debug_visualization(
             + cluster_overlay_alpha * vec2<f32>(smoothed_complexity, 1.0 - smoothed_complexity),
         shaded_color.ba
     );
-#else
-#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
+#else ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     // NOTE: Visualizes the cluster to which the fragment belongs
     let cluster_overlay_alpha = 0.1;
     let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
@@ -103,7 +101,5 @@ fn cluster_debug_visualization(
     );
 #else
     return shaded_color;
-#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
-#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
-#endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
+#endif
 }
