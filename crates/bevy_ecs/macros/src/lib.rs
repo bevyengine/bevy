@@ -506,7 +506,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
-                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                        #(#ignored_fields: std::default::Default::default(),)*
                     }
                 }
             }
