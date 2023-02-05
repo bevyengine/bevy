@@ -1,6 +1,6 @@
 use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{PartialReflect, Reflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,

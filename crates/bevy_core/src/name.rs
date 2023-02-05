@@ -1,8 +1,8 @@
 use bevy_ecs::{
     component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
 };
+use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_reflect::{PartialReflect, Reflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,

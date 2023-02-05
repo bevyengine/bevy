@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::{FromReflect, PartialReflect, Reflect};
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box.
