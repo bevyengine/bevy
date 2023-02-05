@@ -22,17 +22,20 @@ struct FragmentInput {
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef PBR_DEBUG
     return pbr_debug(in);
-#else ifdef PBR_DEBUG_OPAQUE
+#else 
+#ifdef PBR_DEBUG_OPAQUE
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u
             || (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) != 0u) {
         discard;
     }
-#else ifdef PBR_DEBUG_ALPHA_MASK
+#endif
+#ifdef PBR_DEBUG_ALPHA_MASK
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u
             || (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) != 0u) {
         discard;
     }
-#else ifdef PBR_DEBUG_ALPHA_BLEND
+#endif
+#ifdef PBR_DEBUG_ALPHA_BLEND
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u
             || (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
         discard;
