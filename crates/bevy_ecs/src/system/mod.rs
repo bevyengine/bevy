@@ -84,7 +84,7 @@
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`&World`](crate::world::World)
-//! - [`RemovedComponents`]
+//! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -139,10 +139,11 @@ mod tests {
         entity::{Entities, Entity},
         prelude::{AnyOf, StageLabel},
         query::{Added, Changed, Or, With, Without},
+        removal_detection::RemovedComponents,
         schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -602,7 +603,7 @@ mod tests {
         world.entity_mut(spurious_entity).despawn();
 
         fn validate_despawn(
-            removed_i32: RemovedComponents<W<i32>>,
+            mut removed_i32: RemovedComponents<W<i32>>,
             despawned: Res<Despawned>,
             mut n_systems: ResMut<NSystems>,
         ) {
@@ -627,13 +628,16 @@ mod tests {
         world.entity_mut(entity_to_remove_w_from).remove::<W<i32>>();
 
         fn validate_remove(
-            removed_i32: RemovedComponents<W<i32>>,
+            mut removed_i32: RemovedComponents<W<i32>>,
+            despawned: Res<Despawned>,
             removed: Res<Removed>,
             mut n_systems: ResMut<NSystems>,
         ) {
+            // The despawned entity from the previous frame was
+            // double buffered so we now have it in this system as well.
             assert_eq!(
                 removed_i32.iter().collect::<Vec<_>>(),
-                &[removed.0],
+                &[despawned.0, removed.0],
                 "removing a component causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
 
