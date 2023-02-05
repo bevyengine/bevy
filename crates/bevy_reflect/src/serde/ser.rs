@@ -32,15 +32,21 @@ fn get_serializable<'a, E: serde::ser::Error>(
     reflect_value: &'a dyn PartialReflect,
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
+    let full_reflect = reflect_value.as_full().ok_or_else(|| {
+        serde::ser::Error::custom(format_args!(
+            "Type '{}' does not implement Reflect",
+            reflect_value.type_name(),
+        ))
+    })?;
     let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(reflect_value.type_id())
+        .get_type_data::<ReflectSerialize>(full_reflect.type_id())
         .ok_or_else(|| {
             serde::ser::Error::custom(format_args!(
                 "Type '{}' did not register ReflectSerialize",
                 reflect_value.type_name()
             ))
         })?;
-    Ok(reflect_serialize.get_serializable(reflect_value))
+    Ok(reflect_serialize.get_serializable(full_reflect))
 }
 
 /// Get the underlying [`TypeInfo`] of a given type.
