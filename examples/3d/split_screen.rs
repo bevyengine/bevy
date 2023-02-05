@@ -41,11 +41,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder::new()
-            .num_cascades(2)
-            .first_cascade_far_bound(200.0)
-            .maximum_distance(280.0)
-            .build(),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 2,
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 280.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

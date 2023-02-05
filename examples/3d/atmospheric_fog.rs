@@ -49,10 +49,12 @@ fn setup_terrain_scene(
     asset_server: Res<AssetServer>,
 ) {
     // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder::new()
-        .first_cascade_far_bound(0.3)
-        .maximum_distance(3.0)
-        .build();
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        first_cascade_far_bound: 0.3,
+        maximum_distance: 3.0,
+        ..default()
+    }
+    .build();
 
     // Sun
     commands.spawn(DirectionalLightBundle {

@@ -173,10 +173,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder::new()
-            .first_cascade_far_bound(0.9 * radius)
-            .maximum_distance(2.8 * radius)
-            .build(),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 0.9 * radius,
+            maximum_distance: 2.8 * radius,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

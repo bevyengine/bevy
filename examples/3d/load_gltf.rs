@@ -34,10 +34,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // cascade bounds than the default for better quality.
         // We also adjusted the shadow map to be larger since we're
         // only using a single cascade.
-        cascade_shadow_config: CascadeShadowConfigBuilder::new()
-            .num_cascades(1)
-            .maximum_distance(1.6)
-            .build(),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 1,
+            maximum_distance: 1.6,
+            ..default()
+        }
+        .into(),
         ..default()
     });
     commands.spawn(SceneBundle {

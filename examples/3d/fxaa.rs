@@ -82,10 +82,12 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
-        cascade_shadow_config: CascadeShadowConfigBuilder::new()
-            .maximum_distance(3.0)
-            .first_cascade_far_bound(0.9)
-            .build(),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            maximum_distance: 3.0,
+            first_cascade_far_bound: 0.9,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
