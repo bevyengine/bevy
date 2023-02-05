@@ -142,8 +142,8 @@ fn setup(
 
     // camera
     let environment_map = EnvironmentMapLight {
-        diffuse_map: asset_server.load("environment_maps/pisa_diffuse.ktx2"),
-        specular_map: asset_server.load("environment_maps/pisa_specular.ktx2"),
+        diffuse_map: asset_server.load("environment_maps/pisa_diffuse_zstd.ktx2"),
+        specular_map: asset_server.load("environment_maps/pisa_specular_zstd.ktx2"),
     };
     commands.insert_resource(EnvironmentMapHandles {
         handles: environment_map.clone(),
