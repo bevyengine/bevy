@@ -1,4 +1,4 @@
-use crate::{define_atomic_id, render_resource::ResourceId, render_resource_wrapper};
+use crate::{define_atomic_id, render_resource_wrapper};
 use std::ops::Deref;
 
 define_atomic_id!(TextureId);

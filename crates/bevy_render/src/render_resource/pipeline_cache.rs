@@ -10,7 +10,12 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use parking_lot::Mutex;
-use std::{hash::Hash, iter::FusedIterator, mem};
+use std::{
+    hash::Hash,
+    iter::FusedIterator,
+    mem,
+    sync::atomic::{AtomicU32, Ordering},
+};
 use thiserror::Error;
 
 render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
@@ -267,23 +272,25 @@ struct CachedPipeline<I, D, P> {
     state: PipelineState<P>,
 }
 
-struct PipelineCacheInternal<I: ResourceId, D, P> {
+struct PipelineCacheInternal<I: PipelineId, D, P> {
     pipelines: Vec<CachedPipeline<I, D, P>>,
     waiting_pipelines: HashSet<I>,
     new_pipelines: Mutex<Vec<CachedPipeline<I, D, P>>>,
+    pipeline_counter: AtomicU32,
 }
 
-impl<I: ResourceId, D, P> Default for PipelineCacheInternal<I, D, P> {
+impl<I: PipelineId, D, P> Default for PipelineCacheInternal<I, D, P> {
     fn default() -> Self {
         Self {
             pipelines: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
+            pipeline_counter: AtomicU32::new(1),
         }
     }
 }
 
-impl<I: ResourceId, D, P: Pipeline<I, D, P>> PipelineCacheInternal<I, D, P> {
+impl<I: PipelineId, D, P: Pipeline<I, D, P>> PipelineCacheInternal<I, D, P> {
     #[inline]
     fn pipeline_state(&self, id: I) -> &PipelineState<P> {
         &self.pipelines[id.index()].state
@@ -311,7 +318,7 @@ impl<I: ResourceId, D, P: Pipeline<I, D, P>> PipelineCacheInternal<I, D, P> {
     #[inline]
     fn queue_pipeline(&self, descriptor: D) -> I {
         let mut new_pipelines = self.new_pipelines.lock();
-        let id = I::new();
+        let id = I::new(self.pipeline_counter.fetch_add(1, Ordering::Relaxed));
         new_pipelines.push(CachedPipeline {
             id,
             descriptor,

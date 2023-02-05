@@ -1,6 +1,3 @@
-use std::fmt::Debug;
-use std::hash::Hash;
-
 // structs containing wgpu types take a long time to compile. this is particularly bad for generic
 // structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust analyzer)
 // by type-erasing with the `render_resource_wrapper` macro. The resulting type behaves like Arc<$wgpu_type>,
@@ -115,21 +112,16 @@ macro_rules! render_resource_wrapper {
     };
 }
 
-pub trait ResourceId: Copy + Clone + Hash + Eq + PartialEq + Debug {
-    fn new() -> Self;
-    fn index(&self) -> usize;
-}
-
 #[macro_export]
 macro_rules! define_atomic_id {
     ($atomic_id_type:ident) => {
         #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-        pub struct $atomic_id_type(pub(crate) core::num::NonZeroU32);
+        pub struct $atomic_id_type(core::num::NonZeroU32);
 
         // We use new instead of default to indicate that each ID created will be unique.
         #[allow(clippy::new_without_default)]
-        impl $crate::render_resource::ResourceId for $atomic_id_type {
-            fn new() -> Self {
+        impl $atomic_id_type {
+            pub fn new() -> Self {
                 use std::sync::atomic::{AtomicU32, Ordering};
 
                 static COUNTER: AtomicU32 = AtomicU32::new(1);
@@ -141,11 +133,6 @@ macro_rules! define_atomic_id {
                         stringify!($atomic_id_type)
                     );
                 }))
-            }
-
-            #[inline]
-            fn index(&self) -> usize {
-                self.0.get() as usize - 1
             }
         }
     };

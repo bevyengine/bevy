@@ -9,6 +9,7 @@ use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
 
+// Todo: this is never used
 define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]

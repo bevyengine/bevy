@@ -1,11 +1,11 @@
-use crate::{
-    define_atomic_id, render_resource::*, render_resource_wrapper, renderer::RenderDevice,
-};
+use crate::{render_resource::*, render_resource_wrapper, renderer::RenderDevice};
 use bevy_asset::Handle;
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroU32, ops::Deref};
 
-define_atomic_id!(RenderPipelineId);
-render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
+pub(crate) trait PipelineId: Copy + Clone + Hash + Eq + PartialEq + Debug {
+    fn new(id: u32) -> Self;
+    fn index(&self) -> usize;
+}
 
 pub(crate) trait Pipeline<I, D, P> {
     fn process_pipeline(
@@ -16,6 +16,27 @@ pub(crate) trait Pipeline<I, D, P> {
         layout_cache: &mut LayoutCache,
     ) -> PipelineState<P>;
 }
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct RenderPipelineId(pub(crate) NonZeroU32);
+
+impl PipelineId for RenderPipelineId {
+    fn new(id: u32) -> Self {
+        Self(NonZeroU32::new(id).unwrap_or_else(|| {
+            panic!(
+                "The system ran out of unique `{}`s.",
+                stringify!(RenderPipelineId)
+            );
+        }))
+    }
+
+    #[inline]
+    fn index(&self) -> usize {
+        self.0.get() as usize - 1
+    }
+}
+
+render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
@@ -135,8 +156,26 @@ impl Pipeline<RenderPipelineId, RenderPipelineDescriptor, RenderPipeline> for Re
     }
 }
 
-define_atomic_id!(ComputePipelineId);
 render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct ComputePipelineId(pub(crate) NonZeroU32);
+
+impl PipelineId for ComputePipelineId {
+    fn new(id: u32) -> Self {
+        Self(NonZeroU32::new(id).unwrap_or_else(|| {
+            panic!(
+                "The system ran out of unique `{}`s.",
+                stringify!(ComputePipelineId)
+            );
+        }))
+    }
+
+    #[inline]
+    fn index(&self) -> usize {
+        self.0.get() as usize - 1
+    }
+}
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
