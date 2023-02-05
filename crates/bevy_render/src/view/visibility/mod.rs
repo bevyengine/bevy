@@ -213,7 +213,11 @@ impl Plugin for VisibilityPlugin {
         app.configure_set(CalculateBounds.in_set(CoreSet::PostUpdate))
             // We add an AABB component in CaclulateBounds, which must be ready on the same frame.
             .add_system(apply_system_buffers.in_set(CalculateBoundsFlush))
-            .configure_set(CalculateBoundsFlush.after(CalculateBounds))
+            .configure_set(
+                CalculateBoundsFlush
+                    .after(CalculateBounds)
+                    .in_set(CoreSet::PostUpdate),
+            )
             .configure_set(UpdateOrthographicFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(UpdatePerspectiveFrusta.in_set(CoreSet::PostUpdate))
             .configure_set(UpdateProjectionFrusta.in_set(CoreSet::PostUpdate))
