@@ -18,6 +18,9 @@ pub struct ReflectAsset {
     assets_resource_type_id: TypeId,
 
     get: fn(&World, HandleUntyped) -> Option<&dyn PartialReflect>,
+    // SAFETY:
+    // - may only be called with a [`IteriorMutableWorld`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be used to access **at most one** access at once
     get_unchecked_mut:
         unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn PartialReflect>,
     add: fn(&mut World, &dyn PartialReflect) -> HandleUntyped,
