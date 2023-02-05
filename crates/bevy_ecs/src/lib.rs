@@ -13,6 +13,7 @@ pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod removal_detection;
 pub mod schedule;
 pub mod schedule_v3;
 pub mod storage;
@@ -34,6 +35,7 @@ pub mod prelude {
         entity::Entity,
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        removal_detection::RemovedComponents,
         schedule::{
             IntoSystemDescriptor, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel,
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
@@ -42,7 +44,7 @@ pub mod prelude {
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
             Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
+            ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };

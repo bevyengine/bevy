@@ -3,8 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::Viewport,
-    window::WindowResized,
+    core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
+    render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
@@ -41,6 +41,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 2,
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 280.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
