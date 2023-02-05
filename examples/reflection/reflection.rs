@@ -59,10 +59,18 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     // You can also get the &dyn PartialReflect value of a field like this
     let field = value.field("a").unwrap();
 
-    // you can downcast Reflect values like this:
-    assert_eq!(*field.try_downcast_ref::<usize>().unwrap(), 2);
+    // For concrete-type based operations like downcasting, we need a `&dyn Reflect`,
+    // which can be retrieved from a `&dyn PartialReflect` using `as_full`.
+    // `as_full` returns an `Option<&dyn Reflect>` since some types like `DynamicStruct`
+    // implement `PartialReflect` but not `Reflect`.
+    // There are also `as_full_mut` and `into_full` methods for conversion
+    // into `&mut dyn Reflect` and `Box<dyn Reflect>` respectively.
+    let full_reflect: &dyn Reflect = field.as_full().unwrap();
 
-    // DynamicStruct also implements the `Struct` and `Reflect` traits.
+    // You can downcast Reflect values like this:
+    assert_eq!(*full_reflect.downcast_ref::<usize>().unwrap(), 2);
+
+    // DynamicStruct also implements the `Struct` and `PartialReflect` traits.
     let mut patch = DynamicStruct::default();
     patch.insert("a", 4usize);
 
