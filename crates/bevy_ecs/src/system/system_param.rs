@@ -818,6 +818,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// }
 ///
 /// impl SystemBuffer for AlarmFlag {
+///     // When `AlarmFlag` is used in a system, this function will get
+///     // called at the end of the system's stage.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
