@@ -173,6 +173,9 @@ impl Plugin for PbrPlugin {
             .configure_sets(
                 (
                     SimulationLightSystems::AddClusters,
+                    SimulationLightSystems::AddClustersFlush
+                        .after(SimulationLightSystems::AddClusters)
+                        .before(SimulationLightSystems::AssignLightsToClusters),
                     SimulationLightSystems::AssignLightsToClusters,
                     SimulationLightSystems::CheckLightVisibility,
                     SimulationLightSystems::UpdateDirectionalLightCascades,
@@ -184,15 +187,9 @@ impl Plugin for PbrPlugin {
             .add_system(
                 // NOTE: Clusters need to have been added before update_clusters is run so
                 // add as an exclusive system
-                add_clusters
-                    .in_set(SimulationLightSystems::AddClusters)
-                    .before(assign_lights_to_clusters),
+                add_clusters.in_set(SimulationLightSystems::AddClusters),
             )
-            .add_system(
-                apply_system_buffers
-                    .after(SimulationLightSystems::AddClusters)
-                    .before(SimulationLightSystems::AssignLightsToClusters),
-            )
+            .add_system(apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush))
             .add_system(
                 assign_lights_to_clusters
                     .in_set(SimulationLightSystems::AssignLightsToClusters)
