@@ -733,6 +733,7 @@ unsafe fn initialize_bundle(
     deduped.dedup();
 
     if deduped.len() != component_ids.len() {
+        // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
         let mut seen = HashSet::new();
         let mut dups = Vec::new();
         for id in component_ids {
