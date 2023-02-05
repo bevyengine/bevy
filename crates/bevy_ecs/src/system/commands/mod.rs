@@ -279,7 +279,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn entity<'a>(&'a mut self, entity: impl Into<Entity>) -> EntityCommands<'w, 's, 'a> {
+        let entity = entity.into();
         self.get_entity(entity).unwrap_or_else(|| {
             panic!(
                 "Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",
@@ -320,7 +321,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the panicking version.
     #[inline]
     #[track_caller]
-    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+    pub fn get_entity<'a>(
+        &'a mut self,
+        entity: impl Into<Entity>,
+    ) -> Option<EntityCommands<'w, 's, 'a>> {
+        let entity = entity.into();
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self,
