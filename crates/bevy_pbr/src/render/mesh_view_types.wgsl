@@ -25,20 +25,29 @@ struct PointLight {
     spot_light_tan_angle: f32,
 };
 
-let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
-let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
-struct DirectionalLight {
+struct DirectionalCascade {
     view_projection: mat4x4<f32>,
+    texel_size: f32,
+    far_bound: f32,
+}
+    
+struct DirectionalLight {
+    cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    num_cascades: u32,
+    cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
 };
 
-let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -60,6 +69,31 @@ struct Lights {
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
 };
+
+struct Fog {
+    base_color: vec4<f32>,
+    directional_light_color: vec4<f32>,
+    // `be` and `bi` are allocated differently depending on the fog mode
+    //
+    // For Linear Fog:
+    //     be.x = start, be.y = end
+    // For Exponential and ExponentialSquared Fog:
+    //     be.x = density
+    // For Atmospheric Fog:
+    //     be = per-channel extinction density
+    //     bi = per-channel inscattering density
+    be: vec3<f32>,
+    directional_light_exponent: f32,
+    bi: vec3<f32>,
+    mode: u32,
+}
+
+// Important: These must be kept in sync with `fog.rs`
+const FOG_MODE_OFF: u32                   = 0u;
+const FOG_MODE_LINEAR: u32                = 1u;
+const FOG_MODE_EXPONENTIAL: u32           = 2u;
+const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct PointLights {

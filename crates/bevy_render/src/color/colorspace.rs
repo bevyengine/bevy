@@ -31,6 +31,18 @@ impl SrgbColorSpace for f32 {
     }
 }
 
+impl SrgbColorSpace for u8 {
+    #[inline]
+    fn linear_to_nonlinear_srgb(self) -> Self {
+        ((self as f32 / u8::MAX as f32).linear_to_nonlinear_srgb() * u8::MAX as f32) as u8
+    }
+
+    #[inline]
+    fn nonlinear_to_linear_srgb(self) -> Self {
+        ((self as f32 / u8::MAX as f32).nonlinear_to_linear_srgb() * u8::MAX as f32) as u8
+    }
+}
+
 pub struct HslRepresentation;
 impl HslRepresentation {
     /// converts a color in HLS space to sRGB space

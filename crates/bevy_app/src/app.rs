@@ -61,7 +61,7 @@ pub struct App {
     /// The main ECS [`World`] of the [`App`].
     /// This stores and provides access to all the main data of the application.
     /// The systems of the [`App`] will run using this [`World`].
-    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::add_sub_app)s.
+    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::insert_sub_app)s.
     pub world: World,
     /// The [runner function](Self::set_runner) is primarily responsible for managing
     /// the application's event loop and advancing the [`Schedule`].
@@ -94,7 +94,7 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel};
+/// # use bevy_app::{App, AppLabel, SubApp};
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Resource, Default)]
@@ -122,9 +122,9 @@ impl Debug for App {
 /// sub_app.add_stage(ExampleStage, example_stage);
 ///
 /// // add the sub_app to the app
-/// app.add_sub_app(ExampleApp, sub_app, |main_world, sub_app| {
+/// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
 ///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
-/// });
+/// }));
 ///
 /// // This will run the schedules once, since we're using the default runner
 /// app.run();
@@ -135,10 +135,23 @@ pub struct SubApp {
 
     /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
     /// useful for moving data between the sub app and the main app.
-    pub extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+    extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
 
 impl SubApp {
+    /// Creates a new [`SubApp`].
+    ///
+    /// The provided function `extract` is normally called by the [`update`](App::update) method.
+    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
+    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
+    /// reference to the `SubApp` itself.
+    pub fn new(app: App, extract: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
+        Self {
+            app,
+            extract: Box::new(extract),
+        }
+    }
+
     /// Runs the `SubApp`'s schedule.
     pub fn run(&mut self) {
         self.app.schedule.run(&mut self.app.world);
@@ -204,7 +217,7 @@ impl App {
     ///
     /// This method also updates sub apps.
     ///
-    /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    /// See [`insert_sub_app`](Self::insert_sub_app) and [`run_once`](Schedule::run_once) for more details.
     pub fn update(&mut self) {
         {
             #[cfg(feature = "trace")]
@@ -1081,28 +1094,6 @@ impl App {
         self
     }
 
-    /// Adds an [`App`] as a child of the current one.
-    ///
-    /// The provided function `extract` is normally called by the [`update`](Self::update) method.
-    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
-    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
-    /// reference to the `SubApp` itself.
-    pub fn add_sub_app(
-        &mut self,
-        label: impl AppLabel,
-        app: App,
-        extract: impl Fn(&mut World, &mut App) + 'static + Send,
-    ) -> &mut Self {
-        self.sub_apps.insert(
-            label.as_label(),
-            SubApp {
-                app,
-                extract: Box::new(extract),
-            },
-        );
-        self
-    }
-
     /// Retrieves a `SubApp` stored inside this [`App`].
     ///
     /// # Panics
@@ -1166,7 +1157,11 @@ fn run_once(mut app: App) {
 ///
 /// You can also use this event to detect that an exit was requested. In order to receive it, systems
 /// subscribing to this event should run after it was emitted and before the schedule of the same
-/// frame is over.
+/// frame is over. This is important since [`App::run()`] might never return.
+///
+/// If you don't require access to other components or resources, consider implementing the [`Drop`]
+/// trait on components/resources for code that runs on exit. That saves you from worrying about
+/// system schedule ordering, and is idiomatic Rust.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
 

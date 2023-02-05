@@ -3,7 +3,8 @@
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::Resource,
+    system::{Local, Resource},
+    world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -12,6 +13,7 @@ use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
+    marker::PhantomData,
     mem::needs_drop,
 };
 
@@ -696,5 +698,50 @@ impl ComponentTicks {
     #[inline]
     pub fn set_changed(&mut self, change_tick: u32) {
         self.changed.set_changed(change_tick);
+    }
+}
+
+/// Initialize and fetch a [`ComponentId`] for a specific type.
+///
+/// # Example
+/// ```rust
+/// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
+/// #[derive(Component)]
+/// struct Player;
+/// fn my_system(component_id: Local<ComponentIdFor<Player>>) {
+///     let component_id: ComponentId = component_id.into();
+///     // ...
+/// }
+/// ```
+pub struct ComponentIdFor<T: Component> {
+    component_id: ComponentId,
+    phantom: PhantomData<T>,
+}
+
+impl<T: Component> FromWorld for ComponentIdFor<T> {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            component_id: world.init_component::<T>(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T: Component> std::ops::Deref for ComponentIdFor<T> {
+    type Target = ComponentId;
+    fn deref(&self) -> &Self::Target {
+        &self.component_id
+    }
+}
+
+impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
+    fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
+        *to_component_id
+    }
+}
+
+impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
+    fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
+        **to_component_id
     }
 }

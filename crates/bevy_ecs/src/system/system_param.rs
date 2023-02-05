@@ -3,8 +3,8 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{Ticks, TicksMut},
-    component::{Component, ComponentId, ComponentTicks, Components},
-    entity::{Entities, Entity},
+    component::{ComponentId, ComponentTicks, Components},
+    entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
@@ -19,7 +19,6 @@ use bevy_utils::synccell::SyncCell;
 use std::{
     borrow::Cow,
     fmt::Debug,
-    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -543,7 +542,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .get_resource_unchecked_mut_with_id(component_id)
+            .as_unsafe_world_cell_migration_internal()
+            .get_resource_mut_with_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -580,7 +580,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .get_resource_unchecked_mut_with_id(component_id)
+            .as_unsafe_world_cell_migration_internal()
+            .get_resource_mut_with_id(component_id)
             .map(|value| ResMut {
                 value: value.value,
                 ticks: TicksMut {
@@ -926,89 +927,6 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         Deferred(state.get())
-    }
-}
-
-/// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
-///
-/// Note that this does not allow you to see which data existed before removal.
-/// If you need this, you will need to track the component data value on your own,
-/// using a regularly scheduled system that requests `Query<(Entity, &T), Changed<T>>`
-/// and stores the data somewhere safe to later cross-reference.
-///
-/// If you are using `bevy_ecs` as a standalone crate,
-/// note that the `RemovedComponents` list will not be automatically cleared for you,
-/// and will need to be manually flushed using [`World::clear_trackers`]
-///
-/// For users of `bevy` and `bevy_app`, this is automatically done in `bevy_app::App::update`.
-/// For the main world, [`World::clear_trackers`] is run after the main schedule is run and after
-/// `SubApp`'s have run.
-///
-/// # Examples
-///
-/// Basic usage:
-///
-/// ```
-/// # use bevy_ecs::component::Component;
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::RemovedComponents;
-/// #
-/// # #[derive(Component)]
-/// # struct MyComponent;
-///
-/// fn react_on_removal(removed: RemovedComponents<MyComponent>) {
-///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(react_on_removal);
-/// ```
-pub struct RemovedComponents<'a, T: Component> {
-    world: &'a World,
-    component_id: ComponentId,
-    marker: PhantomData<T>,
-}
-
-impl<'a, T: Component> RemovedComponents<'a, T> {
-    /// Returns an iterator over the entities that had their `T` [`Component`] removed.
-    pub fn iter(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        self.world.removed_with_id(self.component_id)
-    }
-}
-
-impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
-    type Item = Entity;
-    type IntoIter = std::iter::Cloned<std::slice::Iter<'a, Entity>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-// SAFETY: Only reads World components
-unsafe impl<'a, T: Component> ReadOnlySystemParam for RemovedComponents<'a, T> {}
-
-// SAFETY: no component access. removed component entity collections can be read in parallel and are
-// never mutably borrowed during system execution
-unsafe impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
-    type State = ComponentId;
-    type Item<'w, 's> = RemovedComponents<'w, T>;
-
-    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        world.init_component::<T>()
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        world: &'w World,
-        _change_tick: u32,
-    ) -> Self::Item<'w, 's> {
-        RemovedComponents {
-            world,
-            component_id,
-            marker: PhantomData,
-        }
     }
 }
 
@@ -1624,8 +1542,9 @@ mod tests {
         query::{ReadOnlyWorldQuery, WorldQuery},
         system::Query,
     };
+    use std::marker::PhantomData;
 
-    // Compile test for #2838
+    // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[derive(SystemParam)]
     pub struct SpecialQuery<
         'w,
@@ -1635,6 +1554,8 @@ mod tests {
     > {
         _query: Query<'w, 's, Q, F>,
     }
+
+    // Compile tests for https://github.com/bevyengine/bevy/pull/6694.
 
     #[derive(SystemParam)]
     pub struct SpecialRes<'w, T: Resource> {
@@ -1649,9 +1570,11 @@ mod tests {
     #[derive(Resource)]
     pub struct R<const I: usize>;
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/7001.
     #[derive(SystemParam)]
     pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/6867.
     #[derive(SystemParam)]
     pub struct LongParam<'w> {
         _r0: Res<'w, R<0>>,
@@ -1678,12 +1601,16 @@ mod tests {
         crate::system::assert_is_system(long_system);
     }
 
+    // Compile test for https://github.com/bevyengine/bevy/pull/6919.
+    // Regression test for https://github.com/bevyengine/bevy/issues/7447.
     #[derive(SystemParam)]
-    struct MyParam<'w, T: Resource, Marker: 'static> {
+    struct IgnoredParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
-        marker: PhantomData<Marker>,
+        marker: PhantomData<&'w Marker>,
     }
+
+    // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
 
     #[derive(SystemParam)]
     pub struct UnitParam;
@@ -1697,6 +1624,7 @@ mod tests {
     #[derive(Resource)]
     struct PrivateResource;
 
+    // Regression test for https://github.com/bevyengine/bevy/issues/4200.
     #[derive(SystemParam)]
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 

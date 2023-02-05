@@ -281,7 +281,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection(
+        *frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
             &transform.translation(),
             &transform.back(),
@@ -407,7 +407,7 @@ pub fn check_visibility(
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
                         return;
                     }
                 }

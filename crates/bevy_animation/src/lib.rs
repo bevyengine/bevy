@@ -468,7 +468,7 @@ fn apply_animation(
             // any of their descendant Transforms.
             //
             // The system scheduler prevents any other system from mutating Transforms at the same time,
-            // so the only way this fetch can alias is if two AnimationPlayers are targetting the same bone.
+            // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
             // This can only happen if there are two or more AnimationPlayers are ancestors to the same
             // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
             // running AnimationPlayer before animating any entity, this fetch cannot alias.
