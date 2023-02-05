@@ -44,8 +44,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
-            type Refs = #bevy_ecs_path::change_detection::ChangeDetectionRefs<Self>;
-            // type Refs = #bevy_ecs_path::component::UnwrappedRefs<Self>;
+            type Refs = #bevy_ecs_path::component_refs::ChangeDetectionRefs<Self>;
+            // type Refs = #bevy_ecs_path::component_refs::UnwrappedRefs<Self>;
         }
     })
 }

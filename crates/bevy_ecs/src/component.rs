@@ -1,8 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::entity::Entity;
-use crate::query::{ReadFetch, WriteFetch};
-use crate::storage::TableRow;
+use crate::component_refs::ComponentRefs;
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
@@ -11,7 +9,6 @@ use crate::{
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
-use std::marker::PhantomData;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -149,39 +146,6 @@ use std::{
 pub trait Component: Send + Sync + Sized + 'static {
     type Storage: ComponentStorage;
     type Refs: ComponentRefs<Self>;
-}
-
-pub trait ComponentRefs<T> {
-    type Ref<'w>: ComponentRef<'w, T>;
-    type MutRef<'w>: ComponentRefMut<'w, T>;
-
-    fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort>;
-    fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort>;
-}
-
-pub trait ComponentRef<'w, T> {
-    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
-}
-pub trait ComponentRefMut<'w, T> {
-    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self;
-}
-pub struct UnwrappedRefs<T: ?Sized> {
-    phantom: PhantomData<T>,
-}
-impl<T> ComponentRefs<T> for UnwrappedRefs<T>
-where
-    T: Sized + Component,
-{
-    type Ref<'w> = &'w T;
-    type MutRef<'w> = &'w mut T;
-
-    fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort> {
-        item
-    }
-
-    fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort> {
-        item
-    }
 }
 
 pub struct TableStorage;

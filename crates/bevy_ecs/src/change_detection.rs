@@ -1,14 +1,11 @@
 //! Types that detect when their internal data mutate.
 
-use crate::component::{ComponentRef, ComponentRefMut, ComponentRefs};
-use crate::prelude::Component;
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
     system::Resource,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -582,26 +579,6 @@ change_detection_impl!(Mut<'a, T>, T,);
 change_detection_mut_impl!(Mut<'a, T>, T,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
-
-pub struct ChangeDetectionRefs<T: ?Sized> {
-    phantom: PhantomData<T>,
-}
-impl<T> ComponentRefs<T> for ChangeDetectionRefs<T>
-where
-    T: Sized + Component,
-{
-    type Ref<'w> = &'w T;
-    // type Ref<'w> = Ref<'w, T>;
-    type MutRef<'w> = Mut<'w, T>;
-
-    fn shrink_ref<'wlong: 'wshort, 'wshort>(item: Self::Ref<'wlong>) -> Self::Ref<'wshort> {
-        item
-    }
-
-    fn shrink_mut<'wlong: 'wshort, 'wshort>(item: Self::MutRef<'wlong>) -> Self::MutRef<'wshort> {
-        item
-    }
-}
 
 /// Unique mutable borrow of resources or an entity's component.
 ///

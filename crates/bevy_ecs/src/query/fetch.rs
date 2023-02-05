@@ -1,12 +1,12 @@
-use crate::component::{ComponentRef, ComponentRefMut, ComponentRefs};
+use crate::component_refs::ComponentRefs;
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::{Ticks, TicksMut},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
+    component_refs::{ComponentRef, ComponentRefMut},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{Mut, Ref, World},
+    world::World,
 };
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
@@ -519,16 +519,16 @@ unsafe impl ReadOnlyWorldQuery for Entity {}
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
-    table_data: Option<(
+    pub(crate) table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
     // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+    pub(crate) sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -655,16 +655,16 @@ unsafe impl<'__w, T: Component> ReadOnlyWorldQuery for &T {}
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
     // T::Storage = TableStorage
-    table_data: Option<(
+    pub(crate) table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
     // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+    pub(crate) sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
@@ -782,122 +782,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
-    }
-}
-
-impl<'w, T> ComponentRef<'w, T> for &'w T
-where
-    T: Component,
-{
-    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => fetch
-                .table_data
-                .debug_checked_unwrap()
-                .0
-                .get(table_row.index())
-                .deref(),
-            StorageType::SparseSet => fetch
-                .sparse_set
-                .debug_checked_unwrap()
-                .get(entity)
-                .debug_checked_unwrap()
-                .deref(),
-        }
-    }
-}
-impl<'w, T> ComponentRef<'w, T> for Ref<'w, T>
-where
-    T: Component,
-{
-    unsafe fn new(fetch: &ReadFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                let (table_components, added_ticks, changed_ticks) =
-                    fetch.table_data.debug_checked_unwrap();
-                Ref {
-                    value: table_components.get(table_row.index()).deref(),
-                    ticks: Ticks {
-                        added: added_ticks.get(table_row.index()).deref(),
-                        changed: changed_ticks.get(table_row.index()).deref(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
-                }
-            }
-            StorageType::SparseSet => {
-                let (component, ticks) = fetch
-                    .sparse_set
-                    .debug_checked_unwrap()
-                    .get_with_ticks(entity)
-                    .debug_checked_unwrap();
-                Ref {
-                    value: component.deref(),
-                    ticks: Ticks::from_tick_cells(ticks, fetch.last_change_tick, fetch.change_tick),
-                }
-            }
-        }
-    }
-}
-impl<'w, T> ComponentRefMut<'w, T> for &'w mut T
-where
-    T: Component,
-{
-    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => fetch
-                .table_data
-                .debug_checked_unwrap()
-                .0
-                .get(table_row.index())
-                .deref_mut(),
-            StorageType::SparseSet => fetch
-                .sparse_set
-                .debug_checked_unwrap()
-                .get_with_ticks(entity)
-                .debug_checked_unwrap()
-                .0
-                .assert_unique()
-                .deref_mut(),
-        }
-    }
-}
-
-impl<'w, T> ComponentRefMut<'w, T> for Mut<'w, T>
-where
-    T: Component,
-{
-    unsafe fn new(fetch: &WriteFetch<'w, T>, entity: Entity, table_row: TableRow) -> Self {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                let (table_components, added_ticks, changed_ticks) =
-                    fetch.table_data.debug_checked_unwrap();
-                Mut {
-                    value: table_components.get(table_row.index()).deref_mut(),
-                    ticks: TicksMut {
-                        added: added_ticks.get(table_row.index()).deref_mut(),
-                        changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
-                }
-            }
-            StorageType::SparseSet => {
-                let (component, ticks) = fetch
-                    .sparse_set
-                    .debug_checked_unwrap()
-                    .get_with_ticks(entity)
-                    .debug_checked_unwrap();
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(
-                        ticks,
-                        fetch.last_change_tick,
-                        fetch.change_tick,
-                    ),
-                }
-            }
-        }
     }
 }
 
