@@ -105,6 +105,7 @@ impl GraphInfo {
         }
     }
 
+    #[track_caller]
     pub(crate) fn set_base_set(&mut self, set: BoxedSystemSet) {
         if let Some(current) = &self.base_set {
             panic!(

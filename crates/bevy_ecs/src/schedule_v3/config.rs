@@ -120,10 +120,12 @@ where
         SystemSetConfig::new(Box::new(self))
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_set(set)
     }
 
+    #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_base_set(set)
     }
@@ -162,10 +164,12 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         SystemSetConfig::new(self)
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_set(set)
     }
 
+    #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_base_set(set)
     }
@@ -204,6 +208,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -221,6 +226,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
+    #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -322,10 +328,12 @@ where
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
         self.into_config().in_set(set)
     }
 
+    #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemConfig {
         self.into_config().in_base_set(set)
     }
@@ -364,10 +372,12 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         SystemConfig::new(self)
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
         self.into_config().in_set(set)
     }
 
+    #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemConfig {
         self.into_config().in_base_set(set)
     }
@@ -406,6 +416,7 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -419,6 +430,7 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
+    #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -516,11 +528,13 @@ where
     fn into_configs(self) -> SystemConfigs;
 
     /// Add these systems to the provided `set`.
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfigs {
         self.into_configs().in_set(set)
     }
 
     /// Add these systems to the provided "base" `set`.
+    #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemConfigs {
         self.into_configs().in_base_set(set)
     }
@@ -565,6 +579,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -581,6 +596,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -665,11 +681,13 @@ where
     fn into_configs(self) -> SystemSetConfigs;
 
     /// Add these system sets to the provided `set`.
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfigs {
         self.into_configs().in_set(set)
     }
 
     /// Add these system sets to the provided "base" `set`.
+    #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemSetConfigs {
         self.into_configs().in_base_set(set)
     }
@@ -709,6 +727,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
@@ -729,6 +748,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
         self
     }
 
+    #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
