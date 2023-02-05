@@ -91,7 +91,7 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     /// Add to the provided "base" `set`.
     #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
-    /// Don't add this set to the schedules's default base set.
+    /// Add this set to the schedules's default base set.
     fn in_default_base_set(self) -> SystemSetConfig;
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
