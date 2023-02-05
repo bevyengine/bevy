@@ -772,7 +772,7 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed<T: Component>(&self) -> impl DoubleEndedIterator<Item = Entity> + '_ {
+    pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
         self.components
             .get_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
@@ -782,10 +782,7 @@ impl World {
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed_with_id(
-        &self,
-        component_id: ComponentId,
-    ) -> impl DoubleEndedIterator<Item = Entity> + '_ {
+    pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
         self.removed_components
             .get(component_id)
             .map(|removed| removed.iter_current_update_events().cloned())
