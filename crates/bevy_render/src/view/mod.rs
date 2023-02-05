@@ -56,30 +56,34 @@ impl Plugin for ViewPlugin {
 
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
+/// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
+/// smoother edges.
+/// Defaults to 4.
+///
+/// Note that WGPU currently only supports 1 or 4 samples.
+/// Ultimately we plan on supporting whatever is natively supported on a given device.
+/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+///
 /// # Example
 /// ```
 /// # use bevy_app::prelude::App;
 /// # use bevy_render::prelude::Msaa;
 /// App::new()
-///     .insert_resource(Msaa { samples: 4 })
+///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Clone, ExtractResource, Reflect)]
+#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
 #[reflect(Resource)]
-pub struct Msaa {
-    /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
-    /// smoother edges.
-    /// Defaults to 4.
-    ///
-    /// Note that WGPU currently only supports 1 or 4 samples.
-    /// Ultimately we plan on supporting whatever is natively supported on a given device.
-    /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
-    pub samples: u32,
+pub enum Msaa {
+    Off = 1,
+    #[default]
+    Sample4 = 4,
 }
 
-impl Default for Msaa {
-    fn default() -> Self {
-        Self { samples: 4 }
+impl Msaa {
+    #[inline]
+    pub fn samples(&self) -> u32 {
+        *self as u32
     }
 }
 
@@ -87,6 +91,10 @@ impl Default for Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
+    // The view-projection matrix. When provided it is used instead of deriving it from
+    // `projection` and `transform` fields, which can be helpful in cases where numerical
+    // stability matters and there is a more direct way to derive the view-projection matrix.
+    pub view_projection: Option<Mat4>,
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
@@ -174,6 +182,20 @@ impl ViewTarget {
         }
     }
 
+    /// The _other_ "main" unsampled texture.
+    /// In most cases you should use [`Self::main_texture`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b
+        } else {
+            &self.main_textures.a
+        }
+    }
+
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&TextureView> {
         self.main_textures.sampled.as_ref()
@@ -247,7 +269,9 @@ fn prepare_view_uniforms(
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: projection * inverse_view,
+                view_proj: camera
+                    .view_projection
+                    .unwrap_or_else(|| projection * inverse_view),
                 inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
@@ -314,6 +338,8 @@ fn prepare_view_targets(
                             format: main_texture_format,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            // TODO: Consider changing this if main_texture_format is not sRGB
+                            view_formats: &[],
                         };
                         MainTargetTextures {
                             a: texture_cache
@@ -334,7 +360,7 @@ fn prepare_view_targets(
                                     },
                                 )
                                 .default_view,
-                            sampled: (msaa.samples > 1).then(|| {
+                            sampled: (msaa.samples() > 1).then(|| {
                                 texture_cache
                                     .get(
                                         &render_device,
@@ -342,10 +368,11 @@ fn prepare_view_targets(
                                             label: Some("main_texture_sampled"),
                                             size,
                                             mip_level_count: 1,
-                                            sample_count: msaa.samples,
+                                            sample_count: msaa.samples(),
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
+                                            view_formats: &[],
                                         },
                                     )
                                     .default_view

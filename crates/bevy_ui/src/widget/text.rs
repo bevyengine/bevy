@@ -14,11 +14,6 @@ use bevy_text::{
 };
 use bevy_window::{PrimaryWindow, Window};
 
-#[derive(Debug, Default)]
-pub struct QueuedText {
-    entities: Vec<Entity>,
-}
-
 fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }
@@ -47,7 +42,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut commands: Commands,
-    mut queued_text: Local<QueuedText>,
+    mut queued_text_ids: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
@@ -81,24 +76,24 @@ pub fn text_system(
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text or the style has changed to the local queue
         for entity in text_queries.p0().iter() {
-            queued_text.entities.push(entity);
+            queued_text_ids.push(entity);
         }
     } else {
         // If the scale factor has changed, queue all text
         for entity in text_queries.p1().iter() {
-            queued_text.entities.push(entity);
+            queued_text_ids.push(entity);
         }
         *last_scale_factor = scale_factor;
     }
 
-    if queued_text.entities.is_empty() {
+    if queued_text_ids.is_empty() {
         return;
     }
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
-    for entity in queued_text.entities.drain(..) {
+    for entity in queued_text_ids.drain(..) {
         if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
@@ -120,6 +115,7 @@ pub fn text_system(
                 &text.sections,
                 scale_factor,
                 text.alignment,
+                text.linebreak_behaviour,
                 node_size,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,
@@ -152,5 +148,5 @@ pub fn text_system(
         }
     }
 
-    queued_text.entities = new_queue;
+    *queued_text_ids = new_queue;
 }

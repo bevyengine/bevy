@@ -2,7 +2,8 @@ use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
-    system::{Commands, NonSendMut, Query, RemovedComponents},
+    removal_detection::RemovedComponents,
+    system::{Commands, NonSendMut, Query},
     world::Mut,
 };
 use bevy_utils::{
@@ -13,13 +14,16 @@ use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
 };
 
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
-use crate::{converters, get_best_videomode, get_fitting_videomode, WinitWindows};
+use crate::{
+    converters::{self, convert_window_level},
+    get_best_videomode, get_fitting_videomode, WinitWindows,
+};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::ResMut;
 
@@ -86,15 +90,19 @@ pub(crate) fn create_window<'a>(
 pub struct WindowTitleCache(HashMap<Entity, String>);
 
 pub(crate) fn despawn_window(
-    closed: RemovedComponents<Window>,
+    mut closed: RemovedComponents<Window>,
+    window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
     for window in closed.iter() {
         info!("Closing window {:?}", window);
-
-        winit_windows.remove_window(window);
-        close_events.send(WindowClosed { window });
+        // Guard to verify that the window is in fact actually gone,
+        // rather than having the component added and removed in the same frame.
+        if !window_entities.contains(window) {
+            winit_windows.remove_window(window);
+            close_events.send(WindowClosed { window });
+        }
     }
 }
 
@@ -160,14 +168,14 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.cursor.position != previous.cursor.position {
-                if let Some(physical_position) = window.cursor.position {
+            if window.physical_cursor_position() != previous.physical_cursor_position() {
+                if let Some(physical_position) = window.physical_cursor_position() {
                     let inner_size = winit_window.inner_size();
 
                     let position = PhysicalPosition::new(
                         physical_position.x,
                         // Flip the coordinate space back to winit's context.
-                        inner_size.height as f64 - physical_position.y,
+                        inner_size.height as f32 - physical_position.y,
                     );
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
@@ -258,8 +266,8 @@ pub(crate) fn changed_window(
                 winit_window.focus_window();
             }
 
-            if window.always_on_top != previous.always_on_top {
-                winit_window.set_always_on_top(window.always_on_top);
+            if window.window_level != previous.window_level {
+                winit_window.set_window_level(convert_window_level(window.window_level));
             }
 
             // Currently unsupported changes
@@ -276,6 +284,17 @@ pub(crate) fn changed_window(
                 warn!(
                     "Bevy currently doesn't support modifying the window canvas after initialization."
                 );
+            }
+
+            if window.ime_enabled != previous.ime_enabled {
+                winit_window.set_ime_allowed(window.ime_enabled);
+            }
+
+            if window.ime_position != previous.ime_position {
+                winit_window.set_ime_position(LogicalPosition::new(
+                    window.ime_position.x,
+                    window.ime_position.y,
+                ));
             }
 
             info.previous = window.clone();

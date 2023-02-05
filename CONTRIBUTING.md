@@ -103,7 +103,7 @@ Some things that are reason to apply the [`S-Controversial`] label to a PR:
 
 Some things that are reason to apply the [`D-Complex`] label to a PR:
 
-1. Introduction or modification of soundness relevent code (for example `unsafe` code)
+1. Introduction or modification of soundness relevant code (for example `unsafe` code)
 2. High levels of technical complexity.
 3. Large-scale code reorganization
 
@@ -137,9 +137,14 @@ Some useful pull request queries:
 [`S-Controversial`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Controversial
 [`D-Complex`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AD-Complex
 
-### Preparing Releases
+### Prioritizing PRs and issues
 
-We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
+We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issues and PRs that:
+
+* Need to be merged/fixed before the next release. This is generally for extremely bad bugs i.e. UB or important functionality being broken.
+* Would have higher user impact and are almost ready to be merged/fixed.
+
+There are also two priority labels: [`P-Critical`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) and [`P-High`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High) that can be used to find issues and PRs that need to be resolved urgently.
 
 ## Making changes to Bevy
 
@@ -319,7 +324,7 @@ If you're new to Bevy, here's the workflow we use:
     * `cargo run -p ci -- test` - to run tests
     * `cargo run -p ci -- doc` - to run doc tests and doc checks
     * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests))
-    * to get more informations on commands available and what is run, check the [tools/ci crate](./tools/ci)
+    * to get more information on commands available and what is run, check the [tools/ci crate](./tools/ci)
 
 4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:

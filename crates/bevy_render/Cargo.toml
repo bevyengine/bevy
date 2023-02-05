@@ -44,15 +44,16 @@ bevy_time = { path = "../bevy_time", version = "0.9.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.9.0" }
 bevy_window = { path = "../bevy_window", version = "0.9.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
 
 # rendering
 image = { version = "0.24", default-features = false }
 
 # misc
-wgpu = { version = "0.14.0", features = ["spirv"] }
-wgpu-hal = "0.14.1"
+wgpu = { version = "0.15.0", features = ["spirv"] }
+wgpu-hal = "0.15.1"
 codespan-reporting = "0.11.0"
-naga = { version = "0.10.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
+naga = { version = "0.11.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
@@ -75,3 +76,4 @@ basis-universal = { version = "0.2.0", optional = true }
 encase = { version = "0.4", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
+async-channel = "1.8"
