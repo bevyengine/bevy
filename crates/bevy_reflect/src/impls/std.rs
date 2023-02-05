@@ -1063,10 +1063,7 @@ impl PartialReflect for Cow<'static, str> {
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        if let Some(value) = value
-            .as_full()
-            .and_then(<dyn Reflect>::downcast_ref::<Self>)
-        {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
             *self = value.clone();
         } else {
             panic!("Value is not a {}.", std::any::type_name::<Self>());
@@ -1097,10 +1094,7 @@ impl PartialReflect for Cow<'static, str> {
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value
-            .as_full()
-            .and_then(<dyn Reflect>::downcast_ref::<Self>)
-        {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
             Some(std::cmp::PartialEq::eq(self, value))
         } else {
             Some(false)
@@ -1201,10 +1195,7 @@ impl PartialReflect for &'static Path {
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        if let Some(&value) = value
-            .as_full()
-            .and_then(<dyn Reflect>::downcast_ref::<Self>)
-        {
+        if let Some(&value) = value.try_downcast_ref::<Self>() {
             *self = value;
         } else {
             panic!("Value is not a {}.", std::any::type_name::<Self>());
