@@ -8,17 +8,9 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// A static-sized array of [`Reflect`] items.
+/// A static-sized array of [`PartialReflect`] items.
 ///
 /// This corresponds to types like `[T; N]` (arrays).
-///
-/// Currently, this only supports arrays of up to 32 items. It can technically
-/// contain more than 32, but the blanket [`GetTypeRegistration`] is only
-/// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
-///
-/// [`Reflect`]: crate::Reflect
-/// [`GetTypeRegistration`]: crate::GetTypeRegistration
-/// [limitation]: https://github.com/serde-rs/serde/issues/1937
 pub trait Array: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
