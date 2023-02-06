@@ -156,7 +156,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn entities(self) -> &'w Entities {
         // SAFETY:
         // - we only access world metadata
-        &unsafe { self.unsafe_world() }.entities
+        &unsafe { self.world_metadata() }.entities
     }
 
     /// Retrieves this world's [Archetypes] collection
@@ -164,7 +164,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn archetypes(self) -> &'w Archetypes {
         // SAFETY:
         // - we only access world metadata
-        &unsafe { self.unsafe_world() }.archetypes
+        &unsafe { self.world_metadata() }.archetypes
     }
 
     /// Retrieves this world's [Components] collection
@@ -172,7 +172,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn components(self) -> &'w Components {
         // SAFETY:
         // - we only access world metadata
-        &unsafe { self.unsafe_world() }.components
+        &unsafe { self.world_metadata() }.components
     }
 
     /// Retrieves this world's [Bundles] collection
@@ -180,7 +180,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn bundles(self) -> &'w Bundles {
         // SAFETY:
         // - we only access world metadata
-        &unsafe { self.unsafe_world() }.bundles
+        &unsafe { self.world_metadata() }.bundles
     }
 
     /// Reads the current change tick of this world.
@@ -188,7 +188,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn read_change_tick(self) -> u32 {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.unsafe_world() }
+        unsafe { self.world_metadata() }
             .change_tick
             .load(Ordering::Acquire)
     }
@@ -197,14 +197,14 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn last_change_tick(self) -> u32 {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.unsafe_world() }.last_change_tick
+        unsafe { self.world_metadata() }.last_change_tick
     }
 
     #[inline]
     pub fn increment_change_tick(self) -> u32 {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.unsafe_world() }
+        unsafe { self.world_metadata() }
             .change_tick
             .fetch_add(1, Ordering::AcqRel)
     }
@@ -217,7 +217,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<ArchetypeComponentId> {
         // SAFETY:
         // - we only access world metadata
-        let resource = unsafe { self.unsafe_world() }
+        let resource = unsafe { self.world_metadata() }
             .storages
             .resources
             .get(component_id)?;
@@ -232,7 +232,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<ArchetypeComponentId> {
         // SAFETY:
         // - we only access world metadata
-        let resource = unsafe { self.unsafe_world() }
+        let resource = unsafe { self.world_metadata() }
             .storages
             .non_send_resources
             .get(component_id)?;
