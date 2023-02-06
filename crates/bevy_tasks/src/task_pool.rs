@@ -366,8 +366,8 @@ impl TaskPool {
         } else {
             future::block_on(async move {
                 let get_results = async {
-                    let mut results = Vec::with_capacity(spawned_ref.len());
-                    while let Ok(task) = spawned_ref.pop() {
+                    let mut results = Vec::with_capacity(spawned.len());
+                    while let Ok(task) = spawned.pop() {
                         results.push(task.await.unwrap());
                     }
                     results
