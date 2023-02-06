@@ -12,23 +12,19 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
-        StorageType, TickCells,
-    },
+    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{Column, ComponentSparseSet, ResourceData, Storages, TableRow},
+    storage::{ResourceData, Storages},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
-    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -66,7 +62,7 @@ pub struct World {
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: RemovedComponentEvents,
     /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
-    pub(crate) archetype_component_access: UnsafeCell<ArchetypeComponentAccess>,
+    pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
     pub(crate) last_check_tick: u32,
@@ -112,19 +108,19 @@ impl World {
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new(self)
+        UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
     pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new(self)
+        UnsafeWorldCell::new_readonly(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
     /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
     /// has been replaced.
     pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new(self)
+        UnsafeWorldCell::new_readonly(self)
     }
 
     /// Retrieves this world's [Entities] collection
@@ -602,9 +598,10 @@ impl World {
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
         // SAFETY:
-        // - lifetimes enforce correct usage of returned borrow
-        // - entity location is checked in `get_entity`
-        unsafe { entity_ref::get_mut(self, entity, self.get_entity(entity)?.location()) }
+        // - `as_unsafe_world_cell` is the only thing that is borrowing world
+        // - `as_unsafe_world_cell` provides mutable permission to everything
+        // - `&mut self` ensures no other borrows on world data
+        unsafe { self.as_unsafe_world_cell().get_entity(entity)?.get_mut() }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -1005,15 +1002,18 @@ impl World {
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: `component_id` was obtained from the type ID of `R`.
-        unsafe { self.get_resource_with_id(component_id) }
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
+        // - `&self` ensures nothing in world is borrowed immutably
+        unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: unique world access
+        // SAFETY:
+        // - `as_unsafe_world_cell` gives permission to access everything mutably
+        // - `&mut self` ensures nothing in world is borrowed
         unsafe { self.as_unsafe_world_cell().get_resource_mut() }
     }
 
@@ -1098,9 +1098,10 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: component id matches type T
-        unsafe { self.get_non_send_with_id(component_id) }
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
+        // - `&self` ensures that there are no mutable borrows of world data
+        unsafe { self.as_unsafe_world_cell_readonly().get_non_send_resource() }
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
@@ -1110,32 +1111,10 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: unique world access
+        // SAFETY:
+        // - `as_unsafe_world_cell` gives permission to access the entire world mutably
+        // - `&mut self` ensures that there are no borrows of world data
         unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
-    }
-
-    // Shorthand helper function for getting the data and change ticks for a resource.
-    #[inline]
-    pub(crate) fn get_resource_with_ticks(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.storages.resources.get(component_id)?.get_with_ticks()
-    }
-
-    // Shorthand helper function for getting the data and change ticks for a resource.
-    ///
-    /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    #[inline]
-    pub(crate) fn get_non_send_with_ticks(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.storages
-            .non_send_resources
-            .get(component_id)?
-            .get_with_ticks()
     }
 
     // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
@@ -1380,36 +1359,6 @@ impl World {
         }
     }
 
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_resource_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        self.storages
-            .resources
-            .get(component_id)?
-            .get_data()
-            .map(|ptr| ptr.deref())
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        Some(
-            self.storages
-                .non_send_resources
-                .get(component_id)?
-                .get_data()?
-                .deref::<R>(),
-        )
-    }
-
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
@@ -1616,7 +1565,13 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        self.storages.resources.get(component_id)?.get_data()
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access the whole world immutably
+        // - `&self` ensures there are no mutable borrows on world data
+        unsafe {
+            self.as_unsafe_world_cell_readonly()
+                .get_resource_by_id(component_id)
+        }
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -1627,7 +1582,9 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY: unique world access
+        // SAFETY:
+        // - `&mut self` ensures that all accessed data is unaliased
+        // - `as_unsafe_world_cell` provides mutable permission to the whole world
         unsafe {
             self.as_unsafe_world_cell()
                 .get_resource_mut_by_id(component_id)
@@ -1645,10 +1602,13 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        self.storages
-            .non_send_resources
-            .get(component_id)?
-            .get_data()
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access the whole world immutably
+        // - `&self` ensures there are no mutable borrows on world data
+        unsafe {
+            self.as_unsafe_world_cell_readonly()
+                .get_non_send_resource_by_id(component_id)
+        }
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
@@ -1662,20 +1622,13 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let change_tick = self.change_tick();
-        let (ptr, ticks) = self.get_non_send_with_ticks(component_id)?;
-
-        let ticks =
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
-
-        Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
-            value: unsafe { ptr.assert_unique() },
-            ticks,
-        })
+        // SAFETY:
+        // - `&mut self` ensures that all accessed data is unaliased
+        // - `as_unsafe_world_cell` provides mutable permission to the whole world
+        unsafe {
+            self.as_unsafe_world_cell()
+                .get_non_send_resource_mut_by_id(component_id)
+        }
     }
 
     /// Removes the resource of a given type, if it exists. Otherwise returns [None].
@@ -1715,18 +1668,13 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let info = self.components().get_info(component_id)?;
         // SAFETY:
-        // - entity_location is valid
-        // - component_id is valid as checked by the line above
-        // - the storage type is accurate as checked by the fetched ComponentInfo
+        // - `&self` ensures that all accessed data is not mutably aliased
+        // - `as_unsafe_world_cell_readonly` provides shared/readonly permission to the whole world
         unsafe {
-            self.get_component(
-                component_id,
-                info.storage_type(),
-                entity,
-                self.get_entity(entity)?.location(),
-            )
+            self.as_unsafe_world_cell_readonly()
+                .get_entity(entity)?
+                .get_by_id(component_id)
         }
     }
 
@@ -1741,180 +1689,14 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        self.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - `&mut self` ensures that all accessed data is unaliased
+        // - `as_unsafe_world_cell` provides mutable permission to the whole world
         unsafe {
-            entity_ref::get_mut_by_id(
-                self,
-                entity,
-                self.get_entity(entity)?.location(),
-                component_id,
-            )
+            self.as_unsafe_world_cell()
+                .get_entity(entity)?
+                .get_mut_by_id(component_id)
         }
-    }
-}
-
-impl World {
-    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
-    ///
-    /// # Safety
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - `location` must refer to an archetype that contains `entity`
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component_and_ticks_with_type(
-        &self,
-        type_id: TypeId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        let component_id = self.components.get_id(type_id)?;
-        // SAFETY: component_id is valid, the rest is deferred to caller
-        self.get_component_and_ticks(component_id, storage_type, entity, location)
-    }
-
-    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
-    ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// - `component_id` must be valid
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component_and_ticks(
-        &self,
-        component_id: ComponentId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        match storage_type {
-            StorageType::Table => {
-                let (components, table_row) = self.fetch_table(location, component_id)?;
-
-                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-                Some((
-                    components.get_data_unchecked(table_row),
-                    TickCells {
-                        added: components.get_added_ticks_unchecked(table_row),
-                        changed: components.get_changed_ticks_unchecked(table_row),
-                    },
-                ))
-            }
-            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get_with_ticks(entity),
-        }
-    }
-
-    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
-    ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component_with_type(
-        &self,
-        type_id: TypeId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<Ptr<'_>> {
-        let component_id = self.components.get_id(type_id)?;
-        // SAFETY: component_id is valid, the rest is deferred to caller
-        self.get_component(component_id, storage_type, entity, location)
-    }
-
-    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
-    ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `component_id` must be valid
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component(
-        &self,
-        component_id: ComponentId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<Ptr<'_>> {
-        // SAFETY: component_id exists and is therefore valid
-        match storage_type {
-            StorageType::Table => {
-                let (components, table_row) = self.fetch_table(location, component_id)?;
-                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-                Some(components.get_data_unchecked(table_row))
-            }
-            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get(entity),
-        }
-    }
-
-    /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
-    ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_ticks_with_type(
-        &self,
-        type_id: TypeId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<ComponentTicks> {
-        let component_id = self.components.get_id(type_id)?;
-        // SAFETY: component_id is valid, the rest is deferred to caller
-        self.get_ticks(component_id, storage_type, entity, location)
-    }
-
-    /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
-    ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `component_id` must be valid
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_ticks(
-        &self,
-        component_id: ComponentId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<ComponentTicks> {
-        match storage_type {
-            StorageType::Table => {
-                let (components, table_row) = self.fetch_table(location, component_id)?;
-                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-                Some(components.get_ticks_unchecked(table_row))
-            }
-            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get_ticks(entity),
-        }
-    }
-
-    #[inline]
-    fn fetch_table(
-        &self,
-        location: EntityLocation,
-        component_id: ComponentId,
-    ) -> Option<(&Column, TableRow)> {
-        let archetype = &self.archetypes[location.archetype_id];
-        let table = &self.storages.tables[archetype.table_id()];
-        let components = table.get_column(component_id)?;
-        let table_row = archetype.entity_table_row(location.archetype_row);
-        Some((components, table_row))
-    }
-
-    #[inline]
-    fn fetch_sparse_set(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-        self.storages.sparse_sets.get(component_id)
     }
 }
 
