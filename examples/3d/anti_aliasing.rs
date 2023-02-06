@@ -27,11 +27,18 @@ fn main() {
 
 fn toggle_aa(
     keys: Res<Input<KeyCode>>,
-    mut camera: Query<(Entity, Option<&mut Fxaa>), With<Camera>>,
+    mut camera: Query<
+        (
+            Entity,
+            Option<&mut Fxaa>,
+            Option<&TemporalAntialiasSettings>,
+        ),
+        With<Camera>,
+    >,
     mut msaa: ResMut<Msaa>,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa) = camera.single_mut();
+    let (camera_entity, fxaa, taa) = camera.single_mut();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
@@ -82,7 +89,7 @@ fn toggle_aa(
     }
 
     // TAA
-    if keys.just_pressed(KeyCode::Key4) {
+    if keys.just_pressed(KeyCode::Key4) && taa.is_none() {
         camera.insert(TemporalAntialiasBundle::default());
 
         *msaa = Msaa::Off;
