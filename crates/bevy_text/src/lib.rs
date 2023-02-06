@@ -120,6 +120,3 @@ impl Plugin for TextPlugin {
         }
     }
 }
-
-// #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-// pub struct UpdateText3dLayout;
