@@ -357,11 +357,8 @@ macro_rules! impl_reflect_for_veclike {
                 self
             }
 
-            fn set(
-                &mut self,
-                value: Box<dyn PartialReflect>,
-            ) -> Result<(), Box<dyn PartialReflect>> {
-                *self = value.try_take()?;
+            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+                *self = value.take()?;
                 Ok(())
             }
         }
@@ -548,8 +545,8 @@ impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Reflect for
         self
     }
 
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.try_take()?;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
         Ok(())
     }
 }
@@ -749,8 +746,8 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.try_take()?;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
         Ok(())
     }
 }
@@ -970,8 +967,8 @@ impl<T: FromReflect> Reflect for Option<T> {
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.try_take()?;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
         Ok(())
     }
 }
@@ -1127,8 +1124,8 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.try_take()?;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
         Ok(())
     }
 }
@@ -1259,8 +1256,8 @@ impl Reflect for &'static Path {
         self
     }
 
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.try_take()?;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
         Ok(())
     }
 }

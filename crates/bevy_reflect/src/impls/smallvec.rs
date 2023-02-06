@@ -170,8 +170,8 @@ where
         self
     }
 
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.try_take()?;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
         Ok(())
     }
 }

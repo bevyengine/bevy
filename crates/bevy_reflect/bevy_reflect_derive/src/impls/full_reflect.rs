@@ -50,8 +50,8 @@ pub(crate) fn impl_full_reflect(
             }
 
             #[inline]
-            fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::PartialReflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::PartialReflect>> {
-                *self = <dyn #bevy_reflect_path::PartialReflect>::try_take(value)?;
+            fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
+                *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 #FQResult::Ok(())
             }
         }

@@ -318,7 +318,7 @@ pub trait Reflect: PartialReflect {
     ///
     /// If `value` does not contain a value of type `T`, returns an `Err`
     /// containing the trait object.
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>>;
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 }
 
 impl dyn Reflect {
