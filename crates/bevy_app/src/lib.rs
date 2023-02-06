@@ -84,7 +84,7 @@ impl CoreSchedule {
 ///
 /// These are ordered in the same order they are listed.
 ///
-/// The corresponding [`SystemSets`](bevy_ecs::schedule_v3::SystemSet) are added by [`App::add_default_sets`].
+/// The corresponding [`SystemSets`](bevy_ecs::schedule_v3::SystemSet) are added by [`App::add_default_schedules`].
 ///
 /// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
 /// that runs immediately after the matching system set.
@@ -149,7 +149,7 @@ impl CoreSet {
 
 /// The names of the default [`App`] startup sets, which live in [`CoreSchedule::Startup`].
 ///
-/// The corresponding [`SystemSets`](bevy_ecs::schedule_v3::SystemSet) are added by [`App::add_default_sets`].
+/// The corresponding [`SystemSets`](bevy_ecs::schedule_v3::SystemSet) are added by [`App::add_default_schedules`].
 ///
 /// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
 /// that runs immediately after the matching system set.
