@@ -11,7 +11,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 mod node;
@@ -104,7 +104,7 @@ impl Plugin for CASPlugin {
         render_app
             .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_cas_pipelines);
+            .add_system(prepare_cas_pipelines.in_set(RenderSet::Prepare));
         {
             let cas_node = CASNode::new(&mut render_app.world);
             let mut binding = render_app.world.resource_mut::<RenderGraph>();
