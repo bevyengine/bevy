@@ -206,7 +206,7 @@ impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
     ///
-    /// This calls [`App::add_default_schedules`] and [`App::add_defaults_sets`].
+    /// This calls [`App::add_default_schedules`].
     pub fn new() -> App {
         App::default()
     }
@@ -232,7 +232,7 @@ impl App {
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
     /// This method also updates sub apps.
-    /// See [`insert_sub_app`](Self::insert_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    /// See [`insert_sub_app`](Self::insert_sub_app) for more details.
     ///
     /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
     /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]

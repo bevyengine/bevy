@@ -71,7 +71,7 @@ impl CoreSchedule {
         world.run_schedule(CoreSchedule::Main);
     }
 
-    /// Initializes a single threaded schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`] system.
+    /// Initializes a single threaded schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`](CoreSchedule::outer_loop) system.
     pub fn outer_schedule() -> Schedule {
         let mut schedule = Schedule::new();
         schedule.set_executor_kind(bevy_ecs::schedule_v3::ExecutorKind::SingleThreaded);
