@@ -2,7 +2,6 @@ mod condition;
 mod config;
 mod executor;
 mod graph_utils;
-mod migration;
 mod schedule;
 mod set;
 mod state;
@@ -11,7 +10,6 @@ pub use self::condition::*;
 pub use self::config::*;
 pub use self::executor::*;
 use self::graph_utils::*;
-pub use self::migration::*;
 pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;
@@ -164,9 +162,11 @@ mod tests {
 
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(named_exclusive_system);
-            schedule.add_system(make_exclusive_system(1).before(named_exclusive_system));
-            schedule.add_system(make_exclusive_system(0).after(named_exclusive_system));
+            schedule.add_systems((
+                named_exclusive_system,
+                make_exclusive_system(1).before(named_exclusive_system),
+                make_exclusive_system(0).after(named_exclusive_system),
+            ));
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, u32::MAX, 0]);
@@ -600,6 +600,31 @@ mod tests {
         }
 
         #[test]
+        fn sets_have_order_but_intersect() {
+            let mut world = World::new();
+            let mut schedule = Schedule::new();
+
+            fn foo() {}
+
+            // Add `foo` to both `A` and `C`.
+            schedule.add_system(foo.in_set(TestSet::A).in_set(TestSet::C));
+
+            // Order `A -> B -> C`.
+            schedule.configure_sets((
+                TestSet::A,
+                TestSet::B.after(TestSet::A),
+                TestSet::C.after(TestSet::B),
+            ));
+
+            let result = schedule.initialize(&mut world);
+            // `foo` can't be in both `A` and `C` because they can't run at the same time.
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_, _))
+            ));
+        }
+
+        #[test]
         fn ambiguity() {
             #[derive(Resource)]
             struct X;
@@ -617,6 +642,175 @@ mod tests {
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
             assert!(matches!(result, Err(ScheduleBuildError::Ambiguity)));
+        }
+    }
+
+    mod base_sets {
+        use super::*;
+
+        #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Clone)]
+        #[system_set(base)]
+        enum Base {
+            A,
+            B,
+        }
+
+        #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Clone)]
+        enum Normal {
+            X,
+            Y,
+            Z,
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_base_sets_to_system_with_in_set() {
+            let mut schedule = Schedule::new();
+            schedule.add_system(named_system.in_set(Base::A));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_sets_to_system_with_in_base_set() {
+            let mut schedule = Schedule::new();
+            schedule.add_system(named_system.in_base_set(Normal::X));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_base_sets_to_systems_with_in_set() {
+            let mut schedule = Schedule::new();
+            schedule.add_systems((named_system, named_system).in_set(Base::A));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_sets_to_systems_with_in_base_set() {
+            let mut schedule = Schedule::new();
+            schedule.add_systems((named_system, named_system).in_base_set(Normal::X));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_base_sets_to_set_with_in_set() {
+            let mut schedule = Schedule::new();
+            schedule.configure_set(Normal::Y.in_set(Base::A));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_sets_to_set_with_in_base_set() {
+            let mut schedule = Schedule::new();
+            schedule.configure_set(Normal::Y.in_base_set(Normal::X));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_base_sets_to_sets_with_in_set() {
+            let mut schedule = Schedule::new();
+            schedule.configure_sets((Normal::X, Normal::Y).in_set(Base::A));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_sets_to_sets_with_in_base_set() {
+            let mut schedule = Schedule::new();
+            schedule.configure_sets((Normal::X, Normal::Y).in_base_set(Normal::Z));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_base_sets_to_sets() {
+            let mut schedule = Schedule::new();
+            schedule.configure_set(Base::A.in_set(Normal::X));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_base_sets_to_base_sets() {
+            let mut schedule = Schedule::new();
+            schedule.configure_set(Base::A.in_base_set(Base::B));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_set_to_multiple_base_sets() {
+            let mut schedule = Schedule::new();
+            schedule.configure_set(Normal::X.in_base_set(Base::A).in_base_set(Base::B));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_sets_to_multiple_base_sets() {
+            let mut schedule = Schedule::new();
+            schedule.configure_sets(
+                (Normal::X, Normal::Y)
+                    .in_base_set(Base::A)
+                    .in_base_set(Base::B),
+            );
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_system_to_multiple_base_sets() {
+            let mut schedule = Schedule::new();
+            schedule.add_system(named_system.in_base_set(Base::A).in_base_set(Base::B));
+        }
+
+        #[test]
+        #[should_panic]
+        fn disallow_adding_systems_to_multiple_base_sets() {
+            let mut schedule = Schedule::new();
+            schedule.add_systems(
+                (make_function_system(0), make_function_system(1))
+                    .in_base_set(Base::A)
+                    .in_base_set(Base::B),
+            );
+        }
+
+        #[test]
+        fn disallow_multiple_base_sets() {
+            let mut world = World::new();
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::B))
+                .add_system(named_system.in_set(Normal::X).in_set(Normal::Y));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::SystemInMultipleBaseSets { .. })
+            ));
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::B).in_set(Normal::X));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::SetInMultipleBaseSets { .. })
+            ));
+        }
+
+        #[test]
+        fn default_base_set_ordering() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            schedule
+                .set_default_base_set(Base::A)
+                .configure_set(Base::A.before(Base::B))
+                .add_system(make_function_system(0).in_base_set(Base::B))
+                .add_system(make_function_system(1));
+            schedule.run(&mut world);
+
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 0]);
         }
     }
 }

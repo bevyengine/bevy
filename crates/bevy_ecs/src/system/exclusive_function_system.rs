@@ -3,10 +3,9 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     query::Access,
-    schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
-        In, InputMarker, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, InputMarker,
+        IntoSystem, System, SystemMeta,
     },
     world::{World, WorldId},
 };
@@ -156,25 +155,9 @@ where
         );
     }
 
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        vec![self.func.as_system_label().as_label()]
-    }
-
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
         let set = crate::schedule_v3::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
-    }
-}
-
-impl<In, Out, Param, Marker, T> AsSystemLabel<(In, Out, Param, Marker, IsExclusiveFunctionSystem)>
-    for T
-where
-    Param: ExclusiveSystemParam,
-    T: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
-{
-    #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
-        SystemTypeIdLabel::<T>(PhantomData).as_label()
     }
 }
 

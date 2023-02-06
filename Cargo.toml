@@ -914,7 +914,7 @@ path = "examples/ecs/removal_detection.rs"
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
-description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+description = "Query for entities that had a specific component removed earlier in the current frame"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -965,16 +965,6 @@ path = "examples/ecs/system_param.rs"
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "system_sets"
-path = "examples/ecs/system_sets.rs"
-
-[package.metadata.example.system_sets]
-name = "System Sets"
-description = "Shows `SystemSet` use along with run criterion"
 category = "ECS (Entity Component System)"
 wasm = false
 

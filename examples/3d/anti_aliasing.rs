@@ -7,6 +7,7 @@ use bevy::{
         fxaa::{Fxaa, Sensitivity},
         taa::{TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings},
     },
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -216,6 +217,12 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            maximum_distance: 3.0,
+            first_cascade_far_bound: 0.9,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

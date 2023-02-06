@@ -1,4 +1,4 @@
-use bevy_app::{CoreStage, Plugin};
+use bevy_app::{CoreSet, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -8,13 +8,11 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::With,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::{FromWorld, World},
 };
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
@@ -40,7 +38,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap};
@@ -96,25 +94,19 @@ where
             Shader::from_wgsl
         );
 
-        app.add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
-            .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
+        app.add_system(update_previous_view_projections.in_base_set(CoreSet::PreUpdate))
+            .add_system(update_mesh_previous_global_transforms.in_base_set(CoreSet::PreUpdate));
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_phase)
-            .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_previous_view_projection_uniforms,
-            )
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<AlphaMask3dPrepass>,
-            )
+            .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
+            .add_system(prepare_prepass_textures.in_set(RenderSet::Prepare))
+            .add_system(prepare_previous_view_projection_uniforms.in_set(RenderSet::Prepare))
+            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
+            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()

@@ -22,6 +22,10 @@ impl SystemExecutor for SimpleExecutor {
         ExecutorKind::Simple
     }
 
+    fn set_apply_final_buffers(&mut self, _: bool) {
+        // do nothing. simple executor does not do a final sync
+    }
+
     fn init(&mut self, schedule: &SystemSchedule) {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
@@ -37,7 +41,7 @@ impl SystemExecutor for SimpleExecutor {
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
-            for set_idx in schedule.sets_of_systems[system_index].ones() {
+            for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {
                 if self.evaluated_sets.contains(set_idx) {
                     continue;
                 }
@@ -48,7 +52,7 @@ impl SystemExecutor for SimpleExecutor {
 
                 if !set_conditions_met {
                     self.completed_systems
-                        .union_with(&schedule.systems_in_sets[set_idx]);
+                        .union_with(&schedule.systems_in_sets_with_conditions[set_idx]);
                 }
 
                 should_run &= set_conditions_met;
@@ -78,8 +82,6 @@ impl SystemExecutor for SimpleExecutor {
             #[cfg(feature = "trace")]
             system_span.exit();
 
-            #[cfg(feature = "trace")]
-            let _apply_buffers_span = info_span!("apply_buffers", name = &*name).entered();
             system.apply_buffers(world);
         }
 

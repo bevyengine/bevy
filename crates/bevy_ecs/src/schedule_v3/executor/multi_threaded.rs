@@ -1,11 +1,11 @@
-use std::panic::AssertUnwindSafe;
+use std::sync::Arc;
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Instrument};
-use std::sync::Arc;
+use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
@@ -32,8 +32,8 @@ struct SyncUnsafeSchedule<'a> {
 struct Conditions<'a> {
     system_conditions: &'a mut [Vec<BoxedCondition>],
     set_conditions: &'a mut [Vec<BoxedCondition>],
-    sets_of_systems: &'a [FixedBitSet],
-    systems_in_sets: &'a [FixedBitSet],
+    sets_with_conditions_of_systems: &'a [FixedBitSet],
+    systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
 
 impl SyncUnsafeSchedule<'_> {
@@ -43,8 +43,8 @@ impl SyncUnsafeSchedule<'_> {
             conditions: Conditions {
                 system_conditions: &mut schedule.system_conditions,
                 set_conditions: &mut schedule.set_conditions,
-                sets_of_systems: &schedule.sets_of_systems,
-                systems_in_sets: &schedule.systems_in_sets,
+                sets_with_conditions_of_systems: &schedule.sets_with_conditions_of_systems,
+                systems_in_sets_with_conditions: &schedule.systems_in_sets_with_conditions,
             },
         }
     }
@@ -97,6 +97,8 @@ pub struct MultiThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
+    /// Setting when true applies system buffers after all systems have run
+    apply_final_buffers: bool,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -108,6 +110,10 @@ impl Default for MultiThreadedExecutor {
 impl SystemExecutor for MultiThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::MultiThreaded
+    }
+
+    fn set_apply_final_buffers(&mut self, value: bool) {
+        self.apply_final_buffers = value;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -194,19 +200,22 @@ impl SystemExecutor for MultiThreadedExecutor {
                 };
 
                 #[cfg(feature = "trace")]
-                let executor_span = info_span!("schedule_task");
+                let executor_span = info_span!("multithreaded executor");
                 #[cfg(feature = "trace")]
                 let executor = executor.instrument(executor_span);
                 scope.spawn(executor);
             },
         );
 
-        // Do one final apply buffers after all systems have completed
-        // SAFETY: all systems have completed, and so no outstanding accesses remain
-        let world = unsafe { &mut *world.get() };
-        apply_system_buffers(&self.unapplied_systems, systems, world);
-        self.unapplied_systems.clear();
-        debug_assert!(self.unapplied_systems.is_clear());
+        if self.apply_final_buffers {
+            // Do one final apply buffers after all systems have completed
+            // SAFETY: all systems have completed, and so no outstanding accesses remain
+            let world = unsafe { &mut *world.get() };
+            // Commands should be applied while on the scope's thread, not the executor's thread
+            apply_system_buffers(&self.unapplied_systems, systems, world);
+            self.unapplied_systems.clear();
+            debug_assert!(self.unapplied_systems.is_clear());
+        }
 
         debug_assert!(self.ready_systems.is_clear());
         debug_assert!(self.running_systems.is_clear());
@@ -237,6 +246,7 @@ impl MultiThreadedExecutor {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
+            apply_final_buffers: true,
         }
     }
 
@@ -313,9 +323,6 @@ impl MultiThreadedExecutor {
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_access", name = &*system.name()).entered();
-
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
             return false;
@@ -326,7 +333,9 @@ impl MultiThreadedExecutor {
         }
 
         // TODO: an earlier out if world's archetypes did not change
-        for set_idx in conditions.sets_of_systems[system_index].difference(&self.evaluated_sets) {
+        for set_idx in conditions.sets_with_conditions_of_systems[system_index]
+            .difference(&self.evaluated_sets)
+        {
             for condition in &mut conditions.set_conditions[set_idx] {
                 condition.update_archetype_component_access(world);
                 if !condition
@@ -374,11 +383,8 @@ impl MultiThreadedExecutor {
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_conditions", name = &*_system.name()).entered();
-
         let mut should_run = !self.skipped_systems.contains(system_index);
-        for set_idx in conditions.sets_of_systems[system_index].ones() {
+        for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
                 continue;
             }
@@ -389,7 +395,7 @@ impl MultiThreadedExecutor {
 
             if !set_conditions_met {
                 self.skipped_systems
-                    .union_with(&conditions.systems_in_sets[set_idx]);
+                    .union_with(&conditions.systems_in_sets_with_conditions[set_idx]);
             }
 
             should_run &= set_conditions_met;
@@ -459,7 +465,7 @@ impl MultiThreadedExecutor {
             scope.spawn(task);
         } else {
             self.local_thread_running = true;
-            scope.spawn_on_scope(task);
+            scope.spawn_on_external(task);
         }
     }
 
@@ -563,8 +569,6 @@ impl MultiThreadedExecutor {
     }
 
     fn signal_dependents(&mut self, system_index: usize) {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("signal_dependents").entered();
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];
             debug_assert!(*remaining >= 1);
@@ -593,8 +597,6 @@ fn apply_system_buffers(
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };
-        #[cfg(feature = "trace")]
-        let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
         system.apply_buffers(world);
     }
 }

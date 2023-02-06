@@ -9,7 +9,7 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
-    schedule::IntoSystemDescriptor,
+    schedule_v3::IntoSystemConfig,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
-    MainWorld, RenderApp, RenderStage,
+    ExtractSchedule, MainWorld, RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -61,13 +61,14 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_taa_settings)
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_taa_jitter.before(prepare_view_uniforms),
+            .add_system_to_schedule(ExtractSchedule, extract_taa_settings)
+            .add_system(
+                prepare_taa_jitter
+                    .before(prepare_view_uniforms)
+                    .in_set(RenderSet::Prepare),
             )
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_pipelines);
+            .add_system(prepare_taa_history_textures.in_set(RenderSet::Prepare))
+            .add_system(prepare_taa_pipelines.in_set(RenderSet::Prepare));
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
