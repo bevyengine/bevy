@@ -104,7 +104,7 @@ pub(crate) fn queue(
     mut views: Query<&mut RenderPhase<Transparent2d>>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
-    let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+    let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples());
     for mut phase in &mut views {
         for (entity, mesh_handle) in &mesh_handles {
             let Some(mesh) = gpu_meshes.get(&mesh_handle.0) else { continue; };

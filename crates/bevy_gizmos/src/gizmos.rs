@@ -1,7 +1,7 @@
 use std::{f32::consts::TAU, iter};
 
 use bevy_ecs::{
-    system::{Buffer, Resource, SystemBuffer},
+    system::{Resource, SystemBuffer, SystemMeta, Deferred},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
@@ -20,7 +20,7 @@ pub(crate) struct GizmoStorage {
     pub strip_colors: Vec<ColorItem>,
 }
 
-pub type Gizmos<'s> = Buffer<'s, GizmoBuffer>;
+pub type Gizmos<'s> = Deferred<'s, GizmoBuffer>;
 
 #[derive(Default)]
 pub struct GizmoBuffer {
@@ -31,7 +31,7 @@ pub struct GizmoBuffer {
 }
 
 impl SystemBuffer for GizmoBuffer {
-    fn apply(&mut self, world: &mut World) {
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         let mut storage = world.resource_mut::<GizmoStorage>();
         storage.list_positions.append(&mut self.list_positions);
         storage.list_colors.append(&mut self.list_colors);

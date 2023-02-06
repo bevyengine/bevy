@@ -57,7 +57,7 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
             Mesh::ATTRIBUTE_COLOR.at_shader_location(1),
         ])?;
         let (label, blend, depth_write_enabled);
-        if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
+        if key.contains(MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA) {
             label = "transparent_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha
@@ -145,7 +145,7 @@ pub(crate) fn queue(
     mut views: Query<&mut RenderPhase<Opaque3d>>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for mut phase in &mut views {
         for (entity, mesh_handle) in &mesh_handles {
             if let Some(mesh) = render_meshes.get(mesh_handle) {

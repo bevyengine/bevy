@@ -1,9 +1,10 @@
 use std::mem;
 
-use bevy_app::{CoreStage, Plugin};
+use bevy_app::{CoreSet, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
-    prelude::Component,
+    prelude::{Component, DetectChanges},
+    schedule::IntoSystemConfig,
     system::{Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -13,7 +14,7 @@ use bevy_render::{
     mesh::Mesh,
     render_phase::AddRenderCommand,
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
 
 #[cfg(feature = "bevy_pbr")]
@@ -48,11 +49,11 @@ impl Plugin for DebugDrawPlugin {
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
-            .add_system_to_stage(CoreStage::Last, system);
+            .add_system(system.in_base_set(CoreSet::Last));
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_system_to_stage(RenderStage::Extract, extract);
+        render_app.add_system(extract.in_set(RenderSet::ExtractCommands));
 
         #[cfg(feature = "bevy_sprite")]
         {
@@ -63,7 +64,7 @@ impl Plugin for DebugDrawPlugin {
                 .add_render_command::<Transparent2d, DrawGizmoLines>()
                 .init_resource::<GizmoLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue);
+                .add_system(queue.in_set(RenderSet::Queue));
         }
 
         #[cfg(feature = "bevy_pbr")]
@@ -75,7 +76,7 @@ impl Plugin for DebugDrawPlugin {
                 .add_render_command::<Opaque3d, DrawGizmoLines>()
                 .init_resource::<GizmoLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue);
+                .add_system(queue.in_set(RenderSet::Queue));
         }
     }
 }
