@@ -1,7 +1,7 @@
 //! Tools for controlling behavior in an ECS application.
 //!
 //! Systems define how an ECS based application behaves.
-//! Systems are added to a [`Schedule`](crate::schedule::Schedule), which is then run.
+//! Systems are added to a [`Schedule`](crate::schedule_v3::Schedule), which is then run.
 //! A system is usually written as a normal function, which is automatically converted into a system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
@@ -49,7 +49,7 @@
 //! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
 //! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
 //!
-//! [`SystemSet`]: crate::schedule::SystemSet
+//! [`SystemSet`]: crate::schedule_v3::SystemSet
 //!
 //! ## Example
 //!

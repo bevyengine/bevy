@@ -61,7 +61,7 @@ pub struct OnExit<S: States>(pub S);
 
 /// A [`SystemSet`] that will run within `CoreSet::StateTransitions` when this state is active.
 ///
-/// This is provided for convenience. A more general [`state_equals`](super::state_equals)
+/// This is provided for convenience. A more general [`state_equals`](crate::schedule_v3::common_conditions::state_equals)
 /// [condition](super::Condition) also exists for systems that need to run elsewhere.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnUpdate<S: States>(pub S);
@@ -81,7 +81,7 @@ pub struct State<S: States>(pub S);
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overriden by other systems:
-/// only the actual value of this resource at the time of [`apply_state_transitions`] matters.
+/// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Default)]
 pub struct NextState<S: States>(pub Option<S>);
 

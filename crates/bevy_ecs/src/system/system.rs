@@ -9,7 +9,7 @@ use crate::{
 use std::any::TypeId;
 use std::borrow::Cow;
 
-/// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
+/// An ECS system that can be added to a [`Schedule`](crate::schedule_v3::Schedule)
 ///
 /// Systems are functions with all arguments implementing
 /// [`SystemParam`](crate::system::SystemParam).
@@ -19,7 +19,7 @@ use std::borrow::Cow;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`SystemDescriptor`](crate::schedule::SystemDescriptor).
+/// see [`IntoSystemConfig`](crate::schedule_v3::IntoSystemConfig).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.
@@ -64,7 +64,7 @@ pub trait System: Send + Sync + 'static {
     /// Update the system's archetype component [`Access`].
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
-    /// Returns the system's default [system sets](crate::schedule::SystemSet).
+    /// Returns the system's default [system sets](crate::schedule_v3::SystemSet).
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
         Vec::new()
     }
