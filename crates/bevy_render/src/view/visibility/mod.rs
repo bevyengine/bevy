@@ -247,7 +247,7 @@ impl Plugin for VisibilityPlugin {
             )
             .add_system(
                 update_frusta::<Projection>
-                    .in_base_set(CoreSet::PostUpdate)
+                    .in_set(UpdateProjectionFrusta)
                     .after(camera_system::<Projection>)
                     .after(TransformSystem::TransformPropagate),
             )
