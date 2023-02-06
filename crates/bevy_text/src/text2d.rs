@@ -59,6 +59,7 @@ pub struct Text2dBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
+#[allow(clippy::type_complexity)]
 pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,

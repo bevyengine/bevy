@@ -7,20 +7,21 @@ use bevy_ecs::{
     query::{Changed, With},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut},
-    world::Ref,
 };
+use bevy_hierarchy::{BuildChildren, Children};
 use bevy_math::{Rect, Vec2};
 use bevy_pbr::{AlphaMode, StandardMaterial};
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::{Indices, Mesh},
-    prelude::Color,
     render_resource::PrimitiveTopology,
-    view::{ComputedVisibility, Visibility},
+    view::{ComputedVisibility, Visibility, VisibilityBundle},
 };
 use bevy_sprite::{Anchor, TextureAtlas};
-use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_utils::tracing::warn;
+use bevy_transform::{
+    prelude::{GlobalTransform, Transform},
+    TransformBundle,
+};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
@@ -56,78 +57,102 @@ pub struct Text3dBundle {
 }
 
 /// Update the mesh and standard material for the entities spawned with a [`Text3dBundle`]
+#[allow(clippy::type_complexity)]
 pub fn update_text3d_mesh(
     mut commands: Commands,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    mut text_query: Query<
-        (
-            Entity,
-            Ref<Text>,
-            &TextLayoutInfo,
-            &Anchor,
-            Option<&Handle<Mesh>>,
-            Option<&Handle<StandardMaterial>>,
-        ),
+    text_query: Query<
+        (Entity, &Text, &Anchor, &TextLayoutInfo, Option<&Children>),
         (Changed<TextLayoutInfo>, With<Text3dBounds>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (entity, text, info, anchor, maybe_mesh, maybe_material) in &mut text_query {
-        // if we have no glyphs, remove the mesh and standard material to save on resources
+    for (entity, text, anchor, info, maybe_children) in text_query.iter() {
+        // if we have no glyphs, remove the children to save on resources
         if info.glyphs.is_empty() {
-            commands
-                .entity(entity)
-                .remove::<Handle<Mesh>>()
-                .remove::<Handle<StandardMaterial>>();
+            if let Some(children) = maybe_children {
+                for child in children.iter() {
+                    commands.entity(*child).despawn();
+                }
+            }
             continue;
         }
-        // we assume all glyphs are on the same texture
-        // if not, we'll have to implement different materials, and I'm not sure how to do this
-        debug_assert!(info
+
+        // When rendering a text with multiple segments, each segment could be a different atlas entry
+        // we'll need to get all the atlasses and references and sort + dedup them
+        let mut unique_atlasses = info
             .glyphs
             .iter()
-            .zip(info.glyphs.iter().skip(1))
-            .all(|(left, right)| left.atlas_info.texture_atlas == right.atlas_info.texture_atlas));
+            .map(|g| &g.atlas_info.texture_atlas)
+            .collect::<Vec<_>>();
+        unique_atlasses.sort();
+        unique_atlasses.dedup();
 
         let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
         let alignment_offset = info.size * text_anchor;
 
-        let Some(atlas) = texture_atlases.get(&info.glyphs[0].atlas_info.texture_atlas)  else {
-            warn!("Tried to render a Text3dBundle but the glyph is not present in the atlas");
-            continue;
+        let mut unique_atlasses = info
+            .glyphs
+            .iter()
+            .map(|g| &g.atlas_info.texture_atlas)
+            .collect::<Vec<_>>();
+        unique_atlasses.sort();
+        unique_atlasses.dedup();
 
-        };
-        let new_mesh = build_mesh(&text.sections, info, atlas, alignment_offset);
-        let new_material = StandardMaterial {
-            base_color_texture: Some(atlas.texture.clone()),
-            base_color: Color::WHITE,
-            alpha_mode: AlphaMode::Blend,
-            ..Default::default()
-        };
-        // insert or update the mesh and material
-        if let Some(mesh) = maybe_mesh.and_then(|handle| meshes.get_mut(handle)) {
-            *mesh = new_mesh;
-        } else {
-            let mesh = meshes.add(new_mesh);
-            commands.entity(entity).insert(mesh);
+        // Create an iterator over the meshes and materials for each unique atlas entry
+        let mut meshes_and_materials = unique_atlasses
+            .into_iter()
+            .map(|handle| {
+                let (mesh, material) = build_mesh_and_material(
+                    &text.sections,
+                    info,
+                    alignment_offset,
+                    handle,
+                    texture_atlases.get(handle).expect("Atlas does not exist"),
+                );
+                let mesh = meshes.add(mesh);
+                let material = materials.add(material);
+                (mesh, material)
+            })
+            .peekable();
+        // Create an iterator over the children
+        let mut children = maybe_children.into_iter().flatten().peekable();
+
+        // re-use existing children
+        while meshes_and_materials.peek().is_some() && children.peek().is_some() {
+            // these unwraps are okay because we checked for `.is_some()`
+            let (mesh, material) = meshes_and_materials.next().unwrap();
+            let child = children.next().unwrap();
+            commands.entity(*child).insert((mesh, material));
         }
-        if let Some(material) = maybe_material.and_then(|handle| materials.get_mut(handle)) {
-            *material = new_material;
-        } else {
-            let material = materials.add(new_material);
-            commands.entity(entity).insert(material);
+        // create new children
+        for (mesh, material) in meshes_and_materials {
+            let child_id = commands
+                .spawn((
+                    TransformBundle::default(),
+                    VisibilityBundle::default(),
+                    mesh,
+                    material,
+                ))
+                .id();
+            commands.entity(entity).add_child(child_id);
+        }
+        // clean up old children that no longer have a texture
+        for child in children {
+            commands.entity(*child).despawn();
         }
     }
 }
 
 /// Build a mesh for the given text layout
-fn build_mesh(
+fn build_mesh_and_material(
     sections: &[TextSection],
     info: &TextLayoutInfo,
-    atlas: &TextureAtlas,
     alignment_offset: Vec2,
-) -> Mesh {
+    atlas_handle: &Handle<TextureAtlas>,
+    atlas: &TextureAtlas,
+) -> (Mesh, StandardMaterial) {
     let mut positions = Vec::with_capacity(info.glyphs.len() * 4);
     let mut normals = Vec::with_capacity(info.glyphs.len() * 4);
     let mut uvs = Vec::with_capacity(info.glyphs.len() * 4);
@@ -140,7 +165,10 @@ fn build_mesh(
         atlas_info,
         section_index,
         ..
-    } in &info.glyphs
+    } in info
+        .glyphs
+        .iter()
+        .filter(|g| &g.atlas_info.texture_atlas == atlas_handle)
     {
         // build a quad for every single character, UV-mapped to the texture in the atlas
         let start = positions.len() as u32;
@@ -187,5 +215,11 @@ fn build_mesh(
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh
+
+    let new_material = StandardMaterial {
+        base_color_texture: Some(atlas.texture.clone()),
+        alpha_mode: AlphaMode::Blend,
+        ..Default::default()
+    };
+    (mesh, new_material)
 }

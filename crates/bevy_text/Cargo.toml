@@ -16,6 +16,7 @@ subpixel_glyph_atlas = []
 bevy_app = { path = "../bevy_app", version = "0.9.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
 bevy_math = { path = "../bevy_math", version = "0.9.0" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.9.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
@@ -30,4 +31,4 @@ anyhow = "1.0.4"
 ab_glyph = "0.2.6"
 glyph_brush_layout = "0.2.1"
 thiserror = "1.0"
-serde = {version = "1", features = ["derive"]}
+serde = { version = "1", features = ["derive"] }
