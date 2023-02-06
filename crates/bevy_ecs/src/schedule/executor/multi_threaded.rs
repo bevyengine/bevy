@@ -145,6 +145,9 @@ impl SystemExecutor for MultiThreadedExecutor {
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         // reset counts
         let num_systems = schedule.systems.len();
+        if num_systems == 0 {
+            return;
+        }
         self.num_running_systems = 0;
         self.num_completed_systems = 0;
         self.num_dependencies_remaining.clear();
