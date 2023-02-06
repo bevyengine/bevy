@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
-    Extract, RenderApp, RenderStage,
+    MainWorld, RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -136,8 +136,23 @@ pub struct TemporalAntialiasBundle {
 /// will result in slight banding artifacts and shifted brightness.
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
-#[derive(Component, Reflect, Clone, Default)]
-pub struct TemporalAntialiasSettings {}
+#[derive(Component, Reflect, Clone)]
+pub struct TemporalAntialiasSettings {
+    /// Set to true to delete the saved temporal history (past frames).
+    ///
+    /// Useful for preventing ghosting when the history is no longer
+    /// representive of the current frame, such as in sudden camera cuts.
+    ///
+    /// After setting this to true, it will automatically be toggled
+    /// back to false after one frame.
+    pub reset: bool,
+}
+
+impl Default for TemporalAntialiasSettings {
+    fn default() -> Self {
+        Self { reset: true }
+    }
+}
 
 struct TAANode {
     view_query: QueryState<(
@@ -371,6 +386,7 @@ impl FromWorld for TAAPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TAAPipelineKey {
     hdr: bool,
+    reset: bool,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
@@ -385,6 +401,10 @@ impl SpecializedRenderPipeline for TAAPipeline {
         } else {
             TextureFormat::bevy_default()
         };
+
+        if key.reset {
+            shader_defs.push("RESET".into());
+        }
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
@@ -414,24 +434,22 @@ impl SpecializedRenderPipeline for TAAPipeline {
     }
 }
 
-fn extract_taa_settings(
-    mut commands: Commands,
-    cameras_3d: Extract<
-        Query<
-            (Entity, &Camera, &Projection, &TemporalAntialiasSettings),
-            (
-                With<Camera3d>,
-                With<TemporalJitter>,
-                With<DepthPrepass>,
-                With<VelocityPrepass>,
-            ),
-        >,
-    >,
-) {
-    for (entity, camera, camera_projection, taa_settings) in &cameras_3d {
-        let perspective_projection = matches!(camera_projection, Projection::Perspective(_));
-        if camera.is_active && perspective_projection {
+fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
+    let mut cameras_3d = main_world
+        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntialiasSettings), (
+            With<Camera3d>,
+            With<TemporalJitter>,
+            With<DepthPrepass>,
+            With<VelocityPrepass>,
+        )>();
+
+    for (entity, camera, camera_projection, mut taa_settings) in
+        cameras_3d.iter_mut(&mut main_world)
+    {
+        let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        if camera.is_active && has_perspective_projection {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
+            taa_settings.reset = false;
         }
     }
 }
@@ -528,10 +546,13 @@ fn prepare_taa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
-    views: Query<(Entity, &ExtractedView), With<TemporalAntialiasSettings>>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntialiasSettings)>,
 ) {
-    for (entity, view) in &views {
-        let pipeline_key = TAAPipelineKey { hdr: view.hdr };
+    for (entity, view, taa_settings) in &views {
+        let pipeline_key = TAAPipelineKey {
+            hdr: view.hdr,
+            reset: taa_settings.reset,
+        };
 
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
 

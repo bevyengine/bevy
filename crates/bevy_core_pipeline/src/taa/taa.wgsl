@@ -90,6 +90,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     current_color = tonemap(current_color);
 #endif
 
+#ifndef RESET
     // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)
     // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 27
     let offset = texel_size * 2.0;
@@ -167,11 +168,12 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color = YCoCg_to_RGB(previous_color);
 
     // Blend current and past sample
-    let output = mix(previous_color, current_color, 0.1);
+    current_color = mix(previous_color, current_color, 0.1);
+#endif // #ifndef RESET
 
     // Write output to history and view target
     var out: Output;
-    out.history = vec4(output, original_color.a);
+    out.history = vec4(current_color, original_color.a);
 #ifdef TONEMAP
     out.view_target = vec4(reverse_tonemap(out.history.rgb), out.history.a);
 #else
