@@ -332,14 +332,15 @@ jobs:
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Run cargo check
+        id: check
         run: cargo check
       - name: Save PR number
-        if: ${{ failure() && github.event_name == 'pull_request' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
       - uses: actions/upload-artifact@v2
-        if: ${{ failure() && github.event_name == 'pull_request' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
           name: msrv
           path: msrv/
