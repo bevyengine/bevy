@@ -379,6 +379,10 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
         self.iter.next().map(|(event, _)| event)
     }
 
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
+    }
+
     fn last(self) -> Option<Self::Item>
     where
         Self: Sized,
@@ -451,6 +455,12 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
             }
             None => None,
         }
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let EventInstance { event_id, event } = self.chain.nth(n)?;
+        self.reader.last_event_count += n + 1;
+        Some((event, *event_id))
     }
 
     fn last(self) -> Option<Self::Item>
