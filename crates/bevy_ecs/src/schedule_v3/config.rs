@@ -88,7 +88,7 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     /// Add to the provided `set`.
     #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
-    /// Add to the provided "base" `set`.
+    /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
     /// Add this set to the schedules's default base set.
@@ -230,11 +230,11 @@ impl IntoSystemSetConfig for SystemSetConfig {
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
-            "adding arbitrary systems to a system type set is not allowed"
+            "System type sets cannot be base sets."
         );
         assert!(
             set.is_base(),
-            "Normal sets cannot be added to system sets using 'in_base_set'. Use 'in_set' instead."
+            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
         );
         assert!(
             !self.set.is_base(),
@@ -296,7 +296,7 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     /// Add to `set` membership.
     #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfig;
-    /// Add to the "base" `set` membership.
+    /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemConfig;
     /// Don't add this system to the schedules's default set.
@@ -434,11 +434,11 @@ impl IntoSystemConfig<()> for SystemConfig {
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
-            "adding arbitrary systems to a system type set is not allowed"
+            "System type sets cannot be base sets."
         );
         assert!(
             set.is_base(),
-            "Systems cannot be added to normal system sets using 'in_base_set'. Use 'in_set' instead."
+            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
         );
         self.graph_info.set_base_set(Box::new(set));
         self
@@ -533,7 +533,7 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Add these systems to the provided "base" `set`.
+    /// Add these systems to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemConfigs {
         self.into_configs().in_base_set(set)
@@ -600,11 +600,11 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
-            "adding arbitrary systems to a system type set is not allowed"
+            "System type sets cannot be base sets."
         );
         assert!(
             set.is_base(),
-            "Systems cannot be added to normal system sets using 'in_base_set'. Use 'in_set' instead."
+            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
         );
         for config in &mut self.systems {
             config.graph_info.set_base_set(set.dyn_clone());
@@ -686,7 +686,7 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Add these system sets to the provided "base" `set`.
+    /// Add these system sets to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
     fn in_base_set(self, set: impl SystemSet) -> SystemSetConfigs {
         self.into_configs().in_base_set(set)
@@ -752,11 +752,11 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
-            "adding arbitrary systems to a system type set is not allowed"
+            "System type sets cannot be base sets."
         );
         assert!(
             set.is_base(),
-            "Sets cannot be added to normal system sets using 'in_base_set'. Use 'in_set' instead."
+            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
         );
         for config in &mut self.sets {
             assert!(
