@@ -2,7 +2,7 @@
 
 use bevy::{
     a11y::{
-        accesskit::{Node as AccessKitNode, Role},
+        accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
     input::mouse::{MouseScrollUnit, MouseWheel},
@@ -140,10 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     ScrollingList::default(),
-                                    AccessibilityNode(AccessKitNode {
-                                        role: Role::List,
-                                        ..default()
-                                    }),
+                                    AccessibilityNode(NodeBuilder::new(Role::List)),
                                 ))
                                 .with_children(|parent| {
                                     // List items
@@ -169,10 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 ..default()
                                             }),
                                             Label,
-                                            AccessibilityNode(AccessKitNode {
-                                                role: Role::ListItem,
-                                                ..default()
-                                            }),
+                                            AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                         ));
                                     }
                                 });

@@ -5,10 +5,10 @@ use std::{
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{ActionHandler, ActionRequest, Node, Role, TreeUpdate},
+    accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
     AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
 };
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
@@ -125,21 +125,22 @@ fn update_accessibility_nodes(
                             if let Some(children) = children {
                                 for child in children.iter() {
                                     if node_entities.get(*child).is_ok() {
-                                        node.children.push(child.to_node_id());
+                                        node.push_child(child.to_node_id());
                                     }
                                 }
                             }
-                            to_update.push((entity.to_node_id(), Arc::new(node)));
+                            to_update.push((
+                                entity.to_node_id(),
+                                node.build(&mut NodeClassSet::lock_global()),
+                            ));
                         }
-                        let window_update = (
-                            primary_window_id.to_node_id(),
-                            Arc::new(Node {
-                                role: Role::Window,
-                                name,
-                                children: root_children,
-                                ..default()
-                            }),
-                        );
+                        let mut root = NodeBuilder::new(Role::Window);
+                        if let Some(name) = name {
+                            root.set_name(name);
+                        }
+                        root.set_children(root_children);
+                        let root = root.build(&mut NodeClassSet::lock_global());
+                        let window_update = (primary_window_id.to_node_id(), root);
                         to_update.insert(0, window_update);
                         TreeUpdate {
                             nodes: to_update,
@@ -161,9 +162,9 @@ impl Plugin for AccessibilityPlugin {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
-            .add_system_to_stage(CoreStage::PreUpdate, handle_window_focus)
-            .add_system_to_stage(CoreStage::PreUpdate, window_closed)
-            .add_system_to_stage(CoreStage::PreUpdate, poll_receivers)
-            .add_system_to_stage(CoreStage::PreUpdate, update_accessibility_nodes);
+            .add_system(handle_window_focus)
+            .add_system(window_closed)
+            .add_system(poll_receivers)
+            .add_system(update_accessibility_nodes);
     }
 }

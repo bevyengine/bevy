@@ -1,13 +1,13 @@
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::atomic::Ordering;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{Node, Role, Tree, TreeUpdate},
+    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
     AccessKitEntityExt, AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
 
-use bevy_utils::{default, tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
@@ -137,11 +137,9 @@ impl WinitWindows {
         let winit_window = winit_window_builder.build(event_loop).unwrap();
         let name = window.title.clone();
 
-        let root = Arc::new(Node {
-            role: Role::Window,
-            name: Some(name.into()),
-            ..default()
-        });
+        let mut root_builder = NodeBuilder::new(Role::Window);
+        root_builder.set_name(name.into_boxed_str());
+        let root = root_builder.build(&mut NodeClassSet::lock_global());
 
         let accesskit_window_id = entity.to_node_id();
         let handler = WinitActionHandler::default();

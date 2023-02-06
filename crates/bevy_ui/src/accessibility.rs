@@ -1,8 +1,8 @@
 use bevy_a11y::{
-    accesskit::{kurbo::Rect, Node as AccessKitNode, Role},
+    accesskit::{NodeBuilder, Rect, Role},
     AccessibilityNode,
 };
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{App, Plugin};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -13,7 +13,6 @@ use bevy_hierarchy::Children;
 
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::default;
 
 use crate::{
     prelude::{Button, Label},
@@ -48,7 +47,7 @@ fn calc_bounds(
             (transform.translation().x + node.calculated_size.x).into(),
             (transform.translation().y + node.calculated_size.y).into(),
         );
-        accessible.bounds = Some(bounds);
+        accessible.set_bounds(bounds);
     }
 }
 
@@ -60,14 +59,17 @@ fn button_changed(
     for (entity, children, accessible) in &mut query {
         let name = calc_name(&texts, children);
         if let Some(mut accessible) = accessible {
-            accessible.role = Role::Button;
-            accessible.name = name;
+            accessible.set_role(Role::Button);
+            if let Some(name) = name {
+                accessible.set_name(name);
+            } else {
+                accessible.clear_name();
+            }
         } else {
-            let node = AccessKitNode {
-                role: Role::Button,
-                name,
-                ..default()
-            };
+            let mut node = NodeBuilder::new(Role::Button);
+            if let Some(name) = name {
+                node.set_name(name);
+            }
             commands
                 .entity(entity)
                 .insert(AccessibilityNode::from(node));
@@ -86,14 +88,17 @@ fn image_changed(
     for (entity, children, accessible) in &mut query {
         let name = calc_name(&texts, children);
         if let Some(mut accessible) = accessible {
-            accessible.role = Role::Image;
-            accessible.name = name;
+            accessible.set_role(Role::Image);
+            if let Some(name) = name {
+                accessible.set_name(name);
+            } else {
+                accessible.clear_name();
+            }
         } else {
-            let node = AccessKitNode {
-                role: Role::Image,
-                name,
-                ..default()
-            };
+            let mut node = NodeBuilder::new(Role::Image);
+            if let Some(name) = name {
+                node.set_name(name);
+            }
             commands
                 .entity(entity)
                 .insert(AccessibilityNode::from(node));
@@ -113,14 +118,17 @@ fn label_changed(
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.role = Role::LabelText;
-            accessible.name = name;
+            accessible.set_role(Role::LabelText);
+            if let Some(name) = name {
+                accessible.set_name(name);
+            } else {
+                accessible.clear_name();
+            }
         } else {
-            let node = AccessKitNode {
-                role: Role::LabelText,
-                name,
-                ..default()
-            };
+            let mut node = NodeBuilder::new(Role::LabelText);
+            if let Some(name) = name {
+                node.set_name(name);
+            }
             commands
                 .entity(entity)
                 .insert(AccessibilityNode::from(node));
@@ -128,13 +136,14 @@ fn label_changed(
     }
 }
 
+/// AccessKit integration for `bevy_ui`.
 pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(CoreStage::PreUpdate, calc_bounds)
-            .add_system_to_stage(CoreStage::PreUpdate, button_changed)
-            .add_system_to_stage(CoreStage::PreUpdate, image_changed)
-            .add_system_to_stage(CoreStage::PreUpdate, label_changed);
+        app.add_system(calc_bounds)
+            .add_system(button_changed)
+            .add_system(image_changed)
+            .add_system(label_changed);
     }
 }

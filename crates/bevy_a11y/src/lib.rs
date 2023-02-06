@@ -8,7 +8,7 @@ use std::{
 };
 
 pub use accesskit;
-use accesskit::{Node, NodeId};
+use accesskit::{NodeBuilder, NodeId};
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -32,11 +32,11 @@ pub struct AccessibilityRequested(Arc<AtomicBool>);
 ///
 /// If the entity doesn't have a parent, or if the immediate parent doesn't have
 /// an `AccessibilityNode`, its node will be an immediate child of the primary window.
-#[derive(Component, Clone, Default, Deref, DerefMut)]
-pub struct AccessibilityNode(pub Node);
+#[derive(Component, Clone, Deref, DerefMut)]
+pub struct AccessibilityNode(pub NodeBuilder);
 
-impl From<Node> for AccessibilityNode {
-    fn from(node: Node) -> Self {
+impl From<NodeBuilder> for AccessibilityNode {
+    fn from(node: NodeBuilder) -> Self {
         Self(node)
     }
 }
