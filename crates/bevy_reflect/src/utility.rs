@@ -57,7 +57,7 @@ use std::any::{Any, TypeId};
 /// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// # }
 /// ```
 pub struct NonGenericTypeInfoCell(OnceBox<TypeInfo>);
@@ -128,7 +128,7 @@ impl NonGenericTypeInfoCell {
 /// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// # }
 /// ```
 pub struct GenericTypeInfoCell(OnceBox<RwLock<HashMap<TypeId, &'static TypeInfo>>>);
