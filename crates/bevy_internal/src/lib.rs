@@ -138,7 +138,7 @@ pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.
     //! Use [`RenderDevice::features`](crate::render::renderer::RenderDevice::features),
     //! [`RenderDevice::limits`](crate::render::renderer::RenderDevice::limits), and the
-    //! [`WgpuAdapterInfo`](crate::render::render_resource::WgpuAdapterInfo) resource to
+    //! [`RenderAdapterInfo`](crate::render::renderer::RenderAdapterInfo) resource to
     //! get runtime information about the actual adapter, backend, features, and limits.
     pub use bevy_render::*;
 }
@@ -172,6 +172,3 @@ pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
-
-#[cfg(target_os = "android")]
-pub use ndk_glue;

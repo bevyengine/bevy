@@ -3,13 +3,15 @@ use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
+use bevy_utils::tracing::warn;
 use glyph_brush_layout::{
-    FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, SectionText, ToSectionText,
+    BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
+    SectionText, ToSectionText,
 };
 
 use crate::{
-    error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment, TextSettings,
-    YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
+    TextAlignment, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -34,14 +36,18 @@ impl GlyphBrush {
         sections: &[S],
         bounds: Vec2,
         text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),
             ..Default::default()
         };
+
+        let lbb: BuiltInLineBreaker = linebreak_behaviour.into();
+
         let section_glyphs = Layout::default()
-            .h_align(text_alignment.horizontal.into())
-            .v_align(text_alignment.vertical.into())
+            .h_align(text_alignment.into())
+            .line_breaker(lbb)
             .calculate_glyphs(&self.fonts, &geom, sections);
         Ok(section_glyphs)
     }
@@ -56,6 +62,7 @@ impl GlyphBrush {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
+        font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
@@ -114,13 +121,16 @@ impl GlyphBrush {
                     .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
                     .map(Ok)
                     .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(
-                            texture_atlases,
-                            textures,
-                            outlined_glyph,
-                            text_settings,
-                        )
+                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
                     })?;
+
+                if !text_settings.allow_dynamic_font_size
+                    && !font_atlas_warning.warned
+                    && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
+                {
+                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                    font_atlas_warning.warned = true;
+                }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];

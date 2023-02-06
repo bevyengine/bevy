@@ -2,11 +2,13 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
+use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
+use crate::utility::ident_or_index;
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::quote;
-use syn::{Field, Ident, Index, Lit, LitInt, LitStr, Member};
+use quote::{quote, ToTokens};
+use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
@@ -25,8 +27,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                Some(reflect.as_any().downcast_ref::<#type_name #ty_generics>()?.clone())
+            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
+                #FQOption::Some(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect))?))
             }
         }
     })
@@ -34,6 +36,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
 /// Implements `FromReflect` for the given enum type
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
+    let fqoption = FQOption.into_token_stream();
+
     let type_name = reflect_enum.meta().type_name();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
@@ -47,14 +51,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         reflect_enum.meta().generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
-            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
-                    match #ref_value.variant_name() {
-                        #(#variant_names => Some(#variant_constructors),)*
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
+            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
+                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
+                    match #bevy_reflect_path::Enum::variant_name(#ref_value) {
+                        #(#variant_names => #fqoption::Some(#variant_constructors),)*
+                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
                     }
                 } else {
-                    None
+                    #FQOption::None
                 }
             }
         }
@@ -72,6 +76,8 @@ impl MemberValuePair {
 }
 
 fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> TokenStream {
+    let fqoption = FQOption.into_token_stream();
+
     let struct_name = reflect_struct.meta().type_name();
     let generics = reflect_struct.meta().generics();
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -89,21 +95,20 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
 
     let constructor = if reflect_struct.meta().traits().contains(REFLECT_DEFAULT) {
         quote!(
-            let mut __this = Self::default();
+            let mut __this: Self = #FQDefault::default();
             #(
-                if let Some(__field) = #active_values() {
+                if let #fqoption::Some(__field) = #active_values() {
                     // Iff field exists -> use its value
                     __this.#active_members = __field;
                 }
             )*
-            Some(__this)
+            #FQOption::Some(__this)
         )
     } else {
-        let MemberValuePair(ignored_members, ignored_values) =
-            get_ignored_fields(reflect_struct, is_tuple);
+        let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
 
         quote!(
-            Some(
+            #FQOption::Some(
                 Self {
                     #(#active_members: #active_values()?,)*
                     #(#ignored_members: #ignored_values,)*
@@ -129,11 +134,11 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
         {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = reflect.reflect_ref() {
+            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
+                if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = #bevy_reflect_path::Reflect::reflect_ref(reflect) {
                     #constructor
                 } else {
-                    None
+                    #FQOption::None
                 }
             }
         }
@@ -144,16 +149,16 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// a default value for the ignored field.
-fn get_ignored_fields(reflect_struct: &ReflectStruct, is_tuple: bool) -> MemberValuePair {
+fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = get_ident(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
-                    _ => quote! {Default::default()},
+                    _ => quote! {#FQDefault::default()},
                 };
 
                 (member, value)
@@ -178,7 +183,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = get_ident(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.index);
                 let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
@@ -189,19 +194,19 @@ fn get_active_fields(
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {
                         (||
-                            if let Some(field) = #get_field {
+                            if let #FQOption::Some(field) = #get_field {
                                 <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                             } else {
-                                Some(#path())
+                                #FQOption::Some(#path())
                             }
                         )
                     },
                     DefaultBehavior::Default => quote! {
                         (||
-                            if let Some(field) = #get_field {
+                            if let #FQOption::Some(field) = #get_field {
                                 <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                             } else {
-                                Some(Default::default())
+                                #FQOption::Some(#FQDefault::default())
                             }
                         )
                     },
@@ -214,19 +219,6 @@ fn get_active_fields(
             })
             .unzip(),
     )
-}
-
-/// Returns the member for a given field of a struct or tuple struct.
-fn get_ident(field: &Field, index: usize, is_tuple: bool) -> Member {
-    if is_tuple {
-        Member::Unnamed(Index::from(index))
-    } else {
-        field
-            .ident
-            .as_ref()
-            .map(|ident| Member::Named(ident.clone()))
-            .unwrap_or_else(|| Member::Unnamed(Index::from(index)))
-    }
 }
 
 /// Returns the accessor for a given field of a struct or tuple struct.

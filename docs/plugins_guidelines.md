@@ -34,7 +34,7 @@ You can specify the dependency [both as a version and with git](https://doc.rust
 
 You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
 
-<!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code colum -->
+<!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code column -->
 <!-- markdownlint-disable-next-line MD033 -->
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|

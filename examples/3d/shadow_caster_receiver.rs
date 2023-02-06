@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -100,15 +100,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
-            shadow_projection: OrthographicProjection {
-                left: -10.0,
-                right: 10.0,
-                bottom: -10.0,
-                top: 10.0,
-                near: -50.0,
-                far: 50.0,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },
@@ -118,6 +109,12 @@ fn setup(
             PI / 2.,
             -PI / 4.,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 7.0,
+            maximum_distance: 25.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
