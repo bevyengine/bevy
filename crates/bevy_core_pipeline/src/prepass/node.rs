@@ -89,7 +89,7 @@ impl Node for PrepassNode {
                 view: &view_velocities_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
+                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 0.0).into()),
                     store: true,
                 },
             }));
