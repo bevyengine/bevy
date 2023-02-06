@@ -1,4 +1,4 @@
-use bevy_ecs::{component::Component, schedule_v3::Schedule, system::Query, world::World};
+use bevy_ecs::{component::Component, schedule::Schedule, system::Query, world::World};
 use criterion::Criterion;
 
 #[derive(Component)]
