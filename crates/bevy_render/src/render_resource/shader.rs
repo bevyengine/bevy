@@ -574,7 +574,7 @@ impl ShaderProcessor {
                         shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
                     } else {
                         return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
-                            shader_def_name: name.clone(),
+                            shader_def_name: name,
                             value: val.as_str().to_string(),
                         });
                     }
