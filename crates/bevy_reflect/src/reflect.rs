@@ -273,58 +273,6 @@ impl dyn PartialReflect {
     }
 }
 
-#[deny(rustdoc::broken_intra_doc_links)]
-impl dyn Reflect {
-    /// Downcasts the value to type `T`, consuming the trait object.
-    ///
-    /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
-        if self.is::<T>() {
-            Ok(self.into_any().downcast().unwrap())
-        } else {
-            Err(self)
-        }
-    }
-
-    /// Downcasts the value to type `T`, unboxing and consuming the trait object.
-    ///
-    /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn take<T: Reflect>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
-        self.downcast::<T>().map(|value| *value)
-    }
-
-    /// Returns `true` if the underlying value is of type `T`, or `false`
-    /// otherwise.
-    ///
-    /// The underlying value is the concrete type that is stored in this `dyn` object;
-    /// it can be downcasted to. In the case that this underlying value "represents"
-    /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
-    /// to determine what type they represent. Represented types cannot be downcasted
-    /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
-    ///
-    /// [`FromReflect`]: crate::FromReflect
-    #[inline]
-    pub fn is<T: Reflect>(&self) -> bool {
-        self.type_id() == TypeId::of::<T>()
-    }
-
-    /// Downcasts the value to type `T` by reference.
-    ///
-    /// If the underlying value is not of type `T`, returns `None`.
-    #[inline]
-    pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
-        self.as_any().downcast_ref::<T>()
-    }
-
-    /// Downcasts the value to type `T` by mutable reference.
-    ///
-    /// If the underlying value is not of type `T`, returns `None`.
-    #[inline]
-    pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
-        self.as_any_mut().downcast_mut::<T>()
-    }
-}
-
 pub mod reflectable {
     use crate::Typed;
 
@@ -402,6 +350,57 @@ pub trait Reflect: PartialReflect + reflectable::Reflectable {
     /// If `value` does not contain a value of type `T`, returns an `Err`
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>>;
+}
+
+impl dyn Reflect {
+    /// Downcasts the value to type `T`, consuming the trait object.
+    ///
+    /// If the underlying value is not of type `T`, returns `Err(self)`.
+    pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
+        if self.is::<T>() {
+            Ok(self.into_any().downcast().unwrap())
+        } else {
+            Err(self)
+        }
+    }
+
+    /// Downcasts the value to type `T`, unboxing and consuming the trait object.
+    ///
+    /// If the underlying value is not of type `T`, returns `Err(self)`.
+    pub fn take<T: Reflect>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
+        self.downcast::<T>().map(|value| *value)
+    }
+
+    /// Returns `true` if the underlying value is of type `T`, or `false`
+    /// otherwise.
+    ///
+    /// The underlying value is the concrete type that is stored in this `dyn` object;
+    /// it can be downcasted to. In the case that this underlying value "represents"
+    /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
+    /// to determine what type they represent. Represented types cannot be downcasted
+    /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
+    #[inline]
+    pub fn is<T: Reflect>(&self) -> bool {
+        self.type_id() == TypeId::of::<T>()
+    }
+
+    /// Downcasts the value to type `T` by reference.
+    ///
+    /// If the underlying value is not of type `T`, returns `None`.
+    #[inline]
+    pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
+        self.as_any().downcast_ref::<T>()
+    }
+
+    /// Downcasts the value to type `T` by mutable reference.
+    ///
+    /// If the underlying value is not of type `T`, returns `None`.
+    #[inline]
+    pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
+        self.as_any_mut().downcast_mut::<T>()
+    }
 }
 
 impl Debug for dyn Reflect {

@@ -146,15 +146,15 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             fn as_full(&self) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
-                Some(self)
+                #FQOption::Some(self)
             }
 
             fn as_full_mut(&mut self) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
-                Some(self)
+                #FQOption::Some(self)
             }
 
             fn into_full(self: Box<Self>) -> #FQResult<Box<dyn #bevy_reflect_path::Reflect>, Box<dyn #bevy_reflect_path::PartialReflect>> {
-                Ok(self)
+                #FQResult::Ok(self)
             }
 
             fn as_partial(&self) -> &dyn #bevy_reflect_path::PartialReflect {
