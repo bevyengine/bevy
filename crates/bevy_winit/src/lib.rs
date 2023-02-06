@@ -70,7 +70,7 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .configure_set(ModifiesWindows.in_set(CoreSet::PostUpdate))
+            .configure_set(ModifiesWindows.in_base_set(CoreSet::PostUpdate))
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
             .add_systems(

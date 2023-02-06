@@ -15,7 +15,7 @@ fn main() {
         .add_startup_system(generate_bodies)
         .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
         .add_systems_to_schedule(CoreSchedule::FixedUpdate, (interact_bodies, integrate))
-        .add_system(look_at_star.in_set(CoreSet::Update))
+        .add_system(look_at_star)
         .insert_resource(ClearColor(Color::BLACK))
         .run();
 }

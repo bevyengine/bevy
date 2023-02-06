@@ -31,7 +31,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(CameraUpdateSystem.in_set(StartupSet::PostStartup));
             })
-            .configure_set(CameraUpdateSystem.in_set(CoreSet::PostUpdate))
+            .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
             .add_startup_system(
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)

@@ -29,8 +29,8 @@ pub mod prelude {
 
 use bevy_ecs::{
     schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfig, Schedule, ScheduleLabel,
-        SystemSet,
+    apply_system_buffers, IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs,
+        Schedule, ScheduleLabel, SystemSet,
     },
     system::Local,
     world::World,
@@ -90,6 +90,7 @@ impl CoreSchedule {
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[system_set(base)]
 pub enum CoreSet {
     /// Runs before all other members of this set.
     First,
@@ -129,20 +130,30 @@ impl CoreSet {
         let mut schedule = Schedule::new();
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_set(FirstFlush));
-        schedule.add_system(apply_system_buffers.in_set(PreUpdateFlush));
-        schedule.add_system(apply_system_buffers.in_set(UpdateFlush));
-        schedule.add_system(apply_system_buffers.in_set(PostUpdateFlush));
-        schedule.add_system(apply_system_buffers.in_set(LastFlush));
-
-        schedule.configure_set(First.before(FirstFlush));
-        schedule.configure_set(PreUpdate.after(FirstFlush).before(PreUpdateFlush));
-        schedule.configure_set(StateTransitions.after(PreUpdateFlush).before(FixedUpdate));
-        schedule.configure_set(FixedUpdate.after(StateTransitions).before(Update));
-        schedule.configure_set(Update.after(FixedUpdate).before(UpdateFlush));
-        schedule.configure_set(PostUpdate.after(UpdateFlush).before(PostUpdateFlush));
-        schedule.configure_set(Last.after(PostUpdateFlush).before(LastFlush));
-
+        schedule
+            .set_default_base_set(Update)
+            .add_system(apply_system_buffers.in_base_set(FirstFlush))
+            .add_system(apply_system_buffers.in_base_set(PreUpdateFlush))
+            .add_system(apply_system_buffers.in_base_set(UpdateFlush))
+            .add_system(apply_system_buffers.in_base_set(PostUpdateFlush))
+            .add_system(apply_system_buffers.in_base_set(LastFlush))
+            .configure_sets(
+                (
+                    First,
+                    FirstFlush,
+                    PreUpdate,
+                    PreUpdateFlush,
+                    StateTransitions,
+                    FixedUpdate,
+                    Update,
+                    UpdateFlush,
+                    PostUpdate,
+                    PostUpdateFlush,
+                    Last,
+                    LastFlush,
+                )
+                    .chain(),
+            );
         schedule
     }
 }

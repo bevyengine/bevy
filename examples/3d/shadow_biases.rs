@@ -23,7 +23,7 @@ fn main() {
         .add_system(adjust_point_light_biases)
         .add_system(toggle_light)
         .add_system(adjust_directional_light_biases)
-        .add_system(camera_controller.in_set(CoreSet::Update))
+        .add_system(camera_controller)
         .run();
 }
 

@@ -99,7 +99,7 @@ impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
         app.init_resource::<ReportHierarchyIssue<T>>().add_system(
             check_hierarchy_component_has_valid_parent::<T>
                 .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true)))
-                .in_set(CoreSet::Last),
+                .in_base_set(CoreSet::Last),
         );
     }
 }

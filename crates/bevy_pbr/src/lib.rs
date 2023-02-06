@@ -181,14 +181,10 @@ impl Plugin for PbrPlugin {
                     SimulationLightSystems::UpdateDirectionalLightCascades,
                     SimulationLightSystems::UpdateLightFrusta,
                 )
-                    .in_set(CoreSet::PostUpdate),
+                    .in_base_set(CoreSet::PostUpdate),
             )
             .add_plugin(FogPlugin)
-            .add_system(
-                // NOTE: Clusters need to have been added before update_clusters is run so
-                // add as an exclusive system
-                add_clusters.in_set(SimulationLightSystems::AddClusters),
-            )
+            .add_system(add_clusters.in_set(SimulationLightSystems::AddClusters))
             .add_system(apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush))
             .add_system(
                 assign_lights_to_clusters
