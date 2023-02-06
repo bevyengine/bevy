@@ -17,7 +17,7 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_startup_system(infotext_system)
-        .add_system(change_text_system)
+        .add_system(change_text_system.in_set(CoreSet::Update))
         .run();
 }
 

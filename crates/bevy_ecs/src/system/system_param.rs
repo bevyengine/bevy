@@ -152,7 +152,7 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] at the end of a stage.
+    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
@@ -386,8 +386,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
-/// # schedule.add_stage("update", SystemStage::parallel());
+/// # let mut schedule = Schedule::new();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
@@ -403,9 +402,9 @@ impl_param_set!();
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
 /// }
-/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
-/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
-/// # schedule.run_once(&mut world);
+/// # schedule.add_system(read_resource_system);
+/// # schedule.add_system(write_resource_system.after(read_resource_system));
+/// # schedule.run(&mut world);
 /// ```
 pub trait Resource: Send + Sync + 'static {}
 

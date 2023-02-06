@@ -6,18 +6,17 @@ fn main() {
     // Information regarding removed `Component`s is discarded at the end of each frame, so you need
     // to react to the removal before the frame is over.
     //
-    // Also, `Components` are removed via a `Command`. `Command`s are applied after a stage has
-    // finished executing. So you need to react to the removal at some stage after the
-    // `Component` is removed.
+    // Also, `Components` are removed via a `Command`, which are not applied immediately.
+    // So you need to react to the removal at some stage after `apply_system_buffers` has run,
+    // and the Component` is removed.
     //
-    // With these constraints in mind we make sure to place the system that removes a `Component` on
-    // the `CoreStage::Update' stage, and the system that reacts on the removal on the
-    // `CoreStage::PostUpdate` stage.
+    // With these constraints in mind we make sure to place the system that removes a `Component` in
+    // `CoreSet::Update', and the system that reacts on the removal in `CoreSet::PostUpdate`.
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system_to_stage(CoreStage::Update, remove_component)
-        .add_system_to_stage(CoreStage::PostUpdate, react_on_removal)
+        .add_system(remove_component.in_set(CoreSet::Update))
+        .add_system(react_on_removal.in_set(CoreSet::PostUpdate))
         .run();
 }
 

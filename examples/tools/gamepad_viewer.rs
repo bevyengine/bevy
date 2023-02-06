@@ -131,10 +131,10 @@ fn main() {
         .add_startup_system(setup_sticks)
         .add_startup_system(setup_triggers)
         .add_startup_system(setup_connected)
-        .add_system(update_buttons)
-        .add_system(update_button_values)
-        .add_system(update_axes)
-        .add_system(update_connected)
+        .add_system(update_buttons.in_set(CoreSet::Update))
+        .add_system(update_button_values.in_set(CoreSet::Update))
+        .add_system(update_axes.in_set(CoreSet::Update))
+        .add_system(update_connected.in_set(CoreSet::Update))
         .run();
 }
 

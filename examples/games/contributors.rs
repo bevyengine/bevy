@@ -13,9 +13,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_contributor_selection)
         .add_startup_system(setup)
-        .add_system(velocity_system)
-        .add_system(move_system)
-        .add_system(collision_system)
+        .add_system(velocity_system.in_set(CoreSet::Update))
+        .add_system(move_system.in_set(CoreSet::Update))
+        .add_system(collision_system.in_set(CoreSet::Update))
         .add_system(select_system)
         .init_resource::<SelectionState>()
         .run();

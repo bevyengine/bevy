@@ -22,6 +22,10 @@ impl SystemExecutor for SimpleExecutor {
         ExecutorKind::Simple
     }
 
+    fn set_apply_final_buffers(&mut self, _: bool) {
+        // do nothing. simple executor does not do a final sync
+    }
+
     fn init(&mut self, schedule: &SystemSchedule) {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
@@ -78,8 +82,6 @@ impl SystemExecutor for SimpleExecutor {
             #[cfg(feature = "trace")]
             system_span.exit();
 
-            #[cfg(feature = "trace")]
-            let _apply_buffers_span = info_span!("apply_buffers", name = &*name).entered();
             system.apply_buffers(world);
         }
 

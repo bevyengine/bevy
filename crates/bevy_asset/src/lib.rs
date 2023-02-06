@@ -46,19 +46,19 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::schedule::{StageLabel, SystemStage};
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
 
-/// The names of asset stages in an [`App`] schedule.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum AssetStage {
-    /// The stage where asset storages are updated.
+/// [`SystemSet`]s for asset loading in an [`App`] schedule.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum AssetSet {
+    /// Asset storages are updated.
     LoadAssets,
-    /// The stage where asset events are generated.
+    /// Asset events are generated.
     AssetEvents,
 }
 
-/// Adds support for Assets to an App.
+/// Adds support for [`Assets`] to an App.
 ///
 /// Assets are typed collections with change tracking, which are added as App Resources. Examples of
 /// assets: textures, sounds, 3d models, maps, scenes
@@ -105,26 +105,26 @@ impl Plugin for AssetPlugin {
             app.insert_resource(asset_server);
         }
 
-        app.add_stage_before(
-            bevy_app::CoreStage::PreUpdate,
-            AssetStage::LoadAssets,
-            SystemStage::parallel(),
+        app.register_type::<HandleId>();
+
+        app.configure_set(
+            AssetSet::LoadAssets
+                .no_default_set()
+                .before(CoreSet::PreUpdate)
+                .after(CoreSet::First),
         )
-        .add_stage_after(
-            bevy_app::CoreStage::PostUpdate,
-            AssetStage::AssetEvents,
-            SystemStage::parallel(),
+        .configure_set(
+            AssetSet::AssetEvents
+                .no_default_set()
+                .after(CoreSet::PostUpdate)
+                .before(CoreSet::Last),
         )
-        .register_type::<HandleId>()
-        .add_system_to_stage(
-            bevy_app::CoreStage::PreUpdate,
-            asset_server::free_unused_assets_system,
-        );
+        .add_system(asset_server::free_unused_assets_system.in_set(CoreSet::PreUpdate));
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(AssetStage::LoadAssets, io::filesystem_watcher_system);
+        app.add_system(io::filesystem_watcher_system.in_set(AssetSet::LoadAssets));
     }
 }

@@ -270,7 +270,8 @@ pub fn flex_node_system(
         }
     }
 
-    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() {
+        scale_factor_events.clear();
         update_changed(&mut flex_surface, scale_factor, full_node_query);
     } else {
         update_changed(&mut flex_surface, scale_factor, node_query);

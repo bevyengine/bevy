@@ -20,6 +20,7 @@ use crate::{
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
+    schedule_v3::{Schedule, ScheduleLabel, Schedules},
     storage::{Column, ComponentSparseSet, ResourceData, Storages, TableRow},
     system::Resource,
 };
@@ -648,7 +649,7 @@ impl World {
     /// of detection to be recorded.
     ///
     /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during the `CoreStage::Last`, so you don't need to call it manually. When using
+    /// main app, to run during `CoreSet::Last`, so you don't need to call it manually. When using
     /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
     ///
     /// ```
@@ -772,7 +773,7 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed<T: Component>(&self) -> impl DoubleEndedIterator<Item = Entity> + '_ {
+    pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
         self.components
             .get_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
@@ -782,15 +783,13 @@ impl World {
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed_with_id(
-        &self,
-        component_id: ComponentId,
-    ) -> impl DoubleEndedIterator<Item = Entity> + '_ {
+    pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
         self.removed_components
             .get(component_id)
             .map(|removed| removed.iter_current_update_events().cloned())
             .into_iter()
             .flatten()
+            .map(|e| e.into())
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1916,6 +1915,57 @@ impl World {
     #[inline]
     fn fetch_sparse_set(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.storages.sparse_sets.get(component_id)
+    }
+}
+
+// Schedule-related methods
+impl World {
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the
+    pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
+        let mut schedules = self.resource_mut::<Schedules>();
+        schedules.insert(label, schedule);
+    }
+
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+        self.run_schedule_ref(&label);
+    }
+
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
+        let (extracted_label, mut schedule) = self
+            .resource_mut::<Schedules>()
+            .remove_entry(label)
+            .unwrap_or_else(|| panic!("The schedule with the label {label:?} was not found."));
+
+        // TODO: move this span to Schdule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        schedule.run(self);
+        self.resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
     }
 }
 

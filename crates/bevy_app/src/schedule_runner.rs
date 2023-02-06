@@ -11,14 +11,14 @@ use std::{cell::RefCell, rc::Rc};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{prelude::*, JsCast};
 
-/// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
+/// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule_v3::Schedule).
 ///
 /// It is used in the [`ScheduleRunnerSettings`].
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
     /// Indicates that the [`App`]'s schedule should run repeatedly.
     Loop {
-        /// The minimum [`Duration`] to wait after a [`Schedule`](bevy_ecs::schedule::Schedule)
+        /// The minimum [`Duration`] to wait after a [`Schedule`](bevy_ecs::schedule_v3::Schedule)
         /// has completed before repeating. A value of [`None`] will not wait.
         wait: Option<Duration>,
     },
@@ -37,7 +37,7 @@ impl Default for RunMode {
 /// It gets added as a [`Resource`](bevy_ecs::system::Resource) inside of the [`ScheduleRunnerPlugin`].
 #[derive(Copy, Clone, Default, Resource)]
 pub struct ScheduleRunnerSettings {
-    /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
+    /// Determines whether the [`Schedule`](bevy_ecs::schedule_v3::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,
 }
 
@@ -59,7 +59,7 @@ impl ScheduleRunnerSettings {
     }
 }
 
-/// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
+/// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule_v3::Schedule) according to a given
 /// [`RunMode`].
 ///
 /// [`ScheduleRunnerPlugin`] is included in the
@@ -67,7 +67,7 @@ impl ScheduleRunnerSettings {
 ///
 /// [`ScheduleRunnerPlugin`] is *not* included in the
 /// [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group
-/// which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other means:
+/// which assumes that the [`Schedule`](bevy_ecs::schedule_v3::Schedule) will be executed by other means:
 /// typically, the `winit` event loop
 /// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
 /// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
