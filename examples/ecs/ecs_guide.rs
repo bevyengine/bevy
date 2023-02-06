@@ -298,13 +298,15 @@ fn main() {
                 .after(new_round_system)
                 .in_base_set(MySet::BeforeRound),
         )
-        .add_system(exclusive_player_system.in_set(MySet::BeforeRound))
-        .add_system(score_check_system.in_set(MySet::AfterRound))
+        .add_system(exclusive_player_system.in_base_set(MySet::BeforeRound))
+        .add_system(score_check_system.in_base_set(MySet::AfterRound))
         .add_system(
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
             // To do this we use either `.before` or `.after` to describe the order we want the relationship
             // Since we are using `after`, `game_over_system` runs after `score_check_system`
-            game_over_system.after(score_check_system),
+            game_over_system
+                .after(score_check_system)
+                .in_base_set(MySet::AfterRound),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)
