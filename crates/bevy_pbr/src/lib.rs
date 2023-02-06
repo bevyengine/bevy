@@ -254,6 +254,9 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
+            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
             .add_systems_to_schedule(
                 ExtractSchedule,
                 (
@@ -264,8 +267,7 @@ impl Plugin for PbrPlugin {
             .add_system(
                 render::prepare_lights
                     .before(ViewSet::PrepareUniforms)
-                    .in_set(RenderLightSystems::PrepareLights)
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderLightSystems::PrepareLights),
             )
             // A sync is needed after prepare_lights, before prepare_view_uniforms,
             // because prepare_lights creates new views for shadow mapping
@@ -277,14 +279,9 @@ impl Plugin for PbrPlugin {
             .add_system(
                 render::prepare_clusters
                     .after(render::prepare_lights)
-                    .in_set(RenderLightSystems::PrepareClusters)
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderLightSystems::PrepareClusters),
             )
-            .add_system(
-                render::queue_shadows
-                    .in_set(RenderLightSystems::QueueShadows)
-                    .in_set(RenderSet::Queue),
-            )
+            .add_system(render::queue_shadows.in_set(RenderLightSystems::QueueShadows))
             .add_system(render::queue_shadow_view_bind_group.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort))
             .init_resource::<ShadowPipeline>()
