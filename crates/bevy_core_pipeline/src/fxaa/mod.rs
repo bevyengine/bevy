@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
@@ -19,7 +19,7 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -40,7 +40,8 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone, ExtractComponent)]
+#[derive(Reflect, Component, Clone, ExtractComponent)]
+#[reflect(Component)]
 #[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
