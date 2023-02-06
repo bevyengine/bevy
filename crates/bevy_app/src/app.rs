@@ -559,7 +559,7 @@ impl App {
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`CoreStage::First`].
+    /// and inserting an [`update_system`](Events::update_system) into [`CoreSet::First`].
     ///
     /// See [`Events`] for defining events.
     ///
