@@ -109,8 +109,7 @@ impl GraphInfo {
     pub(crate) fn set_base_set(&mut self, set: BoxedSystemSet) {
         if let Some(current) = &self.base_set {
             panic!(
-                "Cannot set the base set because base set {:?} has already been configured.",
-                current
+                "Cannot set the base set because base set {current:?} has already been configured."
             );
         } else {
             self.base_set = Some(set);

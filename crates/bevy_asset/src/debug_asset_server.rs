@@ -2,7 +2,7 @@
 //!
 //! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
 //! reloaded using the conventional API.
-use bevy_app::{App, CoreSet, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;

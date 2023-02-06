@@ -472,11 +472,7 @@ impl ScheduleGraph {
         id
     }
 
-    fn check_set(
-        &mut self,
-        id: &NodeId,
-        set: &Box<dyn SystemSet>,
-    ) -> Result<(), ScheduleBuildError> {
+    fn check_set(&mut self, id: &NodeId, set: &dyn SystemSet) -> Result<(), ScheduleBuildError> {
         match self.system_set_ids.get(set) {
             Some(set_id) => {
                 if id == set_id {
@@ -498,11 +494,11 @@ impl ScheduleGraph {
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for set in &graph_info.sets {
-            self.check_set(id, set)?;
+            self.check_set(id, &**set)?;
         }
 
         if let Some(base_set) = &graph_info.base_set {
-            self.check_set(id, base_set)?;
+            self.check_set(id, &**base_set)?;
         }
 
         Ok(())
@@ -651,14 +647,14 @@ impl ScheduleGraph {
 
     /// Calculates the base set for each node and caches the results on the node
     fn calculate_base_sets_and_detect_cycles(&mut self) -> Result<(), ScheduleBuildError> {
-        let set_ids = (0..self.system_sets.len()).map(|i| NodeId::Set(i));
-        let system_ids = (0..self.systems.len()).map(|i| NodeId::System(i));
+        let set_ids = (0..self.system_sets.len()).map(NodeId::Set);
+        let system_ids = (0..self.systems.len()).map(NodeId::System);
         let mut visited_sets = vec![false; self.system_sets.len()];
         // reset base set membership, as this can change when the schedule updates
-        for system in self.systems.iter_mut() {
+        for system in &mut self.systems {
             system.base_set_membership = BaseSetMembership::Uncalculated;
         }
-        for system_set in self.system_sets.iter_mut() {
+        for system_set in &mut self.system_sets {
             system_set.base_set_membership = BaseSetMembership::Uncalculated;
         }
         for node_id in set_ids.chain(system_ids) {
