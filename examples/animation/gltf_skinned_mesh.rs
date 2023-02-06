@@ -13,7 +13,7 @@ fn main() {
             ..default()
         })
         .add_startup_system(setup)
-        .add_system(joint_animation.in_set(CoreSet::Update))
+        .add_system(joint_animation)
         .run();
 }
 

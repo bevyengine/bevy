@@ -13,7 +13,7 @@ fn main() {
         .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(cycle_msaa.in_set(CoreSet::Update))
+        .add_system(cycle_msaa)
         .run();
 }
 

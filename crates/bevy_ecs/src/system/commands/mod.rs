@@ -97,9 +97,8 @@ pub trait Command: Send + 'static {
 /// ```
 ///
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
-/// [`apply_system_buffers`]: crate::schedule_v3::apply_system_buffers
-/// [`Schedule::apply_system_buffers`]: crate::schedule_v3::Schedule::apply_system_buffers
-#[derive(SystemParam)]
+/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
+/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,

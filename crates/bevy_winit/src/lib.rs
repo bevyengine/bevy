@@ -70,7 +70,7 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .configure_set(ModifiesWindows.in_set(CoreSet::PostUpdate))
+            .configure_set(ModifiesWindows.in_base_set(CoreSet::PostUpdate))
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
             .add_systems(
@@ -231,7 +231,7 @@ struct WinitPersistentState {
 impl Default for WinitPersistentState {
     fn default() -> Self {
         Self {
-            active: true,
+            active: false,
             low_power_event: false,
             redraw_request_sent: false,
             timeout_reached: false,
@@ -290,7 +290,7 @@ pub fn winit_runner(mut app: App) {
             }
         }
 
-        {
+        if winit_state.active {
             #[cfg(not(target_arch = "wasm32"))]
             let (commands, mut new_windows, created_window_writer, winit_windows) =
                 create_window_system_state.get_mut(&mut app.world);
@@ -475,14 +475,7 @@ pub fn winit_runner(mut app: App) {
                         }
                     },
                     WindowEvent::Touch(touch) => {
-                        let mut location =
-                            touch.location.to_logical(window.resolution.scale_factor());
-
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                        // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            location.y = window.height() as f64 - location.y;
-                        }
+                        let location = touch.location.to_logical(window.resolution.scale_factor());
 
                         // Event
                         input_events
@@ -616,6 +609,13 @@ pub fn winit_runner(mut app: App) {
             }
             event::Event::Suspended => {
                 winit_state.active = false;
+                #[cfg(target_os = "android")]
+                {
+                    // Bevy doesn't support suspend/resume so we just exit
+                    // and Android will restart the application on resume
+                    // TODO: Save save some state and load on resume
+                    *control_flow = ControlFlow::Exit;
+                }
             }
             event::Event::Resumed => {
                 winit_state.active = true;

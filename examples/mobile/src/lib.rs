@@ -1,6 +1,6 @@
 use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 
-// the `bevy_main` proc_macro generates the required ios boilerplate
+// the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
 fn main() {
     App::new()
@@ -14,7 +14,7 @@ fn main() {
         }))
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
-        .add_system(touch_camera.in_set(CoreSet::Update))
+        .add_system(touch_camera)
         .add_system(button_handler)
         .run();
 }

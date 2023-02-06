@@ -23,6 +23,16 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         false
     }
 
+    /// Returns `true` if this set is a "base system set". Systems
+    /// can only belong to one base set at a time. Systems and Sets
+    /// can only be added to base sets using specialized `in_base_set`
+    /// APIs. This enables "mutually exclusive" behaviors. It also
+    /// enables schedules to have a "default base set", which can be used
+    /// to apply default configuration to systems.
+    fn is_base(&self) -> bool {
+        false
+    }
+
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }

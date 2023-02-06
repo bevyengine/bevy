@@ -210,19 +210,19 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.configure_set(CalculateBounds.in_set(CoreSet::PostUpdate))
+        app.configure_set(CalculateBounds.in_base_set(CoreSet::PostUpdate))
             // We add an AABB component in CaclulateBounds, which must be ready on the same frame.
             .add_system(apply_system_buffers.in_set(CalculateBoundsFlush))
             .configure_set(
                 CalculateBoundsFlush
                     .after(CalculateBounds)
-                    .in_set(CoreSet::PostUpdate),
+                    .in_base_set(CoreSet::PostUpdate),
             )
-            .configure_set(UpdateOrthographicFrusta.in_set(CoreSet::PostUpdate))
-            .configure_set(UpdatePerspectiveFrusta.in_set(CoreSet::PostUpdate))
-            .configure_set(UpdateProjectionFrusta.in_set(CoreSet::PostUpdate))
-            .configure_set(CheckVisibility.in_set(CoreSet::PostUpdate))
-            .configure_set(VisibilityPropagate.in_set(CoreSet::PostUpdate))
+            .configure_set(UpdateOrthographicFrusta.in_base_set(CoreSet::PostUpdate))
+            .configure_set(UpdatePerspectiveFrusta.in_base_set(CoreSet::PostUpdate))
+            .configure_set(UpdateProjectionFrusta.in_base_set(CoreSet::PostUpdate))
+            .configure_set(CheckVisibility.in_base_set(CoreSet::PostUpdate))
+            .configure_set(VisibilityPropagate.in_base_set(CoreSet::PostUpdate))
             .add_system(calculate_bounds.in_set(CalculateBounds))
             .add_system(
                 update_frusta::<OrthographicProjection>
@@ -247,7 +247,7 @@ impl Plugin for VisibilityPlugin {
             )
             .add_system(
                 update_frusta::<Projection>
-                    .in_set(CoreSet::PostUpdate)
+                    .in_base_set(CoreSet::PostUpdate)
                     .after(camera_system::<Projection>)
                     .after(TransformSystem::TransformPropagate),
             )

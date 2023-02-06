@@ -14,7 +14,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
-    schedule_v3::{
+    schedule::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     system::BoxedSystem,
@@ -32,8 +32,8 @@ struct SyncUnsafeSchedule<'a> {
 struct Conditions<'a> {
     system_conditions: &'a mut [Vec<BoxedCondition>],
     set_conditions: &'a mut [Vec<BoxedCondition>],
-    sets_of_systems: &'a [FixedBitSet],
-    systems_in_sets: &'a [FixedBitSet],
+    sets_with_conditions_of_systems: &'a [FixedBitSet],
+    systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
 
 impl SyncUnsafeSchedule<'_> {
@@ -43,8 +43,8 @@ impl SyncUnsafeSchedule<'_> {
             conditions: Conditions {
                 system_conditions: &mut schedule.system_conditions,
                 set_conditions: &mut schedule.set_conditions,
-                sets_of_systems: &schedule.sets_of_systems,
-                systems_in_sets: &schedule.systems_in_sets,
+                sets_with_conditions_of_systems: &schedule.sets_with_conditions_of_systems,
+                systems_in_sets_with_conditions: &schedule.systems_in_sets_with_conditions,
             },
         }
     }
@@ -333,7 +333,9 @@ impl MultiThreadedExecutor {
         }
 
         // TODO: an earlier out if world's archetypes did not change
-        for set_idx in conditions.sets_of_systems[system_index].difference(&self.evaluated_sets) {
+        for set_idx in conditions.sets_with_conditions_of_systems[system_index]
+            .difference(&self.evaluated_sets)
+        {
             for condition in &mut conditions.set_conditions[set_idx] {
                 condition.update_archetype_component_access(world);
                 if !condition
@@ -382,7 +384,7 @@ impl MultiThreadedExecutor {
         world: &World,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
-        for set_idx in conditions.sets_of_systems[system_index].ones() {
+        for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
                 continue;
             }
@@ -393,7 +395,7 @@ impl MultiThreadedExecutor {
 
             if !set_conditions_met {
                 self.skipped_systems
-                    .union_with(&conditions.systems_in_sets[set_idx]);
+                    .union_with(&conditions.systems_in_sets_with_conditions[set_idx]);
             }
 
             should_run &= set_conditions_met;

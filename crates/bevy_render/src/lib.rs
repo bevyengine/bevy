@@ -53,7 +53,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, CoreSchedule, Plugin, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::{prelude::*, schedule_v3::ScheduleLabel, system::SystemState};
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
 
@@ -136,7 +136,7 @@ impl RenderSet {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Schedule::apply_system_buffers`](bevy_ecs::schedule_v3::Schedule) until it is returned to the render world.
+/// via [`Schedule::apply_system_buffers`](bevy_ecs::schedule::Schedule) until it is returned to the render world.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ExtractSchedule;
 

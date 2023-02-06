@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_startup_system(setup)
-        .add_system(animate_sprite.in_set(CoreSet::Update))
+        .add_system(animate_sprite)
         .run();
 }
 

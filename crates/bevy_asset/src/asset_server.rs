@@ -644,7 +644,7 @@ pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
 mod test {
     use super::*;
     use crate::{loader::LoadedAsset, update_asset_storage_system};
-    use bevy_app::{App, CoreSet};
+    use bevy_app::App;
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
@@ -852,16 +852,8 @@ mod test {
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(
-            free_unused_assets_system
-                .in_set(FreeUnusedAssets)
-                .in_set(CoreSet::Update),
-        );
-        app.add_system(
-            update_asset_storage_system::<PngAsset>
-                .after(FreeUnusedAssets)
-                .in_set(CoreSet::Update),
-        );
+        app.add_system(free_unused_assets_system.in_set(FreeUnusedAssets));
+        app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.resource::<AssetServer>();

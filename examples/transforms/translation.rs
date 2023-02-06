@@ -26,7 +26,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(move_cube.in_set(CoreSet::Update))
+        .add_system(move_cube)
         .run();
 }
 

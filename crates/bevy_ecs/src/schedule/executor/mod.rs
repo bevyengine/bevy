@@ -9,7 +9,7 @@ pub use self::single_threaded::SingleThreadedExecutor;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{BoxedCondition, NodeId},
+    schedule::{BoxedCondition, NodeId},
     system::BoxedSystem,
     world::World,
 };
@@ -54,8 +54,8 @@ pub(super) struct SystemSchedule {
     pub(super) set_ids: Vec<NodeId>,
     pub(super) system_dependencies: Vec<usize>,
     pub(super) system_dependents: Vec<Vec<usize>>,
-    pub(super) sets_of_systems: Vec<FixedBitSet>,
-    pub(super) systems_in_sets: Vec<FixedBitSet>,
+    pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
+    pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
 }
 
 impl SystemSchedule {
@@ -68,8 +68,8 @@ impl SystemSchedule {
             set_ids: Vec::new(),
             system_dependencies: Vec::new(),
             system_dependents: Vec::new(),
-            sets_of_systems: Vec::new(),
-            systems_in_sets: Vec::new(),
+            sets_with_conditions_of_systems: Vec::new(),
+            systems_in_sets_with_conditions: Vec::new(),
         }
     }
 }

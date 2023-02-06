@@ -94,7 +94,7 @@ impl Plugin for TransformPlugin {
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
-            .configure_set(TransformSystem::TransformPropagate.in_set(CoreSet::PostUpdate))
+            .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(
                     TransformSystem::TransformPropagate.in_set(StartupSet::PostStartup),
