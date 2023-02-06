@@ -15,6 +15,8 @@ pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;
 
+pub use self::graph_utils::NodeId;
+
 #[cfg(test)]
 mod tests {
     use super::*;

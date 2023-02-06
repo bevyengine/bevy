@@ -46,7 +46,7 @@ pub enum ExecutorKind {
 /// Since the arrays are sorted in the same order, elements are referenced by their index.
 /// `FixedBitSet` is used as a smaller, more efficient substitute of `HashSet<usize>`.
 #[derive(Default)]
-pub(super) struct SystemSchedule {
+pub struct SystemSchedule {
     pub(super) systems: Vec<BoxedSystem>,
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
