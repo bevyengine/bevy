@@ -125,11 +125,11 @@ pub struct PreviousViewProjection {
 
 pub fn update_previous_view_projections(
     mut commands: Commands,
-    query: Query<(Entity, &ExtractedView), (With<Camera3d>, With<VelocityPrepass>)>,
+    query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<VelocityPrepass>)>,
 ) {
-    for (entity, camera) in &query {
+    for (entity, camera, camera_transform) in &query {
         commands.entity(entity).insert(PreviousViewProjection {
-            view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
+            view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
         });
     }
 }
