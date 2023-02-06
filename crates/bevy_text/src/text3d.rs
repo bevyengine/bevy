@@ -68,6 +68,10 @@ pub fn update_text3d_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // TODO: This currently creates a child node for each unique atlas texture.
+    // multiple atlas textures can be generated when a user uses multiple fonts (e.g. a normal and a bold font) in a single `Text`
+    // currently we cannot create a single material with multiple textures, this might be fixed in https://github.com/bevyengine/bevy/pull/6842
+
     for (entity, text, anchor, info, maybe_children) in text_query.iter() {
         // if we have no glyphs, remove the children to save on resources
         if info.glyphs.is_empty() {
