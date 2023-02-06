@@ -19,7 +19,7 @@ fn setup(mut commands: Commands) {
     });
 }
 
-fn system(mut draw: DrawGizmo, time: Res<Time>) {
+fn system(mut draw: Gizmos, time: Res<Time>) {
     draw.cuboid(
         Vec3::Y * -0.5,
         Quat::IDENTITY,

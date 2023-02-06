@@ -10,29 +10,29 @@ use bevy_render::prelude::Color;
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
 
-const CIRCLE_SEGMENTS: usize = 32;
+const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
 #[derive(Resource, Default)]
-pub(crate) struct DrawGizmoStorage {
+pub(crate) struct GizmoStorage {
     pub list_positions: Vec<PositionItem>,
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
 }
 
-pub type DrawGizmo<'s> = Buffer<'s, DrawGizmoBuffer>;
+pub type Gizmos<'s> = Buffer<'s, GizmoBuffer>;
 
 #[derive(Default)]
-pub struct DrawGizmoBuffer {
+pub struct GizmoBuffer {
     list_positions: Vec<PositionItem>,
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
     strip_colors: Vec<ColorItem>,
 }
 
-impl SystemBuffer for DrawGizmoBuffer {
+impl SystemBuffer for GizmoBuffer {
     fn apply(&mut self, world: &mut World) {
-        let mut storage = world.resource_mut::<DrawGizmoStorage>();
+        let mut storage = world.resource_mut::<GizmoStorage>();
         storage.list_positions.append(&mut self.list_positions);
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
@@ -40,7 +40,7 @@ impl SystemBuffer for DrawGizmoBuffer {
     }
 }
 
-impl DrawGizmoBuffer {
+impl GizmoBuffer {
     #[inline]
     pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
         self.extend_list_positions([start, end]);
@@ -112,7 +112,7 @@ impl DrawGizmoBuffer {
             normal,
             radius,
             color,
-            segments: CIRCLE_SEGMENTS,
+            segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
 
@@ -124,7 +124,7 @@ impl DrawGizmoBuffer {
             position,
             radius,
             color,
-            circle_segments: CIRCLE_SEGMENTS,
+            circle_segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
 
@@ -211,7 +211,7 @@ impl DrawGizmoBuffer {
             position,
             radius,
             color,
-            segments: CIRCLE_SEGMENTS,
+            segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
 
@@ -253,7 +253,7 @@ impl DrawGizmoBuffer {
 }
 
 pub struct CircleBuilder<'a> {
-    buffer: &'a mut DrawGizmoBuffer,
+    buffer: &'a mut GizmoBuffer,
     position: Vec3,
     normal: Vec3,
     radius: f32,
@@ -278,21 +278,21 @@ impl<'a> Drop for CircleBuilder<'a> {
 }
 
 pub struct SphereBuilder<'a> {
-    buffer: &'a mut DrawGizmoBuffer,
+    buffer: &'a mut GizmoBuffer,
     position: Vec3,
     radius: f32,
     color: Color,
     circle_segments: usize,
 }
 
-impl<'a> SphereBuilder<'a> {
+impl SphereBuilder<'_> {
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
         self
     }
 }
 
-impl<'a> Drop for SphereBuilder<'a> {
+impl Drop for SphereBuilder<'_> {
     fn drop(&mut self) {
         for axis in Vec3::AXES {
             self.buffer
@@ -303,21 +303,21 @@ impl<'a> Drop for SphereBuilder<'a> {
 }
 
 pub struct Circle2dBuilder<'a> {
-    buffer: &'a mut DrawGizmoBuffer,
+    buffer: &'a mut GizmoBuffer,
     position: Vec2,
     radius: f32,
     color: Color,
     segments: usize,
 }
 
-impl<'a> Circle2dBuilder<'a> {
+impl Circle2dBuilder<'_> {
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self
     }
 }
 
-impl<'a> Drop for Circle2dBuilder<'a> {
+impl Drop for Circle2dBuilder<'_> {
     fn drop(&mut self) {
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
         self.buffer.linestrip_2d(positions, self.color);

@@ -21,19 +21,19 @@ use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
-pub mod draw;
+pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::draw::DrawGizmoStorage;
+use crate::gizmos::GizmoStorage;
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{draw::DrawGizmo, GizmoConfig};
+    pub use crate::{gizmos::Gizmos, GizmoConfig};
 }
 
 const SHADER_HANDLE: HandleUntyped =
@@ -47,7 +47,7 @@ impl Plugin for DebugDrawPlugin {
 
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
-            .init_resource::<DrawGizmoStorage>()
+            .init_resource::<GizmoStorage>()
             .add_system_to_stage(CoreStage::Last, system);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
@@ -126,7 +126,7 @@ struct GizmoDrawMesh;
 fn system(
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<MeshHandles>,
-    mut storage: ResMut<DrawGizmoStorage>,
+    mut storage: ResMut<GizmoStorage>,
 ) {
     let list_mesh = meshes.get_mut(&handles.list).unwrap();
 

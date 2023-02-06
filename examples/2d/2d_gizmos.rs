@@ -14,7 +14,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn system(mut draw: DrawGizmo, time: Res<Time>) {
+fn system(mut draw: Gizmos, time: Res<Time>) {
     let sin = time.elapsed_seconds().sin() * 50.;
     draw.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
     draw.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
