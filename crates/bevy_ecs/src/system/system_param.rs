@@ -862,19 +862,19 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     // ...
 /// });
 ///
-/// let mut stage = SystemStage::parallel();
-/// stage
+/// let mut schedule = Schedule::new();
+/// schedule
 ///     // These two systems have no conflicts and will run in parallel.
 ///     .add_system(alert_criminal)
 ///     .add_system(alert_monster);
 ///
 /// // There are no criminals or monsters, so the alarm is not sounded.
-/// stage.run(&mut world);
+/// schedule.run(&mut world);
 /// assert_eq!(world.resource::<Alarm>().0, false);
 ///
 /// // Spawn a monster, which will cause the alarm to be sounded.
 /// let m_id = world.spawn(Monster).id();
-/// stage.run(&mut world);
+/// schedule.run(&mut world);
 /// assert_eq!(world.resource::<Alarm>().0, true);
 ///
 /// // Remove the monster and reset the alarm.
@@ -883,7 +883,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// // Spawn a criminal, which will cause the alarm to be sounded.
 /// world.spawn(Criminal);
-/// stage.run(&mut world);
+/// schedule.run(&mut world);
 /// assert_eq!(world.resource::<Alarm>().0, true);
 /// ```
 pub struct Deferred<'a, T: SystemBuffer>(pub(crate) &'a mut T);
