@@ -31,8 +31,8 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
-        .add_system(move_camera.in_set(CoreSet::Update))
-        .add_system(print_mesh_count.in_set(CoreSet::Update))
+        .add_system(move_camera)
+        .add_system(print_mesh_count)
         .run();
 }
 

@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_system(update_bloom_settings)
-        .add_system(bounce_spheres.in_set(CoreSet::Update))
+        .add_system(bounce_spheres)
         .run();
 }
 

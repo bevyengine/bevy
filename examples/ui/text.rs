@@ -13,8 +13,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup)
-        .add_system(text_update_system.in_set(CoreSet::Update))
-        .add_system(text_color_system.in_set(CoreSet::Update))
+        .add_system(text_update_system)
+        .add_system(text_color_system)
         .run();
 }
 

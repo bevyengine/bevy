@@ -17,8 +17,8 @@ fn main() {
             target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
         .add_startup_system(setup)
-        .add_system(change_scaling.in_set(CoreSet::Update))
-        .add_system(apply_scaling.after(change_scaling).in_set(CoreSet::Update))
+        .add_system(change_scaling)
+        .add_system(apply_scaling.after(change_scaling))
         .run();
 }
 

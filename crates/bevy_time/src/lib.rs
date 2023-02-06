@@ -39,9 +39,9 @@ impl Plugin for TimePlugin {
             .register_type::<Time>()
             .register_type::<Stopwatch>()
             .init_resource::<FixedTime>()
-            .configure_set(TimeSystem.in_set(CoreSet::First))
+            .configure_set(TimeSystem.in_base_set(CoreSet::First))
             .add_system(time_system.in_set(TimeSystem))
-            .add_system(run_fixed_update_schedule.in_set(CoreSet::FixedUpdate));
+            .add_system(run_fixed_update_schedule.in_base_set(CoreSet::FixedUpdate));
     }
 }
 
