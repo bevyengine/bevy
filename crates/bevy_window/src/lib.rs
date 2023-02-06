@@ -102,7 +102,7 @@ impl Plugin for WindowPlugin {
         }
 
         if self.close_when_requested {
-            app.add_system(close_when_requested.in_set(CoreSet::PostUpdate));
+            app.add_system(close_when_requested.in_base_set(CoreSet::PostUpdate));
         }
 
         // Register event types
