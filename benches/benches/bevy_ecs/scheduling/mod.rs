@@ -1,19 +1,17 @@
 use criterion::criterion_group;
 
 mod run_criteria;
+mod running_systems;
 mod schedule;
-mod stages;
 
 use run_criteria::*;
+use running_systems::*;
 use schedule::*;
-use stages::*;
 
 criterion_group!(
     scheduling_benches,
     run_criteria_yes,
     run_criteria_no,
-    run_criteria_yes_with_labels,
-    run_criteria_no_with_labels,
     run_criteria_yes_with_query,
     run_criteria_yes_with_resource,
     empty_systems,

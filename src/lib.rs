@@ -45,6 +45,6 @@
 
 pub use bevy_internal::*;
 
-#[cfg(feature = "dynamic")]
+#[cfg(feature = "dynamic_linking")]
 #[allow(unused_imports)]
 use bevy_dylib;

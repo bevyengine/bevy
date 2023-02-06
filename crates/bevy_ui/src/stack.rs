@@ -105,7 +105,7 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
 mod tests {
     use bevy_ecs::{
         component::Component,
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::Schedule,
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -183,9 +183,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(ui_stack_system);
-        schedule.add_stage("update", update_stage);
+        schedule.add_system(ui_stack_system);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();

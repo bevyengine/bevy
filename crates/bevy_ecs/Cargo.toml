@@ -23,7 +23,7 @@ bevy_ecs_macros = { path = "macros", version = "0.9.0" }
 async-channel = "1.4"
 event-listener = "2.5"
 thread_local = "1.1.4"
-fixedbitset = "0.4"
+fixedbitset = "0.4.2"
 fxhash = "0.2"
 downcast-rs = "1.2"
 serde = { version = "1", features = ["derive"] }
@@ -42,7 +42,3 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
-
-[[example]]
-name = "derive_label"
-path = "examples/derive_label.rs"

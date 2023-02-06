@@ -53,7 +53,7 @@ fn setup(
         },
         camera: Camera {
             // renders after / on top of the main camera
-            priority: 1,
+            order: 1,
             ..default()
         },
         ..default()

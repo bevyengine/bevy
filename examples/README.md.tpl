@@ -98,7 +98,7 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android_example
+cargo apk run -p bevy_mobile_example
 ```
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
@@ -121,7 +121,7 @@ You can view the logs with the following command:
 adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
 ```
 
-In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more informations.
+In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more information.
 
 Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
 
@@ -145,7 +145,7 @@ min_sdk_version = >>API or less<<
 
 Example | File | Description
 --- | --- | ---
-`android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android
+`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## iOS
 
@@ -166,7 +166,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 Using bash:
 
 ```sh
-cd examples/ios
+cd examples/mobile
 make run
 ```
 
@@ -181,7 +181,7 @@ DEVICE_ID=${YOUR_DEVICE_ID} make run
 If you'd like to see xcode do stuff, you can run
 
 ```sh
-open bevy_ios_example.xcodeproj/
+open bevy_mobile_example.xcodeproj/
 ```
 
 which will open xcode. You then must push the zoom zoom play button and wait
@@ -189,7 +189,7 @@ for the magic.
 
 Example | File | Description
 --- | --- | ---
-`ios` | [`ios/src/lib.rs`](./ios/src/lib.rs) | The `3d/3d_scene.rs` example for iOS
+`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## WASM
 

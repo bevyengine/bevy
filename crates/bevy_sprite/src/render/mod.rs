@@ -16,7 +16,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{
-        BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
+        BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
@@ -160,17 +160,20 @@ impl SpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
 
-    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+    #[inline]
+    pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits(msaa_bits).unwrap()
+        Self::from_bits_truncate(msaa_bits)
     }
 
-    pub fn msaa_samples(&self) -> u32 {
+    #[inline]
+    pub const fn msaa_samples(&self) -> u32 {
         1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_colored(colored: bool) -> Self {
+    #[inline]
+    pub const fn from_colored(colored: bool) -> Self {
         if colored {
             SpritePipelineKey::COLORED
         } else {
@@ -178,7 +181,8 @@ impl SpritePipelineKey {
         }
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
+    #[inline]
+    pub const fn from_hdr(hdr: bool) -> Self {
         if hdr {
             SpritePipelineKey::HDR
         } else {
@@ -447,7 +451,7 @@ pub fn queue_sprites(
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
@@ -470,7 +474,7 @@ pub fn queue_sprites(
         };
     }
 
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let sprite_meta = &mut sprite_meta;
@@ -524,12 +528,12 @@ pub fn queue_sprites(
                 }
             }
             let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(false),
             );
             let colored_pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(true),
             );
@@ -545,7 +549,7 @@ pub fn queue_sprites(
             };
             let mut current_batch_entity = Entity::PLACEHOLDER;
             let mut current_image_size = Vec2::ZERO;
-            // Add a phase item for each sprite, and detect when succesive items can be batched.
+            // Add a phase item for each sprite, and detect when successive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
@@ -636,11 +640,12 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
+                    let vertex_color = extracted_sprite.color.as_linear_rgba_f32();
                     for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                             position: positions[i],
                             uv: uvs[i].into(),
-                            color: extracted_sprite.color.as_linear_rgba_f32(),
+                            color: vertex_color,
                         });
                     }
                     let item_start = colored_index;
@@ -692,16 +697,18 @@ pub type DrawSprite = (
 );
 
 pub struct SetSpriteViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
-    type Param = (SRes<SpriteMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
 
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (sprite_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        view_uniform: &'_ ViewUniformOffset,
+        _entity: (),
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             sprite_meta.into_inner().view_bind_group.as_ref().unwrap(),
@@ -711,16 +718,18 @@ impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
     }
 }
 pub struct SetSpriteTextureBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
-    type Param = (SRes<ImageBindGroups>, SQuery<Read<SpriteBatch>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
+    type Param = SRes<ImageBindGroups>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
         pass.set_bind_group(
@@ -737,15 +746,17 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
 
 pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
-    type Param = (SRes<SpriteMeta>, SQuery<Read<SpriteBatch>>);
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        _view: Entity,
         item: &P,
-        (sprite_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item.entity()).unwrap();
         let sprite_meta = sprite_meta.into_inner();
         if sprite_batch.colored {
             pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));

@@ -3,8 +3,10 @@ use core::fmt::Debug;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, schedule::SystemLabelId, world::World,
+    query::Access, world::World,
 };
+
+use std::any::TypeId;
 use std::borrow::Cow;
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
@@ -17,7 +19,7 @@ use std::borrow::Cow;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`SystemDescriptor`](crate::schedule::SystemDescriptor).
+/// see [`IntoSystemConfig`](crate::schedule::IntoSystemConfig).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.
@@ -26,6 +28,8 @@ pub trait System: Send + Sync + 'static {
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
+    /// Returns the [`TypeId`] of the underlying system type.
+    fn type_id(&self) -> TypeId;
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
@@ -60,8 +64,8 @@ pub trait System: Send + Sync + 'static {
     /// Update the system's archetype component [`Access`].
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
-    /// The default labels for the system
-    fn default_labels(&self) -> Vec<SystemLabelId> {
+    /// Returns the system's default [system sets](crate::schedule::SystemSet).
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         Vec::new()
     }
     /// Gets the system's last change tick
