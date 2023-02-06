@@ -146,13 +146,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_b.set_last_change_tick(last_change_tick);
     }
 
-    fn default_labels(&self) -> Vec<crate::schedule::SystemLabelId> {
-        let mut labels = self.system_a.default_labels();
-        labels.extend(&self.system_b.default_labels());
-        labels
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         let mut system_sets = self.system_a.default_system_sets();
         system_sets.extend_from_slice(&self.system_b.default_system_sets());
         system_sets
@@ -202,12 +196,13 @@ pub mod adapter {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// fn return1() -> u64 { 1 }
+    ///
     /// return1
     ///     .pipe(system_adapter::new(u32::try_from))
     ///     .pipe(system_adapter::unwrap)
     ///     .pipe(print);
     ///
-    /// fn return1() -> u64 { 1 }
     /// fn print(In(x): In<impl std::fmt::Debug>) {
     ///     println!("{x:?}");
     /// }
@@ -228,16 +223,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Panic if the load system returns an error.
     ///         load_save_system.pipe(system_adapter::unwrap)
     ///     )
@@ -265,16 +254,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system information.
     ///         data_pipe_system.pipe(system_adapter::info)
     ///     )
@@ -298,16 +281,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints debug data from system.
     ///         parse_message_system.pipe(system_adapter::dbg)
     ///     )
@@ -331,16 +308,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// # let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system warning if system returns an error.
     ///         warning_pipe_system.pipe(system_adapter::warn)
     ///     )
@@ -366,16 +337,9 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
-    ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system error if system fails.
     ///         parse_error_message_system.pipe(system_adapter::error)
     ///     )
@@ -408,16 +372,10 @@ pub mod adapter {
     /// // Marker component for an enemy entity.
     /// #[derive(Component)]
     /// struct Monster;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    ///     .add_system(
     ///         // If the system fails, just move on and try again next frame.
     ///         fallible_system.pipe(system_adapter::ignore)
     ///     )

@@ -1,5 +1,5 @@
-use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::Entities, system::ResMut};
+use bevy_app::prelude::*;
+use bevy_ecs::{entity::Entities, prelude::*};
 
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 
@@ -9,7 +9,7 @@ pub struct EntityCountDiagnosticsPlugin;
 
 impl Plugin for EntityCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::setup_system)
+        app.add_startup_system(Self::setup_system.in_set(StartupSet::Startup))
             .add_system(Self::diagnostic_system);
     }
 }

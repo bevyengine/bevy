@@ -847,12 +847,12 @@ mod test {
         asset_server.add_loader(FakePngLoader);
         let assets = asset_server.register_asset_type::<PngAsset>();
 
-        #[derive(SystemLabel, Clone, Hash, Debug, PartialEq, Eq)]
+        #[derive(SystemSet, Clone, Hash, Debug, PartialEq, Eq)]
         struct FreeUnusedAssets;
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(free_unused_assets_system.label(FreeUnusedAssets));
+        app.add_system(free_unused_assets_system.in_set(FreeUnusedAssets));
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {

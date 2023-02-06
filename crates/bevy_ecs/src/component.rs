@@ -459,6 +459,11 @@ impl Components {
         self.components.get(id.0)
     }
 
+    #[inline]
+    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
+        self.get_info(id).map(|descriptor| descriptor.name())
+    }
+
     /// # Safety
     ///
     /// `id` must be a valid [`ComponentId`]

@@ -3,15 +3,12 @@ use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    event::EventReader,
-    prelude::{Bundle, World},
+    prelude::*,
     query::ROQueryItem,
-    schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::FromWorld,
 };
 use bevy_log::error;
 use bevy_reflect::TypeUuid;
@@ -32,7 +29,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -153,6 +150,7 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
@@ -160,12 +158,13 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials_2d::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials_2d::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+                .add_system_to_schedule(ExtractSchedule, extract_materials_2d::<M>)
+                .add_system(
+                    prepare_materials_2d::<M>
+                        .after(PrepareAssetLabel::PreAssetPrepare)
+                        .in_set(RenderSet::Prepare),
                 )
-                .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
+                .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
         }
     }
 }

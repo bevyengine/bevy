@@ -14,9 +14,25 @@ use bevy::{
 use std::num::NonZeroU32;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
+
+    let render_device = app.world.resource::<RenderDevice>();
+
+    // check if the device support the required feature
+    if !render_device
+        .features()
+        .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+    {
+        error!(
+            "Render device doesn't support feature \
+            SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
+            which is required for texture binding arrays"
+        );
+        return;
+    }
+
+    app.add_plugin(MaterialPlugin::<BindlessMaterial>::default())
         .add_startup_system(setup)
         .run();
 }
@@ -31,21 +47,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<BindlessMaterial>>,
     asset_server: Res<AssetServer>,
-    render_device: Res<RenderDevice>,
 ) {
-    // check if the device support the required feature
-    if !render_device
-        .features()
-        .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
-    {
-        error!(
-            "Render device doesn't support feature \
-            SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
-            which is required for texture binding arrays"
-        );
-        return;
-    }
-
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ..Default::default()

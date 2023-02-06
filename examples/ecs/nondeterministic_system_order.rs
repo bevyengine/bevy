@@ -12,12 +12,19 @@
 //!
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
 
-use bevy::{ecs::schedule::ReportExecutionOrderAmbiguities, prelude::*};
+use bevy::{
+    ecs::schedule::{LogLevel, ScheduleBuildSettings},
+    prelude::*,
+};
 
 fn main() {
     App::new()
-        // This resource controls the reporting strategy for system execution order ambiguities
-        .insert_resource(ReportExecutionOrderAmbiguities)
+        // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis
+        .edit_schedule(CoreSchedule::Main, |schedule| {
+            schedule.set_build_settings(
+                ScheduleBuildSettings::new().with_ambiguity_detection(LogLevel::Warn),
+            );
+        })
         .init_resource::<A>()
         .init_resource::<B>()
         // This pair of systems has an ambiguous order,

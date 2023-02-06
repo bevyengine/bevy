@@ -40,16 +40,16 @@ for arch in $ARCHS; do
 
       # Intel iOS simulator
       export CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios"
-      cargo build --lib $RELFLAG --target x86_64-apple-ios
+      cargo rustc --crate-type staticlib --lib $RELFLAG --target x86_64-apple-ios
       ;;
 
     arm64)
       if [ $IS_SIMULATOR -eq 0 ]; then
         # Hardware iOS targets
-        cargo build --lib $RELFLAG --target aarch64-apple-ios
+        cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios
       else
         # M1 iOS simulator -- currently in Nightly only and requires to build `libstd`
-        cargo build --lib $RELFLAG --target aarch64-apple-ios-sim
+        cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios-sim
       fi
   esac
 done

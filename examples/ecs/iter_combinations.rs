@@ -1,12 +1,9 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, time::FixedTimestep};
+use bevy::{pbr::AmbientLight, prelude::*};
 use rand::{thread_rng, Rng};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
-
-const DELTA_TIME: f64 = 0.01;
+const DELTA_TIME: f32 = 0.01;
 
 fn main() {
     App::new()
@@ -16,14 +13,8 @@ fn main() {
             ..default()
         })
         .add_startup_system(generate_bodies)
-        .add_stage_after(
-            CoreStage::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies)
-                .with_system(integrate),
-        )
+        .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
+        .add_systems_to_schedule(CoreSchedule::FixedUpdate, (interact_bodies, integrate))
         .add_system(look_at_star)
         .insert_resource(ClearColor(Color::BLACK))
         .run();
@@ -105,7 +96,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * DELTA_TIME as f32,
+                    ) * DELTA_TIME,
             ),
         });
     }
@@ -170,7 +161,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
 }
 
 fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
+    let dt_sq = DELTA_TIME * DELTA_TIME;
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)

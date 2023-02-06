@@ -8,7 +8,7 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, RenderApp, RenderStage},
+    render::{camera::ScalingMode, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin},
 };
 use rand::{thread_rng, Rng};
@@ -156,7 +156,7 @@ impl Plugin for LogVisibleLights {
             Err(_) => return,
         };
 
-        render_app.add_system_to_stage(RenderStage::Prepare, print_visible_light_count);
+        render_app.add_system(print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 

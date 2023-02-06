@@ -3,7 +3,7 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{
+    schedule::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     world::World,
@@ -21,11 +21,17 @@ pub struct SingleThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
+    /// Setting when true applies system buffers after all systems have run
+    apply_final_buffers: bool,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::SingleThreaded
+    }
+
+    fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) {
+        self.apply_final_buffers = apply_final_buffers;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -45,7 +51,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
-            for set_idx in schedule.sets_of_systems[system_index].ones() {
+            for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {
                 if self.evaluated_sets.contains(set_idx) {
                     continue;
                 }
@@ -56,7 +62,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
                 if !set_conditions_met {
                     self.completed_systems
-                        .union_with(&schedule.systems_in_sets[set_idx]);
+                        .union_with(&schedule.systems_in_sets_with_conditions[set_idx]);
                 }
 
                 should_run &= set_conditions_met;
@@ -96,7 +102,9 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
         }
 
-        self.apply_system_buffers(schedule, world);
+        if self.apply_final_buffers {
+            self.apply_system_buffers(schedule, world);
+        }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
@@ -108,14 +116,13 @@ impl SingleThreadedExecutor {
             evaluated_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
+            apply_final_buffers: true,
         }
     }
 
     fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
-            #[cfg(feature = "trace")]
-            let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
             system.apply_buffers(world);
         }
 

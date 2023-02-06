@@ -120,8 +120,8 @@ impl Time {
     ///     world.insert_resource(time);
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
-    ///     let mut update_stage = SystemStage::parallel();
-    ///     update_stage.add_system(health_system);
+    ///     let mut schedule = Schedule::new();
+    ///     schedule.add_system(health_system);
     ///
     ///     // Simulate that 30 ms have passed
     ///     let mut time = world.resource_mut::<Time>();
@@ -129,7 +129,7 @@ impl Time {
     ///     time.update_with_instant(last_update + Duration::from_millis(30));
     ///
     ///     // Run system
-    ///     update_stage.run(&mut world);
+    ///     schedule.run(&mut world);
     ///
     ///     // Check that 0.003 has been added to the health value
     ///     let expected_health_value = 0.2 + 0.1 * 0.03;
