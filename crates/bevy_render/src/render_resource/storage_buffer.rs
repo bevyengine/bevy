@@ -104,7 +104,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Adds more [`BufferUsages`] to the buffer.
+    /// Add more [`BufferUsages`] to the buffer.
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
@@ -229,7 +229,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Adds more [`BufferUsages`] to the buffer.
+    /// Add more [`BufferUsages`] to the buffer.
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
