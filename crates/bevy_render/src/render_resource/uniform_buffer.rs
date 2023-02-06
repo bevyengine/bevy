@@ -106,7 +106,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
-    /// The default values for buffer usage are BufferUsages::COPY_DST and BufferUsages::UNIFORM.
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::UNIFORM`.
     pub fn set_usage(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;
@@ -227,7 +227,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
-    /// The default values for buffer usage are BufferUsages::COPY_DST and BufferUsages::UNIFORM.
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::UNIFORM`.
     pub fn set_usage(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;
