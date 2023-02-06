@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3BDB8152E4962373181B4FE5"
-               BuildableName = "bevy_ios_example.app"
-               BlueprintName = "bevy_ios_example"
-               ReferencedContainer = "container:bevy_ios_example.xcodeproj">
+               BuildableName = "bevy_mobile_example.app"
+               BlueprintName = "bevy_mobile_example"
+               ReferencedContainer = "container:bevy_mobile_example.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3BDB8152E4962373181B4FE5"
-            BuildableName = "bevy_ios_example.app"
-            BlueprintName = "bevy_ios_example"
-            ReferencedContainer = "container:bevy_ios_example.xcodeproj">
+            BuildableName = "bevy_mobile_example.app"
+            BlueprintName = "bevy_mobile_example"
+            ReferencedContainer = "container:bevy_mobile_example.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3BDB8152E4962373181B4FE5"
-            BuildableName = "bevy_ios_example.app"
-            BlueprintName = "bevy_ios_example"
-            ReferencedContainer = "container:bevy_ios_example.xcodeproj">
+            BuildableName = "bevy_mobile_example.app"
+            BlueprintName = "bevy_mobile_example"
+            ReferencedContainer = "container:bevy_mobile_example.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
