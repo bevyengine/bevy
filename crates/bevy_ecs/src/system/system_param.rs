@@ -446,6 +446,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
+            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -486,6 +487,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
+            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
@@ -540,7 +542,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     ) -> Self::Item<'w, 's> {
         let value = world
             .as_unsafe_world_cell_migration_internal()
-            .get_resource_mut_with_id(component_id)
+            .get_resource_mut_by_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -549,7 +551,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 )
             });
         ResMut {
-            value: value.value,
+            value: value.value.deref_mut::<T>(),
             ticks: TicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
@@ -578,9 +580,9 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .as_unsafe_world_cell_migration_internal()
-            .get_resource_mut_with_id(component_id)
+            .get_resource_mut_by_id(component_id)
             .map(|value| ResMut {
-                value: value.value,
+                value: value.value.deref_mut::<T>(),
                 ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
@@ -889,6 +891,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -927,6 +930,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
@@ -979,6 +983,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1011,6 +1016,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
