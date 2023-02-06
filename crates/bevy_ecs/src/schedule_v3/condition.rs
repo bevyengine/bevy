@@ -1,5 +1,3 @@
-pub use common_conditions::*;
-
 use crate::system::BoxedSystem;
 
 pub type BoxedCondition = BoxedSystem<(), bool>;
@@ -26,9 +24,23 @@ mod sealed {
     }
 }
 
-mod common_conditions {
+pub mod common_conditions {
     use crate::schedule_v3::{State, States};
     use crate::system::{Res, Resource};
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the first time the condition is run and false every time after
+    pub fn run_once() -> impl FnMut() -> bool {
+        let mut has_run = false;
+        move || {
+            if !has_run {
+                has_run = true;
+                true
+            } else {
+                false
+            }
+        }
+    }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists.

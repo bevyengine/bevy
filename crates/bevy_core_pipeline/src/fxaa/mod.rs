@@ -12,7 +12,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 mod node;
@@ -86,7 +86,7 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_fxaa_pipelines);
+            .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
 
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);

@@ -1,11 +1,11 @@
 use bevy_ecs_macros::all_tuples;
-use bevy_utils::default;
 
 use crate::{
     schedule_v3::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
+        state::{OnUpdate, States},
     },
     system::{BoxedSystem, IntoSystem, System},
 };
@@ -28,11 +28,7 @@ impl SystemSetConfig {
 
         Self {
             set,
-            graph_info: GraphInfo {
-                sets: Vec::new(),
-                dependencies: Vec::new(),
-                ambiguous_with: default(),
-            },
+            graph_info: GraphInfo::system_set(),
             conditions: Vec::new(),
         }
     }
@@ -49,13 +45,11 @@ impl SystemConfig {
     fn new(system: BoxedSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
+        let mut graph_info = GraphInfo::system();
+        graph_info.sets = sets;
         Self {
             system,
-            graph_info: GraphInfo {
-                sets,
-                dependencies: Vec::new(),
-                ambiguous_with: default(),
-            },
+            graph_info,
             conditions: Vec::new(),
         }
     }
@@ -92,7 +86,13 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     #[doc(hidden)]
     fn into_config(self) -> SystemSetConfig;
     /// Add to the provided `set`.
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
+    /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
+    /// Add this set to the schedules's default base set.
+    fn in_default_base_set(self) -> SystemSetConfig;
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Run after all systems in `set`.
@@ -102,6 +102,8 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
+    /// Add this set to the [`OnUpdate(state)`](OnUpdate) set.
+    fn on_update(self, state: impl States) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
@@ -118,28 +120,42 @@ where
         SystemSetConfig::new(Box::new(self))
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self)).in_set(set)
+        self.into_config().in_set(set)
+    }
+
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig {
+        self.into_config().in_base_set(set)
+    }
+
+    fn in_default_base_set(self) -> SystemSetConfig {
+        self.into_config().in_default_base_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self)).before(set)
+        self.into_config().before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self)).after(set)
+        self.into_config().after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self)).run_if(condition)
+        self.into_config().run_if(condition)
+    }
+
+    fn on_update(self, state: impl States) -> SystemSetConfig {
+        self.into_config().on_update(state)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self)).ambiguous_with(set)
+        self.into_config().ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self)).ambiguous_with_all()
+        self.into_config().ambiguous_with_all()
     }
 }
 
@@ -148,28 +164,42 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         SystemSetConfig::new(self)
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
-        SystemSetConfig::new(self).in_set(set)
+        self.into_config().in_set(set)
+    }
+
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig {
+        self.into_config().in_base_set(set)
+    }
+
+    fn in_default_base_set(self) -> SystemSetConfig {
+        self.into_config().in_default_base_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        SystemSetConfig::new(self).before(set)
+        self.into_config().before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        SystemSetConfig::new(self).after(set)
+        self.into_config().after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
-        SystemSetConfig::new(self).run_if(condition)
+        self.into_config().run_if(condition)
+    }
+
+    fn on_update(self, state: impl States) -> SystemSetConfig {
+        self.into_config().on_update(state)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        SystemSetConfig::new(self).ambiguous_with(set)
+        self.into_config().ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemSetConfig {
-        SystemSetConfig::new(self).ambiguous_with_all()
+        self.into_config().ambiguous_with_all()
     }
 }
 
@@ -178,12 +208,44 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
             "adding arbitrary systems to a system type set is not allowed"
         );
+        assert!(
+            !set.is_base(),
+            "Sets cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
+        );
+        assert!(
+            !self.set.is_base(),
+            "Base system sets cannot be added to other sets."
+        );
         self.graph_info.sets.push(Box::new(set));
+        self
+    }
+
+    #[track_caller]
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
+        assert!(
+            !set.is_system_type(),
+            "System type sets cannot be base sets."
+        );
+        assert!(
+            set.is_base(),
+            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
+        );
+        assert!(
+            !self.set.is_base(),
+            "Base system sets cannot be added to other sets."
+        );
+        self.graph_info.set_base_set(Box::new(set));
+        self
+    }
+
+    fn in_default_base_set(mut self) -> SystemSetConfig {
+        self.graph_info.add_default_base_set = true;
         self
     }
 
@@ -206,6 +268,10 @@ impl IntoSystemSetConfig for SystemSetConfig {
     fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
         self.conditions.push(new_condition(condition));
         self
+    }
+
+    fn on_update(self, state: impl States) -> SystemSetConfig {
+        self.in_set(OnUpdate(state))
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
@@ -228,7 +294,13 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     #[doc(hidden)]
     fn into_config(self) -> SystemConfig;
     /// Add to `set` membership.
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfig;
+    /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemConfig;
+    /// Don't add this system to the schedules's default set.
+    fn no_default_base_set(self) -> SystemConfig;
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
     /// Run after all systems in `set`.
@@ -238,6 +310,8 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig;
+    /// Add this system to the [`OnUpdate(state)`](OnUpdate) set.
+    fn on_update(self, state: impl States) -> SystemConfig;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
@@ -254,28 +328,42 @@ where
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
-        SystemConfig::new(Box::new(IntoSystem::into_system(self))).in_set(set)
+        self.into_config().in_set(set)
+    }
+
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemConfig {
+        self.into_config().in_base_set(set)
+    }
+
+    fn no_default_base_set(self) -> SystemConfig {
+        self.into_config().no_default_base_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        SystemConfig::new(Box::new(IntoSystem::into_system(self))).before(set)
+        self.into_config().before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        SystemConfig::new(Box::new(IntoSystem::into_system(self))).after(set)
+        self.into_config().after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
-        SystemConfig::new(Box::new(IntoSystem::into_system(self))).run_if(condition)
+        self.into_config().run_if(condition)
+    }
+
+    fn on_update(self, state: impl States) -> SystemConfig {
+        self.into_config().on_update(state)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        SystemConfig::new(Box::new(IntoSystem::into_system(self))).ambiguous_with(set)
+        self.into_config().ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemConfig {
-        SystemConfig::new(Box::new(IntoSystem::into_system(self))).ambiguous_with_all()
+        self.into_config().ambiguous_with_all()
     }
 }
 
@@ -284,28 +372,42 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         SystemConfig::new(self)
     }
 
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
-        SystemConfig::new(self).in_set(set)
+        self.into_config().in_set(set)
+    }
+
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemConfig {
+        self.into_config().in_base_set(set)
+    }
+
+    fn no_default_base_set(self) -> SystemConfig {
+        self.into_config().no_default_base_set()
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        SystemConfig::new(self).before(set)
+        self.into_config().before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        SystemConfig::new(self).after(set)
+        self.into_config().after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
-        SystemConfig::new(self).run_if(condition)
+        self.into_config().run_if(condition)
+    }
+
+    fn on_update(self, state: impl States) -> SystemConfig {
+        self.into_config().on_update(state)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        SystemConfig::new(self).ambiguous_with(set)
+        self.into_config().ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemConfig {
-        SystemConfig::new(self).ambiguous_with_all()
+        self.into_config().ambiguous_with_all()
     }
 }
 
@@ -314,12 +416,36 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
             "adding arbitrary systems to a system type set is not allowed"
         );
+        assert!(
+            !set.is_base(),
+            "Systems cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
+        );
         self.graph_info.sets.push(Box::new(set));
+        self
+    }
+
+    #[track_caller]
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
+        assert!(
+            !set.is_system_type(),
+            "System type sets cannot be base sets."
+        );
+        assert!(
+            set.is_base(),
+            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
+        );
+        self.graph_info.set_base_set(Box::new(set));
+        self
+    }
+
+    fn no_default_base_set(mut self) -> SystemConfig {
+        self.graph_info.add_default_base_set = false;
         self
     }
 
@@ -342,6 +468,10 @@ impl IntoSystemConfig<()> for SystemConfig {
     fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
         self.conditions.push(new_condition(condition));
         self
+    }
+
+    fn on_update(self, state: impl States) -> Self {
+        self.in_set(OnUpdate(state))
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
@@ -398,8 +528,15 @@ where
     fn into_configs(self) -> SystemConfigs;
 
     /// Add these systems to the provided `set`.
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemConfigs {
         self.into_configs().in_set(set)
+    }
+
+    /// Add these systems to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemConfigs {
+        self.into_configs().in_base_set(set)
     }
 
     /// Run before all systems in `set`.
@@ -410,6 +547,11 @@ where
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Add this set to the [`OnUpdate(state)`](OnUpdate) set.
+    fn on_update(self, state: impl States) -> SystemConfigs {
+        self.into_configs().on_update(state)
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
@@ -437,13 +579,35 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
             "adding arbitrary systems to a system type set is not allowed"
         );
+        assert!(
+            !set.is_base(),
+            "Systems cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
+        );
         for config in &mut self.systems {
             config.graph_info.sets.push(set.dyn_clone());
+        }
+
+        self
+    }
+
+    #[track_caller]
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
+        assert!(
+            !set.is_system_type(),
+            "System type sets cannot be base sets."
+        );
+        assert!(
+            set.is_base(),
+            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
+        );
+        for config in &mut self.systems {
+            config.graph_info.set_base_set(set.dyn_clone());
         }
 
         self
@@ -490,6 +654,10 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    fn on_update(self, state: impl States) -> Self {
+        self.in_set(OnUpdate(state))
+    }
+
     fn chain(mut self) -> Self {
         self.chained = true;
         self
@@ -513,8 +681,15 @@ where
     fn into_configs(self) -> SystemSetConfigs;
 
     /// Add these system sets to the provided `set`.
+    #[track_caller]
     fn in_set(self, set: impl SystemSet) -> SystemSetConfigs {
         self.into_configs().in_set(set)
+    }
+
+    /// Add these system sets to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
+    #[track_caller]
+    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfigs {
+        self.into_configs().in_base_set(set)
     }
 
     /// Run before all systems in `set`.
@@ -552,13 +727,43 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
         self
     }
 
+    #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
             "adding arbitrary systems to a system type set is not allowed"
         );
+        assert!(
+            !set.is_base(),
+            "Sets cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
+        );
         for config in &mut self.sets {
+            assert!(
+                !config.set.is_base(),
+                "Base system sets cannot be added to other sets."
+            );
             config.graph_info.sets.push(set.dyn_clone());
+        }
+
+        self
+    }
+
+    #[track_caller]
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
+        assert!(
+            !set.is_system_type(),
+            "System type sets cannot be base sets."
+        );
+        assert!(
+            set.is_base(),
+            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
+        );
+        for config in &mut self.sets {
+            assert!(
+                !config.set.is_base(),
+                "Base system sets cannot be added to other sets."
+            );
+            config.graph_info.set_base_set(set.dyn_clone());
         }
 
         self
