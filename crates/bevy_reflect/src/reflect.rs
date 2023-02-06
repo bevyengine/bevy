@@ -273,37 +273,6 @@ impl dyn PartialReflect {
     }
 }
 
-pub mod reflectable {
-    use crate::Typed;
-
-    /// Additional constraints on implementing [`Reflect`].
-    ///
-    /// This trait can only be implemented automatically.
-    /// Implemented if and only if a type implements [`Typed`].
-    ///
-    /// [`Reflect`]: crate::Reflect
-    pub trait Reflectable: sealed::Sealed {
-        /// See [`Typed::type_info`].
-        fn type_info() -> &'static crate::TypeInfo
-        where
-            Self: Sized;
-    }
-
-    impl<T: sealed::Sealed + Typed> Reflectable for T {
-        fn type_info() -> &'static crate::TypeInfo
-        where
-            Self: Sized,
-        {
-            <T as Typed>::type_info()
-        }
-    }
-
-    mod sealed {
-        pub trait Sealed {}
-        impl<T: crate::Typed> Sealed for T {}
-    }
-}
-
 /// A fully reflected Rust type.
 ///
 /// # `PartialReflect` and `Reflect`
@@ -326,7 +295,7 @@ pub mod reflectable {
 /// [`apply`]: PartialReflect::apply
 /// [certain types]: crate::DynamicStruct
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
-pub trait Reflect: PartialReflect + reflectable::Reflectable {
+pub trait Reflect: PartialReflect {
     /// Returns the value as a [`Box<dyn Any>`](Any).
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
