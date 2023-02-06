@@ -32,7 +32,10 @@ impl AndroidAssetIo {
 impl AssetIo for AndroidAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let asset_manager = ndk_glue::native_activity().asset_manager();
+            let asset_manager = bevy_winit::ANDROID_APP
+                .get()
+                .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                .asset_manager();
             let mut opened_asset = asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
                 .ok_or(AssetIoError::NotFound(path.to_path_buf()))?;

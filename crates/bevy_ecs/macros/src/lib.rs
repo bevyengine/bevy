@@ -2,11 +2,10 @@ extern crate proc_macro;
 
 mod component;
 mod fetch;
+mod set;
 
-use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{
-    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest,
-};
+use crate::{fetch::derive_world_query_impl, set::derive_set};
+use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -506,7 +505,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
-                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                        #(#ignored_fields: std::default::Default::default(),)*
                     }
                 }
             }
@@ -524,49 +523,6 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-/// Generates an impl of the `SystemLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
-#[proc_macro_derive(SystemLabel, attributes(system_label))]
-pub fn derive_system_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path, "system_label")
-}
-
-/// Generates an impl of the `StageLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
-#[proc_macro_derive(StageLabel, attributes(stage_label))]
-pub fn derive_stage_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path, "stage_label")
-}
-
-/// Generates an impl of the `RunCriteriaLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
-#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
-pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path, "run_criteria_label")
-}
-
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
@@ -582,7 +538,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
-#[proc_macro_derive(SystemSet)]
+#[proc_macro_derive(SystemSet, attributes(system_set))]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();

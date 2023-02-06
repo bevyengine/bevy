@@ -1,14 +1,18 @@
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+use std::sync::Arc;
+
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Instrument};
+use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
 
 use crate::{
     archetype::ArchetypeComponentId,
+    prelude::Resource,
     query::Access,
     schedule_v3::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
@@ -16,6 +20,8 @@ use crate::{
     system::BoxedSystem,
     world::World,
 };
+
+use crate as bevy_ecs;
 
 /// A funky borrow split of [`SystemSchedule`] required by the [`MultiThreadedExecutor`].
 struct SyncUnsafeSchedule<'a> {
@@ -26,8 +32,8 @@ struct SyncUnsafeSchedule<'a> {
 struct Conditions<'a> {
     system_conditions: &'a mut [Vec<BoxedCondition>],
     set_conditions: &'a mut [Vec<BoxedCondition>],
-    sets_of_systems: &'a [FixedBitSet],
-    systems_in_sets: &'a [FixedBitSet],
+    sets_with_conditions_of_systems: &'a [FixedBitSet],
+    systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
 
 impl SyncUnsafeSchedule<'_> {
@@ -37,8 +43,8 @@ impl SyncUnsafeSchedule<'_> {
             conditions: Conditions {
                 system_conditions: &mut schedule.system_conditions,
                 set_conditions: &mut schedule.set_conditions,
-                sets_of_systems: &schedule.sets_of_systems,
-                systems_in_sets: &schedule.systems_in_sets,
+                sets_with_conditions_of_systems: &schedule.sets_with_conditions_of_systems,
+                systems_in_sets_with_conditions: &schedule.systems_in_sets_with_conditions,
             },
         }
     }
@@ -91,6 +97,8 @@ pub struct MultiThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
+    /// Setting when true applies system buffers after all systems have run
+    apply_final_buffers: bool,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -102,6 +110,10 @@ impl Default for MultiThreadedExecutor {
 impl SystemExecutor for MultiThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::MultiThreaded
+    }
+
+    fn set_apply_final_buffers(&mut self, value: bool) {
+        self.apply_final_buffers = value;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -145,59 +157,72 @@ impl SystemExecutor for MultiThreadedExecutor {
             }
         }
 
+        let thread_executor = world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+        let thread_executor = thread_executor.as_deref();
+
         let world = SyncUnsafeCell::from_mut(world);
         let SyncUnsafeSchedule {
             systems,
             mut conditions,
         } = SyncUnsafeSchedule::new(schedule);
 
-        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
-            // the executor itself is a `Send` future so that it can run
-            // alongside systems that claim the local thread
-            let executor = async {
-                while self.num_completed_systems < num_systems {
-                    // SAFETY: self.ready_systems does not contain running systems
-                    unsafe {
-                        self.spawn_system_tasks(scope, systems, &mut conditions, world);
-                    }
-
-                    if self.num_running_systems > 0 {
-                        // wait for systems to complete
-                        let index = self
-                            .receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
-
-                        self.finish_system_and_signal_dependents(index);
-
-                        while let Ok(index) = self.receiver.try_recv() {
-                            self.finish_system_and_signal_dependents(index);
+        ComputeTaskPool::init(TaskPool::default).scope_with_executor(
+            false,
+            thread_executor,
+            |scope| {
+                // the executor itself is a `Send` future so that it can run
+                // alongside systems that claim the local thread
+                let executor = async {
+                    while self.num_completed_systems < num_systems {
+                        // SAFETY: self.ready_systems does not contain running systems
+                        unsafe {
+                            self.spawn_system_tasks(scope, systems, &mut conditions, world);
                         }
 
-                        self.rebuild_active_access();
+                        if self.num_running_systems > 0 {
+                            // wait for systems to complete
+                            let index =
+                                self.receiver.recv().await.expect(
+                                    "A system has panicked so the executor cannot continue.",
+                                );
+
+                            self.finish_system_and_signal_dependents(index);
+
+                            while let Ok(index) = self.receiver.try_recv() {
+                                self.finish_system_and_signal_dependents(index);
+                            }
+
+                            self.rebuild_active_access();
+                        }
                     }
-                }
+                };
 
-                // SAFETY: all systems have completed
-                let world = unsafe { &mut *world.get() };
-                apply_system_buffers(&mut self.unapplied_systems, systems, world);
+                #[cfg(feature = "trace")]
+                let executor_span = info_span!("multithreaded executor");
+                #[cfg(feature = "trace")]
+                let executor = executor.instrument(executor_span);
+                scope.spawn(executor);
+            },
+        );
 
-                debug_assert!(self.ready_systems.is_clear());
-                debug_assert!(self.running_systems.is_clear());
-                debug_assert!(self.unapplied_systems.is_clear());
-                self.active_access.clear();
-                self.evaluated_sets.clear();
-                self.skipped_systems.clear();
-                self.completed_systems.clear();
-            };
+        if self.apply_final_buffers {
+            // Do one final apply buffers after all systems have completed
+            // SAFETY: all systems have completed, and so no outstanding accesses remain
+            let world = unsafe { &mut *world.get() };
+            // Commands should be applied while on the scope's thread, not the executor's thread
+            apply_system_buffers(&self.unapplied_systems, systems, world);
+            self.unapplied_systems.clear();
+            debug_assert!(self.unapplied_systems.is_clear());
+        }
 
-            #[cfg(feature = "trace")]
-            let executor_span = info_span!("schedule_task");
-            #[cfg(feature = "trace")]
-            let executor = executor.instrument(executor_span);
-            scope.spawn(executor);
-        });
+        debug_assert!(self.ready_systems.is_clear());
+        debug_assert!(self.running_systems.is_clear());
+        self.active_access.clear();
+        self.evaluated_sets.clear();
+        self.skipped_systems.clear();
+        self.completed_systems.clear();
     }
 }
 
@@ -221,6 +246,7 @@ impl MultiThreadedExecutor {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
+            apply_final_buffers: true,
         }
     }
 
@@ -297,9 +323,6 @@ impl MultiThreadedExecutor {
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_access", name = &*system.name()).entered();
-
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
             return false;
@@ -310,7 +333,9 @@ impl MultiThreadedExecutor {
         }
 
         // TODO: an earlier out if world's archetypes did not change
-        for set_idx in conditions.sets_of_systems[system_index].difference(&self.evaluated_sets) {
+        for set_idx in conditions.sets_with_conditions_of_systems[system_index]
+            .difference(&self.evaluated_sets)
+        {
             for condition in &mut conditions.set_conditions[set_idx] {
                 condition.update_archetype_component_access(world);
                 if !condition
@@ -358,11 +383,8 @@ impl MultiThreadedExecutor {
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_conditions", name = &*_system.name()).entered();
-
         let mut should_run = !self.skipped_systems.contains(system_index);
-        for set_idx in conditions.sets_of_systems[system_index].ones() {
+        for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
                 continue;
             }
@@ -373,7 +395,7 @@ impl MultiThreadedExecutor {
 
             if !set_conditions_met {
                 self.skipped_systems
-                    .union_with(&conditions.systems_in_sets[set_idx]);
+                    .union_with(&conditions.systems_in_sets_with_conditions[set_idx]);
             }
 
             should_run &= set_conditions_met;
@@ -414,14 +436,22 @@ impl MultiThreadedExecutor {
         let task = async move {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
-            // SAFETY: access is compatible
-            unsafe { system.run_unsafe((), world) };
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                // SAFETY: access is compatible
+                unsafe { system.run_unsafe((), world) };
+            }));
             #[cfg(feature = "trace")]
             drop(system_guard);
-            sender
-                .send(system_index)
-                .await
-                .unwrap_or_else(|error| unreachable!("{}", error));
+            if res.is_err() {
+                // close the channel to propagate the error to the
+                // multithreaded executor
+                sender.close();
+            } else {
+                sender
+                    .send(system_index)
+                    .await
+                    .unwrap_or_else(|error| unreachable!("{}", error));
+            }
         };
 
         #[cfg(feature = "trace")]
@@ -435,7 +465,7 @@ impl MultiThreadedExecutor {
             scope.spawn(task);
         } else {
             self.local_thread_running = true;
-            scope.spawn_on_scope(task);
+            scope.spawn_on_external(task);
         }
     }
 
@@ -459,17 +489,26 @@ impl MultiThreadedExecutor {
         let sender = self.sender.clone();
         if is_apply_system_buffers(system) {
             // TODO: avoid allocation
-            let mut unapplied_systems = self.unapplied_systems.clone();
+            let unapplied_systems = self.unapplied_systems.clone();
+            self.unapplied_systems.clear();
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                apply_system_buffers(&mut unapplied_systems, systems, world);
+                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    apply_system_buffers(&unapplied_systems, systems, world);
+                }));
                 #[cfg(feature = "trace")]
                 drop(system_guard);
-                sender
-                    .send(system_index)
-                    .await
-                    .unwrap_or_else(|error| unreachable!("{}", error));
+                if res.is_err() {
+                    // close the channel to propagate the error to the
+                    // multithreaded executor
+                    sender.close();
+                } else {
+                    sender
+                        .send(system_index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                }
             };
 
             #[cfg(feature = "trace")]
@@ -479,13 +518,21 @@ impl MultiThreadedExecutor {
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                system.run((), world);
+                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    system.run((), world);
+                }));
                 #[cfg(feature = "trace")]
                 drop(system_guard);
-                sender
-                    .send(system_index)
-                    .await
-                    .unwrap_or_else(|error| unreachable!("{}", error));
+                if res.is_err() {
+                    // close the channel to propagate the error to the
+                    // multithreaded executor
+                    sender.close();
+                } else {
+                    sender
+                        .send(system_index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                }
             };
 
             #[cfg(feature = "trace")]
@@ -522,8 +569,6 @@ impl MultiThreadedExecutor {
     }
 
     fn signal_dependents(&mut self, system_index: usize) {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("signal_dependents").entered();
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];
             debug_assert!(*remaining >= 1);
@@ -545,19 +590,15 @@ impl MultiThreadedExecutor {
 }
 
 fn apply_system_buffers(
-    unapplied_systems: &mut FixedBitSet,
+    unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
 ) {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };
-        #[cfg(feature = "trace")]
-        let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
         system.apply_buffers(world);
     }
-
-    unapplied_systems.clear();
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
@@ -572,4 +613,14 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
             unsafe { condition.run_unsafe((), world) }
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
+#[derive(Resource, Default, Clone)]
+pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+
+impl MainThreadExecutor {
+    pub fn new() -> Self {
+        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+    }
 }
