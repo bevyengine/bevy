@@ -96,13 +96,13 @@ pub trait PartialReflect: Any + Send + Sync {
     fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>>;
 
     /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect>;
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
 
     /// Returns the value as a [`&dyn PartialReflect`](PartialReflect).
-    fn as_partial(&self) -> &dyn PartialReflect;
+    fn as_partial_reflect(&self) -> &dyn PartialReflect;
 
     /// Returns the value as a [`&mut dyn PartialReflect`](PartialReflect).
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect;
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
 
     /// Applies a reflected value to this value.
     ///
@@ -235,7 +235,7 @@ impl dyn PartialReflect {
     ) -> Result<Box<T>, Box<dyn PartialReflect>> {
         self.into_full()?
             .downcast()
-            .map_err(PartialReflect::into_partial)
+            .map_err(PartialReflect::into_partial_reflect)
     }
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
     ///
@@ -317,7 +317,7 @@ pub mod reflectable {
 /// so those types impement [`PartialReflect`] but not `Reflect`.
 ///
 /// Conversion between the two is provided by [`PartialReflect::as_full`] (fallible)
-/// and [`PartialReflect::as_partial`] (infallible) et al.
+/// and [`PartialReflect::as_partial_reflect`] (infallible) et al.
 ///
 /// The `Reflect` trait also adds the requirement that the type must implement [`Typed`].
 ///

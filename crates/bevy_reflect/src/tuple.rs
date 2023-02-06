@@ -313,15 +313,15 @@ impl PartialReflect for DynamicTuple {
         Err(self)
     }
 
-    fn as_partial(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
@@ -514,15 +514,15 @@ macro_rules! impl_reflect_tuple {
                 Ok(self)
             }
 
-            fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+            fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
                 self
             }
 
-            fn as_partial(&self) -> &dyn PartialReflect {
+            fn as_partial_reflect(&self) -> &dyn PartialReflect {
                 self
             }
 
-            fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+            fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
                 self
             }
 

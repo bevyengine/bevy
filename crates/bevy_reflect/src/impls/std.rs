@@ -262,15 +262,15 @@ macro_rules! impl_reflect_for_veclike {
                 Ok(self)
             }
 
-            fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+            fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
                 self
             }
 
-            fn as_partial(&self) -> &dyn PartialReflect {
+            fn as_partial_reflect(&self) -> &dyn PartialReflect {
                 self
             }
 
-            fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+            fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
                 self
             }
 
@@ -485,15 +485,15 @@ impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> PartialRefl
     }
 
     #[inline]
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_partial(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
@@ -641,17 +641,17 @@ impl<T: Reflect, const N: usize> PartialReflect for [T; N] {
     }
 
     #[inline]
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
     #[inline]
-    fn as_partial(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
@@ -859,15 +859,15 @@ impl<T: FromReflect> PartialReflect for Option<T> {
     }
 
     #[inline]
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_partial(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
@@ -1050,15 +1050,15 @@ impl PartialReflect for Cow<'static, str> {
         Ok(self)
     }
 
-    fn as_partial(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
@@ -1182,15 +1182,15 @@ impl PartialReflect for &'static Path {
         Ok(self)
     }
 
-    fn as_partial(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
