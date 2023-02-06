@@ -102,7 +102,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Set the buffer usage of the buffer.
+    /// Adds more [`BufferUsages`] to the buffer.
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
@@ -223,7 +223,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Set the buffer usage of the buffer.
+    /// Adds more [`BufferUsages`] to the buffer.
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
