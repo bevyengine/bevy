@@ -527,9 +527,7 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
-    trait_path
-        .segments
-        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
@@ -541,9 +539,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
-    trait_path
-        .segments
-        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("SystemSet").into());
     derive_set(input, &trait_path)
 }

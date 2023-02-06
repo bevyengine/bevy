@@ -3,11 +3,11 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
-/// A variant of [`SingleThreadedExecutor`](crate::schedule_v3::SingleThreadedExecutor) that calls
+/// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_buffers`](crate::system::System::apply_buffers) immediately after running each system.
 #[derive(Default)]
 pub struct SimpleExecutor {

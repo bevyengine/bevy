@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::mem;
 
 use crate as bevy_ecs;
-use crate::schedule_v3::{ScheduleLabel, SystemSet};
+use crate::schedule::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
@@ -61,7 +61,7 @@ pub struct OnExit<S: States>(pub S);
 
 /// A [`SystemSet`] that will run within `CoreSet::StateTransitions` when this state is active.
 ///
-/// This is provided for convenience. A more general [`state_equals`](crate::schedule_v3::common_conditions::state_equals)
+/// This is provided for convenience. A more general [`state_equals`](crate::schedule::common_conditions::state_equals)
 /// [condition](super::Condition) also exists for systems that need to run elsewhere.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnUpdate<S: States>(pub S);

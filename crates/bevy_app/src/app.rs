@@ -2,7 +2,7 @@ use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
-    schedule_v3::{
+    schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
         ScheduleLabel,
@@ -100,7 +100,7 @@ impl Debug for App {
 /// ```rust
 /// # use bevy_app::{App, AppLabel, SubApp, CoreSchedule};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::schedule_v3::ScheduleLabel;
+/// # use bevy_ecs::schedule::ScheduleLabel;
 ///
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
@@ -315,7 +315,7 @@ impl App {
     /// These systems sets only run if the [`State<S>`] resource matches their label.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule_v3::Condition).
+    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
@@ -526,7 +526,7 @@ impl App {
     ///
     /// ```
     /// use bevy_app::App;
-    /// use bevy_ecs::schedule_v3::Schedules;
+    /// use bevy_ecs::schedule::Schedules;
     ///
     /// let app = App::empty()
     ///     .init_resource::<Schedules>()
@@ -549,7 +549,7 @@ impl App {
         }
 
         self.edit_schedule(CoreSchedule::Outer, |schedule| {
-            schedule.set_executor_kind(bevy_ecs::schedule_v3::ExecutorKind::SingleThreaded);
+            schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
             schedule.add_system(run_main_schedule);
         });
 
