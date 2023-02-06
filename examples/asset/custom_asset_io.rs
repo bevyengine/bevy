@@ -33,7 +33,7 @@ impl AssetIo for CustomAssetIo {
     fn watch_path_for_changes(
         &self,
         to_watch: &Path,
-        to_reload: PathBuf,
+        to_reload: Option<PathBuf>,
     ) -> Result<(), AssetIoError> {
         info!("watch_path_for_changes({to_watch:?}, {to_reload:?})");
         self.0.watch_path_for_changes(to_watch, to_reload)
