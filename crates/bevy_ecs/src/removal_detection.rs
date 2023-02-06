@@ -4,7 +4,9 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
-    event::{Event, EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader},
+    event::{
+        Event, EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader,
+    },
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
