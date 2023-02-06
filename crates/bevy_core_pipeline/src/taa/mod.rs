@@ -120,7 +120,7 @@ pub struct TemporalAntialiasBundle {
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
 /// * Thin geometry or texture lines may flicker or disappear
-/// * Slightly blurs the image, leading to a softer look
+/// * Slightly blurs the image, leading to a softer look (using an additional sharpening pass can reduce this)
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
@@ -133,10 +133,18 @@ pub struct TemporalAntialiasBundle {
 /// and add the [`DepthPrepass`], [`VelocityPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
+/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
+///
+/// Currently not compatible with skinned meshes. There will probably be ghosting artifacts.
+///
 /// It is recommended that you use TAA with an HDR camera. Using an SDR camera
 /// will result in slight banding artifacts and shifted brightness.
 ///
-/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// It is very important that correct velocity vectors are written for everything on screen.
+/// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
+/// are added using a third party library, the library must either:
+/// 1. Write particle velocity to the velocity prepass texture
+/// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntialiasSettings {
     /// Set to true to delete the saved temporal history (past frames).
