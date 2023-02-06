@@ -15,7 +15,7 @@ fn main() {
         })
         .add_startup_system(setup)
         .add_system(setup_scene_once_loaded)
-        .add_system(keyboard_animation_control)
+        .add_system(keyboard_animation_control.in_set(CoreSet::Update))
         .run();
 }
 

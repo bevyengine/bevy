@@ -25,9 +25,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(move_cube)
-        .add_system(rotate_cube)
-        .add_system(scale_down_sphere_proportional_to_cube_travel_distance)
+        .add_system(move_cube.in_set(CoreSet::Update))
+        .add_system(rotate_cube.in_set(CoreSet::Update))
+        .add_system(scale_down_sphere_proportional_to_cube_travel_distance.in_set(CoreSet::Update))
         .run();
 }
 

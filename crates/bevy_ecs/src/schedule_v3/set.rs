@@ -23,7 +23,7 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         false
     }
 
-    #[doc(hidden)]
+    /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
 

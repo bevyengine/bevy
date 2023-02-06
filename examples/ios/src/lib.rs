@@ -14,7 +14,7 @@ fn main() {
         }))
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
-        .add_system(touch_camera)
+        .add_system(touch_camera.in_set(CoreSet::Update))
         .add_system(button_handler)
         .run();
 }

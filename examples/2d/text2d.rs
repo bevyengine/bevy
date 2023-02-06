@@ -14,9 +14,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(animate_translation)
-        .add_system(animate_rotation)
-        .add_system(animate_scale)
+        .add_system(animate_translation.in_set(CoreSet::Update))
+        .add_system(animate_rotation.in_set(CoreSet::Update))
+        .add_system(animate_scale.in_set(CoreSet::Update))
         .run();
 }
 
