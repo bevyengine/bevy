@@ -250,15 +250,17 @@ macro_rules! impl_reflect_for_veclike {
                 <Self as Typed>::type_info()
             }
 
-            fn as_full(&self) -> Option<&dyn Reflect> {
+            fn try_as_reflect(&self) -> Option<&dyn Reflect> {
                 Some(self)
             }
 
-            fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+            fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
                 Some(self)
             }
 
-            fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+            fn try_into_reflect(
+                self: Box<Self>,
+            ) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
                 Ok(self)
             }
 
@@ -469,15 +471,15 @@ impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> PartialRefl
         <Self as Typed>::type_info()
     }
 
-    fn as_full(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
         Some(self)
     }
 
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
     }
 
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
 
@@ -625,15 +627,15 @@ impl<T: Reflect, const N: usize> PartialReflect for [T; N] {
         <Self as Typed>::type_info()
     }
 
-    fn as_full(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
         Some(self)
     }
 
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
     }
 
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
 
@@ -841,17 +843,17 @@ impl<T: FromReflect> PartialReflect for Option<T> {
     }
 
     #[inline]
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
 
     #[inline]
-    fn as_full(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
         Some(self)
     }
 
     #[inline]
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
     }
 
@@ -1035,15 +1037,15 @@ impl PartialReflect for Cow<'static, str> {
         <Self as Typed>::type_info()
     }
 
-    fn as_full(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
         Some(self)
     }
 
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
     }
 
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
 
@@ -1151,7 +1153,7 @@ impl FromReflect for Cow<'static, str> {
     fn from_reflect(reflect: &dyn crate::PartialReflect) -> Option<Self> {
         Some(
             reflect
-                .as_full()?
+                .try_as_reflect()?
                 .downcast_ref::<Cow<'static, str>>()?
                 .clone(),
         )
@@ -1167,15 +1169,15 @@ impl PartialReflect for &'static Path {
         <Self as Typed>::type_info()
     }
 
-    fn as_full(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
         Some(self)
     }
 
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
     }
 
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
 
@@ -1279,7 +1281,7 @@ impl GetTypeRegistration for &'static Path {
 
 impl FromReflect for &'static Path {
     fn from_reflect(reflect: &dyn crate::PartialReflect) -> Option<Self> {
-        reflect.as_full()?.downcast_ref::<Self>().copied()
+        reflect.try_as_reflect()?.downcast_ref::<Self>().copied()
     }
 }
 
@@ -1407,7 +1409,7 @@ mod tests {
         #[derive(Reflect, FromReflect, PartialEq, Debug)]
         struct Foo(usize);
 
-        println!("{:?}", PartialReflect::into_full(Box::new(Foo(123))));
+        println!("{:?}", PartialReflect::try_into_reflect(Box::new(Foo(123))));
 
         let expected = Some(Foo(123));
         let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();

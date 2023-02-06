@@ -32,7 +32,7 @@ fn get_serializable<'a, E: serde::ser::Error>(
     reflect_value: &'a dyn PartialReflect,
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
-    let full_reflect = reflect_value.as_full().ok_or_else(|| {
+    let full_reflect = reflect_value.try_as_reflect().ok_or_else(|| {
         serde::ser::Error::custom(format_args!(
             "Type '{}' does not implement Reflect",
             reflect_value.type_name(),

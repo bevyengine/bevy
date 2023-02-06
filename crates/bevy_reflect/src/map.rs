@@ -277,15 +277,15 @@ impl PartialReflect for DynamicMap {
         <Self as Typed>::type_info()
     }
 
-    fn as_full(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
         None
     }
 
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         None
     }
 
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
 

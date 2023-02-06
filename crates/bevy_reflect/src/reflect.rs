@@ -83,17 +83,17 @@ pub trait PartialReflect: Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_type_info(&self) -> &'static TypeInfo;
 
-    /// Returns the value as a [`&dyn Reflect`](Reflect),
+    /// Returns the value as a fully-reflected [`&dyn Reflect`](Reflect),
     /// or [`None`] if the value does not implement it.
-    fn as_full(&self) -> Option<&dyn Reflect>;
+    fn try_as_reflect(&self) -> Option<&dyn Reflect>;
 
-    /// Returns the value as a [`&mut dyn Reflect`](Reflect),
+    /// Returns the value as a fully-reflected [`&mut dyn Reflect`](Reflect),
     /// or [`None`] if the value does not implement it.
-    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect>;
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect>;
 
-    /// Returns the value as a [`Box<dyn Reflect>`](Reflect),
+    /// Returns the value as a fully-reflected [`Box<dyn Reflect>`](Reflect),
     /// or `Err(self)` if the value does not implement it.
-    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>>;
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>>;
 
     /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
@@ -233,7 +233,7 @@ impl dyn PartialReflect {
     pub fn try_downcast<T: Reflect>(
         self: Box<dyn PartialReflect>,
     ) -> Result<Box<T>, Box<dyn PartialReflect>> {
-        self.into_full()?
+        self.try_into_reflect()?
             .downcast()
             .map_err(PartialReflect::into_partial_reflect)
     }
@@ -252,7 +252,7 @@ impl dyn PartialReflect {
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns [`None`].
     pub fn try_downcast_ref<T: Reflect>(&self) -> Option<&T> {
-        self.as_full()?.downcast_ref()
+        self.try_as_reflect()?.downcast_ref()
     }
 
     /// Downcasts the value to type `T` by mutable reference.
@@ -260,7 +260,7 @@ impl dyn PartialReflect {
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns [`None`].
     pub fn try_downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
-        self.as_full_mut()?.downcast_mut()
+        self.try_as_reflect_mut()?.downcast_mut()
     }
 
     /// Returns `true` if the underlying value represents a value of type `T`, or `false`
@@ -285,7 +285,7 @@ impl dyn PartialReflect {
 /// Downcasting a value that may represent multiple types is conceptually undefined
 /// so those types impement [`PartialReflect`] but not `Reflect`.
 ///
-/// Conversion between the two is provided by [`PartialReflect::as_full`] (fallible)
+/// Conversion between the two is provided by [`PartialReflect::try_as_reflect`] (fallible)
 /// and [`PartialReflect::as_partial_reflect`] (infallible) et al.
 ///
 /// The `Reflect` trait also adds the requirement that the type must implement [`Typed`].
