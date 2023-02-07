@@ -14,20 +14,20 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn system(mut draw: Gizmos, time: Res<Time>) {
+fn system(mut gizmos: Gizmos, time: Res<Time>) {
     let sin = time.elapsed_seconds().sin() * 50.;
-    draw.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
-    draw.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
+    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
 
     // Triangle
-    draw.linestrip_gradient_2d([
+    gizmos.linestrip_gradient_2d([
         (Vec2::Y * 300., Color::BLUE),
         (Vec2::new(-255., -155.), Color::RED),
         (Vec2::new(255., -155.), Color::GREEN),
         (Vec2::Y * 300., Color::BLUE),
     ]);
 
-    draw.rect_2d(
+    gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
@@ -35,7 +35,7 @@ fn system(mut draw: Gizmos, time: Res<Time>) {
     );
 
     // The circles have 32 line-segments by default.
-    draw.circle_2d(Vec2::ZERO, 120., Color::BLACK);
+    gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     // You may want to increase this for larger circles.
-    draw.circle_2d(Vec2::ZERO, 300., Color::NAVY).segments(64);
+    gizmos.circle_2d(Vec2::ZERO, 300., Color::NAVY).segments(64);
 }

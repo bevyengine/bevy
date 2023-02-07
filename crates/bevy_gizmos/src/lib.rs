@@ -40,9 +40,9 @@ pub mod prelude {
 const SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
 
-pub struct DebugDrawPlugin;
+pub struct GizmoPlugin;
 
-impl Plugin for DebugDrawPlugin {
+impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
@@ -83,15 +83,15 @@ impl Plugin for DebugDrawPlugin {
 
 #[derive(Resource, Clone, Copy)]
 pub struct GizmoConfig {
-    /// Whether debug drawing should be shown.
+    /// Set to `false` to stop drawing gizmos.
     ///
     /// Defaults to `true`.
     pub enabled: bool,
-    /// Whether debug drawing should ignore depth and draw on top of everything else.
+    /// Draw gizmos on top of everything else, ignoring depth.
     ///
-    /// This setting only affects 3D. In 2D, debug drawing is always on top.
+    /// This setting only affects 3D. In 2D, gizmos are always drawn on top.
     ///
-    /// Defaults to `true`.
+    /// Defaults to `false`.
     pub on_top: bool,
 }
 
@@ -99,7 +99,7 @@ impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            on_top: true,
+            on_top: false,
         }
     }
 }
@@ -122,7 +122,7 @@ impl FromWorld for MeshHandles {
 }
 
 #[derive(Component)]
-struct GizmoDrawMesh;
+struct GizmoMesh;
 
 fn system(
     mut meshes: ResMut<Assets<Mesh>>,
@@ -159,7 +159,7 @@ fn extract(
     let inverse_transpose_model = transform.inverse().transpose();
     commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
         (
-            GizmoDrawMesh,
+            GizmoMesh,
             #[cfg(feature = "bevy_pbr")]
             (
                 handle.clone(),

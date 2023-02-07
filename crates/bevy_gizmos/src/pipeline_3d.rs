@@ -17,7 +17,7 @@ use bevy_render::{
     view::Msaa,
 };
 
-use crate::{GizmoConfig, GizmoDrawMesh, SHADER_HANDLE};
+use crate::{GizmoConfig, GizmoMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
 pub(crate) struct GizmoPipeline {
@@ -151,7 +151,7 @@ pub(crate) fn queue(
     pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoDrawMesh>>,
+    mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoMesh>>,
     config: Res<GizmoConfig>,
     mut views: Query<&mut RenderPhase<Opaque3d>>,
 ) {

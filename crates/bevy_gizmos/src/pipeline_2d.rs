@@ -17,7 +17,7 @@ use bevy_render::{
 use bevy_sprite::*;
 use bevy_utils::FloatOrd;
 
-use crate::{GizmoDrawMesh, SHADER_HANDLE};
+use crate::{GizmoMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
 pub(crate) struct GizmoLinePipeline {
@@ -100,7 +100,7 @@ pub(crate) fn queue(
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoDrawMesh>>,
+    mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoMesh>>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();

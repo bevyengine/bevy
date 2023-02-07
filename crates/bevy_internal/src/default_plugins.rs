@@ -131,7 +131,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_gizmos")]
         {
-            group = group.add(bevy_gizmos::DebugDrawPlugin);
+            group = group.add(bevy_gizmos::GizmoPlugin);
         }
 
         group
