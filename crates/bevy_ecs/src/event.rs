@@ -898,6 +898,30 @@ mod tests {
         assert!(is_empty, "EventReader should be empty");
     }
 
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::new();
+        schedule.add_system(|mut events: EventReader<TestEvent>| {
+            let mut iter = events.iter();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(0), Some(&TestEvent { i: 4 }));
+        });
+    }
+
     #[test]
     fn test_event_iter_last() {
         use bevy_ecs::prelude::*;
