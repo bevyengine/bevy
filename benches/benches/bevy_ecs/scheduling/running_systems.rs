@@ -1,14 +1,5 @@
-use bevy_ecs::{
-    component::Component,
-    schedule::{Stage, SystemStage},
-    system::Query,
-    world::World,
-};
+use bevy_ecs::{component::Component, schedule::Schedule, system::Query, world::World};
 use criterion::Criterion;
-
-fn run_stage(stage: &mut SystemStage, world: &mut World) {
-    stage.run(world);
-}
 
 #[derive(Component)]
 struct A(f32);
@@ -30,31 +21,31 @@ pub fn empty_systems(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     for amount in 0..5 {
-        let mut stage = SystemStage::parallel();
+        let mut schedule = Schedule::new();
         for _ in 0..amount {
-            stage.add_system(empty);
+            schedule.add_system(empty);
         }
-        run_stage(&mut stage, &mut world);
+        schedule.run(&mut world);
         group.bench_function(&format!("{:03}_systems", amount), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                schedule.run(&mut world);
             });
         });
     }
     for amount in 1..21 {
-        let mut stage = SystemStage::parallel();
+        let mut schedule = Schedule::new();
         for _ in 0..amount {
-            stage
+            schedule
                 .add_system(empty)
                 .add_system(empty)
                 .add_system(empty)
                 .add_system(empty)
                 .add_system(empty);
         }
-        run_stage(&mut stage, &mut world);
+        schedule.run(&mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount), |bencher| {
             bencher.iter(|| {
-                run_stage(&mut stage, &mut world);
+                schedule.run(&mut world);
             });
         });
     }
@@ -87,12 +78,12 @@ pub fn busy_systems(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
         for system_amount in 0..5 {
-            let mut stage = SystemStage::parallel();
-            stage.add_system(ab).add_system(cd).add_system(ce);
+            let mut schedule = Schedule::new();
+            schedule.add_system(ab).add_system(cd).add_system(ce);
             for _ in 0..system_amount {
-                stage.add_system(ab).add_system(cd).add_system(ce);
+                schedule.add_system(ab).add_system(cd).add_system(ce);
             }
-            run_stage(&mut stage, &mut world);
+            schedule.run(&mut world);
             group.bench_function(
                 &format!(
                     "{:02}x_entities_{:02}_systems",
@@ -101,7 +92,7 @@ pub fn busy_systems(criterion: &mut Criterion) {
                 ),
                 |bencher| {
                     bencher.iter(|| {
-                        run_stage(&mut stage, &mut world);
+                        schedule.run(&mut world);
                     });
                 },
             );
@@ -138,12 +129,12 @@ pub fn contrived(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
         for system_amount in 0..5 {
-            let mut stage = SystemStage::parallel();
-            stage.add_system(s_0).add_system(s_1).add_system(s_2);
+            let mut schedule = Schedule::new();
+            schedule.add_system(s_0).add_system(s_1).add_system(s_2);
             for _ in 0..system_amount {
-                stage.add_system(s_0).add_system(s_1).add_system(s_2);
+                schedule.add_system(s_0).add_system(s_1).add_system(s_2);
             }
-            run_stage(&mut stage, &mut world);
+            schedule.run(&mut world);
             group.bench_function(
                 &format!(
                     "{:02}x_entities_{:02}_systems",
@@ -152,7 +143,7 @@ pub fn contrived(criterion: &mut Criterion) {
                 ),
                 |bencher| {
                     bencher.iter(|| {
-                        run_stage(&mut stage, &mut world);
+                        schedule.run(&mut world);
                     });
                 },
             );

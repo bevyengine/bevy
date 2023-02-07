@@ -1,10 +1,8 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
-    change_detection::{MutUntyped, TicksMut},
-    component::{
-        Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType,
-    },
+    change_detection::MutUntyped,
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -79,12 +77,14 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        contains_component_with_id(self.world, component_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_id(component_id)
     }
 
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        contains_component_with_type(self.world, type_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_type_id(type_id)
     }
 
     #[inline]
@@ -209,12 +209,14 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        contains_component_with_id(self.world, component_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_id(component_id)
     }
 
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        contains_component_with_type(self.world, type_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_type_id(type_id)
     }
 
     #[inline]
@@ -600,19 +602,10 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let info = self.world.components().get_info(component_id)?;
         // SAFETY:
-        // - entity_location is valid
-        // - component_id is valid as checked by the line above
-        // - the storage type is accurate as checked by the fetched ComponentInfo
-        unsafe {
-            self.world.get_component(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-        }
+        // - `&self` ensures that no mutable references exist to this entity's components.
+        // - `as_unsafe_world_cell_readonly` gives read only permission for all components on this entity
+        unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
@@ -625,30 +618,11 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
-        unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
+        // SAFETY:
+        // - `&mut self` ensures that no references exist to this entity's components.
+        // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
+        unsafe { self.as_unsafe_world_cell().get_mut_by_id(component_id) }
     }
-}
-
-pub(crate) fn contains_component_with_type(
-    world: &World,
-    type_id: TypeId,
-    location: EntityLocation,
-) -> bool {
-    if let Some(component_id) = world.components.get_id(type_id) {
-        contains_component_with_id(world, component_id, location)
-    } else {
-        false
-    }
-}
-
-pub(crate) fn contains_component_with_id(
-    world: &World,
-    component_id: ComponentId,
-    location: EntityLocation,
-) -> bool {
-    world.archetypes[location.archetype_id].contains(component_id)
 }
 
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
@@ -766,59 +740,6 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
             true
         }
     });
-}
-
-// SAFETY: EntityLocation must be valid
-#[inline]
-pub(crate) unsafe fn get_mut<T: Component>(
-    world: &mut World,
-    entity: Entity,
-    location: EntityLocation,
-) -> Option<Mut<'_, T>> {
-    let change_tick = world.change_tick();
-    let last_change_tick = world.last_change_tick();
-    // SAFETY:
-    // - world access is unique
-    // - entity location is valid
-    // - returned component is of type T
-    world
-        .get_component_and_ticks_with_type(
-            TypeId::of::<T>(),
-            T::Storage::STORAGE_TYPE,
-            entity,
-            location,
-        )
-        .map(|(value, ticks)| Mut {
-            // SAFETY:
-            // - world access is unique and ties world lifetime to `Mut` lifetime
-            // - `value` is of type `T`
-            value: value.assert_unique().deref_mut::<T>(),
-            ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
-        })
-}
-
-// SAFETY: EntityLocation must be valid, component_id must be valid
-#[inline]
-pub(crate) unsafe fn get_mut_by_id(
-    world: &mut World,
-    entity: Entity,
-    location: EntityLocation,
-    component_id: ComponentId,
-) -> Option<MutUntyped<'_>> {
-    let change_tick = world.change_tick();
-    // SAFETY: component_id is valid
-    let info = world.components.get_info_unchecked(component_id);
-    // SAFETY:
-    // - world access is unique
-    // - entity location is valid
-    // - returned component is of type T
-    world
-        .get_component_and_ticks(component_id, info.storage_type(), entity, location)
-        .map(|(value, ticks)| MutUntyped {
-            // SAFETY: world access is unique and ties world lifetime to `MutUntyped` lifetime
-            value: value.assert_unique(),
-            ticks: TicksMut::from_tick_cells(ticks, world.last_change_tick(), change_tick),
-        })
 }
 
 /// Moves component data out of storage.

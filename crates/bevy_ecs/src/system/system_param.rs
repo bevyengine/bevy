@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    system::{Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
@@ -152,7 +152,9 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] at the end of a stage.
+    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
+    ///
+    /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
@@ -384,8 +386,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
-/// # schedule.add_stage("update", SystemStage::parallel());
+/// # let mut schedule = Schedule::new();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
@@ -401,9 +402,9 @@ impl_param_set!();
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
 /// }
-/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
-/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
-/// # schedule.run_once(&mut world);
+/// # schedule.add_system(read_resource_system);
+/// # schedule.add_system(write_resource_system.after(read_resource_system));
+/// # schedule.run(&mut world);
 /// ```
 pub trait Resource: Send + Sync + 'static {}
 
@@ -447,6 +448,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
+            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -487,6 +489,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
+            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
@@ -541,7 +544,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     ) -> Self::Item<'w, 's> {
         let value = world
             .as_unsafe_world_cell_migration_internal()
-            .get_resource_mut_with_id(component_id)
+            .get_resource_mut_by_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -550,7 +553,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 )
             });
         ResMut {
-            value: value.value,
+            value: value.value.deref_mut::<T>(),
             ticks: TicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
@@ -579,9 +582,9 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .as_unsafe_world_cell_migration_internal()
-            .get_resource_mut_with_id(component_id)
+            .get_resource_mut_by_id(component_id)
             .map(|value| ResMut {
-                value: value.value,
+                value: value.value.deref_mut::<T>(),
                 ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
@@ -589,37 +592,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     change_tick,
                 },
             })
-    }
-}
-
-// SAFETY: Commands only accesses internal state
-unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
-
-// SAFETY: `Commands::get_param` does not access the world.
-unsafe impl SystemParam for Commands<'_, '_> {
-    type State = CommandQueue;
-    type Item<'w, 's> = Commands<'w, 's>;
-
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        Default::default()
-    }
-
-    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _system_span =
-            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
-                .entered();
-        state.apply(world);
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        world: &'w World,
-        _change_tick: u32,
-    ) -> Self::Item<'w, 's> {
-        Commands::new(state, world)
     }
 }
 
@@ -786,6 +758,181 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 }
 
+/// Types that can be used with [`Deferred<T>`] in systems.
+/// This allows storing system-local data which is used to defer [`World`] mutations.
+///
+/// Types that implement `SystemBuffer` should take care to perform as many
+/// computations up-front as possible. Buffers cannot be applied in parallel,
+/// so you should try to minimize the time spent in [`SystemBuffer::apply`].
+pub trait SystemBuffer: FromWorld + Send + 'static {
+    /// Applies any deferred mutations to the [`World`].
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+}
+
+/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] at the end of a stage.
+/// This is used internally by [`Commands`] to defer `World` mutations.
+///
+/// [`Commands`]: crate::system::Commands
+///
+/// # Examples
+///
+/// By using this type to defer mutations, you can avoid mutable `World` access within
+/// a system, which allows it to run in parallel with more systems.
+///
+/// Note that deferring mutations is *not* free, and should only be used if
+/// the gains in parallelization outweigh the time it takes to apply deferred mutations.
+/// In general, [`Deferred`] should only be used for mutations that are infrequent,
+/// or which otherwise take up a small portion of a system's run-time.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// // Tracks whether or not there is a threat the player should be aware of.
+/// #[derive(Resource, Default)]
+/// pub struct Alarm(bool);
+///
+/// #[derive(Component)]
+/// pub struct Settlement {
+///     // ...
+/// }
+///
+/// // A threat from inside the settlement.
+/// #[derive(Component)]
+/// pub struct Criminal;
+///
+/// // A threat from outside the settlement.
+/// #[derive(Component)]
+/// pub struct Monster;
+///
+/// # impl Criminal { pub fn is_threat(&self, _: &Settlement) -> bool { true } }
+///
+/// use bevy_ecs::system::{Deferred, SystemBuffer, SystemMeta};
+///
+/// // Uses deferred mutations to allow signalling the alarm from multiple systems in parallel.
+/// #[derive(Resource, Default)]
+/// struct AlarmFlag(bool);
+///
+/// impl AlarmFlag {
+///     /// Sounds the alarm at the end of the current stage.
+///     pub fn flag(&mut self) {
+///         self.0 = true;
+///     }
+/// }
+///
+/// impl SystemBuffer for AlarmFlag {
+///     // When `AlarmFlag` is used in a system, this function will get
+///     // called at the end of the system's stage.
+///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+///         if self.0 {
+///             world.resource_mut::<Alarm>().0 = true;
+///             self.0 = false;
+///         }
+///     }
+/// }
+///
+/// // Sound the alarm if there are any criminals who pose a threat.
+/// fn alert_criminal(
+///     settlements: Query<&Settlement>,
+///     criminals: Query<&Criminal>,
+///     mut alarm: Deferred<AlarmFlag>
+/// ) {
+///     let settlement = settlements.single();
+///     for criminal in &criminals {
+///         // Only sound the alarm if the criminal is a threat.
+///         // For this example, assume that this check is expensive to run.
+///         // Since the majority of this system's run-time is dominated
+///         // by calling `is_threat()`, we defer sounding the alarm to
+///         // allow this system to run in parallel with other alarm systems.
+///         if criminal.is_threat(settlement) {
+///             alarm.flag();
+///         }
+///     }
+/// }
+///
+/// // Sound the alarm if there is a monster.
+/// fn alert_monster(
+///     monsters: Query<&Monster>,
+///     mut alarm: ResMut<Alarm>
+/// ) {
+///     if monsters.iter().next().is_some() {
+///         // Since this system does nothing except for sounding the alarm,
+///         // it would be pointless to defer it, so we sound the alarm directly.
+///         alarm.0 = true;
+///     }
+/// }
+///
+/// let mut world = World::new();
+/// world.init_resource::<Alarm>();
+/// world.spawn(Settlement {
+///     // ...
+/// });
+///
+/// let mut schedule = Schedule::new();
+/// schedule
+///     // These two systems have no conflicts and will run in parallel.
+///     .add_system(alert_criminal)
+///     .add_system(alert_monster);
+///
+/// // There are no criminals or monsters, so the alarm is not sounded.
+/// schedule.run(&mut world);
+/// assert_eq!(world.resource::<Alarm>().0, false);
+///
+/// // Spawn a monster, which will cause the alarm to be sounded.
+/// let m_id = world.spawn(Monster).id();
+/// schedule.run(&mut world);
+/// assert_eq!(world.resource::<Alarm>().0, true);
+///
+/// // Remove the monster and reset the alarm.
+/// world.entity_mut(m_id).despawn();
+/// world.resource_mut::<Alarm>().0 = false;
+///
+/// // Spawn a criminal, which will cause the alarm to be sounded.
+/// world.spawn(Criminal);
+/// schedule.run(&mut world);
+/// assert_eq!(world.resource::<Alarm>().0, true);
+/// ```
+pub struct Deferred<'a, T: SystemBuffer>(pub(crate) &'a mut T);
+
+impl<'a, T: SystemBuffer> Deref for Deferred<'a, T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<'a, T: SystemBuffer> DerefMut for Deferred<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
+    }
+}
+
+// SAFETY: Only local state is accessed.
+unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Deferred<'_, T> {}
+
+// SAFETY: Only local state is accessed.
+unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
+    type State = SyncCell<T>;
+    type Item<'w, 's> = Deferred<'s, T>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        SyncCell::new(T::from_world(world))
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        state.get().apply(system_meta, world);
+    }
+
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item<'w, 's> {
+        Deferred(state.get())
+    }
+}
+
 /// Shared borrow of a non-[`Send`] resource.
 ///
 /// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
@@ -890,6 +1037,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -928,6 +1076,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
@@ -980,6 +1129,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1012,6 +1162,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
+            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
