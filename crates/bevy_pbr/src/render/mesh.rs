@@ -753,9 +753,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        let format = match key.contains(MeshPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
+        let format = if key.contains(MeshPipelineKey::HDR) {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
         };
 
         Ok(RenderPipelineDescriptor {
