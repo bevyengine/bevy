@@ -49,7 +49,7 @@ impl Plugin for GizmoPlugin {
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
-            .add_system(system.in_base_set(CoreSet::Last));
+            .add_system(update_gizmo_meshes.in_base_set(CoreSet::Last));
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
