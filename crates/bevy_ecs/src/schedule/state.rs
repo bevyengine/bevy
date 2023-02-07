@@ -7,6 +7,8 @@ use crate::schedule::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
+pub use bevy_ecs_macros::States;
+
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.

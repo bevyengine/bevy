@@ -48,7 +48,6 @@ pub mod prelude {
         },
         world::{FromWorld, World},
     };
-    pub use bevy_ecs_macros::States;
 }
 
 pub use bevy_ecs_macros::all_tuples;
