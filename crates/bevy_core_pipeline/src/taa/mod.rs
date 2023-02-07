@@ -137,9 +137,6 @@ pub struct TemporalAntialiasBundle {
 ///
 /// Currently not compatible with skinned meshes. There will probably be ghosting artifacts.
 ///
-/// It is recommended that you use TAA with an HDR camera. Using an SDR camera
-/// will result in slight banding artifacts and shifted brightness.
-///
 /// It is very important that correct velocity vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
 /// are added using a third party library, the library must either:
