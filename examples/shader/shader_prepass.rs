@@ -10,11 +10,13 @@ use bevy::{
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 fn main() {
     App::new()
+        // When using the prepass with WebGL, you can't use Msaa
+        .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             // The prepass is enabled by default on the StandardMaterial,
             // but you can disable it if you need to.
@@ -30,7 +32,7 @@ fn main() {
         })
         .add_startup_system(setup)
         .add_system(rotate)
-        .add_system(update)
+        .add_system(toggle_prepass_view)
         .run();
 }
 
@@ -69,8 +71,9 @@ fn setup(
         MaterialMeshBundle {
             mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
             material: depth_materials.add(PrepassOutputMaterial {
-                show_depth: 0.0,
-                show_normal: 0.0,
+                settings: ShowPrepassSettings::default(),
+                // We don't actually need a texture here, we just want bevy to give us a sampler
+                sampler: None,
             }),
             transform: Transform::from_xyz(-0.75, 1.25, 3.0)
                 .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
@@ -193,14 +196,23 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     }
 }
 
+#[derive(Debug, Clone, Default, ShaderType)]
+struct ShowPrepassSettings {
+    show_depth: f32,
+    show_normals: f32,
+    is_webgl: f32,
+    padding__: f32,
+}
+
 // This shader simply loads the prepass texture and outputs it directly
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
 pub struct PrepassOutputMaterial {
     #[uniform(0)]
-    show_depth: f32,
-    #[uniform(1)]
-    show_normal: f32,
+    settings: ShowPrepassSettings,
+    // We just need a sampler here. We don't even need to load an image, but we still need to specify the type for the macro
+    #[sampler(1)]
+    sampler: Option<Handle<Image>>,
 }
 
 impl Material for PrepassOutputMaterial {
@@ -212,9 +224,26 @@ impl Material for PrepassOutputMaterial {
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn specialize(
+        pipeline: &bevy::pbr::MaterialPipeline<Self>,
+        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
+        layout: &bevy::render::mesh::MeshVertexBufferLayout,
+        key: bevy::pbr::MaterialPipelineKey<Self>,
+    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
+        descriptor
+            .fragment
+            .as_mut()
+            .unwrap()
+            .shader_defs
+            .push("WEBGL".into());
+        Ok(())
+    }
 }
 
-fn update(
+/// Everytime you press space, it will cycle between transparent, depth and normals view
+fn toggle_prepass_view(
     keycode: Res<Input<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
@@ -222,20 +251,24 @@ fn update(
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         let handle = material_handle.single();
-        let mut mat = materials.get_mut(handle).unwrap();
+        let mat = materials.get_mut(handle).unwrap();
         let out_text;
-        if mat.show_depth == 1.0 {
+        if mat.settings.show_depth == 1.0 {
             out_text = "normal";
-            mat.show_depth = 0.0;
-            mat.show_normal = 1.0;
-        } else if mat.show_normal == 1.0 {
+            mat.settings.show_depth = 0.0;
+            mat.settings.show_normals = 1.0;
+        } else if mat.settings.show_normals == 1.0 {
             out_text = "transparent";
-            mat.show_depth = 0.0;
-            mat.show_normal = 0.0;
+            mat.settings.show_depth = 0.0;
+            mat.settings.show_normals = 0.0;
         } else {
             out_text = "depth";
-            mat.show_depth = 1.0;
-            mat.show_normal = 0.0;
+            mat.settings.show_depth = 1.0;
+            mat.settings.show_normals = 0.0;
+        }
+
+        if cfg!(feature = "webgl") {
+            mat.settings.is_webgl = 1.0;
         }
 
         let mut text = text.single_mut();
