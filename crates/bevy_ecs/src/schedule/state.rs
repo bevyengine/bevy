@@ -7,6 +7,8 @@ use crate::schedule::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
+pub use bevy_ecs_macros::States;
+
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
@@ -25,20 +27,12 @@ use crate::world::World;
 /// ```rust
 /// use bevy_ecs::prelude::States;
 ///
-/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
 ///  #[default]
 ///   MainMenu,
 ///   SettingsMenu,
 ///   InGame,
-/// }
-///
-/// impl States for GameState {
-///   type Iter = std::array::IntoIter<GameState, 3>;
-///
-///   fn variants() -> Self::Iter {
-///     [GameState::MainMenu, GameState::SettingsMenu, GameState::InGame].into_iter()
-///   }
 /// }
 ///
 /// ```

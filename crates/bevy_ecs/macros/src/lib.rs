@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod component;
 mod fetch;
 mod set;
+mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
 use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
@@ -557,4 +558,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+#[proc_macro_derive(States)]
+pub fn derive_states(input: TokenStream) -> TokenStream {
+    states::derive_states(input)
 }
