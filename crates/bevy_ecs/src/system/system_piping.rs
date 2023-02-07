@@ -7,6 +7,8 @@ use crate::{
 };
 use std::{any::TypeId, borrow::Cow};
 
+use super::ReadOnlySystem;
+
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
 /// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
@@ -151,6 +153,15 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         system_sets.extend_from_slice(&self.system_b.default_system_sets());
         system_sets
     }
+}
+
+/// SAFETY: Both systems are read-only, so piping them together will only read from the world.
+unsafe impl<SystemA: System, SystemB: System<In = SystemA::Out>> ReadOnlySystem
+    for PipeSystem<SystemA, SystemB>
+where
+    SystemA: ReadOnlySystem,
+    SystemB: ReadOnlySystem,
+{
 }
 
 /// An extension trait providing the [`IntoPipeSystem::pipe`] method to pass input from one system into the next.

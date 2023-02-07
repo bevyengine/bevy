@@ -78,6 +78,11 @@ pub trait System: Send + Sync + 'static {
     fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
 
+/// # Safety
+///
+/// This must only be implemented for system types which do not read from the [`World`].
+pub unsafe trait ReadOnlySystem: System {}
+
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 

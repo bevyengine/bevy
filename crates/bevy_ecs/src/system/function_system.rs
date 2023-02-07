@@ -10,6 +10,8 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
+use super::ReadOnlySystem;
+
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
@@ -526,6 +528,17 @@ where
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
     }
+}
+
+/// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
+unsafe impl<In, Out, Param, Marker, F> ReadOnlySystem for FunctionSystem<In, Out, Param, Marker, F>
+where
+    In: 'static,
+    Out: 'static,
+    Param: ReadOnlySystemParam + 'static,
+    Marker: 'static,
+    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+{
 }
 
 /// A trait implemented for all functions that can be used as [`System`]s.
