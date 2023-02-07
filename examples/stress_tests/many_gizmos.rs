@@ -31,7 +31,6 @@ fn main() {
     .add_system(input)
     .add_system(ui_system);
 
-    // TODO Why no parallelize?
     for _ in 0..SYSTEM_COUNT {
         app.add_system(system);
     }
