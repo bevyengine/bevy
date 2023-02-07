@@ -1,4 +1,4 @@
-//! This examples compares MSAA (Multi-Sample Anti-Aliasing), FXAA (Fast Approximate Anti-Aliasing), and TAA (Temporal Anti-Aliasing).
+//! This example compares MSAA (Multi-Sample Anti-Aliasing), FXAA (Fast Approximate Anti-Aliasing), and TAA (Temporal Anti-Aliasing).
 
 use std::f32::consts::PI;
 
@@ -7,6 +7,7 @@ use bevy::{
         fxaa::{Fxaa, Sensitivity},
         taa::{TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings},
     },
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -27,11 +28,18 @@ fn main() {
 
 fn toggle_aa(
     keys: Res<Input<KeyCode>>,
-    mut camera: Query<(Entity, Option<&mut Fxaa>), With<Camera>>,
+    mut camera: Query<
+        (
+            Entity,
+            Option<&mut Fxaa>,
+            Option<&TemporalAntialiasSettings>,
+        ),
+        With<Camera>,
+    >,
     mut msaa: ResMut<Msaa>,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa) = camera.single_mut();
+    let (camera_entity, fxaa, taa) = camera.single_mut();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
@@ -82,7 +90,7 @@ fn toggle_aa(
     }
 
     // TAA
-    if keys.just_pressed(KeyCode::Key4) {
+    if keys.just_pressed(KeyCode::Key4) && taa.is_none() {
         camera.insert(TemporalAntialiasBundle::default());
 
         *msaa = Msaa::Off;
@@ -209,6 +217,12 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            maximum_distance: 3.0,
+            first_cascade_far_bound: 0.9,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
 
@@ -29,7 +29,7 @@ impl Plugin for UpscalingPlugin {
             render_app
                 .init_resource::<UpscalingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_view_upscaling_pipelines);
+                .add_system(queue_view_upscaling_pipelines.in_set(RenderSet::Queue));
         }
     }
 }

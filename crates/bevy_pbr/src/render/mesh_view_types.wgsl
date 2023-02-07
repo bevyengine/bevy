@@ -71,6 +71,31 @@ struct Lights {
     spot_light_shadowmap_offset: i32,
 };
 
+struct Fog {
+    base_color: vec4<f32>,
+    directional_light_color: vec4<f32>,
+    // `be` and `bi` are allocated differently depending on the fog mode
+    //
+    // For Linear Fog:
+    //     be.x = start, be.y = end
+    // For Exponential and ExponentialSquared Fog:
+    //     be.x = density
+    // For Atmospheric Fog:
+    //     be = per-channel extinction density
+    //     bi = per-channel inscattering density
+    be: vec3<f32>,
+    directional_light_exponent: f32,
+    bi: vec3<f32>,
+    mode: u32,
+}
+
+// Important: These must be kept in sync with `fog.rs`
+const FOG_MODE_OFF: u32                   = 0u;
+const FOG_MODE_LINEAR: u32                = 1u;
+const FOG_MODE_EXPONENTIAL: u32           = 2u;
+const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+const FOG_MODE_ATMOSPHERIC: u32           = 4u;
+
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct PointLights {
     data: array<PointLight>,

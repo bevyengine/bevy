@@ -330,13 +330,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderStage::Render`] stage, just before the render
+/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache do not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderStage::Render`]: crate::RenderStage::Render
+/// [`RenderSet::Render`]: crate::RenderSet::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: LayoutCache,
@@ -630,10 +630,10 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderStage::Render`] stage, but can
+    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderStage::Render`]: crate::RenderStage::Render
+    /// [`RenderSet::Render`]: crate::RenderSet::Render
     pub fn process_queue(&mut self) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
@@ -806,7 +806,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline cound not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
     )]
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]

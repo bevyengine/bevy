@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.66.0"
+rust-version = "1.67.0"
 
 [workspace]
 exclude = [
@@ -20,10 +20,8 @@ exclude = [
 ]
 members = [
   "crates/*",
-  "examples/android",
-  "examples/ios",
+  "examples/mobile",
   "tools/ci",
-  "tools/spancmp",
   "tools/build-example-pages",
   "tools/build-wasm-example",
   "errors",
@@ -49,6 +47,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "android_shared_stdcxx"
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -122,6 +121,9 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation"]
+
+# Enable using a shared stdlib for cxx on Android.
+android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
@@ -310,6 +312,26 @@ name = "Anti Aliasing"
 description = "Compares different anti aliasing methods"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "atmospheric_fog"
+path = "examples/3d/atmospheric_fog.rs"
+
+[package.metadata.example.atmospheric_fog]
+name = "Atmospheric Fog"
+description = "A scene showcasing the atmospheric fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fog"
+path = "examples/3d/fog.rs"
+
+[package.metadata.example.fog]
+name = "Fog"
+description = "A scene showcasing the distance fog effect"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "blend_modes"
@@ -905,7 +927,7 @@ path = "examples/ecs/removal_detection.rs"
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
-description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+description = "Query for entities that had a specific component removed earlier in the current frame"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -956,16 +978,6 @@ path = "examples/ecs/system_param.rs"
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "system_sets"
-path = "examples/ecs/system_sets.rs"
-
-[package.metadata.example.system_sets]
-name = "System Sets"
-description = "Shows `SystemSet` use along with run criterion"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1128,6 +1140,16 @@ path = "examples/input/touch_input_events.rs"
 [package.metadata.example.touch_input_events]
 name = "Touch Input Events"
 description = "Prints out all touch inputs"
+category = "Input"
+wasm = false
+
+[[example]]
+name = "text_input"
+path = "examples/input/text_input.rs"
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Simple text input with IME support"
 category = "Input"
 wasm = false
 
@@ -1429,6 +1451,16 @@ category = "Tools"
 wasm = false
 
 [[example]]
+name = "nondeterministic_system_order"
+path = "examples/ecs/nondeterministic_system_order.rs"
+
+[package.metadata.example.nondeterministic_system_order]
+name = "Nondeterministic System Order"
+description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 
@@ -1528,6 +1560,17 @@ name = "Text Debug"
 description = "An example for debugging text layout"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "text_layout"
+path = "examples/ui/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "UI (User Interface)"
+wasm = false
+
 
 [[example]]
 name = "transparency_ui"

@@ -9,7 +9,7 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
-    schedule::IntoSystemDescriptor,
+    schedule::IntoSystemConfig,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -30,8 +30,8 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
-    Extract, RenderApp, RenderStage,
+    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
+    ExtractSchedule, MainWorld, RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -61,10 +61,14 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_taa_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_jitter.at_start())
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_pipelines);
+            .add_system_to_schedule(ExtractSchedule, extract_taa_settings)
+            .add_system(
+                prepare_taa_jitter
+                    .before(prepare_view_uniforms)
+                    .in_set(RenderSet::Prepare),
+            )
+            .add_system(prepare_taa_history_textures.in_set(RenderSet::Prepare))
+            .add_system(prepare_taa_pipelines.in_set(RenderSet::Prepare));
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -102,21 +106,21 @@ pub struct TemporalAntialiasBundle {
 
 /// Component to apply temporal antialiasing to a 3d perspective camera.
 ///
-/// Temporal antialiasing (TAA) is a form of post-processing image smoothing/filtering, like
-/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA). TAA works by
-/// blending (averaging) each frame with the past few frames.
+/// Temporal antialiasing (TAA) is a form of image smoothing/filtering, like
+/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA).
+/// TAA works by blending (averaging) each frame with the past few frames.
 ///
 /// # Tradeoffs
 ///
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Filters more types of aliasing than MSAA, such as textures and bright single pixels
-/// * Greatly increases quality of stochastic rendering techniques, such as SSAO and SSR
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
+/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO and SSR
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
 /// * Thin geometry or texture lines may flicker or disappear
-/// * Slightly blurs the image, leading to a softer look
+/// * Slightly blurs the image, leading to a softer look (using an additional sharpening pass can reduce this)
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
@@ -129,12 +133,35 @@ pub struct TemporalAntialiasBundle {
 /// and add the [`DepthPrepass`], [`VelocityPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
+/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
+///
+/// Currently not compatible with skinned meshes. There will probably be ghosting artifacts.
+///
 /// It is recommended that you use TAA with an HDR camera. Using an SDR camera
 /// will result in slight banding artifacts and shifted brightness.
 ///
-/// Cannot be used with `OrthographicProjection`.
-#[derive(Component, Reflect, Clone, Default)]
-pub struct TemporalAntialiasSettings {}
+/// It is very important that correct velocity vectors are written for everything on screen.
+/// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
+/// are added using a third party library, the library must either:
+/// 1. Write particle velocity to the velocity prepass texture
+/// 2. Render particles after TAA
+#[derive(Component, Reflect, Clone)]
+pub struct TemporalAntialiasSettings {
+    /// Set to true to delete the saved temporal history (past frames).
+    ///
+    /// Useful for preventing ghosting when the history is no longer
+    /// representive of the current frame, such as in sudden camera cuts.
+    ///
+    /// After setting this to true, it will automatically be toggled
+    /// back to false after one frame.
+    pub reset: bool,
+}
+
+impl Default for TemporalAntialiasSettings {
+    fn default() -> Self {
+        Self { reset: true }
+    }
+}
 
 struct TAANode {
     view_query: QueryState<(
@@ -368,6 +395,7 @@ impl FromWorld for TAAPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TAAPipelineKey {
     hdr: bool,
+    reset: bool,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
@@ -382,6 +410,10 @@ impl SpecializedRenderPipeline for TAAPipeline {
         } else {
             TextureFormat::bevy_default()
         };
+
+        if key.reset {
+            shader_defs.push("RESET".into());
+        }
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
@@ -411,24 +443,22 @@ impl SpecializedRenderPipeline for TAAPipeline {
     }
 }
 
-fn extract_taa_settings(
-    mut commands: Commands,
-    cameras_3d: Extract<
-        Query<
-            (Entity, &Camera, &Projection, &TemporalAntialiasSettings),
-            (
-                With<Camera3d>,
-                With<TemporalJitter>,
-                With<DepthPrepass>,
-                With<VelocityPrepass>,
-            ),
-        >,
-    >,
-) {
-    for (entity, camera, camera_projection, taa_settings) in &cameras_3d {
-        let perspective_projection = matches!(camera_projection, Projection::Perspective(_));
-        if camera.is_active && perspective_projection {
+fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
+    let mut cameras_3d = main_world
+        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntialiasSettings), (
+            With<Camera3d>,
+            With<TemporalJitter>,
+            With<DepthPrepass>,
+            With<VelocityPrepass>,
+        )>();
+
+    for (entity, camera, camera_projection, mut taa_settings) in
+        cameras_3d.iter_mut(&mut main_world)
+    {
+        let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        if camera.is_active && has_perspective_projection {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
+            taa_settings.reset = false;
         }
     }
 }
@@ -525,12 +555,20 @@ fn prepare_taa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
-    views: Query<(Entity, &ExtractedView), With<TemporalAntialiasSettings>>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntialiasSettings)>,
 ) {
-    for (entity, view) in &views {
-        let pipeline_key = TAAPipelineKey { hdr: view.hdr };
+    for (entity, view, taa_settings) in &views {
+        let mut pipeline_key = TAAPipelineKey {
+            hdr: view.hdr,
+            reset: taa_settings.reset,
+        };
+        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
 
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
+        // Prepare non-reset pipeline anyways - it will be necessary next frame
+        if pipeline_key.reset {
+            pipeline_key.reset = false;
+            pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
+        }
 
         commands.entity(entity).insert(TAAPipelineId(pipeline_id));
     }

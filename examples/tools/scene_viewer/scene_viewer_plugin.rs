@@ -1,7 +1,7 @@
 //! A glTF scene viewer plugin.  Provides controls for animation, directional lighting, and switching between scene cameras.
 //! To use in your own application:
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
-//! - Insert an initalized `SceneHandle` resource into your App's `AssetServer`.
+//! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
 
@@ -57,7 +57,7 @@ pub struct SceneViewerPlugin;
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraTracker>()
-            .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+            .add_system(scene_load_check.in_base_set(CoreSet::PreUpdate))
             .add_system(update_lights)
             .add_system(camera_tracker);
 

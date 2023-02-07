@@ -13,7 +13,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -45,10 +45,12 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_view_targets.after(WindowSystem::Prepare),
+                .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .add_system(prepare_view_uniforms.in_set(ViewSet::PrepareUniforms))
+                .add_system(
+                    prepare_view_targets
+                        .after(WindowSystem::Prepare)
+                        .in_set(RenderSet::Prepare),
                 );
         }
     }
@@ -183,6 +185,20 @@ impl ViewTarget {
         }
     }
 
+    /// The _other_ "main" unsampled texture.
+    /// In most cases you should use [`Self::main_texture`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b
+        } else {
+            &self.main_textures.a
+        }
+    }
+
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&TextureView> {
         self.main_textures.sampled.as_ref()
@@ -241,7 +257,7 @@ pub struct ViewDepthTexture {
     pub view: TextureView,
 }
 
-fn prepare_view_uniforms(
+pub fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -387,4 +403,11 @@ fn prepare_view_targets(
             }
         }
     }
+}
+
+/// System sets for the [`view`](crate::view) module.
+#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+pub enum ViewSet {
+    /// Prepares view uniforms
+    PrepareUniforms,
 }

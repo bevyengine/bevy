@@ -8,6 +8,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
+    schedule::IntoSystemConfig,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -30,7 +31,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -97,13 +98,15 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             return;
         }
 
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
         render_app
             .init_resource::<SSAOPipelines>()
             .init_resource::<SpecializedComputePipelines<SSAOPipelines>>()
-            .add_system_to_stage(RenderStage::Extract, extract_ssao_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_ssao_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_ssao_pipelines)
-            .add_system_to_stage(RenderStage::Queue, queue_ssao_bind_groups);
+            .add_system_to_schedule(ExtractSchedule, extract_ssao_settings)
+            .add_system(prepare_ssao_textures.in_set(RenderSet::Prepare))
+            .add_system(prepare_ssao_pipelines.in_set(RenderSet::Prepare))
+            .add_system(queue_ssao_bind_groups.in_set(RenderSet::Queue));
 
         let ssao_node = SSAONode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();

@@ -3,10 +3,9 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     query::Access,
-    schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
-        In, InputMarker, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, InputMarker,
+        IntoSystem, System, SystemMeta,
     },
     world::{World, WorldId},
 };
@@ -132,9 +131,10 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, world: &mut World) {
-        let param_state = self.param_state.as_mut().expect(PARAM_MESSAGE);
-        Param::apply(param_state, world);
+    fn apply_buffers(&mut self, _world: &mut World) {
+        // "pure" exclusive systems do not have any buffers to apply.
+        // Systems made by piping a normal system with an exclusive system
+        // might have buffers to apply, but this is handled by `PipeSystem`.
     }
 
     #[inline]
@@ -155,25 +155,9 @@ where
         );
     }
 
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        vec![self.func.as_system_label().as_label()]
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
-        let set = crate::schedule_v3::SystemTypeSet::<F>::new();
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
-    }
-}
-
-impl<In, Out, Param, Marker, T> AsSystemLabel<(In, Out, Param, Marker, IsExclusiveFunctionSystem)>
-    for T
-where
-    Param: ExclusiveSystemParam,
-    T: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
-{
-    #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
-        SystemTypeIdLabel::<T>(PhantomData).as_label()
     }
 }
 

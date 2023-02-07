@@ -17,7 +17,7 @@
 //! it will always create a depth buffer that will be used by the main pass.
 //!
 //! When using the default mesh view bindings you should be able to use `prepass_depth()`,
-//! `prepass_normal`, and `prepass_velocity()` to load the related textures.
+//! `prepass_normal()`, and `prepass_velocity()` to load the related textures.
 //! These functions are defined in `bevy_pbr::prepass_utils`. See the `shader_prepass` example that shows how to use them.
 //!
 //! The prepass runs for each `Material`. You can control if the prepass should run per-material by setting the `prepass_enabled`
@@ -26,6 +26,8 @@
 //! Currently only works for 3D.
 
 pub mod node;
+
+use std::cmp::Reverse;
 
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
@@ -38,7 +40,7 @@ use bevy_utils::FloatOrd;
 
 pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
-pub const VELOCITY_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg32Float;
+pub const VELOCITY_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg32Float; // PERFORMANCE TODO: Rg16Float?
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect)]
@@ -50,8 +52,6 @@ pub struct DepthPrepass;
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space velocities will be copied to a separate texture available to the main pass.
-///
-/// Make sure to enable the prepass on your `Material` for this to do anything.
 #[derive(Component, Default, Reflect)]
 pub struct VelocityPrepass;
 
@@ -86,15 +86,17 @@ pub struct Opaque3dPrepass {
 }
 
 impl PhaseItem for Opaque3dPrepass {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
 
+    #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -104,7 +106,8 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -128,15 +131,17 @@ pub struct AlphaMask3dPrepass {
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
 
+    #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -146,7 +151,8 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 

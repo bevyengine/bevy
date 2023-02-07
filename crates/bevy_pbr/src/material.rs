@@ -10,14 +10,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    event::EventReader,
-    prelude::World,
-    schedule::IntoSystemDescriptor,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::FromWorld,
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -37,7 +34,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -198,12 +195,9 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
-                )
-                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+                .add_system_to_schedule(ExtractSchedule, extract_materials::<M>)
+                .add_system(prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare))
+                .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
 
         if self.prepass_enabled {

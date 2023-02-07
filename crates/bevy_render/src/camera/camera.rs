@@ -451,8 +451,8 @@ impl NormalizedRenderTarget {
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, as well as the runtime-selected [`Projection`]. The system runs during the
-/// [`CoreStage::PostUpdate`] stage.
+/// the app, as well as the runtime-selected [`Projection`].
+/// The system runs during [`CoreSet::PostUpdate`].
 ///
 /// ## World Resources
 ///
@@ -462,7 +462,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
-/// [`CoreStage::PostUpdate`]: bevy_app::CoreStage::PostUpdate
+/// [`CoreSet::PostUpdate`]: bevy_app::CoreSet::PostUpdate
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -595,6 +595,7 @@ pub fn extract_cameras(
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default)]
 pub struct TemporalJitter {
+    /// Offset is in range [0, 1].
     pub offset: Vec2,
 }
 
@@ -604,14 +605,15 @@ impl TemporalJitter {
             warn!(
                 "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
             );
-        } else {
-            let jitter = (2.0 * self.offset) / view_size;
-            let jitter_matrix = Mat4::from_translation(Vec3 {
-                x: jitter.x,
-                y: -jitter.y,
-                z: 0.0,
-            });
-            *projection = jitter_matrix * (*projection);
+            return;
         }
+
+        let jitter = (2.0 * self.offset) / view_size;
+        let jitter_matrix = Mat4::from_translation(Vec3 {
+            x: jitter.x,
+            y: -jitter.y,
+            z: 0.0,
+        });
+        *projection = jitter_matrix * (*projection);
     }
 }

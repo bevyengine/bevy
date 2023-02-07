@@ -1,4 +1,4 @@
-use crate::{Extract, RenderApp, RenderStage};
+use crate::{Extract, ExtractSchedule, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -15,12 +15,12 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
-/// In the [`RenderStage::Extract`](crate::RenderStage::Extract) step the asset is transferred
-/// from the "app world" into the "render world".
+/// In the [`ExtractSchedule`](crate::ExtractSchedule) step the asset is transferred
+/// from the "main world" into the "render world".
 /// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
 /// as the render asset itself.
 ///
-/// After that in the [`RenderStage::Prepare`](crate::RenderStage::Prepare) step the extracted asset
+/// After that in the [`RenderSet::Prepare`](crate::RenderSet::Prepare) step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
     /// The representation of the asset in the "render world".
@@ -40,7 +40,7 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemLabel)]
+#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemSet)]
 pub enum PrepareAssetLabel {
     PreAssetPrepare,
     #[default]
@@ -51,8 +51,8 @@ pub enum PrepareAssetLabel {
 /// This plugin extracts the changed assets from the "app world" into the "render world"
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
-/// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) and
-/// [`RenderStage::Prepare`](crate::RenderStage::Prepare) steps for the specified [`RenderAsset`].
+/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
+/// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset> {
     prepare_asset_label: PrepareAssetLabel,
     phantom: PhantomData<fn() -> A>,
@@ -79,24 +79,21 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let prepare_asset_system = prepare_assets::<A>.label(self.prepare_asset_label.clone());
-
-            let prepare_asset_system = match self.prepare_asset_label {
-                PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
-                PrepareAssetLabel::AssetPrepare => {
-                    prepare_asset_system.after(PrepareAssetLabel::PreAssetPrepare)
-                }
-                PrepareAssetLabel::PostAssetPrepare => {
-                    prepare_asset_system.after(PrepareAssetLabel::AssetPrepare)
-                }
-            };
-
             render_app
+                .configure_sets(
+                    (
+                        PrepareAssetLabel::PreAssetPrepare,
+                        PrepareAssetLabel::AssetPrepare,
+                        PrepareAssetLabel::PostAssetPrepare,
+                    )
+                        .chain()
+                        .in_set(RenderSet::Prepare),
+                )
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
-                .add_system_to_stage(RenderStage::Prepare, prepare_asset_system);
+                .add_system_to_schedule(ExtractSchedule, extract_render_asset::<A>)
+                .add_system(prepare_assets::<A>.in_set(self.prepare_asset_label.clone()));
         }
     }
 }
