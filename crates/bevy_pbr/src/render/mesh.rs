@@ -162,8 +162,9 @@ pub fn extract_meshes(
         let uniform = MeshUniform {
             flags: flags.bits,
             transform,
-            // The following conversion to and from a 64-bit matrix improves the accuracy of the
-            // resulting 32bit Mat4, as it reduces precision lost in the inverse transpose.
+            // The following conversion to and from a 64-bit matrix reduces the amount of precision
+            // lost in the inverse transpose. Reducing precision loss here is useful because any
+            // loss here is passed into shaders and will continue to accumulate.
             inverse_transpose_model: transform.as_dmat4().inverse().transpose().as_mat4(),
         };
         if not_caster.is_some() {
