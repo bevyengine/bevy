@@ -924,7 +924,9 @@ mod tests {
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
             assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
-            assert_eq!(iter.nth(0), Some(&TestEvent { i: 4 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(events.is_empty());
         });
     }
 
