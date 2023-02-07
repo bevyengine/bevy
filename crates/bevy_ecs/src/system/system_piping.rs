@@ -423,10 +423,16 @@ pub mod adapter {
             unimplemented!()
         }
 
+        fn not(In(val): In<bool>) -> bool {
+            !val
+        }
+
         assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
         assert_is_system(returning::<Option<()>>.pipe(ignore));
         assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
         assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
+
+        returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 }
