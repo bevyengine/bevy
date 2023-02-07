@@ -161,7 +161,7 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5000.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 10000000.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
