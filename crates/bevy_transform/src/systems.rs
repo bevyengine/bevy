@@ -179,7 +179,8 @@ mod test {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::components::{GlobalTransform, Transform};
-    use crate::{propagate_transforms, sync_simple_transforms, TransformBundle};
+    use crate::systems::*;
+    use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
     #[test]
