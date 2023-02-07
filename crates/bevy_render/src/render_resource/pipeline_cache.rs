@@ -10,12 +10,7 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use parking_lot::Mutex;
-use std::{
-    hash::Hash,
-    iter::FusedIterator,
-    mem,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use std::{hash::Hash, iter::FusedIterator, mem};
 use thiserror::Error;
 
 render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
@@ -276,7 +271,6 @@ struct PipelineCacheInternal<I: PipelineId, D, P> {
     pipelines: Vec<CachedPipeline<I, D, P>>,
     waiting_pipelines: HashSet<I>,
     new_pipelines: Mutex<Vec<CachedPipeline<I, D, P>>>,
-    pipeline_counter: AtomicU32,
 }
 
 impl<I: PipelineId, D, P> Default for PipelineCacheInternal<I, D, P> {
@@ -285,7 +279,6 @@ impl<I: PipelineId, D, P> Default for PipelineCacheInternal<I, D, P> {
             pipelines: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
-            pipeline_counter: AtomicU32::new(1),
         }
     }
 }
@@ -318,7 +311,7 @@ impl<I: PipelineId, D, P: Pipeline<I, D, P>> PipelineCacheInternal<I, D, P> {
     #[inline]
     fn queue_pipeline(&self, descriptor: D) -> I {
         let mut new_pipelines = self.new_pipelines.lock();
-        let id = I::new(self.pipeline_counter.fetch_add(1, Ordering::Relaxed));
+        let id = I::new((self.pipelines.len() + new_pipelines.len()) as u32);
         new_pipelines.push(CachedPipeline {
             id,
             descriptor,
@@ -327,43 +320,6 @@ impl<I: PipelineId, D, P: Pipeline<I, D, P>> PipelineCacheInternal<I, D, P> {
         id
     }
 
-        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-            None
-        } else {
-            Some(self.layout_cache.get(
-                &self.device,
-                &descriptor.layout,
-                descriptor.push_constant_ranges.to_vec(),
-            ))
-        };
-
-        let descriptor = RawRenderPipelineDescriptor {
-            multiview: None,
-            depth_stencil: descriptor.depth_stencil.clone(),
-            label: descriptor.label.as_deref(),
-            layout,
-            multisample: descriptor.multisample,
-            primitive: descriptor.primitive,
-            vertex: RawVertexState {
-                buffers: &vertex_buffer_layouts,
-                entry_point: descriptor.vertex.entry_point.deref(),
-                module: &vertex_module,
-            },
-            fragment: fragment_data
-                .as_ref()
-                .map(|(module, entry_point, targets)| RawFragmentState {
-                    entry_point,
-                    module,
-                    targets,
-                }),
-        };
-
-        let pipeline = device.create_render_pipeline(id, &descriptor);
-
-        PipelineState::Ok(pipeline)
-    }
-
-    // TODO: elevate this method to remove the duplication
     fn process_queue(
         &mut self,
         device: &RenderDevice,

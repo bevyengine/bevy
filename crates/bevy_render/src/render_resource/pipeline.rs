@@ -22,7 +22,8 @@ pub struct RenderPipelineId(pub(crate) NonZeroU32);
 
 impl PipelineId for RenderPipelineId {
     fn new(id: u32) -> Self {
-        Self(NonZeroU32::new(id).unwrap_or_else(|| {
+        // offset the id by one, for the non-zero optimisation
+        Self(NonZeroU32::new(id + 1).unwrap_or_else(|| {
             panic!(
                 "The system ran out of unique `{}`s.",
                 stringify!(RenderPipelineId)
@@ -32,6 +33,7 @@ impl PipelineId for RenderPipelineId {
 
     #[inline]
     fn index(&self) -> usize {
+        // offset the id by one, for the non-zero optimisation
         self.0.get() as usize - 1
     }
 }
@@ -124,10 +126,15 @@ impl Pipeline<RenderPipelineId, RenderPipelineDescriptor, RenderPipeline> for Re
             })
             .collect::<Vec<_>>();
 
-        let layout = descriptor
-            .layout
-            .as_ref()
-            .map(|layout| layout_cache.get(device, layout));
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+            None
+        } else {
+            Some(layout_cache.get(
+                device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
+        };
 
         let descriptor = RawRenderPipelineDescriptor {
             multiview: None,
@@ -163,7 +170,8 @@ pub struct ComputePipelineId(pub(crate) NonZeroU32);
 
 impl PipelineId for ComputePipelineId {
     fn new(id: u32) -> Self {
-        Self(NonZeroU32::new(id).unwrap_or_else(|| {
+        Self(NonZeroU32::new(id + 1).unwrap_or_else(|| {
+            // offset the id by one, for the non-zero optimisation
             panic!(
                 "The system ran out of unique `{}`s.",
                 stringify!(ComputePipelineId)
@@ -173,6 +181,7 @@ impl PipelineId for ComputePipelineId {
 
     #[inline]
     fn index(&self) -> usize {
+        // offset the id by one, for the non-zero optimisation
         self.0.get() as usize - 1
     }
 }
@@ -232,10 +241,15 @@ impl Pipeline<ComputePipelineId, ComputePipelineDescriptor, ComputePipeline> for
             }
         };
 
-        let layout = descriptor
-            .layout
-            .as_ref()
-            .map(|layout| layout_cache.get(device, layout));
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+            None
+        } else {
+            Some(layout_cache.get(
+                device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
+        };
 
         let descriptor = RawComputePipelineDescriptor {
             label: descriptor.label.as_deref(),
