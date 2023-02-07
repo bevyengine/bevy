@@ -95,7 +95,14 @@ pub(crate) struct StructField<'a> {
     /// The reflection-based attributes on the field.
     pub attrs: ReflectFieldAttr,
     /// The index of this field within the struct.
-    pub index: usize,
+    pub declaration_index: usize,
+    /// The index of this field as seen by the reflection API.
+    ///
+    /// This index accounts for the removal of [ignored] fields.
+    /// It will only be `Some(index)` when the field is not ignored.
+    ///
+    /// [ignored]: crate::field_attributes::ReflectIgnoreBehavior::IgnoreAlways
+    pub reflection_index: Option<usize>,
     /// The documentation for this field, if any
     #[cfg(feature = "documentation")]
     pub doc: crate::documentation::Documentation,
@@ -308,19 +315,31 @@ impl<'a> ReflectDerive<'a> {
     }
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
+        let mut active_index = 0;
         let sifter: utility::ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| -> Result<StructField, syn::Error> {
-                let attrs = parse_field_attrs(&field.attrs)?;
-                Ok(StructField {
-                    index,
-                    attrs,
-                    data: field,
-                    #[cfg(feature = "documentation")]
-                    doc: crate::documentation::Documentation::from_attributes(&field.attrs),
-                })
-            })
+            .map(
+                |(declaration_index, field)| -> Result<StructField, syn::Error> {
+                    let attrs = parse_field_attrs(&field.attrs)?;
+
+                    let reflection_index = if attrs.ignore.is_ignored() {
+                        None
+                    } else {
+                        active_index += 1;
+                        Some(active_index - 1)
+                    };
+
+                    Ok(StructField {
+                        declaration_index,
+                        reflection_index,
+                        attrs,
+                        data: field,
+                        #[cfg(feature = "documentation")]
+                        doc: crate::documentation::Documentation::from_attributes(&field.attrs),
+                    })
+                },
+            )
             .fold(
                 utility::ResultSifter::default(),
                 utility::ResultSifter::fold,

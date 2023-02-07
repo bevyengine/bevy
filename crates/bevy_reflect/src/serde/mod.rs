@@ -12,7 +12,7 @@ mod tests {
     use crate::{
         serde::{ReflectSerializer, UntypedReflectDeserializer},
         type_registry::TypeRegistry,
-        DynamicStruct, Reflect,
+        DynamicStruct, FromReflect, Reflect,
     };
     use serde::de::DeserializeSeed;
 
@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_serialization_tuple_struct() {
-        #[derive(Debug, Reflect, PartialEq)]
+        #[derive(Debug, Reflect, FromReflect, PartialEq)]
         #[reflect(PartialEq)]
         struct TestStruct(
             i32,
@@ -87,10 +87,12 @@ mod tests {
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let deserialized = value.take::<DynamicTupleStruct>().unwrap();
 
-        assert!(
-            expected.reflect_partial_eq(&deserialized).unwrap(),
-            "Expected {expected:?} found {deserialized:?}"
-        );
+        println!("{:?}", deserialized);
+
+        let expected = TestStruct(3, 0, 0, 6);
+        let received = <TestStruct as FromReflect>::from_reflect(&deserialized).unwrap();
+
+        assert_eq!(expected, received);
     }
 
     #[test]
