@@ -814,4 +814,9 @@ mod tests {
             "the given variant of Val is not evaluateable (non-numeric)"
         );
     }
+
+    #[test]
+    fn default_val_equals_const_default_val() {
+        assert_eq!(Val::default(), Val::DEFAULT);
+    }
 }
