@@ -1,4 +1,4 @@
-use bevy_ecs::{prelude::*, schedule_v3::IntoSystemConfig};
+use bevy_ecs::{prelude::*, schedule::IntoSystemConfig};
 use rand::Rng;
 use std::ops::Deref;
 
@@ -19,7 +19,7 @@ fn main() {
     // Create a new Schedule, which stores systems and controls their relative ordering
     let mut schedule = Schedule::default();
 
-    // Add systems to the Stage to execute our app logic
+    // Add systems to the Schedule to execute our app logic
     // We can label our systems to force a specific run-order between some of them
     schedule.add_system(spawn_entities.in_set(SimulationSystem::Spawn));
     schedule.add_system(print_counter_when_changed.after(SimulationSystem::Spawn));

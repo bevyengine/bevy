@@ -7,20 +7,12 @@ use bevy::prelude::*;
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum GameState {
     #[default]
     Splash,
     Menu,
     Game,
-}
-
-impl States for GameState {
-    type Iter = std::array::IntoIter<GameState, 3>;
-
-    fn variants() -> Self::Iter {
-        [GameState::Splash, GameState::Menu, GameState::Game].into_iter()
-    }
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
@@ -312,7 +304,7 @@ mod menu {
     }
 
     // State used for the current menu screen
-    #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+    #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
     enum MenuState {
         Main,
         Settings,
@@ -320,21 +312,6 @@ mod menu {
         SettingsSound,
         #[default]
         Disabled,
-    }
-
-    impl States for MenuState {
-        type Iter = std::array::IntoIter<MenuState, 5>;
-
-        fn variants() -> Self::Iter {
-            [
-                MenuState::Main,
-                MenuState::Settings,
-                MenuState::SettingsDisplay,
-                MenuState::SettingsSound,
-                MenuState::Disabled,
-            ]
-            .into_iter()
-        }
     }
 
     // Tag component used to tag entities added on the main menu screen

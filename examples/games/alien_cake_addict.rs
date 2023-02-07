@@ -5,19 +5,11 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use rand::Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
     #[default]
     Playing,
     GameOver,
-}
-
-impl States for GameState {
-    type Iter = std::array::IntoIter<GameState, 2>;
-
-    fn variants() -> Self::Iter {
-        [GameState::Playing, GameState::GameOver].into_iter()
-    }
 }
 
 #[derive(Resource)]

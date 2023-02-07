@@ -3,7 +3,7 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{
+    schedule::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     world::World,
