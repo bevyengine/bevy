@@ -198,10 +198,10 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
 
 #[derive(Debug, Clone, Default, ShaderType)]
 struct ShowPrepassSettings {
-    show_depth: f32,
-    show_normals: f32,
-    is_webgl: f32,
-    padding__: f32,
+    show_depth: u32,
+    show_normals: u32,
+    is_webgl: u32,
+    padding_1: u32,
 }
 
 // This shader simply loads the prepass texture and outputs it directly
@@ -227,10 +227,10 @@ impl Material for PrepassOutputMaterial {
 
     #[cfg(target_arch = "wasm32")]
     fn specialize(
-        pipeline: &bevy::pbr::MaterialPipeline<Self>,
+        _pipeline: &bevy::pbr::MaterialPipeline<Self>,
         descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
-        layout: &bevy::render::mesh::MeshVertexBufferLayout,
-        key: bevy::pbr::MaterialPipelineKey<Self>,
+        _layout: &bevy::render::mesh::MeshVertexBufferLayout,
+        _key: bevy::pbr::MaterialPipelineKey<Self>,
     ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
         descriptor
             .fragment
@@ -253,22 +253,18 @@ fn toggle_prepass_view(
         let handle = material_handle.single();
         let mat = materials.get_mut(handle).unwrap();
         let out_text;
-        if mat.settings.show_depth == 1.0 {
+        if mat.settings.show_depth == 1 {
             out_text = "normal";
-            mat.settings.show_depth = 0.0;
-            mat.settings.show_normals = 1.0;
-        } else if mat.settings.show_normals == 1.0 {
+            mat.settings.show_depth = 0;
+            mat.settings.show_normals = 1;
+        } else if mat.settings.show_normals == 1 {
             out_text = "transparent";
-            mat.settings.show_depth = 0.0;
-            mat.settings.show_normals = 0.0;
+            mat.settings.show_depth = 0;
+            mat.settings.show_normals = 0;
         } else {
             out_text = "depth";
-            mat.settings.show_depth = 1.0;
-            mat.settings.show_normals = 0.0;
-        }
-
-        if cfg!(feature = "webgl") {
-            mat.settings.is_webgl = 1.0;
+            mat.settings.show_depth = 1;
+            mat.settings.show_normals = 0;
         }
 
         let mut text = text.single_mut();

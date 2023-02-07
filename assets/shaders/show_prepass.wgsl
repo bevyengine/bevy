@@ -3,10 +3,10 @@
 #import bevy_pbr::prepass_utils
 
 struct ShowPrepassSettings {
-    show_depth: f32,
-    show_normals: f32,
-    is_webgl: f32,
-    padding__: f32,
+    show_depth: u32,
+    show_normals: u32,
+    padding_1: u32,
+    padding_2: u32,
 }
 @group(1) @binding(0)
 var<uniform> settings: ShowPrepassSettings;
@@ -21,7 +21,7 @@ fn fragment(
 #endif // WEBGL
     #import bevy_pbr::mesh_vertex_output
 ) -> @location(0) vec4<f32> {
-    if settings.show_depth == 1.0 {
+    if settings.show_depth == 1u {
 #ifdef WEBGL
         // prepass_depth() uses textureLoad which doesn't work in WebGL for depth textures.
         // Instead we need to use a sampler
@@ -32,7 +32,7 @@ fn fragment(
         let depth = prepass_depth(frag_coord, sample_index);
 #endif // WEBGL
         return vec4(depth, depth, depth, 1.0);
-    } else if settings.show_normals == 1.0 {
+    } else if settings.show_normals == 1u {
 #ifdef WEBGL
         let normal = prepass_normal(frag_coord, 0u);
 #else // WEBGL
