@@ -928,6 +928,7 @@ mod tests {
 
             assert!(events.is_empty());
         });
+        schedule.run(&mut world);
     }
 
     #[test]
