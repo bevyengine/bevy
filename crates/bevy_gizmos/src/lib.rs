@@ -37,14 +37,14 @@ pub mod prelude {
     pub use crate::{gizmos::Gizmos, GizmoConfig};
 }
 
-const SHADER_HANDLE: HandleUntyped =
+const LINE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
 
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(app, SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()

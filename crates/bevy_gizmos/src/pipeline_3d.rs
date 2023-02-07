@@ -21,7 +21,7 @@ use bevy_render::{
     view::Msaa,
 };
 
-use crate::{GizmoConfig, GizmoMesh, SHADER_HANDLE};
+use crate::{GizmoConfig, GizmoMesh, LINE_SHADER_HANDLE};
 
 #[derive(Resource)]
 pub(crate) struct GizmoPipeline {
@@ -33,7 +33,7 @@ impl FromWorld for GizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
         GizmoPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: SHADER_HANDLE.typed(),
+            shader: LINE_SHADER_HANDLE.typed(),
         }
     }
 }
