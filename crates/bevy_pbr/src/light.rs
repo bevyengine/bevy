@@ -567,12 +567,14 @@ fn calculate_cascade(
     }
 }
 
-/// An ambient light, which lights the entire scene equally.
+/// Use this resource to make an ambient light, which lights the entire scene equally.
+/// Inserted by default by [`PbrPlugin`]
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
+    /// Default is white
     pub color: Color,
-    /// A direct scale factor multiplied with `color` before being passed to the shader.
+    /// A direct scale factor multiplied with `color` before being passed to the shader. Default is 0.05
     pub brightness: f32,
 }
 
