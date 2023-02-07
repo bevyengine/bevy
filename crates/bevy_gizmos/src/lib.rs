@@ -155,6 +155,10 @@ fn extract(
         commands.insert_resource(**config);
     }
 
+    if !config.enabled {
+        return;
+    }
+
     let transform = Mat4::IDENTITY;
     let inverse_transpose_model = transform.inverse().transpose();
     commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
