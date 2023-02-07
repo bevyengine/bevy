@@ -11,11 +11,11 @@ const SYSTEM_COUNT: u32 = 10;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        window: WindowDescriptor {
+        primary_window: Some(Window {
             title: "Many Debug Lines".to_string(),
             present_mode: PresentMode::AutoNoVsync,
             ..default()
-        },
+        }),
         ..default()
     }))
     .add_plugin(FrameTimeDiagnosticsPlugin::default())
