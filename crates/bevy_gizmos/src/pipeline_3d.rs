@@ -7,7 +7,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_pbr::*;
-use bevy_render::{mesh::Mesh, render_resource::Shader};
+use bevy_render::{mesh::Mesh, render_resource::Shader, view::{ViewTarget, ExtractedView}};
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
@@ -83,6 +83,12 @@ impl SpecializedMeshPipeline for GizmoPipeline {
             }
         };
 
+        let format = if key.contains(MeshPipelineKey::HDR) {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone_weak(),
@@ -95,7 +101,7 @@ impl SpecializedMeshPipeline for GizmoPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -153,11 +159,12 @@ pub(crate) fn queue(
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoMesh>>,
     config: Res<GizmoConfig>,
-    mut views: Query<&mut RenderPhase<Opaque3d>>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-    for mut phase in &mut views {
+    for (view, mut phase )in &mut views {
+        let key = key | MeshPipelineKey::from_hdr(view.hdr);
         for (entity, mesh_handle) in &mesh_handles {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
