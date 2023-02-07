@@ -46,9 +46,11 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     // Circles have 32 line-segments by default.
     gizmos.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
     // You may want to increase this for larger circles or spheres.
-    gizmos.circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
+    gizmos
+        .circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
         .segments(64);
-    gizmos.sphere(Vec3::ZERO, 3.2, Color::BLACK)
+    gizmos
+        .sphere(Vec3::ZERO, 3.2, Color::BLACK)
         .circle_segments(64);
 }
 

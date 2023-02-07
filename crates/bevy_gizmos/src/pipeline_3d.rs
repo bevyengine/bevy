@@ -7,7 +7,11 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_pbr::*;
-use bevy_render::{mesh::Mesh, render_resource::Shader, view::{ViewTarget, ExtractedView}};
+use bevy_render::{
+    mesh::Mesh,
+    render_resource::Shader,
+    view::{ExtractedView, ViewTarget},
+};
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
@@ -163,7 +167,7 @@ pub(crate) fn queue(
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-    for (view, mut phase )in &mut views {
+    for (view, mut phase) in &mut views {
         let key = key | MeshPipelineKey::from_hdr(view.hdr);
         for (entity, mesh_handle) in &mesh_handles {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
