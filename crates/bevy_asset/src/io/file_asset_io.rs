@@ -170,34 +170,29 @@ impl AssetIo for FileAssetIo {
 ))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
     let mut changed = HashSet::default();
-    let asset_io =
-        if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
-            asset_io
-        } else {
-            return;
-        };
+    let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() else {
+        return;
+    };
     let watcher = asset_io.filesystem_watcher.read();
-    if let Some(ref watcher) = *watcher {
-        loop {
-            let event = match watcher.receiver.try_recv() {
-                Ok(result) => result.unwrap(),
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),
-            };
-            if let notify::event::Event {
+    let Some(ref watcher) = *watcher else { return; };
+    loop {
+        let paths = match watcher.receiver.try_recv() {
+            Ok(Ok(notify::event::Event {
                 kind: notify::event::EventKind::Modify(_),
                 paths,
                 ..
-            } = event
-            {
-                for path in &paths {
-                    if !changed.contains(path) {
-                        let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
-                        let _ = asset_server.load_untracked(relative_path.into(), true);
-                    }
-                }
-                changed.extend(paths);
+            })) => paths,
+            Ok(Ok(_)) => continue,
+            Ok(Err(err)) => panic!("FilesystemWatcher returned an error: {err}"),
+            Err(TryRecvError::Empty) => break,
+            Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),
+        };
+        for path in &paths {
+            if !changed.contains(path) {
+                let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
+                let _ = asset_server.load_untracked(relative_path.into(), true);
             }
         }
+        changed.extend(paths);
     }
 }
