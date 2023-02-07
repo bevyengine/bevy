@@ -23,6 +23,7 @@ pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
+    #[doc(hidden)]
     #[allow(deprecated)]
     pub use crate::query::ChangeTrackers;
     #[doc(hidden)]
