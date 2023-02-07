@@ -53,7 +53,7 @@ impl Plugin for GizmoPlugin {
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_system_to_schedule(ExtractSchedule, extract);
+        render_app.add_system_to_schedule(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
         {
@@ -64,7 +64,7 @@ impl Plugin for GizmoPlugin {
                 .add_render_command::<Transparent2d, DrawGizmoLines>()
                 .init_resource::<GizmoLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
-                .add_system(queue.in_set(RenderSet::Queue));
+                .add_system(queue_gizmos_2d.in_set(RenderSet::Queue));
         }
 
         #[cfg(feature = "bevy_pbr")]
@@ -76,7 +76,7 @@ impl Plugin for GizmoPlugin {
                 .add_render_command::<Opaque3d, DrawGizmoLines>()
                 .init_resource::<GizmoPipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
-                .add_system(queue.in_set(RenderSet::Queue));
+                .add_system(queue_gizmos_3d.in_set(RenderSet::Queue));
         }
     }
 }
@@ -124,7 +124,7 @@ impl FromWorld for MeshHandles {
 #[derive(Component)]
 struct GizmoMesh;
 
-fn system(
+fn update_gizmo_meshes(
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<MeshHandles>,
     mut storage: ResMut<GizmoStorage>,
@@ -146,7 +146,7 @@ fn system(
     strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 }
 
-fn extract(
+fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<MeshHandles>>,
     config: Extract<Res<GizmoConfig>>,

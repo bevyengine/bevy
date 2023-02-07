@@ -93,7 +93,7 @@ pub(crate) type DrawGizmoLines = (
 );
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn queue(
+pub(crate) fn queue_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     pipeline: Res<GizmoLinePipeline>,
     pipeline_cache: Res<PipelineCache>,
