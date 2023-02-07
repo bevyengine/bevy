@@ -1726,7 +1726,8 @@ impl World {
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
-    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
+    /// Unlike the `run_schedule` method, this method takes the label by reference. This is useful
+    /// when you have the schedule label behind a pointer, such as a `Box`.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
