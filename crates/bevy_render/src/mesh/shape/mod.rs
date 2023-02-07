@@ -203,6 +203,15 @@ impl Default for Plane {
     }
 }
 
+impl Plane {
+    pub fn from_size(size: f32) -> Self {
+        Self {
+            size,
+            subdivisions: 0,
+        }
+    }
+}
+
 impl From<Plane> for Mesh {
     fn from(plane: Plane) -> Self {
         // here this is split in the z and x directions if one ever needs asymetrical subdivision

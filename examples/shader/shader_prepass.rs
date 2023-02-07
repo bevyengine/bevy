@@ -58,13 +58,7 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 5.0,
-                subdivisions: 0,
-            }
-            .into(),
-        ),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
