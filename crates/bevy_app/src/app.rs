@@ -987,7 +987,7 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+            schedules.insert_boxed(label.dyn_clone(), Schedule::new());
         }
 
         let schedule = schedules.get_mut(&label).unwrap();

@@ -1747,7 +1747,7 @@ impl World {
         let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
         schedule.run(self);
         self.resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
+            .insert_boxed(extracted_label, schedule);
     }
 }
 

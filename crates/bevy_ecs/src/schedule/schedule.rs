@@ -43,6 +43,10 @@ impl Schedules {
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
         let label = label.dyn_clone();
+        self.insert_boxed(label, schedule)
+    }
+
+    pub fn insert_boxed(&mut self, label: BoxedScheduleLabel, schedule: Schedule) -> Option<Schedule> {
         if self.inner.contains_key(&label) {
             warn!("schedule with label {:?} already exists", label);
         }
