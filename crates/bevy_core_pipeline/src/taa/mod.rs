@@ -9,7 +9,7 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
-    schedule_v3::IntoSystemConfig,
+    schedule::IntoSystemConfig,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
