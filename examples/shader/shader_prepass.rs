@@ -15,8 +15,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        // When using the prepass with WebGL, you can't use Msaa
-        .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             // The prepass is enabled by default on the StandardMaterial,
             // but you can disable it if you need to.
@@ -72,8 +70,6 @@ fn setup(
             mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
             material: depth_materials.add(PrepassOutputMaterial {
                 settings: ShowPrepassSettings::default(),
-                // We don't actually need a texture here, we just want bevy to give us a sampler
-                sampler: None,
             }),
             transform: Transform::from_xyz(-0.75, 1.25, 3.0)
                 .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
@@ -200,8 +196,8 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
 struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
-    is_webgl: u32,
     padding_1: u32,
+    padding_2: u32,
 }
 
 // This shader simply loads the prepass texture and outputs it directly
@@ -210,9 +206,6 @@ struct ShowPrepassSettings {
 pub struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
-    // We just need a sampler here. We don't even need to load an image, but we still need to specify the type for the macro
-    #[sampler(1)]
-    sampler: Option<Handle<Image>>,
 }
 
 impl Material for PrepassOutputMaterial {
@@ -223,22 +216,6 @@ impl Material for PrepassOutputMaterial {
     // This needs to be transparent in order to show the scene behind the mesh
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn specialize(
-        _pipeline: &bevy::pbr::MaterialPipeline<Self>,
-        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
-        _layout: &bevy::render::mesh::MeshVertexBufferLayout,
-        _key: bevy::pbr::MaterialPipelineKey<Self>,
-    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
-        descriptor
-            .fragment
-            .as_mut()
-            .unwrap()
-            .shader_defs
-            .push("WEBGL".into());
-        Ok(())
     }
 }
 
