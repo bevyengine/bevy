@@ -6,10 +6,6 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
-#ifdef TONEMAP
-#import bevy_core_pipeline::tonemapping
-#endif
-
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var velocity: texture_2d<f32>;
@@ -52,19 +48,11 @@ fn clip_towards_aabb_center(previous_color: vec3<f32>, current_color: vec3<f32>,
 // Post processing wants to go before tonemapping, which conflicts
 // Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
-#ifdef TONEMAP
+// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve
 fn rcp(x: f32) -> f32 { return 1.0 / x; }
-
-fn tonemap(color: vec3<f32>) -> vec3<f32> {
-    return color * rcp(tonemapping_luminance(color) + 1.0);
-}
-
-fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> {
-    var l = 1.0 - tonemapping_luminance(color);
-    l = max(l, 0.000001); // Prevent NaNs
-    return color * rcp(l);
-}
-#endif
+fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
+fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
+fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
 
 fn sample_history(u: f32, v: f32) -> vec3<f32> {
     return textureSample(history, linear_sampler, vec2(u, v)).rgb;
