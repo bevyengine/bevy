@@ -6,6 +6,8 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
+const SKIP_CLIPPING_CONFIDENCE_THRESHOLD: f32 = 10.0;
+
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var velocity: texture_2d<f32>;
@@ -137,7 +139,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // How confident we are that the history is representative of the current frame
     // Increment when pixels are not moving, else reset to 0
     var history_confidence = textureSample(history, nearest_sampler, uv).a;
-    let pixel_velocity = closest_velocity * texture_size;
+    let pixel_velocity = abs(closest_velocity * texture_size);
     if pixel_velocity.x < 0.9 && pixel_velocity.y < 0.9 {
         history_confidence += 1.0;
     } else {
@@ -145,7 +147,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     }
 
     // We can skip clipping when history_confidence is high (reduces flickering)
-    if history_confidence < 5.0 {
+    if history_confidence < SKIP_CLIPPING_CONFIDENCE_THRESHOLD {
         // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
         // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
         // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
@@ -178,7 +180,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 #ifndef RESET
     out.history = vec4(current_color, history_confidence);
 #else
-    out.history = vec4(current_color, 10.0);
+    out.history = vec4(current_color, SKIP_CLIPPING_CONFIDENCE_THRESHOLD);
 #endif
 
 #ifdef TONEMAP
