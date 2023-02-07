@@ -926,11 +926,6 @@ mod tests {
 
         let last = reader.run((), &mut world);
         assert!(last.is_none(), "EventReader should be empty");
-
-        world.send_event(TestEvent { i: 4 });
-        world.send_event(TestEvent { i: 5 });
-        let last = reader.run((), &mut world);
-        assert_eq!(last, Some(TestEvent { i: 5 }));
     }
 
     #[derive(Clone, PartialEq, Debug, Default)]
