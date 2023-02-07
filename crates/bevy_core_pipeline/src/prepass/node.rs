@@ -89,7 +89,9 @@ impl Node for PrepassNode {
                 view: &view_velocities_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 0.0).into()),
+                    // Blue channel dosen't matter, but set to 1.0 for possible faster clear
+                    // https://gpuopen.com/performance/#clears
+                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 1.0).into()),
                     store: true,
                 },
             }));
