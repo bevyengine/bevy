@@ -242,7 +242,7 @@ impl Material for PrepassOutputMaterial {
     }
 }
 
-/// Everytime you press space, it will cycle between transparent, depth and normals view
+/// Every time you press space, it will cycle between transparent, depth and normals view
 fn toggle_prepass_view(
     keycode: Res<Input<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
