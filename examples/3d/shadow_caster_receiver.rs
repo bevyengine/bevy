@@ -67,7 +67,10 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+            mesh: meshes.add(Mesh::from(shape::Plane {
+                size: 20.0,
+                subdivisions: 0,
+            })),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
@@ -78,7 +81,10 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane {
+            size: 20.0,
+            subdivisions: 0,
+        })),
         material: white_handle,
         ..default()
     });

@@ -106,6 +106,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane {
             size: 2.0 * spawn_plane_depth,
+            subdivisions: 0,
         })),
         material: white_handle,
         ..default()
