@@ -361,7 +361,8 @@ impl AddAsset for App {
         #[cfg(feature = "debug_asset_server")]
         {
             self.add_system(
-                crate::debug_asset_server::sync_debug_assets::<T>.in_set(bevy_app::CoreSet::Update),
+                crate::debug_asset_server::sync_debug_assets::<T>
+                    .in_base_set(bevy_app::CoreSet::Update),
             );
             let mut app = self
                 .world
