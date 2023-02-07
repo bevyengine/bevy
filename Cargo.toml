@@ -215,8 +215,8 @@ name = "2d_gizmos"
 path = "examples/2d/2d_gizmos.rs"
 
 [package.metadata.example.2d_gizmos]
-name = "2D Debug Drawing"
-description = "Simple 2D scene with basic shapes and lighting"
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
 category = "2D Rendering"
 wasm = true
 
@@ -316,9 +316,10 @@ name = "3d_gizmos"
 path = "examples/3d/3d_gizmos.rs"
 
 [package.metadata.example.3d_gizmos]
-name = "3D Debug Drawing"
-description = "Simple 3D scene with basic shapes and lighting"
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
 category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "atmospheric_fog"
@@ -347,6 +348,8 @@ path = "examples/3d/blend_modes.rs"
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "lighting"

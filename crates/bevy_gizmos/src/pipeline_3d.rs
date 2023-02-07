@@ -148,7 +148,7 @@ pub(crate) fn queue(
     draw_functions: Res<DrawFunctions<Opaque3d>>,
     pipeline: Res<GizmoPipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoDrawMesh>>,
@@ -163,7 +163,7 @@ pub(crate) fn queue(
                 let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &pipeline,
                         (!config.on_top, key),
                         &mesh.layout,

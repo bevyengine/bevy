@@ -96,7 +96,7 @@ pub(crate) type DrawGizmoLines = (
 pub(crate) fn queue(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     pipeline: Res<GizmoLinePipeline>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
@@ -111,7 +111,7 @@ pub(crate) fn queue(
 
             let key = key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
             let pipeline = specialized_pipelines
-                .specialize(&mut pipeline_cache, &pipeline, key, &mesh.layout)
+                .specialize(&pipeline_cache, &pipeline, key, &mesh.layout)
                 .unwrap();
             phase.add(Transparent2d {
                 entity,
