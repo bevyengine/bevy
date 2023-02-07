@@ -162,7 +162,9 @@ pub fn extract_meshes(
         let uniform = MeshUniform {
             flags: flags.bits,
             transform,
-            inverse_transpose_model: transform.inverse().transpose(),
+            // The following conversion to and from a 64-bit matrix improves the accuracy of the
+            // resulting 32bit Mat4, as it reduces precision lost in the inverse transpose.
+            inverse_transpose_model: transform.as_dmat4().inverse().transpose().as_mat4(),
         };
         if not_caster.is_some() {
             not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
