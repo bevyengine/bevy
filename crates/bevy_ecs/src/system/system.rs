@@ -79,6 +79,9 @@ pub trait System: Send + Sync + 'static {
 }
 
 /// [`System`] types that do not modify the [`World`] when run.
+/// This is implemented for any systems whose parameters all implement [`ReadOnlySystemParam`].
+///
+/// [`ReadOnlySystemParam`]: crate::system::ReadOnlySystemParam
 ///
 /// # Safety
 ///
