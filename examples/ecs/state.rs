@@ -25,19 +25,11 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
     Menu,
     InGame,
-}
-
-impl States for AppState {
-    type Iter = std::array::IntoIter<AppState, 2>;
-
-    fn variants() -> Self::Iter {
-        [AppState::Menu, AppState::InGame].into_iter()
-    }
 }
 
 #[derive(Resource)]
