@@ -546,7 +546,7 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_ecs")
+    BevyManifest::get_path_direct("bevy_ecs")
 }
 
 #[proc_macro_derive(Resource)]
