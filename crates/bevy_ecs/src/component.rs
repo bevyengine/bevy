@@ -86,6 +86,26 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Choosing `Query` reference types
+///
+/// When used in [queries], components can return types other then the reference type specified. For example,
+/// requesting `&mut Transform` in a query will result in a query that returns `Mut<Transform>`, a wrapper
+/// that updates change detection information when it is mutably de-referenced. The reference types returned
+/// can be overridden by specifying a [`ComponentRefs`] type as part of your `Component` derive.
+///
+/// For example, to disable change detection, add #[component(refs = UnwrappedRefs)]:
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet", refs = UnwrappedRefs)]
+/// struct ComponentA;
+/// ```
+///
+/// [`queries`]: crate::system::Query
+/// [`ComponentRefs`] crate::component_refs::ComponentRefs
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.

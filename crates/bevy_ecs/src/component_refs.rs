@@ -186,3 +186,62 @@ where
         }
     }
 }
+
+mod test {
+    use crate::{self as bevy_ecs, prelude::*};
+
+    #[test]
+    fn test_explicit_change_detection_derive() {
+        #[derive(Component)]
+        #[component(refs = "ChangeDetectionRefs")]
+        struct Number(usize);
+
+        let mut world = World::new();
+        world.spawn(Number(1));
+
+        fn detect_changed(query: Query<Entity, Changed<Number>>) -> usize {
+            return query.iter().count();
+        }
+        let mut detect_changed_system = IntoSystem::into_system(detect_changed);
+        detect_changed_system.initialize(&mut world);
+
+        fn update_number(mut query: Query<&mut Number>) {
+            query.single_mut().0 = 3;
+        }
+        let mut update_number_system = IntoSystem::into_system(update_number);
+        update_number_system.initialize(&mut world);
+
+        // initialize last_run tick
+        detect_changed_system.run((), &mut world);
+        update_number_system.run((), &mut world);
+        assert_eq!(detect_changed_system.run((), &mut world), 1);
+    }
+
+    #[test]
+    fn test_unwrapped_refs() {
+        #[derive(Component, Debug)]
+        #[component(refs = "UnwrappedRefs")]
+        struct Number(usize);
+
+        let mut world = World::new();
+        world.spawn(Number(1));
+
+        fn detect_changed(query: Query<Entity, Changed<Number>>) -> usize {
+            return query.iter().count();
+        }
+        let mut detect_changed_system = IntoSystem::into_system(detect_changed);
+        detect_changed_system.initialize(&mut world);
+
+        fn update_number(mut query: Query<&mut Number>) {
+            query.single_mut().0 = 3;
+            dbg!(query.single_mut());
+        }
+        let mut update_number_system = IntoSystem::into_system(update_number);
+        update_number_system.initialize(&mut world);
+
+        // initialize last_run tick
+        detect_changed_system.run((), &mut world);
+        update_number_system.run((), &mut world);
+        assert_eq!(detect_changed_system.run((), &mut world), 0);
+    }
+}

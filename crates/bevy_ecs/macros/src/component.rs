@@ -32,6 +32,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
+    let refs = attrs.refs;
 
     ast.generics
         .make_where_clause()
@@ -44,7 +45,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
-            type Refs = #bevy_ecs_path::component_refs::ChangeDetectionRefs<Self>;
+            // TODO:  better error than `this trait takes 0 generic arguments but 1 generic argument was supplied`
+            type Refs = #refs<Self>;
+            // type Refs = #bevy_ecs_path::component_refs::ChangeDetectionRefs<Self>;
             // type Refs = #bevy_ecs_path::component_refs::UnwrappedRefs<Self>;
         }
     })
@@ -52,9 +55,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 pub const COMPONENT: Symbol = Symbol("component");
 pub const STORAGE: Symbol = Symbol("storage");
+pub const REFS: Symbol = Symbol("refs");
 
 struct Attrs {
     storage: StorageTy,
+    refs: syn::Type,
 }
 
 #[derive(Clone, Copy)]
@@ -72,6 +77,11 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        refs: syn::Type::Path(syn::TypePath {
+            path: crate::BevyManifest::default()
+                .get_path("bevy_ecs::component_refs::ChangeDetectionRefs"),
+            qself: None,
+        }),
     };
 
     for meta in meta_items {
@@ -93,6 +103,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         ))
                     }
                 };
+            }
+            Meta(NameValue(m)) if m.path == REFS => {
+                attrs.refs = syn::parse_str(get_lit_str(STORAGE, &m.lit)?.value().as_str())?;
             }
             Meta(meta_item) => {
                 return Err(Error::new_spanned(
