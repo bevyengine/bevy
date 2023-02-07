@@ -20,21 +20,21 @@ use bevy_render::{
 use crate::{GizmoConfig, GizmoDrawMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
-pub(crate) struct GizmoLinePipeline {
+pub(crate) struct GizmoPipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
 }
 
-impl FromWorld for GizmoLinePipeline {
+impl FromWorld for GizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        GizmoLinePipeline {
+        GizmoPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             shader: SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for GizmoLinePipeline {
+impl SpecializedMeshPipeline for GizmoPipeline {
     type Key = (bool, MeshPipelineKey);
 
     fn specialize(
@@ -48,6 +48,10 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as i32,
         ));
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as i32,
+        ));
         if depth_test {
             shader_defs.push("DEPTH_TEST".into());
         }
@@ -58,19 +62,26 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
         ])?;
         let (label, blend, depth_write_enabled);
         if key.contains(MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA) {
-            label = "transparent_mesh_pipeline".into();
+            label = "transparent_gizmo_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha
             // blended but their depth is not written to the depth buffer.
             depth_write_enabled = false;
         } else {
-            label = "opaque_mesh_pipeline".into();
+            label = "opaque_gizmo_pipeline".into();
             blend = Some(BlendState::REPLACE);
             // For the opaque and alpha mask passes, fragments that are closer
             // will replace the current fragment value in the output and the depth is
             // written to the depth buffer.
             depth_write_enabled = true;
         }
+        let bind_group_layout = match key.msaa_samples() {
+            1 => vec![self.mesh_pipeline.view_layout.clone()],
+            _ => {
+                shader_defs.push("MULTISAMPLED".into());
+                vec![self.mesh_pipeline.view_layout_multisampled.clone()]
+            }
+        };
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -89,7 +100,7 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.mesh_pipeline.view_layout.clone()]),
+            layout: Some(bind_group_layout),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -135,8 +146,8 @@ pub(crate) type DrawGizmoLines = (
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
     draw_functions: Res<DrawFunctions<Opaque3d>>,
-    pipeline: Res<GizmoLinePipeline>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
+    pipeline: Res<GizmoPipeline>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,

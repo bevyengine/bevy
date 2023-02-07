@@ -34,7 +34,7 @@ fn system(mut draw: Gizmos, time: Res<Time>) {
     );
 
     draw.sphere(Vec3::new(1., 0.5, 0.), 0.5, Color::RED);
-    
+
     for y in [0., 0.5, 1.] {
         draw.ray(
             Vec3::new(1., y, 0.),

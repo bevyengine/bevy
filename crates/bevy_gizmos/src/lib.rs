@@ -14,7 +14,7 @@ use bevy_render::{
     mesh::Mesh,
     render_phase::AddRenderCommand,
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
-    Extract, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 
 #[cfg(feature = "bevy_pbr")]
@@ -53,7 +53,7 @@ impl Plugin for DebugDrawPlugin {
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_system(extract.in_set(RenderSet::ExtractCommands));
+        render_app.add_system_to_schedule(ExtractSchedule, extract);
 
         #[cfg(feature = "bevy_sprite")]
         {
@@ -74,8 +74,8 @@ impl Plugin for DebugDrawPlugin {
 
             render_app
                 .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<GizmoLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
+                .init_resource::<GizmoPipeline>()
+                .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
                 .add_system(queue.in_set(RenderSet::Queue));
         }
     }

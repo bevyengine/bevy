@@ -1,7 +1,7 @@
 use std::{f32::consts::TAU, iter};
 
 use bevy_ecs::{
-    system::{Resource, SystemBuffer, SystemMeta, Deferred},
+    system::{Deferred, Resource, SystemBuffer, SystemMeta},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
