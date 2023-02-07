@@ -75,6 +75,8 @@ pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
+pub const PBR_AMBIENT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
@@ -130,6 +132,12 @@ impl Plugin for PbrPlugin {
             app,
             PBR_FUNCTIONS_HANDLE,
             "render/pbr_functions.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_AMBIENT_HANDLE,
+            "render/pbr_ambient.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
