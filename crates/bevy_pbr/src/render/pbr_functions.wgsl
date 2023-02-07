@@ -4,6 +4,7 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
