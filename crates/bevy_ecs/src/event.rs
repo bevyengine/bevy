@@ -898,6 +898,41 @@ mod tests {
         assert!(is_empty, "EventReader should be empty");
     }
 
+    #[test]
+    fn test_event_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut reader =
+            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+                events.iter().last().copied()
+            });
+        reader.initialize(&mut world);
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+
+        world.send_event(TestEvent { i: 4 });
+        world.send_event(TestEvent { i: 5 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 5 }));
+    }
+
     #[derive(Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
