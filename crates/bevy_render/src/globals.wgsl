@@ -1,4 +1,4 @@
-#define_import_path bevy_pbr::globals
+#define_import_path bevy_render::globals
 
 struct Globals {
     // The time since startup in seconds
@@ -13,4 +13,4 @@ struct Globals {
     // WebGL2 structs must be 16 byte aligned.
     _wasm_padding: f32
 #endif
-}
+};

@@ -47,8 +47,6 @@ pub const MESH_VERTEX_OUTPUT: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
-pub const GLOBALS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17924628719070609599);
 pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
 pub const MESH_TYPES_HANDLE: HandleUntyped =
@@ -76,7 +74,6 @@ impl Plugin for MeshRenderPlugin {
             "mesh_view_types.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, GLOBALS_HANDLE, "globals.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             MESH_VIEW_BINDINGS_HANDLE,
