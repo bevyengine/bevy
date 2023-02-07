@@ -443,7 +443,6 @@ mod tests {
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 
-
     #[test]
     fn test_size_from() {
         let size: Size = (Val::Px(20.), Val::Px(30.)).into();
@@ -482,14 +481,26 @@ mod tests {
     fn test_size_all() {
         let length = Val::Px(10.);
 
-        assert_eq!(Size::all(length), Size { width: length, height: length });
+        assert_eq!(
+            Size::all(length),
+            Size {
+                width: length,
+                height: length
+            }
+        );
     }
 
     #[test]
     fn test_size_width() {
         let width = Val::Px(10.);
 
-        assert_eq!(Size::width(width), Size { width, ..Default::default() });        
+        assert_eq!(
+            Size::width(width),
+            Size {
+                width,
+                ..Default::default()
+            }
+        );
     }
 
     #[test]
@@ -504,7 +515,7 @@ mod tests {
             }
         );
     }
-   
+
     #[test]
     fn size_default_equals_const_default() {
         assert_eq!(Size::default(), Size::DEFAULT);
