@@ -566,11 +566,11 @@ impl ShaderProcessor {
                 let name = def.as_str().to_string();
 
                 if let Some(val) = cap.get(2) {
-                    if let Ok(val) = val.as_str().parse() {
+                    if let Ok(val) = val.as_str().parse::<u32>() {
                         shader_defs_unique.insert(name.clone(), ShaderDefVal::UInt(name, val));
-                    } else if let Ok(val) = val.as_str().parse() {
+                    } else if let Ok(val) = val.as_str().parse::<i32>() {
                         shader_defs_unique.insert(name.clone(), ShaderDefVal::Int(name, val));
-                    } else if let Ok(val) = val.as_str().parse() {
+                    } else if let Ok(val) = val.as_str().parse::<bool>() {
                         shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
                     } else {
                         return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
