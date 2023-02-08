@@ -141,13 +141,6 @@ fn setup(
     ));
 
     // camera
-    let environment_map = EnvironmentMapLight {
-        diffuse_map: asset_server.load("environment_maps/pisa_diffuse_zstd.ktx2"),
-        specular_map: asset_server.load("environment_maps/pisa_specular_zstd.ktx2"),
-    };
-    commands.insert_resource(EnvironmentMapHandles {
-        handles: environment_map.clone(),
-    });
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
@@ -158,28 +151,28 @@ fn setup(
             .into(),
             ..default()
         },
-        environment_map,
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_zstd.ktx2"),
+        },
     ));
 }
 
 fn environment_map_load_finish(
     mut commands: Commands,
-    handles: Res<EnvironmentMapHandles>,
     asset_server: Res<AssetServer>,
+    environment_maps: Query<&EnvironmentMapLight>,
     label_query: Query<Entity, With<EnvironmentMapLabel>>,
 ) {
-    if asset_server.get_load_state(&handles.handles.diffuse_map) == LoadState::Loaded
-        && asset_server.get_load_state(&handles.handles.specular_map) == LoadState::Loaded
-    {
-        if let Ok(label_entity) = label_query.get_single() {
-            commands.entity(label_entity).despawn();
+    if let Ok(environment_map) = environment_maps.get_single() {
+        if asset_server.get_load_state(&environment_map.diffuse_map) == LoadState::Loaded
+            && asset_server.get_load_state(&environment_map.specular_map) == LoadState::Loaded
+        {
+            if let Ok(label_entity) = label_query.get_single() {
+                commands.entity(label_entity).despawn();
+            }
         }
     }
-}
-
-#[derive(Resource)]
-struct EnvironmentMapHandles {
-    handles: EnvironmentMapLight,
 }
 
 #[derive(Component)]

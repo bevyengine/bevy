@@ -58,7 +58,6 @@ use bevy_render::{
     ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-use bevy_window::ModifiesWindows;
 use environment_map::EnvironmentMapPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
