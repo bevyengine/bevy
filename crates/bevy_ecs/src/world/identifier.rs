@@ -1,6 +1,7 @@
+use crate::storage::SparseSetIndex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
 /// A unique identifier for a [`super::World`].
 // Note that this *is* used by external crates as well as for internal safety checks
@@ -23,6 +24,17 @@ impl WorldId {
             })
             .map(WorldId)
             .ok()
+    }
+}
+
+impl SparseSetIndex for WorldId {
+    #[inline]
+    fn sparse_set_index(&self) -> usize {
+        self.0
+    }
+
+    fn get_sparse_set_index(value: usize) -> Self {
+        Self(value)
     }
 }
 

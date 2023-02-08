@@ -5,7 +5,9 @@ use crate::{
     system::{IntoSystem, System},
     world::World,
 };
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
+
+use super::ReadOnlySystem;
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
@@ -77,6 +79,10 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.name.clone()
     }
 
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<(SystemA, SystemB)>()
+    }
+
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
@@ -141,6 +147,21 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_a.set_last_change_tick(last_change_tick);
         self.system_b.set_last_change_tick(last_change_tick);
     }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let mut system_sets = self.system_a.default_system_sets();
+        system_sets.extend_from_slice(&self.system_b.default_system_sets());
+        system_sets
+    }
+}
+
+/// SAFETY: Both systems are read-only, so piping them together will only read from the world.
+unsafe impl<SystemA: System, SystemB: System<In = SystemA::Out>> ReadOnlySystem
+    for PipeSystem<SystemA, SystemB>
+where
+    SystemA: ReadOnlySystem,
+    SystemB: ReadOnlySystem,
+{
 }
 
 /// An extension trait providing the [`IntoPipeSystem::pipe`] method to pass input from one system into the next.
@@ -186,12 +207,13 @@ pub mod adapter {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// fn return1() -> u64 { 1 }
+    ///
     /// return1
     ///     .pipe(system_adapter::new(u32::try_from))
     ///     .pipe(system_adapter::unwrap)
     ///     .pipe(print);
     ///
-    /// fn return1() -> u64 { 1 }
     /// fn print(In(x): In<impl std::fmt::Debug>) {
     ///     println!("{x:?}");
     /// }
@@ -212,16 +234,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Panic if the load system returns an error.
     ///         load_save_system.pipe(system_adapter::unwrap)
     ///     )
@@ -249,16 +265,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system information.
     ///         data_pipe_system.pipe(system_adapter::info)
     ///     )
@@ -282,16 +292,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints debug data from system.
     ///         parse_message_system.pipe(system_adapter::dbg)
     ///     )
@@ -315,16 +319,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// # let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system warning if system returns an error.
     ///         warning_pipe_system.pipe(system_adapter::warn)
     ///     )
@@ -350,16 +348,9 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
-    ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Prints system error if system fails.
     ///         parse_error_message_system.pipe(system_adapter::error)
     ///     )
@@ -392,16 +383,10 @@ pub mod adapter {
     /// // Marker component for an enemy entity.
     /// #[derive(Component)]
     /// struct Monster;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    ///     .add_system(
     ///         // If the system fails, just move on and try again next frame.
     ///         fallible_system.pipe(system_adapter::ignore)
     ///     )
@@ -433,8 +418,21 @@ pub mod adapter {
             unimplemented!()
         }
 
+        /// Mocks an exclusive system that takes an input and returns an output.
+        fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
+            unimplemented!()
+        }
+
+        fn not(In(val): In<bool>) -> bool {
+            !val
+        }
+
         assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
         assert_is_system(returning::<Option<()>>.pipe(ignore));
         assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
+
+        returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 }

@@ -2,7 +2,7 @@
 name = "bevy_internal"
 version = "0.9.0"
 edition = "2021"
-description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
+description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic_linking' feature"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -42,6 +42,13 @@ flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
+symphonia-aac = ["bevy_audio/symphonia-aac"]
+symphonia-all = ["bevy_audio/symphonia-all"]
+symphonia-flac = ["bevy_audio/symphonia-flac"]
+symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_audio/symphonia-mp3"]
+symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
+symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_asset/filesystem_watcher"]
@@ -63,6 +70,12 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+# Used to disable code that is unsupported when Bevy is dynamically linked
+dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
+
+# Enable using a shared stdlib for cxx on Android.
+android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 
 [dependencies]
 # bevy
@@ -97,8 +110,3 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.9.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.9.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.9.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.9.0" }
-
-[target.'cfg(target_os = "android")'.dependencies]
-# This version *must* be the same as the version used by winit,
-# or Android will break: https://github.com/rust-windowing/winit#android
-ndk-glue = {version = "0.7", features = ["logger"]}

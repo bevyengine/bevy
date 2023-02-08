@@ -3,10 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    prelude::*,
-    render::camera::Viewport,
-    window::{WindowId, WindowResized},
+    core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
+    render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
@@ -43,6 +41,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 2,
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 280.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
@@ -82,7 +87,7 @@ struct LeftCamera;
 struct RightCamera;
 
 fn set_camera_viewports(
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mut resize_events: EventReader<WindowResized>,
     mut left_camera: Query<&mut Camera, (With<LeftCamera>, Without<RightCamera>)>,
     mut right_camera: Query<&mut Camera, With<RightCamera>>,
@@ -91,21 +96,25 @@ fn set_camera_viewports(
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
     for resize_event in resize_events.iter() {
-        if resize_event.id == WindowId::primary() {
-            let window = windows.primary();
-            let mut left_camera = left_camera.single_mut();
-            left_camera.viewport = Some(Viewport {
-                physical_position: UVec2::new(0, 0),
-                physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
-                ..default()
-            });
+        let window = windows.get(resize_event.window).unwrap();
+        let mut left_camera = left_camera.single_mut();
+        left_camera.viewport = Some(Viewport {
+            physical_position: UVec2::new(0, 0),
+            physical_size: UVec2::new(
+                window.resolution.physical_width() / 2,
+                window.resolution.physical_height(),
+            ),
+            ..default()
+        });
 
-            let mut right_camera = right_camera.single_mut();
-            right_camera.viewport = Some(Viewport {
-                physical_position: UVec2::new(window.physical_width() / 2, 0),
-                physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
-                ..default()
-            });
-        }
+        let mut right_camera = right_camera.single_mut();
+        right_camera.viewport = Some(Viewport {
+            physical_position: UVec2::new(window.resolution.physical_width() / 2, 0),
+            physical_size: UVec2::new(
+                window.resolution.physical_width() / 2,
+                window.resolution.physical_height(),
+            ),
+            ..default()
+        });
     }
 }

@@ -5,7 +5,9 @@
 #import bevy_pbr::utils
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::lighting
+#import bevy_pbr::pbr_ambient
 #import bevy_pbr::shadows
+#import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
 
 struct FragmentInput {
@@ -65,8 +67,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 #endif
-        pbr_input.occlusion = occlusion;
-
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
         pbr_input.world_normal = prepare_world_normal(
@@ -90,9 +90,16 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
         );
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+        pbr_input.occlusion = occlusion;
+
         output_color = pbr(pbr_input);
     } else {
         output_color = alpha_discard(material, output_color);
+    }
+
+    // fog
+    if (fog.mode != FOG_MODE_OFF && (material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        output_color = apply_fog(output_color, in.world_position.xyz, view.world_position.xyz);
     }
 
 #ifdef TONEMAP_IN_SHADER
@@ -106,6 +113,9 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = pow(output_rgb, vec3<f32>(2.2));
     output_color = vec4(output_rgb, output_color.a);
+#endif
+#ifdef PREMULTIPLY_ALPHA
+        output_color = premultiply_alpha(material.flags, output_color);
 #endif
     return output_color;
 }

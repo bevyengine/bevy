@@ -32,10 +32,7 @@ where
     }
 
     fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+        ArrayIter::new(self)
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
@@ -49,6 +46,22 @@ impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
+    fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
+        let value = value.take::<T::Item>().unwrap_or_else(|value| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to insert invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        SmallVec::insert(self, index, value);
+    }
+
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+        Box::new(self.remove(index))
+    }
+
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {

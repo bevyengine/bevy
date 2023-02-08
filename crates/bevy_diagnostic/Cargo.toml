@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+# Disables diagnostics that are unsupported when Bevy is dynamically linked
+dynamic_linking = []
 
 [dependencies]
 # bevy

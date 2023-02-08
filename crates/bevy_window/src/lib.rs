@@ -4,34 +4,32 @@ mod event;
 mod raw_handle;
 mod system;
 mod window;
-mod windows;
 
 pub use crate::raw_handle::*;
+
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
 pub use window::*;
-pub use windows::*;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, MonitorSelection,
-        ReceivedCharacter, Window, WindowDescriptor, WindowMode, WindowMoved, WindowPlugin,
-        WindowPosition, Windows,
+        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_ecs::prelude::*;
 use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
-            window: Default::default(),
-            add_primary_window: true,
-            exit_on_all_closed: true,
+            primary_window: Some(Window::default()),
+            exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
     }
@@ -39,25 +37,30 @@ impl Default for WindowPlugin {
 
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
-    pub window: WindowDescriptor,
-    /// Whether to create a window when added.
+    /// Settings for the primary window. This will be spawned by
+    /// default, if you want to run without a primary window you should
+    /// set this to `None`.
     ///
     /// Note that if there are no windows, by default the App will exit,
     /// due to [`exit_on_all_closed`].
-    pub add_primary_window: bool,
+    pub primary_window: Option<Window>,
+
     /// Whether to exit the app when there are no open windows.
     ///
     /// If disabling this, ensure that you send the [`bevy_app::AppExit`]
     /// event when the app should exit. If this does not occur, you will
     /// create 'headless' processes (processes without windows), which may
-    /// surprise your users. It is recommended to leave this setting as `true`.
+    /// surprise your users. It is recommended to leave this setting to
+    /// either [`ExitCondition::OnAllClosed`] or [`ExitCondition::OnPrimaryClosed`].
     ///
-    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::PostUpdate`].
-    pub exit_on_all_closed: bool,
+    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`CoreSet::Update`].
+    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`CoreSet::Update`].
+    pub exit_condition: ExitCondition,
+
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).
     ///
-    /// If true, this plugin will add [`close_when_requested`] to [`CoreStage::Update`].
+    /// If true, this plugin will add [`close_when_requested`] to [`CoreSet::Update`].
     /// If this system (or a replacement) is not running, the close button will have no effect.
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
@@ -65,8 +68,8 @@ pub struct WindowPlugin {
 
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
+        // User convenience events
         app.add_event::<WindowResized>()
-            .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
@@ -75,33 +78,35 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
+            .add_event::<Ime>()
             .add_event::<WindowFocused>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
-            .add_event::<WindowMoved>()
-            .init_resource::<Windows>();
+            .add_event::<WindowMoved>();
 
-        if self.add_primary_window {
-            app.world.send_event(CreateWindow {
-                id: WindowId::primary(),
-                descriptor: self.window.clone(),
-            });
+        if let Some(primary_window) = &self.primary_window {
+            app.world
+                .spawn(primary_window.clone())
+                .insert(PrimaryWindow);
         }
 
-        if self.exit_on_all_closed {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                exit_on_all_closed.after(ModifiesWindows),
-            );
+        match self.exit_condition {
+            ExitCondition::OnPrimaryClosed => {
+                app.add_system(exit_on_primary_closed.in_base_set(CoreSet::PostUpdate));
+            }
+            ExitCondition::OnAllClosed => {
+                app.add_system(exit_on_all_closed.in_base_set(CoreSet::PostUpdate));
+            }
+            ExitCondition::DontExit => {}
         }
+
         if self.close_when_requested {
-            app.add_system(close_when_requested);
+            app.add_system(close_when_requested.in_base_set(CoreSet::PostUpdate));
         }
 
         // Register event types
         app.register_type::<WindowResized>()
-            .register_type::<CreateWindow>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
@@ -117,18 +122,37 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowMoved>();
 
         // Register window descriptor and related types
-        app.register_type::<WindowId>()
-            .register_type::<PresentMode>()
-            .register_type::<WindowResizeConstraints>()
-            .register_type::<WindowMode>()
+        app.register_type::<Window>()
+            .register_type::<Cursor>()
+            .register_type::<WindowResolution>()
             .register_type::<WindowPosition>()
+            .register_type::<WindowMode>()
+            .register_type::<PresentMode>()
+            .register_type::<InternalWindowState>()
             .register_type::<MonitorSelection>()
-            .register_type::<WindowDescriptor>();
+            .register_type::<WindowResizeConstraints>();
 
         // Register `PathBuf` as it's used by `FileDragAndDrop`
         app.register_type::<PathBuf>();
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub struct ModifiesWindows;
+/// Defines the specific conditions the application should exit on
+#[derive(Clone)]
+pub enum ExitCondition {
+    /// Close application when the primary window is closed
+    ///
+    /// The plugin will add [`exit_on_primary_closed`] to [`CoreSet::Update`].
+    OnPrimaryClosed,
+    /// Close application when all windows are closed
+    ///
+    /// The plugin will add [`exit_on_all_closed`] to [`CoreSet::Update`].
+    OnAllClosed,
+    /// Keep application running headless even after closing all windows
+    ///
+    /// If selecting this, ensure that you send the [`bevy_app::AppExit`]
+    /// event when the app should exit. If this does not occur, you will
+    /// create 'headless' processes (processes without windows), which may
+    /// surprise your users.
+    DontExit,
+}

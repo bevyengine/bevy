@@ -1,7 +1,10 @@
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
-use bevy_reflect::{serde::UntypedReflectDeserializer, Reflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::{
+    serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
+    Reflect, TypeRegistry, TypeRegistryArc,
+};
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
 use serde::{
@@ -9,7 +12,6 @@ use serde::{
     ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use std::borrow::Cow;
 use std::fmt::Formatter;
 
 pub const SCENE_STRUCT: &str = "Scene";
@@ -384,15 +386,16 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     {
         let mut added = HashSet::new();
         let mut entries = Vec::new();
-        while let Some(BorrowableCowStr(key)) = map.next_key()? {
-            if !added.insert(key.clone()) {
-                return Err(Error::custom(format!("duplicate reflect type: `{key}`")));
+        while let Some(registration) =
+            map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
+        {
+            if !added.insert(registration.type_id()) {
+                return Err(Error::custom(format_args!(
+                    "duplicate reflect type: `{}`",
+                    registration.type_name()
+                )));
             }
 
-            let registration = self
-                .registry
-                .get_with_name(&key)
-                .ok_or_else(|| Error::custom(format!("no registration found for `{key}`")))?;
             entries.push(
                 map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
             );
@@ -415,13 +418,6 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         Ok(dynamic_properties)
     }
 }
-
-/// Helper struct for deserializing strings without allocating (when possible).
-///
-/// Based on [this comment](https://github.com/bevyengine/bevy/pull/6894#discussion_r1045069010).
-#[derive(Deserialize)]
-#[serde(transparent)]
-struct BorrowableCowStr<'a>(#[serde(borrow)] Cow<'a, str>);
 
 #[cfg(test)]
 mod tests {
@@ -753,9 +749,7 @@ mod tests {
                     expected
                         .reflect_partial_eq(received.as_ref())
                         .unwrap_or_default(),
-                    "components did not match: (expected: `{:?}`, received: `{:?}`)",
-                    expected,
-                    received
+                    "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
                 );
             }
         }

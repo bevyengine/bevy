@@ -6,7 +6,9 @@
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::lighting
 #import bevy_pbr::shadows
+#import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
+#import bevy_pbr::pbr_ambient
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
