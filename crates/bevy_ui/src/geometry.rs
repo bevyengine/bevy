@@ -346,6 +346,17 @@ impl Default for UiRect<Breadth> {
     }
 }
 
+impl From<UiRect<Breadth>> for UiRect<Val> {
+    fn from(rect: UiRect<Breadth>) -> Self {
+        Self {
+            left: rect.left.into(),
+            right: rect.right.into(),
+            top: rect.top.into(),
+            bottom: rect.bottom.into(),
+        }
+    }
+}
+
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
