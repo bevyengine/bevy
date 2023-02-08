@@ -278,8 +278,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///     // NOTE: the event won't actually be sent until commands get flushed
 ///     // at the end of the current stage.
 ///     commands.add(|w: &mut World| {
-///         let mut events_resource = w.resource_mut::<Events<_>>();
-///         events_resource.send(MyEvent);
+///         w.send_event(MyEvent);
 ///     });
 /// }
 /// ```

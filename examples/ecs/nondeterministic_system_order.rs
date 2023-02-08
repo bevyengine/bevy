@@ -13,7 +13,7 @@
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
 
 use bevy::{
-    ecs::schedule_v3::{LogLevel, ScheduleBuildSettings},
+    ecs::schedule::{LogLevel, ScheduleBuildSettings},
     prelude::*,
 };
 

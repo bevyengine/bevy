@@ -1,7 +1,7 @@
 //! Tools to run systems at a regular interval.
 //! This can be extremely useful for steady, frame-rate independent gameplay logic and physics.
 //!
-//! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedUpdate`] [`Schedule`](bevy_ecs::schedule_v3::Schedule).
+//! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
 //! This schedules is run in the [`CoreSet::FixedUpdate`](bevy_app::CoreSet::FixedUpdate) near the start of each frame,
 //! via the [`run_fixed_update_schedule`] exclusive system.
 //!

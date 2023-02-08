@@ -2,6 +2,7 @@ mod condition;
 mod config;
 mod executor;
 mod graph_utils;
+#[allow(clippy::module_inception)]
 mod schedule;
 mod set;
 mod state;
@@ -20,7 +21,7 @@ mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
-    pub use crate::schedule_v3::{IntoSystemConfig, IntoSystemSetConfig, Schedule, SystemSet};
+    pub use crate::schedule::{IntoSystemConfig, IntoSystemSetConfig, Schedule, SystemSet};
     pub use crate::system::{Res, ResMut};
     pub use crate::{prelude::World, system::Resource};
 
@@ -174,13 +175,11 @@ mod tests {
 
         #[test]
         fn add_systems_correct_order() {
-            #[derive(Resource)]
-            struct X(Vec<TestSet>);
-
             let mut world = World::new();
+            let mut schedule = Schedule::new();
+
             world.init_resource::<SystemOrder>();
 
-            let mut schedule = Schedule::new();
             schedule.add_systems(
                 (
                     make_function_system(0),

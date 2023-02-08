@@ -1,7 +1,7 @@
 //! Tools for controlling behavior in an ECS application.
 //!
 //! Systems define how an ECS based application behaves.
-//! Systems are added to a [`Schedule`](crate::schedule_v3::Schedule), which is then run.
+//! Systems are added to a [`Schedule`](crate::schedule::Schedule), which is then run.
 //! A system is usually written as a normal function, which is automatically converted into a system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
@@ -49,7 +49,7 @@
 //! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
 //! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
 //!
-//! [`SystemSet`]: crate::schedule_v3::SystemSet
+//! [`SystemSet`]: crate::schedule::SystemSet
 //!
 //! ## Example
 //!
@@ -117,12 +117,28 @@ pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
 
-/// Ensure that a given function is a system
+/// Ensure that a given function is a [system](System).
 ///
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
-/// valid systems
+/// valid systems.
 pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+    if false {
+        // Check it can be converted into a system
+        // TODO: This should ensure that the system has no conflicting system params
+        IntoSystem::into_system(sys);
+    }
+}
+
+/// Ensure that a given function is a [read-only system](ReadOnlySystem).
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid systems.
+pub fn assert_is_read_only_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
+where
+    S::System: ReadOnlySystem,
+{
     if false {
         // Check it can be converted into a system
         // TODO: This should ensure that the system has no conflicting system params
@@ -144,7 +160,7 @@ mod tests {
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule_v3::{apply_system_buffers, IntoSystemConfig, Schedule},
+        schedule::{apply_system_buffers, IntoSystemConfig, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             Res, ResMut, Resource, System, SystemState,

@@ -11,21 +11,20 @@ pub trait Condition<Params>: sealed::Condition<Params> {}
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
 mod sealed {
-    use crate::system::{IntoSystem, IsFunctionSystem, ReadOnlySystemParam, SystemParamFunction};
+    use crate::system::{IntoSystem, ReadOnlySystem};
 
     pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
 
-    impl<Params, Marker, F> Condition<(IsFunctionSystem, Params, Marker)> for F
+    impl<Params, F> Condition<Params> for F
     where
-        F: SystemParamFunction<(), bool, Params, Marker> + Send + Sync + 'static,
-        Params: ReadOnlySystemParam + 'static,
-        Marker: 'static,
+        F: IntoSystem<(), bool, Params>,
+        F::System: ReadOnlySystem,
     {
     }
 }
 
 pub mod common_conditions {
-    use crate::schedule_v3::{State, States};
+    use crate::schedule::{State, States};
     use crate::system::{Res, Resource};
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`

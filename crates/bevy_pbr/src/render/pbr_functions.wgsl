@@ -33,8 +33,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-#ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
+    #ifndef VERTEX_TANGENTS
+    #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -199,7 +199,7 @@ fn pbr(
     let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     let offset_and_counts = unpack_offset_and_counts(cluster_index);
 
-    // Point lights (direct) 
+    // Point lights (direct)
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
         var shadow: f32 = 1.0;
@@ -234,22 +234,18 @@ fn pbr(
         var light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
 #ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
         light_contrib = cascade_debug_visualization(light_contrib, i, view_z);
-#endif      
+#endif
         direct_light += light_contrib * shadow;
     }
 
     // Ambient light (indirect)
-    var indirect_diffuse_light = EnvBRDFApprox(diffuse_color, F_AB(1.0, NdotV)) * lights.ambient_color.rgb;
-    var indirect_specular_light = EnvBRDFApprox(F0, f_ab) * lights.ambient_color.rgb;
+    var indirect_light = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
-    indirect_diffuse_light += environment_light.diffuse;
-    indirect_specular_light += environment_light.specular;
+    indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
-
-    let indirect_light = (indirect_diffuse_light * occlusion) + indirect_specular_light;
 
     let emissive_light = emissive.rgb * output_color.a;
 
@@ -299,7 +295,7 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
     let distance = length(view_to_world);
 
     var scattering = vec3<f32>(0.0);
-    if (fog.directional_light_color.a > 0.0) {
+    if fog.directional_light_color.a > 0.0 {
         let view_to_world_normalized = view_to_world / distance;
         let n_directional_lights = lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
@@ -314,13 +310,13 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
         }
     }
 
-    if (fog.mode == FOG_MODE_LINEAR) {
+    if fog.mode == FOG_MODE_LINEAR {
         return linear_fog(input_color, distance, scattering);
-    } else if (fog.mode == FOG_MODE_EXPONENTIAL) {
+    } else if fog.mode == FOG_MODE_EXPONENTIAL {
         return exponential_fog(input_color, distance, scattering);
-    } else if (fog.mode == FOG_MODE_EXPONENTIAL_SQUARED) {
+    } else if fog.mode == FOG_MODE_EXPONENTIAL_SQUARED {
         return exponential_squared_fog(input_color, distance, scattering);
-    } else if (fog.mode == FOG_MODE_ATMOSPHERIC) {
+    } else if fog.mode == FOG_MODE_ATMOSPHERIC {
         return atmospheric_fog(input_color, distance, scattering);
     } else {
         return input_color;
@@ -339,7 +335,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     //
     //     result = 1 * src_color + (1 - src_alpha) * dst_color
     let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) {
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
         // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
         //
         //     src_color *= src_alpha
@@ -351,7 +347,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
         //
         // Which is the blend operation for regular alpha blending `BlendState::ALPHA_BLENDING`
         return vec4<f32>(color.rgb * color.a, color.a);
-    } else if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
         //
         //     src_color *= src_alpha

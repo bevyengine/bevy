@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod component;
 mod fetch;
 mod set;
+mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
 use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
@@ -528,9 +529,7 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
-    trait_path
-        .segments
-        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
@@ -542,9 +541,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
-    trait_path
-        .segments
-        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("SystemSet").into());
     derive_set(input, &trait_path)
 }
@@ -561,4 +558,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+#[proc_macro_derive(States)]
+pub fn derive_states(input: TokenStream) -> TokenStream {
+    states::derive_states(input)
 }

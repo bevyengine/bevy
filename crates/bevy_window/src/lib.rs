@@ -137,9 +137,6 @@ impl Plugin for WindowPlugin {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct ModifiesWindows;
-
 /// Defines the specific conditions the application should exit on
 #[derive(Clone)]
 pub enum ExitCondition {

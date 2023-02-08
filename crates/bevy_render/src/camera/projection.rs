@@ -7,7 +7,6 @@ use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
     ReflectSerialize,
 };
-use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
@@ -43,7 +42,6 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             .add_system(
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
-                    .after(ModifiesWindows)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
