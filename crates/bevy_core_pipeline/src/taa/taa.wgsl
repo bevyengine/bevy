@@ -34,15 +34,9 @@ fn YCoCg_to_RGB(ycocg: vec3<f32>) -> vec3<f32> {
     return saturate(vec3(r, g, b));
 }
 
-fn clip_towards_aabb_center(
-    history_color: vec3<f32>,
-    current_color: vec3<f32>,
-    aabb_min: vec3<f32>,
-    aabb_max: vec3<f32>,
-    aabb_scale: f32,
-) -> vec3<f32> {
+fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, aabb_min: vec3<f32>, aabb_max: vec3<f32>) -> vec3<f32> {
     let p_clip = 0.5 * (aabb_max + aabb_min);
-    let e_clip = 0.5 * (aabb_max - aabb_min) * aabb_scale + 0.00000001;
+    let e_clip = 0.5 * (aabb_max - aabb_min) + 0.00000001;
     let v_clip = history_color - p_clip;
     let v_unit = v_clip / e_clip;
     let a_unit = abs(v_unit);
@@ -140,16 +134,6 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color += sample_history(texel_position_3.x, texel_position_12.y) * w3.x * w12.y;
     history_color += sample_history(texel_position_12.x, texel_position_3.y) * w12.x * w3.y;
 
-    // How confident we are that the history is representative of the current frame
-    // Increment when pixels are not moving, else reset
-    var history_confidence = textureSample(history, nearest_sampler, uv).a;
-    let pixel_velocity = abs(closest_velocity * texture_size);
-    if pixel_velocity.x < 0.01 && pixel_velocity.y < 0.01 {
-        history_confidence += 1.0;
-    } else {
-        history_confidence = 1.0;
-    }
-
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
     // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
@@ -168,12 +152,22 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let variance = (moment_2 / 9.0) - (mean * mean);
     let std_deviation = sqrt(max(variance, vec3(0.0)));
     history_color = RGB_to_YCoCg(history_color);
-    let clip_scale = max(history_confidence - 8.0, 1.0);
-    history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation, clip_scale);
+    history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation);
     history_color = YCoCg_to_RGB(history_color);
 
-    // Blend current and past sample
-    current_color = mix(history_color, current_color, 0.1);
+    // How confident we are that the history is representative of the current frame
+    // Increment when pixels are not moving, else reset
+    var history_confidence = textureSample(history, nearest_sampler, uv).a;
+    let pixel_velocity = abs(closest_velocity * texture_size);
+    if pixel_velocity.x < 0.01 && pixel_velocity.y < 0.01 {
+        history_confidence += 1.0;
+    } else {
+        history_confidence = 1.0;
+    }
+
+    // Blend current and past sample, using more of the history if we're confident in it
+    let current_color_factor = clamp(1.0 / history_confidence, 0.02, 0.1);
+    current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 
     // Write output to history and view target
@@ -182,7 +176,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 #ifndef RESET
     out.history = vec4(current_color, history_confidence);
 #else
-    out.history = vec4(current_color, 1.0);
+    out.history = vec4(current_color, 50.0);
 #endif
 
 #ifdef TONEMAP
