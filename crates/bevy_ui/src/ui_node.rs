@@ -208,10 +208,10 @@ impl Val {
 }
 
 /// An enum that describes possible types of evaluatable (numeric) value in flexbox layout options
-/// 
+///
 /// `Breadth` should be identical to `Val` except that it has no non-evaluatable variants
-/// and some functions are changed to reflect that they always have a defined ouput. 
-/// So, for example, [`Val::try_add_with_size`] can return an error, but `Breadth`'s equivalent 
+/// and some functions are changed to reflect that they always have a defined ouput.
+/// So, for example, [`Val::try_add_with_size`] can return an error, but `Breadth`'s equivalent
 /// returns an `f32` and is renamed to [`Breadth::add_with_size`].
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
