@@ -165,8 +165,6 @@ impl CoreSet {
 /// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
-///
-/// [`apply_system_buffers`]: bevy_ecs::prelude::apply_system_buffers
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum StartupSet {
     /// Runs once before [`StartupSet::Startup`].
