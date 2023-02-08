@@ -45,7 +45,7 @@ struct FragmentOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef VELOCITY_PREPASS
-    @location(#VELOCITY_PREPASS_LOCATION) velocity: vec2<f32>,
+    @location(1) velocity: vec2<f32>,
 #endif // VELOCITY_PREPASS
 }
 
