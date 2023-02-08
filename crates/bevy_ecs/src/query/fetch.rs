@@ -1,11 +1,11 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::{Ticks, TicksMut},
+    change_detection::{ComponentMut, Ticks},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{Mut, Ref, World},
+    world::{Ref, World},
 };
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
@@ -761,6 +761,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         change_tick: fetch.change_tick,
                         last_change_tick: fetch.last_change_tick,
                     },
+                    last_value: None,
                 }
             }
             StorageType::SparseSet => {
@@ -772,6 +773,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_change_tick, fetch.change_tick),
+                    last_value: None,
                 }
             }
         }
@@ -832,12 +834,12 @@ pub struct WriteFetch<'w, T> {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
-    type Item<'w> = Mut<'w, T>;
+    type Item<'w> = T::WriteFetch<'w>;
     type ReadOnly = &'__w T;
     type State = ComponentId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
-        item
+    fn shrink<'wlong: 'wshort, 'wshort>(item: T::WriteFetch<'wlong>) -> T::WriteFetch<'wshort> {
+        T::shrink(item)
     }
 
     const IS_DENSE: bool = {
@@ -914,15 +916,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
                     fetch.table_data.debug_checked_unwrap();
-                Mut {
-                    value: table_components.get(table_row.index()).deref_mut(),
-                    ticks: TicksMut {
-                        added: added_ticks.get(table_row.index()).deref_mut(),
-                        changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
-                }
+                T::WriteFetch::build(
+                    table_components.get(table_row.index()).deref_mut(),
+                    added_ticks.get(table_row.index()).deref_mut(),
+                    changed_ticks.get(table_row.index()).deref_mut(),
+                    fetch.last_change_tick,
+                    fetch.change_tick,
+                )
             }
             StorageType::SparseSet => {
                 let (component, ticks) = fetch
@@ -930,14 +930,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     .debug_checked_unwrap()
                     .get_with_ticks(entity)
                     .debug_checked_unwrap();
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(
-                        ticks,
-                        fetch.last_change_tick,
-                        fetch.change_tick,
-                    ),
-                }
+                T::WriteFetch::build(
+                    component.assert_unique().deref_mut(),
+                    ticks.added.deref_mut(),
+                    ticks.changed.deref_mut(),
+                    fetch.last_change_tick,
+                    fetch.change_tick,
+                )
             }
         }
     }
@@ -1121,6 +1120,7 @@ pub struct ChangeTrackers<T: Component> {
     pub(crate) change_tick: u32,
     marker: PhantomData<T>,
 }
+// TODO: I don't update ChangeTrackers for now because we might get rid of it? Code seems redundant with Ref
 
 impl<T: Component> Clone for ChangeTrackers<T> {
     fn clone(&self) -> Self {
@@ -1147,14 +1147,22 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
-        self.component_ticks
-            .is_added(self.last_change_tick, self.change_tick)
+        if T::WriteFetch::MODE {
+            self.component_ticks
+                .is_added(self.last_change_tick, self.change_tick)
+        } else {
+            true
+        }
     }
 
     /// Returns true if this component has been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
-        self.component_ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+        if T::WriteFetch::MODE {
+            self.component_ticks
+                .is_changed(self.last_change_tick, self.change_tick)
+        } else {
+            true
+        }
     }
 }
 
@@ -1163,6 +1171,7 @@ pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
     table_added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     table_changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    table_data: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
@@ -1200,6 +1209,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         ChangeTrackersFetch {
             table_added: None,
             table_changed: None,
+            table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     .storages()
@@ -1217,6 +1227,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         ChangeTrackersFetch {
             table_added: fetch.table_added,
             table_changed: fetch.table_changed,
+            table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
             marker: fetch.marker,
             last_change_tick: fetch.last_change_tick,

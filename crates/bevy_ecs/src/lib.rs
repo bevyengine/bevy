@@ -83,6 +83,10 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
+    #[derive(Component)]
+    #[component(change_detection_mode = "Disabled")]
+    struct ChangeDetectionLess(usize);
+
     #[derive(Default)]
     struct NonSendA(usize, PhantomData<*mut ()>);
 

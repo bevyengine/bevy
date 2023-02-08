@@ -504,7 +504,7 @@ macro_rules! impl_tick_filter {
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        fetch
+                        !T::WriteFetch::ENABLED || fetch
                             .table_ticks
                             .debug_checked_unwrap()
                             .get(table_row.index())
@@ -512,13 +512,17 @@ macro_rules! impl_tick_filter {
                             .is_older_than(fetch.last_change_tick, fetch.change_tick)
                     }
                     StorageType::SparseSet => {
-                        let sparse_set = &fetch
-                            .sparse_set
-                            .debug_checked_unwrap();
-                        $get_sparse_set(sparse_set, entity)
-                            .debug_checked_unwrap()
-                            .deref()
-                            .is_older_than(fetch.last_change_tick, fetch.change_tick)
+                        if T::WriteFetch::ENABLED {
+                            let sparse_set = &fetch
+                                .sparse_set
+                                .debug_checked_unwrap();
+                            $get_sparse_set(sparse_set, entity)
+                                .debug_checked_unwrap()
+                                .deref()
+                                .is_older_than(fetch.last_change_tick, fetch.change_tick)
+                        } else {
+                            true
+                        }
                     }
                 }
             }
