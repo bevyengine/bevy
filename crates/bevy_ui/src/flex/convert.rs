@@ -3,15 +3,15 @@ use crate::{
     PositionType, Size, Style, UiRect, Val,
 };
 
-pub fn from_rect(
+pub fn from_rect<T: Into<Val> + Default + PartialEq + Copy + Clone + PartialEq>(
     scale_factor: f64,
-    rect: UiRect,
+    rect: UiRect<T>,
 ) -> taffy::geometry::Rect<taffy::style::Dimension> {
     taffy::geometry::Rect {
-        left: from_val(scale_factor, rect.left),
-        right: from_val(scale_factor, rect.right),
-        top: from_val(scale_factor, rect.top),
-        bottom: from_val(scale_factor, rect.bottom),
+        left: from_val(scale_factor, rect.left.into()),
+        right: from_val(scale_factor, rect.right.into()),
+        top: from_val(scale_factor, rect.top.into()),
+        bottom: from_val(scale_factor, rect.bottom.into()),
     }
 }
 
