@@ -5,7 +5,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorGrabMode, CursorIcon};
+use bevy_window::{CursorIcon, WindowLevel};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -33,7 +33,7 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
 
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
-    location: winit::dpi::LogicalPosition<f32>,
+    location: winit::dpi::LogicalPosition<f64>,
 ) -> TouchInput {
     TouchInput {
         phase: match touch_input.phase {
@@ -42,7 +42,7 @@ pub fn convert_touch_input(
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
             winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
         },
-        position: Vec2::new(location.x, location.y),
+        position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {
             winit::event::Force::Calibrated {
                 force,
@@ -267,11 +267,10 @@ pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon
     }
 }
 
-/// Map [`bevy_window::CursorGrabMode`] to [`winit::window::CursorGrabMode`].
-pub fn convert_cursor_grab_mode(mode: CursorGrabMode) -> winit::window::CursorGrabMode {
-    match mode {
-        CursorGrabMode::None => winit::window::CursorGrabMode::None,
-        CursorGrabMode::Confined => winit::window::CursorGrabMode::Confined,
-        CursorGrabMode::Locked => winit::window::CursorGrabMode::Locked,
+pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowLevel {
+    match window_level {
+        WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
+        WindowLevel::Normal => winit::window::WindowLevel::Normal,
+        WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
     }
 }

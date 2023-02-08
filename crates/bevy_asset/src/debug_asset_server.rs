@@ -3,11 +3,7 @@
 //! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
 //! reloaded using the conventional API.
 use bevy_app::{App, Plugin};
-use bevy_ecs::{
-    event::Events,
-    schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, Resource, SystemState},
-};
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
 use std::{
@@ -37,7 +33,7 @@ impl DerefMut for DebugAssetApp {
 }
 
 /// A label describing the system that runs [`DebugAssetApp`].
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 
 /// Facilitates the creation of a "debug asset app", whose sole responsibility is hot reloading
@@ -116,8 +112,8 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 ///
 /// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
-pub fn register_handle_with_loader<A: Asset>(
-    _loader: fn(&'static str) -> A,
+pub fn register_handle_with_loader<A: Asset, T>(
+    _loader: fn(T) -> A,
     app: &mut DebugAssetApp,
     handle: HandleUntyped,
     file_path: &str,
