@@ -101,7 +101,17 @@ fn fresnel(f0: vec3<f32>, LoH: f32) -> vec3<f32> {
 
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
 // f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
-fn specular(f0: vec3<f32>, roughness: f32, h: vec3<f32>, NoV: f32, NoL: f32, NoH: f32, LoH: f32, specularIntensity: f32, f_ab: vec2<f32>) -> vec3<f32> {
+fn specular(
+    f0: vec3<f32>,
+    roughness: f32,
+    h: vec3<f32>,
+    NoV: f32,
+    NoL: f32,
+    NoH: f32,
+    LoH: f32,
+    specularIntensity: f32,
+    f_ab: vec2<f32>
+) -> vec3<f32> {
     let D = D_GGX(roughness, NoH, h);
     let V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     let F = fresnel(f0, LoH);

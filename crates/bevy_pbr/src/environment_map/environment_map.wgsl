@@ -32,11 +32,12 @@ fn environment_map_light(
     let Ems = 1.0 - Ess;
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
-    let Edss = 1.0 - (FssEss + Fms * Ems);
+    let FmsEms = Fms * Ems;
+    let Edss = 1.0 - (FssEss + FmsEms);
     let kD = diffuse_color * Edss;
 
     var out: EnvironmentMapLight;
-    out.diffuse = (Fms * Ems + kD) * irradiance;
+    out.diffuse = (FmsEms + kD) * irradiance;
     out.specular = FssEss * radiance;
     return out;
 }
