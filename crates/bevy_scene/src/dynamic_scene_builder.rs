@@ -1,5 +1,6 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
+use bevy_ecs::component::ComponentId;
 use bevy_ecs::{
     prelude::Entity,
     reflect::{ReflectComponent, ReflectResource},
@@ -8,7 +9,6 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_utils::default;
 use std::collections::BTreeMap;
-use bevy_ecs::component::ComponentId;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
 ///
@@ -192,7 +192,8 @@ impl<'w> DynamicSceneBuilder<'w> {
                     .get(type_id)?
                     .data::<ReflectResource>()?
                     .reflect(self.original_world)?;
-                self.extracted_resources.insert(component_id, resource.clone_value());
+                self.extracted_resources
+                    .insert(component_id, resource.clone_value());
                 Some(())
             };
             extract_and_push();
