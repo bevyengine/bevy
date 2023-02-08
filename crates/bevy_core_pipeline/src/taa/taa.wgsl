@@ -34,9 +34,15 @@ fn YCoCg_to_RGB(ycocg: vec3<f32>) -> vec3<f32> {
     return saturate(vec3(r, g, b));
 }
 
-fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, aabb_min: vec3<f32>, aabb_max: vec3<f32>) -> vec3<f32> {
+fn clip_towards_aabb_center(
+    history_color: vec3<f32>,
+    current_color: vec3<f32>,
+    aabb_min: vec3<f32>,
+    aabb_max: vec3<f32>,
+    aabb_scale: f32
+) -> vec3<f32> {
     let p_clip = 0.5 * (aabb_max + aabb_min);
-    let e_clip = 0.5 * (aabb_max - aabb_min) + 0.00000001;
+    let e_clip = 0.5 * (aabb_max - aabb_min) * aabb_scale + 0.00000001;
     let v_clip = history_color - p_clip;
     let v_unit = v_clip / e_clip;
     let a_unit = abs(v_unit);
@@ -135,38 +141,35 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color += sample_history(texel_position_12.x, texel_position_3.y) * w12.x * w3.y;
 
     // How confident we are that the history is representative of the current frame
-    // Increment when pixels are not moving, else reset to 0
+    // Increment when pixels are not moving, else reset
     var history_confidence = textureSample(history, nearest_sampler, uv).a;
-    let pixel_velocity = closest_velocity * texture_size;
+    let pixel_velocity = abs(closest_velocity * texture_size);
     if pixel_velocity.x < 0.9 && pixel_velocity.y < 0.9 {
         history_confidence += 1.0;
     } else {
-        history_confidence = 0.0;
+        history_confidence = 1.0;
     }
 
-    // We can skip clipping when history_confidence is high (reduces flickering)
-    if history_confidence < 5.0 {
-        // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
-        // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
-        // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
-        let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
-        let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
-        let s_tr = sample_view_target(uv + vec2(texel_size.x, texel_size.y));
-        let s_ml = sample_view_target(uv + vec2(-texel_size.x, 0.0));
-        let s_mm = RGB_to_YCoCg(current_color);
-        let s_mr = sample_view_target(uv + vec2(texel_size.x, 0.0));
-        let s_bl = sample_view_target(uv + vec2(-texel_size.x, -texel_size.y));
-        let s_bm = sample_view_target(uv + vec2(0.0, -texel_size.y));
-        let s_br = sample_view_target(uv + vec2(texel_size.x, -texel_size.y));
-        let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
-        let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
-        let mean = moment_1 / 9.0;
-        let variance = (moment_2 / 9.0) - (mean * mean);
-        let std_deviation = sqrt(max(variance, vec3(0.0)));
-        history_color = RGB_to_YCoCg(history_color);
-        history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation);
-        history_color = YCoCg_to_RGB(history_color);
-    }
+    // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
+    // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
+    // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+    let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
+    let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
+    let s_tr = sample_view_target(uv + vec2(texel_size.x, texel_size.y));
+    let s_ml = sample_view_target(uv + vec2(-texel_size.x, 0.0));
+    let s_mm = RGB_to_YCoCg(current_color);
+    let s_mr = sample_view_target(uv + vec2(texel_size.x, 0.0));
+    let s_bl = sample_view_target(uv + vec2(-texel_size.x, -texel_size.y));
+    let s_bm = sample_view_target(uv + vec2(0.0, -texel_size.y));
+    let s_br = sample_view_target(uv + vec2(texel_size.x, -texel_size.y));
+    let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
+    let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
+    let mean = moment_1 / 9.0;
+    let variance = (moment_2 / 9.0) - (mean * mean);
+    let std_deviation = sqrt(max(variance, vec3(0.0)));
+    history_color = RGB_to_YCoCg(history_color);
+    history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation, history_confidence * history_confidence);
+    history_color = YCoCg_to_RGB(history_color);
 
     // Blend current and past sample
     current_color = mix(history_color, current_color, 0.1);
@@ -178,7 +181,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 #ifndef RESET
     out.history = vec4(current_color, history_confidence);
 #else
-    out.history = vec4(current_color, 10.0);
+    out.history = vec4(current_color, 5.0);
 #endif
 
 #ifdef TONEMAP
