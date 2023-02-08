@@ -155,17 +155,35 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation);
     history_color = YCoCg_to_RGB(history_color);
 
+    // How confident we are that the history is representative of the current frame
+    // Increment when pixels are not moving, else reset
+    var history_confidence = textureSample(history, nearest_sampler, uv).a;
+    let pixel_velocity = abs(closest_velocity * texture_size);
+    if pixel_velocity.x < 0.01 && pixel_velocity.y < 0.01 {
+        history_confidence += 1.0;
+    } else {
+        history_confidence = 1.0;
+    }
+
     // Blend current and past sample
-    current_color = mix(history_color, current_color, 0.1);
+    // Use more of the history if we're confident in it (reduces noise when there's no motion)
+    // https://hhoppe.com/supersample.pdf, section 4.1
+    let current_color_factor = clamp(1.0 / history_confidence, 0.02, 0.1);
+    current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 
     // Write output to history and view target
     var out: Output;
-    out.history = vec4(current_color, original_color.a);
-#ifdef TONEMAP
-    out.view_target = vec4(reverse_tonemap(out.history.rgb), out.history.a);
+#ifndef RESET
+    out.history = vec4(current_color, history_confidence);
 #else
-    out.view_target = out.history;
+    out.history = vec4(current_color, 50.0);
+#endif
+
+#ifdef TONEMAP
+    out.view_target = vec4(reverse_tonemap(current_color), original_color.a);
+#else
+    out.view_target = vec4(current_color, original_color.a);
 #endif
     return out;
 }
