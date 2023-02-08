@@ -240,7 +240,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let meta = &metas[0..param_count];
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            impl<'world, 'state, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
             {
                 type State = ParamSetState<(#(#param::State,)*)>;
             }
@@ -380,8 +380,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     for lt in generics.lifetimes() {
         let ident = &lt.lifetime.ident;
         let w = format_ident!("w");
+        let world = format_ident!("world");
         let s = format_ident!("s");
-        if ident != &w && ident != &s {
+        let state = format_ident!("state");
+        if (ident != &w && ident != &world) && (ident != &s && ident != &state) {
             return syn::Error::new_spanned(
                 lt,
                 r#"invalid lifetime name: expected `'w` or `'s`
