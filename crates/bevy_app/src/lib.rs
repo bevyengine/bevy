@@ -192,6 +192,7 @@ impl StartupSet {
     pub fn base_schedule() -> Schedule {
         use StartupSet::*;
         let mut schedule = Schedule::new();
+        schedule.set_default_base_set(Startup);
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_system(apply_system_buffers.in_base_set(PreStartupFlush));
