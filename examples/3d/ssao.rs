@@ -67,7 +67,8 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.4,
-                ..default()
+                sectors: 72,
+                stacks: 36,
             })),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.4, 0.4, 0.4),
