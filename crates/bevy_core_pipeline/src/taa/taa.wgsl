@@ -166,7 +166,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     }
 
     // Blend current and past sample
-    // Use more of the history if we're confident in it (reduces noise when there's no motion)
+    // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
     let current_color_factor = clamp(1.0 / history_confidence, 0.02, 0.1);
     current_color = mix(history_color, current_color, current_color_factor);
