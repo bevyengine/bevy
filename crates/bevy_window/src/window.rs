@@ -141,7 +141,7 @@ pub struct Window {
     /// ## Platform-specific
     ///
     /// - iOS / Android / Web / Wayland: Unsupported.
-    pub always_on_top: bool,
+    pub window_level: WindowLevel,
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
@@ -205,7 +205,7 @@ impl Default for Window {
             decorations: true,
             transparent: false,
             focused: true,
-            always_on_top: false,
+            window_level: Default::default(),
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
@@ -799,4 +799,31 @@ pub enum WindowMode {
     SizedFullscreen,
     /// Creates a fullscreen window that uses the maximum supported size.
     Fullscreen,
+}
+
+/// A window level groups windows with respect to their z-position.
+///
+/// The relative ordering between windows in different window levels is fixed.
+/// The z-order of a window within the same window level may change dynamically on user interaction.
+///
+/// ## Platform-specific
+///
+/// - **iOS / Android / Web / Wayland:** Unsupported.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum WindowLevel {
+    /// The window will always be below normal windows.
+    ///
+    /// This is useful for a widget-based app.
+    AlwaysOnBottom,
+    /// The default.
+    #[default]
+    Normal,
+    /// The window will always be on top of normal windows.
+    AlwaysOnTop,
 }

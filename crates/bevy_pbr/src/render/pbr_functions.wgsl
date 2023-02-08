@@ -226,17 +226,17 @@ fn pbr(
                 && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
-        let light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        var light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+#ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
+        light_contrib = cascade_debug_visualization(light_contrib, i, view_z);
+#endif
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
-    let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
+    let ambient_contrib = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     output_color = vec4<f32>(
-        light_accum
-            + (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion
-            + emissive.rgb * output_color.a,
+        light_accum + ambient_contrib + emissive.rgb * output_color.a,
         output_color.a
     );
 

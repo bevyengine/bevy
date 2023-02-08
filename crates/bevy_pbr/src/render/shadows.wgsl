@@ -144,7 +144,7 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
         directional_shadow_textures_sampler,
         light_local,
         depth
-    );   
+    );
 #else
     return textureSampleCompareLevel(
         directional_shadow_textures,
@@ -152,14 +152,14 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
         light_local,
         i32((*light).depth_texture_base_index + cascade_index),
         depth
-    );   
+    );
 #endif
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {
     let light = &lights.directional_lights[light_id];
     let cascade_index = get_cascade_index(light_id, view_z);
-    
+
     if (cascade_index >= (*light).num_cascades) {
         return 1.0;
     }
@@ -177,4 +177,17 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
         }
     }
     return shadow;
+}
+
+fn cascade_debug_visualization(
+    output_color: vec3<f32>,
+    light_id: u32,
+    view_z: f32,
+) -> vec3<f32> {
+    let overlay_alpha = 0.95;
+    let cascade_index = get_cascade_index(light_id, view_z);
+    let cascade_color = hsv2rgb(f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u), 1.0, 0.5);
+    return vec3<f32>(
+        (1.0 - overlay_alpha) * output_color.rgb + overlay_alpha * cascade_color
+    );
 }
