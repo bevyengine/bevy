@@ -8,7 +8,7 @@
 //! | `S`                | Toggle Directional Light Fog Influence |
 
 use bevy::{
-    pbr::{CascadeShadowConfig, NotShadowCaster},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
 };
 
@@ -49,9 +49,12 @@ fn setup_terrain_scene(
     asset_server: Res<AssetServer>,
 ) {
     // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    // For WebGL we only support 1 cascade level for now
-    let cascade_shadow_config =
-        CascadeShadowConfig::new(if cfg!(feature = "webgl") { 1 } else { 4 }, 0.5, 2.5, 0.2);
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        first_cascade_far_bound: 0.3,
+        maximum_distance: 3.0,
+        ..default()
+    }
+    .build();
 
     // Sun
     commands.spawn(DirectionalLightBundle {

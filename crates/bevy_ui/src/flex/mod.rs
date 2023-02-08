@@ -6,7 +6,8 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     query::{Changed, ReadOnlyWorldQuery, With, Without},
-    system::{Query, RemovedComponents, Res, ResMut, Resource},
+    removal_detection::RemovedComponents,
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -233,9 +234,9 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    removed_children: RemovedComponents<Children>,
+    mut removed_children: RemovedComponents<Children>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
-    removed_nodes: RemovedComponents<Node>,
+    mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -269,7 +270,8 @@ pub fn flex_node_system(
         }
     }
 
-    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() {
+        scale_factor_events.clear();
         update_changed(&mut flex_surface, scale_factor, full_node_query);
     } else {
         update_changed(&mut flex_surface, scale_factor, node_query);
@@ -280,13 +282,13 @@ pub fn flex_node_system(
     }
 
     // clean up removed nodes
-    flex_surface.remove_entities(&removed_nodes);
+    flex_surface.remove_entities(removed_nodes.iter());
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
-    for entity in &removed_children {
+    for entity in removed_children.iter() {
         flex_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {

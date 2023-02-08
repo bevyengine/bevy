@@ -5,7 +5,6 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    time::FixedTimestep,
     window::{PresentMode, WindowResolution},
 };
 use rand::{thread_rng, Rng};
@@ -49,11 +48,8 @@ fn main() {
         .add_system(movement_system)
         .add_system(collision_system)
         .add_system(counter_system)
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(0.2))
-                .with_system(scheduled_spawner),
-        )
+        .add_system_to_schedule(CoreSchedule::FixedUpdate, scheduled_spawner)
+        .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }
 

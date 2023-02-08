@@ -11,7 +11,7 @@ fn main() {
                 // Set the window's parameters, note we're setting the window to always be on top.
                 transparent: true,
                 decorations: true,
-                always_on_top: true,
+                window_level: bevy::window::WindowLevel::AlwaysOnTop,
                 ..default()
             }),
             ..default()

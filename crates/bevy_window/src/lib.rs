@@ -21,10 +21,9 @@ pub mod prelude {
     };
 }
 
-use std::path::PathBuf;
-
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::SystemLabel;
+use bevy_ecs::prelude::*;
+use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -54,14 +53,14 @@ pub struct WindowPlugin {
     /// surprise your users. It is recommended to leave this setting to
     /// either [`ExitCondition::OnAllClosed`] or [`ExitCondition::OnPrimaryClosed`].
     ///
-    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`CoreStage::Update`].
-    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`CoreStage::Update`].
+    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`CoreSet::Update`].
+    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`CoreSet::Update`].
     pub exit_condition: ExitCondition,
 
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).
     ///
-    /// If true, this plugin will add [`close_when_requested`] to [`CoreStage::Update`].
+    /// If true, this plugin will add [`close_when_requested`] to [`CoreSet::Update`].
     /// If this system (or a replacement) is not running, the close button will have no effect.
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
@@ -94,16 +93,16 @@ impl Plugin for WindowPlugin {
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_system_to_stage(CoreStage::PostUpdate, exit_on_primary_closed);
+                app.add_system(exit_on_primary_closed.in_base_set(CoreSet::PostUpdate));
             }
             ExitCondition::OnAllClosed => {
-                app.add_system_to_stage(CoreStage::PostUpdate, exit_on_all_closed);
+                app.add_system(exit_on_all_closed.in_base_set(CoreSet::PostUpdate));
             }
             ExitCondition::DontExit => {}
         }
 
         if self.close_when_requested {
-            app.add_system(close_when_requested);
+            app.add_system(close_when_requested.in_base_set(CoreSet::PostUpdate));
         }
 
         // Register event types
@@ -138,20 +137,16 @@ impl Plugin for WindowPlugin {
     }
 }
 
-/// System Label marking when changes are applied to windows
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub struct ModifiesWindows;
-
 /// Defines the specific conditions the application should exit on
 #[derive(Clone)]
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`CoreStage::Update`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`CoreSet::Update`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`CoreStage::Update`].
+    /// The plugin will add [`exit_on_all_closed`] to [`CoreSet::Update`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///

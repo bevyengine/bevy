@@ -317,8 +317,8 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: FromReflect> GetTypeRegistration for $ty {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<Vec<T>>();
-                registration.insert::<ReflectFromPtr>(FromType::<Vec<T>>::from_type());
+                let mut registration = TypeRegistration::of::<$ty>();
+                registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
                 registration
             }
         }

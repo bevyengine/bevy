@@ -4,7 +4,6 @@ use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
-    time::FixedTimestep,
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -58,14 +57,20 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(check_for_collisions)
-                .with_system(move_paddle.before(check_for_collisions))
-                .with_system(apply_velocity.before(check_for_collisions))
-                .with_system(play_collision_sound.after(check_for_collisions)),
+        // Add our gameplay simulation systems to the fixed timestep schedule
+        .add_systems_to_schedule(
+            CoreSchedule::FixedUpdate,
+            (
+                check_for_collisions,
+                apply_velocity.before(check_for_collisions),
+                move_paddle
+                    .before(check_for_collisions)
+                    .after(apply_velocity),
+                play_collision_sound.after(check_for_collisions),
+            ),
         )
+        // Configure how frequently our gameplay systems are run
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
         .run();
