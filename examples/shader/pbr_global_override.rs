@@ -1,7 +1,7 @@
 //! Example of a global override for pbr functions for all materials
 
 use bevy::{
-    pbr::{CascadeShadowConfig, PbrShaderFunctionOverrides},
+    pbr::{CascadeShadowConfigBuilder, PbrShaderFunctionOverrides},
     prelude::*,
 };
 
@@ -201,7 +201,11 @@ fn setup(
             rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfig::new(4, 5.0, 30.0, 0.2),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            maximum_distance: 30.0,
+            ..Default::default()
+        }
+        .into(),
         ..default()
     });
 
