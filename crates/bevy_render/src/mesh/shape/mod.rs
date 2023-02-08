@@ -188,9 +188,14 @@ pub struct Plane {
     /// The total side length of the square.
     pub size: f32,
     /// The number of subdivisions in the mesh.
-    /// 0 is the original plane geometry.
-    /// 1 is one line in both the X direction and the Z direction splitting the plane resulting in a plane with 4 quads / 8 triangles.
-    /// > 1 is multiple splits.
+    ///
+    /// 0 - is the original plane geometry, the 4 points in the XZ plane.
+    ///
+    /// 1 - is split by 1 line in the middle of the plane on both the X axis and the Z axis, resulting in a plane with 4 quads / 8 triangles.
+    ///
+    /// 2 - is a plane split by 2 lines on both the X and Z axes, subdividing the plane into 3 equal sections along each axis, resulting in a plane with 9 quads / 18 triangles.
+    ///
+    /// and so on...
     pub subdivisions: u32,
 }
 
@@ -204,6 +209,7 @@ impl Default for Plane {
 }
 
 impl Plane {
+    /// Creates a new plane centered at the origin with the supplied side length and zero subdivisions.
     pub fn from_size(size: f32) -> Self {
         Self {
             size,
