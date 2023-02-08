@@ -118,20 +118,20 @@ pub mod common_conditions {
     /// // Building a new schedule/app...
     /// let mut sched = Schedule::default();
     /// sched.add_system(
-    ///         // This system will always run.
-    ///         my_system.run_if(not(always_false))
+    ///         // This system will never run.
+    ///         my_system.run_if(not(always_true))
     ///     )
     ///     // ...
     /// #   ;
     /// # let mut world = World::new();
     /// # sched.run(&mut world);
     ///
-    /// // A condition that always returns false.
-    /// fn always_false() -> bool {
-    ///    false
+    /// // A condition that always returns true.
+    /// fn always_true() -> bool {
+    ///    true
     /// }
-    ///
-    /// # fn my_system() {}
+    /// #
+    /// # fn my_system() { unreachable!() }
     /// ```
     pub fn not<Params, C: Condition<Params>>(
         condition: C,
