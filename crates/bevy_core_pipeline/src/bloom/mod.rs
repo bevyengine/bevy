@@ -46,8 +46,8 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
-            .add_system(prepare_bloom_textures.in_set(RenderSet::Prepare))
-            .add_system(queue_bloom_bind_groups.in_set(RenderSet::Queue));
+            .add_system(prepare_bloom_textures.in_base_set(RenderSet::Prepare))
+            .add_system(queue_bloom_bind_groups.in_base_set(RenderSet::Queue));
 
         {
             let bloom_node = BloomNode::new(&mut render_app.world);

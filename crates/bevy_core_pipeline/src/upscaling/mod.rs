@@ -29,7 +29,7 @@ impl Plugin for UpscalingPlugin {
             render_app
                 .init_resource::<UpscalingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
-                .add_system(queue_view_upscaling_pipelines.in_set(RenderSet::Queue));
+                .add_system(queue_view_upscaling_pipelines.in_base_set(RenderSet::Queue));
         }
     }
 }

@@ -52,11 +52,11 @@ impl Plugin for Core2dPlugin {
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .add_system_to_schedule(ExtractSchedule, extract_core_2d_camera_phases)
-            .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<Transparent2d>.in_base_set(RenderSet::PhaseSort))
             .add_system(
                 batch_phase_system::<Transparent2d>
                     .after(sort_phase_system::<Transparent2d>)
-                    .in_set(RenderSet::PhaseSort),
+                    .in_base_set(RenderSet::PhaseSort),
             );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);

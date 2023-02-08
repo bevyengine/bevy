@@ -162,9 +162,9 @@ where
                 .add_system(
                     prepare_materials_2d::<M>
                         .after(PrepareAssetLabel::PreAssetPrepare)
-                        .in_set(RenderSet::Prepare),
+                        .in_base_set(RenderSet::Prepare),
                 )
-                .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
+                .add_system(queue_material2d_meshes::<M>.in_base_set(RenderSet::Queue));
         }
     }
 }

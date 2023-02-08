@@ -68,10 +68,10 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_schedule(ExtractSchedule, extract_core_3d_camera_phases)
-            .add_system(prepare_core_3d_depth_textures.in_set(RenderSet::Prepare))
-            .add_system(sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort));
+            .add_system(prepare_core_3d_depth_textures.in_base_set(RenderSet::Prepare))
+            .add_system(sort_phase_system::<Opaque3d>.in_base_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<AlphaMask3d>.in_base_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<Transparent3d>.in_base_set(RenderSet::PhaseSort));
 
         let prepass_node = PrepassNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
