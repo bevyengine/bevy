@@ -4,8 +4,10 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
+        experimental::taa::{
+            TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings,
+        },
         fxaa::{Fxaa, Sensitivity},
-        taa::{TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings},
     },
     pbr::CascadeShadowConfigBuilder,
     prelude::*,

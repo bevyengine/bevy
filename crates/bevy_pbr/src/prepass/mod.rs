@@ -279,16 +279,6 @@ where
 
         if key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS) {
             shader_defs.push("VELOCITY_PREPASS".into());
-
-            let mut velocity_output_location = 0;
-            if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-                velocity_output_location += 1;
-            }
-
-            shader_defs.push(ShaderDefVal::Int(
-                "VELOCITY_PREPASS_LOCATION".to_owned(),
-                velocity_output_location,
-            ));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
@@ -318,14 +308,16 @@ where
                 PREPASS_SHADER_HANDLE.typed::<Shader>()
             };
 
+            // Setup prepass fragment targets - normals in slot 0 (or None if not needed), velocity in slot 1
             let mut targets = vec![];
-            // When the normal prepass is enabled we need a target to be able to write to it.
             if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
                 targets.push(Some(ColorTargetState {
                     format: NORMAL_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }));
+            } else {
+                targets.push(None);
             }
             if key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS) {
                 targets.push(Some(ColorTargetState {
