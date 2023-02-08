@@ -97,7 +97,7 @@ impl Plugin for TransformPlugin {
             .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(
-                    TransformSystem::TransformPropagate.in_set(StartupSet::PostStartup),
+                    TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
                 );
             })
             // FIXME: https://github.com/bevyengine/bevy/issues/4381

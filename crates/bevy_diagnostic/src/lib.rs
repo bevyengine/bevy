@@ -20,7 +20,7 @@ impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Diagnostics>().add_startup_system(
             system_information_diagnostics_plugin::internal::log_system_info
-                .in_set(StartupSet::Startup),
+                .in_base_set(StartupSet::Startup),
         );
     }
 }

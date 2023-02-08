@@ -168,6 +168,7 @@ impl CoreSet {
 ///
 /// [`apply_system_buffers`]: bevy_ecs::prelude::apply_system_buffers
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[system_set(base)]
 pub enum StartupSet {
     /// Runs once before [`StartupSet::Startup`].
     PreStartup,
@@ -193,9 +194,9 @@ impl StartupSet {
         let mut schedule = Schedule::new();
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_set(PreStartupFlush));
-        schedule.add_system(apply_system_buffers.in_set(StartupFlush));
-        schedule.add_system(apply_system_buffers.in_set(PostStartupFlush));
+        schedule.add_system(apply_system_buffers.in_base_set(PreStartupFlush));
+        schedule.add_system(apply_system_buffers.in_base_set(StartupFlush));
+        schedule.add_system(apply_system_buffers.in_base_set(PostStartupFlush));
 
         schedule.configure_set(PreStartup.before(PreStartupFlush));
         schedule.configure_set(Startup.after(PreStartupFlush).before(StartupFlush));
