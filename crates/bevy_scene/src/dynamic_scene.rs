@@ -7,6 +7,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+use bevy_utils::HashMap;
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
@@ -86,6 +87,11 @@ impl DynamicScene {
             reflect_resource.apply_or_insert(world, &**resource);
         }
 
+        // Collection of entities that have references to entities in the scene,
+        // that need to be updated to entities in the world.
+        // Keyed by Component's TypeId.
+        let mut entity_mapped_entities = HashMap::default();
+
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
@@ -109,6 +115,15 @@ impl DynamicScene {
                         }
                     })?;
 
+                // If this component references entities in the scene, track it
+                // so we can update it to the entity in the world.
+                if registration.data::<ReflectMapEntities>().is_some() {
+                    entity_mapped_entities
+                        .entry(registration.type_id())
+                        .or_insert(Vec::new())
+                        .push(entity);
+                }
+
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
@@ -116,10 +131,12 @@ impl DynamicScene {
             }
         }
 
-        for registration in type_registry.iter() {
+        // Updates references to entities in the scene to entities in the world
+        for (type_id, entities) in entity_mapped_entities.into_iter() {
+            let registration = type_registry.get(type_id).unwrap();
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
-                    .map_entities(world, entity_map)
+                    .map_specific_entities(world, entity_map, entities)
                     .unwrap();
             }
         }

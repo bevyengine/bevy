@@ -412,7 +412,7 @@ impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut World, &EntityMap) -> Result<(), MapEntitiesError>,
+    map_entities: fn(&mut World, &EntityMap, Vec<Entity>) -> Result<(), MapEntitiesError>,
 }
 
 impl ReflectMapEntities {
@@ -421,15 +421,24 @@ impl ReflectMapEntities {
         world: &mut World,
         entity_map: &EntityMap,
     ) -> Result<(), MapEntitiesError> {
-        (self.map_entities)(world, entity_map)
+        (self.map_entities)(world, entity_map, entity_map.values().collect())
+    }
+
+    pub fn map_specific_entities(
+        &self,
+        world: &mut World,
+        entity_map: &EntityMap,
+        entities: Vec<Entity>
+    )  -> Result<(), MapEntitiesError> {
+        (self.map_entities)(world, entity_map, entities)
     }
 }
 
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
-            map_entities: |world, entity_map| {
-                for entity in entity_map.values() {
+            map_entities: |world, entity_map, entities| {
+                for entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
                         component.map_entities(entity_map)?;
                     }
