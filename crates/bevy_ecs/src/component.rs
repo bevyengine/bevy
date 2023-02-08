@@ -596,9 +596,9 @@ impl Tick {
     }
 
     #[inline]
-    /// Returns `true` if the tick occurred since the system's last_change_tick.
+    /// Returns `true` if the tick occurred since the system's `last_change_tick`.
     ///
-    /// Uses the system's current change_tick as a reference to help deal with wraparound.
+    /// Uses the system's current `change_tick` as a reference to help deal with wraparound.
     pub fn is_newer_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
         // `last_change_tick` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
