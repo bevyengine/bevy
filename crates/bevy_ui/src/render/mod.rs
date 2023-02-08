@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_render::ExtractSchedule;
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -23,7 +24,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 use bevy_text::{Text, TextLayoutInfo};
@@ -50,7 +51,7 @@ pub mod draw_ui_graph {
 pub const UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
 }
@@ -71,25 +72,18 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera2d>,
+        .add_systems_to_schedule(
+            ExtractSchedule,
+            (
+                extract_default_ui_camera_view::<Camera2d>,
+                extract_default_ui_camera_view::<Camera3d>,
+                extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+            ),
         )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera3d>,
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_uinodes.label(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
-        .add_system_to_stage(RenderStage::Queue, queue_uinodes)
-        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+        .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
+        .add_system(queue_uinodes.in_set(RenderSet::Queue))
+        .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -169,7 +163,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 pub struct ExtractedUiNode {
     pub stack_index: usize,
     pub transform: Mat4,
-    pub background_color: Color,
+    pub color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
@@ -221,7 +215,7 @@ pub fn extract_uinodes(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
-                background_color: color.0,
+                color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
@@ -357,7 +351,7 @@ pub fn extract_text_uinodes(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
                     transform: extracted_transform,
-                    background_color: color,
+                    color,
                     rect,
                     image: texture,
                     atlas_size,
@@ -524,7 +518,7 @@ pub fn prepare_uinodes(
             uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
         }
 
-        let color = extracted_uinode.background_color.as_linear_rgba_f32();
+        let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),

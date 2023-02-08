@@ -13,8 +13,8 @@ pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod removal_detection;
 pub mod schedule;
-pub mod schedule_v3;
 pub mod storage;
 pub mod system;
 pub mod world;
@@ -32,17 +32,19 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
         entity::Entity,
-        event::{EventReader, EventWriter, Events},
+        event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        removal_detection::RemovedComponents,
         schedule::{
-            IntoSystemDescriptor, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            apply_state_transition, apply_system_buffers, common_conditions::*, IntoSystemConfig,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
+            OnEnter, OnExit, OnUpdate, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };

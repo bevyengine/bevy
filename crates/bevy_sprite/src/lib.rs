@@ -29,12 +29,12 @@ pub use texture_atlas_builder::*;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    RenderApp, RenderStage,
+    ExtractSchedule, RenderApp, RenderSet,
 };
 
 #[derive(Default)]
@@ -43,7 +43,7 @@ pub struct SpritePlugin;
 pub const SPRITE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
     ExtractSprites,
 }
@@ -70,12 +70,14 @@ impl Plugin for SpritePlugin {
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
-                .add_system_to_stage(
-                    RenderStage::Extract,
-                    render::extract_sprites.label(SpriteSystem::ExtractSprites),
+                .add_systems_to_schedule(
+                    ExtractSchedule,
+                    (
+                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                        extract_sprite_events,
+                    ),
                 )
-                .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
-                .add_system_to_stage(RenderStage::Queue, queue_sprites);
+                .add_system(queue_sprites.in_set(RenderSet::Queue));
         };
     }
 }

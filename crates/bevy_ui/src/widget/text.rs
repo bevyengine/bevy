@@ -65,10 +65,12 @@ pub fn text_system(
     )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+    let window_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(ui_scale.scale);
+        .unwrap_or(1.);
+
+    let scale_factor = ui_scale.scale * window_scale_factor;
 
     let inv_scale_factor = 1. / scale_factor;
 
