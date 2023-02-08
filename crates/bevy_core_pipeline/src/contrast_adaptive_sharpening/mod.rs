@@ -29,6 +29,7 @@ pub use node::CASNode;
 ///
 /// To use this, add the [`ContrastAdaptiveSharpeningSettings`] component to a 2D or 3D camera.
 #[derive(Component, Reflect, Clone)]
+#[reflect(Component)]
 pub struct ContrastAdaptiveSharpeningSettings {
     /// Enable or disable sharpening.
     pub enabled: bool,
