@@ -1,5 +1,4 @@
 use crate::{
-    clear_color::ClearColor,
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
     prepass::{DepthPrepass, NormalPrepass},
 };
@@ -86,14 +85,10 @@ impl Node for MainPass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[Some(
-                    target.get_color_attachment(Operations {
-                        load: camera_3d
-                            .clear_color
-                            .load_op(camera.chain_position, world.resource::<ClearColor>()),
-                        store: true,
-                    }),
-                )],
+                color_attachments: &[Some(target.get_color_attachment(Operations {
+                    load: camera_3d.clear_color.load_op(camera.chain_position, world),
+                    store: true,
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it

@@ -132,7 +132,7 @@ fn queue_view_upscaling_pipelines(
 ) {
     for (entity, view_target, camera) in view_targets.iter() {
         let key = match camera.output_mode {
-            ExtractedCameraOutputMode::Flush(blend_state) => UpscalingPipelineKey {
+            ExtractedCameraOutputMode::Finish(blend_state) => UpscalingPipelineKey {
                 upscaling_mode: UpscalingMode::Filtering,
                 texture_format: view_target.out_texture_format(),
                 blend_state,

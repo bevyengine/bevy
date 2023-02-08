@@ -78,25 +78,25 @@ pub struct ComputedCameraValues {
 /// Control how this camera outputs once rendering is completed.
 #[derive(Default, Debug, Clone, Copy)]
 pub enum CameraOutputMode {
-    /// If the camera is the last camera for a given [`RenderTarget`], defaults to `Flush(None)`,
+    /// If the camera is the last camera for a given [`RenderTarget`], defaults to `Finish(None)`,
     /// which will clear the target and output the render results.
     /// If the camera is not the last camera, defaults to `Retain` which will keep the running
     /// results internal to the camera.
     #[default]
     Default,
     /// Flush the current render results to the [`RenderTarget`].
-    /// The blend mode is used to combine results with previous contents of the target. Typically the first flushing
-    /// camera writing to a target will use `Flush(None)` to clear the target and write the current render results.
-    /// If multiple flushing cameras are used, later cameras may prefer to use `Flush(Some(BlendState::ALPHA_BLENDING))`
+    /// The blend mode is used to combine results with previous contents of the target. Typically the first `Finish`ing
+    /// camera writing to a target will use `Finish(None)` to clear the target and write the current render results.
+    /// If multiple finishing cameras are used, later cameras may prefer to use `Finish(Some(BlendState::ALPHA_BLENDING))`
     /// to combine render results with previously flushed results.
-    /// if a camera uses `Flush`, the next camera on the the same target should clear the internal render results
-    /// to avoid double writing of the existing results on the next flush. `ClearColorConfig::Default` will do this
+    /// if a camera uses `Finish`, the next camera on the the same target should clear the internal camera buffers
+    /// to avoid double writing of the existing results on the next finish. `ClearColorConfig::Default` will do this
     /// automatically, or you can manually specify `ClearColorConfig::Custom(Color::NONE)` which will have the same effect.
-    Flush(Option<wgpu::BlendState>),
-    /// Keep the current render results internally. A later camera must output with `Flush` for any results to be output.
+    Finish(Option<wgpu::BlendState>),
+    /// Keep the current render results internally. A later camera must output with `Finish` for any results to be output.
     /// This is useful for combining the results of several cameras before applying post-processing to the full set of results.
     /// if a camera uses `Retain`, the next camera on the the same target should NOT clear the internal render results
-    /// to avoid discarding the existing results before the next flush. `ClearColorConfig::Default` will do this
+    /// to avoid discarding the existing results before the next finish. `ClearColorConfig::Default` will do this
     /// automatically, or you can manually specify `ClearColorConfig::None` which will have the same effect.
     Retain,
 }
@@ -548,13 +548,13 @@ pub fn camera_system<T: CameraProjection + Component>(
 #[derive(Debug, Clone, Copy)]
 pub enum CameraChainPosition {
     First,
-    FirstAfterFlush,
+    FirstAfterFinish,
     NotFirst,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ExtractedCameraOutputMode {
-    Flush(Option<wgpu::BlendState>),
+    Finish(Option<wgpu::BlendState>),
     Retain,
 }
 
@@ -603,7 +603,7 @@ pub fn extract_cameras(
 
         let target = camera.target.normalize(primary_window);
         let camera_list = camera_order.entry(target).or_default();
-        let is_flushing = matches!(camera.output_mode, CameraOutputMode::Flush(_));
+        let is_flushing = matches!(camera.output_mode, CameraOutputMode::Finish(_));
         camera_list.push((camera.order, is_flushing));
     }
 
@@ -638,7 +638,7 @@ pub fn extract_cameras(
                 0 => CameraChainPosition::First,
                 i => {
                     if camera_list[i - 1].1 {
-                        CameraChainPosition::FirstAfterFlush
+                        CameraChainPosition::FirstAfterFinish
                     } else {
                         CameraChainPosition::NotFirst
                     }
@@ -651,17 +651,19 @@ pub fn extract_cameras(
                         // we are last so should flush
                         if camera_list.iter().any(|(_, flushes)| *flushes) {
                             // some previous camera has already written to output so we will blend
-                            ExtractedCameraOutputMode::Flush(Some(wgpu::BlendState::ALPHA_BLENDING))
+                            ExtractedCameraOutputMode::Finish(Some(
+                                wgpu::BlendState::ALPHA_BLENDING,
+                            ))
                         } else {
                             // this is the first flush for the target, so overwrite
-                            ExtractedCameraOutputMode::Flush(None)
+                            ExtractedCameraOutputMode::Finish(None)
                         }
                     } else {
                         // we are not last so default to retaining results
                         ExtractedCameraOutputMode::Retain
                     }
                 }
-                CameraOutputMode::Flush(f) => ExtractedCameraOutputMode::Flush(f),
+                CameraOutputMode::Finish(f) => ExtractedCameraOutputMode::Finish(f),
                 CameraOutputMode::Retain => ExtractedCameraOutputMode::Retain,
             };
 

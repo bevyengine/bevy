@@ -1,7 +1,4 @@
-use crate::{
-    clear_color::ClearColor,
-    core_2d::{camera_2d::Camera2d, Transparent2d},
-};
+use crate::core_2d::{camera_2d::Camera2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -65,14 +62,10 @@ impl Node for MainPass2dNode {
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_pass_2d"),
-                color_attachments: &[Some(
-                    target.get_color_attachment(Operations {
-                        load: camera_2d
-                            .clear_color
-                            .load_op(camera.chain_position, world.resource::<ClearColor>()),
-                        store: true,
-                    }),
-                )],
+                color_attachments: &[Some(target.get_color_attachment(Operations {
+                    load: camera_2d.clear_color.load_op(camera.chain_position, world),
+                    store: true,
+                }))],
                 depth_stencil_attachment: None,
             });
 

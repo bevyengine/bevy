@@ -19,17 +19,19 @@ impl ClearColorConfig {
     pub fn load_op<V: From<bevy_render::color::Color>>(
         &self,
         chain_position: CameraChainPosition,
-        default_color: &Color,
+        world: &World,
     ) -> wgpu::LoadOp<V> {
         match self {
             // default behaviour depends on current camera position, see [`CameraOutputMode`].
             ClearColorConfig::Default => match chain_position {
                 // first camera in a chain uses the default clear color
-                CameraChainPosition::First => wgpu::LoadOp::Clear((*default_color).into()),
+                CameraChainPosition::First => {
+                    wgpu::LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                }
                 // cameras that build on previous results will load those results
                 CameraChainPosition::NotFirst => wgpu::LoadOp::Load,
-                // cameras that are first after a flush clear to transparent so they can be blended with previous results
-                CameraChainPosition::FirstAfterFlush => wgpu::LoadOp::Clear(Color::NONE.into()),
+                // cameras that are first after a `Finish` clear to transparent so they can be blended with previous results
+                CameraChainPosition::FirstAfterFinish => wgpu::LoadOp::Clear(Color::NONE.into()),
             },
             ClearColorConfig::Custom(color) => wgpu::LoadOp::Clear((*color).into()),
             ClearColorConfig::None => wgpu::LoadOp::Load,
