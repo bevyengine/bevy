@@ -26,7 +26,6 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    log::LogPlugin,
     prelude::*,
     utils::Duration,
 };
@@ -308,11 +307,6 @@ fn main() {
                 .after(score_check_system)
                 .in_base_set(MySet::AfterRound),
         )
-        // We can check our systems for execution order ambiguities by examining the output produced
-        // in the console by using the `LogPlugin` and adding the following Resource to our App :)
-        // Be aware that not everything reported by this checker is a potential problem, you'll have
-        // to make that judgement yourself.
-        .add_plugin(LogPlugin::default())
         // This call to run() starts the app we just built!
         .run();
 }
