@@ -49,7 +49,7 @@ pub trait DetectChanges {
     /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
     fn is_changed(&self) -> bool;
 
-    /// Returns the change tick recording the previous time this data was changed.
+    /// Returns the change tick recording the time this data was most recently changed.
     ///
     /// Note that components and resources are also marked as changed upon insertion.
     ///
@@ -103,7 +103,10 @@ pub trait DetectChangesMut: DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
-    /// Manually sets the change tick recording the previous time this data was mutated.
+    /// Manually sets the change tick recording the previous time this data's changed status was checked.
+    ///
+    /// Note that this is *not* the same data that is returned by [`last_changed`](DetectChanges::last_changed).
+    /// Instead, it is the reference tick that is compared to that tick to determine if the change is "new" or not.
     ///
     /// # Warning
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
@@ -150,7 +153,7 @@ macro_rules! change_detection_impl {
 
             #[inline]
             fn last_changed(&self) -> u32 {
-                self.ticks.last_change_tick
+                self.ticks.changed.tick
             }
         }
 
