@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::{prelude::*, schedule::SystemLabel};
+use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -8,7 +8,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Shader, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 use crate::{FogFalloff, FogSettings};
@@ -53,6 +53,8 @@ pub fn prepare_fog(
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
+    fog_meta.gpu_fogs.clear();
+
     for (entity, fog) in &views {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.falloff {
@@ -112,7 +114,7 @@ pub fn prepare_fog(
 }
 
 /// Labels for fog-related systems
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderFogSystems {
     PrepareFog,
 }
@@ -138,10 +140,10 @@ impl Plugin for FogPlugin {
         app.add_plugin(ExtractComponentPlugin::<FogSettings>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<FogMeta>().add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_fog.label(RenderFogSystems::PrepareFog),
-            );
+            render_app
+                .init_resource::<FogMeta>()
+                .add_system(prepare_fog.in_set(RenderFogSystems::PrepareFog))
+                .configure_set(RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare));
         }
     }
 }

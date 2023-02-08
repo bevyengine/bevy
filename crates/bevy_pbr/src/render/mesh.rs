@@ -31,7 +31,7 @@ use bevy_render::{
         ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -112,11 +112,10 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .add_system_to_stage(RenderStage::Extract, extract_meshes)
-                .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
-                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+                .add_systems_to_schedule(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
+                .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
+                .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
+                .add_system(queue_mesh_view_bind_groups.in_set(RenderSet::Queue));
         }
     }
 }

@@ -2,7 +2,7 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -12,7 +12,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 mod node;
@@ -40,7 +40,8 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -67,16 +68,6 @@ impl Default for Fxaa {
     }
 }
 
-impl ExtractComponent for Fxaa {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self> {
-        Some(item.clone())
-    }
-}
-
 const FXAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4182761465141723543);
 
@@ -95,7 +86,7 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_fxaa_pipelines);
+            .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
 
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);

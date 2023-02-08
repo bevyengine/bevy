@@ -74,6 +74,9 @@ animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 
+# Enable using a shared stdlib for cxx on Android.
+android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.9.0" }
@@ -107,8 +110,3 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.9.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.9.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.9.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.9.0" }
-
-[target.'cfg(target_os = "android")'.dependencies]
-# This version *must* be the same as the version used by winit,
-# or Android will break: https://github.com/rust-windowing/winit#android
-ndk-glue = {version = "0.7", features = ["logger"]}

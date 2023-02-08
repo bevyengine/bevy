@@ -12,6 +12,7 @@
 #import bevy_pbr::clustered_forward as clustering
 #import bevy_pbr::shadows as shadows
 #import bevy_pbr::fog as fog
+#import bevy_pbr::ambient as ambient
 
 #from bevy_pbr::mesh_bindings   import mesh
 #from bevy_pbr::mesh_types      import MESH_FLAGS_SHADOW_RECEIVER_BIT
@@ -238,17 +239,17 @@ fn pbr(
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
-        let light_contrib = lighting::directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        var light_contrib = lighting::directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+#ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
+        light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
+#endif
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    let diffuse_ambient = lighting::EnvBRDFApprox(diffuse_color, 1.0, NdotV);
-    let specular_ambient = lighting::EnvBRDFApprox(F0, perceptual_roughness, NdotV);
+    let ambient_contrib = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     output_color = vec4<f32>(
-        light_accum
-            + (diffuse_ambient + specular_ambient) * view_bindings::lights.ambient_color.rgb * occlusion
-            + emissive.rgb * output_color.a,
+        light_accum + ambient_contrib + emissive.rgb * output_color.a,
         output_color.a
     );
 

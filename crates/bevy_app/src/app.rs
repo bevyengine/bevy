@@ -1,14 +1,12 @@
-use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
+use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{Event, Events},
-    prelude::FromWorld,
+    prelude::*,
     schedule::{
-        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
-        SystemStage,
+        apply_state_transition, common_conditions::run_once as run_once_condition,
+        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
+        ScheduleLabel,
     },
-    system::Resource,
-    world::World,
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
@@ -68,8 +66,14 @@ pub struct App {
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
-    /// A container of [`Stage`]s set to be run in a linear order.
-    pub schedule: Schedule,
+    /// The schedule that systems are added to by default.
+    ///
+    /// This is initially set to [`CoreSchedule::Main`].
+    pub default_schedule_label: BoxedScheduleLabel,
+    /// The schedule that controls the outer loop of schedule execution.
+    ///
+    /// This is initially set to [`CoreSchedule::Outer`].
+    pub outer_schedule_label: BoxedScheduleLabel,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -94,8 +98,9 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel, SubApp};
+/// # use bevy_app::{App, AppLabel, SubApp, CoreSchedule};
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::schedule::ScheduleLabel;
 ///
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
@@ -103,26 +108,28 @@ impl Debug for App {
 /// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 /// struct ExampleApp;
 ///
-/// #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-/// struct ExampleStage;
+/// let mut app = App::new();
 ///
-/// let mut app = App::empty();
 /// // initialize the main app with a value of 0;
 /// app.insert_resource(Val(10));
 ///
-/// // create a app with a resource and a single stage
+/// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
+/// // add an outer schedule that runs the main schedule
+/// sub_app.add_simple_outer_schedule();
 /// sub_app.insert_resource(Val(100));
-/// let mut example_stage = SystemStage::single_threaded();
-/// example_stage.add_system(|counter: Res<Val>| {
+///
+/// // initialize main schedule
+/// sub_app.init_schedule(CoreSchedule::Main);
+/// sub_app.add_system(|counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
 /// });
-/// sub_app.add_stage(ExampleStage, example_stage);
 ///
 /// // add the sub_app to the app
 /// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
+///     // extract the value from the main app to the sub app
 ///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
 /// }));
 ///
@@ -152,9 +159,11 @@ impl SubApp {
         }
     }
 
-    /// Runs the `SubApp`'s schedule.
+    /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app.schedule.run(&mut self.app.world);
+        self.app
+            .world
+            .run_schedule_ref(&*self.app.outer_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -180,7 +189,9 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages().add_event::<AppExit>();
+        app.add_default_schedules();
+
+        app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -194,21 +205,26 @@ impl Default for App {
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
+    ///
+    /// This calls [`App::add_default_schedules`].
     pub fn new() -> App {
         App::default()
     }
 
     /// Creates a new empty [`App`] with minimal default configuration.
     ///
-    /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
+    /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
+        let mut world = World::new();
+        world.init_resource::<Schedules>();
         Self {
-            world: Default::default(),
-            schedule: Default::default(),
+            world,
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
+            default_schedule_label: Box::new(CoreSchedule::Main),
+            outer_schedule_label: Box::new(CoreSchedule::Outer),
             is_building_plugin: false,
         }
     }
@@ -216,13 +232,20 @@ impl App {
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
     /// This method also updates sub apps.
+    /// See [`insert_sub_app`](Self::insert_sub_app) for more details.
     ///
-    /// See [`insert_sub_app`](Self::insert_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
+    /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]
+    /// the first time the app is run, then [`CoreSchedule::Main`] on every call of this method.
+    ///
+    /// # Panics
+    ///
+    /// The active schedule of the app must be set before this method is called.
     pub fn update(&mut self) {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.schedule.run(&mut self.world);
+            self.world.run_schedule_ref(&*self.outer_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -280,195 +303,54 @@ impl App {
         (runner)(app);
     }
 
-    /// Adds a [`Stage`] with the given `label` to the last position of the app's
-    /// [`Schedule`].
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
+    /// for each state variant, an instance of [`apply_state_transition::<S>`] in
+    /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
+    /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
+    /// with a [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// initial state.
     ///
-    /// # Examples
+    /// This also adds an [`OnUpdate`] system set for each state variant,
+    /// which run during [`CoreSet::StateTransitions`] after the transitions are applied.
+    /// These systems sets only run if the [`State<S>`] resource matches their label.
     ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = App::new();
-    /// #
-    /// #[derive(StageLabel)]
-    /// struct MyStage;
-    /// app.add_stage(MyStage, SystemStage::parallel());
-    /// ```
-    pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
-        self.schedule.add_stage(label, stage);
+    /// If you would like to control how other systems run based on the current state,
+    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
+    ///
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by adding the [`apply_state_transition`] system manually.
+    pub fn add_state<S: States>(&mut self) -> &mut Self {
+        self.init_resource::<State<S>>();
+        self.init_resource::<NextState<S>>();
+        self.add_systems(
+            (
+                run_enter_schedule::<S>.run_if(run_once_condition()),
+                apply_state_transition::<S>,
+            )
+                .chain()
+                .in_base_set(CoreSet::StateTransitions),
+        );
+
+        let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
+        for variant in S::variants() {
+            main_schedule.configure_set(
+                OnUpdate(variant.clone())
+                    .in_base_set(CoreSet::StateTransitions)
+                    .run_if(state_equals(variant))
+                    .after(apply_state_transition::<S>),
+            );
+        }
+
+        // These are different for loops to avoid conflicting access to self
+        for variant in S::variants() {
+            self.add_schedule(OnEnter(variant.clone()), Schedule::new());
+            self.add_schedule(OnExit(variant), Schedule::new());
+        }
+
         self
     }
 
-    /// Adds a [`Stage`] with the given `label` to the app's [`Schedule`], located
-    /// immediately after the stage labeled by `target`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = App::new();
-    /// #
-    /// #[derive(StageLabel)]
-    /// struct MyStage;
-    /// app.add_stage_after(CoreStage::Update, MyStage, SystemStage::parallel());
-    /// ```
-    pub fn add_stage_after<S: Stage>(
-        &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
-        stage: S,
-    ) -> &mut Self {
-        self.schedule.add_stage_after(target, label, stage);
-        self
-    }
-
-    /// Adds a [`Stage`] with the given `label` to the app's [`Schedule`], located
-    /// immediately before the stage labeled by `target`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = App::new();
-    /// #
-    /// #[derive(StageLabel)]
-    /// struct MyStage;
-    /// app.add_stage_before(CoreStage::Update, MyStage, SystemStage::parallel());
-    /// ```
-    pub fn add_stage_before<S: Stage>(
-        &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
-        stage: S,
-    ) -> &mut Self {
-        self.schedule.add_stage_before(target, label, stage);
-        self
-    }
-
-    /// Adds a [`Stage`] with the given `label` to the last position of the
-    /// [startup schedule](Self::add_default_stages).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = App::new();
-    /// #
-    /// #[derive(StageLabel)]
-    /// struct MyStartupStage;
-    /// app.add_startup_stage(MyStartupStage, SystemStage::parallel());
-    /// ```
-    pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
-        self.schedule
-            .stage(StartupSchedule, |schedule: &mut Schedule| {
-                schedule.add_stage(label, stage)
-            });
-        self
-    }
-
-    /// Adds a [startup stage](Self::add_default_stages) with the given `label`, immediately
-    /// after the stage labeled by `target`.
-    ///
-    /// The `target` label must refer to a stage inside the startup schedule.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = App::new();
-    /// #
-    /// #[derive(StageLabel)]
-    /// struct MyStartupStage;
-    /// app.add_startup_stage_after(
-    ///     StartupStage::Startup,
-    ///     MyStartupStage,
-    ///     SystemStage::parallel()
-    /// );
-    /// ```
-    pub fn add_startup_stage_after<S: Stage>(
-        &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
-        stage: S,
-    ) -> &mut Self {
-        self.schedule
-            .stage(StartupSchedule, |schedule: &mut Schedule| {
-                schedule.add_stage_after(target, label, stage)
-            });
-        self
-    }
-
-    /// Adds a [startup stage](Self::add_default_stages) with the given `label`, immediately
-    /// before the stage labeled by `target`.
-    ///
-    /// The `target` label must refer to a stage inside the startup schedule.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = App::new();
-    /// #
-    /// #[derive(StageLabel)]
-    /// struct MyStartupStage;
-    /// app.add_startup_stage_before(
-    ///     StartupStage::Startup,
-    ///     MyStartupStage,
-    ///     SystemStage::parallel()
-    /// );
-    /// ```
-    pub fn add_startup_stage_before<S: Stage>(
-        &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
-        stage: S,
-    ) -> &mut Self {
-        self.schedule
-            .stage(StartupSchedule, |schedule: &mut Schedule| {
-                schedule.add_stage_before(target, label, stage)
-            });
-        self
-    }
-
-    /// Fetches the [`Stage`] of type `T` marked with `label` from the [`Schedule`], then
-    /// executes the provided `func` passing the fetched stage to it as an argument.
-    ///
-    /// The `func` argument should be a function or a closure that accepts a mutable reference
-    /// to a struct implementing `Stage` and returns the same type. That means that it should
-    /// also assume that the stage has already been fetched successfully.
-    ///
-    /// See [`stage`](Schedule::stage) for more details.
-    ///
-    /// # Examples
-    ///
-    /// Here the closure is used to add a system to the update stage:
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn my_system() {}
-    /// #
-    /// app.stage(CoreStage::Update, |stage: &mut SystemStage| {
-    ///     stage.add_system(my_system)
-    /// });
-    /// ```
-    pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
-        &mut self,
-        label: impl StageLabel,
-        func: F,
-    ) -> &mut Self {
-        self.schedule.stage(label, func);
-        self
-    }
-
-    /// Adds a system to the [update stage](Self::add_default_stages) of the app's [`Schedule`].
+    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
     ///
     /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
     /// can be defined.
@@ -484,11 +366,20 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
-        self.add_system_to_stage(CoreStage::Update, system)
+    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
+            default_schedule.add_system(system);
+        } else {
+            let schedule_label = &self.default_schedule_label;
+            panic!("Default schedule {schedule_label:?} does not exist.")
+        }
+
+        self
     }
 
-    /// Adds a [`SystemSet`] to the [update stage](Self::add_default_stages).
+    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
     ///
     /// # Examples
     ///
@@ -501,84 +392,59 @@ impl App {
     /// # fn system_b() {}
     /// # fn system_c() {}
     /// #
-    /// app.add_system_set(
-    ///     SystemSet::new()
-    ///         .with_system(system_a)
-    ///         .with_system(system_b)
-    ///         .with_system(system_c),
-    /// );
+    /// app.add_systems((system_a, system_b, system_c));
     /// ```
-    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_system_set_to_stage(CoreStage::Update, system_set)
-    }
+    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
 
-    /// Adds a system to the [`Stage`] identified by `stage_label`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn my_system() {}
-    /// #
-    /// app.add_system_to_stage(CoreStage::PostUpdate, my_system);
-    /// ```
-    pub fn add_system_to_stage<Params>(
-        &mut self,
-        stage_label: impl StageLabel,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
-        use std::any::TypeId;
-        assert!(
-            stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "use `add_startup_system_to_stage` instead of `add_system_to_stage` to add a system to a StartupStage"
-        );
-        self.schedule.add_system_to_stage(stage_label, system);
+        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
+            default_schedule.add_systems(systems);
+        } else {
+            let schedule_label = &self.default_schedule_label;
+            panic!("Default schedule {schedule_label:?} does not exist.")
+        }
+
         self
     }
 
-    /// Adds a [`SystemSet`] to the [`Stage`] identified by `stage_label`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn system_a() {}
-    /// # fn system_b() {}
-    /// # fn system_c() {}
-    /// #
-    /// app.add_system_set_to_stage(
-    ///     CoreStage::PostUpdate,
-    ///     SystemSet::new()
-    ///         .with_system(system_a)
-    ///         .with_system(system_b)
-    ///         .with_system(system_c),
-    /// );
-    /// ```
-    pub fn add_system_set_to_stage(
+    /// Adds a system to the provided [`Schedule`].
+    pub fn add_system_to_schedule<P>(
         &mut self,
-        stage_label: impl StageLabel,
-        system_set: SystemSet,
+        schedule_label: impl ScheduleLabel,
+        system: impl IntoSystemConfig<P>,
     ) -> &mut Self {
-        use std::any::TypeId;
-        assert!(
-            stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"
-        );
-        self.schedule
-            .add_system_set_to_stage(stage_label, system_set);
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(&schedule_label) {
+            schedule.add_system(system);
+        } else {
+            panic!("Provided schedule {schedule_label:?} does not exist.")
+        }
+
         self
     }
 
-    /// Adds a system to the [startup stage](Self::add_default_stages) of the app's [`Schedule`].
+    /// Adds a collection of system to the provided [`Schedule`].
+    pub fn add_systems_to_schedule<P>(
+        &mut self,
+        schedule_label: impl ScheduleLabel,
+        systems: impl IntoSystemConfigs<P>,
+    ) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(&schedule_label) {
+            schedule.add_systems(systems);
+        } else {
+            panic!("Provided schedule {schedule_label:?} does not exist.")
+        }
+
+        self
+    }
+
+    /// Adds a system to [`CoreSchedule::Startup`].
     ///
-    /// * For adding a system that runs every frame, see [`add_system`](Self::add_system).
-    /// * For adding a system to a specific stage, see [`add_system_to_stage`](Self::add_system_to_stage).
+    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
+    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
     ///
     /// # Examples
     ///
@@ -593,14 +459,11 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<Params>(
-        &mut self,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
-        self.add_startup_system_to_stage(StartupStage::Startup, system)
+    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+        self.add_system_to_schedule(CoreSchedule::Startup, system)
     }
 
-    /// Adds a [`SystemSet`] to the [startup stage](Self::add_default_stages).
+    /// Adds a collection of systems to [`CoreSchedule::Startup`].
     ///
     /// # Examples
     ///
@@ -613,161 +476,90 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_system_set(
-    ///     SystemSet::new()
-    ///         .with_system(startup_system_a)
-    ///         .with_system(startup_system_b)
-    ///         .with_system(startup_system_c),
+    /// app.add_startup_systems(
+    ///     (
+    ///         startup_system_a,
+    ///         startup_system_b,
+    ///         startup_system_c,
+    ///     )
     /// );
     /// ```
-    pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
+    pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+        self.add_systems_to_schedule(CoreSchedule::Startup, systems)
     }
 
-    /// Adds a system to the [startup schedule](Self::add_default_stages), in the stage
-    /// identified by `stage_label`.
-    ///
-    /// `stage_label` must refer to a stage inside the startup schedule.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn my_startup_system() {}
-    /// #
-    /// app.add_startup_system_to_stage(StartupStage::PreStartup, my_startup_system);
-    /// ```
-    pub fn add_startup_system_to_stage<Params>(
-        &mut self,
-        stage_label: impl StageLabel,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
-        self.schedule
-            .stage(StartupSchedule, |schedule: &mut Schedule| {
-                schedule.add_system_to_stage(stage_label, system)
-            });
+    /// Configures a system set in the default schedule, adding the set if it does not exist.
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .get_mut(&*self.default_schedule_label)
+            .unwrap()
+            .configure_set(set);
         self
     }
 
-    /// Adds a [`SystemSet`] to the [startup schedule](Self::add_default_stages), in the stage
-    /// identified by `stage_label`.
-    ///
-    /// `stage_label` must refer to a stage inside the startup schedule.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn startup_system_a() {}
-    /// # fn startup_system_b() {}
-    /// # fn startup_system_c() {}
-    /// #
-    /// app.add_startup_system_set_to_stage(
-    ///     StartupStage::PreStartup,
-    ///     SystemSet::new()
-    ///         .with_system(startup_system_a)
-    ///         .with_system(startup_system_b)
-    ///         .with_system(startup_system_c),
-    /// );
-    /// ```
-    pub fn add_startup_system_set_to_stage(
-        &mut self,
-        stage_label: impl StageLabel,
-        system_set: SystemSet,
-    ) -> &mut Self {
-        self.schedule
-            .stage(StartupSchedule, |schedule: &mut Schedule| {
-                schedule.add_system_set_to_stage(stage_label, system_set)
-            });
+    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .get_mut(&*self.default_schedule_label)
+            .unwrap()
+            .configure_sets(sets);
         self
     }
 
-    /// Adds a new [`State`] with the given `initial` value.
-    /// This inserts a new `State<T>` resource and adds a new "driver" to [`CoreStage::Update`].
-    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
-    /// your state in a different stage, consider using [`Self::add_state_to_stage`] or manually
-    /// adding [`State::get_driver`] to additional stages you need it in.
-    pub fn add_state<T>(&mut self, initial: T) -> &mut Self
-    where
-        T: StateData,
-    {
-        self.add_state_to_stage(CoreStage::Update, initial)
-    }
-
-    /// Adds a new [`State`] with the given `initial` value.
-    /// This inserts a new `State<T>` resource and adds a new "driver" to the given stage.
-    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
-    /// your state in more than one stage, consider manually adding [`State::get_driver`] to the
-    /// stages you need it in.
-    pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
-    where
-        T: StateData,
-    {
-        self.insert_resource(State::new(initial))
-            .add_system_set_to_stage(stage, State::<T>::get_driver())
-    }
-
-    /// Adds utility stages to the [`Schedule`], giving it a standardized structure.
+    /// Adds standardized schedules and labels to an [`App`].
     ///
-    /// Adding those stages is necessary to make some core engine features work, like
-    /// adding systems without specifying a stage, or registering events. This is however
-    /// done by default by calling `App::default`, which is in turn called by
+    /// Adding these schedules is necessary to make almost all core engine features work.
+    ///  This is typically done implicitly by calling `App::default`, which is in turn called by
     /// [`App::new`].
     ///
-    /// # The stages
+    /// The schedules added are defined in the [`CoreSchedule`] enum,
+    /// and have a starting configuration defined by:
     ///
-    /// All the added stages, with the exception of the startup stage, run every time the
-    /// schedule is invoked. The stages are the following, in order of execution:
-    ///
-    /// - **First:** Runs at the very start of the schedule execution cycle, even before the
-    ///   startup stage.
-    /// - **Startup:** This is actually a schedule containing sub-stages. Runs only once
-    ///   when the app starts.
-    ///     - **Pre-startup:** Intended for systems that need to run before other startup systems.
-    ///     - **Startup:** The main startup stage. Startup systems are added here by default.
-    ///     - **Post-startup:** Intended for systems that need to run after other startup systems.
-    /// - **Pre-update:** Often used by plugins to prepare their internal state before the
-    ///   update stage begins.
-    /// - **Update:** Intended for user defined logic. Systems are added here by default.
-    /// - **Post-update:** Often used by plugins to finalize their internal state after the
-    ///   world changes that happened during the update stage.
-    /// - **Last:** Runs right before the end of the schedule execution cycle.
-    ///
-    /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`] `enum`s.
+    /// - [`CoreSchedule::Outer`]: uses [`CoreSchedule::outer_schedule`]
+    /// - [`CoreSchedule::Startup`]: uses [`StartupSet::base_schedule`]
+    /// - [`CoreSchedule::Main`]: uses [`CoreSet::base_schedule`]
+    /// - [`CoreSchedule::FixedUpdate`]: no starting configuration
     ///
     /// # Examples
     ///
     /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// let app = App::empty().add_default_stages();
+    /// use bevy_app::App;
+    /// use bevy_ecs::schedule::Schedules;
+    ///
+    /// let app = App::empty()
+    ///     .init_resource::<Schedules>()
+    ///     .add_default_schedules()
+    ///     .update();
     /// ```
-    pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_stage(CoreStage::First, SystemStage::parallel())
-            .add_stage(
-                StartupSchedule,
-                Schedule::default()
-                    .with_run_criteria(ShouldRun::once)
-                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                    .with_stage(StartupStage::Startup, SystemStage::parallel())
-                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
-            )
-            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Update, SystemStage::parallel())
-            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Last, SystemStage::parallel())
+    pub fn add_default_schedules(&mut self) -> &mut Self {
+        self.add_schedule(CoreSchedule::Outer, CoreSchedule::outer_schedule());
+        self.add_schedule(CoreSchedule::Startup, StartupSet::base_schedule());
+        self.add_schedule(CoreSchedule::Main, CoreSet::base_schedule());
+        self.init_schedule(CoreSchedule::FixedUpdate);
+
+        self
+    }
+
+    /// adds a single threaded outer schedule to the [`App`] that just runs the main schedule
+    pub fn add_simple_outer_schedule(&mut self) -> &mut Self {
+        fn run_main_schedule(world: &mut World) {
+            world.run_schedule(CoreSchedule::Main);
+        }
+
+        self.edit_schedule(CoreSchedule::Outer, |schedule| {
+            schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+            schedule.add_system(run_main_schedule);
+        });
+
+        self
     }
 
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`CoreStage::First`].
+    /// and inserting an [`update_system`](Events::update_system) into [`CoreSet::First`].
     ///
     /// See [`Events`] for defining events.
     ///
@@ -788,7 +580,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system_to_stage(CoreStage::First, Events::<T>::update_system);
+                .add_system(Events::<T>::update_system.in_base_set(CoreSet::First));
         }
         self
     }
@@ -1145,6 +937,64 @@ impl App {
             .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+
+    /// Adds a new `schedule` to the [`App`] under the provided `label`.
+    ///
+    /// # Warning
+    /// This method will overwrite any existing schedule at that label.
+    /// To avoid this behavior, use the `init_schedule` method instead.
+    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        schedules.insert(label, schedule);
+
+        self
+    }
+
+    /// Initializes a new empty `schedule` to the [`App`] under the provided `label` if it does not exists.
+    ///
+    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
+    pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        if !schedules.contains(&label) {
+            schedules.insert(label, Schedule::new());
+        }
+        self
+    }
+
+    /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
+    pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+        let schedules = self.world.get_resource::<Schedules>()?;
+        schedules.get(&label)
+    }
+
+    /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
+    pub fn get_schedule_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
+        let schedules = self.world.get_resource_mut::<Schedules>()?;
+        // We need to call .into_inner here to satisfy the borrow checker:
+        // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
+        schedules.into_inner().get_mut(&label)
+    }
+
+    /// Applies the function to the [`Schedule`] associated with `label`.
+    ///
+    /// **Note:** This will create the schedule if it does not already exist.
+    pub fn edit_schedule(
+        &mut self,
+        label: impl ScheduleLabel,
+        mut f: impl FnMut(&mut Schedule),
+    ) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if schedules.get(&label).is_none() {
+            schedules.insert(label.dyn_clone(), Schedule::new());
+        }
+
+        let schedule = schedules.get_mut(&label).unwrap();
+        // Call the function f, passing in the schedule retrieved
+        f(schedule);
+
+        self
     }
 }
 

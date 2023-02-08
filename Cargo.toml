@@ -16,8 +16,7 @@ rust-version = "1.67.0"
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
-  "examples/android",
-  "examples/ios",
+  "examples/mobile",
   "tools/ci",
   "tools/build-example-pages",
   "tools/build-wasm-example",
@@ -44,6 +43,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "android_shared_stdcxx"
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -117,6 +117,9 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation"]
+
+# Enable using a shared stdlib for cxx on Android.
+android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
@@ -920,7 +923,7 @@ path = "examples/ecs/removal_detection.rs"
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
-description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+description = "Query for entities that had a specific component removed earlier in the current frame"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -971,16 +974,6 @@ path = "examples/ecs/system_param.rs"
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "system_sets"
-path = "examples/ecs/system_sets.rs"
-
-[package.metadata.example.system_sets]
-name = "System Sets"
-description = "Shows `SystemSet` use along with run criterion"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1472,6 +1465,16 @@ path = "examples/tools/gamepad_viewer.rs"
 name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
+wasm = false
+
+[[example]]
+name = "nondeterministic_system_order"
+path = "examples/ecs/nondeterministic_system_order.rs"
+
+[package.metadata.example.nondeterministic_system_order]
+name = "Nondeterministic System Order"
+description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
