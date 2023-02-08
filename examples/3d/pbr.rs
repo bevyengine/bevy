@@ -152,8 +152,8 @@ fn setup(
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_zstd.ktx2"),
+            diffuse_map: asset_server.load("environment_maps/pizzo_pernice_diffuse_rgb9e5.ktx2"),
+            specular_map: asset_server.load("environment_maps/pizzo_pernice_diffuse_rgb9e5.ktx2"),
         },
     ));
 }

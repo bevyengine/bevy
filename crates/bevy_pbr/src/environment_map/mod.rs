@@ -39,7 +39,7 @@ impl Plugin for EnvironmentMapPlugin {
 /// an environment cubemap texture. This is similiar to [`crate::AmbientLight`], but
 /// higher quality, and is intended for outdoor scenes.
 ///
-/// The environment map must be prefiltered into a diffuse and specular map based on the
+/// The environment map must be prefiltered into a diffuse and specular cubemap based on the
 /// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
 ///
 /// To prefilter your environment map, you can use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
