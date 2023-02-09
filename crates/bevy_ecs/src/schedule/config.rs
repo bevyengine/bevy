@@ -554,7 +554,7 @@ where
     }
 
     unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
-        self.a.run_unsafe((), world) && self.b.run_unsafe((), world)
+        self.a.run_unsafe((), world) & self.b.run_unsafe((), world)
     }
 
     fn apply_buffers(&mut self, world: &mut World) {
