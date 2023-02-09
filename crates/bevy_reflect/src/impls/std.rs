@@ -995,7 +995,7 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = crate::reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
@@ -1103,7 +1103,7 @@ impl Reflect for &'static Path {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = crate::reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())

@@ -30,7 +30,7 @@ pub use thiserror;
 pub use tracing;
 pub use uuid::Uuid;
 
-use ahash::RandomState;
+pub use ahash::RandomState;
 use hashbrown::hash_map::RawEntryMut;
 use std::{
     fmt::Debug,

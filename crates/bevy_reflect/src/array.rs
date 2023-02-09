@@ -334,7 +334,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
+    let mut hasher = crate::reflect_hasher();
     std::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {

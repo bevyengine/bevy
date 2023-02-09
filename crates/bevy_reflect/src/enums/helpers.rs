@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 /// Returns the `u64` hash of the given [enum](Enum).
 #[inline]
 pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
+    let mut hasher = crate::reflect_hasher();
     std::any::Any::type_id(value).hash(&mut hasher);
     value.variant_name().hash(&mut hasher);
     value.variant_type().hash(&mut hasher);

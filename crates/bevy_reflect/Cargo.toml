@@ -15,6 +15,7 @@ default = []
 bevy = ["glam", "smallvec", "bevy_math"]
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
+fixed_hash = []
 
 [dependencies]
 # bevy
