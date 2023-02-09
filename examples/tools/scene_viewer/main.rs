@@ -130,9 +130,9 @@ fn setup_scene_after_load(
             },
             EnvironmentMapLight {
                 diffuse_map: asset_server
-                    .load("assets/environment_maps/pizzo_pernice_diffuse_rgb9e5.ktx2"),
+                    .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
                 specular_map: asset_server
-                    .load("assets/environment_maps/pizzo_pernice_specular_rgb9e5.ktx2"),
+                    .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             },
             camera_controller,
         ));
