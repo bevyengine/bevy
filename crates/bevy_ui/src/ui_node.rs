@@ -840,9 +840,7 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::ValArithmeticError;
-
-    use super::Val;
+    use crate::{Breadth, BreadthArithmeticError, Val, ValArithmeticError};
 
     #[test]
     fn val_try_add() {
@@ -1001,10 +999,6 @@ mod tests {
             "the given variant of Val is not evaluateable (non-numeric)"
         );
     }
-
-    use crate::BreadthArithmeticError;
-
-    use super::Breadth;
 
     #[test]
     fn breadth_try_add() {
