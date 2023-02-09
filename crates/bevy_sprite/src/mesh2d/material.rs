@@ -161,8 +161,8 @@ where
                 .add_system_to_schedule(ExtractSchedule, extract_materials_2d::<M>)
                 .add_system(
                     prepare_materials_2d::<M>
-                        .after(PrepareAssetLabel::PreAssetPrepare)
-                        .in_set(RenderSet::Prepare),
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepareAssetLabel::PreAssetPrepare),
                 )
                 .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
         }

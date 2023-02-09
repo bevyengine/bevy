@@ -196,7 +196,11 @@ where
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_system_to_schedule(ExtractSchedule, extract_materials::<M>)
-                .add_system(prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare))
+                .add_system(
+                    prepare_materials::<M>
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepareAssetLabel::PreAssetPrepare),
+                )
                 .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
 
