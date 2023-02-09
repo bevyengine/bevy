@@ -11,22 +11,24 @@ pub trait Condition<Params>: sealed::Condition<Params> {}
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
 mod sealed {
-    use crate::system::{IntoSystem, IsFunctionSystem, ReadOnlySystemParam, SystemParamFunction};
+    use crate::system::{IntoSystem, ReadOnlySystem};
 
     pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
 
-    impl<Params, Marker, F> Condition<(IsFunctionSystem, Params, Marker)> for F
+    impl<Params, F> Condition<Params> for F
     where
-        F: SystemParamFunction<(), bool, Params, Marker> + Send + Sync + 'static,
-        Params: ReadOnlySystemParam + 'static,
-        Marker: 'static,
+        F: IntoSystem<(), bool, Params>,
+        F::System: ReadOnlySystem,
     {
     }
 }
 
 pub mod common_conditions {
-    use crate::schedule::{State, States};
-    use crate::system::{Res, Resource};
+    use super::Condition;
+    use crate::{
+        schedule::{State, States},
+        system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
+    };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the first time the condition is run and false every time after
@@ -105,5 +107,38 @@ pub mod common_conditions {
             Some(current_state) => current_state.0 == state,
             None => false,
         }
+    }
+
+    /// Generates a  [`Condition`](super::Condition) that inverses the result of passed one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
+    ///         // This system will never run.
+    ///         my_system.run_if(not(always_true))
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A condition that always returns true.
+    /// fn always_true() -> bool {
+    ///    true
+    /// }
+    /// #
+    /// # fn my_system() { unreachable!() }
+    /// ```
+    pub fn not<Params, C: Condition<Params>>(
+        condition: C,
+    ) -> impl ReadOnlySystem<In = (), Out = bool>
+    where
+        C::System: ReadOnlySystem,
+    {
+        condition.pipe(|In(val): In<bool>| !val)
     }
 }
