@@ -37,7 +37,7 @@ pub struct BloomDownsamplingPipelineKeys {
     first_downsample: bool,
 }
 
-/// The uniform struct extracted from [`BloomSettings`] attached to a [`Camera`].
+/// The uniform struct extracted from [`BloomSettings`] attached to a Camera.
 /// Will be available for use in the Bloom shader in the first downsample pass.
 #[derive(Component, ShaderType, Clone)]
 pub struct BloomDownsamplingUniforms {

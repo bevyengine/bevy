@@ -15,8 +15,8 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 ///
 /// **Bloom is currently not compatible with WebGL2.**
 ///
-/// Often used in conjunction with [`bevy_pbr::StandardMaterial::emissive`]
-/// for 3d meshes or [`bevy::Color::Hsla::lightness`] for 2d sprites.
+/// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`
+/// for 3d meshes or [`bevy_render::color::Color::Hsla`]`::lightness` for 2d sprites.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,
 /// such as ACES Filmic (Bevy's default).
