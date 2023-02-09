@@ -1,13 +1,18 @@
+use std::borrow::Cow;
+
 use bevy_ecs_macros::all_tuples;
 
 use crate::{
+    archetype::ArchetypeComponentId,
+    component::ComponentId,
+    query::Access,
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
         state::{OnUpdate, States},
     },
-    system::{BoxedSystem, IntoSystem, PipeSystem, ReadOnlySystem, System},
+    system::{BoxedSystem, IntoSystem, ReadOnlySystem, System},
     world::World,
 };
 
@@ -508,6 +513,9 @@ impl IntoSystemConfig<()> for SystemConfig {
 pub struct And<A, B> {
     a: A,
     b: B,
+    name: Cow<'static, str>,
+    component_access: Access<ComponentId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
 }
 
 impl<A, B> System for And<A, B>
@@ -520,7 +528,7 @@ where
     type Out = bool;
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
-        todo!()
+        self.name.clone()
     }
 
     fn type_id(&self) -> std::any::TypeId {
@@ -528,13 +536,13 @@ where
     }
 
     fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        todo!()
+        &self.component_access
     }
 
     fn archetype_component_access(
         &self,
     ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
-        todo!()
+        &self.archetype_component_access
     }
 
     fn is_send(&self) -> bool {
@@ -557,26 +565,43 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
+
+        self.component_access.extend(self.a.component_access());
+        self.component_access.extend(self.b.component_access());
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
+
+        self.archetype_component_access
+            .extend(self.a.archetype_component_access());
+        self.archetype_component_access
+            .extend(self.b.archetype_component_access());
     }
 
     fn check_change_tick(&mut self, change_tick: u32) {
-        todo!()
+        self.a.check_change_tick(change_tick);
+        self.b.check_change_tick(change_tick);
     }
 
     fn get_last_change_tick(&self) -> u32 {
-        todo!()
+        self.a.get_last_change_tick()
     }
 
     fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        todo!()
+        self.a.set_last_change_tick(last_change_tick);
+        self.b.set_last_change_tick(last_change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let mut system_sets = self.a.default_system_sets();
+        system_sets.extend_from_slice(&self.a.default_system_sets());
+        system_sets
     }
 }
 
+// SAFETY: Both systems are read-only, so combining them will also be read-only.
 unsafe impl<A, B> ReadOnlySystem for And<A, B>
 where
     A: ReadOnlySystem<In = (), Out = bool>,
@@ -656,6 +681,9 @@ where
             condition: And {
                 a: self.condition,
                 b: IntoSystem::into_system(condition),
+                name: Cow::Owned(format!("{} && {}", "", "")),
+                component_access: Access::new(),
+                archetype_component_access: Access::new(),
             },
             prev_conditions: self.prev_conditions,
         }
