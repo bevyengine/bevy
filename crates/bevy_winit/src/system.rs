@@ -1,11 +1,4 @@
-use bevy_ecs::{
-    entity::Entity,
-    event::EventWriter,
-    prelude::{Changed, Component, Resource},
-    removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query},
-    world::Mut,
-};
+use bevy_ecs::prelude::*;
 use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
@@ -27,14 +20,15 @@ use crate::{
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::ResMut;
 
-/// System responsible for creating new windows whenever a `Window` component is added
-/// to an entity.
+/// Creates a new window on the [`winit`] backend for each entity with a newly-added
+/// [`Window`] component.
 ///
-/// This will default any necessary components if they are not already added.
-pub(crate) fn create_window<'a>(
+/// If any of these entities are missing required components, those will be added with their
+/// default values.
+pub(crate) fn create_windows<T>(
+    In(event_loop): In<&EventLoopWindowTarget<T>>,
     mut commands: Commands,
-    event_loop: &EventLoopWindowTarget<()>,
-    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
+    created_windows: Query<(Entity, &mut Window), Added<Window>>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
@@ -84,7 +78,7 @@ pub(crate) fn create_window<'a>(
 #[derive(Debug, Clone, Resource)]
 pub struct WindowTitleCache(HashMap<Entity, String>);
 
-pub(crate) fn despawn_window(
+pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
     window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
@@ -107,14 +101,14 @@ pub struct CachedWindow {
     pub window: Window,
 }
 
-// Detect changes to the window and update the winit window accordingly.
-//
-// Notes:
-// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] updating should be handled in the bevy render crate.
-// - [`Window::transparent`] currently cannot be updated after startup for winit.
-// - [`Window::canvas`] currently cannot be updated after startup, not entirely sure if it would work well with the
-//   event channel stuff.
-pub(crate) fn changed_window(
+/// Propagates changes from window entities to the [`winit`] backend.
+///
+/// # Notes
+///
+/// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] changes are handled by the `bevy_render` crate.
+/// - [`Window::transparent`] cannot be changed after the window is created.
+/// - [`Window::canvas`] cannot be changed after the window is created.
+pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
 ) {
