@@ -302,11 +302,11 @@ impl App {
     /// be useful for situations where you want to use [`App::update`].
     pub fn setup(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let mut plugin_registry = std::mem::take(&mut self.plugin_registry);
+        let plugin_registry = std::mem::take(&mut self.plugin_registry);
         for plugin in &plugin_registry {
             plugin.setup(self);
         }
-        std::mem::swap(&mut self.plugin_registry, &mut plugin_registry);
+        self.plugin_registry = plugin_registry;
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
