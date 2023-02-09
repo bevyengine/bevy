@@ -735,6 +735,9 @@ where
 
 /// A system which combines the output of two systems with
 /// a non-short-circuiting AND operation.
+// FIXME: Replace this with an abstraction based on `SystemParamFunction`.
+// For that to be viable, we'd also need `PipeSystem` to also be based on
+// `SystemParamFunction`, which is blocked by the rust feature `type_alias_impl_trait`.
 pub struct And<A, B> {
     a: A,
     b: B,
