@@ -37,7 +37,7 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
 
 // http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
-    let luma = tonemapping_luminance(rgb_to_srgb(color)) / 4.0;
+    let luma = tonemapping_luminance(rgb_to_srgb_simple(color)) / 4.0;
     return 1.0 / (1.0 + luma);
 }
 

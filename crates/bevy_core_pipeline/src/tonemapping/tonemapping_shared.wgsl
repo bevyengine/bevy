@@ -38,7 +38,7 @@ fn reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
     return tonemapping_change_luminance(color, l_new);
 }
 
-fn rgb_to_srgb(color: vec3<f32>) -> vec3<f32> {
+fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));
 }
 

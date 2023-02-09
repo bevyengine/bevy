@@ -287,8 +287,11 @@ impl Node for BloomNode {
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
                 &[],
             );
-            let blend = bloom_settings
-                .compute_blend_factor(mip as f32, (bloom_texture.mip_count - 1) as f32);
+            let blend = compute_blend_factor(
+                bloom_settings,
+                mip as f32,
+                (bloom_texture.mip_count - 1) as f32,
+            );
             upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
@@ -318,7 +321,7 @@ impl Node for BloomNode {
                 upsampling_final_pass.set_camera_viewport(viewport);
             }
             let blend =
-                bloom_settings.compute_blend_factor(0.0, (bloom_texture.mip_count - 1) as f32);
+                compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
             upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
@@ -446,40 +449,37 @@ fn queue_bloom_bind_groups(
     }
 }
 
-impl BloomSettings {
-    /// Calculates blend intensities of blur pyramid levels
-    /// during the upsampling + compositing stage.
-    ///
-    /// The function assumes all pyramid levels are upsampled and
-    /// blended into higher frequency ones using this function to
-    /// calculate blend levels every time. The final (highest frequency)
-    /// pyramid level in not blended into anything therefore this function
-    /// is not applied to it. As a result, the *mip* parameter of 0 indicates
-    /// the second-highest frequency pyramid level (in our case that is the
-    /// 0th mip of the bloom texture with the original image being the
-    /// actual highest frequency level).
-    ///
-    /// Parameters:
-    /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
-    /// * *max_mip* - the index of the lowest frequency pyramid level.
-    ///
-    /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
-    /// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-    #[allow(clippy::doc_markdown)]
-    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
-        let x = mip / max_mip;
+/// Calculates blend intensities of blur pyramid levels
+/// during the upsampling + compositing stage.
+///
+/// The function assumes all pyramid levels are upsampled and
+/// blended into higher frequency ones using this function to
+/// calculate blend levels every time. The final (highest frequency)
+/// pyramid level in not blended into anything therefore this function
+/// is not applied to it. As a result, the *mip* parameter of 0 indicates
+/// the second-highest frequency pyramid level (in our case that is the
+/// 0th mip of the bloom texture with the original image being the
+/// actual highest frequency level).
+///
+/// Parameters:
+/// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
+/// * *max_mip* - the index of the lowest frequency pyramid level.
+///
+/// This function can be visually previewed for all values of *mip* (normalized) with tweakable
+/// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
+#[allow(clippy::doc_markdown)]
+fn compute_blend_factor(bloom_settings: &BloomSettings, mip: f32, max_mip: f32) -> f32 {
+    let mut lf_boost = (1.0
+        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom_settings.low_frequency_boost_curvature)))
+        * bloom_settings.low_frequency_boost;
+    let high_pass_lq = 1.0
+        - (((mip / max_mip) - bloom_settings.high_pass_frequency)
+            / bloom_settings.high_pass_frequency)
+            .clamp(0.0, 1.0);
+    lf_boost *= match bloom_settings.composite_mode {
+        BloomCompositeMode::EnergyConserving => 1.0 - bloom_settings.intensity,
+        BloomCompositeMode::Additive => 1.0,
+    };
 
-        let mut lf_boost = (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.low_frequency_boost_curvature)))
-            * self.low_frequency_boost;
-        let high_pass_lq =
-            1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
-        let high_pass = high_pass_lq;
-
-        lf_boost *= match self.composite_mode {
-            BloomCompositeMode::EnergyConserving => 1.0 - self.intensity,
-            BloomCompositeMode::Additive => 1.0,
-        };
-
-        (self.intensity + lf_boost) * high_pass
-    }
+    (bloom_settings.intensity + lf_boost) * high_pass_lq
 }
