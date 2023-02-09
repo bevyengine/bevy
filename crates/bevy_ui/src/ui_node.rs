@@ -329,7 +329,7 @@ impl Default for AlignItems {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
-    /// Use the value of [`AlignItems`]
+    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned
     Auto,
     /// This item will be aligned at the start
     FlexStart,
