@@ -681,13 +681,15 @@ where
     }
 
     fn run_if<P, D: Condition<P>>(self, condition: D) -> Self::ConfigWithCondition<D::System> {
+        let a = self.condition;
+        let b = IntoSystem::into_system(condition);
         SystemConfigWithCondition {
             system: self.system,
             graph_info: self.graph_info,
             condition: And {
-                a: self.condition,
-                b: IntoSystem::into_system(condition),
-                name: Cow::Owned(format!("{} && {}", "", "")),
+                name: Cow::Owned(format!("{} & {}", a.name(), b.name())),
+                a,
+                b,
                 component_access: Access::new(),
                 archetype_component_access: Access::new(),
             },
