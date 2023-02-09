@@ -26,6 +26,9 @@ mod sealed {
 pub mod common_conditions {
     use super::Condition;
     use crate::{
+        change_detection::DetectChanges,
+        event::{Event, EventReader},
+        prelude::{Component, Query, With},
         schedule::{State, States},
         system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
     };
@@ -81,6 +84,50 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has been added since the condition was last checked.
+    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| match res {
+            Some(res) => res.is_added(),
+            None => false,
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has had its value changed since the condition was last checked.
+    pub fn resource_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| match res {
+            Some(res) => res.is_changed(),
+            None => false,
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has been removed since the condition was last checked.
+    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        let mut existed = false;
+        move |res: Option<Res<T>>| {
+            if res.is_some() {
+                existed = true;
+                false
+            } else if existed {
+                existed = false;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
     pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
@@ -107,6 +154,31 @@ pub mod common_conditions {
             Some(current_state) => current_state.0 == state,
             None => false,
         }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the state machine changed state.
+    ///
+    /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
+    /// schedules. Use this run condition if you want to detect any change, regardless of the value.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn state_changed<S: States>() -> impl FnMut(Res<State<S>>) -> bool {
+        move |current_state: Res<State<S>>| current_state.is_changed()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any new events of the given type since it was last called.
+    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool {
+        move |mut reader: EventReader<T>| reader.iter().count() > 0
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entities with the given component type.
+    pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool {
+        move |query: Query<(), With<T>>| !query.is_empty()
     }
 
     /// Generates a  [`Condition`](super::Condition) that inverses the result of passed one.
