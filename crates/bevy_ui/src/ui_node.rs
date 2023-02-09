@@ -227,7 +227,8 @@ pub struct Style {
     pub flex_wrap: FlexWrap,
     /// How items are aligned according to the cross axis
     pub align_items: AlignItems,
-    /// Like align_items but for only this item
+    /// How this item is aligned according to the cross axis.
+    /// Overrides `align_items`.
     pub align_self: AlignSelf,
     /// How to align each line, only applies if flex_wrap is set to
     /// [`FlexWrap::Wrap`] and there are multiple lines of items
