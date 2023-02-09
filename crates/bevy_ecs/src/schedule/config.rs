@@ -40,6 +40,14 @@ impl SystemSetConfig {
     }
 }
 
+/// A [`SystemSet`] with scheduling metadata.
+pub struct SystemSetConfigWithCondition<C> {
+    set: BoxedSystemSet,
+    graph_info: GraphInfo,
+    prev_conditions: Vec<BoxedCondition>,
+    condition: C,
+}
+
 /// A [`System`] with scheduling metadata.
 pub struct SystemConfig {
     pub(super) system: BoxedSystem,
@@ -96,40 +104,46 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
 ///
 /// This has been implemented for all types that implement [`SystemSet`] and boxed trait objects.
 pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
+    type Config;
+    type ConfigWithCondition<C>;
+
     /// Convert into a [`SystemSetConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemSetConfig;
     /// Add to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
+    fn in_set(self, set: impl SystemSet) -> Self::Config;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
+    fn in_base_set(self, set: impl SystemSet) -> Self::Config;
     /// Add this set to the schedules's default base set.
-    fn in_default_base_set(self) -> SystemSetConfig;
+    fn in_default_base_set(self) -> Self::Config;
     /// Run before all systems in `set`.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Run after all systems in `set`.
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> Self::ConfigWithCondition<C::System>;
     /// Add this set to the [`OnUpdate(state)`](OnUpdate) set.
-    fn on_update(self, state: impl States) -> SystemSetConfig;
+    fn on_update(self, state: impl States) -> Self::Config;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> SystemSetConfig;
+    fn ambiguous_with_all(self) -> Self::Config;
 }
 
 impl<S> IntoSystemSetConfig for S
 where
     S: SystemSet + sealed::IntoSystemSetConfig,
 {
+    type Config = SystemSetConfig;
+    type ConfigWithCondition<C> = SystemSetConfigWithCondition<C>;
+
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(Box::new(self))
     }
@@ -156,7 +170,7 @@ where
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> SystemSetConfigWithCondition<C::System> {
         self.into_config().run_if(condition)
     }
 
@@ -174,6 +188,9 @@ where
 }
 
 impl IntoSystemSetConfig for BoxedSystemSet {
+    type Config = SystemSetConfig;
+    type ConfigWithCondition<C> = SystemSetConfigWithCondition<C>;
+
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(self)
     }
@@ -200,7 +217,7 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> SystemSetConfigWithCondition<C::System> {
         self.into_config().run_if(condition)
     }
 
@@ -218,6 +235,9 @@ impl IntoSystemSetConfig for BoxedSystemSet {
 }
 
 impl IntoSystemSetConfig for SystemSetConfig {
+    type Config = Self;
+    type ConfigWithCondition<C> = SystemSetConfigWithCondition<C>;
+
     fn into_config(self) -> Self {
         self
     }
@@ -279,12 +299,114 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
-    fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
-        self.conditions.push(new_condition(condition));
-        self
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> SystemSetConfigWithCondition<C::System> {
+        SystemSetConfigWithCondition {
+            set: self.set,
+            graph_info: self.graph_info,
+            prev_conditions: self.conditions,
+            condition: IntoSystem::into_system(condition),
+        }
     }
 
     fn on_update(self, state: impl States) -> SystemSetConfig {
+        self.in_set(OnUpdate(state))
+    }
+
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
+        self
+    }
+
+    fn ambiguous_with_all(mut self) -> Self {
+        self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
+        self
+    }
+}
+
+impl<C> IntoSystemSetConfig for SystemSetConfigWithCondition<C>
+where
+    C: ReadOnlySystem<In = (), Out = bool>,
+{
+    type Config = Self;
+    type ConfigWithCondition<D> = SystemSetConfigWithCondition<And<C, D>>;
+
+    fn into_config(self) -> SystemSetConfig {
+        let mut conditions = self.prev_conditions;
+        conditions.push(Box::new(self.condition));
+        SystemSetConfig {
+            set: self.set,
+            graph_info: self.graph_info,
+            conditions,
+        }
+    }
+
+    #[track_caller]
+    fn in_set(mut self, set: impl SystemSet) -> Self {
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
+        assert!(
+            !set.is_base(),
+            "Sets cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
+        );
+        assert!(
+            !self.set.is_base(),
+            "Base system sets cannot be added to other sets."
+        );
+        self.graph_info.sets.push(Box::new(set));
+        self
+    }
+
+    #[track_caller]
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
+        assert!(
+            !set.is_system_type(),
+            "System type sets cannot be base sets."
+        );
+        assert!(
+            set.is_base(),
+            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
+        );
+        assert!(
+            !self.set.is_base(),
+            "Base system sets cannot be added to other sets."
+        );
+        self.graph_info.set_base_set(Box::new(set));
+        self
+    }
+
+    fn in_default_base_set(mut self) -> Self {
+        self.graph_info.add_default_base_set = true;
+        self
+    }
+
+    fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::Before,
+            Box::new(set.into_system_set()),
+        ));
+        self
+    }
+
+    fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::After,
+            Box::new(set.into_system_set()),
+        ));
+        self
+    }
+
+    fn run_if<P, D: Condition<P>>(self, condition: D) -> Self::ConfigWithCondition<D::System> {
+        SystemSetConfigWithCondition {
+            set: self.set,
+            graph_info: self.graph_info,
+            prev_conditions: self.prev_conditions,
+            condition: And::new(self.condition, IntoSystem::into_system(condition)),
+        }
+    }
+
+    fn on_update(self, state: impl States) -> Self {
         self.in_set(OnUpdate(state))
     }
 
@@ -725,7 +847,9 @@ mod sealed {
         system::{BoxedSystem, IntoSystem},
     };
 
-    use super::{SystemConfig, SystemConfigWithCondition, SystemSetConfig};
+    use super::{
+        SystemConfig, SystemConfigWithCondition, SystemSetConfig, SystemSetConfigWithCondition,
+    };
 
     pub trait IntoSystemConfig<Params> {}
 
@@ -744,6 +868,8 @@ mod sealed {
     impl IntoSystemSetConfig for BoxedSystemSet {}
 
     impl IntoSystemSetConfig for SystemSetConfig {}
+
+    impl<C> IntoSystemSetConfig for SystemSetConfigWithCondition<C> {}
 }
 
 /// A collection of [`SystemConfig`].
