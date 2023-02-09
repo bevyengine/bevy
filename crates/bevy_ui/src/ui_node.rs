@@ -228,7 +228,7 @@ pub struct Style {
     /// How items are aligned according to the cross axis
     pub align_items: AlignItems,
     /// How this item is aligned according to the cross axis.
-    /// Overrides `align_items`.
+    /// Overrides [`AlignItems`].
     pub align_self: AlignSelf,
     /// How to align each line, only applies if flex_wrap is set to
     /// [`FlexWrap::Wrap`] and there are multiple lines of items
@@ -324,21 +324,22 @@ impl Default for AlignItems {
     }
 }
 
-/// Works like [`AlignItems`] but applies only to a single item
+/// How this item is aligned according to the cross axis.
+/// Overrides [`AlignItems`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
     /// Use the value of [`AlignItems`]
     Auto,
-    /// If the parent has [`AlignItems::Center`] only this item will be at the start
+    /// This item will be aligned at the start
     FlexStart,
-    /// If the parent has [`AlignItems::Center`] only this item will be at the end
+    /// This item will be aligned at the end
     FlexEnd,
-    /// If the parent has [`AlignItems::FlexStart`] only this item will be at the center
+    /// This item will be aligned at the center
     Center,
-    /// If the parent has [`AlignItems::Center`] only this item will be at the baseline
+    /// This item will be aligned at the baseline
     Baseline,
-    /// If the parent has [`AlignItems::Center`] only this item will stretch along the whole cross axis
+    /// This item will be stretched across the whole cross axis
     Stretch,
 }
 
