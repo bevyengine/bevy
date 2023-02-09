@@ -4,6 +4,7 @@ use bevy_math::{UVec4, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
+#[allow[clippy::doc-markdown]]
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
@@ -148,7 +149,7 @@ impl Default for BloomSettings {
 /// # Considerations
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
-/// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
+/// * Non-default prefilter settings should be used in conjuction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
