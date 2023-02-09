@@ -77,7 +77,7 @@ pub struct SystemConfigWithCondition<C> {
     prev_conditions: Vec<BoxedCondition>,
 }
 
-fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
+fn new_condition<P, C: Condition<P>>(condition: C) -> C::System {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
@@ -85,7 +85,7 @@ fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
         condition_system.name()
     );
 
-    Box::new(condition_system)
+    condition_system
 }
 
 fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
@@ -304,7 +304,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
             set: self.set,
             graph_info: self.graph_info,
             prev_conditions: self.conditions,
-            condition: IntoSystem::into_system(condition),
+            condition: new_condition(condition),
         }
     }
 
@@ -402,7 +402,7 @@ where
             set: self.set,
             graph_info: self.graph_info,
             prev_conditions: self.prev_conditions,
-            condition: And::new(self.condition, IntoSystem::into_system(condition)),
+            condition: And::new(self.condition, new_condition(condition)),
         }
     }
 
@@ -617,7 +617,7 @@ impl IntoSystemConfig<()> for SystemConfig {
         SystemConfigWithCondition {
             system: self.system,
             graph_info: self.graph_info,
-            condition: IntoSystem::into_system(condition),
+            condition: new_condition(condition),
             prev_conditions: self.conditions,
         }
     }
@@ -707,7 +707,7 @@ where
         SystemConfigWithCondition {
             system: self.system,
             graph_info: self.graph_info,
-            condition: And::new(self.condition, IntoSystem::into_system(condition)),
+            condition: And::new(self.condition, new_condition(condition)),
             prev_conditions: self.prev_conditions,
         }
     }
