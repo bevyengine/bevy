@@ -99,7 +99,7 @@ pub struct BloomSettings {
 
 impl BloomSettings {
     pub const NATURAL: Self = Self {
-        intensity: 0.3,
+        intensity: 0.15,
         lf_boost: 0.7,
         lf_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
