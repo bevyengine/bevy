@@ -1,11 +1,12 @@
+use crate::associated_data::AssociatedData;
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
-use bit_set::BitSet;
+use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
@@ -65,7 +66,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
-    serialization_denylist: BitSet<u32>,
+    serialization_data: Option<SerializationDataDef>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -94,6 +95,8 @@ pub(crate) struct StructField<'a> {
     pub data: &'a Field,
     /// The reflection-based attributes on the field.
     pub attrs: ReflectFieldAttr,
+    /// The associated data to be generated on behalf of this field.
+    pub associated_data: AssociatedData,
     /// The index of this field within the struct.
     pub declaration_index: usize,
     /// The index of this field as seen by the reflection API.
@@ -276,12 +279,16 @@ impl<'a> ReflectDerive<'a> {
 
         return match &input.data {
             Data::Struct(data) => {
-                let fields = Self::collect_struct_fields(&data.fields)?;
+                let fields = Self::collect_struct_fields(
+                    &data.fields,
+                    meta.type_path()
+                        .get_ident()
+                        .expect("structs should never be anonymous"),
+                    meta.bevy_reflect_path(),
+                )?;
                 let reflect_struct = ReflectStruct {
                     meta,
-                    serialization_denylist: members_to_serialization_denylist(
-                        fields.iter().map(|v| v.attrs.ignore),
-                    ),
+                    serialization_data: SerializationDataDef::new(&fields)?,
                     fields,
                 };
 
@@ -292,7 +299,8 @@ impl<'a> ReflectDerive<'a> {
                 }
             }
             Data::Enum(data) => {
-                let variants = Self::collect_enum_variants(&data.variants)?;
+                let variants =
+                    Self::collect_enum_variants(&data.variants, meta.bevy_reflect_path())?;
 
                 let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
@@ -314,7 +322,11 @@ impl<'a> ReflectDerive<'a> {
         }
     }
 
-    fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
+    fn collect_struct_fields(
+        fields: &'a Fields,
+        qualifier: &Ident,
+        bevy_reflect_path: &Path,
+    ) -> Result<Vec<StructField<'a>>, syn::Error> {
         let mut active_index = 0;
         let sifter: utility::ResultSifter<StructField<'a>> = fields
             .iter()
@@ -322,6 +334,13 @@ impl<'a> ReflectDerive<'a> {
             .map(
                 |(declaration_index, field)| -> Result<StructField, syn::Error> {
                     let attrs = parse_field_attrs(&field.attrs)?;
+                    let associated_data = AssociatedData::new(
+                        field,
+                        declaration_index,
+                        &attrs,
+                        qualifier,
+                        bevy_reflect_path,
+                    );
 
                     let reflection_index = if attrs.ignore.is_ignored() {
                         None
@@ -334,6 +353,7 @@ impl<'a> ReflectDerive<'a> {
                         declaration_index,
                         reflection_index,
                         attrs,
+                        associated_data,
                         data: field,
                         #[cfg(feature = "documentation")]
                         doc: crate::documentation::Documentation::from_attributes(&field.attrs),
@@ -350,12 +370,17 @@ impl<'a> ReflectDerive<'a> {
 
     fn collect_enum_variants(
         variants: &'a Punctuated<Variant, Comma>,
+        bevy_reflect_path: &Path,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
             .iter()
             .enumerate()
             .map(|(index, variant)| -> Result<EnumVariant, syn::Error> {
-                let fields = Self::collect_struct_fields(&variant.fields)?;
+                let fields = Self::collect_struct_fields(
+                    &variant.fields,
+                    &variant.ident,
+                    bevy_reflect_path,
+                )?;
 
                 let fields = match variant.fields {
                     Fields::Named(..) => EnumVariantFields::Named(fields),
@@ -377,6 +402,23 @@ impl<'a> ReflectDerive<'a> {
             );
 
         sifter.finish()
+    }
+
+    /// The complete set of fields in this item.
+    pub fn fields(&self) -> Box<dyn Iterator<Item = &StructField<'a>> + '_> {
+        match self {
+            ReflectDerive::Struct(reflect_struct)
+            | ReflectDerive::TupleStruct(reflect_struct)
+            | ReflectDerive::UnitStruct(reflect_struct) => Box::new(reflect_struct.fields.iter()),
+            ReflectDerive::Enum(reflect_enum) => Box::new(reflect_enum.fields()),
+            ReflectDerive::Value(_) => Box::new(core::iter::empty()),
+        }
+    }
+
+    /// Generate all [associated data](AssociatedData) into a `TokenStream`.
+    pub fn associated_data(&self) -> proc_macro2::TokenStream {
+        let associated_data = self.fields().map(|field| &field.associated_data);
+        quote!(#(#associated_data)*)
     }
 }
 
@@ -439,12 +481,9 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
-    /// Access the data about which fields should be ignored during serialization.
-    ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`] function.
-    #[allow(dead_code)]
-    pub fn serialization_denylist(&self) -> &BitSet<u32> {
-        &self.serialization_denylist
+    /// Returns the [`SerializationDataDef`] for this struct.
+    pub fn serialization_data(&self) -> Option<&SerializationDataDef> {
+        self.serialization_data.as_ref()
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -457,7 +496,7 @@ impl<'a> ReflectStruct<'a> {
         crate::registration::impl_get_type_registration(
             self.meta(),
             where_clause_options,
-            Some(&self.serialization_denylist),
+            self.serialization_data(),
         )
     }
 
@@ -510,6 +549,11 @@ impl<'a> ReflectEnum<'a> {
     /// The complete set of variants in this enum.
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
+    }
+
+    /// The complete set of fields in this enum.
+    pub fn fields(&self) -> impl Iterator<Item = &StructField<'a>> {
+        self.variants().iter().flat_map(|variant| variant.fields())
     }
 
     /// Get an iterator of fields which are exposed to the reflection API

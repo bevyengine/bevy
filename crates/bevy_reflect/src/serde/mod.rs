@@ -46,6 +46,7 @@ mod tests {
         let mut expected = DynamicStruct::default();
         expected.insert("a", 3);
         expected.insert("d", 6);
+        expected.insert("c", 0);
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
@@ -60,7 +61,7 @@ mod tests {
 
     #[test]
     fn test_serialization_tuple_struct() {
-        #[derive(Debug, Reflect, FromReflect, PartialEq)]
+        #[derive(Debug, Reflect, PartialEq)]
         #[reflect(PartialEq)]
         struct TestStruct(
             i32,
@@ -86,8 +87,6 @@ mod tests {
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let deserialized = value.take::<DynamicTupleStruct>().unwrap();
-
-        println!("{:?}", deserialized);
 
         let expected = TestStruct(3, 0, 0, 6);
         let received = <TestStruct as FromReflect>::from_reflect(&deserialized).unwrap();

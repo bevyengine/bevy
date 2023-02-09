@@ -14,6 +14,7 @@
 
 extern crate proc_macro;
 
+mod associated_data;
 mod container_attributes;
 mod derive_data;
 #[cfg(feature = "documentation")]
@@ -24,6 +25,7 @@ mod from_reflect;
 mod impls;
 mod reflect_value;
 mod registration;
+mod serialization;
 mod trait_reflection;
 mod type_path;
 mod type_uuid;
@@ -165,6 +167,8 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
+    let associated_data = derive_data.associated_data();
+
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
@@ -201,8 +205,11 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(quote! {
-        #reflect_impls
-        #from_reflect_impl
+        const _: () = {
+            #associated_data
+            #reflect_impls
+            #from_reflect_impl
+        };
     })
 }
 

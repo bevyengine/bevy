@@ -766,7 +766,7 @@ mod tests {
 
     #[test]
     fn from_reflect_should_allow_ignored_unnamed_fields() {
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         struct MyTupleStruct(i8, #[reflect(ignore)] i16, i32);
 
         let expected = MyTupleStruct(1, 0, 3);
@@ -778,7 +778,7 @@ mod tests {
 
         assert_eq!(Some(expected), my_tuple_struct);
 
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         enum MyEnum {
             Tuple(i8, #[reflect(ignore)] i16, i32),
         }
