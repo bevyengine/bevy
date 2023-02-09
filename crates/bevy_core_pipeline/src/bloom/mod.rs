@@ -453,7 +453,7 @@ fn queue_bloom_bind_groups(
 }
 
 impl BloomSettings {
-    #[allow[clippy::doc-markdown]]
+    #![allow[clippy::doc-markdown]]
     /// Calculates blend intensities of blur pyramid levels
     /// during the upsampling + compositing stage.
     ///

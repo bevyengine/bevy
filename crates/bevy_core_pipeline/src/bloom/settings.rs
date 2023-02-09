@@ -4,7 +4,7 @@ use bevy_math::{UVec4, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
-#[allow[clippy::doc-markdown]]
+#![allow[clippy::doc-markdown]]
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
