@@ -63,7 +63,7 @@ impl HandleId {
     /// Creates the default id for an asset of type `T`.
     #[inline]
     #[allow(clippy::should_implement_trait)] // `Default` is not implemented for `HandleId`, the default value depends on the asset type
-    pub fn default<T: Asset>() -> Self {
+    pub const fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)
     }
 
@@ -142,7 +142,7 @@ impl<T: Asset> Handle<T> {
 
     /// Creates a weak handle into an Asset identified by `id`.
     #[inline]
-    pub fn weak(id: HandleId) -> Self {
+    pub const fn weak(id: HandleId) -> Self {
         Self {
             id,
             handle_type: HandleType::Weak,
@@ -157,7 +157,7 @@ impl<T: Asset> Handle<T> {
     }
 
     /// Recasts this handle as a weak handle of an Asset `U`.
-    pub fn cast_weak<U: Asset>(&self) -> Handle<U> {
+    pub const fn cast_weak<U: Asset>(&self) -> Handle<U> {
         let id = if let HandleId::Id(_, id) = self.id {
             HandleId::Id(U::TYPE_UUID, id)
         } else {
@@ -196,7 +196,7 @@ impl<T: Asset> Handle<T> {
     /// Creates a weak copy of this handle.
     #[inline]
     #[must_use]
-    pub fn clone_weak(&self) -> Self {
+    pub const fn clone_weak(&self) -> Self {
         Self::weak(self.id)
     }
 
@@ -209,7 +209,7 @@ impl<T: Asset> Handle<T> {
     }
 
     /// Creates a weak, untyped copy of this handle.
-    pub fn clone_weak_untyped(&self) -> HandleUntyped {
+    pub const fn clone_weak_untyped(&self) -> HandleUntyped {
         HandleUntyped::weak(self.id)
     }
 }
@@ -341,7 +341,7 @@ impl HandleUntyped {
     }
 
     /// Create a weak, untyped handle into an Asset identified by `id`.
-    pub fn weak(id: HandleId) -> Self {
+    pub const fn weak(id: HandleId) -> Self {
         Self {
             id,
             handle_type: HandleType::Weak,
@@ -356,7 +356,7 @@ impl HandleUntyped {
 
     /// Creates a weak copy of this handle.
     #[must_use]
-    pub fn clone_weak(&self) -> Self {
+    pub const fn clone_weak(&self) -> Self {
         Self::weak(self.id)
     }
 
