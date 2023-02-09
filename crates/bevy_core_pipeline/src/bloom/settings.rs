@@ -99,7 +99,7 @@ pub struct BloomSettings {
 }
 
 impl BloomSettings {
-    // The default bloom preset.
+    /// The default bloom preset.
     pub const NATURAL: Self = Self {
         intensity: 0.15,
         low_frequency_boost: 0.7,
@@ -112,7 +112,7 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    // A preset that's similiar to how older games did bloom.
+    /// A preset that's similiar to how older games did bloom.
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         low_frequency_boost: 0.7,
@@ -125,7 +125,7 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::Additive,
     };
 
-    // A preset that applies a very strong bloom, and blurs the whole screen.
+    /// A preset that applies a very strong bloom, and blurs the whole screen.
     pub const SCREEN_BLUR: Self = Self {
         intensity: 1.0,
         low_frequency_boost: 0.0,
