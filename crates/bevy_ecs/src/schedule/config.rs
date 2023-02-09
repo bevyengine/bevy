@@ -515,6 +515,8 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 }
 
+/// A system which combines the output of two systems with
+/// a non-short-circuiting AND operation.
 pub struct And<A, B> {
     a: A,
     b: B,
