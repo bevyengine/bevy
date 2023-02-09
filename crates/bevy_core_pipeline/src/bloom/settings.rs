@@ -63,19 +63,19 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a propotrionate amount of scattered light is added
-    pub lf_boost: f32,
+    /// * > 0.0 means a proportionate amount of scattered light is added
+    pub low_frequency_boost: f32,
 
     /// Low frequency contribution boost curve.
     /// Controls the curvature of the blend factor function
-    /// making frequncies next to lowest one contribute more.
+    /// making frequencies next to the lowest ones contribute more.
     ///
     /// Somewhat comparable to the Q factor of an equalizer node.
     ///
     /// Valid range:
     /// * 0.0 - base base intensity and boosted intensity are linearly interpolated
     /// * 1.0 - all frequencies below maximum are at boosted intensity level
-    pub lf_boost_curvature: f32,
+    pub low_frequency_boost_curvature: f32,
 
     /// Tightens how much the light scatters (default: 1.0).
     ///
@@ -101,8 +101,8 @@ pub struct BloomSettings {
 impl BloomSettings {
     pub const NATURAL: Self = Self {
         intensity: 0.15,
-        lf_boost: 0.7,
-        lf_boost_curvature: 0.95,
+        low_frequency_boost: 0.7,
+        low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
         prefilter_settings: BloomPrefilterSettings {
             threshold: 0.0,
@@ -113,8 +113,8 @@ impl BloomSettings {
 
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
-        lf_boost: 0.7,
-        lf_boost_curvature: 0.95,
+        low_frequency_boost: 0.7,
+        low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
         prefilter_settings: BloomPrefilterSettings {
             threshold: 0.6,
@@ -125,8 +125,8 @@ impl BloomSettings {
 
     pub const SCREEN_BLUR: Self = Self {
         intensity: 1.0,
-        lf_boost: 0.0,
-        lf_boost_curvature: 0.0,
+        low_frequency_boost: 0.0,
+        low_frequency_boost_curvature: 0.0,
         high_pass_frequency: 1.0 / 3.0,
         prefilter_settings: BloomPrefilterSettings {
             threshold: 0.0,

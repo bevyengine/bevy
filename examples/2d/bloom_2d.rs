@@ -102,13 +102,16 @@ fn update_bloom_settings(
         (entity, Some(mut bloom_settings)) => {
             *text = "BloomSettings (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
-            text.push_str(&format!("(W/S) LF boost: {}\n", bloom_settings.lf_boost));
             text.push_str(&format!(
-                "(E/D) LF boost curv.: {}\n",
-                bloom_settings.lf_boost_curvature
+                "(W/S) Low-frequency boost: {}\n",
+                bloom_settings.low_frequency_boost
             ));
             text.push_str(&format!(
-                "(R/F) High-pass freq.: {}\n",
+                "(E/D) Low-frequency boost curvature: {}\n",
+                bloom_settings.low_frequency_boost_curvature
+            ));
+            text.push_str(&format!(
+                "(R/F) High-pass frequency: {}\n",
                 bloom_settings.high_pass_frequency
             ));
             text.push_str(&format!(
@@ -142,20 +145,21 @@ fn update_bloom_settings(
             bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::S) {
-                bloom_settings.lf_boost -= dt / 10.0;
+                bloom_settings.low_frequency_boost -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::W) {
-                bloom_settings.lf_boost += dt / 10.0;
+                bloom_settings.low_frequency_boost += dt / 10.0;
             }
-            bloom_settings.lf_boost = bloom_settings.lf_boost.clamp(0.0, 1.0);
+            bloom_settings.low_frequency_boost = bloom_settings.low_frequency_boost.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::D) {
-                bloom_settings.lf_boost_curvature -= dt / 10.0;
+                bloom_settings.low_frequency_boost_curvature -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::E) {
-                bloom_settings.lf_boost_curvature += dt / 10.0;
+                bloom_settings.low_frequency_boost_curvature += dt / 10.0;
             }
-            bloom_settings.lf_boost_curvature = bloom_settings.lf_boost_curvature.clamp(0.0, 1.0);
+            bloom_settings.low_frequency_boost_curvature =
+                bloom_settings.low_frequency_boost_curvature.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::F) {
                 bloom_settings.high_pass_frequency -= dt / 10.0;

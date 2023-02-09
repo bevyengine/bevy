@@ -288,7 +288,7 @@ impl Node for BloomNode {
                 &[],
             );
             let blend = bloom_settings
-                .compute_blend_factor((mip) as f32, (bloom_texture.mip_count - 1) as f32);
+                .compute_blend_factor(mip as f32, (bloom_texture.mip_count - 1) as f32);
             upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
@@ -475,8 +475,8 @@ impl BloomSettings {
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
         let x = mip / max_mip;
 
-        let mut lf_boost =
-            (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
+        let mut lf_boost = (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.low_frequency_boost_curvature)))
+            * self.low_frequency_boost;
         let high_pass_lq =
             1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
         let high_pass = high_pass_lq;

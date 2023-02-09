@@ -86,7 +86,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 // This seemed like a good approach at the time which allowed
                 // us to perform complex calculations for blend levels on the CPU,
                 // however, we missed the fact that this prevented us from using
-                // textures to customize bloom apperance on individual parts
+                // textures to customize bloom appearance on individual parts
                 // of the screen and create effects such as lens dirt or
                 // screen blur behind certain UI elements.
                 //
