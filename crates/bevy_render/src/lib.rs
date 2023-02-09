@@ -112,7 +112,6 @@ impl RenderSet {
         let mut schedule = Schedule::new();
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_set(ExtractCommands));
         schedule.add_system(apply_system_buffers.in_set(PrepareFlush));
         schedule.add_system(apply_system_buffers.in_set(QueueFlush));
         schedule.add_system(apply_system_buffers.in_set(PhaseSortFlush));
