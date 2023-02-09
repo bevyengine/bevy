@@ -6,16 +6,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;
-use bevy_render::{
-    render_resource::{
-        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BufferBindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState,
-        MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureSampleType, TextureViewDimension,
-    },
-    renderer::RenderDevice,
-};
+use bevy_render::{render_resource::*, renderer::RenderDevice};
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
@@ -29,6 +20,7 @@ pub struct BloomDownsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
     /// Layout with a texture, a sampler, and downsampling settings
     pub extended_bind_group_layout: BindGroupLayout,
+    pub sampler: Sampler,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -50,7 +42,7 @@ impl FromWorld for BloomDownsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        // Input texture
+        // Input texture binding
         let texture = BindGroupLayoutEntry {
             binding: 0,
             ty: BindingType::Texture {
@@ -62,7 +54,7 @@ impl FromWorld for BloomDownsamplingPipeline {
             count: None,
         };
 
-        // Sampler
+        // Sampler binding
         let sampler = BindGroupLayoutEntry {
             binding: 1,
             ty: BindingType::Sampler(SamplerBindingType::Filtering),
@@ -70,7 +62,7 @@ impl FromWorld for BloomDownsamplingPipeline {
             count: None,
         };
 
-        // Downsampling settings
+        // Downsampling settings binding
         let settings = BindGroupLayoutEntry {
             binding: 2,
             ty: BindingType::Buffer {
@@ -94,9 +86,19 @@ impl FromWorld for BloomDownsamplingPipeline {
                 entries: &[texture, sampler, settings],
             });
 
+        // Sampler
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            ..Default::default()
+        });
+
         BloomDownsamplingPipeline {
             bind_group_layout,
             extended_bind_group_layout,
+            sampler,
         }
     }
 }

@@ -397,16 +397,10 @@ fn queue_bloom_bind_groups(
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomTexture)>,
 ) {
+    let sampler = &downsampling_pipeline.sampler;
+
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            ..Default::default()
-        });
 
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in 1..bloom_texture.mip_count {
@@ -420,7 +414,7 @@ fn queue_bloom_bind_groups(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(&sampler),
+                        resource: BindingResource::Sampler(sampler),
                     },
                 ],
             }));
@@ -438,7 +432,7 @@ fn queue_bloom_bind_groups(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(&sampler),
+                        resource: BindingResource::Sampler(sampler),
                     },
                 ],
             }));
@@ -447,7 +441,7 @@ fn queue_bloom_bind_groups(
         commands.entity(entity).insert(BloomBindGroups {
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
-            sampler,
+            sampler: sampler.clone(),
         });
     }
 }

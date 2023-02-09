@@ -5,18 +5,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_render::{
-    render_resource::{
-        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BlendComponent, BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FragmentState, MultisampleState, PipelineCache,
-        PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureSampleType,
-        TextureViewDimension,
-    },
-    renderer::RenderDevice,
-    view::ViewTarget,
-};
+use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
