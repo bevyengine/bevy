@@ -103,10 +103,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
-    /// Manually sets the change tick recording the previous time this data's changed status was checked.
-    ///
-    /// Note that this is *not* the same data that is returned by [`last_changed`](DetectChanges::last_changed).
-    /// Instead, it is the reference tick that is compared to that tick to determine if the change is "new" or not.
+    /// Manually sets the change tick recording the time when this data was last mutated.
     ///
     /// # Warning
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
@@ -189,7 +186,9 @@ macro_rules! change_detection_mut_impl {
 
             #[inline]
             fn set_last_changed(&mut self, last_change_tick: u32) {
-                self.ticks.last_change_tick = last_change_tick
+                self.ticks
+                    .changed
+                    .set_changed(last_change_tick);
             }
 
             #[inline]
