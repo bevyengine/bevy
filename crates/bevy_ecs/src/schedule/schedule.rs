@@ -48,7 +48,7 @@ impl Schedules {
 
     /// Inserts a labeled schedule into the map.
     ///
-    /// Unlike `insert`, this method take a [`BoxedScheduleLabel`]. This is useful when you
+    /// Unlike `insert`, this method takes a [`BoxedScheduleLabel`]. This is useful when you
     /// do not have a concrete schedule label and only a boxed version of it.
     ///
     /// If the map already had an entry for `label`, `schedule` is inserted,
