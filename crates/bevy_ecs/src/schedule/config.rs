@@ -41,6 +41,9 @@ impl SystemSetConfig {
 }
 
 /// A [`SystemSet`] with scheduling metadata.
+///
+/// This differs from [`SystemSetConfig`] in that it preserves the types of
+/// run conditions, which allows the compiler to optimize multiple conditions into one.
 pub struct SystemSetConfigWithCondition<C> {
     set: BoxedSystemSet,
     graph_info: GraphInfo,
@@ -70,6 +73,9 @@ impl SystemConfig {
 }
 
 /// A [`System`] with scheduling metadata.
+///
+/// This differs from [`SystemConfig`] in that it preserves the types of
+/// run conditions, which allows the compiler to optimize multiple conditions into one.
 pub struct SystemConfigWithCondition<C> {
     system: BoxedSystem,
     graph_info: GraphInfo,
