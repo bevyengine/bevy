@@ -4,7 +4,6 @@ use bevy_math::{UVec4, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
-#![allow[clippy::doc-markdown]]
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
@@ -26,6 +25,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
+#![allow[clippy::doc-markdown]]
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
     /// Controls the baseline of how much the image is scattered (default: 0.3).

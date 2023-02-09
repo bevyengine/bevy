@@ -453,7 +453,6 @@ fn queue_bloom_bind_groups(
 }
 
 impl BloomSettings {
-    #![allow[clippy::doc-markdown]]
     /// Calculates blend intensities of blur pyramid levels
     /// during the upsampling + compositing stage.
     ///
@@ -472,6 +471,7 @@ impl BloomSettings {
     ///
     /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
     /// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
+    #![allow[clippy::doc-markdown]]
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
         let x = mip / max_mip;
 
