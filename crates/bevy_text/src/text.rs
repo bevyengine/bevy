@@ -163,7 +163,7 @@ pub struct TextStyle {
     // The size of the font in pixels. Note that this value may surprise users who have a custom scale factor set.
     pub font_size: f32,
     pub color: Color,
-  }
+}
 
 impl Default for TextStyle {
     fn default() -> Self {
