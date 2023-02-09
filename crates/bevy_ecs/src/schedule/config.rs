@@ -304,41 +304,44 @@ impl IntoSystemSetConfig for SystemSetConfig {
 /// This has been implemented for boxed [`System<In=(), Out=()>`](crate::system::System)
 /// trait objects and all functions that turn into such.
 pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
+    type Config;
     type ConfigWithCondition<C>;
+
     /// Convert into a [`SystemConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemConfig;
     /// Add to `set` membership.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> SystemConfig;
+    fn in_set(self, set: impl SystemSet) -> Self::Config;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemConfig;
+    fn in_base_set(self, set: impl SystemSet) -> Self::Config;
     /// Don't add this system to the schedules's default set.
-    fn no_default_base_set(self) -> SystemConfig;
+    fn no_default_base_set(self) -> Self::Config;
     /// Run before all systems in `set`.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Run after all systems in `set`.
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Run only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
     fn run_if<P, C: Condition<P>>(self, condition: C) -> Self::ConfigWithCondition<C::System>;
     /// Add this system to the [`OnUpdate(state)`](OnUpdate) set.
-    fn on_update(self, state: impl States) -> SystemConfig;
+    fn on_update(self, state: impl States) -> Self::Config;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> SystemConfig;
+    fn ambiguous_with_all(self) -> Self::Config;
 }
 
 impl<Params, F> IntoSystemConfig<Params> for F
 where
     F: IntoSystem<(), (), Params> + sealed::IntoSystemConfig<Params>,
 {
+    type Config = SystemConfig;
     type ConfigWithCondition<C> = SystemConfigWithCondition<C>;
 
     fn into_config(self) -> SystemConfig {
@@ -385,6 +388,7 @@ where
 }
 
 impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
+    type Config = SystemConfig;
     type ConfigWithCondition<C> = SystemConfigWithCondition<C>;
 
     fn into_config(self) -> SystemConfig {
@@ -431,6 +435,7 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
 }
 
 impl IntoSystemConfig<()> for SystemConfig {
+    type Config = Self;
     type ConfigWithCondition<C> = SystemConfigWithCondition<C>;
 
     fn into_config(self) -> Self {
@@ -613,6 +618,7 @@ impl<C> IntoSystemConfig<()> for SystemConfigWithCondition<C>
 where
     C: ReadOnlySystem<In = (), Out = bool>,
 {
+    type Config = Self;
     type ConfigWithCondition<D> = SystemConfigWithCondition<And<C, D>>;
 
     fn into_config(self) -> SystemConfig {
@@ -626,7 +632,7 @@ where
     }
 
     #[track_caller]
-    fn in_set(mut self, set: impl SystemSet) -> SystemConfig {
+    fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
             "adding arbitrary systems to a system type set is not allowed"
@@ -636,11 +642,11 @@ where
             "Systems cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
         );
         self.graph_info.sets.push(Box::new(set));
-        self.into_config()
+        self
     }
 
     #[track_caller]
-    fn in_base_set(mut self, set: impl SystemSet) -> SystemConfig {
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             !set.is_system_type(),
             "System type sets cannot be base sets."
@@ -650,28 +656,28 @@ where
             "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
         );
         self.graph_info.set_base_set(Box::new(set));
-        self.into_config()
+        self
     }
 
-    fn no_default_base_set(mut self) -> SystemConfig {
+    fn no_default_base_set(mut self) -> Self {
         self.graph_info.add_default_base_set = false;
-        self.into_config()
+        self
     }
 
-    fn before<M>(mut self, set: impl IntoSystemSet<M>) -> SystemConfig {
+    fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info.dependencies.push(Dependency::new(
             DependencyKind::Before,
             Box::new(set.into_system_set()),
         ));
-        self.into_config()
+        self
     }
 
-    fn after<M>(mut self, set: impl IntoSystemSet<M>) -> SystemConfig {
+    fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info.dependencies.push(Dependency::new(
             DependencyKind::After,
             Box::new(set.into_system_set()),
         ));
-        self.into_config()
+        self
     }
 
     fn run_if<P, D: Condition<P>>(self, condition: D) -> Self::ConfigWithCondition<D::System> {
@@ -689,18 +695,18 @@ where
         }
     }
 
-    fn on_update(self, state: impl States) -> SystemConfig {
+    fn on_update(self, state: impl States) -> Self {
         self.in_set(OnUpdate(state))
     }
 
-    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> SystemConfig {
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
-        self.into_config()
+        self
     }
 
-    fn ambiguous_with_all(mut self) -> SystemConfig {
+    fn ambiguous_with_all(mut self) -> Self {
         self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
-        self.into_config()
+        self
     }
 }
 
