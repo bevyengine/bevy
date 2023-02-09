@@ -7,7 +7,8 @@ use crate::{
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
         state::{OnUpdate, States},
     },
-    system::{BoxedSystem, IntoSystem, System},
+    system::{BoxedSystem, IntoSystem, PipeSystem, ReadOnlySystem, System},
+    world::World,
 };
 
 /// A [`SystemSet`] with scheduling metadata.
@@ -53,6 +54,14 @@ impl SystemConfig {
             conditions: Vec::new(),
         }
     }
+}
+
+/// A [`System`] with scheduling metadata.
+pub struct SystemConfigWithCondition<C> {
+    system: BoxedSystem,
+    graph_info: GraphInfo,
+    condition: C,
+    prev_conditions: Vec<BoxedCondition>,
 }
 
 fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
@@ -290,6 +299,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
 /// This has been implemented for boxed [`System<In=(), Out=()>`](crate::system::System)
 /// trait objects and all functions that turn into such.
 pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
+    type ConfigWithCondition<C>;
     /// Convert into a [`SystemConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemConfig;
@@ -309,7 +319,7 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig;
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> Self::ConfigWithCondition<C::System>;
     /// Add this system to the [`OnUpdate(state)`](OnUpdate) set.
     fn on_update(self, state: impl States) -> SystemConfig;
     /// Suppress warnings and errors that would result from this system having ambiguities
@@ -324,6 +334,8 @@ impl<Params, F> IntoSystemConfig<Params> for F
 where
     F: IntoSystem<(), (), Params> + sealed::IntoSystemConfig<Params>,
 {
+    type ConfigWithCondition<C> = SystemConfigWithCondition<C>;
+
     fn into_config(self) -> SystemConfig {
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
     }
@@ -350,7 +362,7 @@ where
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> Self::ConfigWithCondition<C::System> {
         self.into_config().run_if(condition)
     }
 
@@ -368,6 +380,8 @@ where
 }
 
 impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
+    type ConfigWithCondition<C> = SystemConfigWithCondition<C>;
+
     fn into_config(self) -> SystemConfig {
         SystemConfig::new(self)
     }
@@ -394,7 +408,7 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> Self::ConfigWithCondition<C::System> {
         self.into_config().run_if(condition)
     }
 
@@ -412,6 +426,8 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
 }
 
 impl IntoSystemConfig<()> for SystemConfig {
+    type ConfigWithCondition<C> = SystemConfigWithCondition<C>;
+
     fn into_config(self) -> Self {
         self
     }
@@ -465,9 +481,13 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
-    fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
-        self.conditions.push(new_condition(condition));
-        self
+    fn run_if<P, C: Condition<P>>(self, condition: C) -> Self::ConfigWithCondition<C::System> {
+        SystemConfigWithCondition {
+            system: self.system,
+            graph_info: self.graph_info,
+            condition: IntoSystem::into_system(condition),
+            prev_conditions: self.conditions,
+        }
     }
 
     fn on_update(self, state: impl States) -> Self {
@@ -485,6 +505,177 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 }
 
+pub struct And<A, B> {
+    a: A,
+    b: B,
+}
+
+impl<A, B> System for And<A, B>
+where
+    A: System<In = (), Out = bool>,
+    B: System<In = (), Out = bool>,
+{
+    type In = ();
+
+    type Out = bool;
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        todo!()
+    }
+
+    fn type_id(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<Self>()
+    }
+
+    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
+        todo!()
+    }
+
+    fn archetype_component_access(
+        &self,
+    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
+        todo!()
+    }
+
+    fn is_send(&self) -> bool {
+        self.a.is_send() && self.b.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.a.is_exclusive() || self.b.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
+        self.a.run_unsafe((), world) && self.b.run_unsafe((), world)
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.a.apply_buffers(world);
+        self.b.apply_buffers(world);
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.a.initialize(world);
+        self.b.initialize(world);
+    }
+
+    fn update_archetype_component_access(&mut self, world: &World) {
+        self.a.update_archetype_component_access(world);
+        self.b.update_archetype_component_access(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        todo!()
+    }
+
+    fn get_last_change_tick(&self) -> u32 {
+        todo!()
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        todo!()
+    }
+}
+
+unsafe impl<A, B> ReadOnlySystem for And<A, B>
+where
+    A: ReadOnlySystem<In = (), Out = bool>,
+    B: ReadOnlySystem<In = (), Out = bool>,
+{
+}
+
+impl<C> IntoSystemConfig<()> for SystemConfigWithCondition<C>
+where
+    C: ReadOnlySystem<In = (), Out = bool>,
+{
+    type ConfigWithCondition<D> = SystemConfigWithCondition<And<C, D>>;
+
+    fn into_config(self) -> SystemConfig {
+        let mut conditions = self.prev_conditions;
+        conditions.push(Box::new(self.condition));
+        SystemConfig {
+            system: self.system,
+            graph_info: self.graph_info,
+            conditions,
+        }
+    }
+
+    #[track_caller]
+    fn in_set(mut self, set: impl SystemSet) -> SystemConfig {
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
+        assert!(
+            !set.is_base(),
+            "Systems cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
+        );
+        self.graph_info.sets.push(Box::new(set));
+        self.into_config()
+    }
+
+    #[track_caller]
+    fn in_base_set(mut self, set: impl SystemSet) -> SystemConfig {
+        assert!(
+            !set.is_system_type(),
+            "System type sets cannot be base sets."
+        );
+        assert!(
+            set.is_base(),
+            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
+        );
+        self.graph_info.set_base_set(Box::new(set));
+        self.into_config()
+    }
+
+    fn no_default_base_set(mut self) -> SystemConfig {
+        self.graph_info.add_default_base_set = false;
+        self.into_config()
+    }
+
+    fn before<M>(mut self, set: impl IntoSystemSet<M>) -> SystemConfig {
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::Before,
+            Box::new(set.into_system_set()),
+        ));
+        self.into_config()
+    }
+
+    fn after<M>(mut self, set: impl IntoSystemSet<M>) -> SystemConfig {
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::After,
+            Box::new(set.into_system_set()),
+        ));
+        self.into_config()
+    }
+
+    fn run_if<P, D: Condition<P>>(self, condition: D) -> Self::ConfigWithCondition<D::System> {
+        SystemConfigWithCondition {
+            system: self.system,
+            graph_info: self.graph_info,
+            condition: And {
+                a: self.condition,
+                b: IntoSystem::into_system(condition),
+            },
+            prev_conditions: self.prev_conditions,
+        }
+    }
+
+    fn on_update(self, state: impl States) -> SystemConfig {
+        self.in_set(OnUpdate(state))
+    }
+
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> SystemConfig {
+        ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
+        self.into_config()
+    }
+
+    fn ambiguous_with_all(mut self) -> SystemConfig {
+        self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
+        self.into_config()
+    }
+}
+
 // only `System<In=(), Out=()>` system objects can be scheduled
 mod sealed {
     use crate::{
@@ -492,7 +683,7 @@ mod sealed {
         system::{BoxedSystem, IntoSystem},
     };
 
-    use super::{SystemConfig, SystemSetConfig};
+    use super::{SystemConfig, SystemConfigWithCondition, SystemSetConfig};
 
     pub trait IntoSystemConfig<Params> {}
 
@@ -501,6 +692,8 @@ mod sealed {
     impl IntoSystemConfig<()> for BoxedSystem<(), ()> {}
 
     impl IntoSystemConfig<()> for SystemConfig {}
+
+    impl<C> IntoSystemConfig<()> for SystemConfigWithCondition<C> {}
 
     pub trait IntoSystemSetConfig {}
 
