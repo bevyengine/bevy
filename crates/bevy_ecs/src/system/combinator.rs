@@ -25,6 +25,8 @@ pub trait Combine<A: System, B: System> {
     ) -> Self::Out;
 }
 
+/// A [`System`] defined by combining two other systems.
+/// The behavior of this combinator is specified by implementing the [`Combine`] trait.
 pub struct CombinatorSystem<Func, A, B> {
     _marker: PhantomData<fn() -> Func>,
     a: A,
