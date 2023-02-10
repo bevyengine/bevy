@@ -1,4 +1,9 @@
-use crate::system::BoxedSystem;
+use std::borrow::Cow;
+
+use crate::{
+    system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System},
+    world::World,
+};
 
 pub type BoxedCondition = BoxedSystem<(), bool>;
 
@@ -6,7 +11,21 @@ pub type BoxedCondition = BoxedSystem<(), bool>;
 ///
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
-pub trait Condition<Params>: sealed::Condition<Params> {}
+pub trait Condition<Params>: sealed::Condition<Params> {
+    fn and_then<P, C: Condition<P>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(and_then);
+        let name = format!("{} && {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+
+    fn or_else<P, C: Condition<P>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(or_else);
+        let name = format!("{} || {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+}
 
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
@@ -140,5 +159,71 @@ pub mod common_conditions {
         C::System: ReadOnlySystem,
     {
         condition.pipe(|In(val): In<bool>| !val)
+    }
+}
+
+pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
+
+pub type OrElse<A, B> = CombinatorSystem<OrElseMarker, A, B>;
+
+#[doc(hidden)]
+pub struct AndThenMarker;
+
+impl<In, A, B> Combine<A, B> for AndThenMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        world: &World,
+        a: impl FnOnce(<A as System>::In, &World) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In, &World) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input, world) && b(input, world)
+    }
+
+    fn combine_exclusive(
+        input: Self::In,
+        world: &mut World,
+        a: impl FnOnce(<A as System>::In, &mut World) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In, &mut World) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input, world) && b(input, world)
+    }
+}
+
+#[doc(hidden)]
+pub struct OrElseMarker;
+
+impl<In, A, B> Combine<A, B> for OrElseMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        world: &World,
+        a: impl FnOnce(<A as System>::In, &World) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In, &World) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input, world) || b(input, world)
+    }
+
+    fn combine_exclusive(
+        input: Self::In,
+        world: &mut World,
+        a: impl FnOnce(<A as System>::In, &mut World) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In, &mut World) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input, world) || b(input, world)
     }
 }
