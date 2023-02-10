@@ -18,7 +18,6 @@ impl Plugin for CameraPlugin {
         app.register_type::<Camera>()
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()
-            .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()

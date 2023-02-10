@@ -83,6 +83,8 @@ impl Node for PrepassNode {
                     store: true,
                 },
             }));
+        } else {
+            color_attachments.push(None);
         }
         if let Some(view_velocities_texture) = &view_prepass_textures.velocity {
             color_attachments.push(Some(RenderPassColorAttachment {

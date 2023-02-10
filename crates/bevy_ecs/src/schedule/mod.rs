@@ -175,13 +175,11 @@ mod tests {
 
         #[test]
         fn add_systems_correct_order() {
-            #[derive(Resource)]
-            struct X(Vec<TestSet>);
-
             let mut world = World::new();
+            let mut schedule = Schedule::new();
+
             world.init_resource::<SystemOrder>();
 
-            let mut schedule = Schedule::new();
             schedule.add_systems(
                 (
                     make_function_system(0),
