@@ -1,5 +1,19 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
+// from https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve
+fn aces_filmic(color: vec3<f32>) -> vec3<f32> {
+    let a = 2.51;
+    let b = 0.03;
+    let c = 2.43;
+    let d = 0.59;
+    let e = 0.14;
+    return saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+}
+
+fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
+    return pow(color, vec3<f32>(1.0 / 2.2));
+}
+
 // from https://64.github.io/tonemapping/
 // reinhard on RGB oversaturates colors
 fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {

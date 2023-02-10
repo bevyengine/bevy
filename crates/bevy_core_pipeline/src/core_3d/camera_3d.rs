@@ -1,4 +1,7 @@
-use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
+use crate::{
+    clear_color::ClearColorConfig,
+    tonemapping::{Tonemapping, TonemappingMethod},
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
@@ -68,6 +71,7 @@ impl Default for Camera3dBundle {
             camera_render_graph: CameraRenderGraph::new(crate::core_3d::graph::NAME),
             tonemapping: Tonemapping::Enabled {
                 deband_dither: true,
+                method: TonemappingMethod::Aces,
             },
             camera: Default::default(),
             projection: Default::default(),

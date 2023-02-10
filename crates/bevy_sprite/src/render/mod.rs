@@ -5,7 +5,10 @@ use crate::{
     Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{Tonemapping, TonemappingMethod},
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -147,18 +150,25 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
-        const NONE                        = 0;
-        const COLORED                     = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const NONE                         = 0;
+        const COLORED                      = (1 << 0);
+        const HDR                          = (1 << 1);
+        const TONEMAP_IN_SHADER            = (1 << 2);
+        const DEBAND_DITHER                = (1 << 3);
+        const MSAA_RESERVED_BITS           = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE          = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD      = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES          = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
 impl SpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b11;
+    const TONEMAP_METHOD_SHIFT_BITS: u32 =
+        Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     #[inline]
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
@@ -217,6 +227,16 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+
+            let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_ACES {
+                shader_defs.push("TONEMAP_METHOD_ACES".into());
+            }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(SpritePipelineKey::DEBAND_DITHER) {
@@ -518,9 +538,19 @@ pub fn queue_sprites(
 
         for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+            if let Some(Tonemapping::Enabled {
+                deband_dither,
+                method,
+            }) = tonemapping
+            {
                 if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+
+                    view_key |= match method {
+                        TonemappingMethod::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                        TonemappingMethod::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                        TonemappingMethod::Aces => SpritePipelineKey::TONEMAP_METHOD_ACES,
+                    };
 
                     if *deband_dither {
                         view_key |= SpritePipelineKey::DEBAND_DITHER;

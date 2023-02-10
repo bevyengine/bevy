@@ -1,6 +1,9 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
-use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{Tonemapping, TonemappingMethod},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
@@ -342,9 +345,19 @@ pub fn queue_material2d_meshes<M: Material2d>(
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+        if let Some(Tonemapping::Enabled {
+            deband_dither,
+            method,
+        }) = tonemapping
+        {
             if !view.hdr {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+
+                view_key |= match method {
+                    TonemappingMethod::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+                    TonemappingMethod::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
+                    TonemappingMethod::Aces => Mesh2dPipelineKey::TONEMAP_METHOD_ACES,
+                };
 
                 if *deband_dither {
                     view_key |= Mesh2dPipelineKey::DEBAND_DITHER;

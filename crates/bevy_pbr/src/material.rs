@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
-    tonemapping::Tonemapping,
+    tonemapping::{Tonemapping, TonemappingMethod},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -399,9 +399,19 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
-        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+        if let Some(Tonemapping::Enabled {
+            deband_dither,
+            method,
+        }) = tonemapping
+        {
             if !view.hdr {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+
+                view_key |= match method {
+                    TonemappingMethod::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
+                    TonemappingMethod::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
+                    TonemappingMethod::Aces => MeshPipelineKey::TONEMAP_METHOD_ACES,
+                };
 
                 if *deband_dither {
                     view_key |= MeshPipelineKey::DEBAND_DITHER;

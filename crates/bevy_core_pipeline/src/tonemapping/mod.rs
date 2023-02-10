@@ -2,7 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
@@ -54,9 +54,19 @@ pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
 }
 
+#[derive(Default, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[reflect(FromReflect)]
+pub enum TonemappingMethod {
+    None,
+    Reinhard,
+    #[default]
+    Aces,
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
     deband_dither: bool,
+    method: TonemappingMethod,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -66,6 +76,11 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         let mut shader_defs = Vec::new();
         if key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
+        }
+        match key.method {
+            TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
+            TonemappingMethod::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
+            TonemappingMethod::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -131,9 +146,14 @@ pub fn queue_view_tonemapping_pipelines(
     view_targets: Query<(Entity, &Tonemapping)>,
 ) {
     for (entity, tonemapping) in view_targets.iter() {
-        if let Tonemapping::Enabled { deband_dither } = tonemapping {
+        if let Tonemapping::Enabled {
+            deband_dither,
+            method,
+        } = tonemapping
+        {
             let key = TonemappingPipelineKey {
                 deband_dither: *deband_dither,
+                method: *method,
             };
             let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
@@ -152,6 +172,7 @@ pub enum Tonemapping {
     Disabled,
     Enabled {
         deband_dither: bool,
+        method: TonemappingMethod,
     },
 }
 
