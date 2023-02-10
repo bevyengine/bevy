@@ -25,15 +25,15 @@ use bevy_ecs::system::ResMut;
 ///
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
-pub(crate) fn create_windows<T>(
-    In(event_loop): In<&EventLoopWindowTarget<T>>,
+pub(crate) fn create_windows(
+    In(event_loop): In<&EventLoopWindowTarget<()>>,
     mut commands: Commands,
     created_windows: Query<(Entity, &mut Window), Added<Window>>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
-    for (entity, mut window) in created_windows {
+    for (entity, mut window) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }

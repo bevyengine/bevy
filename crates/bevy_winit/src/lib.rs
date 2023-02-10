@@ -5,7 +5,6 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-use bevy_ecs::system::{SystemParam, SystemState};
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 
 pub use winit_config::*;
@@ -14,6 +13,7 @@ pub use winit_windows::*;
 use bevy_app::{App, AppExit, CoreSet, Plugin};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -27,8 +27,7 @@ use bevy_utils::{
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged,
+    WindowCloseRequested, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
 };
 
 #[cfg(target_os = "android")]
@@ -84,9 +83,9 @@ impl Plugin for WinitPlugin {
             // Otherwise, we try to create a window before `bevy_render` initializes
             // the renderer, so that we have a surface available to use as a hint.
             // This improves compatibility with wgpu backends, especially WASM/WebGL2.
-            let create_windows = IntoSystem::into_system(create_windows::<()>);
+            let create_windows = IntoSystem::into_system(create_windows);
             create_windows.run(&event_loop, &mut app.world);
-            create_windows.apply(&mut app.world);
+            create_windows.apply_buffers(&mut app.world);
         }
 
         app.insert_non_send_resource(event_loop)
@@ -226,7 +225,7 @@ pub fn winit_runner(mut app: App) {
         Query<(&mut Window, &mut CachedWindow)>,
     )> = SystemState::new(&mut app.world);
 
-    let create_windows = IntoSystem::into_system(create_windows::<()>);
+    let create_windows = IntoSystem::into_system(create_windows);
 
     // setup up the event loop
     let event_handler = move |event: Event<()>,
@@ -244,7 +243,7 @@ pub fn winit_runner(mut app: App) {
 
         if winit_state.active {
             create_windows.run(event_loop, &mut app.world);
-            create_windows.apply(&mut app.world);
+            create_windows.apply_buffers(&mut app.world);
         }
 
         match event {
@@ -259,7 +258,7 @@ pub fn winit_runner(mut app: App) {
                         // `WaitUntil` timeout
                         winit_state.timeout_elapsed = true;
                     }
-                    () => {
+                    _ => {
                         // something else triggered this iteration of the loop
                         // check timeout manually
                         let now = Instant::now();
