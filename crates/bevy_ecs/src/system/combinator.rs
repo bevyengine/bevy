@@ -47,8 +47,8 @@ use super::{ReadOnlySystem, System};
 ///     }
 /// }
 ///
-/// # #[derive(Resource)] struct A(u32);
-/// # #[derive(Resource)] struct B(u32);
+/// # #[derive(Resource, PartialEq, Eq)] struct A(u32);
+/// # #[derive(Resource, PartialEq, Eq)] struct B(u32);
 /// # #[derive(Resource, Default)] struct RanFlag(bool);
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
