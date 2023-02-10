@@ -46,7 +46,7 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
 
 /// Integrates [`winit`], extending an [`App`] with capabilities for managing windows and
-/// receiving window and input devicewriter.
+/// receiving window and input device events.
 ///
 /// **NOTE:** This plugin will replace the existing application runner function.
 #[derive(Default)]
