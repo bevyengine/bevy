@@ -55,8 +55,8 @@ use super::{ReadOnlySystem, System};
 /// #
 /// # let mut app = Schedule::new();
 /// app.add_system(my_system.run_if(Xor::new(
-///     state_equals(A(1)),
-///     state_equals(B(1)),
+///     IntoSystem::into_system(state_equals(A(1))),
+///     IntoSystem::into_system(state_equals(B(1))),
 ///     // The name of the combined system.
 ///     Cow::Borrowed("a ^ b"),
 /// )));
