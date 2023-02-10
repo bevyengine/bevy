@@ -63,7 +63,7 @@ use super::{ReadOnlySystem, System};
 /// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
 /// #
 /// # world.insert_resource(A(0));
-/// # world.insert_resoruce(B(0));
+/// # world.insert_resource(B(0));
 /// # schedule.run(&mut world);
 /// # // Neither condition passes, so the system does not run.
 /// # assert!(!world.resource::<RanFlag>().0);
