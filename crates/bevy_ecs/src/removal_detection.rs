@@ -19,14 +19,25 @@ use std::{
     option,
 };
 
-/// Wrapper around a [`ManualEventReader<Entity>`] so that we
+/// Wrapper around [`Entity`] for [`RemovedComponents`].
+/// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
+#[derive(Debug, Clone)]
+pub struct RemovedComponentEntity(Entity);
+
+impl From<RemovedComponentEntity> for Entity {
+    fn from(value: RemovedComponentEntity) -> Self {
+        value.0
+    }
+}
+
+/// Wrapper around a [`ManualEventReader<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
     T: Component,
 {
-    reader: ManualEventReader<Entity>,
+    reader: ManualEventReader<RemovedComponentEntity>,
     marker: PhantomData<T>,
 }
 
@@ -40,7 +51,7 @@ impl<T: Component> Default for RemovedComponentReader<T> {
 }
 
 impl<T: Component> Deref for RemovedComponentReader<T> {
-    type Target = ManualEventReader<Entity>;
+    type Target = ManualEventReader<RemovedComponentEntity>;
     fn deref(&self) -> &Self::Target {
         &self.reader
     }
@@ -52,11 +63,11 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
     }
 }
 
-/// Wrapper around a map of components to [`Events<Entity>`].
+/// Wrapper around a map of components to [`Events<RemovedComponentEntity>`].
 /// So that we can find the events without naming the type directly.
 #[derive(Default, Debug)]
 pub struct RemovedComponentEvents {
-    event_sets: SparseSet<ComponentId, Events<Entity>>,
+    event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
 }
 
 impl RemovedComponentEvents {
@@ -70,14 +81,17 @@ impl RemovedComponentEvents {
         }
     }
 
-    pub fn get(&self, component_id: impl Into<ComponentId>) -> Option<&Events<Entity>> {
+    pub fn get(
+        &self,
+        component_id: impl Into<ComponentId>,
+    ) -> Option<&Events<RemovedComponentEntity>> {
         self.event_sets.get(component_id.into())
     }
 
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
-            .send(entity);
+            .send(RemovedComponentEntity(entity));
     }
 }
 
@@ -122,8 +136,10 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
-pub type RemovedIter<'a> =
-    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, Entity>>>>;
+pub type RemovedIter<'a> = iter::Map<
+    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>>,
+    fn(RemovedComponentEntity) -> Entity,
+>;
 
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     pub fn iter(&mut self) -> RemovedIter<'_> {
@@ -132,6 +148,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(|events| self.reader.iter(events).cloned())
             .into_iter()
             .flatten()
+            .map(RemovedComponentEntity::into)
     }
 }
 
