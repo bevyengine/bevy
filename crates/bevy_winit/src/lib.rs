@@ -309,22 +309,9 @@ pub fn winit_runner(mut app: App) {
                         create_windows_state.apply(&mut app.world);
                     }
                     StartCause::ResumeTimeReached { .. } => {
-                        // `WaitUntil` timeout
                         winit_state.timeout_elapsed = true;
                     }
-                    _ => {
-                        // something else triggered this, check timeout manually
-                        let now = Instant::now();
-                        let (winit_config, windows) = focused_windows_state.get(&app.world);
-                        let focused = windows.iter().any(|window| window.focused);
-                        winit_state.timeout_elapsed = match winit_config.update_mode(focused) {
-                            UpdateMode::Continuous => true,
-                            UpdateMode::Reactive { wait }
-                            | UpdateMode::ReactiveLowPower { wait } => {
-                                now.duration_since(winit_state.last_update) >= *wait
-                            }
-                        };
-                    }
+                    _ => (),
                 }
             }
             event::Event::WindowEvent {
