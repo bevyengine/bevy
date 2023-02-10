@@ -249,15 +249,15 @@ pub struct Style {
     /// The initial size of the item
     pub flex_basis: Val,
     /// The ideal size of the flexbox
-    /// 
+    ///
     /// The respective `size` value is used when it is within the bounds defined by the corresponding `min_size` and `max_size` values.
     pub size: Size,
     /// The minimum size of the flexbox
-    /// 
+    ///
     /// The respective `min_size` value is used if it is greater than either of the corresponding `size` and `max_size` values.
     pub min_size: Size,
     /// The maximum size of the flexbox
-    /// 
+    ///
     /// The respective `max_size` value is used if it is within the bounds defined by the corresponding `min_size` and `size` values.
     pub max_size: Size,
     /// The aspect ratio of the flexbox
