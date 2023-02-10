@@ -64,23 +64,23 @@ use super::{ReadOnlySystem, System};
 /// #
 /// # world.insert_resource(A(0));
 /// # world.insert_resource(B(0));
-/// # schedule.run(&mut world);
+/// # app.run(&mut world);
 /// # // Neither condition passes, so the system does not run.
 /// # assert!(!world.resource::<RanFlag>().0);
 /// #
 /// # world.insert_resource(A(1));
-/// # schedule.run(&mut world);
+/// # app.run(&mut world);
 /// # // Only the first condition passes, so the system runs.
 /// # assert!(world.resource::<RanFlag>().0);
 /// # world.resource_mut::<RanFlag>().0 = false;
 /// #
 /// # world.insert_resource(B(1));
-/// # schedule.run(&mut world);
+/// # app.run(&mut world);
 /// # // Both conditions pass, so the system does not run.
 /// # assert!(!world.resource::<RanFlag>().0);
 /// #
 /// # world.insert_resource(A(0));
-/// # schedule.run(&mut world);
+/// # app.run(&mut world);
 /// # // Only the second condition passes, so the system runs.
 /// # assert!(world.resource::<RanFlag>().0);
 /// # world.resource_mut::<RanFlag>().0 = false;
