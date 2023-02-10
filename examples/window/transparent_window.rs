@@ -4,6 +4,8 @@
 //! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
 //! for more details.
 
+#[cfg(target_os = "macos")]
+use bevy::window::CompositeAlphaMode;
 use bevy::{
     prelude::*,
     window::{Window, WindowPlugin},
@@ -20,6 +22,8 @@ fn main() {
                 transparent: true,
                 // Disabling window decorations to make it feel more like a widget than a window
                 decorations: false,
+                #[cfg(target_os = "macos")]
+                composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
                 ..default()
             }),
             ..default()
