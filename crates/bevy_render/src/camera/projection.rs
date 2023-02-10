@@ -1,13 +1,12 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreStage, Plugin, StartupStage};
+use bevy_app::{App, CoreSchedule, CoreSet, Plugin, StartupSet};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
     ReflectSerialize,
 };
-use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
@@ -22,26 +21,27 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
 /// Label for [`camera_system<T>`], shared across all `T`.
 ///
 /// [`camera_system<T>`]: crate::camera::camera_system
-#[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
-            .add_startup_system_to_stage(
-                StartupStage::PostStartup,
+            .edit_schedule(CoreSchedule::Startup, |schedule| {
+                schedule.configure_set(CameraUpdateSystem.in_set(StartupSet::PostStartup));
+            })
+            .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
+            .add_startup_system(
                 crate::camera::camera_system::<T>
-                    .label(CameraUpdateSystem)
+                    .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_system(
                 crate::camera::camera_system::<T>
-                    .label(CameraUpdateSystem)
-                    .after(ModifiesWindows)
+                    .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
@@ -169,57 +169,92 @@ impl Default for PerspectiveProjection {
     }
 }
 
-// TODO: make this a component instead of a property
-#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
-pub enum WindowOrigin {
-    Center,
-    BottomLeft,
-}
-
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify left/right/top/bottom values.
-    /// Ignore window resizing; the image will stretch.
-    None,
-    /// Match the window size. 1 world unit = 1 pixel.
-    WindowSize,
+    /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
+    /// Arguments are in world units.
+    Fixed { width: f32, height: f32 },
+    /// Match the viewport size.
+    /// The argument is the number of pixels that equals one world unit.
+    WindowSize(f32),
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     /// Arguments are in world units.
     AutoMin { min_width: f32, min_height: f32 },
     /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
     /// Arguments are in world units.
     AutoMax { max_width: f32, max_height: f32 },
-    /// Keep vertical axis constant; resize horizontal with aspect ratio.
-    /// The argument is the desired height of the viewport in world units.
+    /// Keep the projection's height constant; width will be adjusted to match aspect ratio.
+    /// The argument is the desired height of the projection in world units.
     FixedVertical(f32),
-    /// Keep horizontal axis constant; resize vertical with aspect ratio.
-    /// The argument is the desired width of the viewport in world units.
+    /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
+    /// The argument is the desired width of the projection in world units.
     FixedHorizontal(f32),
 }
 
+/// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
+/// the size of objects remains the same regardless of their distance to the camera.
+///
+/// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular
+/// and projection lines are parallel, the view frustum takes the shape of a cuboid.
+///
+/// Note that the scale of the projection and the apparent size of objects are inversely proportional.
+/// As the size of the projection increases, the size of objects decreases.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
-    pub left: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub top: f32,
+    /// The distance of the near clipping plane in world units.
+    ///
+    /// Objects closer than this will not be rendered.
+    ///
+    /// Defaults to `0.0`
     pub near: f32,
+    /// The distance of the far clipping plane in world units.
+    ///
+    /// Objects further than this will not be rendered.
+    ///
+    /// Defaults to `1000.0`
     pub far: f32,
-    pub window_origin: WindowOrigin,
+    /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
+    /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
+    ///
+    /// When the projection scales due to viewport resizing, the position of the camera, and thereby `viewport_origin`,
+    /// remains at the same relative point.
+    ///
+    /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
+    /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
+    /// Values in between will caused the projection to scale proportionally on each axis.
+    ///
+    /// Defaults to `(0.5, 0.5)`, which makes scaling affect opposite sides equally, keeping the center
+    /// point of the viewport centered.
+    pub viewport_origin: Vec2,
+    /// How the projection will scale when the viewport is resized.
+    ///
+    /// Defaults to `ScalingMode::WindowScale(1.0)`
     pub scaling_mode: ScalingMode,
+    /// Scales the projection in world units.
+    ///
+    /// As scale increases, the apparent size of objects decreases, and vice versa.
+    ///
+    /// Defaults to `1.0`
     pub scale: f32,
+    /// The area that the projection covers relative to `viewport_origin`.
+    ///
+    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
+    /// updates this value when the viewport is resized depending on `OrthographicProjection`'s other fields.
+    /// In this case, `area` should not be manually modified.
+    ///
+    /// It may be necessary to set this manually for shadow projections and such.
+    pub area: Rect,
 }
 
 impl CameraProjection for OrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
         Mat4::orthographic_rh(
-            self.left * self.scale,
-            self.right * self.scale,
-            self.bottom * self.scale,
-            self.top * self.scale,
+            self.area.min.x,
+            self.area.max.x,
+            self.area.min.y,
+            self.area.max.y,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
             self.far,
@@ -228,8 +263,8 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        let (viewport_width, viewport_height) = match self.scaling_mode {
-            ScalingMode::WindowSize => (width, height),
+        let (projection_width, projection_height) = match self.scaling_mode {
+            ScalingMode::WindowSize(pixel_scale) => (width / pixel_scale, height / pixel_scale),
             ScalingMode::AutoMin {
                 min_width,
                 min_height,
@@ -260,34 +295,18 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::FixedHorizontal(viewport_width) => {
                 (viewport_width, height * viewport_width / width)
             }
-            ScalingMode::None => return,
+            ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        match self.window_origin {
-            WindowOrigin::Center => {
-                let half_width = viewport_width / 2.0;
-                let half_height = viewport_height / 2.0;
-                self.left = -half_width;
-                self.bottom = -half_height;
-                self.right = half_width;
-                self.top = half_height;
+        let origin_x = projection_width * self.viewport_origin.x;
+        let origin_y = projection_height * self.viewport_origin.y;
 
-                if let ScalingMode::WindowSize = self.scaling_mode {
-                    if self.scale == 1.0 {
-                        self.left = self.left.floor();
-                        self.bottom = self.bottom.floor();
-                        self.right = self.right.floor();
-                        self.top = self.top.floor();
-                    }
-                }
-            }
-            WindowOrigin::BottomLeft => {
-                self.left = 0.0;
-                self.bottom = 0.0;
-                self.right = viewport_width;
-                self.top = viewport_height;
-            }
-        }
+        self.area = Rect::new(
+            self.scale * -origin_x,
+            self.scale * -origin_y,
+            self.scale * (projection_width - origin_x),
+            self.scale * (projection_height - origin_y),
+        );
     }
 
     fn far(&self) -> f32 {
@@ -298,15 +317,12 @@ impl CameraProjection for OrthographicProjection {
 impl Default for OrthographicProjection {
     fn default() -> Self {
         OrthographicProjection {
-            left: -1.0,
-            right: 1.0,
-            bottom: -1.0,
-            top: 1.0,
+            scale: 1.0,
             near: 0.0,
             far: 1000.0,
-            window_origin: WindowOrigin::Center,
-            scaling_mode: ScalingMode::WindowSize,
-            scale: 1.0,
+            viewport_origin: Vec2::new(0.5, 0.5),
+            scaling_mode: ScalingMode::WindowSize(1.0),
+            area: Rect::new(-1.0, -1.0, 1.0, 1.0),
         }
     }
 }

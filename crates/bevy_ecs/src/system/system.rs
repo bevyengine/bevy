@@ -3,7 +3,7 @@ use core::fmt::Debug;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, schedule::SystemLabelId, world::World,
+    query::Access, world::World,
 };
 
 use std::any::TypeId;
@@ -19,7 +19,7 @@ use std::borrow::Cow;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`SystemDescriptor`](crate::schedule::SystemDescriptor).
+/// see [`IntoSystemConfig`](crate::schedule::IntoSystemConfig).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.
@@ -64,12 +64,8 @@ pub trait System: Send + Sync + 'static {
     /// Update the system's archetype component [`Access`].
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
-    /// The default labels for the system
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        Vec::new()
-    }
-    /// Returns the system's default [system sets](crate::schedule_v3::SystemSet).
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+    /// Returns the system's default [system sets](crate::schedule::SystemSet).
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         Vec::new()
     }
     /// Gets the system's last change tick
@@ -81,6 +77,16 @@ pub trait System: Send + Sync + 'static {
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
+
+/// [`System`] types that do not modify the [`World`] when run.
+/// This is implemented for any systems whose parameters all implement [`ReadOnlySystemParam`].
+///
+/// [`ReadOnlySystemParam`]: crate::system::ReadOnlySystemParam
+///
+/// # Safety
+///
+/// This must only be implemented for system types which do not mutate the `World`.
+pub unsafe trait ReadOnlySystem: System {}
 
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;

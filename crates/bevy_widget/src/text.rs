@@ -1,11 +1,10 @@
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{App, Plugin, CoreSet};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     prelude::Bundle,
     query::{Changed, Or, With},
-    schedule::IntoSystemDescriptor,
-    system::{Commands, Local, ParamSet, Query, Res, ResMut},
+    system::{Commands, Local, ParamSet, Query, Res, ResMut}, schedule::IntoSystemConfig,
 };
 use bevy_math::Vec2;
 use bevy_render::{
@@ -20,7 +19,7 @@ use bevy_text::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_ui::{CalculatedSize, FocusPolicy, Node, Size, Style, UiScale, UiSystem, Val, ZIndex};
-use bevy_window::{ModifiesWindows, PrimaryWindow, Window};
+use bevy_window::{PrimaryWindow, Window};
 
 fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
@@ -167,21 +166,20 @@ pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(
-            CoreStage::PostUpdate,
-            text_system
-                .before(UiSystem::Flex)
-                .after(ModifiesWindows)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(CameraUpdateSystem)
-                // Potential conflict: `Assets<Image>`
-                // Since both systems will only ever insert new [`Image`] assets,
-                // they will never observe each other's effects.
-                .ambiguous_with(bevy_text::update_text2d_layout),
-        );
+        app.add_system(
+                text_system
+                    .in_base_set(CoreSet::PostUpdate)
+                    .before(UiSystem::Flex)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
+            );
     }
 }
 

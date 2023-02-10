@@ -42,7 +42,7 @@ fn main() {
     .add_plugin(CameraControllerPlugin)
     .add_plugin(SceneViewerPlugin)
     .add_startup_system(setup)
-    .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load);
+    .add_system(setup_scene_after_load.in_base_set(CoreSet::PreUpdate));
 
     app.run();
 }
@@ -76,6 +76,7 @@ fn setup_scene_after_load(
     mut commands: Commands,
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
+    asset_server: Res<AssetServer>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
 ) {
     if scene_handle.is_loaded && !*setup {
@@ -126,6 +127,12 @@ fn setup_scene_after_load(
                     ..default()
                 },
                 ..default()
+            },
+            EnvironmentMapLight {
+                diffuse_map: asset_server
+                    .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+                specular_map: asset_server
+                    .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             },
             camera_controller,
         ));

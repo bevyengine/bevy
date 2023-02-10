@@ -27,13 +27,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    schedule::{IntoSystemDescriptor, SystemLabel},
-    system::Resource,
-};
+use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
-use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
@@ -45,7 +41,7 @@ use crate::prelude::UiCameraConfig;
 pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
     /// After this label, the ui flex state has been updated
     Flex,
@@ -99,24 +95,21 @@ impl Plugin for UiPlugin {
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                ui_focus_system.label(UiSystem::Focus).after(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
+            .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
+            .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
+            .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem))
+            // add these systems to front because these must run before transform update systems
+            .add_system(
                 flex_node_system
-                    .label(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate)
-                    .after(ModifiesWindows),
+                    .in_set(UiSystem::Flex)
+                    .before(TransformSystem::TransformPropagate),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                ui_stack_system.label(UiSystem::Stack),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+            .add_system(ui_stack_system.in_set(UiSystem::Stack))
+            .add_system(
+                update_clipping_system
+                    .after(TransformSystem::TransformPropagate)
+                    .in_base_set(CoreSet::PostUpdate),
             );
 
         crate::render::build_ui_render(app);

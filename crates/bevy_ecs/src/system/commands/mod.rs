@@ -2,16 +2,18 @@ mod command_queue;
 mod parallel_scope;
 
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
+use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::Resource;
+use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -48,10 +50,11 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// only after each system in a [stage] has completed.
+/// when the [`apply_system_buffers`] system runs.
 ///
-/// The command queue of a system can also be manually applied
+/// The command queue of an individual system can also be manually applied
 /// by calling [`System::apply_buffers`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -61,7 +64,7 @@ pub trait Command: Send + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -93,11 +96,24 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [stage]: crate::schedule::SystemStage
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
+/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
+/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: &'s mut CommandQueue,
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
+}
+
+impl SystemBuffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
+        self.apply(world);
+    }
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -107,10 +123,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self {
-            queue,
-            entities: world.entities(),
-        }
+        Self::new_from_entities(queue, world.entities())
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -119,7 +132,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
-        Self { queue, entities }
+        Self {
+            queue: Deferred(queue),
+            entities,
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
@@ -565,11 +581,13 @@ impl<'w, 's> Commands<'w, 's> {
 /// # let mut world = World::new();
 /// # world.init_resource::<Counter>();
 /// #
-/// # let mut setup_stage = SystemStage::single_threaded().with_system(setup);
-/// # let mut assert_stage = SystemStage::single_threaded().with_system(assert_names);
+/// # let mut setup_schedule = Schedule::new();
+/// # setup_schedule.add_system(setup);
+/// # let mut assert_schedule = Schedule::new();
+/// # assert_schedule.add_system(assert_names);
 /// #
-/// # setup_stage.run(&mut world);
-/// # assert_stage.run(&mut world);
+/// # setup_schedule.run(&mut world);
+/// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
 ///     commands.spawn_empty().add(CountName);
