@@ -21,7 +21,7 @@ use super::{ReadOnlySystem, System};
 /// // This struct is used to customize the behavior of our combinator.
 /// pub struct XorMarker;
 ///
-/// impl<A, B> Combine for XorMarker
+/// impl<A, B> Combine<A, B> for XorMarker
 ///     where A: System<In = (), Out = bool>,
 ///     where B: System<In = (), Out = bool>,
 /// {
@@ -47,9 +47,9 @@ use super::{ReadOnlySystem, System};
 ///     }
 /// }
 ///
-/// # #[derive(Resource) struct A(u32);
-/// # #[derive(Resource) struct B(u32);
-/// # #[derive(Resource, Default) struct RanFlag(bool);
+/// # #[derive(Resource)] struct A(u32);
+/// # #[derive(Resource)] struct B(u32);
+/// # #[derive(Resource, Default)] struct RanFlag(bool);
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
 /// #
