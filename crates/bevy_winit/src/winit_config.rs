@@ -54,10 +54,10 @@ impl WinitSettings {
     pub fn desktop_app() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Reactive {
-                min_wait: Duration::from_secs(5),
+                wait: Duration::from_secs(5),
             },
             unfocused_mode: UpdateMode::ReactiveLowPower {
-                min_wait: Duration::from_secs(60),
+                wait: Duration::from_secs(60),
             },
             ..Default::default()
         }
@@ -84,9 +84,9 @@ impl Default for WinitSettings {
 
 /// Determines how frequently an app can update.
 ///
-/// **NOTE:** This setting is independent of VSync. VSync is controlled by a window's
+/// **NOTE:** This setting is independent of `VSync`. `VSync` is controlled by a window's
 /// [`PresentMode`](bevy_window::PresentMode) setting. If an app can update faster than
-/// the refresh rate, but VSync is enabled, the update rate will be indirectly limited
+/// the refresh rate, but `VSync` is enabled, the update rate will be indirectly limited
 /// by the renderer.
 #[derive(Debug)]
 pub enum UpdateMode {
@@ -101,7 +101,7 @@ pub enum UpdateMode {
         ///
         /// **Note:** This has no upper limit.
         /// Bevy will wait forever if you set this to [`Duration::MAX`].
-        min_wait: Duration,
+        wait: Duration,
     },
     /// The app will update when:
     /// - enough time has elapsed since the previous update
@@ -116,6 +116,6 @@ pub enum UpdateMode {
         ///
         /// **Note:** This has no upper limit.
         /// Bevy will wait forever if you set this to [`Duration::MAX`].
-        min_wait: Duration,
+        wait: Duration,
     },
 }

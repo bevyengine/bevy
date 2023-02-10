@@ -20,7 +20,7 @@ fn main() {
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_millis(10),
+                wait: Duration::from_millis(10),
             },
             ..default()
         })

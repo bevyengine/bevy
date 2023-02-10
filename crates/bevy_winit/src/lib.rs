@@ -27,7 +27,8 @@ use bevy_utils::{
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
+    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    WindowScaleFactorChanged,
 };
 
 #[cfg(target_os = "android")]
@@ -66,7 +67,20 @@ impl Plugin for WinitPlugin {
         }
 
         let event_loop = event_loop_builder.build();
-        app.init_non_send_resource::<WinitWindows>();
+
+        app.init_non_send_resource::<WinitWindows>()
+            .init_resource::<WinitSettings>()
+            .set_runner(winit_runner)
+            .add_systems(
+                (
+                    // `exit_on_all_closed` seemingly conflicts with `changed_window`
+                    // but does not actually access any data (only checks if the query is empty)
+                    changed_windows.ambiguous_with(exit_on_all_closed),
+                    // apply all changes first, then despawn windows
+                    despawn_windows.after(changed_windows),
+                )
+                    .in_base_set(CoreSet::Last),
+            );
 
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(CanvasParentResizePlugin);
@@ -83,24 +97,45 @@ impl Plugin for WinitPlugin {
             // Otherwise, we try to create a window before `bevy_render` initializes
             // the renderer, so that we have a surface available to use as a hint.
             // This improves compatibility with wgpu backends, especially WASM/WebGL2.
-            let create_windows = IntoSystem::into_system(create_windows);
-            create_windows.run(&event_loop, &mut app.world);
-            create_windows.apply_buffers(&mut app.world);
+            #[cfg(not(target_arch = "wasm32"))]
+            let mut create_windows_state: SystemState<(
+                Commands,
+                Query<(Entity, &mut Window)>,
+                NonSendMut<WinitWindows>,
+                EventWriter<WindowCreated>,
+            )> = SystemState::new(&mut app.world);
+
+            #[cfg(target_arch = "wasm32")]
+            let mut create_windows_state: SystemState<(
+                Commands,
+                Query<(Entity, &mut Window)>,
+                NonSendMut<WinitWindows>,
+                EventWriter<WindowCreated>,
+                ResMut<CanvasParentResizeEventChannel>,
+            )> = SystemState::new(&mut app.world);
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let (commands, new_windows, winit_windows, event_writer) =
+                create_windows_state.get_mut(&mut app.world);
+
+            #[cfg(target_arch = "wasm32")]
+            let (commands, new_windows, winit_windows, event_writer, event_channel) =
+                create_windows_state.get_mut(&mut app.world);
+
+            create_windows(
+                &event_loop,
+                commands,
+                new_windows,
+                winit_windows,
+                event_writer,
+                #[cfg(target_arch = "wasm32")]
+                event_channel,
+            );
+
+            create_windows_state.apply(&mut app.world);
         }
 
-        app.insert_non_send_resource(event_loop)
-            .init_resource::<WinitSettings>()
-            .set_runner(winit_runner)
-            .add_systems(
-                (
-                    // `exit_on_all_closed` seemingly conflicts with `changed_window`
-                    // but does not actually access any data (only checks if the query is empty)
-                    changed_windows.ambiguous_with(exit_on_all_closed),
-                    // apply all changes first, then despawn windows
-                    despawn_windows.after(changed_windows),
-                )
-                    .in_base_set(CoreSet::Last),
-            );
+        app.insert_non_send_resource(event_loop);
     }
 }
 
@@ -225,7 +260,22 @@ pub fn winit_runner(mut app: App) {
         Query<(&mut Window, &mut CachedWindow)>,
     )> = SystemState::new(&mut app.world);
 
-    let create_windows = IntoSystem::into_system(create_windows);
+    #[cfg(not(target_arch = "wasm32"))]
+    let mut create_windows_state: SystemState<(
+        Commands,
+        Query<(Entity, &mut Window)>,
+        NonSendMut<WinitWindows>,
+        EventWriter<WindowCreated>,
+    )> = SystemState::new(&mut app.world);
+
+    #[cfg(target_arch = "wasm32")]
+    let mut create_windows_state: SystemState<(
+        Commands,
+        Query<(Entity, &mut Window)>,
+        NonSendMut<WinitWindows>,
+        EventWriter<WindowCreated>,
+        ResMut<CanvasParentResizeEventChannel>,
+    )> = SystemState::new(&mut app.world);
 
     // setup up the event loop
     let event_handler = move |event: Event<()>,
@@ -242,8 +292,24 @@ pub fn winit_runner(mut app: App) {
         }
 
         if winit_state.active {
-            create_windows.run(event_loop, &mut app.world);
-            create_windows.apply_buffers(&mut app.world);
+            #[cfg(not(target_arch = "wasm32"))]
+            let (commands, new_windows, winit_windows, event_writer) =
+                create_windows_state.get_mut(&mut app.world);
+
+            #[cfg(target_arch = "wasm32")]
+            let (commands, new_windows, winit_windows, event_writer, event_channel) =
+                create_windows_state.get_mut(&mut app.world);
+
+            create_windows(
+                event_loop,
+                commands,
+                new_windows,
+                winit_windows,
+                event_writer,
+                #[cfg(target_arch = "wasm32")]
+                event_channel,
+            );
+            create_windows_state.apply(&mut app.world);
         }
 
         match event {
@@ -266,9 +332,9 @@ pub fn winit_runner(mut app: App) {
                         let focused = windows.iter().any(|window| window.focused);
                         winit_state.timeout_elapsed = match winit_config.update_mode(focused) {
                             UpdateMode::Continuous => true,
-                            UpdateMode::Reactive { min_wait }
-                            | UpdateMode::ReactiveLowPower { min_wait } => {
-                                now.duration_since(winit_state.last_update) >= *min_wait
+                            UpdateMode::Reactive { wait }
+                            | UpdateMode::ReactiveLowPower { wait } => {
+                                now.duration_since(winit_state.last_update) >= *wait
                             }
                         };
                     }
@@ -559,9 +625,8 @@ pub fn winit_runner(mut app: App) {
                 let focused = windows.iter().any(|window| window.focused);
                 *control_flow = match winit_config.update_mode(focused) {
                     UpdateMode::Continuous => ControlFlow::Poll,
-                    UpdateMode::Reactive { min_wait }
-                    | UpdateMode::ReactiveLowPower { min_wait } => {
-                        if let Some(instant) = now.checked_add(*min_wait) {
+                    UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                        if let Some(instant) = now.checked_add(*wait) {
                             ControlFlow::WaitUntil(instant)
                         } else {
                             ControlFlow::Wait
