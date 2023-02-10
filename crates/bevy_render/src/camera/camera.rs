@@ -574,8 +574,8 @@ pub fn extract_cameras(
     }
 }
 
-/// Mip bias to apply when sampling from material textures.
+/// Camera component specifiying a mip bias to apply when sampling from material textures.
 ///
-/// Often used in conjunction with antialiasing post-process effects.
+/// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
 #[derive(Component)]
 pub struct MipBias(pub f32);
