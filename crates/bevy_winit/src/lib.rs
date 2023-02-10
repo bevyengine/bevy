@@ -630,30 +630,32 @@ pub fn winit_runner(mut app: App) {
                         );
 
                         create_windows_state.apply(&mut app.world);
-                    }
-                }
-            }
-            event::Event::RedrawEventsCleared => {
-                // decide when to run the next update
-                let (winit_config, windows) = focused_windows_state.get(&app.world);
-                let focused = windows.iter().any(|window| window.focused);
-                match winit_config.update_mode(focused) {
-                    UpdateMode::Continuous => control_flow.set_poll(),
-                    UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                        control_flow.set_wait_timeout(*wait);
-                    }
-                }
 
-                if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-                    if redraw_event_reader.iter(app_redraw_events).last().is_some() {
-                        winit_state.redraw_requested = true;
-                        control_flow.set_poll();
-                    }
-                }
+                        // decide when to run the next update
+                        let (winit_config, windows) = focused_windows_state.get(&app.world);
+                        let focused = windows.iter().any(|window| window.focused);
+                        match winit_config.update_mode(focused) {
+                            UpdateMode::Continuous => control_flow.set_poll(),
+                            UpdateMode::Reactive { wait }
+                            | UpdateMode::ReactiveLowPower { wait } => {
+                                control_flow.set_wait_timeout(*wait);
+                            }
+                        }
 
-                if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                    if app_exit_event_reader.iter(app_exit_events).last().is_some() {
-                        control_flow.set_exit();
+                        if let Some(app_redraw_events) =
+                            app.world.get_resource::<Events<RequestRedraw>>()
+                        {
+                            if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                                winit_state.redraw_requested = true;
+                                control_flow.set_poll();
+                            }
+                        }
+
+                        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+                            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                                control_flow.set_exit();
+                            }
+                        }
                     }
                 }
             }
