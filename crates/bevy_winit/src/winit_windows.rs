@@ -10,14 +10,15 @@ use winit::{
 
 use crate::converters::convert_window_level;
 
+/// The backing [`Window`](winit::window::Window) states for all window entities.
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
-    // Some winit functions, such as `set_window_icon` can only be used from the main thread. If
-    // they are used in another thread, the app will hang. This marker ensures `WinitWindows` is
-    // only ever accessed with bevy's non-send functions and in NonSend systems.
+    // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.
+    // If they're called on other threads, the program might hang. This marker indicates that
+    // this type is not thread-safe and will be `!Send` and `!Sync`.
     _not_send_sync: core::marker::PhantomData<*const ()>,
 }
 
