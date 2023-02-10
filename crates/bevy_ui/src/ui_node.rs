@@ -255,8 +255,8 @@ pub struct Style {
     pub size: Size,
     /// The minimum size of the flexbox
     ///
-    /// `min_size.width` is used if it is greater than either `size.width` or `max_size.width`.
-    /// `min_size.height` is used if it is greater than either `size.height` or `max_size.height`.
+    /// `min_size.width` is used if it is greater than either `size.width` or `max_size.width`, or both.
+    /// `min_size.height` is used if it is greater than either `size.height` or `max_size.height`, or both.
     pub min_size: Size,
     /// The maximum size of the flexbox
     ///
