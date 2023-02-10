@@ -11,13 +11,11 @@ use std::{
 
 use crate::utility::NonGenericTypeInfoCell;
 
-#[cfg(feature = "fixed_hash")]
-pub use bevy_utils::FixedState as ReflectBuildHasher;
-#[cfg(not(feature = "fixed_hash"))]
-pub use bevy_utils::RandomState as ReflectBuildHasher;
+use bevy_utils::FixedState;
 
+#[inline]
 pub fn reflect_hasher() -> bevy_utils::AHasher {
-    ReflectBuildHasher::default().build_hasher()
+    FixedState.build_hasher()
 }
 
 /// An immutable enumeration of "kinds" of reflected type.
