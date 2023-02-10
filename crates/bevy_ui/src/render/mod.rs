@@ -197,8 +197,12 @@ pub fn extract_uinodes(
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+            // Skip invisible, zero area and completely transparent nodes
+            if !visibility.is_visible()
+                || color.0.a() == 0.0
+                || uinode.size().x == 0.0
+                || uinode.size().y == 0.0
+            {
                 continue;
             }
 
@@ -313,18 +317,16 @@ pub fn extract_text_uinodes(
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip invisible and zero area nodes
+            if !visibility.is_visible() || uinode.size().x == 0.0 || uinode.size().y == 0.0 {
                 continue;
             }
-            // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if uinode.size() == Vec2::ZERO {
-                continue;
-            }
+
             let text_glyphs = &text_layout_info.glyphs;
             let alignment_offset = (uinode.size() / -2.0).extend(0.0);
-
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
+
             for text_glyph in text_glyphs {
                 if text_glyph.section_index != current_section {
                     color = text.sections[text_glyph.section_index]
