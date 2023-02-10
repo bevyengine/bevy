@@ -2,9 +2,10 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    camera::MipBias,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraph,
@@ -40,8 +41,7 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone, ExtractComponent)]
-#[extract_component_filter(With<Camera>)]
+#[derive(Component, Clone)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -56,6 +56,16 @@ pub struct Fxaa {
 
     /// Trims the algorithm from processing darks.
     pub edge_threshold_min: Sensitivity,
+}
+
+impl ExtractComponent for Fxaa {
+    type Query = &'static Self;
+    type Filter = With<Camera>;
+    type Out = (Self, MipBias);
+
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        Some((item.clone(), MipBias(-0.25)))
+    }
 }
 
 impl Default for Fxaa {
