@@ -372,7 +372,6 @@ wasm = false
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
