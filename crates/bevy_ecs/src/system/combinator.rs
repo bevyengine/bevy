@@ -137,7 +137,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so the system combining them will only read from the world.
+/// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
 unsafe impl<A, B, Func> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
