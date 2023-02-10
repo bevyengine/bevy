@@ -9,7 +9,7 @@ use bevy::{
         },
         fxaa::{Fxaa, Sensitivity},
     },
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -25,6 +25,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(toggle_aa)
         .add_system(update_ui)
+        .add_system(move_sphere)
         .run();
 }
 
@@ -201,6 +202,30 @@ fn setup(
         });
     }
 
+    // Moving sphere
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(
+                shape::Icosphere {
+                    radius: 0.25,
+                    ..default()
+                }
+                .try_into()
+                .unwrap(),
+            ),
+            material: materials.add(StandardMaterial {
+                base_color: Color::WHITE.with_a(0.15),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        MovingSphere,
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
+
     // Flight Helmet
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
@@ -288,4 +313,19 @@ fn uv_debug_texture() -> Image {
     );
     img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
     img
+}
+
+#[derive(Component)]
+struct MovingSphere;
+
+fn move_sphere(mut spheres: Query<&mut Transform, With<MovingSphere>>, time: Res<Time>) {
+    let start = Vec2::new(-0.2, 0.5);
+    let end = Vec2::new(0.5, -0.75);
+    let duration = 5.0;
+    for mut transform in &mut spheres {
+        let t = (time.elapsed_seconds() % duration) / duration;
+        let next_pos = start + (end - start) * t;
+        transform.translation.x = next_pos.x;
+        transform.translation.z = next_pos.y;
+    }
 }
