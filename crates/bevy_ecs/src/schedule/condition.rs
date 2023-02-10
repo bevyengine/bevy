@@ -12,6 +12,11 @@ pub type BoxedCondition = BoxedSystem<(), bool>;
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 pub trait Condition<Params>: sealed::Condition<Params> {
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `and_then` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `and_then` will only be invoked if `self` returns `true`.
     fn and_then<P, C: Condition<P>>(self, and_then: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and_then);
@@ -19,6 +24,11 @@ pub trait Condition<Params>: sealed::Condition<Params> {
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or_else` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `and_then` will only be invoked if `self` returns `false`.
     fn or_else<P, C: Condition<P>>(self, or_else: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or_else);
