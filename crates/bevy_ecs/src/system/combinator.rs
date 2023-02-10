@@ -16,7 +16,7 @@ use super::{ReadOnlySystem, System};
 ///
 /// // A system combinator that performs an exclusive-or (XOR)
 /// // operation on the output of two systems.
-/// pub struct XorSystem<A, B> = CombinatorSystem<A, B, XorMarker>;
+/// pub type Xor<A, B> = CombinatorSystem<A, B, XorMarker>;
 ///
 /// // This struct is used to customize the behavior of our combinator.
 /// pub struct XorMarker;
