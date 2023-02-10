@@ -563,7 +563,7 @@ pub fn winit_runner(mut app: App) {
                     // Upon resume, check if the new render surfaces are compatible with the
                     // existing render device. If not (which should basically never happen),
                     // *then* try to rebuild the renderer.
-                    control_flow.set_exit();
+                    *control_flow = ControlFlow::Exit;
                 }
             }
             event::Event::Resumed => {
@@ -622,10 +622,14 @@ pub fn winit_runner(mut app: App) {
                         let (winit_config, windows) = focused_windows_state.get(&app.world);
                         let focused = windows.iter().any(|window| window.focused);
                         match winit_config.update_mode(focused) {
-                            UpdateMode::Continuous => control_flow.set_poll(),
+                            UpdateMode::Continuous => *control_flow = ControlFlow::Poll,
                             UpdateMode::Reactive { wait }
                             | UpdateMode::ReactiveLowPower { wait } => {
-                                control_flow.set_wait_timeout(*wait);
+                                if let Some(next) = winit_state.last_update.checked_add(*wait) {
+                                    *control_flow = ControlFlow::WaitUntil(next);
+                                } else {
+                                    *control_flow = ControlFlow::Wait;
+                                }
                             }
                         }
 
@@ -634,13 +638,13 @@ pub fn winit_runner(mut app: App) {
                         {
                             if redraw_event_reader.iter(app_redraw_events).last().is_some() {
                                 winit_state.redraw_requested = true;
-                                control_flow.set_poll();
+                                *control_flow = ControlFlow::Poll;
                             }
                         }
 
                         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                             if app_exit_event_reader.iter(app_exit_events).last().is_some() {
-                                control_flow.set_exit();
+                                *control_flow = ControlFlow::Exit;
                             }
                         }
                     }
