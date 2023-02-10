@@ -283,50 +283,37 @@ pub fn winit_runner(mut app: App) {
                               control_flow: &mut ControlFlow| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
-
-        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-        }
-
-        if winit_state.active {
-            #[cfg(not(target_arch = "wasm32"))]
-            let (commands, new_windows, winit_windows, event_writer) =
-                create_windows_state.get_mut(&mut app.world);
-
-            #[cfg(target_arch = "wasm32")]
-            let (commands, new_windows, winit_windows, event_writer, event_channel) =
-                create_windows_state.get_mut(&mut app.world);
-
-            create_windows(
-                event_loop,
-                commands,
-                new_windows,
-                winit_windows,
-                event_writer,
-                #[cfg(target_arch = "wasm32")]
-                event_channel,
-            );
-            create_windows_state.apply(&mut app.world);
-        }
-
         match event {
             event::Event::NewEvents(start_cause) => {
-                // reset these after each update
-                winit_state.timeout_elapsed = false;
-                winit_state.window_or_device_event_received = false;
-                winit_state.window_event_received = false;
-
                 match start_cause {
+                    StartCause::Init => {
+                        // create backend windows for any window entities (macOS, iOS, Android)
+                        #[cfg(not(target_arch = "wasm32"))]
+                        let (commands, new_windows, winit_windows, event_writer) =
+                            create_windows_state.get_mut(&mut app.world);
+
+                        #[cfg(target_arch = "wasm32")]
+                        let (commands, new_windows, winit_windows, event_writer, event_channel) =
+                            create_windows_state.get_mut(&mut app.world);
+
+                        create_windows(
+                            event_loop,
+                            commands,
+                            new_windows,
+                            winit_windows,
+                            event_writer,
+                            #[cfg(target_arch = "wasm32")]
+                            event_channel,
+                        );
+
+                        create_windows_state.apply(&mut app.world);
+                    }
                     StartCause::ResumeTimeReached { .. } => {
                         // `WaitUntil` timeout
                         winit_state.timeout_elapsed = true;
                     }
                     _ => {
-                        // something else triggered this iteration of the loop
-                        // check timeout manually
+                        // something else triggered this, check timeout manually
                         let now = Instant::now();
                         let (winit_config, windows) = focused_windows_state.get(&app.world);
                         let focused = windows.iter().any(|window| window.focused);
@@ -589,7 +576,7 @@ pub fn winit_runner(mut app: App) {
                     // Upon resume, check if the new render surfaces are compatible with the
                     // existing render device. If not (which should basically never happen),
                     // *then* try to rebuild the renderer.
-                    *control_flow = ControlFlow::Exit;
+                    control_flow.set_exit();
                 }
             }
             event::Event::Resumed => {
@@ -614,32 +601,59 @@ pub fn winit_runner(mut app: App) {
                     };
 
                     if update {
+                        // reset these on each update
+                        winit_state.timeout_elapsed = false;
+                        winit_state.window_or_device_event_received = false;
+                        winit_state.window_event_received = false;
+                        winit_state.redraw_requested = false;
+
                         winit_state.last_update = Instant::now();
                         app.update();
+
+                        // create backend windows for any new window entities
+                        #[cfg(not(target_arch = "wasm32"))]
+                        let (commands, new_windows, winit_windows, event_writer) =
+                            create_windows_state.get_mut(&mut app.world);
+
+                        #[cfg(target_arch = "wasm32")]
+                        let (commands, new_windows, winit_windows, event_writer, event_channel) =
+                            create_windows_state.get_mut(&mut app.world);
+
+                        create_windows(
+                            event_loop,
+                            commands,
+                            new_windows,
+                            winit_windows,
+                            event_writer,
+                            #[cfg(target_arch = "wasm32")]
+                            event_channel,
+                        );
+
+                        create_windows_state.apply(&mut app.world);
                     }
                 }
             }
-            Event::RedrawEventsCleared => {
-                let now = Instant::now();
+            event::Event::RedrawEventsCleared => {
+                // decide when to run the next update
                 let (winit_config, windows) = focused_windows_state.get(&app.world);
                 let focused = windows.iter().any(|window| window.focused);
-                *control_flow = match winit_config.update_mode(focused) {
-                    UpdateMode::Continuous => ControlFlow::Poll,
+                match winit_config.update_mode(focused) {
+                    UpdateMode::Continuous => control_flow.set_poll(),
                     UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                        if let Some(instant) = now.checked_add(*wait) {
-                            ControlFlow::WaitUntil(instant)
-                        } else {
-                            ControlFlow::Wait
-                        }
+                        control_flow.set_wait_timeout(*wait);
                     }
-                };
+                }
 
-                // check for any redraw requests submitted by the most recent update
-                winit_state.redraw_requested = false;
                 if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
                     if redraw_event_reader.iter(app_redraw_events).last().is_some() {
                         winit_state.redraw_requested = true;
-                        *control_flow = ControlFlow::Poll;
+                        control_flow.set_poll();
+                    }
+                }
+
+                if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+                    if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                        control_flow.set_exit();
                     }
                 }
             }
