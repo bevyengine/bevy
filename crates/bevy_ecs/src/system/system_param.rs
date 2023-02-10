@@ -293,6 +293,8 @@ pub unsafe trait OptionalSystemParam: Sized {
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] at the end of a stage.
+    ///
+    /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
@@ -450,6 +452,8 @@ pub unsafe trait ResultfulSystemParam: Sized {
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] at the end of a stage.
+    ///
+    /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
