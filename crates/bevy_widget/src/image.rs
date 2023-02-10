@@ -1,9 +1,10 @@
-use bevy_app::{App, Plugin, CoreSet};
+use bevy_app::{App, CoreSet, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::Bundle,
     query::Without,
-    system::{Query, Res}, schedule::IntoSystemConfig,
+    schedule::IntoSystemConfig,
+    system::{Query, Res},
 };
 use bevy_render::{
     texture::Image,
@@ -44,16 +45,16 @@ pub struct ImagePlugin;
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         app.add_system(
-                update_image_calculated_size_system
-                    .in_base_set(CoreSet::PostUpdate)
-                    .before(UiSystem::Flex)
-                    // Potential conflicts: `Assets<Image>`
-                    // They run independently since `widget::image_node_system` will only ever observe
-                    // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(bevy_text::update_text2d_layout)
-                    .ambiguous_with(text_system),
-            );
+            update_image_calculated_size_system
+                .in_base_set(CoreSet::PostUpdate)
+                .before(UiSystem::Flex)
+                // Potential conflicts: `Assets<Image>`
+                // They run independently since `widget::image_node_system` will only ever observe
+                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(text_system),
+        );
     }
 }
 

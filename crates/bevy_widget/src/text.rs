@@ -1,10 +1,11 @@
-use bevy_app::{App, Plugin, CoreSet};
+use bevy_app::{App, CoreSet, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     prelude::Bundle,
     query::{Changed, Or, With},
-    system::{Commands, Local, ParamSet, Query, Res, ResMut}, schedule::IntoSystemConfig,
+    schedule::IntoSystemConfig,
+    system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::{
@@ -167,19 +168,19 @@ pub struct TextPlugin;
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(
-                text_system
-                    .in_base_set(CoreSet::PostUpdate)
-                    .before(UiSystem::Flex)
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `widget::text_system`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
-                    // Potential conflict: `Assets<Image>`
-                    // Since both systems will only ever insert new [`Image`] assets,
-                    // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
-            );
+            text_system
+                .in_base_set(CoreSet::PostUpdate)
+                .before(UiSystem::Flex)
+                // Potential conflict: `Assets<Image>`
+                // In practice, they run independently since `bevy_render::camera_update_system`
+                // will only ever observe its own render target, and `widget::text_system`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(CameraUpdateSystem)
+                // Potential conflict: `Assets<Image>`
+                // Since both systems will only ever insert new [`Image`] assets,
+                // they will never observe each other's effects.
+                .ambiguous_with(bevy_text::update_text2d_layout),
+        );
     }
 }
 
