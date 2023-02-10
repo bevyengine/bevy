@@ -6,6 +6,85 @@ use crate::{
 
 use super::{ReadOnlySystem, System};
 
+/// Customizes the behavior of a [`CombinatorSystem`].
+///
+/// # Examples
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{CombinatorSystem, Combine};
+///
+/// // A system combinator that performs an exclusive-or (XOR)
+/// // operation on the output of two systems.
+/// pub struct XorSystem<A, B> = CombinatorSystem<A, B, XorMarker>;
+///
+/// // This struct is used to customize the behavior of our combinator.
+/// pub struct XorMarker;
+///
+/// impl<A, B> Combine for XorMarker
+///     where A: System<In = (), Out = bool>,
+///     where B: System<In = (), Out = bool>,
+/// {
+///     type In = ();
+///     type Out = bool;
+///
+///     fn combine(
+///         _input: Self::In,
+///         world: &World,
+///         a: impl FnOnce(A::In, &World) -> A::Out,
+///         b: impl FnOnce(B::In, &World) -> B::Out,
+///     ) -> Self::Out {
+///         a((), world) ^ b((), world)
+///     }
+///
+///     fn combine_exclusive(
+///         _input: Self::In,
+///         world: &mut World,
+///         a: impl FnOnce(A::In, &mut World) -> A::Out,
+///         b: impl FnOnce(B::In, &mut World) -> B::Out,
+///     ) -> Self::Out {
+///         a((), world) ^ b((), world)
+///     }
+/// }
+///
+/// # #[derive(Resource) struct A(u32);
+/// # #[derive(Resource) struct B(u32);
+/// # #[derive(Resource, Default) struct RanFlag(bool);
+/// # let mut world = World::new();
+/// # world.init_resource::<RanFlag>();
+/// #
+/// # let mut app = Schedule::new();
+/// app.add_system(my_system.run_if(Xor::new(
+///     state_equals(A(1)),
+///     state_equals(B(1)),
+///     // The name of the combined system.
+///     Cow::Borrowed("a ^ b"),
+/// )));
+/// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
+/// #
+/// # world.insert_resource(A(0));
+/// # world.insert_resoruce(B(0));
+/// # schedule.run(&mut world);
+/// # // Neither condition passes, so the system does not run.
+/// # assert!(!world.resource::<RanFlag>().0);
+/// #
+/// # world.insert_resource(A(1));
+/// # schedule.run(&mut world);
+/// # // Only the first condition passes, so the system runs.
+/// # assert!(world.resource::<RanFlag>().0);
+/// # world.resource_mut::<RanFlag>().0 = false;
+/// #
+/// # world.insert_resource(B(1));
+/// # schedule.run(&mut world);
+/// # // Both conditions pass, so the system does not run.
+/// # assert!(!world.resource::<RanFlag>().0);
+/// #
+/// # world.insert_resource(A(0));
+/// # schedule.run(&mut world);
+/// # // Only the second condition passes, so the system runs.
+/// # assert!(world.resource::<RanFlag>().0);
+/// # world.resource_mut::<RanFlag>().0 = false;
+/// ```
 pub trait Combine<A: System, B: System> {
     type In;
     type Out;
