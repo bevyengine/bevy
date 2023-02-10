@@ -124,7 +124,7 @@ pub struct TextBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The background color for the text
+    /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
 }
 
