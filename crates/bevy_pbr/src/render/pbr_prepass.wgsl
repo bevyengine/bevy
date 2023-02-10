@@ -23,7 +23,7 @@ fn prepass_alpha_discard(in: FragmentInput) {
 
 #ifdef VERTEX_UVS
     if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
+        output_color = output_color * textureSampleBias(base_color_texture, base_color_sampler, in.uv, view.mip_bias);
     }
 #endif // VERTEX_UVS
 
@@ -74,4 +74,3 @@ fn fragment(in: FragmentInput) {
 }
 
 #endif // NORMAL_PREPASS
-

@@ -10,6 +10,7 @@ struct View {
     world_position: vec3<f32>,
     // viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
+    mip_bias: f32,
 };
 
 struct PointLight {
@@ -33,7 +34,7 @@ struct DirectionalCascade {
     texel_size: f32,
     far_bound: f32,
 }
-    
+
 struct DirectionalLight {
     cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
