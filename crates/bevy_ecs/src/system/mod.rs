@@ -1,8 +1,8 @@
 //! Tools for controlling behavior in an ECS application.
 //!
-//! Systems define how an ECS based application behaves. They have to be registered to a
-//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually
-//! written as a normal function that will be automatically converted into a system.
+//! Systems define how an ECS based application behaves.
+//! Systems are added to a [`Schedule`](crate::schedule::Schedule), which is then run.
+//! A system is usually written as a normal function, which is automatically converted into a system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
 //! Only types that implement [`SystemParam`] can be used, automatically fetching data from
@@ -36,22 +36,26 @@
 //!
 //! # System ordering
 //!
-//! While the execution of systems is usually parallel and not deterministic, there are two
-//! ways to determine a certain degree of execution order:
+//! By default, the execution of systems is parallel and not deterministic.
+//! Not all systems can run together: if a system mutably accesses data,
+//! no other system that reads or writes that data can be run at the same time.
+//! These systems are said to be **incompatible**.
 //!
-//! - **System Stages:** They determine hard execution synchronization boundaries inside of
-//!   which systems run in parallel by default.
-//! - **Labels:** Systems may be ordered within a stage using the methods `.before()` and `.after()`,
-//!   which order systems based on their [`SystemLabel`]s. Each system is implicitly labeled with
-//!   its `fn` type, and custom labels may be added by calling `.label()`.
+//! The relative order in which incompatible systems are run matters.
+//! When this is not specified, a **system order ambiguity** exists in your schedule.
+//! You can **explicitly order** systems:
 //!
-//! [`SystemLabel`]: crate::schedule::SystemLabel
+//! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to your schedule
+//! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
+//! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
+//!
+//! [`SystemSet`]: crate::schedule::SystemSet
 //!
 //! ## Example
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut app = SystemStage::single_threaded();
+//! # let mut app = Schedule::new();
 //! // Prints "Hello, World!" each frame.
 //! app
 //!     .add_system(print_first.before(print_mid))
@@ -84,7 +88,7 @@
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`&World`](crate::world::World)
-//! - [`RemovedComponents`]
+//! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -113,12 +117,28 @@ pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
 
-/// Ensure that a given function is a system
+/// Ensure that a given function is a [system](System).
 ///
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
-/// valid systems
+/// valid systems.
 pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+    if false {
+        // Check it can be converted into a system
+        // TODO: This should ensure that the system has no conflicting system params
+        IntoSystem::into_system(sys);
+    }
+}
+
+/// Ensure that a given function is a [read-only system](ReadOnlySystem).
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid systems.
+pub fn assert_is_read_only_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
+where
+    S::System: ReadOnlySystem,
+{
     if false {
         // Check it can be converted into a system
         // TODO: This should ensure that the system has no conflicting system params
@@ -137,12 +157,13 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        prelude::{AnyOf, StageLabel},
+        prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
-        schedule::{Schedule, Stage, SystemStage},
+        removal_detection::RemovedComponents,
+        schedule::{apply_system_buffers, IntoSystemConfig, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -169,9 +190,6 @@ mod tests {
     #[derive(Component, Debug)]
     struct W<T>(T);
 
-    #[derive(StageLabel)]
-    struct UpdateStage;
-
     #[test]
     fn simple_system() {
         fn sys(query: Query<&A>) {
@@ -190,9 +208,7 @@ mod tests {
 
     fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
-        let mut update = SystemStage::parallel();
-        update.add_system(system);
-        schedule.add_stage(UpdateStage, update);
+        schedule.add_system(system);
         schedule.run(world);
     }
 
@@ -314,14 +330,11 @@ mod tests {
         world.insert_resource(Added(0));
         world.insert_resource(Changed(0));
 
-        #[derive(StageLabel)]
-        struct ClearTrackers;
-
         let mut schedule = Schedule::default();
-        let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip);
-        schedule.add_stage(UpdateStage, update);
-        schedule.add_stage(ClearTrackers, SystemStage::single(World::clear_trackers));
+
+        schedule.add_system(incr_e_on_flip);
+        schedule.add_system(apply_system_buffers.after(incr_e_on_flip));
+        schedule.add_system(World::clear_trackers.after(apply_system_buffers));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
@@ -602,7 +615,7 @@ mod tests {
         world.entity_mut(spurious_entity).despawn();
 
         fn validate_despawn(
-            removed_i32: RemovedComponents<W<i32>>,
+            mut removed_i32: RemovedComponents<W<i32>>,
             despawned: Res<Despawned>,
             mut n_systems: ResMut<NSystems>,
         ) {
@@ -627,13 +640,16 @@ mod tests {
         world.entity_mut(entity_to_remove_w_from).remove::<W<i32>>();
 
         fn validate_remove(
-            removed_i32: RemovedComponents<W<i32>>,
+            mut removed_i32: RemovedComponents<W<i32>>,
+            despawned: Res<Despawned>,
             removed: Res<Removed>,
             mut n_systems: ResMut<NSystems>,
         ) {
+            // The despawned entity from the previous frame was
+            // double buffered so we now have it in this system as well.
             assert_eq!(
                 removed_i32.iter().collect::<Vec<_>>(),
-                &[removed.0],
+                &[despawned.0, removed.0],
                 "removing a component causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
 
@@ -1211,5 +1227,12 @@ mod tests {
         // SAFETY: doesnt access anything
         let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
         query.iter();
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_inside_system() {
+        let mut world = World::new();
+        run_system(&mut world, || panic!("this system panics"));
     }
 }

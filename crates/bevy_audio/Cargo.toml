@@ -21,6 +21,9 @@ anyhow = "1.0.4"
 rodio = { version = "0.16", default-features = false }
 parking_lot = "0.12.1"
 
+[target.'cfg(target_os = "android")'.dependencies]
+oboe = { version = "0.4", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rodio = { version = "0.16", default-features = false, features = ["wasm-bindgen"] }
 
@@ -37,3 +40,5 @@ symphonia-isomp4 = ["rodio/symphonia-isomp4"]
 symphonia-mp3 = ["rodio/symphonia-mp3"]
 symphonia-vorbis = ["rodio/symphonia-vorbis"]
 symphonia-wav = ["rodio/symphonia-wav"]
+# Enable using a shared stdlib for cxx on Android.
+android_shared_stdcxx = ["oboe/shared-stdcxx"]

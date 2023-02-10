@@ -44,8 +44,7 @@ jobs:
             --no-push \
             --exclude ci \
             --exclude errors \
-            --exclude bevy-ios-example \
-            --exclude spancmp \
+            --exclude bevy_mobile_example \
             --exclude build-wasm-example
 
       - name: Create PR

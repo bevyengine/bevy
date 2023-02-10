@@ -42,7 +42,3 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
-
-[[example]]
-name = "derive_label"
-path = "examples/derive_label.rs"

@@ -5,7 +5,8 @@
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
-mod systems;
+/// Systems responsible for transform propagation
+pub mod systems;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -19,6 +20,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use prelude::{GlobalTransform, Transform};
+use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
@@ -38,7 +40,7 @@ use prelude::{GlobalTransform, Transform};
 /// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
+/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
@@ -59,7 +61,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate) stage.
+    /// [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate) stage.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
@@ -76,17 +78,10 @@ impl From<Transform> for TransformBundle {
     }
 }
 /// Label enum for the systems relating to transform propagation
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
     /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,
-}
-
-/// Transform propagation system set for third party plugins use
-pub fn transform_propagate_system_set() -> SystemSet {
-    SystemSet::new()
-        .with_system(systems::sync_simple_transforms)
-        .with_system(systems::propagate_transforms)
 }
 
 /// The base plugin for handling [`Transform`] components
@@ -99,21 +94,26 @@ impl Plugin for TransformPlugin {
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
-            .add_startup_system_to_stage(
-                StartupStage::PostStartup,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+            .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
+            .edit_schedule(CoreSchedule::Startup, |schedule| {
+                schedule.configure_set(
+                    TransformSystem::TransformPropagate.in_set(StartupSet::PostStartup),
+                );
+            })
+            // FIXME: https://github.com/bevyengine/bevy/issues/4381
+            // These systems cannot access the same entities,
+            // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+            .add_startup_system(
+                sync_simple_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .ambiguous_with(propagate_transforms),
             )
-            .add_startup_system_to_stage(
-                StartupStage::PostStartup,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+            .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
+            .add_system(
+                sync_simple_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .ambiguous_with(propagate_transforms),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
-            );
+            .add_system(propagate_transforms.in_set(TransformSystem::TransformPropagate));
     }
 }

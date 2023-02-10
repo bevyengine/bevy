@@ -38,5 +38,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     var out: VertexOutput;
     out.clip_position = mesh_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
+#ifdef DEPTH_CLAMP_ORTHO
+        out.clip_position.z = min(out.clip_position.z, 1.0);
+#endif
+
     return out;
 }

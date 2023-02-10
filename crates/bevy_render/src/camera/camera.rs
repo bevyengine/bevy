@@ -450,8 +450,8 @@ impl NormalizedRenderTarget {
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, as well as the runtime-selected [`Projection`]. The system runs during the
-/// [`CoreStage::PostUpdate`] stage.
+/// the app, as well as the runtime-selected [`Projection`].
+/// The system runs during [`CoreSet::PostUpdate`].
 ///
 /// ## World Resources
 ///
@@ -461,7 +461,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
-/// [`CoreStage::PostUpdate`]: bevy_app::CoreStage::PostUpdate
+/// [`CoreSet::PostUpdate`]: bevy_app::CoreSet::PostUpdate
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -559,6 +559,7 @@ pub fn extract_cameras(
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
+                    view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,

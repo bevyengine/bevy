@@ -141,7 +141,7 @@ pub struct Window {
     /// ## Platform-specific
     ///
     /// - iOS / Android / Web / Wayland: Unsupported.
-    pub always_on_top: bool,
+    pub window_level: WindowLevel,
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
@@ -167,6 +167,24 @@ pub struct Window {
     pub prevent_default_event_handling: bool,
     /// Stores internal state that isn't directly accessible.
     pub internal: InternalWindowState,
+    /// Should the window use Input Method Editor?
+    ///
+    /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
+    /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
+    /// [`KeyboardInput`](bevy_input::keyboard::KeyboardInput).
+    ///
+    /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
+    ///
+    ///  ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub ime_enabled: bool,
+    /// Sets location of IME candidate box in client area coordinates relative to the top left.
+    ///
+    ///  ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub ime_position: Vec2,
 }
 
 impl Default for Window {
@@ -181,11 +199,13 @@ impl Default for Window {
             internal: Default::default(),
             composite_alpha_mode: Default::default(),
             resize_constraints: Default::default(),
+            ime_enabled: Default::default(),
+            ime_position: Default::default(),
             resizable: true,
             decorations: true,
             transparent: false,
             focused: true,
-            always_on_top: false,
+            window_level: Default::default(),
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
@@ -554,7 +574,7 @@ impl WindowResolution {
         self.physical_height = height;
     }
 
-    /// Set the window's scale factor, this may get overriden by the backend.
+    /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f64) {
         let (width, height) = (self.width(), self.height());
@@ -779,4 +799,31 @@ pub enum WindowMode {
     SizedFullscreen,
     /// Creates a fullscreen window that uses the maximum supported size.
     Fullscreen,
+}
+
+/// A window level groups windows with respect to their z-position.
+///
+/// The relative ordering between windows in different window levels is fixed.
+/// The z-order of a window within the same window level may change dynamically on user interaction.
+///
+/// ## Platform-specific
+///
+/// - **iOS / Android / Web / Wayland:** Unsupported.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum WindowLevel {
+    /// The window will always be below normal windows.
+    ///
+    /// This is useful for a widget-based app.
+    AlwaysOnBottom,
+    /// The default.
+    #[default]
+    Normal,
+    /// The window will always be on top of normal windows.
+    AlwaysOnTop,
 }

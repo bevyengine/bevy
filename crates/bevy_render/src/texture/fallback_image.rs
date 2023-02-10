@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use crate::{render_resource::*, texture::DefaultImageSampler};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -21,17 +23,33 @@ use crate::{
 #[derive(Resource, Deref)]
 pub struct FallbackImage(GpuImage);
 
+/// A [`RenderApp`](crate::RenderApp) resource that contains a "cubemap fallback image",
+/// which can be used in situations where an image was not explicitly defined. The most common
+/// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
+#[derive(Resource, Deref)]
+pub struct FallbackImageCubemap(GpuImage);
+
 fn fallback_image_new(
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
     default_sampler: &DefaultImageSampler,
     format: TextureFormat,
+    dimension: TextureViewDimension,
     samples: u32,
 ) -> GpuImage {
     // TODO make this configurable
     let data = vec![255; format.pixel_size()];
 
-    let mut image = Image::new_fill(Extent3d::default(), TextureDimension::D2, &data, format);
+    let extents = Extent3d {
+        width: 1,
+        height: 1,
+        depth_or_array_layers: match dimension {
+            TextureViewDimension::Cube => 6,
+            _ => 1,
+        },
+    };
+
+    let mut image = Image::new_fill(extents, TextureDimension::D2, &data, format);
     image.texture_descriptor.sample_count = samples;
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
 
@@ -42,7 +60,11 @@ fn fallback_image_new(
         render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
     };
 
-    let texture_view = texture.create_view(&TextureViewDescriptor::default());
+    let texture_view = texture.create_view(&TextureViewDescriptor {
+        dimension: Some(dimension),
+        array_layer_count: NonZeroU32::new(extents.depth_or_array_layers),
+        ..TextureViewDescriptor::default()
+    });
     let sampler = match image.sampler_descriptor {
         ImageSampler::Default => (**default_sampler).clone(),
         ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
@@ -69,6 +91,23 @@ impl FromWorld for FallbackImage {
             render_queue,
             default_sampler,
             TextureFormat::bevy_default(),
+            TextureViewDimension::D2,
+            1,
+        ))
+    }
+}
+
+impl FromWorld for FallbackImageCubemap {
+    fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+        let default_sampler = world.resource::<DefaultImageSampler>();
+        Self(fallback_image_new(
+            render_device,
+            render_queue,
+            default_sampler,
+            TextureFormat::bevy_default(),
+            TextureViewDimension::Cube,
             1,
         ))
     }
@@ -108,6 +147,7 @@ impl<'w> FallbackImagesMsaa<'w> {
                 &self.render_queue,
                 &self.default_sampler,
                 TextureFormat::bevy_default(),
+                TextureViewDimension::D2,
                 sample_count,
             )
         })
@@ -130,6 +170,7 @@ impl<'w> FallbackImagesDepth<'w> {
                 &self.render_queue,
                 &self.default_sampler,
                 TextureFormat::Depth32Float,
+                TextureViewDimension::D2,
                 sample_count,
             )
         })

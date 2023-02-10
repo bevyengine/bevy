@@ -13,6 +13,7 @@ env:
 jobs:
   build-and-install-on-iOS:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
 
@@ -28,10 +29,11 @@ jobs:
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
 
       - name: Build and install iOS app in iOS Simulator.
-        run: cd examples/ios && make install
+        run: cd examples/mobile && make install
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
 
@@ -54,7 +56,7 @@ jobs:
         run: cargo install --force cargo-apk
 
       - name: Build APK
-        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy-android-example
+        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
 
   run-examples-on-windows-dx12:
     runs-on: windows-latest
@@ -78,7 +80,7 @@ jobs:
         shell: bash
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
+          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,ktx2,zstd"
 
       - name: Run examples
         shell: bash
@@ -86,7 +88,7 @@ jobs:
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,ktx2,zstd"
             sleep 10
           done
 
@@ -147,6 +149,7 @@ jobs:
           path: .github/start-wasm-example/screenshot-*.png
 
   build-without-default-features:
+    timeout-minutes: 30
     strategy:
       matrix:
         crate: [bevy_ecs, bevy_reflect, bevy]
