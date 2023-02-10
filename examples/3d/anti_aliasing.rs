@@ -23,12 +23,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntialiasPlugin)
         .add_startup_system(setup)
-        .add_system(toggle_aa)
+        .add_system(modify_aa)
         .add_system(update_ui)
         .run();
 }
 
-fn toggle_aa(
+fn modify_aa(
     keys: Res<Input<KeyCode>>,
     mut camera: Query<
         (
@@ -53,39 +53,39 @@ fn toggle_aa(
 
     // MSAA 4x
     if keys.just_pressed(KeyCode::Key2) {
-        *msaa = Msaa::Sample4;
-
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntialiasBundle>();
+
+        *msaa = Msaa::Sample4;
     }
 
     // FXAA
     if keys.just_pressed(KeyCode::Key3) && fxaa.is_none() {
-        camera.insert(Fxaa::default());
-
         *msaa = Msaa::Off;
         camera.remove::<TemporalAntialiasBundle>();
+
+        camera.insert(Fxaa::default());
     }
 
     // FXAA Settings
     if let Some(mut fxaa) = fxaa {
-        if keys.just_pressed(KeyCode::Key5) {
+        if keys.just_pressed(KeyCode::Q) {
             fxaa.edge_threshold = Sensitivity::Low;
             fxaa.edge_threshold_min = Sensitivity::Low;
         }
-        if keys.just_pressed(KeyCode::Key6) {
+        if keys.just_pressed(KeyCode::W) {
             fxaa.edge_threshold = Sensitivity::Medium;
             fxaa.edge_threshold_min = Sensitivity::Medium;
         }
-        if keys.just_pressed(KeyCode::Key7) {
+        if keys.just_pressed(KeyCode::E) {
             fxaa.edge_threshold = Sensitivity::High;
             fxaa.edge_threshold_min = Sensitivity::High;
         }
-        if keys.just_pressed(KeyCode::Key8) {
+        if keys.just_pressed(KeyCode::R) {
             fxaa.edge_threshold = Sensitivity::Ultra;
             fxaa.edge_threshold_min = Sensitivity::Ultra;
         }
-        if keys.just_pressed(KeyCode::Key9) {
+        if keys.just_pressed(KeyCode::T) {
             fxaa.edge_threshold = Sensitivity::Extreme;
             fxaa.edge_threshold_min = Sensitivity::Extreme;
         }
@@ -93,10 +93,10 @@ fn toggle_aa(
 
     // TAA
     if keys.just_pressed(KeyCode::Key4) && taa.is_none() {
-        camera.insert(TemporalAntialiasBundle::default());
-
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
+
+        camera.insert(TemporalAntialiasBundle::default());
     }
 }
 
@@ -137,36 +137,36 @@ fn update_ui(
     }
 
     if let Some(fxaa) = fxaa {
-        ui.push_str("\n\nFXAA Sensitivity\n");
+        ui.push_str("\n\n----------\n\nSensitivity\n");
 
         if fxaa.edge_threshold == Sensitivity::Low {
-            ui.push_str("(5) *Low*\n");
+            ui.push_str("(Q) *Low*\n");
         } else {
-            ui.push_str("(5) Low\n");
+            ui.push_str("(Q) Low\n");
         }
 
         if fxaa.edge_threshold == Sensitivity::Medium {
-            ui.push_str("(6) *Medium*\n");
+            ui.push_str("(W) *Medium*\n");
         } else {
-            ui.push_str("(6) Medium\n");
+            ui.push_str("(W) Medium\n");
         }
 
         if fxaa.edge_threshold == Sensitivity::High {
-            ui.push_str("(7) *High*\n");
+            ui.push_str("(E) *High*\n");
         } else {
-            ui.push_str("(7) High\n");
+            ui.push_str("(E) High\n");
         }
 
         if fxaa.edge_threshold == Sensitivity::Ultra {
-            ui.push_str("(8) *Ultra*\n");
+            ui.push_str("(R) *Ultra*\n");
         } else {
-            ui.push_str("(8) Ultra\n");
+            ui.push_str("(R) Ultra\n");
         }
 
         if fxaa.edge_threshold == Sensitivity::Extreme {
-            ui.push_str("(9) *Extreme");
+            ui.push_str("(T) *Extreme*");
         } else {
-            ui.push_str("(9) Extreme");
+            ui.push_str("(T) Extreme");
         }
     }
 }
