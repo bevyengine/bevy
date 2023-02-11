@@ -149,6 +149,9 @@ where
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &crate::prelude::World) -> Self::Out {
         Func::combine(
             input,
+            // SAFETY: The world accesses for both underlying systems have been registered,
+            // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+            // Only one of these closures can be called at once, so they will not conflict with each other.
             |input| self.a.run_unsafe(input, world),
             |input| self.b.run_unsafe(input, world),
         )
