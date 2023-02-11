@@ -317,8 +317,9 @@ impl App {
     /// initial state.
     ///
     /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which run during [`CoreSet::StateTransitions`] after the transitions are applied.
+    /// which is configured to run after [`apply_state_transition::<S>`].
     /// These systems sets only run if the [`State<S>`] resource matches their label.
+    /// Like usual, if no base set is configured, these will run in [`CoreSet::Update`].
     ///
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
@@ -341,7 +342,6 @@ impl App {
         for variant in S::variants() {
             main_schedule.configure_set(
                 OnUpdate(variant.clone())
-                    .in_base_set(CoreSet::StateTransitions)
                     .run_if(state_equals(variant))
                     .after(apply_state_transition::<S>),
             );
