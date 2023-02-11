@@ -242,9 +242,6 @@ macro_rules! impl_methods {
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
-            ///
-            /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-            /// will not affect the original.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
@@ -607,9 +604,6 @@ impl<'a> MutUntyped<'a> {
 
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
-    ///
-    /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-    /// will not affect the original.
     #[inline]
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
