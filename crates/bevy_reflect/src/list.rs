@@ -4,7 +4,7 @@ use std::fmt::{Debug, Formatter};
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, Typed,
+    ReflectRef, TypeInfo, Typed, ValueInfo,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -59,10 +59,8 @@ pub trait List: Reflect + Array {
 /// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_name: &'static str,
-    type_id: TypeId,
-    item_type_name: &'static str,
-    item_type_id: TypeId,
+    type_value: ValueInfo,
+    item_type_value: ValueInfo,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -71,10 +69,8 @@ impl ListInfo {
     /// Create a new [`ListInfo`].
     pub fn new<TList: List, TItem: FromReflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<TList>(),
-            type_id: TypeId::of::<TList>(),
-            item_type_name: std::any::type_name::<TItem>(),
-            item_type_id: TypeId::of::<TItem>(),
+            type_value: ValueInfo::new::<TList>(),
+            item_type_value: ValueInfo::new::<TItem>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -90,34 +86,34 @@ impl ListInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the list.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the list type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The [type name] of the list item.
     ///
     /// [type name]: std::any::type_name
     pub fn item_type_name(&self) -> &'static str {
-        self.item_type_name
+        self.item_type_value.type_name()
     }
 
     /// The [`TypeId`] of the list item.
     pub fn item_type_id(&self) -> TypeId {
-        self.item_type_id
+        self.item_type_value.type_id()
     }
 
     /// Check if the given type matches the list item type.
     pub fn item_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.item_type_id
+        self.item_type_value.is::<T>()
     }
 
     /// The docstring of this list, if any.
