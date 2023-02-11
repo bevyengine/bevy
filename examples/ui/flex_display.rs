@@ -18,6 +18,13 @@ struct ButtonTarget {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let palette = [
+        Color::hex("4059AD").unwrap(),
+        Color::hex("6B9AC4").unwrap(),
+        Color::hex("A5C8E1").unwrap(),
+        Color::hex("EFF2F1").unwrap(),
+    ];
+
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 16.0,
@@ -62,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 ..Default::default()
                             },
-                            background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.2)),
+                            background_color: BackgroundColor(palette[0]),
                             ..Default::default()
                         },))
                         .with_children(|parent| {
@@ -79,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                         ..Default::default()
                                     },
-                                    background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.4)),
+                                    background_color: BackgroundColor(palette[1]),
                                     ..Default::default()
                                 },))
                                 .with_children(|parent| {
@@ -96,9 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 },
                                                 ..Default::default()
                                             },
-                                            background_color: BackgroundColor(Color::rgb(
-                                                0.0, 0.0, 0.6,
-                                            )),
+                                            background_color: BackgroundColor(palette[2]),
                                             ..Default::default()
                                         },))
                                         .with_children(|parent| {
@@ -110,9 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                         justify_content: JustifyContent::FlexEnd,
                                                         ..Default::default()
                                                     },
-                                                    background_color: BackgroundColor(Color::rgb(
-                                                        0.0, 0.0, 0.8,
-                                                    )),
+                                                    background_color: BackgroundColor(palette[3]),
                                                     ..Default::default()
                                                 },))
                                                 .id();
@@ -153,23 +156,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..Default::default()
                                 },
-                                background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.2)),
+                                background_color: BackgroundColor(palette[0]),
                                 ..Default::default()
                             },
                             ButtonTarget {
                                 id: target_ids.pop().unwrap(),
-                                color: Color::rgb(0.0, 0.0, 0.2),
+                                color: palette[0],
                             },
                         ))
                         .with_children(|parent| {
-                            parent.spawn(TextBundle {
-                                text: Text::from_section("", text_style.clone()),
-                                style: Style {
-                                    align_self: AlignSelf::FlexStart,
+                            parent.spawn((
+                                TextBundle {
+                                    text: Text::from_section("", text_style.clone()),
+                                    style: Style {
+                                        align_self: AlignSelf::FlexStart,
+                                        ..Default::default()
+                                    },
                                     ..Default::default()
                                 },
-                                ..Default::default()
-                            });
+                                BackgroundColor(Color::BLACK.with_a(0.5)),
+                            ));
 
                             parent
                                 .spawn((
@@ -185,25 +191,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             },
                                             ..Default::default()
                                         },
-                                        background_color: BackgroundColor(Color::rgb(
-                                            0.0, 0.0, 0.4,
-                                        )),
+                                        background_color: BackgroundColor(palette[1]),
                                         ..Default::default()
                                     },
                                     ButtonTarget {
                                         id: target_ids.pop().unwrap(),
-                                        color: Color::rgb(0.0, 0.0, 0.4),
+                                        color: palette[1],
                                     },
                                 ))
                                 .with_children(|parent| {
-                                    parent.spawn(TextBundle {
-                                        text: Text::from_section("", text_style.clone()),
-                                        style: Style {
-                                            align_self: AlignSelf::FlexStart,
+                                    parent.spawn((
+                                        TextBundle {
+                                            text: Text::from_section("", text_style.clone()),
+                                            style: Style {
+                                                align_self: AlignSelf::FlexStart,
+                                                ..Default::default()
+                                            },
                                             ..Default::default()
                                         },
-                                        ..Default::default()
-                                    });
+                                        BackgroundColor(Color::BLACK.with_a(0.5)),
+                                    ));
 
                                     parent
                                         .spawn((
@@ -219,25 +226,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     },
                                                     ..Default::default()
                                                 },
-                                                background_color: BackgroundColor(Color::rgb(
-                                                    0.0, 0.0, 0.6,
-                                                )),
+                                                background_color: BackgroundColor(palette[2]),
                                                 ..Default::default()
                                             },
                                             ButtonTarget {
                                                 id: target_ids.pop().unwrap(),
-                                                color: Color::rgb(0.0, 0.0, 0.6),
+                                                color: palette[2],
                                             },
                                         ))
                                         .with_children(|parent| {
-                                            parent.spawn(TextBundle {
-                                                text: Text::from_section("", text_style.clone()),
-                                                style: Style {
-                                                    align_self: AlignSelf::FlexStart,
+                                            parent.spawn((
+                                                TextBundle {
+                                                    text: Text::from_section(
+                                                        "",
+                                                        text_style.clone(),
+                                                    ),
+                                                    style: Style {
+                                                        align_self: AlignSelf::FlexStart,
+                                                        ..Default::default()
+                                                    },
                                                     ..Default::default()
                                                 },
-                                                ..Default::default()
-                                            });
+                                                BackgroundColor(Color::BLACK.with_a(0.5)),
+                                            ));
 
                                             parent
                                                 .spawn((
@@ -255,23 +266,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             ..Default::default()
                                                         },
                                                         background_color: BackgroundColor(
-                                                            Color::rgb(0.0, 0.0, 0.8),
+                                                            palette[3],
                                                         ),
                                                         ..Default::default()
                                                     },
                                                     ButtonTarget {
                                                         id: target_ids.pop().unwrap(),
-                                                        color: Color::rgb(0.0, 0.0, 0.8),
+                                                        color: palette[3],
                                                     },
                                                 ))
                                                 .with_children(|parent| {
-                                                    parent.spawn(TextBundle {
-                                                        text: Text::from_section(
-                                                            "",
-                                                            text_style.clone(),
-                                                        ),
-                                                        ..Default::default()
-                                                    });
+                                                    parent.spawn((
+                                                        TextBundle {
+                                                            text: Text::from_section(
+                                                                "",
+                                                                text_style.clone(),
+                                                            ),
+                                                            ..Default::default()
+                                                        },
+                                                        BackgroundColor(Color::BLACK.with_a(0.5)),
+                                                    ));
                                                 });
                                         });
                                 });
@@ -308,8 +322,8 @@ fn update(
                         Visibility::Hidden => Visibility::Inherited,
                     };
                 }
-                background_color.0 = Color::rgb(0.9, 0.0, 0.0);
-                left_background_color.0 = Color::rgb(0.9, 0.0, 0.0);
+                background_color.0 = Color::hex("F4B942").unwrap();
+                left_background_color.0 = Color::hex("F4B942").unwrap();
             }
             Interaction::None => {
                 let (mut left_background_color, ..) = left_query.get_mut(button_target.id).unwrap();
