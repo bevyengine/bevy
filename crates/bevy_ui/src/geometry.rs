@@ -448,10 +448,10 @@ mod tests {
         assert_eq!(
             UiRect::default(),
             UiRect {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.)
+                left: Val::Undefined,
+                right: Val::Undefined,
+                top: Val::Undefined,
+                bottom: Val::Undefined
             }
         );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
