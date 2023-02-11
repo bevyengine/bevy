@@ -445,6 +445,7 @@ mod tests {
 
     #[test]
     fn uirect_default_equals_const_default() {
+        assert_eq!(UiRect::default(), UiRect { left: Val::Px(0.), right: Val::Px(0.), top: Val::Px(0.), bottom: Val::Px(0.) });
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 
@@ -523,6 +524,7 @@ mod tests {
 
     #[test]
     fn size_default_equals_const_default() {
+        assert_eq!(Size::default(), Size { width: Val::Auto, height: Val::Auto });
         assert_eq!(Size::default(), Size::DEFAULT);
     }
 }
