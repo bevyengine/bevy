@@ -633,13 +633,13 @@ impl World {
         }
     }
 
-    /// Despawns the given `entity`, if it exists, and reserves a number of subsequent generations.
+    /// Despawns the given `entity`, if it exists, and reserves a number of subsequent generations. This will also
+    /// remove all of the entity's [Component]s. Returns `true` if the `entity` is successfully despawned and the
+    /// generations successfully reserved, and `false` if the `entity` does not exist or reservation failed.
     ///
     /// This function serves an extremely narrow use case of allocating a series of entity IDs that are
     /// guaranteed to never refer to a live entity. This functionality is useful primarily for mapping references
     /// to dead entities into a new world alongside a [`crate::entity::MapEntities`] implementation.
-    ///
-    /// See [`Self::despawn()`] for usage.
     pub(crate) fn try_reserve_generations(&mut self, entity: Entity, generations: u32) -> bool {
         if self.despawn(entity) {
             self.entities

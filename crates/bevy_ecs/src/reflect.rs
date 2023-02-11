@@ -3,7 +3,7 @@
 use crate::{
     change_detection::Mut,
     component::Component,
-    entity::{Entity, EntityMap, EntityMapper, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMap, EntityMapper, MapEntities},
     system::Resource,
     world::{
         unsafe_world_cell::{UnsafeWorldCell, UnsafeWorldCellEntityRef},
@@ -409,16 +409,12 @@ impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut World, &mut EntityMapper) -> Result<(), MapEntitiesError>,
+    map_entities: fn(&mut World, &mut EntityMapper),
 }
 
 impl ReflectMapEntities {
-    pub fn map_entities(
-        &self,
-        world: &mut World,
-        entity_map: &mut EntityMap,
-    ) -> Result<(), MapEntitiesError> {
-        entity_map.with_mapper(world, self.map_entities)
+    pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityMap) {
+        entity_map.world_scope(world, self.map_entities);
     }
 }
 
@@ -429,10 +425,9 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
                 let entities = entity_mapper.get_map().values().collect::<Vec<Entity>>();
                 for entity in entities.iter().cloned() {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_entities(entity_mapper)?;
+                        component.map_entities(entity_mapper);
                     }
                 }
-                Ok(())
             },
         }
     }

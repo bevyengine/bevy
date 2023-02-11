@@ -31,7 +31,7 @@ use std::collections::BTreeMap;
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
-    extracted_scene: BTreeMap<u64, DynamicEntity>,
+    extracted_scene: BTreeMap<Entity, DynamicEntity>,
     type_registry: AppTypeRegistry,
     original_world: &'w World,
 }
@@ -113,7 +113,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            let index = entity.to_bits();
+            let index = entity;
 
             if self.extracted_scene.contains_key(&index) {
                 continue;

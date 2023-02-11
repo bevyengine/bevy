@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    entity::{Entity, EntityMapper, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
@@ -55,14 +55,13 @@ impl WindowRef {
 }
 
 impl MapEntities for WindowRef {
-    fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError> {
+    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
         match self {
             Self::Entity(entity) => {
-                *entity = entity_map.get_or_alloc(*entity);
-                Ok(())
+                *entity = entity_mapper.get_or_alloc(*entity);
             }
-            Self::Primary => Ok(()),
-        }
+            Self::Primary => (),
+        };
     }
 }
 
@@ -145,7 +144,7 @@ pub struct Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.

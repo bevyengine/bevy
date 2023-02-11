@@ -394,7 +394,7 @@ mod tests {
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
     use bevy_app::AppTypeRegistry;
-    use bevy_ecs::entity::{Entity, EntityMap, EntityMapper, MapEntities, MapEntitiesError};
+    use bevy_ecs::entity::{Entity, EntityMap, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, World};
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::ReflectMapEntities;
@@ -438,9 +438,8 @@ mod tests {
     struct MyEntityRef(Entity);
 
     impl MapEntities for MyEntityRef {
-        fn map_entities(&mut self, entity_map: &mut EntityMapper) -> Result<(), MapEntitiesError> {
-            self.0 = entity_map.get_or_alloc(self.0);
-            Ok(())
+        fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+            self.0 = entity_mapper.get_or_alloc(self.0);
         }
     }
 

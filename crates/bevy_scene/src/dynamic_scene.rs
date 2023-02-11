@@ -29,7 +29,9 @@ pub struct DynamicScene {
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
     /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
-    /// Components containing entitiy references will identify their referant via this identifier.
+    ///
+    /// Components in the scene that reference other entities reference them through this identifier, and so this
+    /// identifier must be consistent with the references contained within components.
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
@@ -97,9 +99,7 @@ impl DynamicScene {
 
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_entities(world, entity_map)
-                    .unwrap();
+                map_entities_reflect.map_entities(world, entity_map);
             }
         }
 
