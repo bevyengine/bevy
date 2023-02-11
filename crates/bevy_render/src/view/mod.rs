@@ -13,7 +13,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -45,10 +45,12 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_view_targets.after(WindowSystem::Prepare),
+                .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .add_system(prepare_view_uniforms.in_set(ViewSet::PrepareUniforms))
+                .add_system(
+                    prepare_view_targets
+                        .after(WindowSystem::Prepare)
+                        .in_set(RenderSet::Prepare),
                 );
         }
     }
@@ -390,4 +392,11 @@ fn prepare_view_targets(
             }
         }
     }
+}
+
+/// System sets for the [`view`](crate::view) module.
+#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+pub enum ViewSet {
+    /// Prepares view uniforms
+    PrepareUniforms,
 }

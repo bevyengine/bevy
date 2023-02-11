@@ -1,7 +1,7 @@
 use crate::{
     render_resource::TextureView,
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -20,7 +20,7 @@ pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum WindowSystem {
     Prepare,
 }
@@ -32,11 +32,9 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
-                .add_system_to_stage(RenderStage::Extract, extract_windows)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_windows.label(WindowSystem::Prepare),
-                );
+                .add_system_to_schedule(ExtractSchedule, extract_windows)
+                .configure_set(WindowSystem::Prepare.in_set(RenderSet::Prepare))
+                .add_system(prepare_windows.in_set(WindowSystem::Prepare));
         }
     }
 }
@@ -151,7 +149,7 @@ pub struct WindowSurfaces {
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
-/// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
+/// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
 /// `prepare_windows` system. Improvements in bevy are planned to avoid this happening when it
 /// should not but it will still happen as it is easy for a user to create a large GPU workload

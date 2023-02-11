@@ -17,6 +17,7 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -41,6 +42,7 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -96,6 +98,7 @@ jobs:
 
   check-compiles:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: ci
     steps:
       - uses: actions/checkout@v3
@@ -113,7 +116,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          override: true
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Check Compile
@@ -122,6 +124,7 @@ jobs:
 
   build-wasm:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: build
     steps:
       - uses: actions/checkout@v3
@@ -142,6 +145,7 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-missing-examples-in-docs
     if: always()
     steps:
@@ -186,14 +190,14 @@ jobs:
       - name: Build bevy
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
+          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome,ktx2,zstd"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome,ktx2,zstd"
             sleep 10
           done
           zip traces.zip trace*.json
@@ -216,9 +220,10 @@ jobs:
 
   check-doc:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -247,6 +252,7 @@ jobs:
 
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - name: check for missing metadata
@@ -279,6 +285,7 @@ jobs:
 
   check-unused-dependencies:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -302,6 +309,7 @@ jobs:
 
   msrv:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: build
     steps:
       - uses: actions/checkout@v3
@@ -324,14 +332,15 @@ jobs:
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Run cargo check
+        id: check
         run: cargo check
       - name: Save PR number
-        if: ${{ failure() && github.event_name == 'pull_request' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
       - uses: actions/upload-artifact@v2
-        if: ${{ failure() && github.event_name == 'pull_request' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
           name: msrv
           path: msrv/

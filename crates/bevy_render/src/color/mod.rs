@@ -44,6 +44,17 @@ pub enum Color {
         /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
+    /// LCH(ab) (lightness, chroma, hue) color with an alpha channel
+    Lcha {
+        /// Lightness channel. [0.0, 1.5]
+        lightness: f32,
+        /// Chroma channel. [0.0, 1.5]
+        chroma: f32,
+        /// Hue channel. [0.0, 360.0]
+        hue: f32,
+        /// Alpha channel. [0.0, 1.0]
+        alpha: f32,
+    },
 }
 
 impl Color {
@@ -401,7 +412,8 @@ impl Color {
         match self {
             Color::Rgba { alpha, .. }
             | Color::RgbaLinear { alpha, .. }
-            | Color::Hsla { alpha, .. } => *alpha,
+            | Color::Hsla { alpha, .. }
+            | Color::Lcha { alpha, .. } => *alpha,
         }
     }
 
@@ -410,7 +422,8 @@ impl Color {
         match self {
             Color::Rgba { alpha, .. }
             | Color::RgbaLinear { alpha, .. }
-            | Color::Hsla { alpha, .. } => {
+            | Color::Hsla { alpha, .. }
+            | Color::Lcha { alpha, .. } => {
                 *alpha = a;
             }
         }
@@ -454,6 +467,22 @@ impl Color {
                     alpha: *alpha,
                 }
             }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
+
+                Color::Rgba {
+                    red,
+                    green,
+                    blue,
+                    alpha: *alpha,
+                }
+            }
         }
     }
 
@@ -481,6 +510,22 @@ impl Color {
                 let [red, green, blue] =
                     HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
                 Color::RgbaLinear {
+                    red: red.nonlinear_to_linear_srgb(),
+                    green: green.nonlinear_to_linear_srgb(),
+                    blue: blue.nonlinear_to_linear_srgb(),
+                    alpha: *alpha,
+                }
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
+
+                Color::Rgba {
                     red: red.nonlinear_to_linear_srgb(),
                     green: green.nonlinear_to_linear_srgb(),
                     blue: blue.nonlinear_to_linear_srgb(),
@@ -527,6 +572,22 @@ impl Color {
                 }
             }
             Color::Hsla { .. } => *self,
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let rgb = LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
+                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl(rgb);
+
+                Color::Hsla {
+                    hue,
+                    saturation,
+                    lightness,
+                    alpha: *alpha,
+                }
+            }
         }
     }
 
@@ -558,6 +619,17 @@ impl Color {
             } => {
                 let [red, green, blue] =
                     HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                [red, green, blue, alpha]
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
+
                 [red, green, blue, alpha]
             }
         }
@@ -592,6 +664,22 @@ impl Color {
             } => {
                 let [red, green, blue] =
                     HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                [
+                    red.nonlinear_to_linear_srgb(),
+                    green.nonlinear_to_linear_srgb(),
+                    blue.nonlinear_to_linear_srgb(),
+                    alpha,
+                ]
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
+
                 [
                     red.nonlinear_to_linear_srgb(),
                     green.nonlinear_to_linear_srgb(),
@@ -634,6 +722,63 @@ impl Color {
                 lightness,
                 alpha,
             } => [hue, saturation, lightness, alpha],
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let rgb = LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
+                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl(rgb);
+
+                [hue, saturation, lightness, alpha]
+            }
+        }
+    }
+
+    /// Converts a `Color` to a `[f32; 4]` from LCH colorspace
+    pub fn as_lch_f32(self: Color) -> [f32; 4] {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let (lightness, chroma, hue) =
+                    LchRepresentation::nonlinear_srgb_to_lch([red, green, blue]);
+                [lightness, chroma, hue, alpha]
+            }
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([
+                    red.linear_to_nonlinear_srgb(),
+                    green.linear_to_nonlinear_srgb(),
+                    blue.linear_to_nonlinear_srgb(),
+                ]);
+                [lightness, chroma, hue, alpha]
+            }
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let rgb = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch(rgb);
+
+                [lightness, chroma, hue, alpha]
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => [lightness, chroma, hue, alpha],
         }
     }
 
@@ -680,6 +825,22 @@ impl Color {
                     (alpha * 255.0) as u8,
                 ])
             }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
+
+                u32::from_le_bytes([
+                    (red * 255.0) as u8,
+                    (green * 255.0) as u8,
+                    (blue * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
         }
     }
 
@@ -719,6 +880,22 @@ impl Color {
             } => {
                 let [red, green, blue] =
                     HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
+
                 u32::from_le_bytes([
                     (red.nonlinear_to_linear_srgb() * 255.0) as u8,
                     (green.nonlinear_to_linear_srgb() * 255.0) as u8,
@@ -775,6 +952,18 @@ impl AddAssign<Color> for Color {
                 *lightness += rhs[2];
                 *alpha += rhs[3];
             }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let rhs = rhs.as_lch_f32();
+                *lightness += rhs[0];
+                *chroma += rhs[1];
+                *hue += rhs[2];
+                *alpha += rhs[3];
+            }
         }
     }
 }
@@ -823,6 +1012,21 @@ impl Add<Color> for Color {
                     hue: hue + rhs[0],
                     saturation: saturation + rhs[1],
                     lightness: lightness + rhs[2],
+                    alpha: alpha + rhs[3],
+                }
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let rhs = rhs.as_lch_f32();
+
+                Color::Lcha {
+                    lightness: lightness + rhs[0],
+                    chroma: chroma + rhs[1],
+                    hue: hue + rhs[2],
                     alpha: alpha + rhs[3],
                 }
             }
@@ -936,6 +1140,17 @@ impl Mul<f32> for Color {
                 lightness: lightness * rhs,
                 alpha,
             },
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => Color::Lcha {
+                lightness: lightness * rhs,
+                chroma: chroma * rhs,
+                hue: hue * rhs,
+                alpha,
+            },
         }
     }
 }
@@ -962,6 +1177,16 @@ impl MulAssign<f32> for Color {
                 *hue *= rhs;
                 *saturation *= rhs;
                 *lightness *= rhs;
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                ..
+            } => {
+                *lightness *= rhs;
+                *chroma *= rhs;
+                *hue *= rhs;
             }
         }
     }
@@ -1005,6 +1230,17 @@ impl Mul<Vec4> for Color {
                 lightness: lightness * rhs.z,
                 alpha: alpha * rhs.w,
             },
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => Color::Lcha {
+                lightness: lightness * rhs.x,
+                chroma: chroma * rhs.y,
+                hue: hue * rhs.z,
+                alpha: alpha * rhs.w,
+            },
         }
     }
 }
@@ -1038,6 +1274,17 @@ impl MulAssign<Vec4> for Color {
                 *hue *= rhs.x;
                 *saturation *= rhs.y;
                 *lightness *= rhs.z;
+                *alpha *= rhs.w;
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                *lightness *= rhs.x;
+                *chroma *= rhs.y;
+                *hue *= rhs.z;
                 *alpha *= rhs.w;
             }
         }
@@ -1082,6 +1329,17 @@ impl Mul<Vec3> for Color {
                 lightness: lightness * rhs.z,
                 alpha,
             },
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => Color::Lcha {
+                lightness: lightness * rhs.x,
+                chroma: chroma * rhs.y,
+                hue: hue * rhs.z,
+                alpha,
+            },
         }
     }
 }
@@ -1108,6 +1366,16 @@ impl MulAssign<Vec3> for Color {
                 *hue *= rhs.x;
                 *saturation *= rhs.y;
                 *lightness *= rhs.z;
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                ..
+            } => {
+                *lightness *= rhs.x;
+                *chroma *= rhs.y;
+                *hue *= rhs.z;
             }
         }
     }
@@ -1151,6 +1419,17 @@ impl Mul<[f32; 4]> for Color {
                 lightness: lightness * rhs[2],
                 alpha: alpha * rhs[3],
             },
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => Color::Lcha {
+                lightness: lightness * rhs[0],
+                chroma: chroma * rhs[1],
+                hue: hue * rhs[2],
+                alpha: alpha * rhs[3],
+            },
         }
     }
 }
@@ -1184,6 +1463,17 @@ impl MulAssign<[f32; 4]> for Color {
                 *hue *= rhs[0];
                 *saturation *= rhs[1];
                 *lightness *= rhs[2];
+                *alpha *= rhs[3];
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                *lightness *= rhs[0];
+                *chroma *= rhs[1];
+                *hue *= rhs[2];
                 *alpha *= rhs[3];
             }
         }
@@ -1228,6 +1518,17 @@ impl Mul<[f32; 3]> for Color {
                 lightness: lightness * rhs[2],
                 alpha,
             },
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => Color::Lcha {
+                lightness: lightness * rhs[0],
+                chroma: chroma * rhs[1],
+                hue: hue * rhs[2],
+                alpha,
+            },
         }
     }
 }
@@ -1254,6 +1555,16 @@ impl MulAssign<[f32; 3]> for Color {
                 *hue *= rhs[0];
                 *saturation *= rhs[1];
                 *lightness *= rhs[2];
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                ..
+            } => {
+                *lightness *= rhs[0];
+                *chroma *= rhs[1];
+                *hue *= rhs[2];
             }
         }
     }

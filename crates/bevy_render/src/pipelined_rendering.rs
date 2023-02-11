@@ -1,8 +1,8 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, CoreSchedule, Plugin, SubApp};
 use bevy_ecs::{
-    schedule::{MainThreadExecutor, StageLabel, SystemStage},
+    schedule::MainThreadExecutor,
     system::Resource,
     world::{Mut, World},
 };
@@ -11,17 +11,11 @@ use bevy_tasks::ComputeTaskPool;
 use crate::RenderApp;
 
 /// A Label for the sub app that runs the parts of pipelined rendering that need to run on the main thread.
+///
+/// The Main schedule of this app can be used to run logic after the render schedule starts, but
+/// before I/O processing. This can be useful for something like frame pacing.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderExtractApp;
-
-/// Labels for stages in the [`RenderExtractApp`] sub app. These will run after rendering has started.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum RenderExtractStage {
-    /// When pipelined rendering is enabled this stage runs after the render schedule starts, but
-    /// before I/O processing and the main app schedule. This can be useful for something like
-    /// frame pacing.
-    BeforeIoAfterRenderStart,
-}
 
 /// Channel to send the render app from the main thread to the rendering thread
 #[derive(Resource)]
@@ -49,20 +43,20 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// A single frame of execution looks something like below    
 ///
 /// ```text
-/// |-------------------------------------------------------------------|
-/// |         | BeforeIoAfterRenderStart | winit events | main schedule |
-/// | extract |---------------------------------------------------------|
-/// |         | extract commands | rendering schedule                   |
-/// |-------------------------------------------------------------------|
+/// |--------------------------------------------------------------------|
+/// |         | RenderExtractApp schedule | winit events | main schedule |
+/// | extract |----------------------------------------------------------|
+/// |         | extract commands | rendering schedule                    |
+/// |--------------------------------------------------------------------|
 /// ```
 ///
-/// - `extract` is the stage where data is copied from the main world to the render world.
+/// - `extract` is the step where data is copied from the main world to the render world.
 /// This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
 /// main schedule can start sooner.
-/// - Then the `rendering schedule` is run. See [`crate::RenderStage`] for the available stages.
-/// - In parallel to the rendering thread we first run the [`RenderExtractStage::BeforeIoAfterRenderStart`] stage. By
-/// default this stage is empty. But is useful if you need something to run before I/O processing.
+/// - Then the `rendering schedule` is run. See [`RenderSet`](crate::RenderSet) for the standard steps in this process.
+/// - In parallel to the rendering thread the [`RenderExtractApp`] schedule runs. By
+/// default this schedule is empty. But it is useful if you need something to run before I/O processing.
 /// - Next all the `winit events` are processed.
 /// - And finally the `main app schedule` is run.
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
@@ -78,10 +72,8 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(MainThreadExecutor::new());
 
         let mut sub_app = App::empty();
-        sub_app.add_stage(
-            RenderExtractStage::BeforeIoAfterRenderStart,
-            SystemStage::parallel(),
-        );
+        sub_app.add_simple_outer_schedule();
+        sub_app.init_schedule(CoreSchedule::Main);
         app.insert_sub_app(RenderExtractApp, SubApp::new(sub_app, update_rendering));
     }
 

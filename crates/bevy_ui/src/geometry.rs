@@ -339,10 +339,7 @@ pub struct Size {
 }
 
 impl Size {
-    pub const DEFAULT: Self = Self {
-        width: Val::DEFAULT,
-        height: Val::DEFAULT,
-    };
+    pub const DEFAULT: Self = Self::all(Val::Auto);
 
     /// Creates a new [`Size`] from a width and a height.
     ///
@@ -360,17 +357,35 @@ impl Size {
         Size { width, height }
     }
 
+    /// Creates a new [`Size`] where both sides take the given value.
+    pub const fn all(value: Val) -> Self {
+        Self {
+            width: value,
+            height: value,
+        }
+    }
+
+    /// Creates a new [`Size`] where `width` takes the given value.
+    pub const fn width(width: Val) -> Self {
+        Self {
+            width,
+            height: Val::DEFAULT,
+        }
+    }
+
+    /// Creates a new [`Size`] where `height` takes the given value.
+    pub const fn height(height: Val) -> Self {
+        Self {
+            width: Val::DEFAULT,
+            height,
+        }
+    }
+
     /// Creates a Size where both values are [`Val::Auto`].
-    pub const AUTO: Size = Size {
-        width: Val::Auto,
-        height: Val::Auto,
-    };
+    pub const AUTO: Self = Self::all(Val::Auto);
 
     /// Creates a Size where both values are [`Val::Undefined`].
-    pub const UNDEFINED: Size = Size {
-        width: Val::Undefined,
-        height: Val::Undefined,
-    };
+    pub const UNDEFINED: Self = Self::all(Val::Undefined);
 }
 
 impl Default for Size {
@@ -443,14 +458,11 @@ mod tests {
 
     #[test]
     fn test_size_mul() {
-        assert_eq!(
-            Size::new(Val::Px(10.), Val::Px(10.)) * 2.,
-            Size::new(Val::Px(20.), Val::Px(20.))
-        );
+        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
 
-        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
+        let mut size = Size::all(Val::Px(10.));
         size *= 2.;
-        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
+        assert_eq!(size, Size::all(Val::Px(20.)));
     }
 
     #[test]
