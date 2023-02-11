@@ -128,13 +128,11 @@ where
         std::any::TypeId::of::<Self>()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
+    fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }
 
-    fn archetype_component_access(
-        &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
 
@@ -146,7 +144,7 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &crate::prelude::World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -169,19 +167,19 @@ where
         Func::combine(input, run_a, run_b)
     }
 
-    fn apply_buffers(&mut self, world: &mut crate::prelude::World) {
+    fn apply_buffers(&mut self, world: &mut World) {
         self.a.apply_buffers(world);
         self.b.apply_buffers(world);
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) {
+    fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
         self.component_access.extend(self.a.component_access());
         self.component_access.extend(self.b.component_access());
     }
 
-    fn update_archetype_component_access(&mut self, world: &crate::prelude::World) {
+    fn update_archetype_component_access(&mut self, world: &World) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
 
