@@ -19,9 +19,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(50.0), Val::Percent(100.0)),
+                size: Size::width(Val::Percent(100.0)),
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
+                justify_content: JustifyContent::SpaceAround,
                 ..default()
             },
             ..default()
@@ -49,19 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     ));
                 });
-        });
 
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(50.0), Val::Percent(100.0)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
             // Button with a different color,
             // to demonstrate the text looks different due to its transparency.
             parent
