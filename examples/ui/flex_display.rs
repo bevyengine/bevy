@@ -182,6 +182,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ButtonBundle {
                                         style: Style {
                                             size: Size::all(Val::Px(400.)),
+                                            flex_direction: FlexDirection::Column,
                                             align_items: AlignItems::FlexEnd,
                                             justify_content: JustifyContent::SpaceBetween,
                                             padding: UiRect {
@@ -217,8 +218,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ButtonBundle {
                                                 style: Style {
                                                     size: Size::all(Val::Px(300.)),
+                                                    flex_direction: FlexDirection::Column,
                                                     align_items: AlignItems::FlexEnd,
-                                                    justify_content: JustifyContent::FlexEnd,
+                                                    justify_content: JustifyContent::SpaceBetween,
                                                     padding: UiRect {
                                                         left: Val::Px(5.),
                                                         top: Val::Px(5.),
