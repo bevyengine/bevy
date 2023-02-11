@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches-ignore:
-      - 'dependabot/**'
+      - "dependabot/**"
       - staging-squash-merge.tmp
 
 env:
@@ -20,16 +20,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
@@ -45,18 +38,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
@@ -68,19 +54,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
@@ -102,20 +81,11 @@ jobs:
     needs: ci
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-            crates/bevy_ecs_compile_fail_tests/target/
-            crates/bevy_reflect_compile_fail_tests/target/
-          key: ${{ runner.os }}-cargo-check-compiles-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Check Compile
@@ -128,18 +98,11 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ubuntu-assets-cargo-build-wasm-stable-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: wasm32-unknown-unknown
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
 
@@ -177,16 +140,9 @@ jobs:
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Build bevy
         # this uses the same command as when running the example to ensure build is reused
         run: |
@@ -223,16 +179,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-check-doc-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
         if: runner.os == 'linux'
@@ -288,18 +237,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
       - name: Install alsa and udev
@@ -313,15 +255,6 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
       - name: get MSRV
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
@@ -329,6 +262,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.MSRV }}
+      - name: Cache Cargo build files
+        uses: Leafwing-Studios/cargo-cache@v1
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Run cargo check
