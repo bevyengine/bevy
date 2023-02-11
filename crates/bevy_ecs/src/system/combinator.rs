@@ -1,4 +1,6 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
+
+use bevy_ptr::UnsafeCellDeref;
 
 use crate::{
     archetype::ArchetypeComponentId, component::ComponentId, prelude::World, query::Access,
@@ -155,14 +157,16 @@ where
         )
     }
 
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let world = <*mut World>::from(world);
+    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
+        // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
+        // is explicitly allowed in the docs for `UnsafeCell`.
+        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
         // SAFETY: Only one of `run_a` and `run_b` can be called at any given time. (TODO: make sure this is true)
         // Since the mutable reference to `world` only exists within the scope of either closure,
         // we can be sure that they will never alias one another.
-        let run_a = |input| self.a.run(input, unsafe { &mut *world });
+        let run_a = |input| self.a.run(input, unsafe { world.deref_mut() });
         #[allow(clippy::undocumented_unsafe_blocks)]
-        let run_b = |input| self.b.run(input, unsafe { &mut *world });
+        let run_b = |input| self.b.run(input, unsafe { world.deref_mut() });
 
         Func::combine(input, run_a, run_b)
     }
