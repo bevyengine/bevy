@@ -102,6 +102,9 @@ impl HandleId {
 /// handle to the unloaded asset, but it will not be able to retrieve the image data, resulting in
 /// collisions no longer being detected for that entity.
 ///
+/// # Aliases
+/// It is allowed for multiple handles point to the same asset (`bevy_gltf` labels subassets both by name and by index)
+///
 #[derive(Component, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct Handle<T>
