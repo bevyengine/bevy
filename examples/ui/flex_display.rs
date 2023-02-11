@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 ..Default::default()
                             },
-                            background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.3)),
+                            background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.2)),
                             ..Default::default()
                         },))
                         .with_children(|parent| {
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 ..Default::default()
                                             },
                                             background_color: BackgroundColor(Color::rgb(
-                                                0.0, 0.0, 0.5,
+                                                0.0, 0.0, 0.6,
                                             )),
                                             ..Default::default()
                                         },))
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                         ..Default::default()
                                                     },
                                                     background_color: BackgroundColor(Color::rgb(
-                                                        0.0, 0.0, 0.6,
+                                                        0.0, 0.0, 0.8,
                                                     )),
                                                     ..Default::default()
                                                 },))
@@ -153,12 +153,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..Default::default()
                                 },
-                                background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.3)),
+                                background_color: BackgroundColor(Color::rgb(0.0, 0.0, 0.2)),
                                 ..Default::default()
                             },
                             ButtonTarget {
                                 id: target_ids.pop().unwrap(),
-                                color: Color::rgb(0.0, 0.0, 0.3),
+                                color: Color::rgb(0.0, 0.0, 0.2),
                             },
                         ))
                         .with_children(|parent| {
@@ -220,13 +220,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     ..Default::default()
                                                 },
                                                 background_color: BackgroundColor(Color::rgb(
-                                                    0.0, 0.0, 0.5,
+                                                    0.0, 0.0, 0.6,
                                                 )),
                                                 ..Default::default()
                                             },
                                             ButtonTarget {
                                                 id: target_ids.pop().unwrap(),
-                                                color: Color::rgb(0.0, 0.0, 0.5),
+                                                color: Color::rgb(0.0, 0.0, 0.6),
                                             },
                                         ))
                                         .with_children(|parent| {
@@ -255,13 +255,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             ..Default::default()
                                                         },
                                                         background_color: BackgroundColor(
-                                                            Color::rgb(0.0, 0.0, 0.6),
+                                                            Color::rgb(0.0, 0.0, 0.8),
                                                         ),
                                                         ..Default::default()
                                                     },
                                                     ButtonTarget {
                                                         id: target_ids.pop().unwrap(),
-                                                        color: Color::rgb(0.0, 0.0, 0.6),
+                                                        color: Color::rgb(0.0, 0.0, 0.8),
                                                     },
                                                 ))
                                                 .with_children(|parent| {
