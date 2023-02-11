@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{
-    system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System},
-    world::World,
-};
+use crate::system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System};
 
 pub type BoxedCondition = BoxedSystem<(), bool>;
 
@@ -195,15 +192,6 @@ where
     ) -> Self::Out {
         a(input) && b(input)
     }
-
-    fn combine_exclusive(
-        input: Self::In,
-        world: &mut World,
-        a: impl FnOnce(<A as System>::In, &mut World) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In, &mut World) -> <B as System>::Out,
-    ) -> Self::Out {
-        a(input, world) && b(input, world)
-    }
 }
 
 #[doc(hidden)]
@@ -224,14 +212,5 @@ where
         b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
     ) -> Self::Out {
         a(input) || b(input)
-    }
-
-    fn combine_exclusive(
-        input: Self::In,
-        world: &mut World,
-        a: impl FnOnce(<A as System>::In, &mut World) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In, &mut World) -> <B as System>::Out,
-    ) -> Self::Out {
-        a(input, world) || b(input, world)
     }
 }

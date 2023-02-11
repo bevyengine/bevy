@@ -36,15 +36,6 @@ use super::{ReadOnlySystem, System};
 ///     ) -> Self::Out {
 ///         a(()) ^ b(())
 ///     }
-///
-///     fn combine_exclusive(
-///         _input: Self::In,
-///         world: &mut World,
-///         a: impl FnOnce(A::In, &mut World) -> A::Out,
-///         b: impl FnOnce(B::In, &mut World) -> B::Out,
-///     ) -> Self::Out {
-///         a((), world) ^ b((), world)
-///     }
 /// }
 ///
 /// # #[derive(Resource, PartialEq, Eq)] struct A(u32);
@@ -93,13 +84,6 @@ pub trait Combine<A: System, B: System> {
         input: Self::In,
         a: impl FnOnce(A::In) -> A::Out,
         b: impl FnOnce(B::In) -> B::Out,
-    ) -> Self::Out;
-
-    fn combine_exclusive(
-        input: Self::In,
-        world: &mut World,
-        a: impl FnOnce(A::In, &mut World) -> A::Out,
-        b: impl FnOnce(B::In, &mut World) -> B::Out,
     ) -> Self::Out;
 }
 
@@ -171,12 +155,15 @@ where
     }
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        Func::combine_exclusive(
-            input,
-            world,
-            |input, w| self.a.run(input, w),
-            |input, w| self.b.run(input, w),
-        )
+        let world = <*mut World>::from(world);
+        // SAFETY: Only one of `run_a` and `run_b` can be called at any given time. (TODO: make sure this is true)
+        // Since the mutable reference to `world` only exists within the scope of either closure,
+        // we can be sure that they will never alias one another.
+        let run_a = |input| self.a.run(input, unsafe { &mut *world });
+        #[allow(clippy::undocumented_unsafe_blocks)]
+        let run_b = |input| self.b.run(input, unsafe { &mut *world });
+
+        Func::combine(input, run_a, run_b)
     }
 
     fn apply_buffers(&mut self, world: &mut crate::prelude::World) {

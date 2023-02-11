@@ -1,7 +1,4 @@
-use crate::{
-    system::{IntoSystem, System},
-    world::World,
-};
+use crate::system::{IntoSystem, System};
 use std::borrow::Cow;
 
 use super::{CombinatorSystem, Combine};
@@ -65,16 +62,6 @@ where
     ) -> Self::Out {
         let value = a(input);
         b(value)
-    }
-
-    fn combine_exclusive(
-        input: Self::In,
-        world: &mut World,
-        a: impl FnOnce(<A as System>::In, &mut World) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In, &mut World) -> <B as System>::Out,
-    ) -> Self::Out {
-        let payload = a(input, world);
-        b(payload, world)
     }
 }
 
