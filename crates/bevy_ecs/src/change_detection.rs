@@ -185,10 +185,10 @@ macro_rules! change_detection_mut_impl {
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_change_tick: u32) {
+            fn set_last_changed(&mut self, last_changed: u32) {
                 self.ticks
                     .changed
-                    .set_changed(last_change_tick);
+                    .set_changed(last_changed);
             }
 
             #[inline]
@@ -674,8 +674,8 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.changed.set_changed(last_change_tick);
+    fn set_last_changed(&mut self, last_changed: u32) {
+        self.ticks.changed.set_changed(last_changed);
     }
 
     #[inline]
