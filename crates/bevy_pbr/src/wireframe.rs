@@ -138,7 +138,7 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: rangefinder.distance(&mesh_uniform.transform),
+                        distance: rangefinder.distance(&mesh_uniform.model),
                     });
                 }
             };

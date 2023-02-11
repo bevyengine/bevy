@@ -112,7 +112,8 @@ impl Plugin for MeshRenderPlugin {
 
 #[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
-    pub transform: Mat4,
+    pub model: Mat4,
+    pub inverse_model: Mat4,
     pub inverse_transpose_model: Mat4,
     pub flags: u32,
 }
@@ -151,6 +152,7 @@ pub fn extract_meshes(
 
     for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
+        let transform_inverse = transform.inverse();
         let mut flags = if not_receiver.is_some() {
             MeshFlags::empty()
         } else {
@@ -161,8 +163,9 @@ pub fn extract_meshes(
         }
         let uniform = MeshUniform {
             flags: flags.bits,
-            transform,
-            inverse_transpose_model: transform.inverse().transpose(),
+            model: transform,
+            inverse_model: transform_inverse,
+            inverse_transpose_model: transform_inverse.transpose(),
         };
         if not_caster.is_some() {
             not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
