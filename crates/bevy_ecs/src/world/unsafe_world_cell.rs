@@ -239,11 +239,11 @@ impl<'w> UnsafeWorldCell<'w> {
         Some(resource.id())
     }
 
-    /// Retrieves an [`UnsafeWorldCellEntityRef`] that exposes read and write operations for the given `entity`.
+    /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
-    pub fn get_entity(self, entity: Entity) -> Option<UnsafeWorldCellEntityRef<'w>> {
+    pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
         let location = self.entities().get(entity)?;
-        Some(UnsafeWorldCellEntityRef::new(self, entity, location))
+        Some(UnsafeEntityCell::new(self, entity, location))
     }
 
     /// Gets a reference to the resource of the given type if it exists
@@ -496,19 +496,19 @@ impl<'w> UnsafeWorldCell<'w> {
 
 /// A interior-mutable reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
-pub struct UnsafeWorldCellEntityRef<'w> {
+pub struct UnsafeEntityCell<'w> {
     world: UnsafeWorldCell<'w>,
     entity: Entity,
     location: EntityLocation,
 }
 
-impl<'w> UnsafeWorldCellEntityRef<'w> {
+impl<'w> UnsafeEntityCell<'w> {
     pub(crate) fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
     ) -> Self {
-        UnsafeWorldCellEntityRef {
+        UnsafeEntityCell {
             world,
             entity,
             location,
@@ -557,7 +557,7 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
@@ -584,7 +584,7 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
@@ -607,13 +607,13 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCellEntityRef::get_change_ticks`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks_by_id(
@@ -638,7 +638,7 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component mutably
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
@@ -650,7 +650,7 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component mutably
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
     pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
@@ -680,19 +680,19 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
     }
 }
 
-impl<'w> UnsafeWorldCellEntityRef<'w> {
+impl<'w> UnsafeEntityCell<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`UnsafeWorldCellEntityRef::get`], this returns a raw pointer to the component,
+    /// Unlike [`UnsafeEntityCell::get`], this returns a raw pointer to the component,
     /// which is only valid while the `'w` borrow of the lifetime is active.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component
+    /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
@@ -712,12 +712,12 @@ impl<'w> UnsafeWorldCellEntityRef<'w> {
     /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
     /// Returns [None] if the `entity` does not have a [Component] of the given type.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCellEntityRef::get_mut`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCellEntityRef`] has permission to access the component mutably
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
