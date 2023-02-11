@@ -134,7 +134,7 @@ impl Default for TextBundle {
             text: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
-            background_color: Color::NONE.into(),
+            background_color: BackgroundColor(Color::NONE),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
