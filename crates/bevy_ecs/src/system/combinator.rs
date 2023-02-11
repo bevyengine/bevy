@@ -151,7 +151,8 @@ where
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
-            // Only one of these closures can be called at once, so they will not conflict with each other.
+            // Since these closures are `!Send + !Synd + !'static`, they can never be called
+            // in parallel, so their world accesses will not conflict with each other.
             |input| self.a.run_unsafe(input, world),
             |input| self.b.run_unsafe(input, world),
         )
@@ -161,14 +162,15 @@ where
         // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
         // is explicitly allowed in the docs for `UnsafeCell`.
         let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
-        // SAFETY: Only one of `run_a` and `run_b` can be called at any given time. (TODO: make sure this is true)
-        // Since the mutable reference to `world` only exists within the scope of either closure,
-        // we can be sure that they will never alias one another.
-        let run_a = |input| self.a.run(input, unsafe { world.deref_mut() });
-        #[allow(clippy::undocumented_unsafe_blocks)]
-        let run_b = |input| self.b.run(input, unsafe { world.deref_mut() });
-
-        Func::combine(input, run_a, run_b)
+        Func::combine(
+            input,
+            // SAFETY: Since these closures are `!Send + !Synd + !'static`, they can never
+            // be called in parallel. Since mutable access to `world` only exists within
+            // the scope of either closure, we can be sure they will never alias one another.
+            |input| self.a.run(input, unsafe { world.deref_mut() }),
+            #[allow(clippy::undocumented_unsafe_blocks)]
+            |input| self.b.run(input, unsafe { world.deref_mut() }),
+        )
     }
 
     fn apply_buffers(&mut self, world: &mut World) {
