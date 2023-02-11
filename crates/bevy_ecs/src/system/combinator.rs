@@ -31,11 +31,10 @@ use super::{ReadOnlySystem, System};
 ///
 ///     fn combine(
 ///         _input: Self::In,
-///         world: &World,
-///         a: impl FnOnce(A::In, &World) -> A::Out,
-///         b: impl FnOnce(B::In, &World) -> B::Out,
+///         a: impl FnOnce(A::In) -> A::Out,
+///         b: impl FnOnce(B::In) -> B::Out,
 ///     ) -> Self::Out {
-///         a((), world) ^ b((), world)
+///         a(()) ^ b(())
 ///     }
 ///
 ///     fn combine_exclusive(
@@ -92,9 +91,8 @@ pub trait Combine<A: System, B: System> {
 
     fn combine(
         input: Self::In,
-        world: &World,
-        a: impl FnOnce(A::In, &World) -> A::Out,
-        b: impl FnOnce(B::In, &World) -> B::Out,
+        a: impl FnOnce(A::In) -> A::Out,
+        b: impl FnOnce(B::In) -> B::Out,
     ) -> Self::Out;
 
     fn combine_exclusive(
@@ -167,9 +165,8 @@ where
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &crate::prelude::World) -> Self::Out {
         Func::combine(
             input,
-            world,
-            |input, w| self.a.run_unsafe(input, w),
-            |input, w| self.b.run_unsafe(input, w),
+            |input| self.a.run_unsafe(input, world),
+            |input| self.b.run_unsafe(input, world),
         )
     }
 

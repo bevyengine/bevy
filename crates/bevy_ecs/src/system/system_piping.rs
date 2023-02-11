@@ -60,12 +60,11 @@ where
 
     fn combine(
         input: Self::In,
-        world: &World,
-        a: impl FnOnce(<A as System>::In, &World) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In, &World) -> <B as System>::Out,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
     ) -> Self::Out {
-        let payload = a(input, world);
-        b(payload, world)
+        let value = a(input);
+        b(value)
     }
 
     fn combine_exclusive(

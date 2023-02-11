@@ -190,11 +190,10 @@ where
 
     fn combine(
         input: Self::In,
-        world: &World,
-        a: impl FnOnce(<A as System>::In, &World) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In, &World) -> <B as System>::Out,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
     ) -> Self::Out {
-        a(input, world) && b(input, world)
+        a(input) && b(input)
     }
 
     fn combine_exclusive(
@@ -221,11 +220,10 @@ where
 
     fn combine(
         input: Self::In,
-        world: &World,
-        a: impl FnOnce(<A as System>::In, &World) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In, &World) -> <B as System>::Out,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
     ) -> Self::Out {
-        a(input, world) || b(input, world)
+        a(input) || b(input)
     }
 
     fn combine_exclusive(
