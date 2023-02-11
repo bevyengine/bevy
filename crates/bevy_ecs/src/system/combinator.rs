@@ -22,8 +22,9 @@ use super::{ReadOnlySystem, System};
 /// pub struct XorMarker;
 ///
 /// impl<A, B> Combine<A, B> for XorMarker
-///     where A: System<In = (), Out = bool>,
-///     where B: System<In = (), Out = bool>,
+/// where
+///     A: System<In = (), Out = bool>,
+///     B: System<In = (), Out = bool>,
 /// {
 ///     type In = ();
 ///     type Out = bool;
