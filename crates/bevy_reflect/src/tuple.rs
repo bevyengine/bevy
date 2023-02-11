@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    TypeInfo, TypeRegistration, Typed, UnnamedField, ValueInfo,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -131,8 +131,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_name: &'static str,
-    type_id: TypeId,
+    type_value: ValueInfo,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -147,8 +146,7 @@ impl TupleInfo {
     ///
     pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            type_value: ValueInfo::new::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -180,17 +178,17 @@ impl TupleInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the tuple.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the tuple type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The docstring of this tuple, if any.
