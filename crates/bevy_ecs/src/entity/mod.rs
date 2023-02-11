@@ -862,4 +862,13 @@ mod tests {
         const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
         assert_eq!(0x00dd_00ff, C4);
     }
+
+    #[test]
+    fn reserve_generations() {
+        let mut entities = Entities::new();
+        let entity = entities.alloc();
+        entities.free(entity);
+
+        assert!(entities.reserve_generations(entity.index, 1));
+    }
 }

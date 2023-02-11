@@ -193,3 +193,51 @@ impl EntityMap {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{EntityMap, EntityMapper};
+    use crate::{entity::Entity, world::World};
+
+    #[test]
+    fn entity_mapper() {
+        const FIRST_IDX: u32 = 1;
+        const SECOND_IDX: u32 = 2;
+
+        let mut map = EntityMap::default();
+        let mut world = World::new();
+        let mut mapper = EntityMapper::new(&mut map, &mut world);
+
+        let mapped_ent = Entity::new(FIRST_IDX, 0);
+        let dead_ref = mapper.get_or_alloc(mapped_ent);
+
+        // Should persist the allocated mapping from the previous line
+        assert_eq!(dead_ref, mapper.get_or_alloc(mapped_ent));
+        // Should re-use the same index for further dead refs
+        assert_eq!(
+            mapper.get_or_alloc(Entity::new(SECOND_IDX, 0)).index(),
+            dead_ref.index()
+        );
+
+        mapper.finish(&mut world);
+        // Next allocated entity should be a further generation on the same index
+        let entity = world.spawn_empty().id();
+        assert_eq!(entity.index(), dead_ref.index());
+        assert!(entity.generation() > dead_ref.generation());
+    }
+
+    #[test]
+    fn world_scope_reserves_generations() {
+        let mut map = EntityMap::default();
+        let mut world = World::new();
+
+        let dead_ref = map.world_scope(&mut world, |_, mapper| {
+            mapper.get_or_alloc(Entity::new(0, 0))
+        });
+
+        // Next allocated entity should be a further generation on the same index
+        let entity = world.spawn_empty().id();
+        assert_eq!(entity.index(), dead_ref.index());
+        assert!(entity.generation() > dead_ref.generation());
+    }
+}

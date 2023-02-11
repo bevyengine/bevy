@@ -2194,4 +2194,28 @@ mod tests {
         let mut world = World::new();
         world.spawn(());
     }
+
+    #[test]
+    fn try_reserve_generations_on_despawned() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        world.despawn(entity);
+
+        assert!(!world.try_reserve_generations(entity, 1));
+    }
+
+    #[test]
+    fn reserve_generations_and_alloc() {
+        const GENERATIONS: u32 = 10;
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+
+        assert!(world.try_reserve_generations(entity, GENERATIONS));
+
+        // The very next entity allocated should be a further generation on the same index
+        let next_entity = world.spawn_empty().id();
+        assert_eq!(next_entity.index(), entity.index());
+        assert!(next_entity.generation() > entity.generation() + GENERATIONS);
+    }
 }
