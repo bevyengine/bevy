@@ -25,7 +25,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// if either this one or the passed `or_else` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `and_then` will only be invoked if `self` returns `false`.
+    /// `or_else` will only be invoked if `self` returns `false`.
     fn or_else<P, C: Condition<P>>(self, or_else: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or_else);
