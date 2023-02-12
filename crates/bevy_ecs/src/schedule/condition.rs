@@ -44,7 +44,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_system(
-    ///     // `resource_equals` condition will only get run if the resource `R` exists.
+    ///     // `resource_equals` will only get run if the resource `R` exists.
     ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
     /// );
     /// # app.run(&mut world);
