@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 16.0,
+        font_size: 24.0,
         color: Color::WHITE,
     };
 
@@ -309,14 +309,15 @@ fn update(
         match interaction {
             Interaction::Hovered => {
                 let (mut left_background_color, mut style, mut visibility) =
-                    left_query.get_mut(button_target.id).unwrap();
-                //if mouse.just_pressed(MouseButton::Left) {
-                if keyboard.just_pressed(KeyCode::Space) {
+                left_query.get_mut(button_target.id).unwrap();
+
+                if mouse.just_pressed(MouseButton::Left) || keyboard.just_pressed(KeyCode::Space) {
                     style.display = match style.display {
                         Display::Flex => Display::None,
                         Display::None => Display::Flex,
                     };
                 }
+
                 if mouse.just_pressed(MouseButton::Right) {
                     *visibility = match *visibility {
                         Visibility::Inherited => Visibility::Visible,
@@ -324,6 +325,7 @@ fn update(
                         Visibility::Hidden => Visibility::Inherited,
                     };
                 }
+
                 background_color.0 = Color::hex("F4B942").unwrap();
                 left_background_color.0 = Color::hex("F4B942").unwrap();
             }
