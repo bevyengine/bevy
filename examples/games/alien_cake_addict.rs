@@ -22,7 +22,7 @@ fn main() {
             5.0,
             TimerMode::Repeating,
         )))
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_state::<GameState>()
         .add_startup_system(setup_cameras)
         .add_system_to_schedule(OnEnter(GameState::Playing), setup)

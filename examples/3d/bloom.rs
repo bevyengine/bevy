@@ -8,7 +8,7 @@ use std::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_system(update_bloom_settings)
         .add_system(bounce_spheres)

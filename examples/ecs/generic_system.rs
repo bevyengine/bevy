@@ -40,7 +40,7 @@ struct LevelUnload;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_state::<AppState>()
         .add_startup_system(setup_system)
         .add_system(print_text_system)

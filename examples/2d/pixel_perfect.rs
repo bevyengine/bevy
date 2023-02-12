@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugin_group(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_startup_system(setup)
         .add_system(sprite_movement)
         .run();

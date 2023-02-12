@@ -25,7 +25,7 @@ fn main() {
             ..default()
         })
         .insert_resource(ExampleMode::Game)
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoNoVsync,

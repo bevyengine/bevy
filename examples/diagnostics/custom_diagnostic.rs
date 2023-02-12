@@ -7,7 +7,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         // The "print diagnostics" plugin is optional.
         // It just visualizes our diagnostics in the console.
         .add_plugin(LogDiagnosticsPlugin::default())

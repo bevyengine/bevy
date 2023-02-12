@@ -15,7 +15,7 @@ use std::num::NonZeroU32;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
+    app.add_plugin_group(DefaultPlugins.set(ImagePlugin::default_nearest()));
 
     let render_device = app.world.resource::<RenderDevice>();
 

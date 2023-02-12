@@ -8,7 +8,7 @@ fn main() {
             medium: Vec2::new(800.0, 600.0),
             small: Vec2::new(640.0, 360.0),
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup_camera)
         .add_startup_system(setup_ui)
         .add_system(on_resize_system)

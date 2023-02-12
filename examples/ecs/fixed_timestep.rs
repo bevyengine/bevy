@@ -5,7 +5,7 @@ use bevy::prelude::*;
 const FIXED_TIMESTEP: f32 = 0.5;
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(frame_update)
         // add our system to the fixed timestep schedule

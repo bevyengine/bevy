@@ -23,7 +23,7 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // uncomment for unthrottled FPS
                 // present_mode: bevy::window::PresentMode::AutoNoVsync,

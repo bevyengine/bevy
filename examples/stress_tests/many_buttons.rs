@@ -11,7 +11,7 @@ const FONT_SIZE: f32 = 7.0;
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
                 ..default()

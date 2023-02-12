@@ -7,7 +7,7 @@ const MARGIN: Val = Val::Px(5.);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: [870., 1066.].into(),
                 title: "Bevy Text Layout Example".to_string(),

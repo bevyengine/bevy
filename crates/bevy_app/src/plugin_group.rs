@@ -198,7 +198,7 @@ impl PluginGroupBuilder {
 /// use bevy_app::NoopPluginGroup as MinimalPlugins;
 ///
 /// fn main(){
-///     App::new().add_plugins(MinimalPlugins).run();
+///     App::new().add_plugin_group(MinimalPlugins).run();
 /// }
 /// ```
 #[doc(hidden)]

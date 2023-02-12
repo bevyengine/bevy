@@ -50,7 +50,7 @@ fn main() {
         // or between DefaultPlugins and any of your third party plugins,
         // please file a bug with the repo responsible!
         // Only *you* can prevent nondeterministic bugs due to greedy parallelism.
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .run();
 }
 

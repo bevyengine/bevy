@@ -5,7 +5,7 @@ use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
 fn main() {
     App::new()
         // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_system(bevy::window::close_on_esc)
         .run();

@@ -6,7 +6,7 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
+        .add_plugin_group(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_state::<AppState>()
         .add_system_to_schedule(OnEnter(AppState::Setup), load_textures)
         .add_system(check_textures.on_update(AppState::Setup))

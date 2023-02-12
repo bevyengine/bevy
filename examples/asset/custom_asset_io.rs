@@ -63,7 +63,7 @@ impl Plugin for CustomAssetIoPlugin {
 
 fn main() {
     App::new()
-        .add_plugins(
+        .add_plugin_group(
             DefaultPlugins
                 .build()
                 // the custom asset io plugin must be inserted in-between the

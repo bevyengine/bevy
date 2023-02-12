@@ -16,7 +16,7 @@ use rand::random;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins)
+    app.add_plugin_group(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(example_control_system);
 

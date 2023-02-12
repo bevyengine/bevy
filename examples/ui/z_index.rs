@@ -8,7 +8,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup)
         .run();
 }

@@ -33,7 +33,7 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()

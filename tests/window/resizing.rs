@@ -23,7 +23,7 @@ fn main() {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
         })
-        .add_plugins(
+        .add_plugin_group(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     resolution: WindowResolution::new(MAX_WIDTH as f32, MAX_HEIGHT as f32)

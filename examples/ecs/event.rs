@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
         .init_resource::<EventTriggerState>()

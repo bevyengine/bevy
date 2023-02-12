@@ -20,7 +20,7 @@ fn main() {
             return_from_run: true,
             ..default()
         })
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Close the window to return to the main function".into(),
                 ..default()

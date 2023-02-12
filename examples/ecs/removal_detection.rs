@@ -13,7 +13,7 @@ fn main() {
     // With these constraints in mind we make sure to place the system that removes a `Component` in
     // `CoreSet::Update', and the system that reacts on the removal in `CoreSet::PostUpdate`.
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(remove_component)
         .add_system(react_on_removal.in_base_set(CoreSet::PostUpdate))

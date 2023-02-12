@@ -719,7 +719,7 @@ impl App {
     /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
     /// as [`Plugin`]s. This includes internal features like the renderer.
     ///
-    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
+    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugin_group`](Self::add_plugin_group).
     ///
     /// # Examples
     ///
@@ -830,13 +830,13 @@ impl App {
     /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
     /// #
     /// App::new()
-    ///     .add_plugins(MinimalPlugins);
+    ///     .add_plugin_group(MinimalPlugins);
     /// ```
     ///
     /// # Panics
     ///
     /// Panics if one of the plugin in the group was already added to the application.
-    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
+    pub fn add_plugin_group<T: PluginGroup>(&mut self, group: T) -> &mut Self {
         let builder = group.build();
         builder.finish(self);
         self

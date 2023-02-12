@@ -24,7 +24,7 @@ fn main() {
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .add_plugins(
+    .add_plugin_group(
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
