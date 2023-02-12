@@ -233,7 +233,7 @@ fn scene3(
     commands.spawn((
         MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Quad {
-                size: vec2(1.0, 1.0),
+                size: vec2(1.0, 1.0) * 0.7,
                 flip: false,
             })),
             material: materials.add(TestMaterial {}),

@@ -177,14 +177,14 @@ const INPUT_COLORSPACE: i32 = 0;
 //const PUNCH_GAMMA: f32  = 1.3;
 //const OUTPUT_COLORSPACE: i32  = 2;
 
-const INPUT_EXPOSURE: f32 = -0.75;
+const INPUT_EXPOSURE: f32 = 0.0;
 const INPUT_GAMMA: f32  = 1.0;
-const INPUT_SATURATION: f32  = 1.2;
+const INPUT_SATURATION: f32  = 1.0;
 const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
 const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
 const PUNCH_EXPOSURE: f32  = 0.0;
 const PUNCH_SATURATION: f32  = 1.0;
-const PUNCH_GAMMA: f32  = 1.1; // 1.2 here seems to match middle grey with tonemapping_reinhard_luminance
+const PUNCH_GAMMA: f32  = 1.0; // 1.2 here seems to match middle grey with tonemapping_reinhard_luminance
 const OUTPUT_COLORSPACE: i32  = 2; //Looks correct, idk why though (matches tonemapping_reinhard_luminance)
 
 /*
@@ -509,7 +509,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     return vec4<f32>(tonemapping_AgX(in.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_SBDT
-    return vec4<f32>(tonemapping_sbdt(in.rgb * pow(2.0, -0.75)), in.a);
+    return vec4<f32>(tonemapping_sbdt(in.rgb), in.a);
 #endif
 
     // tonemapping_maintain_hue

@@ -47,9 +47,9 @@ fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     var uv = in.uv;
-    uv.y = 1.0 - uv.y;
     var out = vec3(0.0);
-    if uv.y < 0.5 {
+    if uv.y > 0.5 {
+        uv.y = 1.0 - uv.y;
         out = color_sweep(vec2(uv.x, uv.y * 2.0));
     } else {
         out = continuous_hue(vec2(uv.y * 2.0, uv.x));
