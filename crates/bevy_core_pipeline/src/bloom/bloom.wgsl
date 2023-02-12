@@ -78,10 +78,9 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     group4 *= karis_average(group4);
     return group0 + group1 + group2 + group3 + group4;
 #else
-    var sample = e * 0.125;
-    sample += (a + c + g + i) * 0.03125;
+    var sample = (a + c + g + i) * 0.03125;
     sample += (b + d + f + h) * 0.0625;
-    sample += (j + k + l + m) * 0.125;
+    sample += (e + j + k + l + m) * 0.125;
     return sample;
 #endif
 }
