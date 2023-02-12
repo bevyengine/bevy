@@ -292,15 +292,21 @@ impl App {
             panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
         }
 
-        // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
-        for plugin in &plugin_registry {
-            plugin.setup(&mut app);
-        }
-        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+        Self::setup(&mut app);
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
+    }
+
+    /// Run [`Plugin::setup`] for each plugin. This is usually called by [`App::run`], but can
+    /// be useful for situations where you want to use [`App::update`].
+    pub fn setup(&mut self) {
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let plugin_registry = std::mem::take(&mut self.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(self);
+        }
+        self.plugin_registry = plugin_registry;
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
