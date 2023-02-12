@@ -543,8 +543,8 @@ impl SparseSets {
 
     /// An Iterator visiting all ([`ComponentId`], [`SparseSet`]) pairs.
     /// NOTE: Order is not guaranteed.
-    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &ComponentSparseSet)> {
-        self.sets.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
+        self.sets.iter().map(|(id, data)| (*id, data))
     }
 }
 
@@ -632,7 +632,7 @@ mod tests {
         // check its shape by iter
         let mut collected_sets = sets
             .iter()
-            .map(|(id, set)| (*id, set.len()))
+            .map(|(id, set)| (id, set.len()))
             .collect::<Vec<_>>();
         collected_sets.sort();
         assert_eq!(
