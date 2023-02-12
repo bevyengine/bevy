@@ -130,8 +130,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texel_position_0 = (texel_center - 1.0) * texel_size;
     let texel_position_3 = (texel_center + 2.0) * texel_size;
     let texel_position_12 = (texel_center + (w2 / w12)) * texel_size;
-    var history_color = vec3(0.0);
-    history_color += sample_history(texel_position_12.x, texel_position_0.y) * w12.x * w0.y;
+    var history_color = sample_history(texel_position_12.x, texel_position_0.y) * w12.x * w0.y;
     history_color += sample_history(texel_position_0.x, texel_position_12.y) * w0.x * w12.y;
     history_color += sample_history(texel_position_12.x, texel_position_12.y) * w12.x * w12.y;
     history_color += sample_history(texel_position_3.x, texel_position_12.y) * w3.x * w12.y;
@@ -159,12 +158,13 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color = YCoCg_to_RGB(history_color);
 
     // How confident we are that the history is representative of the current frame
-    // Increment when pixels are not moving, else reset
     var history_confidence = textureSample(history, nearest_sampler, uv).a;
-    let pixel_velocity = abs(closest_velocity * texture_size);
+    let pixel_velocity = abs(closest_velocity) * texture_size;
     if pixel_velocity.x < 0.01 && pixel_velocity.y < 0.01 {
+        // Increment when pixels are not moving
         history_confidence += 1.0;
     } else {
+        // Else reset
         history_confidence = 1.0;
     }
 
@@ -175,18 +175,16 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 
+
     // Write output to history and view target
     var out: Output;
-#ifndef RESET
+#ifdef RESET
+    let history_confidence = 1.0 / MIN_HISTORY_BLEND_RATE;
+#endif
     out.history = vec4(current_color, history_confidence);
-#else
-    out.history = vec4(current_color, 1.0 / MIN_HISTORY_BLEND_RATE);
-#endif
-
 #ifdef TONEMAP
-    out.view_target = vec4(reverse_tonemap(current_color), original_color.a);
-#else
-    out.view_target = vec4(current_color, original_color.a);
+    current_color = reverse_tonemap(current_color);
 #endif
+    out.view_target = vec4(current_color, original_color.a);
     return out;
 }
