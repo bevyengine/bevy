@@ -177,9 +177,9 @@ const INPUT_COLORSPACE: i32 = 0;
 //const PUNCH_GAMMA: f32  = 1.3;
 //const OUTPUT_COLORSPACE: i32  = 2;
 
-const INPUT_EXPOSURE: f32 = 0.0;
+const INPUT_EXPOSURE: f32 = -0.5;
 const INPUT_GAMMA: f32  = 1.0;
-const INPUT_SATURATION: f32  = 1.0;
+const INPUT_SATURATION: f32  = 1.2;
 const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
 const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
 const PUNCH_EXPOSURE: f32  = 0.0;

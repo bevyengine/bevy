@@ -53,7 +53,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
     println!("");
 
     println!("6 - Reinhard");
-    println!("7 - ReinhardLuminance");
+    println!("7 - ReinhardLuminance (old bevy default)");
     println!("8 - Aces");
     println!("9 - AgX");
     println!("0 - SBDT");
@@ -330,7 +330,7 @@ fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemappi
                 deband_dither: true,
                 method: TonemappingMethod::ReinhardLuminance,
             };
-            println!("ReinhardLuminance");
+            println!("ReinhardLuminance (old bevy default)");
         } else if keys.just_pressed(KeyCode::Key8) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
