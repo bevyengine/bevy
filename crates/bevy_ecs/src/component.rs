@@ -242,7 +242,7 @@ impl ComponentInfo {
         ComponentInfo { id, descriptor }
     }
 
-    /// Create a new [`ComponentInfo`] for test purpose.
+    /// Create a new [`ComponentInfo`] for use in tests.
     #[cfg(test)]
     pub(crate) fn new_for_test(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         Self::new(id, descriptor)
