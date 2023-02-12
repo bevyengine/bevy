@@ -15,7 +15,8 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use std::{any::TypeId, collections::HashMap};
+use bevy_utils::HashMap;
+use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
