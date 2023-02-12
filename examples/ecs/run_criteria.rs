@@ -11,18 +11,6 @@
 
 use bevy::{ecs::schedule::ShouldRun, prelude::*};
 
-// The criteria system
-fn run_if() -> ShouldRun {
-    // X value to start the criteria
-    let x = 2;
-
-    if x > 1 {
-        ShouldRun::Yes
-    } else {
-        ShouldRun::No
-    }
-}
-
 // Simple print function.
 fn text(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((TextBundle::from_sections([TextSection::new(
@@ -47,8 +35,6 @@ fn main() {
         .add_startup_system(setup)
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(run_if)
-                // You can combine run criteria
                 // In this case, the system controlled by this run criteria is only evaluated a single time
                 .with_run_criteria(ShouldRun::once)
                 .with_system(text),
