@@ -1,7 +1,7 @@
 //! A glTF scene viewer plugin.  Provides controls for animation, directional lighting, and switching between scene cameras.
 //! To use in your own application:
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
-//! - Insert an initalized `SceneHandle` resource into your App's `AssetServer`.
+//! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
 
@@ -44,9 +44,6 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     C           - cycle through the camera controller and any cameras loaded from the scene
-    5/6         - decrease/increase shadow projection width
-    7/8         - decrease/increase shadow projection height
-    9/0         - decrease/increase shadow projection near/far
 
     Space       - Play/Pause animation
     Enter       - Cycle through animations
@@ -60,7 +57,7 @@ pub struct SceneViewerPlugin;
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraTracker>()
-            .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+            .add_system(scene_load_check.in_base_set(CoreSet::PreUpdate))
             .add_system(update_lights)
             .add_system(camera_tracker);
 
@@ -198,35 +195,13 @@ fn keyboard_animation_control(
     }
 }
 
-const SCALE_STEP: f32 = 0.1;
-
 fn update_lights(
     key_input: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut DirectionalLight)>,
     mut animate_directional_light: Local<bool>,
 ) {
-    let mut projection_adjustment = Vec3::ONE;
-    if key_input.just_pressed(KeyCode::Key5) {
-        projection_adjustment.x -= SCALE_STEP;
-    } else if key_input.just_pressed(KeyCode::Key6) {
-        projection_adjustment.x += SCALE_STEP;
-    } else if key_input.just_pressed(KeyCode::Key7) {
-        projection_adjustment.y -= SCALE_STEP;
-    } else if key_input.just_pressed(KeyCode::Key8) {
-        projection_adjustment.y += SCALE_STEP;
-    } else if key_input.just_pressed(KeyCode::Key9) {
-        projection_adjustment.z -= SCALE_STEP;
-    } else if key_input.just_pressed(KeyCode::Key0) {
-        projection_adjustment.z += SCALE_STEP;
-    }
     for (_, mut light) in &mut query {
-        light.shadow_projection.left *= projection_adjustment.x;
-        light.shadow_projection.right *= projection_adjustment.x;
-        light.shadow_projection.bottom *= projection_adjustment.y;
-        light.shadow_projection.top *= projection_adjustment.y;
-        light.shadow_projection.near *= projection_adjustment.z;
-        light.shadow_projection.far *= projection_adjustment.z;
         if key_input.just_pressed(KeyCode::U) {
             light.shadows_enabled = !light.shadows_enabled;
         }

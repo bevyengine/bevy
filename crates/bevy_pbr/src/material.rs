@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin,
-    SetMeshBindGroup, SetMeshViewBindGroup,
+    AlphaMode, DrawMesh, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshUniform,
+    PrepassPlugin, SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -10,14 +10,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    event::EventReader,
-    prelude::World,
-    schedule::IntoSystemDescriptor,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::FromWorld,
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -37,7 +34,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -198,12 +195,13 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+                .add_system_to_schedule(ExtractSchedule, extract_materials::<M>)
+                .add_system(
+                    prepare_materials::<M>
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepareAssetLabel::PreAssetPrepare),
                 )
-                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+                .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
 
         if self.prepass_enabled {
@@ -367,10 +365,12 @@ pub fn queue_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
+        Option<&EnvironmentMapLight>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -382,6 +382,7 @@ pub fn queue_material_meshes<M: Material>(
         view,
         visible_entities,
         tonemapping,
+        environment_map,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -394,6 +395,14 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
+        let environment_map_loaded = match environment_map {
+            Some(environment_map) => environment_map.is_loaded(&images),
+            None => false,
+        };
+        if environment_map_loaded {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
         if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
             if !view.hdr {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
@@ -403,8 +412,8 @@ pub fn queue_material_meshes<M: Material>(
                 }
             }
         }
-        let rangefinder = view.rangefinder3d();
 
+        let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
                 material_meshes.get(*visible_entity)

@@ -13,8 +13,8 @@ pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod removal_detection;
 pub mod schedule;
-pub mod schedule_v3;
 pub mod storage;
 pub mod system;
 pub mod world;
@@ -29,22 +29,24 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::{DetectChanges, DetectChangesMut},
+        change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
         entity::Entity,
-        event::{EventReader, EventWriter, Events},
+        event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        removal_detection::RemovedComponents,
         schedule::{
-            IntoSystemDescriptor, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            apply_state_transition, apply_system_buffers, common_conditions::*, IntoSystemConfig,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
+            OnEnter, OnExit, OnUpdate, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{FromWorld, Mut, World},
+        world::{FromWorld, World},
     };
 }
 
@@ -1536,7 +1538,7 @@ mod tests {
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
         assert_eq!(4, query_min_size![ChangeTrackers<A>, ()],);
         // All the following should set minimum size to 0, as it's impossible to predict
-        // how many entites the filters will trim.
+        // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
         assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
         assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
@@ -1616,7 +1618,7 @@ mod tests {
         assert_eq!(
             world_b.get::<B>(high_non_existent_entity),
             Some(&B(10)),
-            "inserting into newly allocated high / non-continous entity id works"
+            "inserting into newly allocated high / non-continuous entity id works"
         );
 
         let high_non_existent_but_reserved_entity = Entity::new(5, 0);

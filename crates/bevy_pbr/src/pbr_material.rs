@@ -190,7 +190,7 @@ pub struct StandardMaterial {
     /// When a triangle is in a viewport,
     /// if its vertices appear counter-clockwise from the viewport's perspective,
     /// then the viewport is seeing the triangle's front face.
-    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
+    /// Conversely, if the vertices appear clockwise, you are seeing the back face.
     ///
     /// In short, in bevy, front faces winds counter-clockwise.
     ///
@@ -206,6 +206,9 @@ pub struct StandardMaterial {
     /// Normals, occlusion textures, roughness, metallic, reflectance, emissive,
     /// shadows, alpha mode and ambient light are ignored if this is set to `true`.
     pub unlit: bool,
+
+    /// Whether to enable fog for this material.
+    pub fog_enabled: bool,
 
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
@@ -257,6 +260,7 @@ impl Default for StandardMaterial {
             double_sided: false,
             cull_mode: Some(Face::Back),
             unlit: false,
+            fog_enabled: true,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
         }
@@ -300,6 +304,7 @@ bitflags::bitflags! {
         const UNLIT                      = (1 << 5);
         const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
         const FLIP_NORMAL_MAP_Y          = (1 << 7);
+        const FOG_ENABLED                = (1 << 8);
         const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
@@ -361,6 +366,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
+        }
+        if self.fog_enabled {
+            flags |= StandardMaterialFlags::FOG_ENABLED;
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {

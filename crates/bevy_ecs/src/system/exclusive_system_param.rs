@@ -12,8 +12,6 @@ pub trait ExclusiveSystemParam: Sized {
     type Item<'s>: ExclusiveSystemParam<State = Self::State>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
-    #[inline]
-    fn apply(_state: &mut Self::State, _world: &mut World) {}
 
     fn get_param<'s>(state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s>;
 }
@@ -72,12 +70,6 @@ macro_rules! impl_exclusive_system_param_tuple {
             #[inline]
             fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
                 (($($param::init(_world, _system_meta),)*))
-            }
-
-            #[inline]
-            fn apply(state: &mut Self::State, _world: &mut World) {
-                let ($($param,)*) = state;
-                $($param::apply($param, _world);)*
             }
 
             #[inline]

@@ -198,10 +198,7 @@ macro_rules! impl_reflect_for_veclike {
 
             #[inline]
             fn iter(&self) -> ArrayIter {
-                ArrayIter {
-                    array: self,
-                    index: 0,
-                }
+                ArrayIter::new(self)
             }
 
             #[inline]
@@ -320,8 +317,8 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: FromReflect> GetTypeRegistration for $ty {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<Vec<T>>();
-                registration.insert::<ReflectFromPtr>(FromType::<Vec<T>>::from_type());
+                let mut registration = TypeRegistration::of::<$ty>();
+                registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
                 registration
             }
         }
@@ -552,10 +549,7 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
 
     #[inline]
     fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+        ArrayIter::new(self)
     }
 
     #[inline]

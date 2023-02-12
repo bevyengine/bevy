@@ -3,11 +3,12 @@ use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
+use crate::utility::ident_or_index;
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{Field, Ident, Index, Lit, LitInt, LitStr, Member};
+use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
@@ -104,8 +105,7 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
             #FQOption::Some(__this)
         )
     } else {
-        let MemberValuePair(ignored_members, ignored_values) =
-            get_ignored_fields(reflect_struct, is_tuple);
+        let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
 
         quote!(
             #FQOption::Some(
@@ -149,12 +149,12 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// a default value for the ignored field.
-fn get_ignored_fields(reflect_struct: &ReflectStruct, is_tuple: bool) -> MemberValuePair {
+fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = get_ident(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -183,7 +183,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = get_ident(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.index);
                 let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
@@ -219,19 +219,6 @@ fn get_active_fields(
             })
             .unzip(),
     )
-}
-
-/// Returns the member for a given field of a struct or tuple struct.
-fn get_ident(field: &Field, index: usize, is_tuple: bool) -> Member {
-    if is_tuple {
-        Member::Unnamed(Index::from(index))
-    } else {
-        field
-            .ident
-            .as_ref()
-            .map(|ident| Member::Named(ident.clone()))
-            .unwrap_or_else(|| Member::Unnamed(Index::from(index)))
-    }
 }
 
 /// Returns the accessor for a given field of a struct or tuple struct.

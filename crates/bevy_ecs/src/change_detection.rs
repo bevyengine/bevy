@@ -49,7 +49,7 @@ pub trait DetectChanges {
     /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
     fn is_changed(&self) -> bool;
 
-    /// Returns the change tick recording the previous time this data was changed.
+    /// Returns the change tick recording the time this data was most recently changed.
     ///
     /// Note that components and resources are also marked as changed upon insertion.
     ///
@@ -103,7 +103,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
-    /// Manually sets the change tick recording the previous time this data was mutated.
+    /// Manually sets the change tick recording the time when this data was last mutated.
     ///
     /// # Warning
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
@@ -138,19 +138,19 @@ macro_rules! change_detection_impl {
             fn is_added(&self) -> bool {
                 self.ticks
                     .added
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
                     .changed
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn last_changed(&self) -> u32 {
-                self.ticks.last_change_tick
+                self.ticks.changed.tick
             }
         }
 
@@ -185,8 +185,10 @@ macro_rules! change_detection_mut_impl {
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_change_tick: u32) {
-                self.ticks.last_change_tick = last_change_tick
+            fn set_last_changed(&mut self, last_changed: u32) {
+                self.ticks
+                    .changed
+                    .set_changed(last_changed);
             }
 
             #[inline]
@@ -240,9 +242,6 @@ macro_rules! impl_methods {
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
-            ///
-            /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-            /// will not affect the original.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
@@ -605,9 +604,6 @@ impl<'a> MutUntyped<'a> {
 
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
-    ///
-    /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-    /// will not affect the original.
     #[inline]
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
@@ -653,19 +649,19 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     fn is_added(&self) -> bool {
         self.ticks
             .added
-            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
             .changed
-            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn last_changed(&self) -> u32 {
-        self.ticks.last_change_tick
+        self.ticks.changed.tick
     }
 }
 
@@ -678,8 +674,8 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.last_change_tick = last_change_tick;
+    fn set_last_changed(&mut self, last_changed: u32) {
+        self.ticks.changed.set_changed(last_changed);
     }
 
     #[inline]
