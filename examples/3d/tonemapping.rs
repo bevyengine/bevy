@@ -1,8 +1,11 @@
-//! This examples compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing).
+//! This examples compares Tonemapping
+
+// cargo run --release --example tonemapping --features="ktx2 zstd exr debug_asset_server"
 
 use std::f32::consts::PI;
 
 use bevy::{
+    core_pipeline::tonemapping::{Tonemapping, TonemappingMethod},
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -15,88 +18,31 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .insert_resource(CamTrans(
+            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        ))
+        .add_startup_system(setup_camera)
+        .add_startup_system(scene1)
+        .add_startup_system(scene2)
+        .add_system(hdr_viewer)
+        .add_system(toggle_scene)
+        .add_system(toggle_tonemapping)
         .run();
 }
 
-/// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
-) {
-    let cam_trans =
-        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y);
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(StandardMaterial {
-            base_color: Color::rgb(0.3, 0.5, 0.3).into(),
-            perceptual_roughness: 0.5,
-            ..default()
-        }),
-        ..default()
-    });
+#[derive(Component)]
+struct Scene(u32);
 
-    // plane
-    //commands.spawn(PbrBundle {
-    //    mesh: meshes.add(Mesh::from(shape::Quad {
-    //        size: vec2(16.0, 9.0) * 0.1,
-    //        flip: false,
-    //    })),
-    //    material: materials.add(StandardMaterial {
-    //        base_color_texture: Some(asset_server.load("../../dragonscene_ap0_v01_1001.exr")),
-    //        unlit: true,
-    //        ..default()
-    //    }),
-    //    transform: Transform::from_xyz(0.2, 0.38, 0.2).with_rotation(cam_trans.rotation),
-    //    ..default()
-    //});
+#[derive(Component)]
+struct HDRViewer;
 
-    let cube_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
+#[derive(Resource)]
+struct CamTrans(Transform);
 
-    // cubes
-    for i in 0..5 {
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-            ..default()
-        });
-    }
-
-    // Flight Helmet
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-        ..default()
-    });
-
-    // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
-            //illuminance: 30000.0,
-            ..default()
-        },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
-            maximum_distance: 3.0,
-            first_cascade_far_bound: 0.9,
-            ..default()
-        }
-        .into(),
-        ..default()
-    });
+fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_trans: Res<CamTrans>) {
+    println!("Toggle with:");
+    println!("1 - Helmet with cubes");
+    println!("2 - Image viewer");
 
     // camera
     commands
@@ -105,13 +51,227 @@ fn setup(
                 hdr: true, // Works with and without hdr
                 ..default()
             },
-            transform: cam_trans,
+            transform: cam_trans.0,
+            tonemapping: Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::AgX,
+            },
             ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         });
+}
+
+fn scene1(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    asset_server: Res<AssetServer>,
+) {
+    // plane
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.3, 0.5, 0.3).into(),
+                perceptual_roughness: 0.5,
+                ..default()
+            }),
+            ..default()
+        },
+        Scene(1),
+    ));
+
+    let cube_material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(uv_debug_texture())),
+        ..default()
+    });
+
+    // cubes
+    for i in 0..5 {
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
+                material: cube_material.clone(),
+                transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
+                ..default()
+            },
+            Scene(1),
+        ));
+    }
+
+    // Flight Helmet
+    commands.spawn((
+        SceneBundle {
+            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            ..default()
+        },
+        Scene(1),
+    ));
+
+    // light
+    commands.spawn((
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                shadows_enabled: true,
+                //illuminance: 30000.0,
+                ..default()
+            },
+            transform: Transform::from_rotation(Quat::from_euler(
+                EulerRot::ZYX,
+                0.0,
+                PI * -0.15,
+                PI * -0.15,
+            )),
+            cascade_shadow_config: CascadeShadowConfigBuilder {
+                maximum_distance: 3.0,
+                first_cascade_far_bound: 0.9,
+                ..default()
+            }
+            .into(),
+            ..default()
+        },
+        Scene(1),
+    ));
+}
+
+fn scene2(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    cam_trans: Res<CamTrans>,
+) {
+    let mut transform = cam_trans.0;
+    transform.translation += transform.forward();
+    // exr/hdr viewer
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad {
+                size: vec2(16.0, 9.0) * 0.2,
+                flip: false,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color_texture: None,
+                unlit: true,
+                ..default()
+            }),
+            transform,
+            visibility: Visibility::Hidden,
+            ..default()
+        },
+        Scene(2),
+        HDRViewer,
+    ));
+}
+
+fn hdr_viewer(
+    query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    images: Res<Assets<Image>>,
+    mut drop_events: EventReader<FileDragAndDrop>,
+    mut drop_hovered: Local<bool>,
+    asset_server: Res<AssetServer>,
+    mut image_events: EventReader<AssetEvent<Image>>,
+) {
+    let mut new_image: Option<Handle<Image>> = None;
+
+    for event in drop_events.iter() {
+        match event {
+            FileDragAndDrop::DroppedFile { path_buf, .. } => {
+                new_image = Some(asset_server.load(path_buf.to_string_lossy().to_string()));
+                *drop_hovered = false;
+            }
+            FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
+            FileDragAndDrop::HoveredFileCancelled { .. } => *drop_hovered = false,
+        }
+    }
+
+    for (mat_h, mesh_h) in &query {
+        if let Some(mat) = materials.get_mut(mat_h) {
+            if let Some(ref new_image) = new_image {
+                // Update texture
+                mat.base_color_texture = Some(new_image.clone());
+            }
+
+            for event in image_events.iter() {
+                let image_changed_h = match event {
+                    AssetEvent::Created { handle } => handle,
+                    AssetEvent::Modified { handle } => handle,
+                    _ => continue,
+                };
+                if let Some(base_color_texture) = mat.base_color_texture.clone() {
+                    if image_changed_h == &base_color_texture {
+                        if let Some(image_changed) = images.get(image_changed_h) {
+                            let size = image_changed.size().normalize_or_zero() * 1.4;
+                            // Resize Mesh
+                            let quad = Mesh::from(shape::Quad::new(size));
+                            let _ = meshes.set(mesh_h, quad);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &Scene)>) {
+    let mut pressed = None;
+    if keys.just_pressed(KeyCode::Key1) {
+        pressed = Some(1);
+    } else if keys.just_pressed(KeyCode::Key2) {
+        pressed = Some(2);
+    } else if keys.just_pressed(KeyCode::Key3) {
+        pressed = Some(3);
+    }
+    if let Some(pressed) = pressed {
+        for (mut vis, scene) in query.iter_mut() {
+            if scene.0 == pressed {
+                *vis = Visibility::Visible;
+            } else {
+                *vis = Visibility::Hidden;
+            }
+        }
+    }
+}
+
+fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemapping>) {
+    if let Some(mut tonemapping) = query.iter_mut().next() {
+        if keys.just_pressed(KeyCode::Key6) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::Reinhard,
+            };
+            println!("Reinhard");
+        } else if keys.just_pressed(KeyCode::Key7) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::ReinhardLuminance,
+            };
+            println!("ReinhardLuminance");
+        } else if keys.just_pressed(KeyCode::Key8) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::Aces,
+            };
+            println!("Aces");
+        } else if keys.just_pressed(KeyCode::Key9) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::AgX,
+            };
+            println!("AgX");
+        } else if keys.just_pressed(KeyCode::Key0) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::SBDT,
+            };
+            println!("SBDT");
+        }
+    }
 }
 
 /// Creates a colorful test pattern

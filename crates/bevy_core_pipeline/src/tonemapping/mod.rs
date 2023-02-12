@@ -68,10 +68,17 @@ pub struct TonemappingPipeline {
 #[reflect(FromReflect)]
 pub enum TonemappingMethod {
     None,
+    /// Suffers from lots hue shifting, brights don't desaturate naturally.
     Reinhard,
-    #[default]
+    /// old bevy default. Suffers from hue shifting, brights don't desaturate much at all.
+    ReinhardLuminance,
+    /// Bad
     Aces,
+    /// Good
+    #[default]
     AgX,
+    /// Also good
+    SBDT,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -91,8 +98,12 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         match key.method {
             TonemappingMethod::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
             TonemappingMethod::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
+            TonemappingMethod::ReinhardLuminance => {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into())
+            }
             TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
+            TonemappingMethod::SBDT => shader_defs.push("TONEMAP_METHOD_SBDT".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),

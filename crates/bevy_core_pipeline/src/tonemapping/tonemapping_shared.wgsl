@@ -177,14 +177,14 @@ const INPUT_COLORSPACE: i32 = 0;
 //const PUNCH_GAMMA: f32  = 1.3;
 //const OUTPUT_COLORSPACE: i32  = 2;
 
-const INPUT_EXPOSURE: f32 = 0.0;
+const INPUT_EXPOSURE: f32 = -0.75;
 const INPUT_GAMMA: f32  = 1.0;
-const INPUT_SATURATION: f32  = 1.25;
+const INPUT_SATURATION: f32  = 1.2;
 const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
 const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
 const PUNCH_EXPOSURE: f32  = 0.0;
 const PUNCH_SATURATION: f32  = 1.0;
-const PUNCH_GAMMA: f32  = 1.2; // 1.2 here seems to match middle grey with tonemapping_reinhard_luminance
+const PUNCH_GAMMA: f32  = 1.1; // 1.2 here seems to match middle grey with tonemapping_reinhard_luminance
 const OUTPUT_COLORSPACE: i32  = 2; //Looks correct, idk why though (matches tonemapping_reinhard_luminance)
 
 /*
@@ -497,9 +497,21 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     return in;
 #endif
 #ifdef TONEMAP_METHOD_REINHARD
+    return vec4<f32>(tonemapping_reinhard(in.rgb), in.a);
+#endif
+#ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
     return vec4<f32>(tonemapping_reinhard_luminance(in.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_ACES
+    return vec4<f32>(tonemapping_aces_godot_4(in.rgb * pow(2.0, -1.0), 100.0), in.a);
+#endif
+#ifdef TONEMAP_METHOD_AGX
+    return vec4<f32>(tonemapping_AgX(in.rgb), in.a);
+#endif
+#ifdef TONEMAP_METHOD_SBDT
+    return vec4<f32>(tonemapping_sbdt(in.rgb * pow(2.0, -0.75)), in.a);
+#endif
+
     // tonemapping_maintain_hue
     // tonemapping_snidt
     // tonemapping_aces_godot_4
@@ -507,12 +519,6 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tonemapping_reinhard
     // tonemapping_reinhard_luminance
     // tonemapping_sbdt
-    //return vec4<f32>(tonemapping_aces_godot_4(in.rgb, 100.0), in.a);
-    //return vec4<f32>(tonemapping_reinhard(in.rgb), in.a);
-    //return vec4<f32>(tonemapping_reinhard_luminance(in.rgb), in.a);
-    return vec4<f32>(tonemapping_AgX(in.rgb), in.a);
-    //return vec4<f32>(tonemapping_sbdt(in.rgb), in.a);
-#endif
 
     // Gamma correction.
     // Not needed with sRGB buffer

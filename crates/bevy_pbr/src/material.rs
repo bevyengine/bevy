@@ -410,8 +410,12 @@ pub fn queue_material_meshes<M: Material>(
                 view_key |= match method {
                     TonemappingMethod::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
                     TonemappingMethod::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
+                    TonemappingMethod::ReinhardLuminance => {
+                        MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                    }
                     TonemappingMethod::Aces => MeshPipelineKey::TONEMAP_METHOD_ACES,
                     TonemappingMethod::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
+                    TonemappingMethod::SBDT => MeshPipelineKey::TONEMAP_METHOD_SBDT,
                 };
 
                 if *deband_dither {

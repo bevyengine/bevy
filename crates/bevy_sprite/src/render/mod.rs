@@ -159,8 +159,10 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_RESERVED_BITS = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE          = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD      = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_ACES          = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_AGX           = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES          = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX           = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SBDT          = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -550,8 +552,12 @@ pub fn queue_sprites(
                     view_key |= match method {
                         TonemappingMethod::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
                         TonemappingMethod::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                        TonemappingMethod::ReinhardLuminance => {
+                            SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                        }
                         TonemappingMethod::Aces => SpritePipelineKey::TONEMAP_METHOD_ACES,
                         TonemappingMethod::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                        TonemappingMethod::SBDT => SpritePipelineKey::TONEMAP_METHOD_SBDT,
                     };
 
                     if *deband_dither {
