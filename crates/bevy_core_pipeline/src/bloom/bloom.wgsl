@@ -102,10 +102,9 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     let h = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y - y)).rgb;
     let i = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
 
-    var sample = e * 4.0;
-    sample += (b + d + f + h) * 2.0;
-    sample += (a + c + g + i);
-    sample /= 16.0;
+    var sample = e * 0.025;
+    sample += (b + d + f + h) * 0.125;
+    sample += (a + c + g + i) * 0.0625;
 
     return sample;
 }
