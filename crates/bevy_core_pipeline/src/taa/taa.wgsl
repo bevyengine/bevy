@@ -162,7 +162,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let pixel_velocity = abs(closest_velocity) * texture_size;
     if pixel_velocity.x < 0.01 && pixel_velocity.y < 0.01 {
         // Increment when pixels are not moving
-        history_confidence += 1.0;
+        history_confidence += 10.0;
     } else {
         // Else reset
         history_confidence = 1.0;
