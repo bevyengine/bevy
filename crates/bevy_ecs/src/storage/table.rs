@@ -654,11 +654,13 @@ pub(crate) struct TableMoveResult {
 }
 
 impl Tables {
+    /// Returns the number of [`Table`] this collection contains
     #[inline]
     pub fn len(&self) -> usize {
         self.tables.len()
     }
 
+    /// Returns true if this collection contains no [`Table`]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.tables.is_empty()

@@ -241,6 +241,12 @@ impl ComponentInfo {
     fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo { id, descriptor }
     }
+
+    /// Create a new ComponentInfo for test purpose
+    #[cfg(test)]
+    pub(crate) fn new_for_test(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+        Self::new(id, descriptor)
+    }
 }
 
 /// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
