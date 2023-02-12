@@ -814,6 +814,12 @@ impl App {
             .collect()
     }
 
+    /// This function is deprecated. Please use add_plugin_group instead.
+    #[deprecated(note = "This function is deprecated in favor of add_plugin_group.")]
+    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
+        self.add_plugin_group(group)
+    }
+
     /// Adds a group of [`Plugin`]s.
     ///
     /// [`Plugin`]s can be grouped into a set by using a [`PluginGroup`].
