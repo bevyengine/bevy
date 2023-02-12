@@ -25,6 +25,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     ///
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
+    /// # fn my_system() {}
     /// app.add_system(
     ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
@@ -41,6 +42,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// # struct R(u32);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
+    /// # fn my_system() {}
     /// app.add_system(
     ///     // `resource_equals` condition will only get run if the resource `R` exists.
     ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
