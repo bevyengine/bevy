@@ -497,13 +497,13 @@ pub struct SparseSets {
 }
 
 impl SparseSets {
-    /// Returns the number of SparseSet this collection contains
+    /// Returns the number of [`SparseSet`] this collection contains
     #[inline]
     pub fn len(&self) -> usize {
         self.sets.len()
     }
 
-    /// Returns true if this collection contains no SparseSet
+    /// Returns true if this collection contains no [`SparseSet`]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.sets.is_empty()
@@ -528,7 +528,7 @@ impl SparseSets {
         self.sets.get_mut(component_id)
     }
 
-    /// Clear entities stored in each SparseSet
+    /// Clear entities stored in each [`SparseSet`]
     pub fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
