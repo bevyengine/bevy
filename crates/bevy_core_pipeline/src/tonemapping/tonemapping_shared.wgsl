@@ -153,6 +153,290 @@ fn tonemap_filmic_godot_4(color: vec3<f32>, white: f32) -> vec3<f32> {
 	return color_tonemapped / white_tonemapped;
 }
 
+const INPUT_COLORSPACE: i32 = 0;
+/*
+0 = Passthrough,
+1 = sRGB Display (EOTF),
+2 = sRGB Display (2.2),
+*/
+
+// --------------------------------
+// ------------- AgX --------------
+// --------------------------------
+// https://github.com/MrLixm/AgXc
+// https://github.com/sobotka/AgX
+
+// Defaults
+//const INPUT_EXPOSURE: f32 = 0.0;
+//const INPUT_GAMMA: f32  = 1.0;
+//const INPUT_SATURATION: f32  = 1.0;
+//const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
+//const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
+//const PUNCH_EXPOSURE: f32  = 0.0;
+//const PUNCH_SATURATION: f32  = 1.0;
+//const PUNCH_GAMMA: f32  = 1.3;
+//const OUTPUT_COLORSPACE: i32  = 2;
+
+const INPUT_EXPOSURE: f32 = 0.0;
+const INPUT_GAMMA: f32  = 1.0;
+const INPUT_SATURATION: f32  = 1.25;
+const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
+const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
+const PUNCH_EXPOSURE: f32  = 0.0;
+const PUNCH_SATURATION: f32  = 1.0;
+const PUNCH_GAMMA: f32  = 1.2; // 1.2 here seems to match middle grey with tonemapping_reinhard_luminance
+const OUTPUT_COLORSPACE: i32  = 2; //Looks correct, idk why though (matches tonemapping_reinhard_luminance)
+
+/*
+0 = Passthrough,
+1 = sRGB Display (EOTF),
+2 = sRGB Display (2.2),
+*/
+
+const USE_OCIO_LOG: bool = false;
+const APPLY_OUTSET: bool = false;
+
+// LUT AgX-default_contrast.lut.png / AgX-default_contrast.lut.exr 
+const AgXLUT_BLOCK_SIZE: f32 = 32.0;
+const AgXLUT_DIMENSIONS: vec2<f32> = vec2<f32>(1024.0, 32.0);
+
+fn getLuminance(image: vec3<f32>) -> f32
+// Return approximative perceptive luminance of the image.
+{
+    return dot(image, vec3(0.2126, 0.7152, 0.0722));
+}
+
+fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32>
+// pow() but safe for NaNs/negatives
+{
+    return pow(abs(color), vec3(power)) * sign(color);
+}
+
+fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32>
+/*
+    Increase color saturation of the given color data.
+    :param color: expected sRGB primaries input
+    :oaram saturationAmount: expected 0-1 range with 1=neutral, 0=no saturation.
+    -- ref[2] [4]
+*/
+{
+    let luma = getLuminance(color);
+    return mix(vec3(luma), color, vec3(saturationAmount));
+}
+
+fn cctf_decoding_sRGB(color: vec3<f32>) -> vec3<f32>
+// ref[5]
+{
+    return select(powsafe((color + 0.055) / 1.055, 2.4), color / 12.92, color <= 0.04045);
+}
+
+fn cctf_encoding_sRGB(color: vec3<f32>) -> vec3<f32>
+// ref[5]
+{
+    return select((1.055 * powsafe(color, 1.0/2.4) - 0.055), color * 12.92, color <= 0.0031308);
+}
+
+fn cctf_decoding_pow2_2(color: vec3<f32>) -> vec3<f32> {return powsafe(color, 2.2);}
+
+fn cctf_encoding_pow2_2(color: vec3<f32>) -> vec3<f32> {return powsafe(color, 1.0/2.2);}
+
+fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32>
+/*
+    Output log domain encoded data.
+    Similar to OCIO lg2 AllocationTransform.
+    ref[0]
+*/
+{
+    let in_midgrey = 0.18;
+
+    // remove negative before log transform
+    var color = max(vec3(0.0), color);
+    // avoid infinite issue with log -- ref[1]
+    color = select(color, 0.00001525878 + color, color  < 0.00003051757);
+    color = clamp(
+        log2(color / in_midgrey),
+        vec3(minimum_ev, minimum_ev, minimum_ev),
+        vec3(maximum_ev,maximum_ev,maximum_ev)
+    );
+    let total_exposure = maximum_ev - minimum_ev;
+
+    return (color - minimum_ev) / total_exposure;
+}
+
+// exactly the same as above but I let it for reference
+fn log2Transform(color: vec3<f32>) -> vec3<f32>
+/*
+    Output log domain encoded data.
+    Copy of OCIO lg2 AllocationTransform with the AgX Log values.
+    :param color: rgba linear color data
+*/
+{
+    // remove negative before log transform
+    var color = max(vec3(0.0), color);
+    color = select(log2(color), log2(0.00001525878 + color * 0.5), color  < 0.00003051757);
+
+    // obtained via m = ocio.MatrixTransform.Fit(oldMin=[-12.47393, -12.47393, -12.47393, 0.0], oldMax=[4.026069, 4.026069, 4.026069, 1.0])
+    let fitMatrix = mat3x3<f32>(
+        0.060606064279155415, 0.0, 0.0,
+        0.0, 0.060606064279155415, 0.0,
+        0.0, 0.0, 0.060606064279155415
+    );
+    // obtained via same as above
+    let fitMatrixOffset = 0.7559958033936851;
+    color = color * fitMatrix;
+    color += vec3(fitMatrixOffset);
+
+    return color;
+}
+/*=================
+    Main processes
+=================*/
+
+
+fn applyInputTransform(Image: vec3<f32>) -> vec3<f32>
+/*
+    Convert input to workspace colorspace.
+*/
+{
+    if (INPUT_COLORSPACE == 1) {return cctf_decoding_sRGB(Image);};
+    if (INPUT_COLORSPACE == 2) {return cctf_decoding_pow2_2(Image);};
+    return Image;
+}
+
+fn applyGrading(Image: vec3<f32>) -> vec3<f32>
+/*
+    Apply creative grading operations (pre-display-transform).
+*/
+{
+    var Image = Image;
+    let ImageLuma = powsafe(vec3(getLuminance(Image)), INPUT_HIGHLIGHT_GAIN_GAMMA);
+    Image += Image * ImageLuma.xxx * INPUT_HIGHLIGHT_GAIN;
+
+    Image = saturation(Image, INPUT_SATURATION);
+    Image = powsafe(Image, INPUT_GAMMA);
+    Image *= powsafe(vec3(2.0), INPUT_EXPOSURE);
+    return Image;
+}
+
+fn applyAgXLog(Image: vec3<f32>) -> vec3<f32>
+/*
+    Prepare the data for display encoding. Converted to log domain.
+*/
+{
+    var Image = max(vec3(0.0), Image); // clamp negatives
+    // why this doesn't work ??
+    // Image = mul(agx_compressed_matrix, Image);
+	let r = dot(Image, vec3(0.84247906, 0.0784336, 0.07922375));
+	let g = dot(Image, vec3(0.04232824, 0.87846864, 0.07916613));
+	let b = dot(Image, vec3(0.04237565, 0.0784336, 0.87914297));
+	Image = vec3(r, g, b);
+
+    if (USE_OCIO_LOG) {
+        Image = log2Transform(Image);
+    } else {
+        Image = convertOpenDomainToNormalizedLog2(Image, -10.0, 6.5);
+    }
+
+    Image = clamp(Image, vec3(0.0), vec3(1.0));
+    return Image;
+}
+
+fn applyAgXLUT(Image: vec3<f32>) -> vec3<f32>
+/*
+    Apply the AgX 1D curve on log encoded data.
+    The output is similar to AgX Base which is considered
+    sRGB - Display, but here we linearize it.
+    -- ref[3] for LUT implementation
+*/
+{
+    var Image = Image;
+
+    let lut3D = Image * (AgXLUT_BLOCK_SIZE - 1.0);
+
+    
+    // Front
+    var lut2D_0 = vec2(
+        floor(lut3D.z) * AgXLUT_BLOCK_SIZE+lut3D.x,
+        lut3D.y
+    );
+    // Back
+    var lut2D_1 = vec2(
+        ceil(lut3D.z) * AgXLUT_BLOCK_SIZE+lut3D.x,
+        lut3D.y
+    );
+
+    let AgXLUT_PIXEL_SIZE = 1.0 / AgXLUT_DIMENSIONS;
+
+    // Convert from texel to texture coords
+    lut2D_0 = (lut2D_0+0.5) * AgXLUT_PIXEL_SIZE;
+    lut2D_1 = (lut2D_1+0.5) * AgXLUT_PIXEL_SIZE;
+
+    // Bicubic LUT interpolation
+    Image = mix(
+        // AgXLUT.Sample(LUTSampler, lut2D[0]).rgb 
+        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_0).rgb, // Front Z 
+        // AgXLUT.Sample(LUTSampler, lut2D[1]).rgb
+        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_1).rgb, // Back Z
+        fract(lut3D.z)
+    );
+    // LUT apply the transfer function so we remove it to keep working on linear data.
+    Image = cctf_decoding_pow2_2(Image);
+    return Image;
+}
+
+fn applyOutset(Image: vec3<f32>) -> vec3<f32>
+/*
+    Outset is the inverse of the inset applied during `applyAgXLog`
+    and restore chroma.
+*/
+{
+    // Image = mul(agx_compressed_matrix_inverse, Image);
+    let r = dot(Image, vec3(1.1968790, -0.09802088, -0.09902975));
+	let g = dot(Image, vec3(-0.05289685, 1.15190313, -0.09896118));
+	let b = dot(Image, vec3(-0.05297163, -0.09804345, 1.15107368));
+	let Image = vec3(r, g, b);
+
+    return Image;
+}
+
+fn applyODT(Image: vec3<f32>) -> vec3<f32>
+/*
+    Apply Agx to display conversion.
+    :param color: linear - sRGB data.
+*/
+{
+    if (OUTPUT_COLORSPACE == 1) {return cctf_encoding_sRGB(Image);};
+    if (OUTPUT_COLORSPACE == 2) {return cctf_encoding_pow2_2(Image);};
+    return Image;
+}
+
+fn applyLookPunchy(Image: vec3<f32>) -> vec3<f32>
+/*
+    Applies the post "Punchy" look to display-encoded data.
+    Input is expected to be in a display-state.
+*/
+{
+    var Image = powsafe(Image, PUNCH_GAMMA);
+    Image = saturation(Image, PUNCH_SATURATION);
+    Image *= powsafe(vec3(2.0), PUNCH_EXPOSURE);  // not part of initial cdl
+    return Image;
+
+}
+
+fn tonemapping_AgX(Image: vec3<f32>) -> vec3<f32> {
+    var Image = Image;
+    Image = applyInputTransform(Image);
+    Image = applyGrading(Image);
+    Image = applyAgXLog(Image);
+    Image = applyAgXLUT(Image);
+    if (APPLY_OUTSET) {
+        Image = applyOutset(Image);
+    }
+    Image = applyODT(Image);
+    Image = applyLookPunchy(Image);
+    return Image;
+}
+
 // -------------------------
 // -------------------------
 // -------------------------
@@ -223,7 +507,11 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tonemapping_reinhard
     // tonemapping_reinhard_luminance
     // tonemapping_sbdt
-    return vec4<f32>(tonemapping_sbdt(in.rgb), in.a); //put white in a uniform like godot?
+    //return vec4<f32>(tonemapping_aces_godot_4(in.rgb, 100.0), in.a);
+    //return vec4<f32>(tonemapping_reinhard(in.rgb), in.a);
+    //return vec4<f32>(tonemapping_reinhard_luminance(in.rgb), in.a);
+    return vec4<f32>(tonemapping_AgX(in.rgb), in.a);
+    //return vec4<f32>(tonemapping_sbdt(in.rgb), in.a);
 #endif
 
     // Gamma correction.

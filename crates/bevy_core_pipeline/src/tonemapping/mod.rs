@@ -1,11 +1,13 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::SystemState;
 use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
+use bevy_render::texture::Image;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
@@ -18,6 +20,9 @@ const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
 
 const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+
+#[derive(Resource)]
+struct AGXLut(Handle<Image>);
 
 pub struct TonemappingPlugin;
 
@@ -36,12 +41,17 @@ impl Plugin for TonemappingPlugin {
             Shader::from_wgsl
         );
 
+        let mut state = SystemState::<Res<AssetServer>>::new(&mut app.world);
+        let asset_server = state.get_mut(&mut app.world);
+        let agx_lut = asset_server.load("luts/AgX-default_contrast.lut.exr");
+
         app.register_type::<Tonemapping>();
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .insert_resource(AGXLut(agx_lut))
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
@@ -61,6 +71,7 @@ pub enum TonemappingMethod {
     Reinhard,
     #[default]
     Aces,
+    AgX,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -78,9 +89,10 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             shader_defs.push("DEBAND_DITHER".into());
         }
         match key.method {
-            TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
-            TonemappingMethod::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
             TonemappingMethod::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
+            TonemappingMethod::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
+            TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
+            TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -124,6 +136,22 @@ impl FromWorld for TonemappingPipeline {
                         binding: 1,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: true },
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],

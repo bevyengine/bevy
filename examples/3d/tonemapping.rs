@@ -30,30 +30,30 @@ fn setup(
     let cam_trans =
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y);
     // plane
-    //commands.spawn(PbrBundle {
-    //    mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-    //    material: materials.add(StandardMaterial {
-    //        base_color: Color::rgb(0.3, 0.5, 0.3).into(),
-    //        perceptual_roughness: 0.5,
-    //        ..default()
-    //    }),
-    //    ..default()
-    //});
-
-    // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad {
-            size: vec2(16.0, 9.0) * 0.1,
-            flip: false,
-        })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("../../dragonscene_ap0_v01_1001.exr")),
-            unlit: true,
+            base_color: Color::rgb(0.3, 0.5, 0.3).into(),
+            perceptual_roughness: 0.5,
             ..default()
         }),
-        transform: Transform::from_xyz(0.2, 0.38, 0.2).with_rotation(cam_trans.rotation),
         ..default()
     });
+
+    // plane
+    //commands.spawn(PbrBundle {
+    //    mesh: meshes.add(Mesh::from(shape::Quad {
+    //        size: vec2(16.0, 9.0) * 0.1,
+    //        flip: false,
+    //    })),
+    //    material: materials.add(StandardMaterial {
+    //        base_color_texture: Some(asset_server.load("../../dragonscene_ap0_v01_1001.exr")),
+    //        unlit: true,
+    //        ..default()
+    //    }),
+    //    transform: Transform::from_xyz(0.2, 0.38, 0.2).with_rotation(cam_trans.rotation),
+    //    ..default()
+    //});
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -102,7 +102,7 @@ fn setup(
     commands
         .spawn(Camera3dBundle {
             camera: Camera {
-                hdr: false, // Works with and without hdr
+                hdr: true, // Works with and without hdr
                 ..default()
             },
             transform: cam_trans,

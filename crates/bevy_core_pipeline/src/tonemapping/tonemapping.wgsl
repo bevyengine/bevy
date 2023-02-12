@@ -1,10 +1,15 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
-#import bevy_core_pipeline::tonemapping
 
 @group(0) @binding(0)
 var hdr_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var hdr_sampler: sampler;
+@group(0) @binding(2)
+var agx_lut_texture: texture_2d<f32>;
+@group(0) @binding(3)
+var agx_lut_sampler: sampler;
+
+#import bevy_core_pipeline::tonemapping
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
@@ -19,6 +24,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = pow(output_rgb.rgb, vec3<f32>(2.2));
 #endif
+
+
 
     return vec4<f32>(output_rgb, hdr_color.a);
 }

@@ -4,15 +4,20 @@ use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode,
+        LoadOp, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
+    texture::Image,
     view::{ExtractedView, ViewTarget},
 };
+use bevy_utils::default;
+
+use super::AGXLut;
 
 pub struct TonemappingNode {
     query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
@@ -48,6 +53,8 @@ impl Node for TonemappingNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
+        let agx_lut = world.resource::<AGXLut>();
+        let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
 
         let (target, tonemapping) = match self.query.get_manual(world, view_entity) {
             Ok(result) => result,
@@ -75,6 +82,20 @@ impl Node for TonemappingNode {
                     .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
+                let agx_lut_sampler =
+                    render_context
+                        .render_device()
+                        .create_sampler(&SamplerDescriptor {
+                            label: Some(&"AgX LUT"),
+                            address_mode_u: AddressMode::ClampToEdge,
+                            address_mode_v: AddressMode::ClampToEdge,
+                            address_mode_w: AddressMode::ClampToEdge,
+                            mag_filter: FilterMode::Linear,
+                            min_filter: FilterMode::Linear,
+                            mipmap_filter: FilterMode::Linear,
+                            ..default()
+                        });
+
                 let bind_group =
                     render_context
                         .render_device()
@@ -89,6 +110,16 @@ impl Node for TonemappingNode {
                                 BindGroupEntry {
                                     binding: 1,
                                     resource: BindingResource::Sampler(&sampler),
+                                },
+                                BindGroupEntry {
+                                    binding: 2,
+                                    resource: BindingResource::TextureView(
+                                        &gpu_images.get(&agx_lut.0).unwrap().texture_view,
+                                    ),
+                                },
+                                BindGroupEntry {
+                                    binding: 3,
+                                    resource: BindingResource::Sampler(&agx_lut_sampler),
                                 },
                             ],
                         });
