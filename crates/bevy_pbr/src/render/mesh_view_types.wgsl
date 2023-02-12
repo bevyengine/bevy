@@ -1,17 +1,7 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct View {
-    view_proj: mat4x4<f32>,
-    unjittered_view_proj: mat4x4<f32>,
-    inverse_view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    inverse_view: mat4x4<f32>,
-    projection: mat4x4<f32>,
-    inverse_projection: mat4x4<f32>,
-    world_position: vec3<f32>,
-    // viewport(x_origin, y_origin, width, height)
-    viewport: vec4<f32>,
-};
+#import bevy_render::view
+#import bevy_render::globals
 
 struct PointLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
@@ -34,7 +24,7 @@ struct DirectionalCascade {
     texel_size: f32,
     far_bound: f32,
 }
-    
+
 struct DirectionalLight {
     cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
@@ -120,18 +110,3 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>, 1024u>,
 };
 #endif
-
-struct Globals {
-    // The time since startup in seconds
-    // Wraps to 0 after 1 hour.
-    time: f32,
-    // The delta time since the previous frame in seconds
-    delta_time: f32,
-    // Frame count since the start of the app.
-    // It wraps to zero when it reaches the maximum value of a u32.
-    frame_count: u32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
-    // WebGL2 structs must be 16 byte aligned.
-    _wasm_padding: f32
-#endif
-}
