@@ -497,13 +497,13 @@ pub struct SparseSets {
 }
 
 impl SparseSets {
-    /// Returns the number of [`SparseSet`] this collection contains
+    /// Returns the number of [`SparseSet`]s this collection contains.
     #[inline]
     pub fn len(&self) -> usize {
         self.sets.len()
     }
 
-    /// Returns true if this collection contains no [`SparseSet`]
+    /// Returns true if this collection contains no [`SparseSet`]s.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.sets.is_empty()
@@ -541,7 +541,8 @@ impl SparseSets {
         }
     }
 
-    /// Create an Iterator for each [`ComponentId`] and [`SparseSet`]
+    /// An Iterator visiting all ([`ComponentId`], [`SparseSet`]) pairs.
+    /// NOTE: Order is not guaranteed.
     pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &ComponentSparseSet)> {
         self.sets.iter()
     }
@@ -629,10 +630,11 @@ mod tests {
         assert_eq!(sets.len(), 2);
 
         // check its shape by iter
-        let collected_sets = sets
+        let mut collected_sets = sets
             .iter()
             .map(|(id, set)| (*id, set.len()))
             .collect::<Vec<_>>();
+        collected_sets.sort();
         assert_eq!(
             collected_sets,
             vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
