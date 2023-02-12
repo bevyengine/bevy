@@ -5,6 +5,7 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource},
     world::{FromWorld, World},
+    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -400,8 +401,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: TypeIdMap<usize>,
+    resource_indices: TypeIdMap<usize>,
 }
 
 impl Components {

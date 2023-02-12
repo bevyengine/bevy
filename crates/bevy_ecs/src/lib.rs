@@ -19,6 +19,8 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+use std::any::TypeId;
+
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
@@ -51,6 +53,9 @@ pub mod prelude {
 }
 
 pub use bevy_ecs_macros::all_tuples;
+
+/// HashMap type with `TypeId` as Key
+type TypeIdMap<V> = bevy_utils::StableHashMap<TypeId, V>;
 
 #[cfg(test)]
 mod tests {
