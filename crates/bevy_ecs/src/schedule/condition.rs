@@ -37,7 +37,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource)]
+    /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
