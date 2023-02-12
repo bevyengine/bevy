@@ -14,6 +14,43 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     ///
     /// The returned run condition is short-circuiting, meaning
     /// `and_then` will only be invoked if `self` returns `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```should_panic
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct R(u32);
+    ///
+    /// # let mut app = Schedule::new();
+    /// # let mut world = World::new();
+    /// app.add_system(
+    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
+    ///     // just like if we used `Res<R>` in a system.
+    ///     my_system.run_if(resource_equals(R(0))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Use `.and_then()` to avoid checking the condition.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct R(u32);
+    /// # let mut app = Schedule::new();
+    /// # let mut world = World::new();
+    /// app.add_system(
+    ///     // `resource_equals` condition will only get run if the resource `R` exists.
+    ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    ///
+    /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
     fn and_then<P, C: Condition<P>>(self, and_then: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and_then);
