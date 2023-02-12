@@ -54,7 +54,7 @@ pub mod prelude {
 
 pub use bevy_ecs_macros::all_tuples;
 
-/// HashMap type with `TypeId` as Key
+/// A specialized hashmap type with Key of `TypeId`
 type TypeIdMap<V> = bevy_utils::StableHashMap<TypeId, V>;
 
 #[cfg(test)]
