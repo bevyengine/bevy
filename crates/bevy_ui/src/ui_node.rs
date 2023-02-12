@@ -564,14 +564,14 @@ impl Default for FlexWrap {
 #[reflect(Component)]
 pub struct CalculatedSize {
     /// The size of the node
-    pub size: Size,
+    pub size: Vec2,
     /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
     pub preserve_aspect_ratio: bool,
 }
 
 impl CalculatedSize {
     const DEFAULT: Self = Self {
-        size: Size::DEFAULT,
+        size: Vec2::ZERO,
         preserve_aspect_ratio: false,
     };
 }
