@@ -81,7 +81,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_system(
     ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(state_exists::<A>().or_else(state_exists::<B>())),
+    ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
     /// );
     /// #
     /// # world.insert_resource(C(false));
