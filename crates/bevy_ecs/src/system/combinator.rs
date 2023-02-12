@@ -79,9 +79,16 @@ use super::{ReadOnlySystem, System};
 /// # world.resource_mut::<RanFlag>().0 = false;
 /// ```
 pub trait Combine<A: System, B: System> {
+    /// The [input](System::In) type for a [`CombinatorSystem`].
     type In;
+
+    /// The [output](System::Out) type for a [`CombinatorSystem`].
     type Out;
 
+    /// When used in a [`CombinatorSystem`], this function customizes how
+    /// the two composite systems are invoked and their outputs are combined.
+    ///
+    /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
         input: Self::In,
         a: impl FnOnce(A::In) -> A::Out,
