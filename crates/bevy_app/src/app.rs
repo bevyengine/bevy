@@ -814,7 +814,7 @@ impl App {
             .collect()
     }
 
-    /// This function is deprecated. Please use add_plugin_group instead.
+    /// This function is deprecated. Please use `add_plugin_group` instead.
     #[deprecated(
         since = "0.9.1",
         note = "This function is deprecated in favor of add_plugin_group."
