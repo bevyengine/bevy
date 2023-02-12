@@ -243,8 +243,10 @@ pub mod common_conditions {
     }
 }
 
+/// Combines the outputs of two systems using the `&&` operator.
 pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
 
+/// Combines the outputs of two systems using the `||` operator.
 pub type OrElse<A, B> = CombinatorSystem<OrElseMarker, A, B>;
 
 #[doc(hidden)]
