@@ -1,13 +1,15 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
+use bevy_asset::{
+    load_internal_asset, load_internal_binary_asset, AssetServer, Handle, HandleUntyped,
+};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::Image;
+use bevy_render::texture::{CompressedImageFormats, Image, ImageType};
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
@@ -20,6 +22,9 @@ const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
 
 const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+
+const AGX_LUT_IMAGE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1419536523291344910);
 
 #[derive(Resource)]
 struct AGXLut(Handle<Image>);
@@ -40,6 +45,22 @@ impl Plugin for TonemappingPlugin {
             "tonemapping_shared.wgsl",
             Shader::from_wgsl
         );
+
+        // TODO when this works remove luts from assets
+        //load_internal_binary_asset!(
+        //    app,
+        //    AGX_LUT_IMAGE_HANDLE,
+        //    "luts/AgX-default_contrast.lut.exr",
+        //    |bytes| -> Image {
+        //        Image::from_buffer(
+        //            bytes,
+        //            ImageType::Extension("exr"),
+        //            CompressedImageFormats::NONE,
+        //            false,
+        //        )
+        //        .unwrap()
+        //    }
+        //);
 
         let mut state = SystemState::<Res<AssetServer>>::new(&mut app.world);
         let asset_server = state.get_mut(&mut app.world);

@@ -9,8 +9,11 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
+    reflect::TypeUuid,
     render::{
-        render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
+        render_resource::{
+            AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
+        },
         texture::ImageSampler,
     },
 };
@@ -18,12 +21,14 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(MaterialPlugin::<TestMaterial>::default())
         .insert_resource(CamTrans(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
         .add_startup_system(setup_camera)
         .add_startup_system(scene1)
         .add_startup_system(scene2)
+        .add_startup_system(scene3)
         .add_system(hdr_viewer)
         .add_system(toggle_scene)
         .add_system(toggle_tonemapping)
@@ -41,8 +46,17 @@ struct CamTrans(Transform);
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_trans: Res<CamTrans>) {
     println!("Toggle with:");
-    println!("1 - Helmet with cubes");
+    println!("1 - Helmet and stuff");
     println!("2 - Image viewer");
+    println!("3 - Color Sweep");
+
+    println!("");
+
+    println!("6 - Reinhard");
+    println!("7 - ReinhardLuminance");
+    println!("8 - Aces");
+    println!("9 - AgX");
+    println!("0 - SBDT");
 
     // camera
     commands
@@ -103,10 +117,50 @@ fn scene1(
         ));
     }
 
+    // spheres
+    for i in 0..3 {
+        let material = if i == 0 {
+            materials.add(StandardMaterial {
+                base_color: Color::rgb(1.0, 0.0, 0.0),
+                perceptual_roughness: 0.089,
+                metallic: 0.0,
+                ..default()
+            })
+        } else if i == 1 {
+            materials.add(StandardMaterial {
+                base_color: Color::rgb(0.0, 1.0, 0.0),
+                perceptual_roughness: 0.089,
+                metallic: 0.0,
+                ..default()
+            })
+        } else {
+            materials.add(StandardMaterial {
+                base_color: Color::rgb(0.0, 0.0, 1.0),
+                perceptual_roughness: 0.089,
+                metallic: 0.0,
+                ..default()
+            })
+        };
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 0.125,
+                    sectors: 128,
+                    stacks: 128,
+                })),
+                material,
+                transform: Transform::from_xyz(i as f32 * 0.25 + 0.15, 0.125, -i as f32 * 0.25),
+                ..default()
+            },
+            Scene(1),
+        ));
+    }
+
     // Flight Helmet
     commands.spawn((
         SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            transform: Transform::from_xyz(-0.25, 0.0, 0.25),
             ..default()
         },
         Scene(1),
@@ -150,7 +204,7 @@ fn scene2(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Quad {
-                size: vec2(16.0, 9.0) * 0.2,
+                size: vec2(1.0, 1.0),
                 flip: false,
             })),
             material: materials.add(StandardMaterial {
@@ -163,6 +217,31 @@ fn scene2(
             ..default()
         },
         Scene(2),
+        HDRViewer,
+    ));
+}
+
+fn scene3(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<TestMaterial>>,
+    cam_trans: Res<CamTrans>,
+) {
+    let mut transform = cam_trans.0;
+    transform.translation += transform.forward();
+    // exr/hdr viewer
+    commands.spawn((
+        MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad {
+                size: vec2(1.0, 1.0),
+                flip: false,
+            })),
+            material: materials.add(TestMaterial {}),
+            transform,
+            visibility: Visibility::Hidden,
+            ..default()
+        },
+        Scene(3),
         HDRViewer,
     ));
 }
@@ -303,3 +382,13 @@ fn uv_debug_texture() -> Image {
     img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
     img
 }
+
+impl Material for TestMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/tonemapping_test_patterns.wgsl".into()
+    }
+}
+
+#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
+pub struct TestMaterial {}

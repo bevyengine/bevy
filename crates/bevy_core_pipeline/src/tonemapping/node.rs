@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 
-use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
+use crate::tonemapping::{AGXLut, TonemappingPipeline, ViewTonemappingPipeline};
+use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
@@ -17,7 +18,7 @@ use bevy_render::{
 };
 use bevy_utils::default;
 
-use super::AGXLut;
+use super::AGX_LUT_IMAGE_HANDLE;
 
 pub struct TonemappingNode {
     query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
@@ -53,7 +54,6 @@ impl Node for TonemappingNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
-        let agx_lut = world.resource::<AGXLut>();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
 
         let (target, tonemapping) = match self.query.get_manual(world, view_entity) {
@@ -96,6 +96,14 @@ impl Node for TonemappingNode {
                             ..default()
                         });
 
+                // TODO when this works remove luts from assets
+                //let agx_lut_image = gpu_images
+                //    .get(&AGX_LUT_IMAGE_HANDLE.typed::<Image>())
+                //    .unwrap();
+
+                let agx_lut = world.resource::<AGXLut>();
+                let agx_lut_image = gpu_images.get(&agx_lut.0).unwrap();
+
                 let bind_group =
                     render_context
                         .render_device()
@@ -114,7 +122,7 @@ impl Node for TonemappingNode {
                                 BindGroupEntry {
                                     binding: 2,
                                     resource: BindingResource::TextureView(
-                                        &gpu_images.get(&agx_lut.0).unwrap().texture_view,
+                                        &agx_lut_image.texture_view,
                                     ),
                                 },
                                 BindGroupEntry {
