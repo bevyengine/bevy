@@ -249,11 +249,20 @@ pub struct Style {
     pub flex_shrink: f32,
     /// The initial size of the item
     pub flex_basis: Val,
-    /// The size of the flexbox
+    /// The ideal size of the flexbox
+    ///
+    /// `size.width` is used when it is within the bounds defined by `min_size.width` and `max_size.width`.
+    /// `size.height` is used when it is within the bounds defined by `min_size.height` and `max_size.height`.
     pub size: Size,
     /// The minimum size of the flexbox
+    ///
+    /// `min_size.width` is used if it is greater than either `size.width` or `max_size.width`, or both.
+    /// `min_size.height` is used if it is greater than either `size.height` or `max_size.height`, or both.
     pub min_size: Size,
     /// The maximum size of the flexbox
+    ///
+    /// `max_size.width` is used if it is within the bounds defined by `min_size.width` and `size.width`.
+    /// `max_size.height` is used if it is within the bounds defined by `min_size.height` and `size.height.
     pub max_size: Size,
     /// The aspect ratio of the flexbox
     pub aspect_ratio: Option<f32>,

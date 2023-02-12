@@ -185,10 +185,10 @@ macro_rules! change_detection_mut_impl {
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_change_tick: u32) {
+            fn set_last_changed(&mut self, last_changed: u32) {
                 self.ticks
                     .changed
-                    .set_changed(last_change_tick);
+                    .set_changed(last_changed);
             }
 
             #[inline]
@@ -242,9 +242,6 @@ macro_rules! impl_methods {
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
-            ///
-            /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-            /// will not affect the original.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
@@ -607,9 +604,6 @@ impl<'a> MutUntyped<'a> {
 
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
-    ///
-    /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-    /// will not affect the original.
     #[inline]
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
@@ -667,7 +661,7 @@ impl<'a> DetectChanges for MutUntyped<'a> {
 
     #[inline]
     fn last_changed(&self) -> u32 {
-        self.ticks.last_change_tick
+        self.ticks.changed.tick
     }
 }
 
@@ -680,8 +674,8 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.last_change_tick = last_change_tick;
+    fn set_last_changed(&mut self, last_changed: u32) {
+        self.ticks.changed.set_changed(last_changed);
     }
 
     #[inline]
