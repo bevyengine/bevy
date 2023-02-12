@@ -10,15 +10,7 @@ var hdr_sampler: sampler;
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let hdr_color = textureSample(hdr_texture, hdr_sampler, in.uv);
 
-#ifdef TONEMAP_METHOD_NONE
-    var output_rgb = hdr_color.rgb;
-#endif
-#ifdef TONEMAP_METHOD_REINHARD
-    var output_rgb = reinhard_luminance(hdr_color.rgb);
-#endif
-#ifdef TONEMAP_METHOD_ACES
-    var output_rgb = aces_filmic(hdr_color.rgb);
-#endif
+    var output_rgb = tone_mapping(hdr_color).rgb;
 
 #ifdef DEBAND_DITHER
     output_rgb = pow(output_rgb.rgb, vec3<f32>(1.0 / 2.2));

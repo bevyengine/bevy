@@ -267,25 +267,6 @@ fn pbr(
 }
 #endif // NORMAL_PREPASS
 
-#ifdef TONEMAP_IN_SHADER
-fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
-    // tone_mapping
-#ifdef TONEMAP_METHOD_NONE
-    return in;
-#endif
-#ifdef TONEMAP_METHOD_REINHARD
-    return vec4<f32>(reinhard_luminance(in.rgb), in.a);
-#endif
-#ifdef TONEMAP_METHOD_ACES
-    return vec4<f32>(aces_filmic(in.rgb), in.a);
-#endif
-
-    // Gamma correction.
-    // Not needed with sRGB buffer
-    // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
-}
-#endif // TONEMAP_IN_SHADER
-
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);

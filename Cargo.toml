@@ -40,6 +40,7 @@ default = [
   "bevy_ui",
   "png",
   "hdr",
+  "exr",
   "vorbis",
   "x11",
   "filesystem_watcher",
@@ -71,7 +72,8 @@ trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
-# Image format support for texture loading (PNG and HDR are enabled by default)
+# Image format support for texture loading (PNG, HDR, and EXR are enabled by default)
+exr = ["bevy_internal/exr"]
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
 tga = ["bevy_internal/tga"]
@@ -377,6 +379,16 @@ required-features = ["ktx2", "zstd"]
 [package.metadata.example.load_gltf]
 name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "tonemapping"
+path = "examples/3d/tonemapping.rs"
+
+[package.metadata.example.tonemapping]
+name = "tonemapping"
+description = "Compares tonemapping options"
 category = "3D Rendering"
 wasm = true
 
