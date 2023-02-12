@@ -4,6 +4,9 @@
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
+const HISTORY_BLEND_RATE: f32 = 0.1;
+const MIN_HISTORY_BLEND_RATE: f32 = 0.002;
+
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
@@ -168,7 +171,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
-    let current_color_factor = clamp(1.0 / history_confidence, 0.02, 0.1);
+    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, HISTORY_BLEND_RATE);
     current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 
@@ -177,7 +180,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 #ifndef RESET
     out.history = vec4(current_color, history_confidence);
 #else
-    out.history = vec4(current_color, 50.0);
+    out.history = vec4(current_color, 1.0 / MIN_HISTORY_BLEND_RATE);
 #endif
 
 #ifdef TONEMAP
