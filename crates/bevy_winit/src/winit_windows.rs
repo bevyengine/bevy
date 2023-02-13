@@ -98,6 +98,24 @@ impl WinitWindows {
             .with_transparent(window.transparent)
             .with_visible(window.visible);
 
+        #[cfg(feature = "wayland")]
+        {
+            winit_window_builder = winit::platform::wayland::WindowBuilderExtWayland::with_name(
+                winit_window_builder,
+                window.app_id.clone(),
+                "",
+            );
+        }
+
+        #[cfg(feature = "x11")]
+        {
+            winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
+                winit_window_builder,
+                window.app_id.clone(),
+                "",
+            );
+        }
+
         let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
             width: constraints.min_width,

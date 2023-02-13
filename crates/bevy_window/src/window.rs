@@ -138,6 +138,8 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
+    /// Stores the application ID of the window.
+    pub app_id: String,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// The limits of the window's logical size
@@ -241,7 +243,8 @@ pub struct Window {
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: "App".to_owned(),
+            title: "Bevy App".to_owned(),
+            app_id: "Bevy.App".to_owned(),
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
