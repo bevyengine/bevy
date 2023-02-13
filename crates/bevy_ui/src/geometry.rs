@@ -357,7 +357,34 @@ impl Size {
         Size { width, height }
     }
 
+    /// Creates a new [`Size`] from a width and a height.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::new(Val::Px(100.0), Val::Px(200.0));
+    ///
+    /// assert_eq!(size.width, Val::Px(100.0));
+    /// assert_eq!(size.height, Val::Px(200.0));
+    /// ```
+    pub const fn new(width: Val, height: Val) -> Self {
+        Size { width, height }
+    }
+
     /// Creates a new [`Size`] where both sides take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::all(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Px(10.0));
+    /// ```
     pub const fn all(value: Val) -> Self {
         Self {
             width: value,
@@ -365,18 +392,40 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `width` takes the given value.
+    /// Creates a new [`Size`] where `width` takes the given value and height is `Val::Auto`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::width(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Auto);
+    /// ```
     pub const fn width(width: Val) -> Self {
         Self {
             width,
-            height: Val::DEFAULT,
+            height: Val::Auto,
         }
     }
 
-    /// Creates a new [`Size`] where `height` takes the given value.
+    /// Creates a new [`Size`] where `height` takes the given value and width is `Val::Auto`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::height(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Auto);
+    /// assert_eq!(size.height, Val::Px(10.));
+    /// ```
     pub const fn height(height: Val) -> Self {
         Self {
-            width: Val::DEFAULT,
+            width: Val::Auto,
             height,
         }
     }
