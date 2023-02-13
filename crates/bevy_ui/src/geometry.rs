@@ -254,7 +254,7 @@ impl UiRect {
             left: horizontal,
             right: horizontal,
             top: vertical,
-            bottom: vertical,            
+            bottom: vertical,
         }
     }
 
