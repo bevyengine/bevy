@@ -295,7 +295,7 @@ impl Dag {
     /// A cached topological ordering of the graph.
     ///
     /// The order is determined by the ordering dependencies between systems.
-    pub fn topsort(&self) -> &[NodeId] {
+    pub fn cached_topsort(&self) -> &[NodeId] {
         &self.topsort
     }
 }
