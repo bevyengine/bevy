@@ -55,7 +55,7 @@ pub mod prelude {
 pub use bevy_ecs_macros::all_tuples;
 
 /// A specialized hashmap type with Key of `TypeId`
-type TypeIdMap<V> = bevy_utils::StableHashMap<TypeId, V>;
+type TypeIdMap<V> = std::collections::HashMap<TypeId, V, fxhash::FxBuildHasher>;
 
 #[cfg(test)]
 mod tests {
