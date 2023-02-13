@@ -98,7 +98,7 @@ impl WinitWindows {
             .with_transparent(window.transparent)
             .with_visible(window.visible);
 
-        #[cfg(feature = "wayland")]
+        #[cfg(all(feature = "wayland", target_os = "linux"))]
         {
             winit_window_builder = winit::platform::wayland::WindowBuilderExtWayland::with_name(
                 winit_window_builder,
@@ -107,7 +107,7 @@ impl WinitWindows {
             );
         }
 
-        #[cfg(feature = "x11")]
+        #[cfg(all(feature = "x11", target_os = "linux"))]
         {
             winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
                 winit_window_builder,
