@@ -244,7 +244,7 @@ impl Default for Window {
     fn default() -> Self {
         Self {
             title: "Bevy App".to_owned(),
-            app_id: "Bevy.App".to_owned(),
+            app_id: "bevy.app".to_owned(),
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
