@@ -357,6 +357,25 @@ impl Size {
         Size { width, height }
     }
 
+    /// Creates a new [`Size`] where both sides take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::all(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Px(10.0));
+    /// ```
+    pub const fn all(value: Val) -> Self {
+        Self {
+            width: value,
+            height: value,
+        }
+    }
+
     /// Creates a new [`Size`] where `width` takes the given value and height is `Val::Auto`.
     ///
     /// # Example
