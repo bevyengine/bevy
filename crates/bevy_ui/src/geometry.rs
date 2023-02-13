@@ -376,7 +376,7 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `width` takes the given value and height is `Val::Auto`.
+    /// Creates a new [`Size`] where `width` takes the given value and its `height` is `Val::Auto`.
     ///
     /// # Example
     ///
@@ -395,7 +395,7 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `height` takes the given value and width is `Val::Auto`.
+    /// Creates a new [`Size`] where `height` takes the given value and its `width` is `Val::Auto`.
     ///
     /// # Example
     ///
