@@ -117,7 +117,7 @@ impl WinitWindows {
         }
 
         #[cfg(all(
-            feature = "wayland",
+            feature = "x11",
             any(
                 target_os = "linux",
                 target_os = "dragonfly",
