@@ -691,7 +691,11 @@ impl<'a> MutUntyped<'a> {
         self.value.as_ref()
     }
 
-    /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value.
+    /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value,
+    /// without flagging a change. [`MutUntyped`] equivalent of [`Mut::map_unchanged`].
+    ///
+    /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`DetectChanges::bypass_change_detection`](crate::change_detection::DetectChangesMut::bypass to make your intent explicit.
+    ///
     /// If you know the type of the value you can do
     /// ```no_run
     /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
