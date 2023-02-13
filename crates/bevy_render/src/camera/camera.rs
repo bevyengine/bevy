@@ -27,7 +27,7 @@ use bevy_window::{
 };
 
 use std::{borrow::Cow, ops::Range};
-use wgpu::{Extent3d, TextureFormat};
+use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -107,6 +107,10 @@ pub struct Camera {
     /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
     // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
     pub hdr: bool,
+    // todo: reflect this when #6042 lands
+    /// The [`CameraOutputMode`] for this camera.
+    #[reflect(ignore)]
+    pub output_mode: CameraOutputMode,
 }
 
 impl Default for Camera {
@@ -117,6 +121,7 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
+            output_mode: Default::default(),
             hdr: false,
         }
     }
@@ -305,6 +310,33 @@ impl Camera {
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
         (!world_space_coords.is_nan()).then_some(world_space_coords)
+    }
+}
+
+/// Control how this camera outputs once rendering is completed.
+#[derive(Debug, Clone, Copy)]
+pub enum CameraOutputMode {
+    /// Writes the camera output to configured render target.
+    Write {
+        /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
+        blend_state: Option<BlendState>,
+        /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
+        /// target texture.
+        color_attachment_load_op: wgpu::LoadOp<wgpu::Color>,
+    },
+    /// Skips writing the camera output to the configured render target. The output will remain in the
+    /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
+    /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
+    /// them to be lost. Only use this if you know what you are doing!
+    Skip,
+}
+
+impl Default for CameraOutputMode {
+    fn default() -> Self {
+        CameraOutputMode::Write {
+            blend_state: None,
+            color_attachment_load_op: LoadOp::Clear(Default::default()),
+        }
     }
 }
 
@@ -519,6 +551,7 @@ pub struct ExtractedCamera {
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
     pub order: isize,
+    pub output_mode: CameraOutputMode,
 }
 
 pub fn extract_cameras(
@@ -555,6 +588,7 @@ pub fn extract_cameras(
                     physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
                     order: camera.order,
+                    output_mode: camera.output_mode,
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),

@@ -3,6 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
+use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderSet};
@@ -80,6 +81,7 @@ pub enum UpscalingMode {
 pub struct UpscalingPipelineKey {
     upscaling_mode: UpscalingMode,
     texture_format: TextureFormat,
+    blend_state: Option<BlendState>,
 }
 
 impl SpecializedRenderPipeline for UpscalingPipeline {
@@ -96,7 +98,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
-                    blend: None,
+                    blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -115,12 +117,22 @@ fn queue_view_upscaling_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
-    view_targets: Query<(Entity, &ViewTarget)>,
+    view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
 ) {
-    for (entity, view_target) in view_targets.iter() {
+    for (entity, view_target, camera) in view_targets.iter() {
+        let blend_state = if let Some(ExtractedCamera {
+            output_mode: CameraOutputMode::Write { blend_state, .. },
+            ..
+        }) = camera
+        {
+            *blend_state
+        } else {
+            None
+        };
         let key = UpscalingPipelineKey {
             upscaling_mode: UpscalingMode::Filtering,
             texture_format: view_target.out_texture_format(),
+            blend_state,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
