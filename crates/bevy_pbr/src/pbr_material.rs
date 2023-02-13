@@ -95,10 +95,10 @@ pub struct StandardMaterial {
 
     /// How "metallic" the material appears, within `[0.0, 1.0]`.
     ///
-    /// This should be set to 0.0 or 1.0, depending on if the material is metallic or dielectric.
+    /// This should be set to 0.0 for dielectric materials or 1.0 for metallic materials.
     /// For a hybrid surface such as corroded metal, you may need to use in-between values.
     ///
-    /// Defaults to `0.00`.
+    /// Defaults to `0.00`, for dielectric.
     ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`.
@@ -250,7 +250,7 @@ impl Default for StandardMaterial {
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
             // Metallic should generally be set to 0.0 or 1.0.
-            metallic: 0.00,
+            metallic: 0.0,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
