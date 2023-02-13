@@ -37,6 +37,7 @@ impl Image {
                 }
                 data = i.into_raw();
             }
+            // DynamicImage is now non exhaustive, catch future variants and convert them
             _ => {
                 let image = dyn_img.into_rgba8();
                 if is_srgb {
