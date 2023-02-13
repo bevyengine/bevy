@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+detailed_trace = []
+
 [dependencies]
 ahash = "0.7.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
