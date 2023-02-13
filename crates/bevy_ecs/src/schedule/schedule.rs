@@ -287,20 +287,23 @@ impl Dag {
         }
     }
 
-    /// A directed graph.
+    /// The directed graph of the stored systems, connected by their ordering dependencies.
     pub fn graph(&self) -> &DiGraphMap<NodeId, ()> {
         &self.graph
     }
 
     /// A cached topological ordering of the graph.
+    ///
+    /// The order is determined by the ordering dependencies between systems.
     pub fn topsort(&self) -> &[NodeId] {
         &self.topsort
     }
 }
 
 /// Describes which base set (i.e. [`SystemSet`] where [`SystemSet::is_base`] returns true)
-/// a systems belongs to.
-/// Note that this is only populated, once [`ScheduleGraph::build_schedule`] is called.
+/// a system belongs to.
+///
+/// Note that this is only populated once [`ScheduleGraph::build_schedule`] is called.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum BaseSetMembership {
     Uncalculated,
