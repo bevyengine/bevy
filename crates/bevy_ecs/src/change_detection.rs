@@ -682,16 +682,11 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_if_neq<Target>(&mut self, value: Target)
+    fn set_if_neq(&mut self, value: Target)
     where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq,
+        Self::Inner: Sized + PartialEq,
     {
-        // This dereference is immutable, so does not trigger change detection
-        if *<Self as Deref>::deref(self) != value {
-            // `DerefMut` usage triggers change detection
-            *<Self as DerefMut>::deref_mut(self) = value;
-        }
+        unreachable!("set_if_neq cannot be called on MutUntyped due to unsatisfied trait bounds")
     }
 }
 
