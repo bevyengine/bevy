@@ -816,7 +816,7 @@ impl App {
 
     /// This function is deprecated. Please use `add_plugin_group` instead.
     #[deprecated(
-        since = "0.9.1",
+        since = "0.10.0",
         note = "This function is deprecated in favor of add_plugin_group."
     )]
     pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
