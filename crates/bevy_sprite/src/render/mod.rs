@@ -163,6 +163,7 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES          = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX           = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SBDT          = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC= 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -558,6 +559,9 @@ pub fn queue_sprites(
                         TonemappingMethod::Aces => SpritePipelineKey::TONEMAP_METHOD_ACES,
                         TonemappingMethod::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
                         TonemappingMethod::SBDT => SpritePipelineKey::TONEMAP_METHOD_SBDT,
+                        TonemappingMethod::BlenderFilmic => {
+                            SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
+                        }
                     };
 
                     if *deband_dither {

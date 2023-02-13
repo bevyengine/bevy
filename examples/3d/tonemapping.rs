@@ -20,7 +20,11 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            // Tell the asset server to watch for asset changes on disk:
+            watch_for_changes: true,
+            ..default()
+        }))
         .add_plugin(MaterialPlugin::<TestMaterial>::default())
         .insert_resource(CamTrans(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
@@ -52,11 +56,13 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
 
     println!("");
 
-    println!("6 - Reinhard");
-    println!("7 - ReinhardLuminance (old bevy default)");
-    println!("8 - Aces");
-    println!("9 - AgX");
-    println!("0 - SBDT");
+    println!("4 - Bypass");
+    println!("5 - Reinhard");
+    println!("6 - Reinhard Luminance (old bevy default)");
+    println!("7 - Aces");
+    println!("8 - AgX");
+    println!("9 - SBDT");
+    println!("0 - Blender Filmic");
 
     // camera
     commands
@@ -118,24 +124,26 @@ fn scene1(
     }
 
     // spheres
-    for i in 0..3 {
-        let material = if i == 0 {
+    for i in 0..6 {
+        let j = i % 3;
+        let s_val = if i < 3 { 0.0 } else { 0.2 };
+        let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.0),
+                base_color: Color::rgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
-        } else if i == 1 {
+        } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(0.0, 1.0, 0.0),
+                base_color: Color::rgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(0.0, 0.0, 1.0),
+                base_color: Color::rgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -149,7 +157,11 @@ fn scene1(
                     stacks: 128,
                 })),
                 material,
-                transform: Transform::from_xyz(i as f32 * 0.25 + 0.15, 0.125, -i as f32 * 0.25),
+                transform: Transform::from_xyz(
+                    j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 },
+                    0.125,
+                    -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 },
+                ),
                 ..default()
             },
             Scene(1),
@@ -160,7 +172,7 @@ fn scene1(
     commands.spawn((
         SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-            transform: Transform::from_xyz(-0.25, 0.0, 0.25),
+            transform: Transform::from_xyz(-0.5, 0.0, 0.25),
             ..default()
         },
         Scene(1),
@@ -200,6 +212,7 @@ fn scene2(
 ) {
     let mut transform = cam_trans.0;
     transform.translation += transform.forward();
+
     // exr/hdr viewer
     commands.spawn((
         PbrBundle {
@@ -319,36 +332,48 @@ fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &S
 
 fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemapping>) {
     if let Some(mut tonemapping) = query.iter_mut().next() {
-        if keys.just_pressed(KeyCode::Key6) {
+        if keys.just_pressed(KeyCode::Key4) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::None,
+            };
+            println!("Bypass");
+        } else if keys.just_pressed(KeyCode::Key5) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::Reinhard,
             };
             println!("Reinhard");
-        } else if keys.just_pressed(KeyCode::Key7) {
+        } else if keys.just_pressed(KeyCode::Key6) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::ReinhardLuminance,
             };
             println!("ReinhardLuminance (old bevy default)");
-        } else if keys.just_pressed(KeyCode::Key8) {
+        } else if keys.just_pressed(KeyCode::Key7) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::Aces,
             };
             println!("Aces");
-        } else if keys.just_pressed(KeyCode::Key9) {
+        } else if keys.just_pressed(KeyCode::Key8) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::AgX,
             };
             println!("AgX");
-        } else if keys.just_pressed(KeyCode::Key0) {
+        } else if keys.just_pressed(KeyCode::Key9) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::SBDT,
             };
             println!("SBDT");
+        } else if keys.just_pressed(KeyCode::Key0) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::BlenderFilmic,
+            };
+            println!("Blender Filmic");
         }
     }
 }

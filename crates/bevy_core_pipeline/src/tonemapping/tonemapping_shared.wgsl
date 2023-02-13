@@ -21,15 +21,33 @@ fn hsv2rgb_v(c: vec3<f32>) -> vec3<f32> {
 }
 
 fn tonemapping_snidt(color: vec3<f32>) -> vec3<f32> {
-    var c = color;
-    var lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    c = rgb2hsv_v(c);
-    var s = pow(c.y, 6.0);
-    s = s / (1.0 + pow(lum * c.z, 0.5));
-    s = pow(s, 1.0 / 3.0) + 0.08;
-    c.y = mix(c.y, s, clamp(c.z, 0.0, 1.0));
-    c.z = c.z / (1.0 + c.z);
-    c = hsv2rgb_v(c);
+    let L = vec3(0.2126, 0.7152, 0.0722 * 4.0);
+    var c = max(color, vec3(0.0));
+	let m = mat3x3<f32>(
+        0.84247906, 0.0784336,  0.07922375, 
+        0.04232824, 0.87846864, 0.07916613, 
+        0.04237565, 0.0784336,  0.87914297
+    );
+    c = c * m;
+
+    // Gain, Gamma
+    c = powsafe(c * 1.4, 1.03);
+
+    var c2 = rgb2hsv_v(c);
+    let og_hsv = c2;
+
+    // Saturation
+    c = mix(vec3(saturate(dot(c, L))), c, vec3(1.03));
+    
+    // reinhard
+    c = c / (1.0 + c);
+
+    // Make blues a bit less red
+    c.r = c.r - c.b * c.b * og_hsv.y * 0.1;
+
+    // Saturation
+    c = mix(vec3(saturate(dot(c, L))), c, vec3(1.15));
+
     return vec3(c);
 }
 
@@ -178,14 +196,14 @@ const INPUT_COLORSPACE: i32 = 0;
 //const OUTPUT_COLORSPACE: i32  = 2;
 
 const INPUT_EXPOSURE: f32 = -0.5;
-const INPUT_GAMMA: f32  = 1.0;
-const INPUT_SATURATION: f32  = 1.2;
+const INPUT_GAMMA: f32  = 1.1;
+const INPUT_SATURATION: f32  = 1.1;
 const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
 const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
 const PUNCH_EXPOSURE: f32  = 0.0;
-const PUNCH_SATURATION: f32  = 1.0;
-const PUNCH_GAMMA: f32  = 1.0; // 1.2 here seems to match middle grey with tonemapping_reinhard_luminance
-const OUTPUT_COLORSPACE: i32  = 2; //Looks correct, idk why though (matches tonemapping_reinhard_luminance)
+const PUNCH_SATURATION: f32  = 1.1;
+const PUNCH_GAMMA: f32  = 1.0;
+const OUTPUT_COLORSPACE: i32  = 2; //This is used because it's converted back to linear after applyAgXLUT 
 
 /*
 0 = Passthrough,
@@ -197,8 +215,6 @@ const USE_OCIO_LOG: bool = false;
 const APPLY_OUTSET: bool = false;
 
 // LUT AgX-default_contrast.lut.png / AgX-default_contrast.lut.exr 
-const AgXLUT_BLOCK_SIZE: f32 = 32.0;
-const AgXLUT_DIMENSIONS: vec2<f32> = vec2<f32>(1024.0, 32.0);
 
 fn getLuminance(image: vec3<f32>) -> f32
 // Return approximative perceptive luminance of the image.
@@ -255,8 +271,8 @@ fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_
     color = select(color, 0.00001525878 + color, color  < 0.00003051757);
     color = clamp(
         log2(color / in_midgrey),
-        vec3(minimum_ev, minimum_ev, minimum_ev),
-        vec3(maximum_ev,maximum_ev,maximum_ev)
+        vec3(minimum_ev),
+        vec3(maximum_ev)
     );
     let total_exposure = maximum_ev - minimum_ev;
 
@@ -341,7 +357,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32>
     return Image;
 }
 
-fn applyAgXLUT(Image: vec3<f32>) -> vec3<f32>
+fn applyAgXLUT(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset: vec2<f32>) -> vec3<f32>
 /*
     Apply the AgX 1D curve on log encoded data.
     The output is similar to AgX Base which is considered
@@ -351,36 +367,37 @@ fn applyAgXLUT(Image: vec3<f32>) -> vec3<f32>
 {
     var Image = Image;
 
-    let lut3D = Image * (AgXLUT_BLOCK_SIZE - 1.0);
+    let lut3D = Image * (block_size - 1.0);
+    let tex_dim = vec2<f32>(textureDimensions(agx_lut_texture).xy);
+    let dim = tex_dim / dimensions;
 
     
     // Front
     var lut2D_0 = vec2(
-        floor(lut3D.z) * AgXLUT_BLOCK_SIZE+lut3D.x,
+        floor(lut3D.z) * block_size+lut3D.x,
         lut3D.y
     );
     // Back
     var lut2D_1 = vec2(
-        ceil(lut3D.z) * AgXLUT_BLOCK_SIZE+lut3D.x,
+        ceil(lut3D.z) * block_size+lut3D.x,
         lut3D.y
     );
 
-    let AgXLUT_PIXEL_SIZE = 1.0 / AgXLUT_DIMENSIONS;
+    let pixel_size = 1.0 / dimensions;
+    let offset = offset / tex_dim;
 
     // Convert from texel to texture coords
-    lut2D_0 = (lut2D_0+0.5) * AgXLUT_PIXEL_SIZE;
-    lut2D_1 = (lut2D_1+0.5) * AgXLUT_PIXEL_SIZE;
+    lut2D_0 = (lut2D_0+0.5) * pixel_size;
+    lut2D_1 = (lut2D_1+0.5) * pixel_size;
 
     // Bicubic LUT interpolation
     Image = mix(
         // AgXLUT.Sample(LUTSampler, lut2D[0]).rgb 
-        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_0).rgb, // Front Z 
+        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_0 / dim + offset).rgb, // Front Z 
         // AgXLUT.Sample(LUTSampler, lut2D[1]).rgb
-        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_1).rgb, // Back Z
+        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_1 / dim + offset).rgb, // Back Z
         fract(lut3D.z)
     );
-    // LUT apply the transfer function so we remove it to keep working on linear data.
-    Image = cctf_decoding_pow2_2(Image);
     return Image;
 }
 
@@ -428,7 +445,9 @@ fn tonemapping_AgX(Image: vec3<f32>) -> vec3<f32> {
     Image = applyInputTransform(Image);
     Image = applyGrading(Image);
     Image = applyAgXLog(Image);
-    Image = applyAgXLUT(Image);
+    Image = applyAgXLUT(Image, 32.0, vec2<f32>(1024.0, 32.0), vec2(0.0));
+    // LUT apply the transfer function so we remove it to keep working on linear data.
+    Image = cctf_decoding_pow2_2(Image);
     if (APPLY_OUTSET) {
         Image = applyOutset(Image);
     }
@@ -492,24 +511,34 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
 }
 
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
+    var color = max(in, vec4(0.0));
     // tone_mapping
 #ifdef TONEMAP_METHOD_NONE
     return in;
 #endif
 #ifdef TONEMAP_METHOD_REINHARD
-    return vec4<f32>(tonemapping_reinhard(in.rgb), in.a);
+    return vec4<f32>(tonemapping_reinhard(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
-    return vec4<f32>(tonemapping_reinhard_luminance(in.rgb), in.a);
+    return vec4<f32>(tonemapping_reinhard_luminance(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_ACES
-    return vec4<f32>(tonemapping_aces_godot_4(in.rgb * pow(2.0, -1.0), 100.0), in.a);
+    return vec4<f32>(tonemapping_aces_godot_4(color.rgb, 1000.0), in.a);
 #endif
 #ifdef TONEMAP_METHOD_AGX
-    return vec4<f32>(tonemapping_AgX(in.rgb), in.a);
+    return vec4<f32>(tonemapping_AgX(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_SBDT
-    return vec4<f32>(tonemapping_sbdt(in.rgb), in.a);
+    return vec4<f32>(tonemapping_sbdt(color.rgb), in.a);
+#endif
+#ifdef TONEMAP_METHOD_BLENDER_FILMIC
+    let block_size = 64.0;
+    let selector = 0.0;
+    var c = color.rgb;
+    c = convertOpenDomainToNormalizedLog2(c, -10.0, 12.0);
+    c = saturate(c);
+    c = applyAgXLUT(c, block_size, vec2<f32>(4096.0, 64.0), vec2(0.0, 32.0 + block_size * selector));
+    return vec4<f32>(c, in.a);
 #endif
 
     // tonemapping_maintain_hue
@@ -523,4 +552,18 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Gamma correction.
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+}
+
+// Just for testing
+fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32>
+{
+    var color = color;
+    let in_midgrey = 0.18;
+    let total_exposure = maximum_ev - minimum_ev;
+
+    color = (color * total_exposure) + minimum_ev;
+    color = pow(vec3(2.0), color);
+    color = color * in_midgrey;
+
+    return color;
 }

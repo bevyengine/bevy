@@ -362,6 +362,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     TonemappingMethod::Aces => Mesh2dPipelineKey::TONEMAP_METHOD_ACES,
                     TonemappingMethod::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
                     TonemappingMethod::SBDT => Mesh2dPipelineKey::TONEMAP_METHOD_SBDT,
+                    TonemappingMethod::BlenderFilmic => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
+                    }
                 };
 
                 if *deband_dither {

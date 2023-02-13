@@ -64,7 +64,7 @@ impl Plugin for TonemappingPlugin {
 
         let mut state = SystemState::<Res<AssetServer>>::new(&mut app.world);
         let asset_server = state.get_mut(&mut app.world);
-        let agx_lut = asset_server.load("luts/AgX-default_contrast.lut.exr");
+        let agx_lut = asset_server.load("luts/combined_luts.exr");
 
         app.register_type::<Tonemapping>();
 
@@ -91,15 +91,17 @@ pub enum TonemappingMethod {
     None,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     Reinhard,
-    /// old bevy default. Suffers from hue shifting, brights don't desaturate much at all.
+    /// Old bevy default. Suffers from hue shifting, brights don't desaturate much at all.
     ReinhardLuminance,
     /// Bad
     Aces,
-    /// Good
+    /// Very Good
     #[default]
     AgX,
     /// Also good
     SBDT,
+    /// Also good
+    BlenderFilmic,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -125,6 +127,9 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
             TonemappingMethod::SBDT => shader_defs.push("TONEMAP_METHOD_SBDT".into()),
+            TonemappingMethod::BlenderFilmic => {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into())
+            }
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
