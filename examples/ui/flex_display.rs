@@ -307,11 +307,11 @@ fn update(
 ) {
     right_query.for_each_mut(|(mut background_color, button_target, interaction)| {
         match interaction {
-            Interaction::Hovered => {
+            Interaction::Hovered | Interaction::Clicked => {
                 let (mut left_background_color, mut style, mut visibility) =
                 left_query.get_mut(button_target.id).unwrap();
 
-                if mouse.just_pressed(MouseButton::Left) || keyboard.just_pressed(KeyCode::Space) {
+                if mouse.just_pressed(MouseButton::Left) {
                     style.display = match style.display {
                         Display::Flex => Display::None,
                         Display::None => Display::Flex,
@@ -334,7 +334,6 @@ fn update(
                 background_color.0 = button_target.color;
                 left_background_color.0 = button_target.color;
             }
-            _ => {}
         }
     });
 }
