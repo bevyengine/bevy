@@ -27,7 +27,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other
 winit = { version = "0.28", default-features = false }
-accesskit_winit = "0.10"
+accesskit_winit = "0.11"
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
