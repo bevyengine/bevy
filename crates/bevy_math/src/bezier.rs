@@ -20,7 +20,7 @@ pub trait CubicBezier {
     }
 
     /// Split the Bezier curve into `subdivisions`, and sample the position at each.
-    fn into_points(&self, subdivisions: i32) -> Vec<Self::Coord> {
+    fn to_points(&self, subdivisions: i32) -> Vec<Self::Coord> {
         (0..=subdivisions)
             .map(|i| {
                 let t = i as f32 / subdivisions as f32;
@@ -49,8 +49,8 @@ impl CubicBezier2d {
     }
 
     /// Iterate over points in the bezier curve from `t = 0` to `t = 1`.
-    pub fn into_points(&self, subdivisions: i32) -> Vec<Vec2> {
-        CubicBezier::into_points(self, subdivisions)
+    pub fn to_points(&self, subdivisions: i32) -> Vec<Vec2> {
+        CubicBezier::to_points(self, subdivisions)
     }
 }
 
@@ -73,8 +73,8 @@ impl CubicBezier3d {
     }
 
     /// Iterate over points in the bezier curve from `t = 0` to `t = 1`.
-    pub fn into_points(&self, subdivisions: i32) -> Vec<Vec3> {
-        CubicBezier::into_points(self, subdivisions)
+    pub fn to_points(&self, subdivisions: i32) -> Vec<Vec3> {
+        CubicBezier::to_points(self, subdivisions)
     }
 }
 
