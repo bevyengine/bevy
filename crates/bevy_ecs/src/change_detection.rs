@@ -686,6 +686,7 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     where
         Self::Inner: Sized + PartialEq,
     {
+        // `PtrMut` is not `PartialEq`.
         unreachable!("set_if_neq cannot be called on MutUntyped due to unsatisfied trait bounds")
     }
 }
