@@ -372,7 +372,6 @@ wasm = false
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
@@ -1432,7 +1431,6 @@ wasm = true
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
