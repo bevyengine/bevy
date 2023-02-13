@@ -96,6 +96,7 @@ pub struct StandardMaterial {
     /// How "metallic" the material appears, within `[0.0, 1.0]`.
     ///
     /// This should be set to 0.0 or 1.0, depending on if the material is metallic or dielectric.
+    /// For a hybrid surface such as corroded metal, you may need to use in-between values.
     ///
     /// Defaults to `0.00`.
     ///
@@ -240,14 +241,15 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            // Mid-grey to approximate how bright most materials are.
-            base_color: Color::rgb(0.5, 0.5, 0.5),
+            // White because it gets multiplied with texture values if someone uses
+            // a texture.
+            base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             emissive: Color::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
-            // Metallic should be set to 0.0 or 1.0.
+            // Metallic should generally be set to 0.0 or 1.0.
             metallic: 0.00,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
