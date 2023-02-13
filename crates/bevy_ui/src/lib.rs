@@ -34,7 +34,6 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
-use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
@@ -112,7 +111,6 @@ impl Plugin for UiPlugin {
                 widget::text_system
                     .in_base_set(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
-                    .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `widget::text_system`
@@ -137,8 +135,7 @@ impl Plugin for UiPlugin {
             .add_system(
                 flex_node_system
                     .in_set(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate)
-                    .after(ModifiesWindows),
+                    .before(TransformSystem::TransformPropagate),
             )
             .add_system(ui_stack_system.in_set(UiSystem::Stack))
             .add_system(

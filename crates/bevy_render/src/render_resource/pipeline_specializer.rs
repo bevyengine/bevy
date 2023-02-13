@@ -63,7 +63,7 @@ impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
 impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
     ) -> CachedComputePipelineId {

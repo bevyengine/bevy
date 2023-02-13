@@ -79,24 +79,21 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let prepare_asset_system = prepare_assets::<A>.in_set(self.prepare_asset_label.clone());
-
-            let prepare_asset_system = match self.prepare_asset_label {
-                PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
-                PrepareAssetLabel::AssetPrepare => {
-                    prepare_asset_system.after(PrepareAssetLabel::PreAssetPrepare)
-                }
-                PrepareAssetLabel::PostAssetPrepare => {
-                    prepare_asset_system.after(PrepareAssetLabel::AssetPrepare)
-                }
-            };
-
             render_app
+                .configure_sets(
+                    (
+                        PrepareAssetLabel::PreAssetPrepare,
+                        PrepareAssetLabel::AssetPrepare,
+                        PrepareAssetLabel::PostAssetPrepare,
+                    )
+                        .chain()
+                        .in_set(RenderSet::Prepare),
+                )
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_system_to_schedule(ExtractSchedule, extract_render_asset::<A>)
-                .add_system(prepare_asset_system.in_set(RenderSet::Prepare));
+                .add_system(prepare_assets::<A>.in_set(self.prepare_asset_label.clone()));
         }
     }
 }

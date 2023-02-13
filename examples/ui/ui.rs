@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                size: Size::width(Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        size: Size::width(Val::Px(200.0)),
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                size: Size::width(Val::Percent(100.0)),
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -85,7 +85,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        align_items: AlignItems::Center,
+                        size: Size::width(Val::Px(200.0)),
                         ..default()
                     },
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -103,12 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                         )
                         .with_style(Style {
-                            size: Size::new(Val::Undefined, Val::Px(25.)),
-                            margin: UiRect {
-                                left: Val::Auto,
-                                right: Val::Auto,
-                                ..default()
-                            },
+                            size: Size::height(Val::Px(25.)),
                             ..default()
                         }),
                         Label,
@@ -118,8 +114,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn(NodeBundle {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
-                                align_self: AlignSelf::Center,
-                                size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                                align_self: AlignSelf::Stretch,
+                                size: Size::height(Val::Percent(50.0)),
                                 overflow: Overflow::Hidden,
                                 ..default()
                             },
@@ -135,6 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             flex_direction: FlexDirection::Column,
                                             flex_grow: 1.0,
                                             max_size: Size::UNDEFINED,
+                                            align_items: AlignItems::Center,
                                             ..default()
                                         },
                                         ..default()
@@ -158,11 +155,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             .with_style(Style {
                                                 flex_shrink: 0.,
                                                 size: Size::new(Val::Undefined, Val::Px(20.)),
-                                                margin: UiRect {
-                                                    left: Val::Auto,
-                                                    right: Val::Auto,
-                                                    ..default()
-                                                },
                                                 ..default()
                                             }),
                                             Label,
@@ -223,7 +215,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    // Take the size of the parent node.
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
                                         left: Val::Px(20.0),
@@ -237,7 +230,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
                                         left: Val::Px(40.0),
@@ -251,7 +244,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
                                         left: Val::Px(60.0),
@@ -266,7 +259,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // alpha test
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
                                         left: Val::Px(80.0),
@@ -284,7 +277,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        size: Size::width(Val::Percent(100.)),
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
@@ -297,10 +290,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(ImageBundle {
                             style: Style {
-                                size: Size::new(Val::Px(500.0), Val::Auto),
+                                size: Size::width(Val::Px(500.0)),
                                 ..default()
                             },
-                            image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
                             ..default()
                         })
                         .with_children(|parent| {

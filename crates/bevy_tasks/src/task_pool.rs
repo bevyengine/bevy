@@ -336,35 +336,38 @@ impl TaskPool {
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+        // Any usages of the references passed into `Scope` must be accessed through
+        // the transmuted reference for the rest of this function.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
-        let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
-            unsafe { mem::transmute(&spawned) };
+        // shadow the variable so that the owned value cannot be used for the rest of the function
+        let spawned: &'env ConcurrentQueue<FallibleTask<T>> = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
             external_executor,
             scope_executor,
-            spawned: spawned_ref,
+            spawned,
             scope: PhantomData,
             env: PhantomData,
         };
 
-        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+        // shadow the variable so that the owned value cannot be used for the rest of the function
+        let scope: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
-        f(scope_ref);
+        f(scope);
 
         if spawned.is_empty() {
             Vec::new()
         } else {
             future::block_on(async move {
                 let get_results = async {
-                    let mut results = Vec::with_capacity(spawned_ref.len());
-                    while let Ok(task) = spawned_ref.pop() {
+                    let mut results = Vec::with_capacity(spawned.len());
+                    while let Ok(task) = spawned.pop() {
                         results.push(task.await.unwrap());
                     }
                     results
