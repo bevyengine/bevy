@@ -930,6 +930,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "run_conditions"
+path = "examples/ecs/run_conditions.rs"
+
+[package.metadata.example.run_conditions]
+name = "Run Conditions"
+description = "Run systems only when one or multiple conditions are met"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 

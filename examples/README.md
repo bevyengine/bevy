@@ -205,6 +205,7 @@ Example | Description
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this.
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
+[Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
