@@ -104,7 +104,7 @@ pub struct TemporalAntialiasBundle {
     pub velocity_prepass: VelocityPrepass,
 }
 
-/// Component to apply temporal antialiasing to a 3d perspective camera.
+/// Component to apply temporal antialiasing to a 3D perspective camera.
 ///
 /// Temporal antialiasing (TAA) is a form of image smoothing/filtering, like
 /// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA).
@@ -115,7 +115,7 @@ pub struct TemporalAntialiasBundle {
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
 /// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO and SSR
+/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO, SSR, and shadow mapping (WIP)
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
@@ -135,7 +135,7 @@ pub struct TemporalAntialiasBundle {
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently not compatible with skinned meshes. There will probably be ghosting artifacts.
+/// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
 ///
 /// It is very important that correct velocity vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects

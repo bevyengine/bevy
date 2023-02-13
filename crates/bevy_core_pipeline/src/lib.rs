@@ -9,6 +9,7 @@ mod taa;
 pub mod tonemapping;
 pub mod upscaling;
 
+/// Experimental features that are not yet finished. Please report any issues you encounter!
 pub mod experimental {
     pub mod taa {
         pub use crate::taa::*;
