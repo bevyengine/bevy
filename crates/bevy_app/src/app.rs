@@ -317,7 +317,7 @@ impl App {
     /// initial state.
     ///
     /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which run during [`CoreSet::StateTransitions`] after the transitions are applied.
+    /// which run during [`CoreSet::Update`] after the transitions are applied.
     /// These systems sets only run if the [`State<S>`] resource matches their label.
     ///
     /// If you would like to control how other systems run based on the current state,
@@ -341,7 +341,7 @@ impl App {
         for variant in S::variants() {
             main_schedule.configure_set(
                 OnUpdate(variant.clone())
-                    .in_base_set(CoreSet::StateTransitions)
+                    .in_base_set(CoreSet::Update)
                     .run_if(state_equals(variant))
                     .after(apply_state_transition::<S>),
             );
