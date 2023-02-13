@@ -132,6 +132,7 @@ mod bezier_impl {
     impl Point for f32 {}
 
     /// Evaluate the cubic Bezier curve at the parametric value `t`.
+    #[inline]
     pub fn evaluate_cubic_bezier<P: Point>(control_points: [P; 4], t: f32) -> P {
         let p = control_points;
         p[0] * (1. - t).powi(3)
@@ -141,6 +142,7 @@ mod bezier_impl {
     }
 
     /// Split the Bezier curve into `subdivisions`, and sample the position at each [`Point`] `P`.
+    #[inline]
     pub fn cubic_bezier_to_points<P: Point>(control_points: [P; 4], subdivisions: i32) -> Vec<P> {
         (0..=subdivisions)
             .map(|i| {
