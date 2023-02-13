@@ -10,7 +10,7 @@ pub trait CubicBezier {
     /// Returns the four control points of the cubic Bezier curve.
     fn control_points(&self) -> [Self::Coord; 4];
 
-    /// Returns the point along the Bezier curve at the supplied parametric value `t`.
+    /// Evaluate the cubic Bezier curve at the parametric value `t`.
     fn evaluate_at(&self, t: f32) -> Self::Coord {
         let p = self.control_points();
         p[0] * (1. - t).powi(3)
@@ -19,7 +19,7 @@ pub trait CubicBezier {
             + p[3] * t.powi(3)
     }
 
-    /// Iterate over points in the bezier curve from `t = 0` to `t = 1`.
+    /// Split the Bezier curve into `subdivisions`, and sample the position at each.
     fn into_points(&self, subdivisions: i32) -> Vec<Self::Coord> {
         (0..=subdivisions)
             .map(|i| {
@@ -42,6 +42,18 @@ impl CubicBezier for CubicBezier2d {
     }
 }
 
+impl CubicBezier2d {
+    /// Returns the point along the Bezier curve at the supplied parametric value `t`.
+    pub fn evaluate_at(&self, t: f32) -> Vec2 {
+        CubicBezier::evaluate_at(self, t)
+    }
+
+    /// Iterate over points in the bezier curve from `t = 0` to `t = 1`.
+    pub fn into_points(&self, subdivisions: i32) -> Vec<Vec2> {
+        CubicBezier::into_points(self, subdivisions)
+    }
+}
+
 /// A 3-dimensional Bezier curve.
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct CubicBezier3d(pub [Vec3; 4]);
@@ -51,6 +63,18 @@ impl CubicBezier for CubicBezier3d {
 
     fn control_points(&self) -> [Self::Coord; 4] {
         self.0
+    }
+}
+
+impl CubicBezier3d {
+    /// Returns the point along the Bezier curve at the supplied parametric value `t`.
+    pub fn evaluate_at(&self, t: f32) -> Vec3 {
+        CubicBezier::evaluate_at(self, t)
+    }
+
+    /// Iterate over points in the bezier curve from `t = 0` to `t = 1`.
+    pub fn into_points(&self, subdivisions: i32) -> Vec<Vec3> {
+        CubicBezier::into_points(self, subdivisions)
     }
 }
 
