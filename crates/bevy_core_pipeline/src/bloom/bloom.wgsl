@@ -3,8 +3,8 @@
 // You then upsample each mip (starting from the smallest mip) and blend with the higher resolution mip above it (ending on the original texture).
 //
 // References:
-// * http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
-// * https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
+// * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+// * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 #import bevy_core_pipeline::tonemapping
@@ -37,11 +37,13 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
 
 // http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
+    // Luminance calculated by gamma-correcting linear RGB to non-linear sRGB using pow(color, 1.0 / 2.2)
+    // and then calculating luminance based on Rec. 709 color primaries.
     let luma = tonemapping_luminance(rgb_to_srgb_simple(color)) / 4.0;
     return 1.0 / (1.0 + luma);
 }
 
-// "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 100
+// [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let texel_size = 1.0 / vec2<f32>(textureDimensions(input_texture));
     let x = texel_size.x;
@@ -65,7 +67,14 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let m = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
 
 #ifdef FIRST_DOWNSAMPLE
-    // "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 112
+    // [COD] slide 168
+    //
+    // The first downsample pass reads from the rendered frame which may exhibit
+    // 'fireflies' (individual very bright pixels) that should not cause the bloom effect.
+    //
+    // The first downsample uses a firefly-reduction method proposed by Brian Karis
+    // which takes a weighted-average of the samples to limit their luma range to [0, 1].
+    // This implementation matches the LearnOpenGL article [PBB].
     var group0 = (a + b + d + e) * (0.125f / 4.0f);
     var group1 = (b + c + e + f) * (0.125f / 4.0f);
     var group2 = (d + e + g + h) * (0.125f / 4.0f);
@@ -85,8 +94,9 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 #endif
 }
 
-// "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 109
+// [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
+    // Radius. Empirically chosen by and tweaked from the LearnOpenGL article.
     let x = 0.004;
     let y = 0.004;
 
@@ -102,7 +112,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     let h = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y - y)).rgb;
     let i = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
 
-    var sample = e * 0.025;
+    var sample = e * 0.25;
     sample += (b + d + f + h) * 0.125;
     sample += (a + c + g + i) * 0.0625;
 
