@@ -235,6 +235,29 @@ impl UiRect {
         }
     }
 
+    /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::horizontal_vertical(Val::Px(10.0), Val::Percent(15.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Percent(15.0));
+    /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
+    /// ```
+    pub fn horizontal_vertical(horizontal: Val, vertical: Val) -> Self {
+        UiRect {
+            left: horizontal,
+            right: horizontal,
+            top: vertical,
+            bottom: vertical,            
+        }
+    }
+
     /// Creates a new [`UiRect`] where `left` takes the given value.
     ///
     /// # Example
