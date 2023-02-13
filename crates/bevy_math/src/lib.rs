@@ -10,7 +10,7 @@ mod bezier;
 mod ray;
 mod rect;
 
-pub use bezier::{easing::CubicBezierEasing, CubicBezier2d, CubicBezier3d};
+pub use bezier::{CubicBezier2d, CubicBezier3d, CubicBezierEasing};
 pub use ray::Ray;
 pub use rect::Rect;
 
