@@ -682,7 +682,7 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_if_neq(&mut self, value: Self::Inner)
+    fn set_if_neq(&mut self, _: Self::Inner)
     where
         Self::Inner: Sized + PartialEq,
     {
