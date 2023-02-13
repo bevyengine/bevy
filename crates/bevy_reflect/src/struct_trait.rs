@@ -1,6 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    ValueInfo,
 };
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
@@ -72,8 +73,7 @@ pub trait Struct: Reflect {
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     name: &'static str,
-    type_name: &'static str,
-    type_id: TypeId,
+    type_value: ValueInfo,
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
@@ -100,8 +100,7 @@ impl StructInfo {
 
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            type_value: ValueInfo::new::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
@@ -161,17 +160,17 @@ impl StructInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the struct.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the struct type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The docstring of this struct, if any.

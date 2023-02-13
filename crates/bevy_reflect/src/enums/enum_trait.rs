@@ -1,4 +1,4 @@
-use crate::{DynamicEnum, Reflect, VariantInfo, VariantType};
+use crate::{DynamicEnum, Reflect, ValueInfo, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
@@ -133,8 +133,7 @@ pub trait Enum: Reflect {
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
     name: &'static str,
-    type_name: &'static str,
-    type_id: TypeId,
+    type_value: ValueInfo,
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
@@ -161,8 +160,7 @@ impl EnumInfo {
 
         Self {
             name,
-            type_name: std::any::type_name::<TEnum>(),
-            type_id: TypeId::of::<TEnum>(),
+            type_value: ValueInfo::new::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
@@ -234,17 +232,17 @@ impl EnumInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the enum.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the enum type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The docstring of this enum, if any.

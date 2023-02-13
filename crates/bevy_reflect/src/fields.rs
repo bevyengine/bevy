@@ -1,12 +1,11 @@
-use crate::Reflect;
+use crate::{Reflect, ValueInfo};
 use std::any::{Any, TypeId};
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: &'static str,
-    type_name: &'static str,
-    type_id: TypeId,
+    value: ValueInfo,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -16,8 +15,7 @@ impl NamedField {
     pub fn new<T: Reflect>(name: &'static str) -> Self {
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            value: ValueInfo::new::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -38,17 +36,17 @@ impl NamedField {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.value.type_name()
     }
 
     /// The [`TypeId`] of the field.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.value.type_id()
     }
 
     /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.value.is::<T>()
     }
 
     /// The docstring of this field, if any.
@@ -62,8 +60,7 @@ impl NamedField {
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
-    type_name: &'static str,
-    type_id: TypeId,
+    value: ValueInfo,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -72,8 +69,7 @@ impl UnnamedField {
     pub fn new<T: Reflect>(index: usize) -> Self {
         Self {
             index,
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            value: ValueInfo::new::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -94,17 +90,17 @@ impl UnnamedField {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.value.type_name()
     }
 
     /// The [`TypeId`] of the field.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.value.type_id()
     }
 
     /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.value.is::<T>()
     }
 
     /// The docstring of this field, if any.

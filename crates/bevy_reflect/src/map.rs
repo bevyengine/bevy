@@ -5,7 +5,9 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, ValueInfo,
+};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -68,12 +70,9 @@ pub trait Map: Reflect {
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_name: &'static str,
-    type_id: TypeId,
-    key_type_name: &'static str,
-    key_type_id: TypeId,
-    value_type_name: &'static str,
-    value_type_id: TypeId,
+    type_value: ValueInfo,
+    key_type_value: ValueInfo,
+    value_type_value: ValueInfo,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -82,12 +81,9 @@ impl MapInfo {
     /// Create a new [`MapInfo`].
     pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<TMap>(),
-            type_id: TypeId::of::<TMap>(),
-            key_type_name: std::any::type_name::<TKey>(),
-            key_type_id: TypeId::of::<TKey>(),
-            value_type_name: std::any::type_name::<TValue>(),
-            value_type_id: TypeId::of::<TValue>(),
+            type_value: ValueInfo::new::<TMap>(),
+            key_type_value: ValueInfo::new::<TKey>(),
+            value_type_value: ValueInfo::new::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -103,51 +99,51 @@ impl MapInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the map.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the map type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The [type name] of the key.
     ///
     /// [type name]: std::any::type_name
     pub fn key_type_name(&self) -> &'static str {
-        self.key_type_name
+        self.key_type_value.type_name()
     }
 
     /// The [`TypeId`] of the key.
     pub fn key_type_id(&self) -> TypeId {
-        self.key_type_id
+        self.key_type_value.type_id()
     }
 
     /// Check if the given type matches the key type.
     pub fn key_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.key_type_id
+        self.key_type_value.is::<T>()
     }
 
     /// The [type name] of the value.
     ///
     /// [type name]: std::any::type_name
     pub fn value_type_name(&self) -> &'static str {
-        self.value_type_name
+        self.value_type_value.type_name()
     }
 
     /// The [`TypeId`] of the value.
     pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
+        self.value_type_value.type_id()
     }
 
     /// Check if the given type matches the value type.
     pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+        self.value_type_value.is::<T>()
     }
 
     /// The docstring of this map, if any.

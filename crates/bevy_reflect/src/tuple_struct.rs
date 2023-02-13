@@ -1,6 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
+    ValueInfo,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -52,8 +53,7 @@ pub trait TupleStruct: Reflect {
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
     name: &'static str,
-    type_name: &'static str,
-    type_id: TypeId,
+    type_value: ValueInfo,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -70,8 +70,7 @@ impl TupleStructInfo {
     pub fn new<T: Reflect>(name: &'static str, fields: &[UnnamedField]) -> Self {
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            type_value: ValueInfo::new::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -112,17 +111,17 @@ impl TupleStructInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the tuple struct.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the tuple struct type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The docstring of this struct, if any.

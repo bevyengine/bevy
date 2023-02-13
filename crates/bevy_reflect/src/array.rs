@@ -1,6 +1,6 @@
 use crate::{
     utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -45,10 +45,8 @@ pub trait Array: Reflect {
 /// A container for compile-time array info.
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
-    type_name: &'static str,
-    type_id: TypeId,
-    item_type_name: &'static str,
-    item_type_id: TypeId,
+    type_value: ValueInfo,
+    item_type_value: ValueInfo,
     capacity: usize,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -63,10 +61,8 @@ impl ArrayInfo {
     ///
     pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
         Self {
-            type_name: std::any::type_name::<TArray>(),
-            type_id: TypeId::of::<TArray>(),
-            item_type_name: std::any::type_name::<TItem>(),
-            item_type_id: TypeId::of::<TItem>(),
+            type_value: ValueInfo::new::<TArray>(),
+            item_type_value: ValueInfo::new::<TItem>(),
             capacity,
             #[cfg(feature = "documentation")]
             docs: None,
@@ -88,34 +84,34 @@ impl ArrayInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_name
+        self.type_value.type_name()
     }
 
     /// The [`TypeId`] of the array.
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_value.type_id()
     }
 
     /// Check if the given type matches the array type.
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+        self.type_value.is::<T>()
     }
 
     /// The [type name] of the array item.
     ///
     /// [type name]: std::any::type_name
     pub fn item_type_name(&self) -> &'static str {
-        self.item_type_name
+        self.item_type_value.type_name()
     }
 
     /// The [`TypeId`] of the array item.
     pub fn item_type_id(&self) -> TypeId {
-        self.item_type_id
+        self.item_type_value.type_id()
     }
 
     /// Check if the given type matches the array item type.
     pub fn item_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.item_type_id
+        self.item_type_value.is::<T>()
     }
 
     /// The docstring of this array, if any.
