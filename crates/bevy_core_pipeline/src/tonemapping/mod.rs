@@ -1,7 +1,7 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{
-    load_internal_asset, load_internal_binary_asset, AssetServer, Handle, HandleUntyped,
+    load_internal_asset, load_internal_binary_asset, AssetServer, Assets, Handle, HandleUntyped,
 };
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
@@ -23,9 +23,6 @@ const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
 const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
 
-const AGX_LUT_IMAGE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1419536523291344910);
-
 #[derive(Resource)]
 struct AGXLut(Handle<Image>);
 
@@ -46,25 +43,17 @@ impl Plugin for TonemappingPlugin {
             Shader::from_wgsl
         );
 
-        // TODO when this works remove luts from assets
-        //load_internal_binary_asset!(
-        //    app,
-        //    AGX_LUT_IMAGE_HANDLE,
-        //    "luts/AgX-default_contrast.lut.exr",
-        //    |bytes| -> Image {
-        //        Image::from_buffer(
-        //            bytes,
-        //            ImageType::Extension("exr"),
-        //            CompressedImageFormats::NONE,
-        //            false,
-        //        )
-        //        .unwrap()
-        //    }
-        //);
+        let mut images = app.world.resource_mut::<Assets<Image>>();
 
-        let mut state = SystemState::<Res<AssetServer>>::new(&mut app.world);
-        let asset_server = state.get_mut(&mut app.world);
-        let agx_lut = asset_server.load("luts/combined_luts.exr");
+        let agx_lut = images.add(
+            Image::from_buffer(
+                include_bytes!("luts/combined_luts.exr"),
+                ImageType::Extension("exr"),
+                CompressedImageFormats::NONE,
+                false,
+            )
+            .unwrap(),
+        );
 
         app.register_type::<Tonemapping>();
 

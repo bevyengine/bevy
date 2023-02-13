@@ -18,8 +18,6 @@ use bevy_render::{
 };
 use bevy_utils::default;
 
-use super::AGX_LUT_IMAGE_HANDLE;
-
 pub struct TonemappingNode {
     query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
@@ -95,11 +93,6 @@ impl Node for TonemappingNode {
                             mipmap_filter: FilterMode::Linear,
                             ..default()
                         });
-
-                // TODO when this works remove luts from assets
-                //let agx_lut_image = gpu_images
-                //    .get(&AGX_LUT_IMAGE_HANDLE.typed::<Image>())
-                //    .unwrap();
 
                 let agx_lut = world.resource::<AGXLut>();
                 let agx_lut_image = gpu_images.get(&agx_lut.0).unwrap();
