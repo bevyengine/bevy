@@ -390,7 +390,6 @@ impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
-    F::Param: 'static,
 {
     type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
@@ -419,7 +418,6 @@ impl<Marker, F> System for FunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
-    F::Param: 'static,
 {
     type In = F::In;
     type Out = F::Out;
@@ -531,7 +529,7 @@ unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
-    F::Param: ReadOnlySystemParam + 'static,
+    F::Param: ReadOnlySystemParam,
 {
 }
 
@@ -596,8 +594,8 @@ where
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
-    type In: 'static;
-    type Out: 'static;
+    type In;
+    type Out;
     type Param: SystemParam;
     fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
@@ -632,7 +630,7 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input: 'static, Out: 'static, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
