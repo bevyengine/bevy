@@ -1,12 +1,35 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
+struct ColorGrading {
+    exposure: f32,
+    gamma: f32,
+    pre_saturation: f32,
+    post_saturation: f32,
+}
+
+struct View {
+    view_proj: mat4x4<f32>,
+    inverse_view_proj: mat4x4<f32>,
+    view: mat4x4<f32>,
+    inverse_view: mat4x4<f32>,
+    projection: mat4x4<f32>,
+    inverse_projection: mat4x4<f32>,
+    world_position: vec3<f32>,
+    // viewport(x_origin, y_origin, width, height)
+    viewport: vec4<f32>,
+    color_grading: ColorGrading,
+};
+
 @group(0) @binding(0)
-var hdr_texture: texture_2d<f32>;
+var<uniform> view: View;
+
 @group(0) @binding(1)
-var hdr_sampler: sampler;
+var hdr_texture: texture_2d<f32>;
 @group(0) @binding(2)
-var dt_lut_texture: texture_3d<f32>;
+var hdr_sampler: sampler;
 @group(0) @binding(3)
+var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(4)
 var dt_lut_sampler: sampler;
 
 #import bevy_core_pipeline::tonemapping

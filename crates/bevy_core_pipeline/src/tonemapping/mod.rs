@@ -8,7 +8,7 @@ use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageType};
-use bevy_render::view::ViewTarget;
+use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
@@ -151,32 +151,41 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
 impl FromWorld for TonemappingPipeline {
     fn from_world(render_world: &mut World) -> Self {
+        let mut entries = vec![
+            BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: Some(ViewUniform::min_size()),
+                },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Float { filterable: false },
+                    view_dimension: TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: 2,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                count: None,
+            },
+        ];
+        entries.extend(get_lut_bind_group_layout_entries([3, 4]));
+
         let tonemap_texture_bind_group = render_world
             .resource::<RenderDevice>()
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("tonemapping_hdr_texture_bind_group_layout"),
-                entries: &[
-                    [
-                        BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: ShaderStages::FRAGMENT,
-                            ty: BindingType::Texture {
-                                sample_type: TextureSampleType::Float { filterable: false },
-                                view_dimension: TextureViewDimension::D2,
-                                multisampled: false,
-                            },
-                            count: None,
-                        },
-                        BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: ShaderStages::FRAGMENT,
-                            ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                            count: None,
-                        },
-                    ],
-                    get_lut_bind_group_layout_entries([2, 3]),
-                ]
-                .concat(),
+                entries: &entries,
             });
 
         TonemappingPipeline {

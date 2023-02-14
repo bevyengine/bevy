@@ -369,26 +369,31 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
 }
 
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
-    var color = max(in, vec4(0.0));
+    var color = max(in.rgb, vec3(0.0));
+
+    color = saturation(color, view.color_grading.pre_saturation);
+    color = powsafe(color, view.color_grading.gamma);
+    color = color * powsafe(vec3(2.0), view.color_grading.exposure);
+
     // tone_mapping
 #ifdef TONEMAP_METHOD_NONE
     color = color;
 #endif
 #ifdef TONEMAP_METHOD_REINHARD
-    color = vec4<f32>(tonemapping_reinhard(color.rgb), in.a);
+    color = tonemapping_reinhard(color.rgb);
 #endif
 #ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
-    color = vec4<f32>(tonemapping_reinhard_luminance(color.rgb), in.a);
+    color = tonemapping_reinhard_luminance(color.rgb);
 #endif
 #ifdef TONEMAP_METHOD_ACES
     // TODO figure out correct value for white here, or factor it out
-    color = vec4<f32>(tonemapping_aces_godot_4(color.rgb, 1000.0), in.a);
+    color = tonemapping_aces_godot_4(color.rgb, 1000.0);
 #endif
 #ifdef TONEMAP_METHOD_AGX
-    color = vec4<f32>(tonemapping_AgX(color.rgb), in.a);
+    color = tonemapping_AgX(color.rgb);
 #endif
 #ifdef TONEMAP_METHOD_SBDT
-    color = vec4<f32>(tonemapping_sbdt(color.rgb), in.a);
+    color = tonemapping_sbdt(color.rgb);
 #endif
 #ifdef TONEMAP_METHOD_SBDT2
     let block_size = 32.0;
@@ -399,7 +404,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     c.y = 1.0 - c.y;
     c = applyAgXLUT3D(c, block_size, vec2<f32>(1024.0, 32.0), vec2(1024.0, 0.0));
     c = pow(c, vec3(2.2));
-    color = vec4<f32>(c, in.a);
+    color = c;
 #endif
 #ifdef TONEMAP_METHOD_BLENDER_FILMIC
     let block_size = 64.0;
@@ -408,8 +413,11 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     c = convertOpenDomainToNormalizedLog2(c, -11.0, 12.0);
     c = saturate(c);
     c = applyAgXLUT3D(c, block_size, vec2<f32>(4096.0, 64.0), vec2(0.0, 32.0 + block_size * selector));
-    color = vec4<f32>(c, in.a);
+    color = c;
 #endif
+
+
+    color = saturation(color, view.color_grading.post_saturation);
 
     // tonemapping_maintain_hue
     // tonemapping_snidt
@@ -424,7 +432,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 
     
-    return color;
+    return vec4(color, in.a);
 }
 
 // Just for testing

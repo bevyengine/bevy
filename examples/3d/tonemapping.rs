@@ -15,6 +15,7 @@ use bevy::{
             AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
         },
         texture::ImageSampler,
+        view::ColorGrading,
     },
 };
 
@@ -36,6 +37,7 @@ fn main() {
         .add_system(hdr_viewer)
         .add_system(toggle_scene)
         .add_system(toggle_tonemapping)
+        .add_system(update_color_grading_settings)
         .run();
 }
 
@@ -69,7 +71,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
     commands
         .spawn(Camera3dBundle {
             camera: Camera {
-                hdr: true, // Works with and without hdr
+                hdr: false, // Works with and without hdr
                 ..default()
             },
             transform: cam_trans.0,
@@ -83,6 +85,26 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         });
+
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 18.0,
+                color: Color::BLACK,
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+            ..default()
+        }),
+    );
 }
 
 fn scene1(
@@ -382,6 +404,92 @@ fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemappi
             };
             println!("Blender Filmic");
         }
+    }
+}
+
+fn update_color_grading_settings(
+    mut grading: Query<&mut ColorGrading>,
+    mut text: Query<&mut Text>,
+    keycode: Res<Input<KeyCode>>,
+    tonemapping: Query<&Tonemapping>,
+    time: Res<Time>,
+) {
+    let mut color_grading = grading.single_mut();
+    let tonemapping = tonemapping.single();
+
+    let mut text = text.single_mut();
+    let text = &mut text.sections[0].value;
+
+    *text = "Settings\n".to_string();
+    text.push_str("-------------\n");
+
+    match tonemapping {
+        Tonemapping::Disabled => text.push_str("Tonemapping: Disabled\n"),
+        Tonemapping::Enabled {
+            deband_dither,
+            method,
+        } => match method {
+            TonemappingMethod::None => text.push_str("Tonemapping: Bypassed\n"),
+            TonemappingMethod::Reinhard => text.push_str("Tonemapping: Reinhard\n"),
+            TonemappingMethod::ReinhardLuminance => {
+                text.push_str("Tonemapping: Reinhard Luminance\n")
+            }
+            TonemappingMethod::Aces => text.push_str("Tonemapping: Aces\n"),
+            TonemappingMethod::AgX => text.push_str("Tonemapping: AgX\n"),
+            TonemappingMethod::SBDT => text.push_str("Tonemapping: SBDT\n"),
+            TonemappingMethod::SBDT2 => text.push_str("Tonemapping: SBDT2\n"),
+            TonemappingMethod::BlenderFilmic => text.push_str("Tonemapping: Blender Filmic\n"),
+        },
+    }
+
+    text.push_str(&format!("Exposure: {}\n", color_grading.exposure));
+    text.push_str(&format!("Gamma: {}\n", color_grading.gamma));
+    text.push_str(&format!(
+        "Pre Saturation: {}\n",
+        color_grading.pre_saturation
+    ));
+    text.push_str(&format!(
+        "Post Saturation: {}\n",
+        color_grading.post_saturation
+    ));
+
+    text.push_str("\n\n");
+
+    text.push_str("Controls (-/+)\n");
+    text.push_str("---------------\n");
+    text.push_str("Q/W - Exposure\n");
+    text.push_str("E/R - Gamma\n");
+    text.push_str("A/S - Pre Saturation\n");
+    text.push_str("D/F - Post Saturation\n");
+
+    let dt = time.delta_seconds();
+
+    if keycode.pressed(KeyCode::Q) {
+        color_grading.exposure -= dt;
+    }
+    if keycode.pressed(KeyCode::W) {
+        color_grading.exposure += dt;
+    }
+
+    if keycode.pressed(KeyCode::E) {
+        color_grading.gamma -= dt;
+    }
+    if keycode.pressed(KeyCode::R) {
+        color_grading.gamma += dt;
+    }
+
+    if keycode.pressed(KeyCode::A) {
+        color_grading.pre_saturation -= dt;
+    }
+    if keycode.pressed(KeyCode::S) {
+        color_grading.pre_saturation += dt;
+    }
+
+    if keycode.pressed(KeyCode::D) {
+        color_grading.post_saturation -= dt;
+    }
+    if keycode.pressed(KeyCode::F) {
+        color_grading.post_saturation += dt;
     }
 }
 

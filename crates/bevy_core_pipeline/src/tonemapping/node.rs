@@ -14,7 +14,7 @@ use bevy_render::{
     },
     renderer::RenderContext,
     texture::Image,
-    view::{ExtractedView, ViewTarget},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
 use super::{get_lut_bindings, Tonemapping};
@@ -22,6 +22,7 @@ use super::{get_lut_bindings, Tonemapping};
 pub struct TonemappingNode {
     query: QueryState<
         (
+            &'static ViewUniformOffset,
             &'static ViewTarget,
             &'static ViewTonemappingPipeline,
             &'static Tonemapping,
@@ -63,8 +64,10 @@ impl Node for TonemappingNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
+        let view_uniforms_resource = world.resource::<ViewUniforms>();
+        let view_uniforms = view_uniforms_resource.uniforms.binding().unwrap();
 
-        let (target, view_tonemapping_pipeline, tonemapping) =
+        let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
             match self.query.get_manual(world, view_entity) {
                 Ok(result) => result,
                 Err(_) => return Ok(()),
@@ -104,31 +107,35 @@ impl Node for TonemappingNode {
 
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
+                let mut entries = vec![
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_uniforms.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::TextureView(source),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::Sampler(&sampler),
+                    },
+                ];
+
+                entries.extend(get_lut_bindings(
+                    &gpu_images,
+                    tonemapping_luts,
+                    tonemapping,
+                    [3, 4],
+                ));
+
                 let bind_group =
                     render_context
                         .render_device()
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
                             layout: &tonemapping_pipeline.texture_bind_group,
-                            entries: &[
-                                [
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(source),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&sampler),
-                                    },
-                                ],
-                                get_lut_bindings(
-                                    &gpu_images,
-                                    tonemapping_luts,
-                                    tonemapping,
-                                    [2, 3],
-                                ),
-                            ]
-                            .concat(),
+                            entries: &entries,
                         });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
@@ -154,7 +161,7 @@ impl Node for TonemappingNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, bind_group, &[]);
+        render_pass.set_bind_group(0, bind_group, &[view_uniform_offset.offset]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())

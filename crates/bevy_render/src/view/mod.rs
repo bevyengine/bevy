@@ -100,12 +100,33 @@ pub struct ExtractedView {
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
+    pub color_grading: ColorGrading,
 }
 
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
         ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+    }
+}
+
+#[derive(Component, Reflect, Debug, Copy, Clone, ShaderType)]
+#[reflect(Component)]
+pub struct ColorGrading {
+    pub exposure: f32,
+    pub gamma: f32,
+    pub pre_saturation: f32,
+    pub post_saturation: f32,
+}
+
+impl Default for ColorGrading {
+    fn default() -> Self {
+        Self {
+            exposure: 0.0,
+            gamma: 1.0,
+            pre_saturation: 1.0,
+            post_saturation: 1.0,
+        }
     }
 }
 
@@ -120,6 +141,7 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    color_grading: ColorGrading,
 }
 
 #[derive(Resource, Default)]
@@ -281,6 +303,7 @@ fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport: camera.viewport.as_vec4(),
+                color_grading: camera.color_grading,
             }),
         };
 
