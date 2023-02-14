@@ -658,6 +658,16 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 
