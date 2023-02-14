@@ -386,15 +386,13 @@ where
 
 pub struct IsFunctionSystem;
 
-impl<In, Out, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Marker)> for F
+impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
 where
-    In: 'static,
-    Out: 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker> + Send + Sync + 'static,
     F::Param: 'static,
 {
-    type System = FunctionSystem<In, Out, F::Param, Marker, F>;
+    type System = FunctionSystem<F::In, F::Out, F::Param, Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -417,16 +415,14 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<In, Out, Marker, F> System for FunctionSystem<In, Out, F::Param, Marker, F>
+impl<Marker, F> System for FunctionSystem<F::In, F::Out, F::Param, Marker, F>
 where
-    In: 'static,
-    Out: 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker> + Send + Sync + 'static,
     F::Param: 'static,
 {
-    type In = In;
-    type Out = Out;
+    type In = F::In;
+    type Out = F::Out;
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
@@ -531,12 +527,10 @@ where
 }
 
 /// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
-unsafe impl<In, Out, Marker, F> ReadOnlySystem for FunctionSystem<In, Out, F::Param, Marker, F>
+unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<F::In, F::Out, F::Param, Marker, F>
 where
-    In: 'static,
-    Out: 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker> + Send + Sync + 'static,
     F::Param: ReadOnlySystemParam + 'static,
 {
 }
@@ -606,20 +600,24 @@ where
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
-pub trait SystemParamFunction<In, Out, Marker>: Send + Sync + 'static {
+pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    type In: 'static;
+    type Out: 'static;
     type Param: SystemParam;
-    fn run(&mut self, input: In, param_value: SystemParamItem<Self::Param>) -> Out;
+    fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ((), ($($param,)*))> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<((), Out, ($($param,)*))> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = ();
+            type Out = Out;
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
@@ -639,12 +637,14 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, (InputMarker, ($($param,)*))> for Func
+        impl<Input: 'static, Out: 'static, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(InputMarker, Input, Out, ($($param,)*))> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
                 FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = Input;
+            type Out = Out;
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {

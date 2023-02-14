@@ -130,9 +130,9 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 }
 
 // systems
-impl<In, Out, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Out, Marker)> for F
+impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
-    F: SystemParamFunction<In, Out, Marker>,
+    F: SystemParamFunction<Marker>,
 {
     type Set = SystemTypeSet<Self>;
 
