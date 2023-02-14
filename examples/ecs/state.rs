@@ -18,10 +18,10 @@ fn main() {
         .add_system_to_schedule(OnEnter(AppState::Menu), setup_menu)
         // By contrast, on_update systems are stored in the main schedule, during CoreSet::Update,
         // and simply check the value of the `State<T>` resource to see if they should run each frame.
-        .add_system(menu.on_update(AppState::Menu))
+        .add_system(menu.in_set(OnUpdate(AppState::Menu)))
         .add_system_to_schedule(OnExit(AppState::Menu), cleanup_menu)
         .add_system_to_schedule(OnEnter(AppState::InGame), setup_game)
-        .add_systems((movement, change_color).on_update(AppState::InGame))
+        .add_systems((movement, change_color).in_set(OnUpdate(AppState::InGame)))
         .run();
 }
 
