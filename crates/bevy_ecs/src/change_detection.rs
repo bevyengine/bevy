@@ -125,6 +125,7 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
+    #[inline]
     fn set_if_neq(&mut self, value: Self::Inner)
     where
         Self::Inner: Sized + PartialEq,
