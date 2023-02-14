@@ -54,14 +54,14 @@ pub enum PrepareAssetSet {
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
 /// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset> {
-    prepare_asset_label: PrepareAssetSet,
+    prepare_asset_set: PrepareAssetSet,
     phantom: PhantomData<fn() -> A>,
 }
 
 impl<A: RenderAsset> RenderAssetPlugin<A> {
-    pub fn with_prepare_asset_label(prepare_asset_label: PrepareAssetSet) -> Self {
+    pub fn with_prepare_asset_set(prepare_asset_set: PrepareAssetSet) -> Self {
         Self {
-            prepare_asset_label,
+            prepare_asset_set,
             phantom: PhantomData,
         }
     }
@@ -70,7 +70,7 @@ impl<A: RenderAsset> RenderAssetPlugin<A> {
 impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
     fn default() -> Self {
         Self {
-            prepare_asset_label: Default::default(),
+            prepare_asset_set: Default::default(),
             phantom: PhantomData,
         }
     }
@@ -93,7 +93,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_system_to_schedule(ExtractSchedule, extract_render_asset::<A>)
-                .add_system(prepare_assets::<A>.in_set(self.prepare_asset_label.clone()));
+                .add_system(prepare_assets::<A>.in_set(self.prepare_asset_set.clone()));
         }
     }
 }

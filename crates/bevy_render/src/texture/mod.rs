@@ -84,7 +84,7 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
+        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_set(
             PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
