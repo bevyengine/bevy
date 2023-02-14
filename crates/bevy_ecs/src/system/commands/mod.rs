@@ -33,7 +33,7 @@ use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 ///
 /// impl Command for AddToCounter {
 ///     fn write(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+///         let mut counter = world.get_resource_or_init::<Counter>();
 ///         counter.0 += self.0;
 ///     }
 /// }
@@ -520,7 +520,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// impl Command for AddToCounter {
     ///     fn write(self, world: &mut World) {
-    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         let mut counter = world.get_resource_or_init::<Counter>();
     ///         counter.0 += self.0;
     ///     }
     /// }
@@ -530,7 +530,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
     ///     commands.add(|world: &mut World| {
-    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         let mut counter = world.get_resource_or_init::<Counter>();
     ///         counter.0 += 25;
     ///     });
     /// }

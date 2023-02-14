@@ -78,7 +78,7 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let settings = app
             .world
-            .get_resource_or_insert_with(ScheduleRunnerSettings::default)
+            .get_resource_or_init::<ScheduleRunnerSettings>()
             .to_owned();
         app.set_runner(move |mut app: App| {
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();

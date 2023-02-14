@@ -959,7 +959,10 @@ impl World {
     /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
-    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    /// use either:
+    ///
+    /// * [`get_resource_or_insert_with`](World::get_resource_or_insert_with)
+    /// * [`get_resource_or_init`](World::get_resource_or_init)
     #[inline]
     #[track_caller]
     pub fn resource<R: Resource>(&self) -> &R {
@@ -983,7 +986,10 @@ impl World {
     /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
-    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    /// use either:
+    ///
+    /// * [`get_resource_or_insert_with`](World::get_resource_or_insert_with)
+    /// * [`get_resource_or_init`](World::get_resource_or_init)
     #[inline]
     #[track_caller]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
@@ -1045,6 +1051,13 @@ impl World {
         };
         // SAFETY: The underlying type of the resource is `R`.
         unsafe { data.with_type::<R>() }
+    }
+
+    /// Gets a mutable reference to the resource of type `T` if it exists,
+    /// otherwise inserts the resource using the result of calling `T::default`.
+    #[inline]
+    pub fn get_resource_or_init<R: Resource + Default>(&mut self) -> Mut<'_, R> {
+        self.get_resource_or_insert_with(R::default)
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
