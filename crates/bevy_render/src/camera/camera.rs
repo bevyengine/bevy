@@ -642,7 +642,7 @@ pub fn sort_cameras(
             entity,
             order: camera.order,
             target: camera.target.clone(),
-        })
+        });
     }
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
     sorted_cameras

@@ -123,7 +123,7 @@ impl Node for MsaaWritebackNode {
                         entries: &[
                             BindGroupEntry {
                                 binding: 0,
-                                resource: BindingResource::TextureView(&post_process.source),
+                                resource: BindingResource::TextureView(post_process.source),
                             },
                             BindGroupEntry {
                                 binding: 1,

@@ -32,7 +32,7 @@ impl Node for CameraDriverNode {
     ) -> Result<(), NodeRunError> {
         let sorted_cameras = world.resource::<SortedCameras>();
         let mut camera_windows = HashSet::new();
-        for sorted_camera in sorted_cameras.0.iter() {
+        for sorted_camera in &sorted_cameras.0 {
             if let Ok(camera) = self.cameras.get_manual(world, sorted_camera.entity) {
                 if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
                     camera_windows.insert(window_ref.entity());
