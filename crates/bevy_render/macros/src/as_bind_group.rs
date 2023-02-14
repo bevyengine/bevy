@@ -36,9 +36,8 @@ enum BindingState<'a> {
 }
 
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
-    let manifest = BevyManifest::default();
-    let render_path = manifest.get_path("bevy_render");
-    let asset_path = manifest.get_path("bevy_asset");
+    let render_path = BevyManifest::get_path_direct("bevy_render");
+    let asset_path = BevyManifest::get_path_direct("bevy_asset");
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();

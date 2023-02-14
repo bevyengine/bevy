@@ -5,6 +5,7 @@ mod shape;
 mod symbol;
 
 pub use attrs::*;
+use once_cell::sync::OnceCell;
 pub use shape::*;
 pub use symbol::*;
 
@@ -18,9 +19,13 @@ pub struct BevyManifest {
     manifest: Document,
 }
 
-impl Default for BevyManifest {
-    fn default() -> Self {
-        Self {
+const BEVY: &str = "bevy";
+const BEVY_INTERNAL: &str = "bevy_internal";
+
+impl BevyManifest {
+    pub fn get() -> &'static Self {
+        static MANIFEST: OnceCell<BevyManifest> = OnceCell::new();
+        MANIFEST.get_or_init(|| Self {
             manifest: env::var_os("CARGO_MANIFEST_DIR")
                 .map(PathBuf::from)
                 .map(|mut path| {
@@ -29,13 +34,9 @@ impl Default for BevyManifest {
                     manifest.parse::<Document>().unwrap()
                 })
                 .unwrap(),
-        }
+        })
     }
-}
-const BEVY: &str = "bevy";
-const BEVY_INTERNAL: &str = "bevy_internal";
 
-impl BevyManifest {
     pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
         fn dep_package(dep: &Item) -> Option<&str> {
             if dep.as_str().is_some() {
@@ -75,14 +76,10 @@ impl BevyManifest {
     /// This is a convenience method for constructing a [manifest] and
     /// calling the [`get_path`] method.
     ///
-    /// This method should only be used where you just need the path and can't
-    /// cache the [manifest]. If caching is possible, it's recommended to create
-    /// the [manifest] yourself and use the [`get_path`] method.
-    ///
     /// [`get_path`]: Self::get_path
     /// [manifest]: Self
     pub fn get_path_direct(name: &str) -> syn::Path {
-        Self::default().get_path(name)
+        Self::get().get_path(name)
     }
 
     pub fn get_path(&self, name: &str) -> syn::Path {

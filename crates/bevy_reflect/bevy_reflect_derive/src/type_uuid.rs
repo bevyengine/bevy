@@ -9,7 +9,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
     let mut ast: DeriveInput = syn::parse(input).unwrap();
-    let bevy_reflect_path: Path = BevyManifest::default().get_path("bevy_reflect");
+    let bevy_reflect_path: Path = BevyManifest::get_path_direct("bevy_reflect");
 
     // Build the trait implementation
     let name = &ast.ident;

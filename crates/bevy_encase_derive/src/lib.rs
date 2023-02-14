@@ -4,7 +4,7 @@ use encase_derive_impl::{implement, syn};
 const ENCASE: &str = "encase";
 
 fn bevy_encase_path() -> syn::Path {
-    let bevy_manifest = BevyManifest::default();
+    let bevy_manifest = BevyManifest::get();
     bevy_manifest
         .get_subcrate("render")
         .map(|bevy_render_path| {
