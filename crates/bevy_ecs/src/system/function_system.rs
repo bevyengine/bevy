@@ -632,7 +632,7 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input: 'static, Out: 'static, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(InputMarker, Input, Out, $($param,)*)> for Func
+        impl<Input: 'static, Out: 'static, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
