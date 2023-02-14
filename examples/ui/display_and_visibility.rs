@@ -2,8 +2,8 @@
 
 use bevy::prelude::*;
 
-const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "EFF2F1"];
-const SELECTION_COLOR: &str = "F4B942";
+const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "F4B942"];
+const SELECTION_COLOR: &str = "EFF2F1";
 
 fn main() {
     App::new()
@@ -16,6 +16,18 @@ fn main() {
 
 #[derive(Component)]
 struct ButtonTarget {
+    id: Entity,
+    color: Color,
+}
+
+#[derive(Component)]
+struct DisplayButton {
+    id: Entity,
+    color: Color,
+}
+
+#[derive(Component)]
+struct VisibilityButton {
     id: Entity,
     color: Color,
 }
@@ -42,10 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }).with_children(|parent| {
         parent.spawn(TextBundle {
             text: Text::from_section(
-                #[cfg(not(target_arch = "wasm32"))]
-                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left.\n\nLeft Click to change Display\nRight Click to change Visibility",
-                #[cfg(target_arch = "wasm32")]
-                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left.\n\nLeft Click to change Display\nPress Space to change Visibility",
+                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left",                
                 text_style.clone(),
             ).with_alignment(TextAlignment::Center),
             style: Style {
@@ -57,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         parent
             .spawn(NodeBundle {
                 style: Style {
-                    size: Size::all(Val::Percent(100.)),
+                    flex_basis: Val::Percent(100.),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceEvenly,
                     ..Default::default()
@@ -175,7 +184,7 @@ fn spawn_right_panel(
     parent: &mut ChildBuilder,
     text_style: TextStyle,
     palette: &[Color; 4],
-    mut target_ids: Vec<Entity>,
+    target_ids: Vec<Entity>,
 ) {
     parent
         .spawn(NodeBundle {
@@ -188,8 +197,8 @@ fn spawn_right_panel(
         })
         .with_children(|parent| {
             parent
-                .spawn((
-                    ButtonBundle {
+                .spawn(
+                    NodeBundle {
                         style: Style {
                             size: Size::all(Val::Px(500.)),
                             flex_direction: FlexDirection::Column,
@@ -205,27 +214,13 @@ fn spawn_right_panel(
                         background_color: BackgroundColor(palette[0]),
                         ..Default::default()
                     },
-                    ButtonTarget {
-                        id: target_ids.pop().unwrap(),
-                        color: palette[0],
-                    },
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        TextBundle {
-                            text: Text::from_section("", text_style.clone()),
-                            style: Style {
-                                align_self: AlignSelf::FlexStart,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                        BackgroundColor(Color::BLACK.with_a(0.5)),
-                    ));
+                ).with_children(|parent| {
+                spawn_button(parent, text_style.clone(), DisplayButton { id: target_ids[0], color: palette[0] });
+                spawn_button(parent, text_style.clone(), VisibilityButton { id: target_ids[0], color: palette[0] });
 
                     parent
                         .spawn((
-                            ButtonBundle {
+                            NodeBundle {
                                 style: Style {
                                     size: Size::all(Val::Px(400.)),
                                     flex_direction: FlexDirection::Column,
@@ -241,27 +236,14 @@ fn spawn_right_panel(
                                 background_color: BackgroundColor(palette[1]),
                                 ..Default::default()
                             },
-                            ButtonTarget {
-                                id: target_ids.pop().unwrap(),
-                                color: palette[1],
-                            },
                         ))
                         .with_children(|parent| {
-                            parent.spawn((
-                                TextBundle {
-                                    text: Text::from_section("", text_style.clone()),
-                                    style: Style {
-                                        align_self: AlignSelf::FlexStart,
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                },
-                                BackgroundColor(Color::BLACK.with_a(0.5)),
-                            ));
-
+                            spawn_button(parent, text_style.clone(), DisplayButton { id: target_ids[1], color: palette[1] });
+                            spawn_button(parent, text_style.clone(), VisibilityButton { id: target_ids[1], color: palette[1] });
+                        
                             parent
                                 .spawn((
-                                    ButtonBundle {
+                                    NodeBundle {
                                         style: Style {
                                             size: Size::all(Val::Px(300.)),
                                             flex_direction: FlexDirection::Column,
@@ -277,31 +259,20 @@ fn spawn_right_panel(
                                         background_color: BackgroundColor(palette[2]),
                                         ..Default::default()
                                     },
-                                    ButtonTarget {
-                                        id: target_ids.pop().unwrap(),
-                                        color: palette[2],
-                                    },
+                                   
                                 ))
                                 .with_children(|parent| {
-                                    parent.spawn((
-                                        TextBundle {
-                                            text: Text::from_section("", text_style.clone()),
-                                            style: Style {
-                                                align_self: AlignSelf::FlexStart,
-                                                ..Default::default()
-                                            },
-                                            ..Default::default()
-                                        },
-                                        BackgroundColor(Color::BLACK.with_a(0.5)),
-                                    ));
+                                    spawn_button(parent, text_style.clone(), DisplayButton { id: target_ids[2], color: palette[2] });
+                                    spawn_button(parent, text_style.clone(), VisibilityButton { id: target_ids[2], color: palette[2] });
 
                                     parent
                                         .spawn((
-                                            ButtonBundle {
+                                            NodeBundle {
                                                 style: Style {
                                                     size: Size::all(Val::Px(200.)),
                                                     align_items: AlignItems::FlexStart,
-                                                    justify_content: JustifyContent::FlexStart,
+                                                    justify_content: JustifyContent::SpaceBetween,
+                                                    flex_direction: FlexDirection::Column,
                                                     padding: UiRect {
                                                         left: Val::Px(5.),
                                                         top: Val::Px(5.),
@@ -312,27 +283,24 @@ fn spawn_right_panel(
                                                 background_color: BackgroundColor(palette[3]),
                                                 ..Default::default()
                                             },
-                                            ButtonTarget {
-                                                id: target_ids.pop().unwrap(),
-                                                color: palette[3],
-                                            },
                                         ))
                                         .with_children(|parent| {
-                                            parent.spawn((
-                                                TextBundle {
-                                                    text: Text::from_section(
-                                                        "",
-                                                        text_style.clone(),
-                                                    ),
+                                            spawn_button(parent, text_style.clone(), DisplayButton { id: target_ids[3], color: palette[3] });
+                                            spawn_button(parent, text_style.clone(), VisibilityButton { id: target_ids[3], color: palette[3] });
+                                            parent.spawn(NodeBundle {
+                                                style: Style {
+                                                    size: Size::all(Val::Px(100.)),
                                                     ..Default::default()
                                                 },
-                                                BackgroundColor(Color::BLACK.with_a(0.5)),
-                                            ));
+                                                ..Default::default()
+                                            });
+                                                
                                         });
                                 });
                         });
                 });
         });
+    
 }
 
 fn update(
@@ -377,6 +345,45 @@ fn update(
             }
         }
     }
+}
+
+fn spawn_button(
+    parent: &mut ChildBuilder,
+    text_style: TextStyle,
+    marker: impl Bundle,
+) {
+    parent.spawn((
+        ButtonBundle {
+            style: Style {
+                size: Size::new(Val::Px(150.), Val::Px(30.)),
+                align_self: AlignSelf::FlexStart,
+                align_items: AlignItems::Stretch,
+                padding: UiRect::all(Val::Px(2.)),
+                ..Default::default()
+            },
+            background_color: BackgroundColor(Color::WHITE),
+            
+            ..Default::default()
+        },
+        marker,
+    )).with_children(|parent| {
+        parent.spawn(NodeBundle {
+            background_color: BackgroundColor(Color::BLACK),
+            style: Style {
+                flex_basis: Val::Percent(100.),
+                align_self: AlignSelf::Stretch,
+                ..Default::default()
+            },
+            ..Default::default()
+        }).with_children(|parent| {
+            parent.spawn((
+                TextBundle {
+                    text: Text::from_section("", text_style.clone()).with_alignment(TextAlignment::Center),
+                    ..Default::default()
+                },
+            ));
+        });
+    });
 }
 
 fn update_text(
