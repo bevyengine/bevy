@@ -554,9 +554,6 @@ where
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
-/// // Unfortunately, we need all of these generics. `A` is the first system, with its
-/// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of `A` and `B`.
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
