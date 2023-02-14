@@ -173,7 +173,7 @@ impl CubicBezierEasing {
 pub mod bezier_impl {
     use super::Point;
 
-    /// Compute the bernstein basis polynomial for iteration `i`, for a Bezier curve with with
+    /// Compute the Bernstein basis polynomial for iteration `i`, for a Bezier curve with with
     /// degree `n`, at `t`.
     #[inline]
     pub fn bernstein_basis(n: usize, i: usize, t: f32) -> f32 {
