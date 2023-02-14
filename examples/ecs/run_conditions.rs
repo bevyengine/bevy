@@ -17,7 +17,7 @@ fn main() {
         }))
         .add_system(
             increment_input_counter
-                // The common conditions module has a few useful run conditions
+                // The common_conditions module has a few useful run conditions
                 // for checking resources and states, these are included in prelude
                 .run_if(resource_exists::<InputCounter>())
                 // This is our custom run condition, both this and the
