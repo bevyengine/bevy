@@ -104,8 +104,8 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the resource exsists and has changed.
-    pub fn resource_exsits_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    /// if the resource exists and has changed.
+    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
