@@ -142,9 +142,9 @@ where
 }
 
 // exclusive systems
-impl<In, Out, Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, In, Out, Marker)> for F
+impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
-    F: ExclusiveSystemParamFunction<In, Out, Marker>,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
     type Set = SystemTypeSet<Self>;
 
