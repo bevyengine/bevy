@@ -368,7 +368,7 @@ fn applyAgXLUT(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset:
     var Image = Image;
 
     let lut3D = Image * (block_size - 1.0);
-    let tex_dim = vec2<f32>(textureDimensions(agx_lut_texture).xy);
+    let tex_dim = vec2<f32>(textureDimensions(dt_lut_texture).xy);
     let dim = tex_dim / dimensions;
 
     
@@ -393,9 +393,9 @@ fn applyAgXLUT(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset:
     // Bicubic LUT interpolation
     Image = mix(
         // AgXLUT.Sample(LUTSampler, lut2D[0]).rgb 
-        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_0 / dim + offset).rgb, // Front Z 
+        textureSample(dt_lut_texture, dt_lut_sampler, lut2D_0 / dim + offset).rgb, // Front Z 
         // AgXLUT.Sample(LUTSampler, lut2D[1]).rgb
-        textureSample(agx_lut_texture, agx_lut_sampler, lut2D_1 / dim + offset).rgb, // Back Z
+        textureSample(dt_lut_texture, dt_lut_sampler, lut2D_1 / dim + offset).rgb, // Back Z
         fract(lut3D.z)
     );
     return Image;
@@ -523,6 +523,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     return vec4<f32>(tonemapping_reinhard_luminance(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_ACES
+    // TODO figure out correct value for white here, or factor it out
     return vec4<f32>(tonemapping_aces_godot_4(color.rgb, 1000.0), in.a);
 #endif
 #ifdef TONEMAP_METHOD_AGX

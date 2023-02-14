@@ -5,9 +5,9 @@ var hdr_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var hdr_sampler: sampler;
 @group(0) @binding(2)
-var agx_lut_texture: texture_2d<f32>;
+var dt_lut_texture: texture_2d<f32>;
 @group(0) @binding(3)
-var agx_lut_sampler: sampler;
+var dt_lut_sampler: sampler;
 
 #import bevy_core_pipeline::tonemapping
 

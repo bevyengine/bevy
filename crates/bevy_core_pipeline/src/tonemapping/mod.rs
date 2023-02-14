@@ -1,13 +1,11 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{
-    load_internal_asset, load_internal_binary_asset, AssetServer, Assets, Handle, HandleUntyped,
-};
+use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemState;
 use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageType};
 use bevy_render::view::ViewTarget;
@@ -15,6 +13,7 @@ use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
 
+use bevy_utils::default;
 pub use node::TonemappingNode;
 
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
@@ -24,7 +23,7 @@ const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
 
 #[derive(Resource)]
-struct AGXLut(Handle<Image>);
+pub struct TonemappingLuts(Handle<Image>);
 
 pub struct TonemappingPlugin;
 
@@ -45,15 +44,28 @@ impl Plugin for TonemappingPlugin {
 
         let mut images = app.world.resource_mut::<Assets<Image>>();
 
-        let agx_lut = images.add(
-            Image::from_buffer(
-                include_bytes!("luts/combined_luts.exr"),
-                ImageType::Extension("exr"),
-                CompressedImageFormats::NONE,
-                false,
-            )
-            .unwrap(),
-        );
+        let mut image = Image::from_buffer(
+            include_bytes!("luts/combined_luts.exr"),
+            ImageType::Extension("exr"),
+            CompressedImageFormats::NONE,
+            false,
+        )
+        .unwrap();
+
+        image.sampler_descriptor =
+            bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
+                label: Some(&"Tonemapping LUT"),
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Linear,
+                ..default()
+            });
+
+        // TODO move somewhere so the texture is available for shading in the main pass?
+        let tonemapping_lut = images.add(image);
 
         app.register_type::<Tonemapping>();
 
@@ -61,7 +73,7 @@ impl Plugin for TonemappingPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .insert_resource(AGXLut(agx_lut))
+                .insert_resource(TonemappingLuts(tonemapping_lut))
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
@@ -148,39 +160,27 @@ impl FromWorld for TonemappingPipeline {
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("tonemapping_hdr_texture_bind_group_layout"),
                 entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: false },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
+                    [
+                        BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: ShaderStages::FRAGMENT,
+                            ty: BindingType::Texture {
+                                sample_type: TextureSampleType::Float { filterable: false },
+                                view_dimension: TextureViewDimension::D2,
+                                multisampled: false,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
+                        BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: ShaderStages::FRAGMENT,
+                            ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                            count: None,
                         },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
+                    ],
+                    get_lut_bind_group_layout_entries([2, 3]),
+                ]
+                .concat(),
             });
 
         TonemappingPipeline {
@@ -234,4 +234,43 @@ impl Tonemapping {
     pub fn is_enabled(&self) -> bool {
         matches!(self, Tonemapping::Enabled { .. })
     }
+}
+
+pub fn get_lut_bindings<'a>(
+    images: &'a RenderAssets<Image>,
+    tonemapping_luts: &'a TonemappingLuts,
+    bindings: [u32; 2],
+) -> [BindGroupEntry<'a>; 2] {
+    let lut_image = images.get(&tonemapping_luts.0).unwrap();
+    [
+        BindGroupEntry {
+            binding: bindings[0],
+            resource: BindingResource::TextureView(&lut_image.texture_view),
+        },
+        BindGroupEntry {
+            binding: bindings[1],
+            resource: BindingResource::Sampler(&lut_image.sampler),
+        },
+    ]
+}
+
+pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayoutEntry; 2] {
+    [
+        BindGroupLayoutEntry {
+            binding: bindings[0],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: bindings[1],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        },
+    ]
 }

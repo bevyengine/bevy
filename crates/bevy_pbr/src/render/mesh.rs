@@ -6,7 +6,10 @@ use crate::{
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
+use bevy_core_pipeline::{
+    prepass::ViewPrepassTextures,
+    tonemapping::{get_lut_bind_group_layout_entries, get_lut_bindings, TonemappingLuts},
+};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -418,10 +421,14 @@ impl FromWorld for MeshPipeline {
                 environment_map::get_bind_group_layout_entries([11, 12, 13]);
             entries.extend_from_slice(&environment_map_entries);
 
+            // Tonemapping
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
+            entries.extend_from_slice(&tonemapping_lut_entries);
+
             if cfg!(not(feature = "webgl")) {
                 // Depth texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 14,
+                    binding: 16,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -432,7 +439,7 @@ impl FromWorld for MeshPipeline {
                 });
                 // Normal texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 15,
+                    binding: 17,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -760,8 +767,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_NONE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES {
                 shader_defs.push("TONEMAP_METHOD_ACES".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_SBDT {
+                shader_defs.push("TONEMAP_METHOD_SBDT".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -946,6 +961,7 @@ pub fn queue_mesh_view_bind_groups(
     fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
 ) {
     if let (
         Some(view_binding),
@@ -1033,6 +1049,9 @@ pub fn queue_mesh_view_bind_groups(
             );
             entries.extend_from_slice(&env_map);
 
+            let tonemapping_luts = get_lut_bindings(&images, &tonemapping_luts, [14, 15]);
+            entries.extend_from_slice(&tonemapping_luts);
+
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
             // When using WebGL, and MSAA is disabled, we can't bind the textures either
             if cfg!(not(feature = "webgl")) {
@@ -1045,7 +1064,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 14,
+                    binding: 16,
                     resource: BindingResource::TextureView(depth_view),
                 });
 
@@ -1058,7 +1077,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 15,
+                    binding: 17,
                     resource: BindingResource::TextureView(normal_view),
                 });
             }

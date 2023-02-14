@@ -16,6 +16,11 @@ struct View {
 @group(0) @binding(0)
 var<uniform> view: View;
 
+@group(0) @binding(1)
+var dt_lut_texture: texture_2d<f32>;
+@group(0) @binding(2)
+var dt_lut_sampler: sampler;
+
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
 #ifdef COLORED
@@ -54,7 +59,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 #endif
 
 #ifdef TONEMAP_IN_SHADER
-    color = vec4<f32>(reinhard_luminance(color.rgb), color.a);
+    color = tone_mapping(color);
 #endif
 
     return color;

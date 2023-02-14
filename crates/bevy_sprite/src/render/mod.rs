@@ -7,7 +7,10 @@ use crate::{
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
-    tonemapping::{Tonemapping, TonemappingMethod},
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+        TonemappingMethod,
+    },
 };
 use bevy_ecs::{
     prelude::*,
@@ -54,18 +57,22 @@ impl FromWorld for SpritePipeline {
             Res<RenderQueue>,
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
-
+        let lut_entries = get_lut_bind_group_layout_entries([1, 2]);
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                lut_entries[0],
+                lut_entries[1],
+            ],
             label: Some("sprite_view_layout"),
         });
 
@@ -238,8 +245,16 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader_defs.push("TONEMAP_METHOD_NONE".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_ACES {
                 shader_defs.push("TONEMAP_METHOD_ACES".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_SBDT {
+                shader_defs.push("TONEMAP_METHOD_SBDT".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -478,7 +493,6 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut views: Query<(
         &mut RenderPhase<Transparent2d>,
@@ -487,7 +501,11 @@ pub fn queue_sprites(
         Option<&Tonemapping>,
     )>,
     events: Res<SpriteAssetEvents>,
+    msaa_and_luts: (Res<Msaa>, Res<TonemappingLuts>),
 ) {
+    let msaa = msaa_and_luts.0;
+    let tonemapping_luts = msaa_and_luts.1;
+
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
@@ -507,11 +525,16 @@ pub fn queue_sprites(
         sprite_meta.vertices.clear();
         sprite_meta.colored_vertices.clear();
 
+        let mut entries = vec![BindGroupEntry {
+            binding: 0,
+            resource: view_binding,
+        }];
+
+        let tonemapping_luts = get_lut_bindings(&gpu_images, &tonemapping_luts, [1, 2]);
+        entries.extend_from_slice(&tonemapping_luts);
+
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
+            entries: &entries,
             label: Some("sprite_view_bind_group"),
             layout: &sprite_pipeline.view_layout,
         }));

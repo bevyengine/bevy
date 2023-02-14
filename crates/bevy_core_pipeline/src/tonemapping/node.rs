@@ -1,22 +1,23 @@
 use std::sync::Mutex;
 
-use crate::tonemapping::{AGXLut, TonemappingPipeline, ViewTonemappingPipeline};
-use bevy_asset::Handle;
+use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
+
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode,
-        LoadOp, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        SamplerDescriptor, TextureViewId,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
+        TextureViewId,
     },
     renderer::RenderContext,
     texture::Image,
     view::{ExtractedView, ViewTarget},
 };
-use bevy_utils::default;
+
+use super::get_lut_bindings;
 
 pub struct TonemappingNode {
     query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
@@ -80,22 +81,7 @@ impl Node for TonemappingNode {
                     .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
-                let agx_lut_sampler =
-                    render_context
-                        .render_device()
-                        .create_sampler(&SamplerDescriptor {
-                            label: Some(&"AgX LUT"),
-                            address_mode_u: AddressMode::ClampToEdge,
-                            address_mode_v: AddressMode::ClampToEdge,
-                            address_mode_w: AddressMode::ClampToEdge,
-                            mag_filter: FilterMode::Linear,
-                            min_filter: FilterMode::Linear,
-                            mipmap_filter: FilterMode::Linear,
-                            ..default()
-                        });
-
-                let agx_lut = world.resource::<AGXLut>();
-                let agx_lut_image = gpu_images.get(&agx_lut.0).unwrap();
+                let tonemapping_luts = world.resource::<TonemappingLuts>();
 
                 let bind_group =
                     render_context
@@ -104,25 +90,19 @@ impl Node for TonemappingNode {
                             label: None,
                             layout: &tonemapping_pipeline.texture_bind_group,
                             entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                                BindGroupEntry {
-                                    binding: 2,
-                                    resource: BindingResource::TextureView(
-                                        &agx_lut_image.texture_view,
-                                    ),
-                                },
-                                BindGroupEntry {
-                                    binding: 3,
-                                    resource: BindingResource::Sampler(&agx_lut_sampler),
-                                },
-                            ],
+                                [
+                                    BindGroupEntry {
+                                        binding: 0,
+                                        resource: BindingResource::TextureView(source),
+                                    },
+                                    BindGroupEntry {
+                                        binding: 1,
+                                        resource: BindingResource::Sampler(&sampler),
+                                    },
+                                ],
+                                get_lut_bindings(&gpu_images, tonemapping_luts, [2, 3]),
+                            ]
+                            .concat(),
                         });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
