@@ -77,6 +77,7 @@ pub enum UpscalingMode {
     Nearest,
 }
 
+// TODO: Should we remove this in favor of BlitPipeline or might we ultimately want a separate shader / pipeline?
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpscalingPipelineKey {
     upscaling_mode: UpscalingMode,
