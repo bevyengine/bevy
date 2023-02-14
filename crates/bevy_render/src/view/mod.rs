@@ -1,24 +1,25 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_asset::{load_internal_asset, HandleUntyped};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    prelude::Image,
-    rangefinder::ViewRangefinder3d,
+    prelude::{Image, Shader},
     render_asset::RenderAssets,
+    render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -27,10 +28,15 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
+pub const VIEW_TYPE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+
         app.register_type::<ComputedVisibility>()
             .register_type::<ComputedVisibilityFlags>()
             .register_type::<Msaa>()
@@ -45,10 +51,12 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_view_targets.after(WindowSystem::Prepare),
+                .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .add_system(prepare_view_uniforms.in_set(ViewSet::PrepareUniforms))
+                .add_system(
+                    prepare_view_targets
+                        .after(WindowSystem::Prepare)
+                        .in_set(RenderSet::Prepare),
                 );
         }
     }
@@ -56,30 +64,34 @@ impl Plugin for ViewPlugin {
 
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
+/// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
+/// smoother edges.
+/// Defaults to 4.
+///
+/// Note that WGPU currently only supports 1 or 4 samples.
+/// Ultimately we plan on supporting whatever is natively supported on a given device.
+/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+///
 /// # Example
 /// ```
 /// # use bevy_app::prelude::App;
 /// # use bevy_render::prelude::Msaa;
 /// App::new()
-///     .insert_resource(Msaa { samples: 4 })
+///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Clone, ExtractResource, Reflect)]
+#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
 #[reflect(Resource)]
-pub struct Msaa {
-    /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
-    /// smoother edges.
-    /// Defaults to 4.
-    ///
-    /// Note that WGPU currently only supports 1 or 4 samples.
-    /// Ultimately we plan on supporting whatever is natively supported on a given device.
-    /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
-    pub samples: u32,
+pub enum Msaa {
+    Off = 1,
+    #[default]
+    Sample4 = 4,
 }
 
-impl Default for Msaa {
-    fn default() -> Self {
-        Self { samples: 4 }
+impl Msaa {
+    #[inline]
+    pub fn samples(&self) -> u32 {
+        *self as u32
     }
 }
 
@@ -87,6 +99,10 @@ impl Default for Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
+    // The view-projection matrix. When provided it is used instead of deriving it from
+    // `projection` and `transform` fields, which can be helpful in cases where numerical
+    // stability matters and there is a more direct way to derive the view-projection matrix.
+    pub view_projection: Option<Mat4>,
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
@@ -174,6 +190,20 @@ impl ViewTarget {
         }
     }
 
+    /// The _other_ "main" unsampled texture.
+    /// In most cases you should use [`Self::main_texture`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b
+        } else {
+            &self.main_textures.a
+        }
+    }
+
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&TextureView> {
         self.main_textures.sampled.as_ref()
@@ -247,7 +277,9 @@ fn prepare_view_uniforms(
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: projection * inverse_view,
+                view_proj: camera
+                    .view_projection
+                    .unwrap_or_else(|| projection * inverse_view),
                 inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
@@ -285,10 +317,10 @@ fn prepare_view_targets(
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
-        if let Some(target_size) = camera.physical_target_size {
+        if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
-                camera.target.get_texture_view(&windows, &images),
-                camera.target.get_texture_format(&windows, &images),
+                target.get_texture_view(&windows, &images),
+                target.get_texture_format(&windows, &images),
             ) {
                 let size = Extent3d {
                     width: target_size.x,
@@ -314,6 +346,8 @@ fn prepare_view_targets(
                             format: main_texture_format,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            // TODO: Consider changing this if main_texture_format is not sRGB
+                            view_formats: &[],
                         };
                         MainTargetTextures {
                             a: texture_cache
@@ -334,7 +368,7 @@ fn prepare_view_targets(
                                     },
                                 )
                                 .default_view,
-                            sampled: (msaa.samples > 1).then(|| {
+                            sampled: (msaa.samples() > 1).then(|| {
                                 texture_cache
                                     .get(
                                         &render_device,
@@ -342,10 +376,11 @@ fn prepare_view_targets(
                                             label: Some("main_texture_sampled"),
                                             size,
                                             mip_level_count: 1,
-                                            sample_count: msaa.samples,
+                                            sample_count: msaa.samples(),
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
+                                            view_formats: &[],
                                         },
                                     )
                                     .default_view
@@ -363,4 +398,11 @@ fn prepare_view_targets(
             }
         }
     }
+}
+
+/// System sets for the [`view`](crate::view) module.
+#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+pub enum ViewSet {
+    /// Prepares view uniforms
+    PrepareUniforms,
 }

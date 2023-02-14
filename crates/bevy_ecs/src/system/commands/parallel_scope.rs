@@ -3,21 +3,20 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
+    self as bevy_ecs,
     entity::Entities,
     prelude::World,
-    system::{SystemMeta, SystemParam, SystemParamState},
+    system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
 
-#[doc(hidden)]
 #[derive(Default)]
-/// The internal [`SystemParamState`] of the [`ParallelCommands`] type
-pub struct ParallelCommandsState {
+struct ParallelCommandQueue {
     thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
 
-/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_for_each`](crate::system::Query::par_for_each)
+/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_iter`](crate::system::Query::par_iter)
 ///
 /// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
 ///
@@ -33,7 +32,7 @@ pub struct ParallelCommandsState {
 ///     mut query: Query<(Entity, &Velocity)>,
 ///     par_commands: ParallelCommands
 /// ) {
-///     query.par_for_each(32, |(entity, velocity)| {
+///     query.par_iter().for_each(|(entity, velocity)| {
 ///         if velocity.magnitude() > 10.0 {
 ///             par_commands.command_scope(|mut commands| {
 ///                 commands.entity(entity).despawn();
@@ -43,23 +42,14 @@ pub struct ParallelCommandsState {
 /// }
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
 ///```
+#[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
-    state: &'s mut ParallelCommandsState,
+    state: Deferred<'s, ParallelCommandQueue>,
     entities: &'w Entities,
 }
 
-impl SystemParam for ParallelCommands<'_, '_> {
-    type State = ParallelCommandsState;
-}
-
-// SAFETY: no component or resource access to report
-unsafe impl SystemParamState for ParallelCommandsState {
-    type Item<'w, 's> = ParallelCommands<'w, 's>;
-
-    fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
-        Self::default()
-    }
-
+impl SystemBuffer for ParallelCommandQueue {
+    #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
         let _system_span =
@@ -67,18 +57,6 @@ unsafe impl SystemParamState for ParallelCommandsState {
                 .entered();
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
-        }
-    }
-
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self,
-        _: &crate::system::SystemMeta,
-        world: &'w World,
-        _: u32,
-    ) -> Self::Item<'w, 's> {
-        ParallelCommands {
-            state,
-            entities: world.entities(),
         }
     }
 }

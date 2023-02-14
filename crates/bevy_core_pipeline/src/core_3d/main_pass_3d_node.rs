@@ -1,9 +1,9 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
+    prepass::{DepthPrepass, NormalPrepass},
 };
 use bevy_ecs::prelude::*;
-use bevy_render::render_phase::TrackedRenderPass;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -15,6 +15,8 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
+use super::Camera3dDepthLoadOp;
+
 pub struct MainPass3dNode {
     query: QueryState<
         (
@@ -25,6 +27,8 @@ pub struct MainPass3dNode {
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
+            Option<&'static DepthPrepass>,
+            Option<&'static NormalPrepass>,
         ),
         With<ExtractedView>,
     >,
@@ -56,13 +60,20 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(query) => query,
-                Err(_) => {
-                    return Ok(());
-                } // No window
-            };
+        let Ok((
+            camera,
+            opaque_phase,
+            alpha_mask_phase,
+            transparent_phase,
+            camera_3d,
+            target,
+            depth,
+            depth_prepass,
+            normal_prepass,
+        )) = self.query.get_manual(world, view_entity) else {
+            // No window
+            return Ok(());
+        };
 
         // Always run opaque pass to ensure screen is cleared
         {
@@ -70,7 +81,8 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
@@ -88,18 +100,20 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        load: camera_3d.depth_load_op.clone().into(),
+                        load: if depth_prepass.is_some() || normal_prepass.is_some() {
+                            // if any prepass runs, it will generate a depth buffer so we should use it,
+                            // even if only the normal_prepass is used.
+                            Camera3dDepthLoadOp::Load
+                        } else {
+                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
+                            camera_3d.depth_load_op.clone()
+                        }
+                        .into(),
                         store: true,
                     }),
                     stencil_ops: None,
                 }),
-            };
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            });
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -113,7 +127,8 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
@@ -129,12 +144,7 @@ impl Node for MainPass3dNode {
                     }),
                     stencil_ops: None,
                 }),
-            };
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            });
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -148,7 +158,8 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
@@ -169,12 +180,7 @@ impl Node for MainPass3dNode {
                     }),
                     stencil_ops: None,
                 }),
-            };
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            });
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -199,7 +205,7 @@ impl Node for MainPass3dNode {
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 

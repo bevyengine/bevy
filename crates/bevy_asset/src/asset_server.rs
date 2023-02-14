@@ -284,7 +284,7 @@ impl AssetServer {
     /// to look for loaders of `bar.baz` and `baz` assets.
     ///
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
-    /// setting the `"CARGO_MANIFEST_DIR"` environment variable
+    /// setting the `"BEVY_ASSET_ROOT"` or `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
     /// to another directory. When the application  is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
@@ -847,12 +847,12 @@ mod test {
         asset_server.add_loader(FakePngLoader);
         let assets = asset_server.register_asset_type::<PngAsset>();
 
-        #[derive(SystemLabel, Clone, Hash, Debug, PartialEq, Eq)]
+        #[derive(SystemSet, Clone, Hash, Debug, PartialEq, Eq)]
         struct FreeUnusedAssets;
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(free_unused_assets_system.label(FreeUnusedAssets));
+        app.add_system(free_unused_assets_system.in_set(FreeUnusedAssets));
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {

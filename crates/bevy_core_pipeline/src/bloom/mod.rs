@@ -2,12 +2,10 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryItem, QueryState, With},
-    system::{Commands, Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    prelude::*,
+    query::{QueryItem, QueryState},
 };
-use bevy_math::UVec2;
+use bevy_math::{UVec2, UVec4, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -17,12 +15,11 @@ use bevy_render::{
     },
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::TrackedRenderPass,
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -49,8 +46,8 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
+            .add_system(prepare_bloom_textures.in_set(RenderSet::Prepare))
+            .add_system(queue_bloom_bind_groups.in_set(RenderSet::Queue));
 
         {
             let bloom_node = BloomNode::new(&mut render_app.world);
@@ -153,18 +150,27 @@ impl ExtractComponent for BloomSettings {
             return None;
         }
 
-        camera.physical_viewport_size().map(|size| {
+        if let (Some((origin, _)), Some(size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) {
             let min_view = size.x.min(size.y) / 2;
             let mip_count = calculate_mip_count(min_view);
             let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
 
-            BloomUniform {
+            Some(BloomUniform {
                 threshold: settings.threshold,
                 knee: settings.knee,
                 scale: settings.scale * scale,
                 intensity: settings.intensity,
-            }
-        })
+                viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
+                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
+                        .as_vec4(),
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -232,95 +238,78 @@ impl Node for BloomNode {
         {
             let view = &BloomTextures::texture_view(&textures.texture_a, 0);
             let mut prefilter_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
-                        label: Some("bloom_prefilter_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
-                        depth_stencil_attachment: None,
-                    },
-                ));
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_prefilter_pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view,
+                        resolve_target: None,
+                        ops: Operations::default(),
+                    })],
+                    depth_stencil_attachment: None,
+                });
             prefilter_pass.set_render_pipeline(downsampling_prefilter_pipeline);
             prefilter_pass.set_bind_group(
                 0,
                 &bind_groups.prefilter_bind_group,
                 &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                prefilter_pass.set_camera_viewport(viewport);
-            }
             prefilter_pass.draw(0..3, 0..1);
         }
 
         for mip in 1..textures.mip_count {
             let view = &BloomTextures::texture_view(&textures.texture_a, mip);
             let mut downsampling_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
-                        label: Some("bloom_downsampling_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
-                        depth_stencil_attachment: None,
-                    },
-                ));
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_downsampling_pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view,
+                        resolve_target: None,
+                        ops: Operations::default(),
+                    })],
+                    depth_stencil_attachment: None,
+                });
             downsampling_pass.set_render_pipeline(downsampling_pipeline);
             downsampling_pass.set_bind_group(
                 0,
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
                 &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_pass.set_camera_viewport(viewport);
-            }
             downsampling_pass.draw(0..3, 0..1);
         }
 
         for mip in (1..textures.mip_count).rev() {
             let view = &BloomTextures::texture_view(&textures.texture_b, mip - 1);
             let mut upsampling_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
-                        label: Some("bloom_upsampling_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
-                        depth_stencil_attachment: None,
-                    },
-                ));
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_upsampling_pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view,
+                        resolve_target: None,
+                        ops: Operations::default(),
+                    })],
+                    depth_stencil_attachment: None,
+                });
             upsampling_pass.set_render_pipeline(upsampling_pipeline);
             upsampling_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[mip as usize - 1],
                 &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                upsampling_pass.set_camera_viewport(viewport);
-            }
             upsampling_pass.draw(0..3, 0..1);
         }
 
         {
             let mut upsampling_final_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
-                        label: Some("bloom_upsampling_final_pass"),
-                        color_attachments: &[Some(view_target.get_unsampled_color_attachment(
-                            Operations {
-                                load: LoadOp::Load,
-                                store: true,
-                            },
-                        ))],
-                        depth_stencil_attachment: None,
-                    },
-                ));
+                render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                    label: Some("bloom_upsampling_final_pass"),
+                    color_attachments: &[Some(view_target.get_unsampled_color_attachment(
+                        Operations {
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    ))],
+                    depth_stencil_attachment: None,
+                });
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
                 0,
@@ -443,7 +432,7 @@ impl FromWorld for BloomPipelines {
                 ],
             });
 
-        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
+        let pipeline_cache = world.resource::<PipelineCache>();
 
         let downsampling_prefilter_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -589,6 +578,7 @@ fn prepare_bloom_textures(
                 dimension: TextureDimension::D2,
                 format: ViewTarget::TEXTURE_FORMAT_HDR,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             };
 
             texture_descriptor.label = Some("bloom_texture_a");
@@ -621,6 +611,7 @@ pub struct BloomUniform {
     knee: f32,
     scale: f32,
     intensity: f32,
+    viewport: Vec4,
 }
 
 #[derive(Component)]

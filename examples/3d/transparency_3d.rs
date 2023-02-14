@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(fade_transparency)
@@ -20,7 +20,7 @@ fn setup(
 ) {
     // opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 6.0 })),
+        mesh: meshes.add(shape::Plane::from_size(6.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

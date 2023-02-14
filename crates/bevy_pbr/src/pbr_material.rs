@@ -1,4 +1,7 @@
-use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
+use crate::{
+    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_PREPASS_SHADER_HANDLE,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::Handle;
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
@@ -75,22 +78,27 @@ pub struct StandardMaterial {
 
     /// Linear perceptual roughness, clamped to `[0.089, 1.0]` in the shader.
     ///
-    /// Defaults to minimum of `0.089`.
+    /// Defaults to `0.5`.
     ///
     /// Low values result in a "glossy" material with specular highlights,
     /// while values close to `1` result in rough materials.
     ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `roughness * roughness_texture_value`.
+    ///
+    /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
+    /// calculations used.
+    //
+    // Technically for 32-bit floats, 0.045 could be used.
+    // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
     pub perceptual_roughness: f32,
 
-    /// How "metallic" the material appears, within `[0.0, 1.0]`,
-    /// going from dielectric to pure metallic.
+    /// How "metallic" the material appears, within `[0.0, 1.0]`.
     ///
-    /// Defaults to `0.01`.
+    /// This should be set to 0.0 for dielectric materials or 1.0 for metallic materials.
+    /// For a hybrid surface such as corroded metal, you may need to use in-between values.
     ///
-    /// The closer to `1` the value, the more the material will
-    /// reflect light like a metal such as steel or gold.
+    /// Defaults to `0.00`, for dielectric.
     ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`.
@@ -187,7 +195,7 @@ pub struct StandardMaterial {
     /// When a triangle is in a viewport,
     /// if its vertices appear counter-clockwise from the viewport's perspective,
     /// then the viewport is seeing the triangle's front face.
-    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
+    /// Conversely, if the vertices appear clockwise, you are seeing the back face.
     ///
     /// In short, in bevy, front faces winds counter-clockwise.
     ///
@@ -203,6 +211,9 @@ pub struct StandardMaterial {
     /// Normals, occlusion textures, roughness, metallic, reflectance, emissive,
     /// shadows, alpha mode and ambient light are ignored if this is set to `true`.
     pub unlit: bool,
+
+    /// Whether to enable fog for this material.
+    pub fog_enabled: bool,
 
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
@@ -230,19 +241,16 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
+            // White because it gets multiplied with texture values if someone uses
+            // a texture.
             base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             emissive: Color::BLACK,
             emissive_texture: None,
-            // This is the minimum the roughness is clamped to in shader code
-            // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
-            // It's the minimum floating point value that won't be rounded down to 0 in the
-            // calculations used. Although technically for 32-bit floats, 0.045 could be
-            // used.
-            perceptual_roughness: 0.089,
-            // Few materials are purely dielectric or metallic
-            // This is just a default for mostly-dielectric
-            metallic: 0.01,
+            // Matches Blender's default roughness.
+            perceptual_roughness: 0.5,
+            // Metallic should generally be set to 0.0 or 1.0.
+            metallic: 0.0,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
@@ -254,6 +262,7 @@ impl Default for StandardMaterial {
             double_sided: false,
             cull_mode: Some(Face::Back),
             unlit: false,
+            fog_enabled: true,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
         }
@@ -295,14 +304,24 @@ bitflags::bitflags! {
         const OCCLUSION_TEXTURE          = (1 << 3);
         const DOUBLE_SIDED               = (1 << 4);
         const UNLIT                      = (1 << 5);
-        const ALPHA_MODE_OPAQUE          = (1 << 6);
-        const ALPHA_MODE_MASK            = (1 << 7);
-        const ALPHA_MODE_BLEND           = (1 << 8);
-        const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
-        const FLIP_NORMAL_MAP_Y          = (1 << 10);
+        const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
+        const FLIP_NORMAL_MAP_Y          = (1 << 7);
+        const FOG_ENABLED                = (1 << 8);
+        const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
+        const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
+        const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
+        const ALPHA_MODE_BLEND           = (2 << Self::ALPHA_MODE_SHIFT_BITS);                          //
+        const ALPHA_MODE_PREMULTIPLIED   = (3 << Self::ALPHA_MODE_SHIFT_BITS);                          //
+        const ALPHA_MODE_ADD             = (4 << Self::ALPHA_MODE_SHIFT_BITS);                          //   Right now only values 0–5 are used, which still gives
+        const ALPHA_MODE_MULTIPLY        = (5 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← us "room" for two more modes without adding more bits
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
+}
+
+impl StandardMaterialFlags {
+    const ALPHA_MODE_MASK_BITS: u32 = 0b111;
+    const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
@@ -350,6 +369,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
         }
+        if self.fog_enabled {
+            flags |= StandardMaterialFlags::FOG_ENABLED;
+        }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
             if let Some(texture) = images.get(self.normal_map_texture.as_ref().unwrap()) {
@@ -377,6 +399,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
                 flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
+            AlphaMode::Premultiplied => flags |= StandardMaterialFlags::ALPHA_MODE_PREMULTIPLIED,
+            AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
+            AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
 
         StandardMaterialUniform {
@@ -414,18 +439,21 @@ impl Material for StandardMaterial {
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.normal_map {
-            descriptor
-                .fragment
-                .as_mut()
-                .unwrap()
-                .shader_defs
-                .push("STANDARDMATERIAL_NORMAL_MAP".into());
+            if let Some(fragment) = descriptor.fragment.as_mut() {
+                fragment
+                    .shader_defs
+                    .push("STANDARDMATERIAL_NORMAL_MAP".into());
+            }
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         Ok(())
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.typed().into()
     }
 
     fn fragment_shader() -> ShaderRef {
