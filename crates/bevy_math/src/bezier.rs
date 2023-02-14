@@ -106,15 +106,22 @@ impl<P: Point, const N: usize> Bezier<P, N> {
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct CubicBezierEasing {
     /// Control point P1 of the 2D cubic Bezier curve. Controls the start of the animation.
-    p1: Vec2,
+    pub p1: Vec2,
     /// Control point P2 of the 2D cubic Bezier curve. Controls the end of the animation.
-    p2: Vec2,
+    pub p2: Vec2,
 }
 
 impl CubicBezierEasing {
     /// Construct a cubic bezier curve for animation easing, with control points `p1` and `p2`.
-    pub fn new(p1: Vec2, p2: Vec2) -> Self {
-        Self { p1, p2 }
+    /// These correspond to the two free "handles" of the bezier curve.
+    ///
+    /// This is a very common tool for animations that accelerate and decelerate smoothly. For
+    /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
+    pub fn new(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
+        Self {
+            p1: p1.into(),
+            p2: p2.into(),
+        }
     }
 
     /// Maximum allowable error for iterative bezier solve
@@ -123,9 +130,10 @@ impl CubicBezierEasing {
     /// Maximum number of iterations during bezier solve
     const MAX_ITERS: u8 = 8;
 
-    /// Given a `time` within `0..=1`, remaps to a new value using the cubic Bezier curve as a
-    /// shaping function, for which when plotted `x = time` and `y = animation progress`. This will
-    /// return `0` when `t = 0`, and `1` when `t = 1`.
+    /// Given a `time` within `0..=1`, returns an eased value within `0..=1` that follows the cubic
+    /// Bezier curve instead of a straight line.
+    ///
+    /// The start and endpoints will match: ease(0) = 0 and ease(1) = 1.
     pub fn ease(&self, time: f32) -> f32 {
         let x = time.clamp(0.0, 1.0);
         let t = self.find_t_given_x(x);
@@ -134,26 +142,26 @@ impl CubicBezierEasing {
 
     /// Compute the x-coordinate of the point along the Bezier curve at `t`.
     #[inline]
-    pub fn evaluate_x_at(&self, t: f32) -> f32 {
+    fn evaluate_x_at(&self, t: f32) -> f32 {
         bezier_impl::position([0.0, self.p1.x, self.p2.x, 1.0], t)
     }
 
     /// Compute the y-coordinate of the point along the Bezier curve at `t`.
     #[inline]
-    pub fn evaluate_y_at(&self, t: f32) -> f32 {
+    fn evaluate_y_at(&self, t: f32) -> f32 {
         bezier_impl::position([0.0, self.p1.y, self.p2.y, 1.0], t)
     }
 
     /// Compute the slope of the line at the given parametric value `t` with respect to t.
     #[inline]
-    pub fn dx_dt(&self, t: f32) -> f32 {
+    fn dx_dt(&self, t: f32) -> f32 {
         bezier_impl::velocity([0.0, self.p1.x, self.p2.x, 1.0], t)
     }
 
     /// Solve for the parametric value `t` that corresponds to the given value of `x` using the
     /// Newton-Raphson method.
     #[inline]
-    pub fn find_t_given_x(&self, x: f32) -> f32 {
+    fn find_t_given_x(&self, x: f32) -> f32 {
         let mut t_guess = x;
         (0..Self::MAX_ITERS).any(|_| {
             let x_guess = self.evaluate_x_at(t_guess);
