@@ -278,8 +278,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///     // NOTE: the event won't actually be sent until commands get flushed
 ///     // at the end of the current stage.
 ///     commands.add(|w: &mut World| {
-///         let mut events_resource = w.resource_mut::<Events<_>>();
-///         events_resource.send(MyEvent);
+///         w.send_event(MyEvent);
 ///     });
 /// }
 /// ```
@@ -379,6 +378,10 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
         self.iter.next().map(|(event, _)| event)
     }
 
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -387,12 +390,6 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
 impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
     fn len(&self) -> usize {
         self.iter.len()
-    }
-}
-
-impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(|(event, _)| event)
     }
 }
 
@@ -452,25 +449,13 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
         }
     }
 
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.chain.size_hint()
-    }
-}
-
-impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self
-            .chain
-            .next_back()
-            .map(|instance| (&instance.event, instance.event_id))
-        {
-            Some(item) => {
-                event_trace(item.1);
-                self.unread -= 1;
-                Some(item)
-            }
-            None => None,
-        }
     }
 }
 
@@ -577,9 +562,7 @@ impl<E: Event> Events<E> {
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
-    pub fn iter_current_update_events(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
+    pub fn iter_current_update_events(&self) -> impl ExactSizeIterator<Item = &E> {
         self.events_b.iter().map(|i| &i.event)
     }
 
@@ -837,8 +820,10 @@ mod tests {
         assert_eq!(iter.len(), 3);
         iter.next();
         assert_eq!(iter.len(), 2);
-        iter.next_back();
+        iter.next();
         assert_eq!(iter.len(), 1);
+        iter.next();
+        assert_eq!(iter.len(), 0);
     }
 
     #[test]

@@ -24,12 +24,9 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
+/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-///
-/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
-/// to control when transforms are propagated from parents to children.
 ///
 /// # Examples
 ///
@@ -116,7 +113,7 @@ impl GlobalTransform {
     ///
     /// This is useful if you want to "reparent" an `Entity`. Say you have an entity
     /// `e1` that you want to turn into a child of `e2`, but you want `e1` to keep the
-    /// same global transform, even after re-partenting. You would use:
+    /// same global transform, even after re-parenting. You would use:
     ///
     /// ```rust
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};

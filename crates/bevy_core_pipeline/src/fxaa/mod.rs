@@ -3,7 +3,9 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
+};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
@@ -12,14 +14,15 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Reflect, FromReflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[reflect(FromReflect, PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -40,7 +43,8 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone, ExtractComponent)]
+#[derive(Reflect, FromReflect, Component, Clone, ExtractComponent)]
+#[reflect(Component, FromReflect, Default)]
 #[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
@@ -86,7 +90,7 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_fxaa_pipelines);
+            .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
 
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);

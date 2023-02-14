@@ -159,7 +159,15 @@ impl<P: PhaseItem> DrawFunctions<P> {
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies the general ECS data (e.g. resources) required by [`RenderCommand::render`].
     ///
+    /// When fetching resources, note that, due to lifetime limitations of the `Deref` trait,
+    /// [`SRes::into_inner`] must be called on each [`SRes`] reference in the
+    /// [`RenderCommand::render`] method, instead of being automatically dereferenced as is the
+    /// case in normal `systems`.
+    ///
     /// All parameters have to be read only.
+    ///
+    /// [`SRes`]: bevy_ecs::system::lifetimeless::SRes
+    /// [`SRes::into_inner`]: bevy_ecs::system::lifetimeless::SRes::into_inner
     type Param: SystemParam + 'static;
     /// Specifies the ECS data of the view entity required by [`RenderCommand::render`].
     ///
