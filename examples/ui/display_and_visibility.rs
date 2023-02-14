@@ -42,7 +42,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }).with_children(|parent| {
         parent.spawn(TextBundle {
             text: Text::from_section(
+                #[cfg(not(target_arch = "wasm32"))]
                 "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left.\n\nLeft Click to change Display\nRight Click to change Visibility",
+                #[cfg(target_arch = "wasm32")]
+                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left.\n\nLeft Click to change Display\nPress Space to change Visibility",
                 text_style.clone(),
             ).with_alignment(TextAlignment::Center),
             style: Style {
@@ -64,8 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             })
             .with_children(|parent| {
                 let target_ids = spawn_left_panel(parent, &palette);
-                spawn_right_panel(parent, text_style, &palette, target_ids)
-
+                spawn_right_panel(parent, text_style, &palette, target_ids);
         });
     });
 }
@@ -336,6 +338,7 @@ fn spawn_right_panel(
 
 fn update(
     mouse: Res<Input<MouseButton>>,
+    keyboard: Res<Input<KeyCode>>,
     mut left_panel_query: Query<
         (&mut BackgroundColor, &mut Style, &mut Visibility),
         Without<Interaction>,
@@ -355,13 +358,14 @@ fn update(
                     };
                 }
 
-                if mouse.just_pressed(MouseButton::Right) {
+                if mouse.just_pressed(MouseButton::Right) | keyboard.just_pressed(KeyCode::Space) {
                     *visibility = match *visibility {
                         Visibility::Inherited => Visibility::Visible,
                         Visibility::Visible => Visibility::Hidden,
                         Visibility::Hidden => Visibility::Inherited,
                     };
                 }
+
                 let selection_color = Color::hex(SELECTION_COLOR).unwrap();
                 background_color.0 = selection_color;
                 left_background_color.0 = selection_color;

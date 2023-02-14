@@ -1515,7 +1515,7 @@ wasm = true
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 
-[package.metadata.example.flex_display]
+[package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
 description = "Demonstrates how Display and Visibility work in the UI."
 category = "UI (User Interface)"
