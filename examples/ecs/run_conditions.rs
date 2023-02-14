@@ -94,5 +94,5 @@ fn print_input_counter(counter: Res<InputCounter>) {
 
 /// SYSTEM: Adds the input counter resource
 fn print_time_message() {
-    println!("It has been more than 2 seconds since the program started and less than 2.5 seconds")
+    println!("It has been more than 2 seconds since the program started and less than 2.5 seconds");
 }
