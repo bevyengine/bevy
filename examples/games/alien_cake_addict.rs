@@ -34,11 +34,11 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
-                .on_update(GameState::Playing),
+                .in_set(OnUpdate(GameState::Playing)),
         )
         .add_system_to_schedule(OnExit(GameState::Playing), teardown)
         .add_system_to_schedule(OnEnter(GameState::GameOver), display_score)
-        .add_system(gameover_keyboard.on_update(GameState::GameOver))
+        .add_system(gameover_keyboard.in_set(OnUpdate(GameState::GameOver)))
         .add_system_to_schedule(OnExit(GameState::GameOver), teardown)
         .add_system(bevy::window::close_on_esc)
         .run();

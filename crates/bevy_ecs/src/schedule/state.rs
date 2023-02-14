@@ -53,10 +53,11 @@ pub struct OnEnter<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
-/// A [`SystemSet`] that will run within `CoreSet::StateTransitions` when this state is active.
+/// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
 ///
-/// This is provided for convenience. A more general [`state_equals`](crate::schedule::common_conditions::state_equals)
-/// [condition](super::Condition) also exists for systems that need to run elsewhere.
+/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
+/// If all you want is the run condition, use the [`state_equals`](crate::schedule::common_conditions::state_equals)
+/// [condition](super::Condition) directly.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnUpdate<S: States>(pub S);
 

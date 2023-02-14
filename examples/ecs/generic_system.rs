@@ -44,7 +44,7 @@ fn main() {
         .add_state::<AppState>()
         .add_startup_system(setup_system)
         .add_system(print_text_system)
-        .add_system(transition_to_in_game_system.on_update(AppState::MainMenu))
+        .add_system(transition_to_in_game_system.in_set(OnUpdate(AppState::MainMenu)))
         // add the cleanup systems
         .add_system_to_schedule(
             OnExit(AppState::MainMenu),
