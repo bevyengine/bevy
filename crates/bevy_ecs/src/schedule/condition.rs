@@ -26,6 +26,7 @@ mod sealed {
 pub mod common_conditions {
     use super::Condition;
     use crate::{
+        change_detection::DetectChanges,
         schedule::{State, States},
         system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
     };
@@ -81,6 +82,56 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource has just been added.
+    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| res.map(|res| res.is_added()).unwrap_or(false)
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource has changed.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Res<T>| res.is_changed()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource exsists and has changed.
+    pub fn resource_exsits_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| res.map(|res| res.is_changed()).unwrap_or(false)
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource has just been removed.
+    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        let mut resource_exsisted = false;
+        move |res: Option<Res<T>>| {
+            if res.is_some() {
+                resource_exsisted = true;
+                false
+            } else {
+                let exsisted = resource_exsisted;
+                resource_exsisted = false;
+                exsisted
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
     pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
@@ -107,6 +158,19 @@ pub mod common_conditions {
             Some(current_state) => current_state.0 == state,
             None => false,
         }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the state has changed.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the state does not exist.
+    pub fn state_changed<S>() -> impl FnMut(Res<State<S>>) -> bool
+    where
+        S: States,
+    {
+        move |res: Res<State<S>>| res.is_changed()
     }
 
     /// Generates a  [`Condition`](super::Condition) that inverses the result of passed one.
