@@ -9,12 +9,8 @@ fn main() {
     println!();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(bevy::render::RenderPlugin {
-            wgpu_settings: bevy::render::settings::WgpuSettings {
-                backends: Some(bevy::render::settings::Backends::PRIMARY),
-                ..Default::default()
-            },
-        }))
+        .add_plugins(DefaultPlugins)
+        .init_resource::<InputCounter>()
         .add_system(
             increment_input_counter
                 // The common_conditions module has a few useful run conditions
@@ -39,11 +35,15 @@ fn main() {
                 }),
         )
         .add_system(
-            add_input_counter
+            print_time_message
                 // This is a custom generator function that returns a run
                 // condition, must like the common conditions module.
                 // It will only return true once 2 seconds has passed
-                .run_if(time_passed(2.0)),
+                .run_if(time_passed(2.0))
+                // You can use the `not` condition from the common_conditions module
+                // to inverse a run condition, in this case it will return true if
+                // less than 2.5 seconds has elapsed
+                .run_if(not(time_passed(2.5))),
         )
         .run();
 }
@@ -79,11 +79,6 @@ fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
     }
 }
 
-/// SYSTEM: Adds the input counter resource
-fn add_input_counter(mut commands: Commands) {
-    commands.init_resource::<InputCounter>();
-}
-
 /// SYSTEM: Increment the input counter
 /// Notice how we can take just the `ResMut` and not have to wrap
 /// it in an option incase it hasen't been initialized, this is becuase
@@ -95,4 +90,9 @@ fn increment_input_counter(mut counter: ResMut<InputCounter>) {
 /// SYSTEM: Print the input counter
 fn print_input_counter(counter: Res<InputCounter>) {
     println!("Input counter: {}", counter.0);
+}
+
+/// SYSTEM: Adds the input counter resource
+fn print_time_message() {
+    println!("It has been more than 2 seconds since the program started and less than 2.5 seconds")
 }
