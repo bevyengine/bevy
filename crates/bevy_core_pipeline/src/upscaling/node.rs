@@ -1,5 +1,4 @@
-use std::sync::Mutex;
-
+use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
@@ -13,8 +12,7 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
-
-use super::{UpscalingPipeline, ViewUpscalingPipeline};
+use std::sync::Mutex;
 
 pub struct UpscalingNode {
     query: QueryState<
@@ -57,7 +55,7 @@ impl Node for UpscalingNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
-        let upscaling_pipeline = world.get_resource::<UpscalingPipeline>().unwrap();
+        let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
 
         let (target, upscaling_target, camera) = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
@@ -91,7 +89,7 @@ impl Node for UpscalingNode {
                         .render_device()
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
-                            layout: &upscaling_pipeline.texture_bind_group,
+                            layout: &blit_pipeline.texture_bind_group,
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,

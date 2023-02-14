@@ -70,6 +70,7 @@ impl FromWorld for BlitPipeline {
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct BlitPipelineKey {
     pub texture_format: TextureFormat,
+    pub blend_state: Option<BlendState>,
     pub samples: u32,
 }
 
@@ -87,7 +88,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
-                    blend: None,
+                    blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -95,8 +96,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
             depth_stencil: None,
             multisample: MultisampleState {
                 count: key.samples,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
+                ..Default::default()
             },
         }
     }

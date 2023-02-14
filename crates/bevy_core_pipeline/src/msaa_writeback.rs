@@ -163,6 +163,7 @@ fn queue_msaa_writeback_pipelines(
             let key = BlitPipelineKey {
                 texture_format: view_target.main_texture_format(),
                 samples: msaa.samples(),
+                blend_state: None,
             };
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
