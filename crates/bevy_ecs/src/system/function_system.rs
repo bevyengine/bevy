@@ -371,12 +371,12 @@ pub struct InputMarker;
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
-pub struct FunctionSystem<Param, Marker, F>
+pub struct FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<Param::State>,
+    param_state: Option<<F::Param as SystemParam>::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
@@ -392,7 +392,7 @@ where
     F: SystemParamFunction<Marker>,
     F::Param: 'static,
 {
-    type System = FunctionSystem<F::Param, Marker, F>;
+    type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -405,9 +405,9 @@ where
     }
 }
 
-impl<Param, Marker, F> FunctionSystem<Param, Marker, F>
+impl<Marker, F> FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     /// Message shown when a system isn't initialised
     // When lines get too long, rustfmt can sometimes refuse to format them.
@@ -415,7 +415,7 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<Marker, F> System for FunctionSystem<F::Param, Marker, F>
+impl<Marker, F> System for FunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
@@ -527,7 +527,7 @@ where
 }
 
 /// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
-unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<F::Param, Marker, F>
+unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
