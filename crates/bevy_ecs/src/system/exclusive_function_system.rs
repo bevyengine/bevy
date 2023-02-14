@@ -18,12 +18,12 @@ use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 /// [`ExclusiveSystemParam`]s.
 ///
 /// [`ExclusiveFunctionSystem`] must be `.initialized` before they can be run.
-pub struct ExclusiveFunctionSystem<Param, Marker, F>
+pub struct ExclusiveFunctionSystem<Marker, F>
 where
-    Param: ExclusiveSystemParam,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<Param::State>,
+    param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -32,13 +32,12 @@ where
 
 pub struct IsExclusiveFunctionSystem;
 
-impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, F::Param, Marker)> for F
+impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
 where
     Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
-    F::Param: 'static,
 {
-    type System = ExclusiveFunctionSystem<F::Param, Marker, F>;
+    type System = ExclusiveFunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
@@ -52,11 +51,10 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<Marker, F> System for ExclusiveFunctionSystem<F::Param, Marker, F>
+impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
-    F::Param: 'static,
 {
     type In = F::In;
     type Out = F::Out;
@@ -161,8 +159,8 @@ where
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
-    type In: 'static;
-    type Out: 'static;
+    type In;
+    type Out;
     type Param: ExclusiveSystemParam;
     fn run(
         &mut self,
@@ -175,7 +173,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out: 'static, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<((), Out, $($param,)*)> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<((), Out, $($param,)*)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
@@ -203,7 +201,7 @@ macro_rules! impl_exclusive_system_function {
             }
         }
         #[allow(non_snake_case)]
-        impl<Input: 'static, Out: 'static, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, &mut World, $($param),*) -> Out +
