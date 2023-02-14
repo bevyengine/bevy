@@ -24,16 +24,52 @@ impl Point for Vec3A {} // 3D
 impl Point for Vec2 {} // 2D
 impl Point for f32 {} // 1D
 
-/// A cubic Bezier curve in 2D space
+/// A cubic Bezier spline in 2D space
 pub type CubicBezier2d = Bezier<Vec2, 4>;
-/// A cubic Bezier curve in 3D space
+/// A cubic Bezier spline in 3D space
 pub type CubicBezier3d = Bezier<Vec3A, 4>;
-/// A quadratic Bezier curve in 2D space
+/// A quadratic Bezier spline in 2D space
 pub type QuadraticBezier2d = Bezier<Vec2, 3>;
-/// A quadratic Bezier curve in 3D space
+/// A quadratic Bezier spline in 3D space
 pub type QuadraticBezier3d = Bezier<Vec3A, 3>;
 
-/// A Bezier curve with `N` control points, and dimension defined by `P`.
+/// A generic Bezier spline with `N` control points, and dimension defined by `P`.
+///
+/// The Bezier degree is equal to `N - 1`. For example, a cubic Bezier has 4 control points, and a
+/// degree of 3. The time-complexity of evaluating a Bezier increases superlinearly with the number
+/// of control points. As such, it is recommended to instead use a chain of quadratic or cubic
+/// `Beziers` instead of a high-degree Bezier.
+///
+/// ### About Bezier Splines
+///
+/// `Bezier` splines are parametric implicit functions; all that means is they take a parameter `t`,
+/// and output a point in space, like:
+///
+/// > B(t) = (x, y, z)
+///
+/// So, all that is needed to find a point in space along a Bezier spline is the parameter `t`.
+/// Additionally, the values of `t` are straightforward: `t` is 0 at the start of the spline (first
+/// control point) and 1 at the end (last control point).
+///
+/// ### Plotting
+///
+/// To plot a Bezier spline then, all you need to do is plug in a series of values of `t` in
+/// `0..=1`, like \[0.0, 0.2, 0.4, 0.6, 0.8, 1.0\], which will trace out the spline with 6 points.
+/// The functions to do this are [`Bezier::position`] to sample the spline at a value of `t`, and
+/// [`Bezier::to_positions`] to generate a list of positions given a number of desired subdivisions.
+///
+/// ### Velocity and Acceleration
+///
+/// In addition to the position of a point on the Bezier spline, it is also useful to get
+/// information about the curvature of the spline. Methods are provided to help with this:
+///
+/// - [`Bezier::velocity`]: the instantaneous velocity vector with respect to `t`. This is a vector
+///       that points in the direction a point is traveling when it is at point `t`. This vector is
+///       then tangent to the spline.
+/// - [`Bezier::acceleration`]: the instantaneous acceleration vector with respect to `t`. This is a
+///       vector that points in the direction a point is accelerating towards when it is at point
+///       `t`. This vector will point to the inside of turns, the direction the point is being
+///       pulled toward to change direction.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Bezier<P: Point, const N: usize>(pub [P; N]);
 
@@ -133,7 +169,68 @@ impl CubicBezierEasing {
     /// Given a `time` within `0..=1`, returns an eased value within `0..=1` that follows the cubic
     /// Bezier curve instead of a straight line.
     ///
-    /// The start and endpoints will match: ease(0) = 0 and ease(1) = 1.
+    /// The start and endpoints will match: `ease(0) = 0` and `ease(1) = 1`.
+    ///
+    /// ```
+    /// # use bevy_math::CubicBezierEasing;
+    /// let cubic_bezier = CubicBezierEasing::new((0.25, 0.1), (0.25, 1.0));
+    /// assert_eq!(cubic_bezier.ease(0.0), 0.0);
+    /// assert_eq!(cubic_bezier.ease(1.0), 1.0);
+    /// ```
+    ///
+    /// ### How cubic Bezier easing works
+    ///
+    /// Easing is generally accomplished with the help of "shaping functions". These are curves that
+    /// start at (0,0) and end at (1,1). The x-axis of this plot is the current `time` of the
+    /// animation, from 0 to 1. The y-axis is how far along the animation is, also from 0 to 1. You
+    /// can imagine that if the shaping function is a straight line, there is a 1:1 mapping between
+    /// the `time` and how far along your animation is. If the `time` = 0.5, the animation is
+    /// halfway through. This is known as linear interpolation, and results in objects animating
+    /// with a constant velocity, and no smooth acceleration or deceleration at the start or end.
+    ///
+    /// ```ignore
+    /// y
+    /// │         ●
+    /// │       ⬈
+    /// │     ⬈    
+    /// │   ⬈
+    /// │ ⬈
+    /// ●─────────── x (time)
+    /// ```
+    ///
+    /// Using cubic Beziers, we have a spline that starts at (0,0), ends at (1,1), and follows a
+    /// path determined by the two remaining control points (handles). These handles allow us to
+    /// define a smooth curve. As `time` (x-axis) progresses, we now follow the curved spline, and
+    /// use the `y` value to determine how far along the animation is.
+    ///
+    /// ```ignore
+    /// y
+    /// │         ⬈➔➔●
+    /// │       ⬈   
+    /// │      ↑      
+    /// │      ↑
+    /// │     ⬈
+    /// ●➔➔⬈───────── x (time)
+    /// ```
+    ///
+    /// To accomplish this, we need to be able to find the position `y` on a Bezier curve, given the
+    /// `x` value. As discussed in the [`Bezier`] documentation, a Bezier spline is an implicit
+    /// parametric function like B(t) = (x,y). To find `y`, we first solve for `t` that corresponds
+    /// to the given `x` (`time`). We use the Newton-Raphson root-finding method to quickly find a
+    /// value of `t` that matches `x`. Once we have this we can easily plug that `t` into our
+    /// Bezier's `position` function, to find the `y` component, which is how far along our
+    /// animation should be. In other words:
+    ///
+    /// > Given `time` in `0..=1`
+    ///
+    /// > Use Newton's method to find a value of `t` that results in B(t) = (x,y) where `x == time`
+    ///
+    /// > Once a solution is found, use the resulting `y` value as the final result
+    ///
+    /// ### Performance
+    ///
+    /// This operation can be used frequently without fear of performance issues. Benchmarks show
+    /// this operation taking on the order of 50 nanoseconds.
     pub fn ease(&self, time: f32) -> f32 {
         let x = time.clamp(0.0, 1.0);
         let t = self.find_t_given_x(x);
@@ -159,9 +256,19 @@ impl CubicBezierEasing {
     }
 
     /// Solve for the parametric value `t` that corresponds to the given value of `x` using the
-    /// Newton-Raphson method.
+    /// Newton-Raphson method. See documentation on [`Self::ease`] for more details.
     #[inline]
     fn find_t_given_x(&self, x: f32) -> f32 {
+        // PERFORMANCE NOTE:
+        //
+        // I tried pre-solving and caching 11 values along the curve at struct instantiation in an
+        // attempt to give the solver a better starting guess. This ended up being slightly slower,
+        // possibly due to the increased size of the type. Another option would be to store the last
+        // `t`, and use that, however it's possible this could end up in a bad state where t is very
+        // far from the naive but generally safe guess of x, e.g. after an animation resets.
+        //
+        // Further optimization might not be needed however - benchmarks are showing it takes about
+        // 50 nanoseconds for an ease operation on my modern laptop, which seems sufficiently fast.
         let mut t_guess = x;
         (0..Self::MAX_ITERS).any(|_| {
             let x_guess = self.evaluate_x_at(t_guess);
@@ -191,7 +298,7 @@ pub mod bezier_impl {
         (1. - t).powi((n - i) as i32) * t.powi(i as i32)
     }
 
-    /// Efficiently compute the binomial coefficient
+    /// Efficiently compute the binomial coefficient of `n` choose `k`.
     #[inline]
     const fn binomial_coeff(n: usize, k: usize) -> usize {
         let mut i = 0;
@@ -219,7 +326,8 @@ pub mod bezier_impl {
     }
 
     /// Compute the first derivative B'(t) of Bezier curve B(t) of degree `N-1` at the given
-    /// parametric value `t` with respect to t.
+    /// parametric value `t` with respect to t. Note that the first derivative of a Bezier is also
+    /// a Bezier, of degree `N-2`.
     #[inline]
     pub fn velocity<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
         if N <= 1 {
@@ -239,7 +347,8 @@ pub mod bezier_impl {
     }
 
     /// Compute the second derivative B''(t) of Bezier curve B(t) of degree `N-1` at the given
-    /// parametric value `t` with respect to t.
+    /// parametric value `t` with respect to t. Note that the second derivative of a Bezier is also
+    /// a Bezier, of degree `N-3`.
     #[inline]
     pub fn acceleration<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
         if N <= 2 {
