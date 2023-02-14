@@ -1,5 +1,5 @@
 use bevy_ecs::event::EventReader;
-use bevy_ecs::system::{ResMut, Resource};
+use bevy_ecs::system::{Local, ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::HashMap;
@@ -361,11 +361,35 @@ impl Touches {
 pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,
+    mut ended_events: Local<Vec<TouchInput>>,
 ) {
     touch_state.update();
 
+    for ended_event in &ended_events {
+        touch_state.process_touch_event(ended_event);
+    }
+    ended_events.clear();
+
+    let mut ids = vec![];
     for event in touch_input_events.iter() {
-        touch_state.process_touch_event(event);
+        let process = match event.phase {
+            TouchPhase::Started => {
+                ids.push(event.id);
+                true
+            }
+            TouchPhase::Ended => {
+                if ids.contains(&event.id) {
+                    ended_events.push(*event);
+                    false
+                } else {
+                    true
+                }
+            }
+            _ => true,
+        };
+        if process {
+            touch_state.process_touch_event(event);
+        }
     }
 }
 
