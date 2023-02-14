@@ -157,11 +157,11 @@ impl CubicBezierEasing {
             let x_guess = self.evaluate_x_at(t_guess);
             let error = x_guess - x;
             if error.abs() <= Self::MAX_ERROR {
-                return true;
+                true
             } else {
                 let slope = self.dx_dt(t_guess);
                 t_guess -= error / slope;
-                return false;
+                false
             }
         });
         t_guess.clamp(0.0, 1.0)
