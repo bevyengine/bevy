@@ -41,7 +41,7 @@ pub trait RenderAsset: Asset {
 }
 
 #[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemSet)]
-pub enum PrepareAssetLabel {
+pub enum PrepareAssetSet {
     PreAssetPrepare,
     #[default]
     AssetPrepare,
@@ -54,12 +54,12 @@ pub enum PrepareAssetLabel {
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
 /// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset> {
-    prepare_asset_label: PrepareAssetLabel,
+    prepare_asset_label: PrepareAssetSet,
     phantom: PhantomData<fn() -> A>,
 }
 
 impl<A: RenderAsset> RenderAssetPlugin<A> {
-    pub fn with_prepare_asset_label(prepare_asset_label: PrepareAssetLabel) -> Self {
+    pub fn with_prepare_asset_label(prepare_asset_label: PrepareAssetSet) -> Self {
         Self {
             prepare_asset_label,
             phantom: PhantomData,
@@ -82,9 +82,9 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
             render_app
                 .configure_sets(
                     (
-                        PrepareAssetLabel::PreAssetPrepare,
-                        PrepareAssetLabel::AssetPrepare,
-                        PrepareAssetLabel::PostAssetPrepare,
+                        PrepareAssetSet::PreAssetPrepare,
+                        PrepareAssetSet::AssetPrepare,
+                        PrepareAssetSet::PostAssetPrepare,
                     )
                         .chain()
                         .in_set(RenderSet::Prepare),

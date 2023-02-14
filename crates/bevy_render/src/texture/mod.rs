@@ -27,7 +27,7 @@ pub use image_texture_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::{PrepareAssetLabel, RenderAssetPlugin},
+    render_asset::{PrepareAssetSet, RenderAssetPlugin},
     renderer::RenderDevice,
     RenderApp, RenderSet,
 };
@@ -85,7 +85,7 @@ impl Plugin for ImagePlugin {
         }
 
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
-            PrepareAssetLabel::PreAssetPrepare,
+            PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
         .add_asset::<Image>()
