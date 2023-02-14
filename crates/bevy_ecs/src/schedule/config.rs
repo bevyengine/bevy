@@ -1,4 +1,4 @@
-use bevy_ecs_macros::all_tuples;
+use bevy_utils::all_tuples;
 
 use crate::{
     schedule::{
