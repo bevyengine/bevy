@@ -159,9 +159,16 @@ where
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
+    /// The input type to this system. See [`System::In`].
     type In;
+
+    /// The return type of this system. See [`System::Out`].
     type Out;
+
+    /// The [`ExclusiveSystemParam`]/s defined by this system's `fn` parameters.
     type Param: ExclusiveSystemParam;
+
+    /// Executes this system once. See [`System::run`].
     fn run(
         &mut self,
         world: &mut World,
