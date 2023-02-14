@@ -151,6 +151,11 @@ impl GenericTypeInfoCell {
     }
 }
 
+/// Deterministic fixed state hasher to be used by implementors of [`Reflect::reflect_hash`].
+///
+/// Hashes should be deterministic across processes so hashes can be used as
+/// checksums for saved scenes, rollback snapshots etc. This function returns
+/// such a hasher.
 #[inline]
 pub fn reflect_hasher() -> bevy_utils::AHasher {
     FixedState.build_hasher()
