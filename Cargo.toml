@@ -1512,14 +1512,14 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "flex_display"
-path = "examples/ui/flex_display.rs"
+name = "display_and_visibility"
+path = "examples/ui/display_and_visibility.rs"
 
 [package.metadata.example.flex_display]
-name = "Flex Display"
+name = "Display and Visibility"
 description = "Demonstrates how Display and Visibility work in the UI."
 category = "UI (User Interface)"
-wasm = false
+wasm = true
 
 [[example]]
 name = "window_fallthrough"
