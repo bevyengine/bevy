@@ -35,7 +35,7 @@ pub struct IsExclusiveFunctionSystem;
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, F::Param, Marker)> for F
 where
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
     F::Param: 'static,
 {
     type System = ExclusiveFunctionSystem<F::Param, Marker, F>;
@@ -55,7 +55,7 @@ const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget 
 impl<Marker, F> System for ExclusiveFunctionSystem<F::Param, Marker, F>
 where
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
     F::Param: 'static,
 {
     type In = F::In;

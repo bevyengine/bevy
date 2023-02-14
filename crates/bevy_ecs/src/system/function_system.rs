@@ -389,7 +389,7 @@ pub struct IsFunctionSystem;
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
     F::Param: 'static,
 {
     type System = FunctionSystem<F::Param, Marker, F>;
@@ -418,7 +418,7 @@ where
 impl<Marker, F> System for FunctionSystem<F::Param, Marker, F>
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
     F::Param: 'static,
 {
     type In = F::In;
@@ -530,7 +530,7 @@ where
 unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<F::Param, Marker, F>
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
     F::Param: ReadOnlySystemParam + 'static,
 {
 }
