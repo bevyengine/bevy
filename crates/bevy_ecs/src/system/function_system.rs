@@ -558,16 +558,14 @@ where
 /// // parameters and marker type required for coherence. `B` is the second system, and
 /// // the other generics are for the input/output types of `A` and `B`.
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(AParam, BParam)>) -> BOut
+/// ) -> impl FnMut(In<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
-///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
-///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
-///     AParam: SystemParam,
-///     BParam: SystemParam,
+///     A: SystemParamFunction<AMarker>,
+///     B: SystemParamFunction<BMarker, In = A::Out>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(a_in), mut params| {
