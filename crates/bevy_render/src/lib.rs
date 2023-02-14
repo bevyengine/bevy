@@ -71,7 +71,6 @@ pub struct RenderPlugin {
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
 pub enum RenderSet {
     /// The copy of [`apply_system_buffers`] that runs at the begining of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
@@ -113,12 +112,12 @@ impl RenderSet {
         let mut schedule = Schedule::new();
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_base_set(ExtractCommands));
-        schedule.add_system(apply_system_buffers.in_base_set(PrepareFlush));
-        schedule.add_system(apply_system_buffers.in_base_set(QueueFlush));
-        schedule.add_system(apply_system_buffers.in_base_set(PhaseSortFlush));
-        schedule.add_system(apply_system_buffers.in_base_set(RenderFlush));
-        schedule.add_system(apply_system_buffers.in_base_set(CleanupFlush));
+        schedule.add_system(apply_system_buffers.in_set(ExtractCommands));
+        schedule.add_system(apply_system_buffers.in_set(PrepareFlush));
+        schedule.add_system(apply_system_buffers.in_set(QueueFlush));
+        schedule.add_system(apply_system_buffers.in_set(PhaseSortFlush));
+        schedule.add_system(apply_system_buffers.in_set(RenderFlush));
+        schedule.add_system(apply_system_buffers.in_set(CleanupFlush));
 
         schedule.configure_set(ExtractCommands.before(Prepare));
         schedule.configure_set(Prepare.after(ExtractCommands).before(PrepareFlush));
@@ -232,17 +231,16 @@ impl Plugin for RenderPlugin {
 
             // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
-            render_schedule
-                .add_system(apply_extract_commands.in_base_set(RenderSet::ExtractCommands));
+            render_schedule.add_system(apply_extract_commands.in_set(RenderSet::ExtractCommands));
 
             render_schedule.add_system(
                 PipelineCache::process_pipeline_queue_system
                     .before(render_system)
-                    .in_base_set(RenderSet::Render),
+                    .in_set(RenderSet::Render),
             );
-            render_schedule.add_system(render_system.in_base_set(RenderSet::Render));
+            render_schedule.add_system(render_system.in_set(RenderSet::Render));
 
-            render_schedule.add_system(World::clear_entities.in_base_set(RenderSet::Cleanup));
+            render_schedule.add_system(World::clear_entities.in_set(RenderSet::Cleanup));
 
             render_app
                 .add_schedule(CoreSchedule::Main, render_schedule)

@@ -98,11 +98,11 @@ where
 
         render_app
             .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
-            .add_system(prepare_prepass_textures.in_base_set(RenderSet::Prepare))
-            .add_system(queue_prepass_view_bind_group::<M>.in_base_set(RenderSet::Queue))
-            .add_system(queue_prepass_material_meshes::<M>.in_base_set(RenderSet::Queue))
-            .add_system(sort_phase_system::<Opaque3dPrepass>.in_base_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_base_set(RenderSet::PhaseSort))
+            .add_system(prepare_prepass_textures.in_set(RenderSet::Prepare))
+            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
+            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()

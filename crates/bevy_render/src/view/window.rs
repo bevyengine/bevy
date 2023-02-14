@@ -33,7 +33,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_system_to_schedule(ExtractSchedule, extract_windows)
-                .configure_set(WindowSystem::Prepare.in_base_set(RenderSet::Prepare))
+                .configure_set(WindowSystem::Prepare.in_set(RenderSet::Prepare))
                 .add_system(prepare_windows.in_set(WindowSystem::Prepare));
         }
     }

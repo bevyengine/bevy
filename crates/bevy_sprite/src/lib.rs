@@ -77,7 +77,7 @@ impl Plugin for SpritePlugin {
                         extract_sprite_events,
                     ),
                 )
-                .add_system(queue_sprites.in_base_set(RenderSet::Queue));
+                .add_system(queue_sprites.in_set(RenderSet::Queue));
         };
     }
 }

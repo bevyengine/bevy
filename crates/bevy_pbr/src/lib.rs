@@ -260,9 +260,9 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_set(RenderLightSystems::PrepareLights.in_base_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::PrepareClusters.in_base_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::QueueShadows.in_base_set(RenderSet::Queue))
+            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
             .add_systems_to_schedule(
                 ExtractSchedule,
                 (
@@ -288,8 +288,8 @@ impl Plugin for PbrPlugin {
                     .in_set(RenderLightSystems::PrepareClusters),
             )
             .add_system(render::queue_shadows.in_set(RenderLightSystems::QueueShadows))
-            .add_system(render::queue_shadow_view_bind_group.in_base_set(RenderSet::Queue))
-            .add_system(sort_phase_system::<Shadow>.in_base_set(RenderSet::PhaseSort))
+            .add_system(render::queue_shadow_view_bind_group.in_set(RenderSet::Queue))
+            .add_system(sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort))
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()

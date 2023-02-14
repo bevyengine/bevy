@@ -143,7 +143,7 @@ impl Plugin for FogPlugin {
             render_app
                 .init_resource::<FogMeta>()
                 .add_system(prepare_fog.in_set(RenderFogSystems::PrepareFog))
-                .configure_set(RenderFogSystems::PrepareFog.in_base_set(RenderSet::Prepare));
+                .configure_set(RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare));
         }
     }
 }
