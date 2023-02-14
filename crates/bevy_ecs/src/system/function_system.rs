@@ -371,7 +371,7 @@ pub struct InputMarker;
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
-pub struct FunctionSystem<In, Out, Param, Marker, F>
+pub struct FunctionSystem<Param, Marker, F>
 where
     Param: SystemParam,
 {
@@ -381,7 +381,7 @@ where
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn(In) -> (Out, Marker)>,
+    marker: PhantomData<fn() -> Marker>,
 }
 
 pub struct IsFunctionSystem;
@@ -392,7 +392,7 @@ where
     F: SystemParamFunction<Marker> + Send + Sync + 'static,
     F::Param: 'static,
 {
-    type System = FunctionSystem<F::In, F::Out, F::Param, Marker, F>;
+    type System = FunctionSystem<F::Param, Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -405,7 +405,7 @@ where
     }
 }
 
-impl<In, Out, Param, Marker, F> FunctionSystem<In, Out, Param, Marker, F>
+impl<Param, Marker, F> FunctionSystem<Param, Marker, F>
 where
     Param: SystemParam,
 {
@@ -415,7 +415,7 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<Marker, F> System for FunctionSystem<F::In, F::Out, F::Param, Marker, F>
+impl<Marker, F> System for FunctionSystem<F::Param, Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<Marker> + Send + Sync + 'static,
@@ -527,7 +527,7 @@ where
 }
 
 /// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
-unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<F::In, F::Out, F::Param, Marker, F>
+unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<F::Param, Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<Marker> + Send + Sync + 'static,
