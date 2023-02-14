@@ -43,7 +43,7 @@ use winit::{
 
 use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
 
-#[cfg(target_ = "wasm32")]
+#[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
 #[cfg(target_os = "android")]
