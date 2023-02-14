@@ -594,9 +594,16 @@ where
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    /// The input type to this system. See [`System::In`].
     type In;
+
+    /// The return type of this system. See [`System::Out`].
     type Out;
+
+    /// The [`SystemParam`]/s used by this system to access the [`World`].
     type Param: SystemParam;
+
+    /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
     fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
 
