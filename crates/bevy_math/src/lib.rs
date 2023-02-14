@@ -10,7 +10,10 @@ mod bezier;
 mod ray;
 mod rect;
 
-pub use bezier::{CubicBezier2d, CubicBezier3d, CubicBezierEasing};
+pub use bezier::{
+    bezier_impl, Bezier, CubicBezier2d, CubicBezier3d, CubicBezierEasing, QuadraticBezier2d,
+    QuadraticBezier3d,
+};
 pub use ray::Ray;
 pub use rect::Rect;
 
@@ -19,7 +22,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         BVec2, BVec3, BVec4, CubicBezier2d, CubicBezier3d, CubicBezierEasing, EulerRot, IVec2,
-        IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Ray, Rect, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4,
+        IVec3, IVec4, Mat2, Mat3, Mat4, QuadraticBezier2d, QuadraticBezier3d, Quat, Ray, Rect,
+        UVec2, UVec3, UVec4, Vec2, Vec3, Vec4,
     };
 }
 

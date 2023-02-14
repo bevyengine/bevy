@@ -1,36 +1,99 @@
-use glam::{Vec2, Vec3};
+use glam::{Vec2, Vec3, Vec3A};
 
-/// A 2-dimensional Bezier curve, defined by its 4 [`Vec2`] control points.
-#[derive(Default, Clone, Copy, Debug, PartialEq)]
-pub struct CubicBezier2d(pub [Vec2; 4]);
+use std::{
+    fmt::Debug,
+    iter::Sum,
+    ops::{Add, Mul, Sub},
+};
 
-impl CubicBezier2d {
-    /// Returns the [`Vec2`] position along the Bezier curve at the supplied parametric value `t`.
-    pub fn evaluate_at(&self, t: f32) -> Vec2 {
-        bezier_impl::evaluate_cubic_bezier(self.0, t)
-    }
+/// A point in space of any dimension that supports addition and multiplication.
+pub trait Point:
+    Mul<f32, Output = Self>
+    + Add<Self, Output = Self>
+    + Sub<Self, Output = Self>
+    + Sum
+    + Default
+    + Debug
+    + Clone
+    + PartialEq
+    + Copy
+{
+}
+impl Point for Vec3 {} // 3D
+impl Point for Vec3A {} // 3D
+impl Point for Vec2 {} // 2D
+impl Point for f32 {} // 1D
 
-    /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
-    /// evaluating the [`Vec2`] position at each step.
-    pub fn to_points(&self, subdivisions: i32) -> Vec<Vec2> {
-        bezier_impl::cubic_bezier_to_points(self.0, subdivisions)
+/// A cubic Bezier curve in 2D space
+pub type CubicBezier2d = Bezier<Vec2, 4>;
+/// A cubic Bezier curve in 3D space
+pub type CubicBezier3d = Bezier<Vec3A, 4>;
+/// A quadratic Bezier curve in 2D space
+pub type QuadraticBezier2d = Bezier<Vec2, 3>;
+/// A quadratic Bezier curve in 3D space
+pub type QuadraticBezier3d = Bezier<Vec3A, 3>;
+
+/// A Bezier curve with `N` control points, and dimension defined by `P`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Bezier<P: Point, const N: usize>(pub [P; N]);
+
+impl<P: Point, const N: usize> Default for Bezier<P, N> {
+    fn default() -> Self {
+        Bezier([P::default(); N])
     }
 }
 
-/// A 3-dimensional Bezier curve, defined by its 4 [`Vec3`] control points.
-#[derive(Default, Clone, Copy, Debug, PartialEq)]
-pub struct CubicBezier3d(pub [Vec3; 4]);
+impl<P: Point, const N: usize> Bezier<P, N> {
+    /// Construct a new Bezier curve
+    pub fn new(control_points: [P; N]) -> Self {
+        Self(control_points)
+    }
 
-impl CubicBezier3d {
-    /// Returns the [`Vec3`] position along the Bezier curve at the supplied parametric value `t`.
-    pub fn evaluate_at(&self, t: f32) -> Vec3 {
-        bezier_impl::evaluate_cubic_bezier(self.0, t)
+    /// Compute the [`Vec3`] position along the Bezier curve at the supplied parametric value `t`.
+    pub fn position(&self, t: f32) -> P {
+        bezier_impl::position(self.0, t)
+    }
+
+    /// Compute the first derivative B'(t) of this cubic bezier at `t` with respect to t. This is
+    /// the instantaneous velocity of a point tracing the Bezier curve from t = 0 to 1.
+    pub fn velocity(&self, t: f32) -> P {
+        bezier_impl::velocity(self.0, t)
+    }
+
+    /// Compute the second derivative B''(t) of this cubic bezier at `t` with respect to t.This is
+    /// the instantaneous acceleration of a point tracing the Bezier curve from t = 0 to 1.
+    pub fn acceleration(&self, t: f32) -> P {
+        bezier_impl::acceleration(self.0, t)
+    }
+
+    /// Split the cubic Bezier curve of degree `N-1` into `subdivisions`, and sample with the
+    /// supplied `sample_function`.
+    #[inline]
+    pub fn sample(&self, subdivisions: i32, sample_function: fn(&Self, f32) -> P) -> Vec<P> {
+        (0..=subdivisions)
+            .map(|i| {
+                let t = i as f32 / subdivisions as f32;
+                sample_function(self, t)
+            })
+            .collect()
     }
 
     /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
-    /// evaluating the [`Vec3`] position at each step.
-    pub fn to_points(&self, subdivisions: i32) -> Vec<Vec3> {
-        bezier_impl::cubic_bezier_to_points(self.0, subdivisions)
+    /// sampling the position at each step.
+    pub fn to_positions(&self, subdivisions: i32) -> Vec<P> {
+        self.sample(subdivisions, Self::position)
+    }
+
+    /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
+    /// sampling the velocity at each step.
+    pub fn to_velocities(&self, subdivisions: i32) -> Vec<P> {
+        self.sample(subdivisions, Self::velocity)
+    }
+
+    /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
+    /// sampling the acceleration at each step.
+    pub fn to_accelerations(&self, subdivisions: i32) -> Vec<P> {
+        self.sample(subdivisions, Self::acceleration)
     }
 }
 
@@ -42,9 +105,9 @@ impl CubicBezier3d {
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct CubicBezierEasing {
     /// Control point P1 of the 2D cubic Bezier curve. Controls the start of the animation.
-    pub p1: Vec2,
+    p1: Vec2,
     /// Control point P2 of the 2D cubic Bezier curve. Controls the end of the animation.
-    pub p2: Vec2,
+    p2: Vec2,
 }
 
 impl CubicBezierEasing {
@@ -57,98 +120,134 @@ impl CubicBezierEasing {
     const MAX_ERROR: f32 = 1e-7;
 
     /// Maximum number of iterations during bezier solve
-    const MAX_ITERS: u8 = 8;
-
-    /// Returns the x-coordinate of the point along the Bezier curve at the supplied parametric
-    /// value `t`.
-    pub fn evaluate_x_at(&self, t: f32) -> f32 {
-        bezier_impl::evaluate_cubic_bezier([0.0, self.p1.x, self.p2.x, 1.0], t)
-    }
-
-    /// Returns the y-coordinate of the point along the Bezier curve at the supplied parametric
-    /// value `t`.
-    pub fn evaluate_y_at(&self, t: f32) -> f32 {
-        bezier_impl::evaluate_cubic_bezier([0.0, self.p1.y, self.p2.y, 1.0], t)
-    }
+    const MAX_ITERS: u8 = 16;
 
     /// Given a `time` within `0..=1`, remaps to a new value using the cubic Bezier curve as a
-    /// shaping function, where `x = time`, and `y = animation progress`. This will return `0` when
-    /// `t = 0`, and `1` when `t = 1`.
-    pub fn remap(&self, time: f32) -> f32 {
+    /// shaping function, for which when plotted `x = time` and `y = animation progress`. This will
+    /// return `0` when `t = 0`, and `1` when `t = 1`.
+    pub fn ease(&self, time: f32) -> f32 {
         let x = time.clamp(0.0, 1.0);
         let t = self.find_t_given_x(x);
         self.evaluate_y_at(t)
     }
 
-    /// Compute the slope `dx/dt` of a cubic bezier easing curve at the given parametric `t`.
-    pub fn dx_dt(&self, t: f32) -> f32 {
-        let p0x = 0.0;
-        let p1x = self.p1.x;
-        let p2x = self.p2.x;
-        let p3x = 1.0;
-        3. * (1. - t).powi(2) * (p1x - p0x)
-            + 6. * (1. - t) * t * (p2x - p1x)
-            + 3. * t.powi(2) * (p3x - p2x)
+    /// Compute the x-coordinate of the point along the Bezier curve at `t`.
+    #[inline]
+    pub fn evaluate_x_at(&self, t: f32) -> f32 {
+        bezier_impl::position([0.0, self.p1.x, self.p2.x, 1.0], t)
     }
 
-    /// Solve for the parametric value `t` corresponding to the given value of `x`.
-    ///
-    /// This will return `x` if the solve fails to converge, which corresponds to a simple linear
-    /// interpolation.
+    /// Compute the y-coordinate of the point along the Bezier curve at `t`.
+    #[inline]
+    pub fn evaluate_y_at(&self, t: f32) -> f32 {
+        bezier_impl::position([0.0, self.p1.y, self.p2.y, 1.0], t)
+    }
+
+    /// Compute the slope of the line at the given parametric value `t` with respect to t.
+    #[inline]
+    pub fn dx_dt(&self, t: f32) -> f32 {
+        bezier_impl::velocity([0.0, self.p1.x, self.p2.x, 1.0], t)
+    }
+
+    /// Solve for the parametric value `t` that corresponds to the given value of `x`.
+    #[inline]
     pub fn find_t_given_x(&self, x: f32) -> f32 {
-        // We will use the desired value x as our initial guess for t. This is a good estimate,
-        // as cubic bezier curves for animation are usually near the line where x = t.
         let mut t_guess = x;
-        let mut error = f32::MAX;
-        for _ in 0..Self::MAX_ITERS {
+        (0..Self::MAX_ITERS).any(|_| {
             let x_guess = self.evaluate_x_at(t_guess);
-            error = x_guess - x;
+            let error = x_guess - x;
             if error.abs() <= Self::MAX_ERROR {
-                return t_guess;
+                return true;
+            } else {
+                let slope = self.dx_dt(t_guess);
+                t_guess -= error / slope;
+                return false;
             }
-            let slope = self.dx_dt(t_guess);
-            t_guess -= error / slope;
-        }
-        if error.abs() <= Self::MAX_ERROR {
-            t_guess
-        } else {
-            x // fallback to linear interpolation if the solve fails
-        }
+        });
+        t_guess.clamp(0.0, 1.0)
     }
 }
 
-/// The bezier implementation is wrapped inside a private module to keep the public interface
-/// simple. This allows us to reuse the generic code across various cubic Bezier types, without
-/// exposing users to any unwieldy traits or generics in the IDE or documentation.
-#[doc(hidden)]
-mod bezier_impl {
-    use glam::{Vec2, Vec3};
-    use std::ops::{Add, Mul};
+/// Generic implementations for sampling cubic Bezier curves. Consider using the methods on
+/// [`Bezier`] for more ergonomic use.
+pub mod bezier_impl {
+    use super::Point;
 
-    /// A point in space of any dimension that supports addition and multiplication.
-    pub trait Point: Copy + Mul<f32, Output = Self> + Add<Self, Output = Self> {}
-    impl Point for Vec3 {}
-    impl Point for Vec2 {}
-    impl Point for f32 {}
-
-    /// Evaluate the cubic Bezier curve at the parametric value `t`.
+    /// Compute the bernstein basis polynomial for iteration `i`, for a Bezier curve with with
+    /// degree `n`, at `t`.
     #[inline]
-    pub fn evaluate_cubic_bezier<P: Point>(control_points: [P; 4], t: f32) -> P {
-        let p = control_points;
-        p[0] * (1. - t).powi(3)
-            + p[1] * t * 3.0 * (1.0 - t).powi(2)
-            + p[2] * 3.0 * (1.0 - t) * t.powi(2)
-            + p[3] * t.powi(3)
+    pub fn bernstein_basis(n: usize, i: usize, t: f32) -> f32 {
+        (1. - t).powi((n - i) as i32) * t.powi(i as i32)
     }
 
-    /// Split the Bezier curve into `subdivisions`, and sample the position at each [`Point`] `P`.
+    /// Efficiently compute the binomial coefficient
     #[inline]
-    pub fn cubic_bezier_to_points<P: Point>(control_points: [P; 4], subdivisions: i32) -> Vec<P> {
-        (0..=subdivisions)
+    fn binomial_coeff(n: usize, k: usize) -> usize {
+        let mut i = 0;
+        let mut result = 1;
+        let k = match k > n - k {
+            true => n - k,
+            false => k,
+        };
+        while i < k {
+            result *= n - i;
+            result /= i + 1;
+            i += 1;
+        }
+        result
+    }
+
+    /// Evaluate the Bezier curve B(t) of degree `N-1` at the parametric value `t`.
+    #[inline]
+    pub fn position<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
+        let p = control_points;
+        let degree = N - 1;
+        (0..=degree)
+            .map(|i| p[i] * binomial_coeff(degree, i) as f32 * bernstein_basis(degree, i, t))
+            .sum()
+    }
+
+    /// Compute the first derivative B'(t) of Bezier curve B(t) of degree `N-1` at the given
+    /// parametric value `t` with respect to t.
+    #[inline]
+    pub fn velocity<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
+        debug_assert!(
+            N > 1,
+            "Velocity can only be computed on Bezier curves with a degree of 1 or higher"
+        );
+        let p = control_points;
+        let degree = N - 1;
+        let degree_vel = N - 2; // the velocity Bezier is one degree lower than the position Bezier
+        (0..=degree_vel)
             .map(|i| {
-                let t = i as f32 / subdivisions as f32;
-                evaluate_cubic_bezier(control_points, t)
+                // Point on the velocity Bezier curve:
+                let p = (p[i + 1] - p[i]) * degree as f32;
+                p * binomial_coeff(degree_vel, i) as f32 * bernstein_basis(degree_vel, i, t)
             })
-            .collect()
+            .sum()
+    }
+
+    /// Compute the second derivative B''(t) of Bezier curve B(t) of degree `N-1` at the given
+    /// parametric value `t` with respect to t.
+    #[inline]
+    pub fn acceleration<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
+        debug_assert!(
+            N > 2,
+            "Acceleration can only be computed on Bezier curves with a degree of 2 or higher"
+        );
+        let p = control_points;
+        let degree = N - 1;
+        let degree_vel = N - 2; // the velocity Bezier is one degree lower than the position Bezier
+        let degree_accel = N - 3; // the accel Bezier is one degree lower than the velocity Bezier
+        (0..degree_vel)
+            .map(|i| {
+                // Points on the velocity Bezier curve:
+                let p0 = (p[i + 1] - p[i]) * degree as f32;
+                let p1 = (p[i + 2] - p[i + 1]) * degree as f32;
+                // Point on the acceleration Bezier curve:
+                let p = (p1 - p0) * (degree_vel) as f32;
+                p * binomial_coeff(degree_accel, i) as f32 * bernstein_basis(degree_accel, i, t)
+            })
+            .sum()
     }
 }
