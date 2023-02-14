@@ -1,10 +1,13 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::HashMap;
+use bevy_utils::{FixedState, HashMap};
 use once_cell::race::OnceBox;
 use parking_lot::RwLock;
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    hash::BuildHasher,
+};
 
 /// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
@@ -146,4 +149,9 @@ impl GenericTypeInfoCell {
             Box::leak(Box::new(f()))
         })
     }
+}
+
+#[inline]
+pub fn reflect_hasher() -> bevy_utils::AHasher {
+    FixedState.build_hasher()
 }

@@ -1,6 +1,6 @@
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    utility::{reflect_hasher, NonGenericTypeInfoCell},
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -334,7 +334,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
-    let mut hasher = crate::reflect_hasher();
+    let mut hasher = reflect_hasher();
     std::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {

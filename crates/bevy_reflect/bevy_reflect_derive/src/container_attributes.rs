@@ -225,7 +225,7 @@ impl ReflectTraits {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn reflect_hash(&self) -> #FQOption<u64> {
                     use ::core::hash::{Hash, Hasher};
-                    let mut hasher = #bevy_reflect_path::reflect_hasher();
+                    let mut hasher = #bevy_reflect_path::utility::reflect_hasher();
                     Hash::hash(&#FQAny::type_id(self), &mut hasher);
                     Hash::hash(self, &mut hasher);
                     #FQOption::Some(Hasher::finish(&hasher))
