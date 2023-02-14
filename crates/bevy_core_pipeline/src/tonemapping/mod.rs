@@ -23,7 +23,11 @@ const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
 
 #[derive(Resource)]
-pub struct TonemappingLuts(Handle<Image>);
+pub struct TonemappingLuts {
+    blender_filmic: Handle<Image>,
+    agx: Handle<Image>,
+    sbdt2: Handle<Image>,
+}
 
 pub struct TonemappingPlugin;
 
@@ -44,28 +48,17 @@ impl Plugin for TonemappingPlugin {
 
         let mut images = app.world.resource_mut::<Assets<Image>>();
 
-        let mut image = Image::from_buffer(
-            include_bytes!("luts/combined_luts.exr"),
-            ImageType::Extension("exr"),
-            CompressedImageFormats::NONE,
-            false,
-        )
-        .unwrap();
-
-        image.sampler_descriptor =
-            bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
-                label: Some(&"Tonemapping LUT"),
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Linear,
-                ..default()
-            });
-
         // TODO move somewhere so the texture is available for shading in the main pass?
-        let tonemapping_lut = images.add(image);
+
+        let tonemapping_luts = TonemappingLuts {
+            blender_filmic: images.add(setup_tonemapping_lut_image(include_bytes!(
+                "luts/blender_-11_12.exr"
+            ))),
+            agx: images.add(setup_tonemapping_lut_image(include_bytes!(
+                "luts/AgX-default_contrast_vert.lut.exr"
+            ))),
+            sbdt2: images.add(setup_tonemapping_lut_image(include_bytes!("luts/kaj.exr"))),
+        };
 
         app.register_type::<Tonemapping>();
 
@@ -73,7 +66,7 @@ impl Plugin for TonemappingPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .insert_resource(TonemappingLuts(tonemapping_lut))
+                .insert_resource(tonemapping_luts)
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
@@ -86,7 +79,7 @@ pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[reflect(FromReflect)]
 pub enum TonemappingMethod {
     None,
@@ -101,6 +94,8 @@ pub enum TonemappingMethod {
     AgX,
     /// Also good
     SBDT,
+    /// Very Good
+    SBDT2,
     /// Also good
     BlenderFilmic,
 }
@@ -128,6 +123,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
             TonemappingMethod::SBDT => shader_defs.push("TONEMAP_METHOD_SBDT".into()),
+            TonemappingMethod::SBDT2 => shader_defs.push("TONEMAP_METHOD_SBDT2".into()),
             TonemappingMethod::BlenderFilmic => {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into())
             }
@@ -218,7 +214,7 @@ pub fn queue_view_tonemapping_pipelines(
     }
 }
 
-#[derive(Component, Clone, Reflect, Default, ExtractComponent)]
+#[derive(Component, Debug, Clone, Reflect, Default, ExtractComponent, PartialEq, Eq)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub enum Tonemapping {
@@ -239,9 +235,26 @@ impl Tonemapping {
 pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<Image>,
     tonemapping_luts: &'a TonemappingLuts,
+    tonemapping: &Tonemapping,
     bindings: [u32; 2],
 ) -> [BindGroupEntry<'a>; 2] {
-    let lut_image = images.get(&tonemapping_luts.0).unwrap();
+    let image = match tonemapping {
+        Tonemapping::Disabled => &tonemapping_luts.agx,
+        Tonemapping::Enabled {
+            deband_dither: _,
+            method,
+        } => match method {
+            TonemappingMethod::None => &tonemapping_luts.agx,
+            TonemappingMethod::Reinhard => &tonemapping_luts.agx,
+            TonemappingMethod::ReinhardLuminance => &tonemapping_luts.agx,
+            TonemappingMethod::Aces => &tonemapping_luts.agx,
+            TonemappingMethod::AgX => &tonemapping_luts.agx,
+            TonemappingMethod::SBDT => &tonemapping_luts.agx,
+            TonemappingMethod::SBDT2 => &tonemapping_luts.sbdt2,
+            TonemappingMethod::BlenderFilmic => &tonemapping_luts.blender_filmic,
+        },
+    };
+    let lut_image = images.get(&image).unwrap();
     [
         BindGroupEntry {
             binding: bindings[0],
@@ -261,7 +274,7 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: TextureViewDimension::D2,
+                view_dimension: TextureViewDimension::D3,
                 multisampled: false,
             },
             count: None,
@@ -273,4 +286,46 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
             count: None,
         },
     ]
+}
+
+fn setup_tonemapping_lut_image(bytes: &[u8]) -> Image {
+    let mut image = Image::from_buffer(
+        bytes, //AgX-default_contrast_vert.lut.exr
+        ImageType::Extension("exr"),
+        CompressedImageFormats::NONE,
+        true,
+    )
+    .unwrap();
+
+    //image.texture_descriptor.format = TextureFormat::Rgba16Unorm;
+
+    let block_size = image.size().x as u32;
+
+    image.texture_descriptor = TextureDescriptor {
+        label: Some("tonemapping lut"),
+        size: Extent3d {
+            width: block_size,
+            height: block_size,
+            depth_or_array_layers: block_size,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D3,
+        format: image.texture_descriptor.format,
+        usage: image.texture_descriptor.usage,
+        view_formats: image.texture_descriptor.view_formats,
+    };
+
+    image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
+        label: Some(&"Tonemapping LUT"),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Linear,
+        ..default()
+    });
+
+    image
 }

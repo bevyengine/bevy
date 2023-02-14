@@ -54,7 +54,7 @@ var environment_map_specular: texture_cube<f32>;
 var environment_map_sampler: sampler;
 
 @group(0) @binding(14)
-var dt_lut_texture: texture_2d<f32>;
+var dt_lut_texture: texture_3d<f32>;
 @group(0) @binding(15)
 var dt_lut_sampler: sampler;
 

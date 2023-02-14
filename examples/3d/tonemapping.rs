@@ -56,12 +56,13 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
 
     println!("");
 
-    println!("4 - Bypass");
-    println!("5 - Reinhard");
-    println!("6 - Reinhard Luminance (old bevy default)");
-    println!("7 - Aces");
-    println!("8 - AgX");
-    println!("9 - SBDT");
+    println!("B - Bypass");
+    println!("4 - Reinhard");
+    println!("5 - Reinhard Luminance (old bevy default)");
+    println!("6 - Aces");
+    println!("7 - AgX");
+    println!("8 - SBDT");
+    println!("9 - SBDT2");
     println!("0 - Blender Filmic");
 
     // camera
@@ -332,42 +333,48 @@ fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &S
 
 fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemapping>) {
     if let Some(mut tonemapping) = query.iter_mut().next() {
-        if keys.just_pressed(KeyCode::Key4) {
+        if keys.just_pressed(KeyCode::B) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::None,
             };
             println!("Bypass");
-        } else if keys.just_pressed(KeyCode::Key5) {
+        } else if keys.just_pressed(KeyCode::Key4) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::Reinhard,
             };
             println!("Reinhard");
-        } else if keys.just_pressed(KeyCode::Key6) {
+        } else if keys.just_pressed(KeyCode::Key5) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::ReinhardLuminance,
             };
             println!("ReinhardLuminance (old bevy default)");
-        } else if keys.just_pressed(KeyCode::Key7) {
+        } else if keys.just_pressed(KeyCode::Key6) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::Aces,
             };
             println!("Aces");
-        } else if keys.just_pressed(KeyCode::Key8) {
+        } else if keys.just_pressed(KeyCode::Key7) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::AgX,
             };
             println!("AgX");
-        } else if keys.just_pressed(KeyCode::Key9) {
+        } else if keys.just_pressed(KeyCode::Key8) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
                 method: TonemappingMethod::SBDT,
             };
             println!("SBDT");
+        } else if keys.just_pressed(KeyCode::Key9) {
+            *tonemapping = Tonemapping::Enabled {
+                deband_dither: true,
+                method: TonemappingMethod::SBDT2,
+            };
+            println!("SBDT2");
         } else if keys.just_pressed(KeyCode::Key0) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,

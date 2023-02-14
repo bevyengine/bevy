@@ -16,6 +16,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
@@ -53,6 +54,7 @@ impl ImageFormat {
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
+            "image/x-exr" => ImageFormat::Exr,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
             _ => return None,
         })

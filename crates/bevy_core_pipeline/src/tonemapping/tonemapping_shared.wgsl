@@ -171,12 +171,7 @@ fn tonemap_filmic_godot_4(color: vec3<f32>, white: f32) -> vec3<f32> {
 	return color_tonemapped / white_tonemapped;
 }
 
-const INPUT_COLORSPACE: i32 = 0;
-/*
-0 = Passthrough,
-1 = sRGB Display (EOTF),
-2 = sRGB Display (2.2),
-*/
+
 
 // --------------------------------
 // ------------- AgX --------------
@@ -193,26 +188,17 @@ const INPUT_COLORSPACE: i32 = 0;
 //const PUNCH_EXPOSURE: f32  = 0.0;
 //const PUNCH_SATURATION: f32  = 1.0;
 //const PUNCH_GAMMA: f32  = 1.3;
-//const OUTPUT_COLORSPACE: i32  = 2;
 
-const INPUT_EXPOSURE: f32 = -0.5;
-const INPUT_GAMMA: f32  = 1.1;
-const INPUT_SATURATION: f32  = 1.1;
+const INPUT_EXPOSURE: f32 = 0.0;
+const INPUT_GAMMA: f32  = 1.0; //1.1
+const INPUT_SATURATION: f32  = 1.0; //1.1
 const INPUT_HIGHLIGHT_GAIN: f32  = 0.0;
 const INPUT_HIGHLIGHT_GAIN_GAMMA: f32  = 1.0;
 const PUNCH_EXPOSURE: f32  = 0.0;
-const PUNCH_SATURATION: f32  = 1.1;
+const PUNCH_SATURATION: f32  = 1.0; //1.1
 const PUNCH_GAMMA: f32  = 1.0;
-const OUTPUT_COLORSPACE: i32  = 2; //This is used because it's converted back to linear after applyAgXLUT 
 
-/*
-0 = Passthrough,
-1 = sRGB Display (EOTF),
-2 = sRGB Display (2.2),
-*/
 
-const USE_OCIO_LOG: bool = false;
-const APPLY_OUTSET: bool = false;
 
 // LUT AgX-default_contrast.lut.png / AgX-default_contrast.lut.exr 
 
@@ -240,22 +226,6 @@ fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32>
     return mix(vec3(luma), color, vec3(saturationAmount));
 }
 
-fn cctf_decoding_sRGB(color: vec3<f32>) -> vec3<f32>
-// ref[5]
-{
-    return select(powsafe((color + 0.055) / 1.055, 2.4), color / 12.92, color <= 0.04045);
-}
-
-fn cctf_encoding_sRGB(color: vec3<f32>) -> vec3<f32>
-// ref[5]
-{
-    return select((1.055 * powsafe(color, 1.0/2.4) - 0.055), color * 12.92, color <= 0.0031308);
-}
-
-fn cctf_decoding_pow2_2(color: vec3<f32>) -> vec3<f32> {return powsafe(color, 2.2);}
-
-fn cctf_encoding_pow2_2(color: vec3<f32>) -> vec3<f32> {return powsafe(color, 1.0/2.2);}
-
 fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32>
 /*
     Output log domain encoded data.
@@ -279,45 +249,10 @@ fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_
     return (color - minimum_ev) / total_exposure;
 }
 
-// exactly the same as above but I let it for reference
-fn log2Transform(color: vec3<f32>) -> vec3<f32>
-/*
-    Output log domain encoded data.
-    Copy of OCIO lg2 AllocationTransform with the AgX Log values.
-    :param color: rgba linear color data
-*/
-{
-    // remove negative before log transform
-    var color = max(vec3(0.0), color);
-    color = select(log2(color), log2(0.00001525878 + color * 0.5), color  < 0.00003051757);
-
-    // obtained via m = ocio.MatrixTransform.Fit(oldMin=[-12.47393, -12.47393, -12.47393, 0.0], oldMax=[4.026069, 4.026069, 4.026069, 1.0])
-    let fitMatrix = mat3x3<f32>(
-        0.060606064279155415, 0.0, 0.0,
-        0.0, 0.060606064279155415, 0.0,
-        0.0, 0.0, 0.060606064279155415
-    );
-    // obtained via same as above
-    let fitMatrixOffset = 0.7559958033936851;
-    color = color * fitMatrix;
-    color += vec3(fitMatrixOffset);
-
-    return color;
-}
 /*=================
     Main processes
 =================*/
 
-
-fn applyInputTransform(Image: vec3<f32>) -> vec3<f32>
-/*
-    Convert input to workspace colorspace.
-*/
-{
-    if (INPUT_COLORSPACE == 1) {return cctf_decoding_sRGB(Image);};
-    if (INPUT_COLORSPACE == 2) {return cctf_decoding_pow2_2(Image);};
-    return Image;
-}
 
 fn applyGrading(Image: vec3<f32>) -> vec3<f32>
 /*
@@ -347,84 +282,14 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32>
 	let b = dot(Image, vec3(0.04237565, 0.0784336, 0.87914297));
 	Image = vec3(r, g, b);
 
-    if (USE_OCIO_LOG) {
-        Image = log2Transform(Image);
-    } else {
-        Image = convertOpenDomainToNormalizedLog2(Image, -10.0, 6.5);
-    }
-
+    Image = convertOpenDomainToNormalizedLog2(Image, -10.0, 6.5);
+    
     Image = clamp(Image, vec3(0.0), vec3(1.0));
     return Image;
 }
 
-fn applyAgXLUT(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset: vec2<f32>) -> vec3<f32>
-/*
-    Apply the AgX 1D curve on log encoded data.
-    The output is similar to AgX Base which is considered
-    sRGB - Display, but here we linearize it.
-    -- ref[3] for LUT implementation
-*/
-{
-    var Image = Image;
-
-    let lut3D = Image * (block_size - 1.0);
-    let tex_dim = vec2<f32>(textureDimensions(dt_lut_texture).xy);
-    let dim = tex_dim / dimensions;
-
-    
-    // Front
-    var lut2D_0 = vec2(
-        floor(lut3D.z) * block_size+lut3D.x,
-        lut3D.y
-    );
-    // Back
-    var lut2D_1 = vec2(
-        ceil(lut3D.z) * block_size+lut3D.x,
-        lut3D.y
-    );
-
-    let pixel_size = 1.0 / dimensions;
-    let offset = offset / tex_dim;
-
-    // Convert from texel to texture coords
-    lut2D_0 = (lut2D_0+0.5) * pixel_size;
-    lut2D_1 = (lut2D_1+0.5) * pixel_size;
-
-    // Bicubic LUT interpolation
-    Image = mix(
-        // AgXLUT.Sample(LUTSampler, lut2D[0]).rgb 
-        textureSample(dt_lut_texture, dt_lut_sampler, lut2D_0 / dim + offset).rgb, // Front Z 
-        // AgXLUT.Sample(LUTSampler, lut2D[1]).rgb
-        textureSample(dt_lut_texture, dt_lut_sampler, lut2D_1 / dim + offset).rgb, // Back Z
-        fract(lut3D.z)
-    );
-    return Image;
-}
-
-fn applyOutset(Image: vec3<f32>) -> vec3<f32>
-/*
-    Outset is the inverse of the inset applied during `applyAgXLog`
-    and restore chroma.
-*/
-{
-    // Image = mul(agx_compressed_matrix_inverse, Image);
-    let r = dot(Image, vec3(1.1968790, -0.09802088, -0.09902975));
-	let g = dot(Image, vec3(-0.05289685, 1.15190313, -0.09896118));
-	let b = dot(Image, vec3(-0.05297163, -0.09804345, 1.15107368));
-	let Image = vec3(r, g, b);
-
-    return Image;
-}
-
-fn applyODT(Image: vec3<f32>) -> vec3<f32>
-/*
-    Apply Agx to display conversion.
-    :param color: linear - sRGB data.
-*/
-{
-    if (OUTPUT_COLORSPACE == 1) {return cctf_encoding_sRGB(Image);};
-    if (OUTPUT_COLORSPACE == 2) {return cctf_encoding_pow2_2(Image);};
-    return Image;
+fn applyAgXLUT3D(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset: vec2<f32>) -> vec3<f32> {
+    return textureSample(dt_lut_texture, dt_lut_sampler, Image * ((block_size - 1.0) / block_size) + 0.5 / block_size).rgb;
 }
 
 fn applyLookPunchy(Image: vec3<f32>) -> vec3<f32>
@@ -442,16 +307,9 @@ fn applyLookPunchy(Image: vec3<f32>) -> vec3<f32>
 
 fn tonemapping_AgX(Image: vec3<f32>) -> vec3<f32> {
     var Image = Image;
-    Image = applyInputTransform(Image);
     Image = applyGrading(Image);
     Image = applyAgXLog(Image);
-    Image = applyAgXLUT(Image, 32.0, vec2<f32>(1024.0, 32.0), vec2(0.0));
-    // LUT apply the transfer function so we remove it to keep working on linear data.
-    Image = cctf_decoding_pow2_2(Image);
-    if (APPLY_OUTSET) {
-        Image = applyOutset(Image);
-    }
-    Image = applyODT(Image);
+    Image = applyAgXLUT3D(Image, 32.0, vec2<f32>(1024.0, 32.0), vec2(0.0));
     Image = applyLookPunchy(Image);
     return Image;
 }
@@ -532,13 +390,24 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
 #ifdef TONEMAP_METHOD_SBDT
     return vec4<f32>(tonemapping_sbdt(color.rgb), in.a);
 #endif
+#ifdef TONEMAP_METHOD_SBDT2
+    let block_size = 32.0;
+    var c = color.rgb;
+    let LUT_EV_RANGE = vec2(-11.0, 8.0);
+    c = (log2(c) - LUT_EV_RANGE[0]) / (LUT_EV_RANGE[1] - LUT_EV_RANGE[0]);//convertOpenDomainToNormalizedLog2(c, -11.0, 8.0);
+    c = saturate(c);
+    c.y = 1.0 - c.y;
+    c = applyAgXLUT3D(c, block_size, vec2<f32>(1024.0, 32.0), vec2(1024.0, 0.0));
+    c = pow(c, vec3(2.2));
+    return vec4<f32>(c, in.a);
+#endif
 #ifdef TONEMAP_METHOD_BLENDER_FILMIC
     let block_size = 64.0;
     let selector = 0.0;
     var c = color.rgb;
-    c = convertOpenDomainToNormalizedLog2(c, -10.0, 12.0);
+    c = convertOpenDomainToNormalizedLog2(c, -11.0, 12.0);
     c = saturate(c);
-    c = applyAgXLUT(c, block_size, vec2<f32>(4096.0, 64.0), vec2(0.0, 32.0 + block_size * selector));
+    c = applyAgXLUT3D(c, block_size, vec2<f32>(4096.0, 64.0), vec2(0.0, 32.0 + block_size * selector));
     return vec4<f32>(c, in.a);
 #endif
 

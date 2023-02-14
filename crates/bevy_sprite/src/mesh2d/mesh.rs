@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::tonemapping::{
-    get_lut_bind_group_layout_entries, get_lut_bindings, TonemappingLuts,
+    get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
 };
 use bevy_ecs::{
     prelude::*,
@@ -306,7 +306,8 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES          = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX           = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SBDT          = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC= 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SBDT2         = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC= 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -501,7 +502,7 @@ pub fn queue_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<(Entity, Option<&Tonemapping>), With<ExtractedView>>,
     globals_buffer: Res<GlobalsBuffer>,
     images: Res<RenderAssets<Image>>,
     tonemapping_luts: Res<TonemappingLuts>,
@@ -510,7 +511,7 @@ pub fn queue_mesh2d_view_bind_groups(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for entity in &views {
+        for (entity, tonemapping) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     [
@@ -523,7 +524,12 @@ pub fn queue_mesh2d_view_bind_groups(
                             resource: globals.clone(),
                         },
                     ],
-                    get_lut_bindings(&images, &tonemapping_luts, [2, 3]),
+                    get_lut_bindings(
+                        &images,
+                        &tonemapping_luts,
+                        tonemapping.unwrap_or(&Tonemapping::Disabled),
+                        [2, 3],
+                    ),
                 ]
                 .concat(),
                 label: Some("mesh2d_view_bind_group"),

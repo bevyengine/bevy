@@ -8,7 +8,9 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prepass::ViewPrepassTextures,
-    tonemapping::{get_lut_bind_group_layout_entries, get_lut_bindings, TonemappingLuts},
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+    },
 };
 use bevy_ecs::{
     prelude::*,
@@ -602,7 +604,8 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES          = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX           = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SBDT          = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC= 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SBDT2         = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC= 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -954,6 +957,7 @@ pub fn queue_mesh_view_bind_groups(
         &ViewClusterBindings,
         Option<&ViewPrepassTextures>,
         Option<&EnvironmentMapLight>,
+        &Tonemapping,
     )>,
     images: Res<RenderAssets<Image>>,
     mut fallback_images: FallbackImagesMsaa,
@@ -982,6 +986,7 @@ pub fn queue_mesh_view_bind_groups(
             view_cluster_bindings,
             prepass_textures,
             environment_map,
+            tonemapping,
         ) in &views
         {
             let layout = if msaa.samples() > 1 {
@@ -1049,7 +1054,8 @@ pub fn queue_mesh_view_bind_groups(
             );
             entries.extend_from_slice(&env_map);
 
-            let tonemapping_luts = get_lut_bindings(&images, &tonemapping_luts, [14, 15]);
+            let tonemapping_luts =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass

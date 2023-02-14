@@ -17,11 +17,19 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use super::get_lut_bindings;
+use super::{get_lut_bindings, Tonemapping};
 
 pub struct TonemappingNode {
-    query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
+    query: QueryState<
+        (
+            &'static ViewTarget,
+            &'static ViewTonemappingPipeline,
+            &'static Tonemapping,
+        ),
+        With<ExtractedView>,
+    >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
+    last_tonemapping: Mutex<Option<Tonemapping>>, // TODO Griffin use change detection?
 }
 
 impl TonemappingNode {
@@ -31,6 +39,7 @@ impl TonemappingNode {
         Self {
             query: QueryState::new(world),
             cached_texture_bind_group: Mutex::new(None),
+            last_tonemapping: Mutex::new(None),
         }
     }
 }
@@ -55,16 +64,17 @@ impl Node for TonemappingNode {
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
 
-        let (target, tonemapping) = match self.query.get_manual(world, view_entity) {
-            Ok(result) => result,
-            Err(_) => return Ok(()),
-        };
+        let (target, view_tonemapping_pipeline, tonemapping) =
+            match self.query.get_manual(world, view_entity) {
+                Ok(result) => result,
+                Err(_) => return Ok(()),
+            };
 
         if !target.is_hdr() {
             return Ok(());
         }
 
-        let pipeline = match pipeline_cache.get_render_pipeline(tonemapping.0) {
+        let pipeline = match pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };
@@ -73,15 +83,28 @@ impl Node for TonemappingNode {
         let source = post_process.source;
         let destination = post_process.destination;
 
+        let mut last_tonemapping = self.last_tonemapping.lock().unwrap();
+
+        let tonemapping_changed = if let Some(last_tonemapping) = &*last_tonemapping {
+            tonemapping != last_tonemapping
+        } else {
+            true
+        };
+        if tonemapping_changed {
+            *last_tonemapping = Some(tonemapping.clone());
+        }
+
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if source.id() == *id => bind_group,
+            Some((id, bind_group)) if source.id() == *id && !tonemapping_changed => bind_group,
             cached_bind_group => {
                 let sampler = render_context
                     .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
+
+                dbg!(&tonemapping);
 
                 let bind_group =
                     render_context
@@ -100,7 +123,12 @@ impl Node for TonemappingNode {
                                         resource: BindingResource::Sampler(&sampler),
                                     },
                                 ],
-                                get_lut_bindings(&gpu_images, tonemapping_luts, [2, 3]),
+                                get_lut_bindings(
+                                    &gpu_images,
+                                    tonemapping_luts,
+                                    tonemapping,
+                                    [2, 3],
+                                ),
                             ]
                             .concat(),
                         });
