@@ -32,7 +32,7 @@ struct OptionalWarning(Result<(), String>);
 
 // This system produces a Result<usize> output by trying to parse the Message resource.
 fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
-    Ok(message.parse::<usize>()?)
+    message.parse::<usize>()
 }
 
 // This system produces a Result<()> output by trying to parse the Message resource.
