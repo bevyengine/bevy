@@ -1,8 +1,8 @@
 //! Illustrates how to make a single system from multiple functions running in sequence,
 //! passing the output of the first into the input of the next.
 
-use std::num::ParseIntError;
 use bevy::prelude::*;
+use std::num::ParseIntError;
 
 use bevy::log::LogPlugin;
 use bevy::utils::tracing::Level;
