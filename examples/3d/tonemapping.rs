@@ -75,7 +75,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
             transform: cam_trans.0,
             tonemapping: Tonemapping::Enabled {
                 deband_dither: true,
-                method: TonemappingMethod::AgX,
+                method: TonemappingMethod::ReinhardLuminance,
             },
             ..default()
         })

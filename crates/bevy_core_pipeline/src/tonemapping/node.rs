@@ -104,8 +104,6 @@ impl Node for TonemappingNode {
 
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
-                dbg!(&tonemapping);
-
                 let bind_group =
                     render_context
                         .render_device()

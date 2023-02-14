@@ -5,13 +5,7 @@ use crate::{
     Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::{
-    core_2d::Transparent2d,
-    tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
-        TonemappingMethod,
-    },
-};
+use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -57,22 +51,18 @@ impl FromWorld for SpritePipeline {
             Res<RenderQueue>,
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
-        let lut_entries = get_lut_bind_group_layout_entries([1, 2]);
+
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
-                lut_entries[0],
-                lut_entries[1],
-            ],
+                count: None,
+            }],
             label: Some("sprite_view_layout"),
         });
 
@@ -256,6 +246,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader_defs.push("TONEMAP_METHOD_SBDT".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_SBDT2 {
+                shader_defs.push("TONEMAP_METHOD_SBDT2".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -502,11 +494,8 @@ pub fn queue_sprites(
         Option<&Tonemapping>,
     )>,
     events: Res<SpriteAssetEvents>,
-    msaa_and_luts: (Res<Msaa>, Res<TonemappingLuts>),
+    msaa: Res<Msaa>,
 ) {
-    let msaa = msaa_and_luts.0;
-    let tonemapping_luts = msaa_and_luts.1;
-
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
@@ -526,21 +515,11 @@ pub fn queue_sprites(
         sprite_meta.vertices.clear();
         sprite_meta.colored_vertices.clear();
 
-        let mut entries = vec![BindGroupEntry {
-            binding: 0,
-            resource: view_binding,
-        }];
-
-        let tonemapping_luts = get_lut_bindings(
-            &gpu_images,
-            &tonemapping_luts,
-            &Tonemapping::Disabled, // TODO Griffin why is the view_bind_group not per-view?
-            [1, 2],
-        );
-        entries.extend_from_slice(&tonemapping_luts);
-
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &entries,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: view_binding,
+            }],
             label: Some("sprite_view_bind_group"),
             layout: &sprite_pipeline.view_layout,
         }));
@@ -573,26 +552,11 @@ pub fn queue_sprites(
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
             if let Some(Tonemapping::Enabled {
                 deband_dither,
-                method,
+                method: _,
             }) = tonemapping
             {
                 if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
-
-                    view_key |= match method {
-                        TonemappingMethod::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
-                        TonemappingMethod::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
-                        TonemappingMethod::ReinhardLuminance => {
-                            SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                        }
-                        TonemappingMethod::Aces => SpritePipelineKey::TONEMAP_METHOD_ACES,
-                        TonemappingMethod::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
-                        TonemappingMethod::SBDT => SpritePipelineKey::TONEMAP_METHOD_SBDT,
-                        TonemappingMethod::SBDT2 => SpritePipelineKey::TONEMAP_METHOD_SBDT2,
-                        TonemappingMethod::BlenderFilmic => {
-                            SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
-                        }
-                    };
 
                     if *deband_dither {
                         view_key |= SpritePipelineKey::DEBAND_DITHER;

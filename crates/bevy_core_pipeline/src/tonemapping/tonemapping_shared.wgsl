@@ -372,23 +372,23 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     var color = max(in, vec4(0.0));
     // tone_mapping
 #ifdef TONEMAP_METHOD_NONE
-    return in;
+    color = color;
 #endif
 #ifdef TONEMAP_METHOD_REINHARD
-    return vec4<f32>(tonemapping_reinhard(color.rgb), in.a);
+    color = vec4<f32>(tonemapping_reinhard(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
-    return vec4<f32>(tonemapping_reinhard_luminance(color.rgb), in.a);
+    color = vec4<f32>(tonemapping_reinhard_luminance(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_ACES
     // TODO figure out correct value for white here, or factor it out
-    return vec4<f32>(tonemapping_aces_godot_4(color.rgb, 1000.0), in.a);
+    color = vec4<f32>(tonemapping_aces_godot_4(color.rgb, 1000.0), in.a);
 #endif
 #ifdef TONEMAP_METHOD_AGX
-    return vec4<f32>(tonemapping_AgX(color.rgb), in.a);
+    color = vec4<f32>(tonemapping_AgX(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_SBDT
-    return vec4<f32>(tonemapping_sbdt(color.rgb), in.a);
+    color = vec4<f32>(tonemapping_sbdt(color.rgb), in.a);
 #endif
 #ifdef TONEMAP_METHOD_SBDT2
     let block_size = 32.0;
@@ -399,16 +399,16 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     c.y = 1.0 - c.y;
     c = applyAgXLUT3D(c, block_size, vec2<f32>(1024.0, 32.0), vec2(1024.0, 0.0));
     c = pow(c, vec3(2.2));
-    return vec4<f32>(c, in.a);
+    color = vec4<f32>(c, in.a);
 #endif
 #ifdef TONEMAP_METHOD_BLENDER_FILMIC
     let block_size = 64.0;
     let selector = 0.0;
-    var c = color.rgb;
+    var c = color.rgb; // * 0.82 somewhat matches tonemapping_reinhard_luminance
     c = convertOpenDomainToNormalizedLog2(c, -11.0, 12.0);
     c = saturate(c);
     c = applyAgXLUT3D(c, block_size, vec2<f32>(4096.0, 64.0), vec2(0.0, 32.0 + block_size * selector));
-    return vec4<f32>(c, in.a);
+    color = vec4<f32>(c, in.a);
 #endif
 
     // tonemapping_maintain_hue
@@ -422,6 +422,9 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Gamma correction.
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+
+    
+    return color;
 }
 
 // Just for testing

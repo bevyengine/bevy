@@ -385,6 +385,7 @@ wasm = true
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
+required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.tonemapping]
 name = "tonemapping"

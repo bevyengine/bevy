@@ -71,7 +71,7 @@ impl Default for Camera3dBundle {
             camera_render_graph: CameraRenderGraph::new(crate::core_3d::graph::NAME),
             tonemapping: Tonemapping::Enabled {
                 deband_dither: true,
-                method: TonemappingMethod::AgX,
+                method: TonemappingMethod::ReinhardLuminance,
             },
             camera: Default::default(),
             projection: Default::default(),

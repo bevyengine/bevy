@@ -1,8 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
-use bevy_core_pipeline::tonemapping::{
-    get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
-};
+
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -170,32 +168,28 @@ impl FromWorld for Mesh2dPipeline {
         let (render_device, default_sampler) = system_state.get_mut(world);
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
-                [
-                    // View
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(ViewUniform::min_size()),
-                        },
-                        count: None,
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::VERTEX_FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: Some(GlobalsUniform::min_size()),
-                        },
-                        count: None,
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
-                ],
-                get_lut_bind_group_layout_entries([2, 3]),
-            ]
-            .concat(),
+                    count: None,
+                },
+            ],
             label: Some("mesh2d_view_layout"),
         });
 
@@ -414,6 +408,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader_defs.push("TONEMAP_METHOD_SBDT".into());
             } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_SBDT2 {
+                shader_defs.push("TONEMAP_METHOD_SBDT2".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -502,36 +498,25 @@ pub fn queue_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, Option<&Tonemapping>), With<ExtractedView>>,
+    views: Query<Entity, With<ExtractedView>>,
     globals_buffer: Res<GlobalsBuffer>,
-    images: Res<RenderAssets<Image>>,
-    tonemapping_luts: Res<TonemappingLuts>,
 ) {
     if let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for (entity, tonemapping) in &views {
+        for entity in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
-                    [
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: view_binding.clone(),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: globals.clone(),
-                        },
-                    ],
-                    get_lut_bindings(
-                        &images,
-                        &tonemapping_luts,
-                        tonemapping.unwrap_or(&Tonemapping::Disabled),
-                        [2, 3],
-                    ),
-                ]
-                .concat(),
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: globals.clone(),
+                    },
+                ],
                 label: Some("mesh2d_view_bind_group"),
                 layout: &mesh2d_pipeline.view_layout,
             });

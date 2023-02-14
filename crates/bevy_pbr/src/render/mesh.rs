@@ -780,6 +780,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_SBDT".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_SBDT2 {
+                shader_defs.push("TONEMAP_METHOD_SBDT2".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.

@@ -90,13 +90,13 @@ pub enum TonemappingMethod {
     /// Bad
     Aces,
     /// Very Good
-    #[default]
     AgX,
     /// Also good
     SBDT,
     /// Very Good
     SBDT2,
     /// Also good
+    #[default]
     BlenderFilmic,
 }
 
@@ -214,7 +214,7 @@ pub fn queue_view_tonemapping_pipelines(
     }
 }
 
-#[derive(Component, Debug, Clone, Reflect, Default, ExtractComponent, PartialEq, Eq)]
+#[derive(Component, Debug, Hash, Clone, Reflect, Default, ExtractComponent, PartialEq, Eq)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub enum Tonemapping {

@@ -1,6 +1,8 @@
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings
 
+#import bevy_core_pipeline::tonemapping
+
 @group(1) @binding(0)
 var texture: texture_2d<f32>;
 @group(1) @binding(1)
@@ -54,5 +56,9 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     } else {
         out = continuous_hue(vec2(uv.y * 2.0, uv.x));
     }
-    return vec4(out, 1.0);
+    var color = vec4(out, 0.0);
+#ifdef TONEMAP_IN_SHADER
+    color = tone_mapping(color);
+#endif
+    return color;
 }
