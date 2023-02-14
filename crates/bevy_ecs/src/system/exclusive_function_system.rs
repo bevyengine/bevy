@@ -32,16 +32,15 @@ where
 
 pub struct IsExclusiveFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsExclusiveFunctionSystem, Param, Marker)>
-    for F
+impl<In, Out, Marker, F> IntoSystem<In, Out, (IsExclusiveFunctionSystem, F::Param, Marker)> for F
 where
     In: 'static,
     Out: 'static,
-    Param: ExclusiveSystemParam + 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<In, Out, Marker> + Send + Sync + 'static,
+    F::Param: 'static,
 {
-    type System = ExclusiveFunctionSystem<In, Out, Param, Marker, F>;
+    type System = ExclusiveFunctionSystem<In, Out, F::Param, Marker, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
@@ -55,13 +54,13 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<In, Out, Param, Marker, F> System for ExclusiveFunctionSystem<In, Out, Param, Marker, F>
+impl<In, Out, Marker, F> System for ExclusiveFunctionSystem<In, Out, F::Param, Marker, F>
 where
     In: 'static,
     Out: 'static,
-    Param: ExclusiveSystemParam + 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<In, Out, Marker> + Send + Sync + 'static,
+    F::Param: 'static,
 {
     type In = In;
     type Out = Out;
@@ -103,7 +102,7 @@ where
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_change_tick;
 
-        let params = Param::get_param(
+        let params = F::Param::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
@@ -141,7 +140,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(Param::init(world, &mut self.system_meta));
+        self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, _world: &World) {}
@@ -165,27 +164,27 @@ where
 ///
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
-pub trait ExclusiveSystemParamFunction<In, Out, Param: ExclusiveSystemParam, Marker>:
-    Send + Sync + 'static
-{
+pub trait ExclusiveSystemParamFunction<In, Out, Marker>: Send + Sync + 'static {
+    type Param: ExclusiveSystemParam;
     fn run(
         &mut self,
         world: &mut World,
         input: In,
-        param_value: ExclusiveSystemParamItem<Param>,
+        param_value: ExclusiveSystemParamItem<Self::Param>,
     ) -> Out;
 }
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(), Out, ((), $($param,)*)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
                 FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
         {
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, world: &mut World, _in: (), param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
@@ -204,13 +203,14 @@ macro_rules! impl_exclusive_system_function {
             }
         }
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<Input, Out, (InputMarker, $($param,)*)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, &mut World, $($param),*) -> Out +
                 FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
         {
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl

@@ -7,8 +7,7 @@ use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    ExclusiveSystemParam, ExclusiveSystemParamFunction, IsExclusiveFunctionSystem,
-    IsFunctionSystem, SystemParamFunction,
+    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
 define_boxed_label!(ScheduleLabel);
@@ -143,11 +142,9 @@ where
 }
 
 // exclusive systems
-impl<In, Out, Param, Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, In, Out, Param, Marker)>
-    for F
+impl<In, Out, Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, In, Out, Marker)> for F
 where
-    Param: ExclusiveSystemParam,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
+    F: ExclusiveSystemParamFunction<In, Out, Marker>,
 {
     type Set = SystemTypeSet<Self>;
 
