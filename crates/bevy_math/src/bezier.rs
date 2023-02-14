@@ -66,8 +66,9 @@ impl<P: Point, const N: usize> Bezier<P, N> {
         bezier_impl::acceleration(self.0, t)
     }
 
-    /// Split the cubic Bezier curve of degree `N-1` into `subdivisions`, and sample with the
-    /// supplied `sample_function`.
+    /// Split the cubic Bezier curve of degree `N-1` into `subdivisions` evenly spaced `t` values
+    /// across the length of the curve from t = `0..=1`, and sample with the supplied
+    /// `sample_function`.
     #[inline]
     pub fn sample(&self, subdivisions: i32, sample_function: fn(&Self, f32) -> P) -> Vec<P> {
         (0..=subdivisions)
@@ -78,20 +79,20 @@ impl<P: Point, const N: usize> Bezier<P, N> {
             .collect()
     }
 
-    /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
-    /// sampling the position at each step.
+    /// Split the Bezier curve into `subdivisions` evenly spaced `t` values across the length of the
+    /// curve from t = `0..=1`. sampling the position at each step.
     pub fn to_positions(&self, subdivisions: i32) -> Vec<P> {
         self.sample(subdivisions, Self::position)
     }
 
-    /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
-    /// sampling the velocity at each step.
+    /// Split the Bezier curve into `subdivisions` evenly spaced `t` values across the length of the
+    /// curve from t = `0..=1`. sampling the velocity at each step.
     pub fn to_velocities(&self, subdivisions: i32) -> Vec<P> {
         self.sample(subdivisions, Self::velocity)
     }
 
-    /// Split the Bezier curve into `subdivisions` across the length of the curve from t = `0..=1`.
-    /// sampling the acceleration at each step.
+    /// Split the Bezier curve into `subdivisions` evenly spaced `t` values across the length of the
+    /// curve from t = `0..=1` . sampling the acceleration at each step.
     pub fn to_accelerations(&self, subdivisions: i32) -> Vec<P> {
         self.sample(subdivisions, Self::acceleration)
     }
@@ -120,7 +121,7 @@ impl CubicBezierEasing {
     const MAX_ERROR: f32 = 1e-7;
 
     /// Maximum number of iterations during bezier solve
-    const MAX_ITERS: u8 = 16;
+    const MAX_ITERS: u8 = 8;
 
     /// Given a `time` within `0..=1`, remaps to a new value using the cubic Bezier curve as a
     /// shaping function, for which when plotted `x = time` and `y = animation progress`. This will
@@ -149,7 +150,8 @@ impl CubicBezierEasing {
         bezier_impl::velocity([0.0, self.p1.x, self.p2.x, 1.0], t)
     }
 
-    /// Solve for the parametric value `t` that corresponds to the given value of `x`.
+    /// Solve for the parametric value `t` that corresponds to the given value of `x` using the
+    /// Newton-Raphson method.
     #[inline]
     pub fn find_t_given_x(&self, x: f32) -> f32 {
         let mut t_guess = x;
@@ -159,6 +161,7 @@ impl CubicBezierEasing {
             if error.abs() <= Self::MAX_ERROR {
                 true
             } else {
+                // Using Newton's method, use the tangent line to estimate a better guess value.
                 let slope = self.dx_dt(t_guess);
                 t_guess -= error / slope;
                 false
@@ -182,7 +185,7 @@ pub mod bezier_impl {
 
     /// Efficiently compute the binomial coefficient
     #[inline]
-    fn binomial_coeff(n: usize, k: usize) -> usize {
+    const fn binomial_coeff(n: usize, k: usize) -> usize {
         let mut i = 0;
         let mut result = 1;
         let k = match k > n - k {
@@ -211,10 +214,10 @@ pub mod bezier_impl {
     /// parametric value `t` with respect to t.
     #[inline]
     pub fn velocity<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
-        debug_assert!(
-            N > 1,
-            "Velocity can only be computed on Bezier curves with a degree of 1 or higher"
-        );
+        if N <= 1 {
+            return P::default(); // Zero for numeric types
+        }
+
         let p = control_points;
         let degree = N - 1;
         let degree_vel = N - 2; // the velocity Bezier is one degree lower than the position Bezier
@@ -231,10 +234,9 @@ pub mod bezier_impl {
     /// parametric value `t` with respect to t.
     #[inline]
     pub fn acceleration<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
-        debug_assert!(
-            N > 2,
-            "Acceleration can only be computed on Bezier curves with a degree of 2 or higher"
-        );
+        if N <= 2 {
+            return P::default(); // Zero for numeric types
+        }
         let p = control_points;
         let degree = N - 1;
         let degree_vel = N - 2; // the velocity Bezier is one degree lower than the position Bezier
