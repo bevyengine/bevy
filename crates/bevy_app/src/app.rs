@@ -339,12 +339,18 @@ impl App {
 
         let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
-            main_schedule.configure_set(
+            main_schedule.configure_sets((
+                OnPreUpdate(variant.clone())
+                    .in_base_set(CoreSet::PreUpdate)
+                    .run_if(state_equals(variant.clone())),
                 OnUpdate(variant.clone())
                     .in_base_set(CoreSet::Update)
-                    .run_if(state_equals(variant))
+                    .run_if(state_equals(variant.clone()))
                     .after(apply_state_transition::<S>),
-            );
+                OnPostUpdate(variant.clone())
+                    .in_base_set(CoreSet::PostUpdate)
+                    .run_if(state_equals(variant)),
+            ));
         }
 
         // These are different for loops to avoid conflicting access to self

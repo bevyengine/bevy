@@ -53,6 +53,14 @@ pub struct OnEnter<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
+/// A [`SystemSet`] that will run within `CoreSet::PreUpdate` when this state is active.
+///
+/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
+/// If all you want is the run condition, use the [`state_equals`](crate::schedule::common_conditions::state_equals)
+/// [condition](super::Condition) directly.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnPreUpdate<S: States>(pub S);
+
 /// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
 ///
 /// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
@@ -60,6 +68,14 @@ pub struct OnExit<S: States>(pub S);
 /// [condition](super::Condition) directly.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnUpdate<S: States>(pub S);
+
+/// A [`SystemSet`] that will run within `CoreSet::PostUpdate` when this state is active.
+///
+/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
+/// If all you want is the run condition, use the [`state_equals`](crate::schedule::common_conditions::state_equals)
+/// [condition](super::Condition) directly.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnPostUpdate<S: States>(pub S);
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
