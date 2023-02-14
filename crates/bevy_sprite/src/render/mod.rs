@@ -486,6 +486,7 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
+    msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut views: Query<(
         &mut RenderPhase<Transparent2d>,
@@ -494,7 +495,6 @@ pub fn queue_sprites(
         Option<&Tonemapping>,
     )>,
     events: Res<SpriteAssetEvents>,
-    msaa: Res<Msaa>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
