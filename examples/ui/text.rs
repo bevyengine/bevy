@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(text_update_system)
         .add_system(text_color_system)
         .run();

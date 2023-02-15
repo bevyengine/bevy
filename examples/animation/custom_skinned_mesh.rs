@@ -20,7 +20,7 @@ fn main() {
             brightness: 1.0,
             ..default()
         })
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(joint_animation)
         .run();
 }

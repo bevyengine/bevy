@@ -14,8 +14,7 @@ fn main() {
             ..default()
         }))
         .add_system(minimise_automatically)
-        .add_startup_system(setup_3d)
-        .add_startup_system(setup_2d)
+        .add_systems_to_schedule(CoreSchedule::Startup, (setup_2d, setup_3d))
         .run();
 }
 

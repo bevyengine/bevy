@@ -15,7 +15,7 @@ fn main() {
             }),
             ..Default::default()
         }))
-        .add_startup_system(spawn_layout)
+        .add_system_to_schedule(CoreSchedule::Startup, spawn_layout)
         .run();
 }
 

@@ -31,7 +31,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                 schedule.configure_set(CameraUpdateSystem.in_set(StartupSet::PostStartup));
             })
             .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
-            .add_startup_system(
+            .add_system_to_schedule(
+                CoreSchedule::Startup,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,

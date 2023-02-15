@@ -16,7 +16,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
         .run();
 }

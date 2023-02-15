@@ -33,7 +33,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(test_setup::setup)
+        .add_system_to_schedule(CoreSchedule::Startup, test_setup::setup)
         .add_system(test_setup::cycle_modes)
         .add_system(test_setup::rotate_cube)
         .add_system(test_setup::update_text)

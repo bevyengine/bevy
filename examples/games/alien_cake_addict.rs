@@ -24,7 +24,7 @@ fn main() {
         )))
         .add_plugins(DefaultPlugins)
         .add_state::<GameState>()
-        .add_startup_system(setup_cameras)
+        .add_system_to_schedule(CoreSchedule::Startup, setup_cameras)
         .add_system_to_schedule(OnEnter(GameState::Playing), setup)
         .add_systems(
             (

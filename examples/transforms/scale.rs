@@ -29,7 +29,7 @@ impl Scaling {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(change_scale_direction)
         .add_system(scale_cube)
         .run();

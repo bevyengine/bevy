@@ -11,7 +11,7 @@ fn main() {
         // The "print diagnostics" plugin is optional.
         // It just visualizes our diagnostics in the console.
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup_diagnostic_system)
+        .add_system_to_schedule(CoreSchedule::Startup, setup_diagnostic_system)
         .add_system(my_system)
         .run();
 }

@@ -42,7 +42,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
-        .add_startup_system(setup_system)
+        .add_system_to_schedule(CoreSchedule::Startup, setup_system)
         .add_system(print_text_system)
         .add_system(transition_to_in_game_system.in_set(OnUpdate(AppState::MainMenu)))
         // add the cleanup systems

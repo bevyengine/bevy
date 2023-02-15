@@ -43,7 +43,7 @@ fn main() {
             count: 0,
             color: Color::WHITE,
         })
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(mouse_handler)
         .add_system(movement_system)
         .add_system(collision_system)

@@ -13,7 +13,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(setup_scene_once_loaded)
         .add_system(keyboard_animation_control)
         .run();

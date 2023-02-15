@@ -9,7 +9,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
+        .add_system_to_schedule(CoreSchedule::Startup, setup_scene)
         .add_system(toggle_ime)
         .add_system(listen_ime_events)
         .add_system(listen_received_character_events)

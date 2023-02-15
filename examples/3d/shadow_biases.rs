@@ -19,7 +19,7 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(adjust_point_light_biases)
         .add_system(toggle_light)
         .add_system(adjust_directional_light_biases)

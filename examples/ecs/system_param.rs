@@ -5,7 +5,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 fn main() {
     App::new()
         .insert_resource(PlayerCount(0))
-        .add_startup_system(spawn)
+        .add_system_to_schedule(CoreSchedule::Startup, spawn)
         .add_system(count_players)
         .run();
 }

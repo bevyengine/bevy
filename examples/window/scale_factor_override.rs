@@ -12,7 +12,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(display_override)
         .add_system(toggle_override)
         .add_system(change_scale_factor)

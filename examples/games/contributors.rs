@@ -11,8 +11,7 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_contributor_selection)
-        .add_startup_system(setup)
+        .add_systems_to_schedule(CoreSchedule::Startup, (setup, setup_contributor_selection))
         .add_system(velocity_system)
         .add_system(move_system)
         .add_system(collision_system)

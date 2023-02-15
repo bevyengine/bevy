@@ -465,6 +465,7 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
+    #[deprecated = "Add system to CoreSchedule::Startup directly"]
     pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
         self.add_system_to_schedule(CoreSchedule::Startup, system)
     }
@@ -490,6 +491,7 @@ impl App {
     ///     )
     /// );
     /// ```
+    #[deprecated = "Add systems to CoreSchedule::Startup directly"]
     pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
         self.add_systems_to_schedule(CoreSchedule::Startup, systems)
     }

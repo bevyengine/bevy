@@ -55,7 +55,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_event::<CollisionEvent>()
         // Add our gameplay simulation systems to the fixed timestep schedule
         .add_systems_to_schedule(

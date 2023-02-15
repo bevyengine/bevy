@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(read_stream)
         .add_system(spawn_text)
         .add_system(move_text)

@@ -127,10 +127,10 @@ fn main() {
         .init_resource::<ButtonMaterials>()
         .init_resource::<ButtonMeshes>()
         .init_resource::<FontHandle>()
-        .add_startup_system(setup)
-        .add_startup_system(setup_sticks)
-        .add_startup_system(setup_triggers)
-        .add_startup_system(setup_connected)
+        .add_systems_to_schedule(
+            CoreSchedule::Startup,
+            (setup, setup_sticks, setup_triggers, setup_connected),
+        )
         .add_system(update_buttons)
         .add_system(update_button_values)
         .add_system(update_axes)

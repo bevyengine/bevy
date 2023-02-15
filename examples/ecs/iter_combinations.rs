@@ -12,7 +12,7 @@ fn main() {
             brightness: 0.03,
             ..default()
         })
-        .add_startup_system(generate_bodies)
+        .add_system_to_schedule(CoreSchedule::Startup, generate_bodies)
         .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
         .add_systems_to_schedule(CoreSchedule::FixedUpdate, (interact_bodies, integrate))
         .add_system(look_at_star)

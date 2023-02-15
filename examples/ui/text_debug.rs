@@ -16,7 +16,7 @@ fn main() {
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_startup_system(infotext_system)
+        .add_system_to_schedule(CoreSchedule::Startup, infotext_system)
         .add_system(change_text_system)
         .run();
 }

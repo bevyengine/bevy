@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_startup_system(startup_system)
+        .add_system_to_schedule(CoreSchedule::Startup, startup_system)
         .add_system(normal_system)
         .run();
 }

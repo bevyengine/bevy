@@ -32,7 +32,7 @@ fn main() {
             ..default()
         }))
         .add_plugin(GameOfLifeComputePlugin)
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .run();
 }
 

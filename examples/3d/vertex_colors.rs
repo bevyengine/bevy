@@ -5,7 +5,7 @@ use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .run();
 }
 

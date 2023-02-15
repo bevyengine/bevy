@@ -103,12 +103,15 @@ impl Plugin for TransformPlugin {
             // FIXME: https://github.com/bevyengine/bevy/issues/4381
             // These systems cannot access the same entities,
             // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-            .add_startup_system(
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+            .add_systems_to_schedule(
+                CoreSchedule::Startup,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        .ambiguous_with(propagate_transforms),
+                    propagate_transforms.in_set(TransformSystem::TransformPropagate),
+                ),
             )
-            .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)

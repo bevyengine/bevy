@@ -4,13 +4,13 @@
 //! # use bevy_ecs::{system::Res, event::EventWriter};
 //! # use bevy_audio::{Audio, AudioPlugin};
 //! # use bevy_asset::{AssetPlugin, AssetServer};
-//! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins};
+//! # use bevy_app::{App, AppExit, CoreSchedule, NoopPluginGroup as MinimalPlugins};
 //! fn main() {
 //!    App::new()
 //!         .add_plugins(MinimalPlugins)
 //!         .add_plugin(AssetPlugin::default())
 //!         .add_plugin(AudioPlugin)
-//!         .add_startup_system(play_background_audio)
+//!         .add_system_to_schedule(CoreSchedule::Startup, play_background_audio)
 //!         .run();
 //! }
 //!

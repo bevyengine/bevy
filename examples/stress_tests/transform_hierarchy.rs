@@ -185,7 +185,7 @@ fn main() {
         .insert_resource(cfg)
         .add_plugins(MinimalPlugins)
         .add_plugin(TransformPlugin::default())
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         // Updating transforms *must* be done before `CoreSet::PostUpdate`
         // or the hierarchy will momentarily be in an invalid state.
         .add_system(update)

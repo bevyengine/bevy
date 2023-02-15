@@ -28,7 +28,7 @@ fn main() {
             prepass_enabled: false,
             ..default()
         })
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .add_system(rotate)
         .add_system(update)
         .run();

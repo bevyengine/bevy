@@ -17,7 +17,7 @@ use std::fmt::Debug;
 
 fn main() {
     App::new()
-        .add_startup_system(spawn)
+        .add_system_to_schedule(CoreSchedule::Startup, spawn)
         .add_system(print_components_read_only)
         .add_system(print_components_iter_mut.after(print_components_read_only))
         .add_system(print_components_iter.after(print_components_iter_mut))

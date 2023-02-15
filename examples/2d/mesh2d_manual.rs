@@ -34,7 +34,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(ColoredMesh2dPlugin)
-        .add_startup_system(star)
+        .add_system_to_schedule(CoreSchedule::Startup, star)
         .run();
 }
 

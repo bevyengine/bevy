@@ -75,7 +75,7 @@ fn main() {
                 // asset system are initialized correctly.
                 .add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin),
         )
-        .add_startup_system(setup)
+        .add_system_to_schedule(CoreSchedule::Startup, setup)
         .run();
 }
 
