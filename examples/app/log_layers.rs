@@ -1,10 +1,25 @@
 //! This example illustrates how to add custom log layers in bevy.
 
-// use bevy::log::tracing_subscriber::Layer;
 use bevy::{log::tracing_subscriber::Layer, prelude::*, utils::tracing::field::Visit};
 use std::sync::{Arc, Mutex};
 
-struct ChannelLayer(crossbeam_channel::Sender<String>);
+struct DebugLogToStdErrLayer;
+
+impl<S: bevy::utils::tracing::Subscriber> Layer<S> for DebugLogToStdErrLayer {
+    fn on_event(
+        &self,
+        event: &bevy::utils::tracing::Event<'_>,
+        _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        // pretty print received events to std err, including metadata
+        eprintln!("logged my way: {event:#?}");
+    }
+}
+
+struct ChannelLayer {
+    sender: crossbeam_channel::Sender<String>,
+    max_level: bevy::log::Level,
+}
 
 #[derive(Resource)]
 struct ErrorMessageReceiver(crossbeam_channel::Receiver<String>);
@@ -13,31 +28,21 @@ struct ErrorMessageReceiver(crossbeam_channel::Receiver<String>);
 struct LastErrorText;
 
 impl<S: bevy::utils::tracing::Subscriber> Layer<S> for ChannelLayer {
-    fn enabled(
-        &self,
-        metadata: &bevy::utils::tracing::Metadata<'_>,
-        _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
-    ) -> bool {
-        // we're only interested in errors
-        *metadata.level() <= bevy::log::Level::ERROR
-    }
-
     fn on_event(
         &self,
         event: &bevy::utils::tracing::Event<'_>,
         _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
     ) {
-        // log received events to std err, including metadata
-        eprintln!("logged my way: {event:#?}");
-
-        let mut visitor = Visitor(self.0.clone());
-        event.record(&mut visitor);
+        if event.metadata().level() <= &self.max_level {
+            let mut visitor = ChannelSendVisitor(self.sender.clone());
+            event.record(&mut visitor);
+        }
     }
 }
 
-struct Visitor(crossbeam_channel::Sender<String>);
+struct ChannelSendVisitor(crossbeam_channel::Sender<String>);
 
-impl Visit for Visitor {
+impl Visit for ChannelSendVisitor {
     fn record_debug(
         &mut self,
         _field: &bevy::utils::tracing::field::Field,
@@ -51,11 +56,19 @@ impl Visit for Visitor {
 fn main() {
     let (sender, receiver) = crossbeam_channel::unbounded();
 
+    let log_to_screen_layer = ChannelLayer {
+        sender,
+        max_level: bevy::log::Level::ERROR,
+    };
+
     App::new()
         .insert_resource(ErrorMessageReceiver(receiver))
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             // todo: fix horrible hack
-            extra_layers: Arc::new(Mutex::new(Some(vec![Box::new(ChannelLayer(sender))]))),
+            extra_layers: Arc::new(Mutex::new(Some(vec![
+                log_to_screen_layer.boxed(),
+                DebugLogToStdErrLayer.boxed(),
+            ]))),
             ..default()
         }))
         .add_startup_system(log_system)
