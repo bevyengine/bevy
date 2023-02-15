@@ -700,6 +700,9 @@ pub fn winit_runner(mut app: App) {
                 mut new_windows,
                 created_window_writer,
                 winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
                 canvas_parent_resize_channel,
             ) = create_window_system_state.get_mut(&mut app.world);
 
