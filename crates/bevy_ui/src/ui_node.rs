@@ -248,7 +248,7 @@ pub struct Style {
     /// How to shrink if there's not enough space available
     pub flex_shrink: f32,
     /// The initial length of the main axis, before other properties are applied.
-    /// 
+    ///
     /// If both are set, `flex_basis` overrides `size` on the main axis but it obeys the bounds defined by `min_size` and `max_size`.
     pub flex_basis: Val,
     /// The ideal size of the flexbox
