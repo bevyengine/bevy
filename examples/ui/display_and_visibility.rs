@@ -349,12 +349,11 @@ fn spawn_button<T>(
     parent.spawn((
         ButtonBundle {
             style: Style {
-                size: Size::new(Val::Px(180.), Val::Px(24.)),
+                size: Size::height(Val::Px(24.)),
                 align_self: AlignSelf::FlexStart,
-                align_items: AlignItems::Stretch,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
             ..Default::default()
         },
         target,
