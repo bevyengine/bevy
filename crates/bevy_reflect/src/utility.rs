@@ -156,6 +156,8 @@ impl GenericTypeInfoCell {
 /// Hashes should be deterministic across processes so hashes can be used as
 /// checksums for saved scenes, rollback snapshots etc. This function returns
 /// such a hasher.
+///
+/// [`Reflect::reflect_hash`]: crate::Reflect
 #[inline]
 pub fn reflect_hasher() -> bevy_utils::AHasher {
     FixedState.build_hasher()
