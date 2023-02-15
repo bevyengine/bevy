@@ -51,13 +51,18 @@ impl Plugin for TonemappingPlugin {
         // TODO move somewhere so the texture is available for shading in the main pass?
 
         let tonemapping_luts = TonemappingLuts {
-            blender_filmic: images.add(setup_tonemapping_lut_image(include_bytes!(
-                "luts/blender_-11_12.exr"
-            ))),
-            agx: images.add(setup_tonemapping_lut_image(include_bytes!(
-                "luts/AgX-default_contrast_vert.lut.exr"
-            ))),
-            sbdt2: images.add(setup_tonemapping_lut_image(include_bytes!("luts/kaj.exr"))),
+            blender_filmic: images.add(setup_tonemapping_lut_image(
+                include_bytes!("luts/blender_-11_12.exr"),
+                ImageType::Extension("exr"),
+            )),
+            agx: images.add(setup_tonemapping_lut_image(
+                include_bytes!("luts/AgX-default_contrast_vert.lut.exr"),
+                ImageType::Extension("exr"),
+            )),
+            sbdt2: images.add(setup_tonemapping_lut_image(
+                include_bytes!("luts/sbdt2.dds"),
+                ImageType::Extension("dds"),
+            )),
         };
 
         app.register_type::<Tonemapping>();
@@ -298,10 +303,10 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
     ]
 }
 
-fn setup_tonemapping_lut_image(bytes: &[u8]) -> Image {
+fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let mut image = Image::from_buffer(
         bytes, //AgX-default_contrast_vert.lut.exr
-        ImageType::Extension("exr"),
+        image_type,
         CompressedImageFormats::NONE,
         true,
     )

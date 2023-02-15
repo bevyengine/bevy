@@ -609,7 +609,7 @@ fn update_color_grading_settings(
             current_setting.post_saturation += dt;
         }
 
-        *color_grading = current_setting.clone();
+        *color_grading = *current_setting;
     }
 
     if keycode.just_pressed(KeyCode::H) {

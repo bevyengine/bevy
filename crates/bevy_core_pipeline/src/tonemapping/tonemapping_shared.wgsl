@@ -1,7 +1,7 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
 // -------------------------------------
-// ---- tonemapping from kajiya 0.1 ----
+// ------------- SBDT 1 ----------------
 // -------------------------------------
 // Rec. 709
 fn srgb_to_luminance(col: vec3<f32>) -> f32 {
@@ -50,6 +50,25 @@ fn tonemapping_sbdt(col: vec3<f32>) -> vec3<f32> {
     col = mix(tm0, tm1, bt * bt);
 
     return col * final_mult;
+}
+
+// -------------------------------------
+// ------------- SBDT 2 ----------------
+// -------------------------------------
+
+const SBDT2_LUT_EV_RANGE = vec2<f32>(-13.0, 8.0);
+const SBDT2_LUT_DIMS: f32 = 48.0;
+
+fn sbdt2_lut_range_encode(x: vec3<f32>) -> vec3<f32> {
+    return x / (x + 1.0);
+}
+
+fn sample_sbdt2_lut(stimulus: vec3<f32>) -> vec3<f32> {
+    let range = sbdt2_lut_range_encode(exp2(SBDT2_LUT_EV_RANGE.xyy)).xy;
+    let normalized = (sbdt2_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
+    var uv = saturate(normalized * (f32(SBDT2_LUT_DIMS - 1.0) / f32(SBDT2_LUT_DIMS)) + 0.5 / f32(SBDT2_LUT_DIMS));
+    uv.y = 1.0 - uv.y;
+    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, uv, 0.0).rgb;
 }
 
 // -------------------------
@@ -175,7 +194,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
 }
 
 fn applyLUT3D(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset: vec2<f32>) -> vec3<f32> {
-    return textureSample(dt_lut_texture, dt_lut_sampler, Image * ((block_size - 1.0) / block_size) + 0.5 / block_size).rgb;
+    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, Image * ((block_size - 1.0) / block_size) + 0.5 / block_size, 0.0).rgb;
 }
 
 // -------------------------
@@ -255,15 +274,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     color = tonemapping_sbdt(color.rgb);
 #endif
 #ifdef TONEMAP_METHOD_SBDT2
-    let block_size = 32.0;
-    var c = color.rgb;
-    let LUT_EV_RANGE = vec2(-11.0, 8.0);
-    c = (log2(c) - LUT_EV_RANGE[0]) / (LUT_EV_RANGE[1] - LUT_EV_RANGE[0]);//convertOpenDomainToNormalizedLog2(c, -11.0, 8.0);
-    c = saturate(c);
-    c.y = 1.0 - c.y;
-    c = applyLUT3D(c, block_size, vec2<f32>(1024.0, 32.0), vec2(1024.0, 0.0));
-    c = pow(c, vec3(2.2));
-    color = c;
+    color = sample_sbdt2_lut(color);
 #endif
 #ifdef TONEMAP_METHOD_BLENDER_FILMIC
     let block_size = 64.0;
