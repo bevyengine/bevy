@@ -824,17 +824,30 @@ impl App {
     /// before / after another plugin), call [`build()`](PluginGroup::build) on the group,
     /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
     ///
+    /// You can also specify a group of [`Plugin`]s by using a tuple over [`Plugin`]s and
+    /// [`PluginGroup`]s.
+    ///
     /// ## Examples
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
     /// #
+    /// # // Dummies created to avoid using `bevy_log`,
+    /// # // which pulls in too many dependencies and breaks rust-analyzer
+    /// # pub struct LogPlugin;
+    /// # impl Plugin for LogPlugin {
+    /// #     fn build(&self, app: &mut App) {}
+    /// # }
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
+    /// App::new()
+    ///     .add_plugins((MinimalPlugins, LogPlugin));
     /// ```
     ///
     /// # Panics
     ///
     /// Panics if one of the plugin in the group was already added to the application.
+    ///
+    /// [`PluginGroup`]:super::PluginGroup
     pub fn add_plugins<P>(&mut self, group: impl IntoPluginGroup<P>) -> &mut Self {
         let builder = group.into_plugin_group_builder(self);
         builder.finish(self);
