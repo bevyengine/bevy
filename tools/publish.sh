@@ -34,6 +34,7 @@ crates=(
     bevy_scene
     bevy_sprite
     bevy_text
+    bevy_a11y
     bevy_ui
     bevy_winit
     bevy_internal
