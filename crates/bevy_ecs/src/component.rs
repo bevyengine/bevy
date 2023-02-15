@@ -238,14 +238,9 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
-    fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    /// Create a new [`ComponentInfo`].
+    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo { id, descriptor }
-    }
-
-    /// Create a new [`ComponentInfo`] for use in tests.
-    #[cfg(test)]
-    pub(crate) fn new_for_test(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        Self::new(id, descriptor)
     }
 }
 

@@ -509,7 +509,23 @@ impl SparseSets {
         self.sets.is_empty()
     }
 
-    pub fn get_or_insert(&mut self, component_info: &ComponentInfo) -> &mut ComponentSparseSet {
+    /// An Iterator visiting all ([`ComponentId`], [`SparseSet`]) pairs.
+    /// NOTE: Order is not guaranteed.
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
+        self.sets.iter().map(|(id, data)| (*id, data))
+    }
+
+    /// Gets a reference to the [`CompnoentSparseSet`] of a [`ComponentId`].
+    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
+        self.sets.get(component_id)
+    }
+
+    /// Gets a mutable reference of [`ComponentSparseSet`] of a [`ComponentInfo`].
+    /// Create a new [`ComponentSparseSet`] if not exists.
+    pub(crate) fn get_or_insert(
+        &mut self,
+        component_info: &ComponentInfo,
+    ) -> &mut ComponentSparseSet {
         if !self.sets.contains(component_info.id()) {
             self.sets.insert(
                 component_info.id(),
@@ -520,16 +536,13 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-        self.sets.get(component_id)
-    }
-
-    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
+    /// Gets a mutable reference to the [`CompnoentSparseSet`] of a [`ComponentId`].
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
 
     /// Clear entities stored in each [`SparseSet`]
-    pub fn clear_entities(&mut self) {
+    pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
         }
@@ -539,12 +552,6 @@ impl SparseSets {
         for set in self.sets.values_mut() {
             set.check_change_ticks(change_tick);
         }
-    }
-
-    /// An Iterator visiting all ([`ComponentId`], [`SparseSet`]) pairs.
-    /// NOTE: Order is not guaranteed.
-    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
-        self.sets.iter().map(|(id, data)| (*id, data))
     }
 }
 
@@ -643,7 +650,7 @@ mod tests {
         fn init_component<T: Component>(sets: &mut SparseSets, id: usize) {
             let descriptor = ComponentDescriptor::new::<TestComponent1>();
             let id = ComponentId::new(id);
-            let info = ComponentInfo::new_for_test(id, descriptor);
+            let info = ComponentInfo::new(id, descriptor);
             sets.get_or_insert(&info);
         }
     }
