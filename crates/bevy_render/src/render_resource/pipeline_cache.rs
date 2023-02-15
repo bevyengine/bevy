@@ -311,13 +311,12 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
-        push_constant_ranges: &[PushConstantRange],
+        push_constant_ranges: Vec<PushConstantRange>,
     ) -> &wgpu::PipelineLayout {
         let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
-        let push_constant_ranges_vec = push_constant_ranges.to_vec();
         self.layouts
-            .entry((bind_group_ids, push_constant_ranges_vec))
-            .or_insert_with(|| {
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|(_, push_constant_ranges)| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
                     .map(|l| l.value())
@@ -575,7 +574,7 @@ impl PipelineCache {
             Some(self.layout_cache.get(
                 &self.device,
                 &descriptor.layout,
-                &descriptor.push_constant_ranges,
+                descriptor.push_constant_ranges.to_vec(),
             ))
         };
 
@@ -628,7 +627,7 @@ impl PipelineCache {
             Some(self.layout_cache.get(
                 &self.device,
                 &descriptor.layout,
-                &descriptor.push_constant_ranges,
+                descriptor.push_constant_ranges.to_vec(),
             ))
         };
 

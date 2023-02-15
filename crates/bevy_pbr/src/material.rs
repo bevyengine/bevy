@@ -291,8 +291,6 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        // MeshPipeline::specialize's current implementation guarantees that the returned
-        // specialized descriptor has a populated layout
         descriptor.layout.insert(1, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
