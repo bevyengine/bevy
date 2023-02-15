@@ -1035,7 +1035,7 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
-    use crate::{App, Plugin};
+    use crate::{App, Plugin, PluginGroup, PluginGroupBuilder};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1054,6 +1054,15 @@ mod tests {
         fn build(&self, _app: &mut crate::App) {}
         fn is_unique(&self) -> bool {
             false
+        }
+    }
+
+    struct PluginGroupAB;
+    impl PluginGroup for PluginGroupAB {
+        fn build(self) -> PluginGroupBuilder {
+            PluginGroupBuilder::start::<Self>()
+                .add(PluginA)
+                .add(PluginB)
         }
     }
 
@@ -1115,6 +1124,13 @@ mod tests {
 
         App::new()
             .add_plugin(LoggerPlugin::with_loggers(Loggers))
+            .run();
+    }
+
+    #[test]
+    fn add_multiple_plugins_at_once() {
+        App::new()
+            .add_plugins((PluginC(()), PluginD, PluginGroupAB, PluginD))
             .run();
     }
 }
