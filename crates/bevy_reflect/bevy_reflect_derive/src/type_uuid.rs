@@ -53,7 +53,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
 pub(crate) fn gen_impl_type_uuid(def: TypeUuidDef) -> proc_macro::TokenStream {
     let uuid = def.uuid;
     let mut generics = def.generics;
-    let r#type = def.type_ident;
+    let ty = def.type_ident;
 
     let bevy_reflect_path: Path = BevyManifest::default().get_path("bevy_reflect");
 
@@ -83,7 +83,7 @@ pub(crate) fn gen_impl_type_uuid(def: TypeUuidDef) -> proc_macro::TokenStream {
     });
 
     let gen = quote! {
-        impl #impl_generics #bevy_reflect_path::TypeUuid for #r#type #type_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::TypeUuid for #ty #type_generics #where_clause {
             const TYPE_UUID: #bevy_reflect_path::Uuid = #type_uuid;
         }
     };
