@@ -16,7 +16,7 @@ mod sealed {
     pub trait Condition<Params>:
         IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
     {
-        type ReadOnlySystem: ReadOnlySystem;
+        type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
     }
 
     impl<Params, F> Condition<Params> for F
@@ -24,7 +24,7 @@ mod sealed {
         F: IntoSystem<(), bool, Params>,
         F::System: ReadOnlySystem,
     {
-        type ReadOnlySystem: ReadOnlySystem = F::System;
+        type ReadOnlySystem = F::System;
     }
 }
 
