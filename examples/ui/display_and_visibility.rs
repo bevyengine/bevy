@@ -102,54 +102,66 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                     let id = parent
                         .spawn((NodeBundle {
                             style: Style {
-                                size: Size::all(Val::Px(500.)),
+                                //size: Size::height(Val::Px(500.)),
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
-                                padding: UiRect {
-                                    left: Val::Px(5.),
-                                    top: Val::Px(5.),
-                                    ..Default::default()
-                                },
+                                
                                 ..Default::default()
                             },
                             background_color: BackgroundColor(palette[0]),
                             ..Default::default()
                         },))
                         .with_children(|parent| {
+                            parent.spawn(NodeBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(100.), Val::Px(500.)),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            });
+
                             let id = parent
                                 .spawn((NodeBundle {
                                     style: Style {
                                         size: Size::all(Val::Px(400.)),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
-                                        padding: UiRect {
-                                            left: Val::Px(5.),
-                                            top: Val::Px(5.),
-                                            ..Default::default()
-                                        },
+                                        
                                         ..Default::default()
                                     },
                                     background_color: BackgroundColor(palette[1]),
                                     ..Default::default()
                                 },))
                                 .with_children(|parent| {
+                                    parent.spawn(NodeBundle {
+                                        style: Style {
+                                            size: Size::new(Val::Px(100.), Val::Px(400.)),
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    });
+
                                     let id = parent
                                         .spawn((NodeBundle {
                                             style: Style {
                                                 size: Size::all(Val::Px(300.)),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
-                                                padding: UiRect {
-                                                    left: Val::Px(5.),
-                                                    top: Val::Px(5.),
-                                                    ..Default::default()
-                                                },
+                                                
                                                 ..Default::default()
                                             },
                                             background_color: BackgroundColor(palette[2]),
                                             ..Default::default()
                                         },))
                                         .with_children(|parent| {
+                                            parent.spawn(NodeBundle {
+                                                style: Style {
+                                                    size: Size::new(Val::Px(100.), Val::Px(300.)),
+                                                    ..Default::default()
+                                                },
+                                                ..Default::default()
+                                            });
+
                                             let id = parent
                                                 .spawn((NodeBundle {
                                                     style: Style {
