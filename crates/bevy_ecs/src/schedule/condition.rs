@@ -13,13 +13,18 @@ impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
+    pub trait Condition<Params>:
+        IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
+    {
+        type ReadOnlySystem: ReadOnlySystem;
+    }
 
     impl<Params, F> Condition<Params> for F
     where
         F: IntoSystem<(), bool, Params>,
         F::System: ReadOnlySystem,
     {
+        type ReadOnlySystem: ReadOnlySystem = F::System;
     }
 }
 
