@@ -125,10 +125,17 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
-    fn set_if_neq<Target>(&mut self, value: Target)
+    #[inline]
+    fn set_if_neq(&mut self, value: Self::Inner)
     where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq;
+        Self::Inner: Sized + PartialEq,
+    {
+        let old = self.bypass_change_detection();
+        if *old != value {
+            *old = value;
+            self.set_changed();
+        }
+    }
 }
 
 macro_rules! change_detection_impl {
@@ -194,19 +201,6 @@ macro_rules! change_detection_mut_impl {
             #[inline]
             fn bypass_change_detection(&mut self) -> &mut Self::Inner {
                 self.value
-            }
-
-            #[inline]
-            fn set_if_neq<Target>(&mut self, value: Target)
-            where
-                Self: Deref<Target = Target> + DerefMut<Target = Target>,
-                Target: PartialEq,
-            {
-                // This dereference is immutable, so does not trigger change detection
-                if *<Self as Deref>::deref(self) != value {
-                    // `DerefMut` usage triggers change detection
-                    *<Self as DerefMut>::deref_mut(self) = value;
-                }
             }
         }
 
@@ -684,19 +678,6 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     #[inline]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
-    }
-
-    #[inline]
-    fn set_if_neq<Target>(&mut self, value: Target)
-    where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq,
-    {
-        // This dereference is immutable, so does not trigger change detection
-        if *<Self as Deref>::deref(self) != value {
-            // `DerefMut` usage triggers change detection
-            *<Self as DerefMut>::deref_mut(self) = value;
-        }
     }
 }
 
