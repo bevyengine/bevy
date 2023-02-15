@@ -1035,7 +1035,7 @@ mod sealed {
 
     impl<F: FnOnce(&mut App)> Add<IsFunction> for F {
         fn add_to(self, app: &mut App) {
-            self(app)
+            self(app);
         }
     }
 }
@@ -1126,7 +1126,7 @@ mod tests {
         impl LoggerPlugin {
             fn with_loggers(loggers: Loggers) -> impl FnOnce(&mut App) {
                 |app| {
-                    app.insert_resource::<Loggers>(loggers).add(LoggerPlugin);
+                    app.insert_resource(loggers).add(LoggerPlugin);
                 }
             }
         }
