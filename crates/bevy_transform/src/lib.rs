@@ -37,7 +37,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
@@ -77,7 +77,7 @@ impl From<Transform> for TransformBundle {
         Self::from_transform(transform)
     }
 }
-/// Label enum for the systems relating to transform propagation
+/// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
     /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)

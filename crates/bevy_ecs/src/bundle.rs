@@ -12,10 +12,11 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    TypeIdMap,
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use std::{any::TypeId, collections::HashMap};
+use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -683,7 +684,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
-    bundle_ids: HashMap<TypeId, BundleId>,
+    bundle_ids: TypeIdMap<BundleId>,
 }
 
 impl Bundles {

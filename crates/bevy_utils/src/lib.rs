@@ -292,3 +292,13 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         callback();
     }
 }
+
+/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
+#[macro_export]
+macro_rules! detailed_trace {
+    ($($tts:tt)*) => {
+        if cfg!(detailed_trace) {
+            bevy_utils::tracing::trace!($($tts)*);
+        }
+    }
+}
