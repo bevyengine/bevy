@@ -24,7 +24,7 @@ use bevy_ecs::{
 #[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
 pub struct AccessibilityRequested(Arc<AtomicBool>);
 
-/// Component to wrap a [`Node`], representing this entity to the platform's
+/// Component to wrap a [`accesskit::Node`], representing this entity to the platform's
 /// accessibility API.
 ///
 /// If an entity has a parent, and that parent also has an `AccessibilityNode`,
