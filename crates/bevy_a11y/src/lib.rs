@@ -20,7 +20,7 @@ use bevy_ecs::{
 /// accessibility information.
 ///
 /// Useful if a third-party plugin needs to conditionally integrate with
-/// AccessKit
+/// `AccessKit`
 #[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
 pub struct AccessibilityRequested(Arc<AtomicBool>);
 
@@ -41,7 +41,7 @@ impl From<NodeBuilder> for AccessibilityNode {
     }
 }
 
-/// Extensions to ease integrating entities with [AccessKit](https://accesskit.dev).
+/// Extensions to ease integrating entities with [`AccessKit`](https://accesskit.dev).
 pub trait AccessKitEntityExt {
     /// Convert an entity to a stable [`NodeId`].
     fn to_node_id(&self) -> NodeId;

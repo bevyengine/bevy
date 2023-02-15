@@ -136,7 +136,7 @@ fn label_changed(
     }
 }
 
-/// AccessKit integration for `bevy_ui`.
+/// `AccessKit` integration for `bevy_ui`.
 pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {

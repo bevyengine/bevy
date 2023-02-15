@@ -26,13 +26,12 @@ use crate::{
     converters::{self, convert_window_level},
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
-#[cfg(target_arch = "wasm32")]
-use bevy_ecs::system::ResMut;
 
 /// System responsible for creating new windows whenever a `Window` component is added
 /// to an entity.
 ///
 /// This will default any necessary components if they are not already added.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn create_window<'a>(
     mut commands: Commands,
     event_loop: &EventLoopWindowTarget<()>,
