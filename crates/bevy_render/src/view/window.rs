@@ -239,11 +239,22 @@ pub fn prepare_windows(
             .flags;
 
         if !sample_flags.sample_count_supported(msaa.samples()) {
-            bevy_log::warn!(
-                "MSAA {}x is not supported on this device. Falling back to disabling MSAA.",
-                msaa.samples(),
-            );
-            *msaa = Msaa::Off;
+            if sample_flags.sample_count_supported(Msaa::default().samples()) {
+                bevy_log::warn!(
+                    "MSAA {}x is not supported on this device. Falling back to MSAA {}x.",
+                    msaa.samples(),
+                    Msaa::default().samples(),
+                );
+
+                *msaa = Msaa::default();
+            } else {
+                bevy_log::warn!(
+                    "MSAA {}x is not supported on this device. Falling back to disabling MSAA.",
+                    msaa.samples(),
+                );
+
+                *msaa = Msaa::Off;
+            }
         }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
