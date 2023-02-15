@@ -326,47 +326,6 @@ pub fn winit_runner(mut app: App) {
             }
         }
 
-        if winit_state.active {
-            #[cfg(not(target_arch = "wasm32"))]
-            let (
-                commands,
-                mut new_windows,
-                created_window_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-            ) = create_window_system_state.get_mut(&mut app.world);
-
-            #[cfg(target_arch = "wasm32")]
-            let (
-                commands,
-                mut new_windows,
-                created_window_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-                canvas_parent_resize_channel,
-            ) = create_window_system_state.get_mut(&mut app.world);
-
-            // Responsible for creating new windows
-            create_window(
-                commands,
-                event_loop,
-                new_windows.iter_mut(),
-                created_window_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-                #[cfg(target_arch = "wasm32")]
-                canvas_parent_resize_channel,
-            );
-
-            create_window_system_state.apply(&mut app.world);
-        }
-
         match event {
             event::Event::NewEvents(start) => {
                 let (winit_config, window_focused_query) = focused_window_state.get(&app.world);
@@ -721,6 +680,44 @@ pub fn winit_runner(mut app: App) {
             }
 
             _ => (),
+        }
+
+        if winit_state.active {
+            #[cfg(not(target_arch = "wasm32"))]
+            let (
+                commands,
+                mut new_windows,
+                created_window_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+            ) = create_window_system_state.get_mut(&mut app.world);
+
+            #[cfg(target_arch = "wasm32")]
+            let (
+                commands,
+                mut new_windows,
+                created_window_writer,
+                winit_windows,
+                canvas_parent_resize_channel,
+            ) = create_window_system_state.get_mut(&mut app.world);
+
+            // Responsible for creating new windows
+            create_window(
+                commands,
+                event_loop,
+                new_windows.iter_mut(),
+                created_window_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+                #[cfg(target_arch = "wasm32")]
+                canvas_parent_resize_channel,
+            );
+
+            create_window_system_state.apply(&mut app.world);
         }
     };
 
