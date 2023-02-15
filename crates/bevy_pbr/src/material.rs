@@ -293,8 +293,7 @@ where
 
         // MeshPipeline::specialize's current implementation guarantees that the returned
         // specialized descriptor has a populated layout
-        let descriptor_layout = descriptor.layout.as_mut().unwrap();
-        descriptor_layout.insert(1, self.material_layout.clone());
+        descriptor.layout.insert(1, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
