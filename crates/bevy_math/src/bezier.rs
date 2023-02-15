@@ -24,48 +24,63 @@ impl Point for Vec3A {} // 3D
 impl Point for Vec2 {} // 2D
 impl Point for f32 {} // 1D
 
-/// A cubic Bezier spline in 2D space
+/// A cubic Bezier curve in 2D space
 pub type CubicBezier2d = Bezier<Vec2, 4>;
-/// A cubic Bezier spline in 3D space
+/// A cubic Bezier curve in 3D space
 pub type CubicBezier3d = Bezier<Vec3A, 4>;
-/// A quadratic Bezier spline in 2D space
+/// A quadratic Bezier curve in 2D space
 pub type QuadraticBezier2d = Bezier<Vec2, 3>;
-/// A quadratic Bezier spline in 3D space
+/// A quadratic Bezier curve in 3D space
 pub type QuadraticBezier3d = Bezier<Vec3A, 3>;
 
-/// A generic Bezier spline with `N` control points, and dimension defined by `P`.
+/// A generic Bezier curve with `N` control points, and dimension defined by `P`.
+///
+/// Consider the following type aliases for most common uses:
+/// - [`CubicBezier2d`]
+/// - [`CubicBezier3d`]
+/// - [`QuadraticBezier2d`]
+/// - [`QuadraticBezier3d`]
 ///
 /// The Bezier degree is equal to `N - 1`. For example, a cubic Bezier has 4 control points, and a
 /// degree of 3. The time-complexity of evaluating a Bezier increases superlinearly with the number
 /// of control points. As such, it is recommended to instead use a chain of quadratic or cubic
 /// `Beziers` instead of a high-degree Bezier.
 ///
-/// ### About Bezier Splines
+/// ### About Bezier curves
 ///
-/// `Bezier` splines are parametric implicit functions; all that means is they take a parameter `t`,
+/// `Bezier` curves are parametric implicit functions; all that means is they take a parameter `t`,
 /// and output a point in space, like:
 ///
 /// > B(t) = (x, y, z)
 ///
-/// So, all that is needed to find a point in space along a Bezier spline is the parameter `t`.
-/// Additionally, the values of `t` are straightforward: `t` is 0 at the start of the spline (first
+/// So, all that is needed to find a point in space along a Bezier curve is the parameter `t`.
+/// Additionally, the values of `t` are straightforward: `t` is 0 at the start of the curve (first
 /// control point) and 1 at the end (last control point).
+///
+/// ```
+/// # use bevy_math::{Bezier, vec2};
+/// let p0 = vec2(0.25, 0.1);
+/// let p1 = vec2(0.25, 1.0);
+/// let cubic_bezier = Bezier::new([p0, p1]);
+/// assert_eq!(cubic_bezier.position(0.0), p0);
+/// assert_eq!(cubic_bezier.position(1.0), p1);
+/// ```
 ///
 /// ### Plotting
 ///
-/// To plot a Bezier spline then, all you need to do is plug in a series of values of `t` in
-/// `0..=1`, like \[0.0, 0.2, 0.4, 0.6, 0.8, 1.0\], which will trace out the spline with 6 points.
-/// The functions to do this are [`Bezier::position`] to sample the spline at a value of `t`, and
+/// To plot a Bezier curve then, all you need to do is plug in a series of values of `t` in `0..=1`,
+/// like \[0.0, 0.2, 0.4, 0.6, 0.8, 1.0\], which will trace out the curve with 6 points. The
+/// functions to do this are [`Bezier::position`] to sample the curve at a value of `t`, and
 /// [`Bezier::to_positions`] to generate a list of positions given a number of desired subdivisions.
 ///
 /// ### Velocity and Acceleration
 ///
-/// In addition to the position of a point on the Bezier spline, it is also useful to get
-/// information about the curvature of the spline. Methods are provided to help with this:
+/// In addition to the position of a point on the Bezier curve, it is also useful to get information
+/// about the curvature of the curve. Methods are provided to help with this:
 ///
 /// - [`Bezier::velocity`]: the instantaneous velocity vector with respect to `t`. This is a vector
 ///       that points in the direction a point is traveling when it is at point `t`. This vector is
-///       then tangent to the spline.
+///       then tangent to the curve.
 /// - [`Bezier::acceleration`]: the instantaneous acceleration vector with respect to `t`. This is a
 ///       vector that points in the direction a point is accelerating towards when it is at point
 ///       `t`. This vector will point to the inside of turns, the direction the point is being
@@ -85,26 +100,25 @@ impl<P: Point, const N: usize> Bezier<P, N> {
         Self(control_points)
     }
 
-    /// Compute the [`Vec3`] position along the Bezier curve at the supplied parametric value `t`.
+    /// Compute the position along the Bezier curve at the supplied parametric value `t`.
     pub fn position(&self, t: f32) -> P {
-        bezier_impl::position(self.0, t)
+        generic::position(self.0, t)
     }
 
-    /// Compute the first derivative B'(t) of this cubic bezier at `t` with respect to t. This is
-    /// the instantaneous velocity of a point tracing the Bezier curve from t = 0 to 1.
+    /// Compute the first derivative B'(t) of this bezier at `t` with respect to t. This is the
+    /// instantaneous velocity of a point tracing the Bezier curve from t = 0 to 1.
     pub fn velocity(&self, t: f32) -> P {
-        bezier_impl::velocity(self.0, t)
+        generic::velocity(self.0, t)
     }
 
-    /// Compute the second derivative B''(t) of this cubic bezier at `t` with respect to t.This is
-    /// the instantaneous acceleration of a point tracing the Bezier curve from t = 0 to 1.
+    /// Compute the second derivative B''(t) of this bezier at `t` with respect to t.This is the
+    /// instantaneous acceleration of a point tracing the Bezier curve from t = 0 to 1.
     pub fn acceleration(&self, t: f32) -> P {
-        bezier_impl::acceleration(self.0, t)
+        generic::acceleration(self.0, t)
     }
 
-    /// Split the cubic Bezier curve of degree `N-1` into `subdivisions` evenly spaced `t` values
-    /// across the length of the curve from t = `0..=1`, and sample with the supplied
-    /// `sample_function`.
+    /// Split the Bezier curve of degree `N-1` into `subdivisions` evenly spaced `t` values across
+    /// the length of the curve from t = `0..=1`, and sample with the supplied `sample_function`.
     #[inline]
     pub fn sample(&self, subdivisions: i32, sample_function: fn(&Self, f32) -> P) -> Vec<P> {
         (0..=subdivisions)
@@ -178,7 +192,7 @@ impl CubicBezierEasing {
     /// assert_eq!(cubic_bezier.ease(1.0), 1.0);
     /// ```
     ///
-    /// ### How cubic Bezier easing works
+    /// # How cubic Bezier easing works
     ///
     /// Easing is generally accomplished with the help of "shaping functions". These are curves that
     /// start at (0,0) and end at (1,1). The x-axis of this plot is the current `time` of the
@@ -198,10 +212,10 @@ impl CubicBezierEasing {
     /// ●─────────── x (time)
     /// ```
     ///
-    /// Using cubic Beziers, we have a spline that starts at (0,0), ends at (1,1), and follows a
-    /// path determined by the two remaining control points (handles). These handles allow us to
-    /// define a smooth curve. As `time` (x-axis) progresses, we now follow the curved spline, and
-    /// use the `y` value to determine how far along the animation is.
+    /// Using cubic Beziers, we have a curve that starts at (0,0), ends at (1,1), and follows a path
+    /// determined by the two remaining control points (handles). These handles allow us to define a
+    /// smooth curve. As `time` (x-axis) progresses, we now follow the curved curve, and use the `y`
+    /// value to determine how far along the animation is.
     ///
     /// ```ignore
     /// y
@@ -214,7 +228,7 @@ impl CubicBezierEasing {
     /// ```
     ///
     /// To accomplish this, we need to be able to find the position `y` on a Bezier curve, given the
-    /// `x` value. As discussed in the [`Bezier`] documentation, a Bezier spline is an implicit
+    /// `x` value. As discussed in the [`Bezier`] documentation, a Bezier curve is an implicit
     /// parametric function like B(t) = (x,y). To find `y`, we first solve for `t` that corresponds
     /// to the given `x` (`time`). We use the Newton-Raphson root-finding method to quickly find a
     /// value of `t` that matches `x`. Once we have this we can easily plug that `t` into our
@@ -227,7 +241,7 @@ impl CubicBezierEasing {
     ///
     /// > Once a solution is found, use the resulting `y` value as the final result
     ///
-    /// ### Performance
+    /// # Performance
     ///
     /// This operation can be used frequently without fear of performance issues. Benchmarks show
     /// this operation taking on the order of 50 nanoseconds.
@@ -240,19 +254,19 @@ impl CubicBezierEasing {
     /// Compute the x-coordinate of the point along the Bezier curve at `t`.
     #[inline]
     fn evaluate_x_at(&self, t: f32) -> f32 {
-        bezier_impl::position([0.0, self.p1.x, self.p2.x, 1.0], t)
+        generic::position([0.0, self.p1.x, self.p2.x, 1.0], t)
     }
 
     /// Compute the y-coordinate of the point along the Bezier curve at `t`.
     #[inline]
     fn evaluate_y_at(&self, t: f32) -> f32 {
-        bezier_impl::position([0.0, self.p1.y, self.p2.y, 1.0], t)
+        generic::position([0.0, self.p1.y, self.p2.y, 1.0], t)
     }
 
     /// Compute the slope of the line at the given parametric value `t` with respect to t.
     #[inline]
     fn dx_dt(&self, t: f32) -> f32 {
-        bezier_impl::velocity([0.0, self.p1.x, self.p2.x, 1.0], t)
+        generic::velocity([0.0, self.p1.x, self.p2.x, 1.0], t)
     }
 
     /// Solve for the parametric value `t` that corresponds to the given value of `x` using the
@@ -286,9 +300,9 @@ impl CubicBezierEasing {
     }
 }
 
-/// Generic implementations for sampling cubic Bezier curves. Consider using the methods on
-/// [`Bezier`] for more ergonomic use.
-pub mod bezier_impl {
+/// Generic implementations for sampling Bezier curves. Consider using the methods on [`Bezier`] for
+/// more ergonomic use.
+pub mod generic {
     use super::Point;
 
     /// Compute the Bernstein basis polynomial for iteration `i`, for a Bezier curve with with
@@ -326,8 +340,8 @@ pub mod bezier_impl {
     }
 
     /// Compute the first derivative B'(t) of Bezier curve B(t) of degree `N-1` at the given
-    /// parametric value `t` with respect to t. Note that the first derivative of a Bezier is also
-    /// a Bezier, of degree `N-2`.
+    /// parametric value `t` with respect to t. Note that the first derivative of a Bezier is also a
+    /// Bezier, of degree `N-2`.
     #[inline]
     pub fn velocity<P: Point, const N: usize>(control_points: [P; N], t: f32) -> P {
         if N <= 1 {
