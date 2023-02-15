@@ -138,12 +138,9 @@ pub mod common_conditions {
     /// #
     /// # fn my_system() { unreachable!() }
     /// ```
-    pub fn not<Params, C: Condition<Params>>(
-        condition: C,
-    ) -> impl ReadOnlySystem<In = (), Out = bool>
-    where
-        C::System: ReadOnlySystem,
-    {
+    pub fn not<Params, C>(
+        condition: impl Condition<Params>,
+    ) -> impl ReadOnlySystem<In = (), Out = bool> {
         condition.pipe(|In(val): In<bool>| !val)
     }
 }
