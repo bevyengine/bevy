@@ -1,5 +1,3 @@
-use wgpu::ShaderStages;
-
 use crate::{define_atomic_id, render_resource::resource_macros::*};
 use std::ops::Deref;
 
