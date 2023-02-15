@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         parent
             .spawn(NodeBundle {
                 style: Style {
-                    size: Size::width(Val::Percent(100.)),                    
+                    size: Size::width(Val::Percent(100.)),             
                     ..Default::default()
                 },
                 ..Default::default()
