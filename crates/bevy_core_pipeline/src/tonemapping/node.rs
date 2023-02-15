@@ -123,7 +123,7 @@ impl Node for TonemappingNode {
                 ];
 
                 entries.extend(get_lut_bindings(
-                    &gpu_images,
+                    gpu_images,
                     tonemapping_luts,
                     tonemapping,
                     [3, 4],

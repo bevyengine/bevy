@@ -118,14 +118,14 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             TonemappingMethod::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
             TonemappingMethod::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
             TonemappingMethod::ReinhardLuminance => {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into())
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
             TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
             TonemappingMethod::SBDT => shader_defs.push("TONEMAP_METHOD_SBDT".into()),
             TonemappingMethod::SBDT2 => shader_defs.push("TONEMAP_METHOD_SBDT2".into()),
             TonemappingMethod::BlenderFilmic => {
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into())
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
         }
         RenderPipelineDescriptor {
@@ -253,17 +253,18 @@ pub fn get_lut_bindings<'a>(
             deband_dither: _,
             method,
         } => match method {
-            TonemappingMethod::None => &tonemapping_luts.agx,
-            TonemappingMethod::Reinhard => &tonemapping_luts.agx,
-            TonemappingMethod::ReinhardLuminance => &tonemapping_luts.agx,
-            TonemappingMethod::Aces => &tonemapping_luts.agx,
-            TonemappingMethod::AgX => &tonemapping_luts.agx,
-            TonemappingMethod::SBDT => &tonemapping_luts.agx,
+            //agx lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
+            TonemappingMethod::None
+            | TonemappingMethod::Reinhard
+            | TonemappingMethod::ReinhardLuminance
+            | TonemappingMethod::Aces
+            | TonemappingMethod::AgX
+            | TonemappingMethod::SBDT => &tonemapping_luts.agx,
             TonemappingMethod::SBDT2 => &tonemapping_luts.sbdt2,
             TonemappingMethod::BlenderFilmic => &tonemapping_luts.blender_filmic,
         },
     };
-    let lut_image = images.get(&image).unwrap();
+    let lut_image = images.get(image).unwrap();
     [
         BindGroupEntry {
             binding: bindings[0],
@@ -326,7 +327,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8]) -> Image {
     };
 
     image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
-        label: Some(&"Tonemapping LUT"),
+        label: Some("Tonemapping LUT"),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
         address_mode_w: AddressMode::ClampToEdge,

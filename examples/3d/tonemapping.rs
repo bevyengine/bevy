@@ -1,6 +1,4 @@
-//! This examples compares Tonemapping
-
-// cargo run --release --example tonemapping --features="ktx2 zstd exr debug_asset_server"
+//! This examples compares Tonemapping options
 
 use std::f32::consts::PI;
 
@@ -56,7 +54,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
     println!("2 - Image viewer");
     println!("3 - Color Sweep");
 
-    println!("");
+    println!();
 
     println!("B - Bypass");
     println!("4 - Reinhard");
@@ -119,7 +117,7 @@ fn scene1(
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.3, 0.5, 0.3).into(),
+                base_color: Color::rgb(0.3, 0.5, 0.3),
                 perceptual_roughness: 0.5,
                 ..default()
             }),
@@ -282,6 +280,7 @@ fn scene3(
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn hdr_viewer(
     query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -314,8 +313,7 @@ fn hdr_viewer(
 
             for event in image_events.iter() {
                 let image_changed_h = match event {
-                    AssetEvent::Created { handle } => handle,
-                    AssetEvent::Modified { handle } => handle,
+                    AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
                     _ => continue,
                 };
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
@@ -426,13 +424,13 @@ fn update_color_grading_settings(
     match tonemapping {
         Tonemapping::Disabled => text.push_str("Tonemapping: Disabled\n"),
         Tonemapping::Enabled {
-            deband_dither,
+            deband_dither: _,
             method,
         } => match method {
             TonemappingMethod::None => text.push_str("Tonemapping: Bypassed\n"),
             TonemappingMethod::Reinhard => text.push_str("Tonemapping: Reinhard\n"),
             TonemappingMethod::ReinhardLuminance => {
-                text.push_str("Tonemapping: Reinhard Luminance\n")
+                text.push_str("Tonemapping: Reinhard Luminance\n");
             }
             TonemappingMethod::Aces => text.push_str("Tonemapping: Aces\n"),
             TonemappingMethod::AgX => text.push_str("Tonemapping: AgX\n"),
