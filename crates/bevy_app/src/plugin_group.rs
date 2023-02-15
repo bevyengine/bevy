@@ -225,6 +225,66 @@ impl PluginGroupBuilder {
     }
 }
 
+pub(super) mod sealed {
+    use bevy_ecs::all_tuples;
+
+    use crate::{App, Plugin, PluginGroup, PluginGroupBuilder};
+
+    pub trait IntoPluginGroup<Params>: IntoPluginGroupBuilder<Params> {}
+
+    pub trait IntoPluginGroupBuilder<Params> {
+        fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder;
+    }
+
+    pub struct IsPlugin;
+    pub struct IsPluginGroup;
+    pub struct IsFunction;
+
+    impl<P: Plugin> IntoPluginGroupBuilder<IsPlugin> for P {
+        fn into_plugin_group_builder(self, _: &mut App) -> PluginGroupBuilder {
+            PluginGroupBuilder::from_plugin(self)
+        }
+    }
+
+    impl<P: PluginGroup> IntoPluginGroupBuilder<IsPluginGroup> for P {
+        fn into_plugin_group_builder(self, _: &mut App) -> PluginGroupBuilder {
+            self.build()
+        }
+    }
+
+    impl<P: PluginGroup> IntoPluginGroup<IsPluginGroup> for P {}
+
+    impl<F: FnOnce(&mut App) -> PG, PG: PluginGroup> IntoPluginGroupBuilder<IsFunction> for F {
+        fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder {
+            self(app).build()
+        }
+    }
+
+    impl<F: FnOnce(&mut App) -> PG, PG: PluginGroup> IntoPluginGroup<IsFunction> for F {}
+
+    macro_rules! impl_plugin_collection {
+        ($(($param: ident, $plugins: ident)),*) => {
+            impl<$($param, $plugins),*> IntoPluginGroupBuilder<($($param,)*)> for ($($plugins,)*)
+            where
+                $($plugins: IntoPluginGroupBuilder<$param>),*
+            {
+                #[allow(non_snake_case, unused_variables)]
+                fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder {
+                    let ($($plugins,)*) = self;
+                    PluginGroupBuilder::merge(vec![$($plugins.into_plugin_group_builder(app),)*])
+                }
+            }
+
+            impl<$($param, $plugins),*> IntoPluginGroup<($($param,)*)> for ($($plugins,)*)
+            where
+                $($plugins: IntoPluginGroupBuilder<$param>),*
+            {}
+        }
+    }
+
+    all_tuples!(impl_plugin_collection, 0, 15, P, S);
+}
+
 /// A plugin group which doesn't do anything. Useful for examples:
 /// ```rust
 /// # use bevy_app::prelude::*;
