@@ -45,7 +45,15 @@ impl_downcast!(Plugin);
 /// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 
-pub(super) mod sealed {
+/// Types that can be converted into a [`Plugin`].
+///
+/// This is implemented for all types which implement [`Plugin`] or
+/// [`FnOnce(&mut App) -> impl Plugin`](FnOnce).
+pub trait IntoPlugin<Params>: sealed::IntoPlugin<Params> {}
+
+impl<Params, T> IntoPlugin<Params> for T where T: sealed::IntoPlugin<Params> {}
+
+mod sealed {
 
     use crate::{App, Plugin};
 

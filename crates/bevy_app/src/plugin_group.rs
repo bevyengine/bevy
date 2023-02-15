@@ -225,7 +225,16 @@ impl PluginGroupBuilder {
     }
 }
 
-pub(super) mod sealed {
+/// Types that can be converted into a [`PluginGroup`].
+///
+/// This is implemented for all types which implement [`PluginGroup`] or
+/// [`FnOnce(&mut App) -> impl PluginGroup`](FnOnce) and for tuples over types that implement
+/// [`IntoPlugin`](super::IntoPlugin) or  [`IntoPluginGroup`].
+pub trait IntoPluginGroup<Params>: sealed::IntoPluginGroup<Params> {}
+
+impl<Params, T> IntoPluginGroup<Params> for T where T: sealed::IntoPluginGroup<Params> {}
+
+mod sealed {
     use bevy_ecs::all_tuples;
 
     use crate::{App, Plugin, PluginGroup, PluginGroupBuilder};

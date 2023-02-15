@@ -1,4 +1,4 @@
-use crate::{CoreSchedule, CoreSet, Plugin, StartupSet};
+use crate::{CoreSchedule, CoreSet, IntoPlugin, IntoPluginGroup, Plugin, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -14,7 +14,6 @@ use std::fmt::Debug;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::sealed::{IntoPlugin, IntoPluginGroup};
 bevy_utils::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
