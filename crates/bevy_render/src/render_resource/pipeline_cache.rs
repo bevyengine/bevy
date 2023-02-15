@@ -15,7 +15,7 @@ use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet, Hashed, PreHashMap,
+    Entry, HashMap, HashSet, Hashed,
 };
 use parking_lot::Mutex;
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
@@ -303,7 +303,7 @@ impl ShaderCache {
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: PreHashMap<LayoutCacheKey, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -316,7 +316,7 @@ impl LayoutCache {
         let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
         let push_constant_ranges_vec = push_constant_ranges.to_vec();
         self.layouts
-            .entry(Hashed::new((bind_group_ids, push_constant_ranges_vec)))
+            .entry((bind_group_ids, push_constant_ranges_vec))
             .or_insert_with(|| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
