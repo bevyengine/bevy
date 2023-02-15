@@ -30,7 +30,5 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     output_rgb = pow(output_rgb.rgb, vec3<f32>(2.2));
 #endif
 
-
-
     return vec4<f32>(output_rgb, hdr_color.a);
 }

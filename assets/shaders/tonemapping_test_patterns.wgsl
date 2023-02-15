@@ -1,5 +1,6 @@
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings
+#import bevy_pbr::utils
 
 #import bevy_core_pipeline::tonemapping
 
@@ -14,24 +15,23 @@ struct FragmentInput {
     #import bevy_pbr::mesh_vertex_output
 };
 
-const M_PI: f32 = 3.1415926535897932384626433832795;
 
 fn color_sweep(uv: vec2<f32>) -> vec3<f32> {
     let steps = 24.0;
     let uv = uv * (1.0 + 1.0 / steps);
     let ratio = 2.0;
     
-    let h = floor(1.0 + steps * uv.y)/steps * M_PI * 2.0;
-    let L = floor(uv.x * steps * ratio)/(steps*ratio) - 0.5;
+    let h = PI * 2.0 * floor(1.0 + steps * uv.y) / steps;
+    let L = floor(uv.x * steps * ratio) / (steps * ratio) - 0.5;
     
     var color = vec3(0.0);
-    if (uv.y < 1.0) { 
-        color = cos(h + vec3(0.0,1.0,2.0) * M_PI * 2.0/ 3.0);
+    if uv.y < 1.0 { 
+        color = cos(h + vec3(0.0, 1.0, 2.0) * PI * 2.0 / 3.0);
         let maxRGB = max(color.r, max(color.g, color.b));
         let minRGB = min(color.r, min(color.g, color.b));
-        color = exp(15.0*L)*(color-minRGB)/(maxRGB-minRGB);
+        color = exp(15.0 * L) * (color - minRGB) / (maxRGB - minRGB);
     } else {
-        color = vec3(exp(15.0*L));
+        color = vec3(exp(15.0 * L));
     }
     return color;
 }

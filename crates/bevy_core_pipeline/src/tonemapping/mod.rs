@@ -48,8 +48,6 @@ impl Plugin for TonemappingPlugin {
 
         let mut images = app.world.resource_mut::<Assets<Image>>();
 
-        // TODO move somewhere so the texture is available for shading in the main pass?
-
         let tonemapping_luts = TonemappingLuts {
             blender_filmic: images.add(setup_tonemapping_lut_image(
                 include_bytes!("luts/blender_-11_12.exr"),
@@ -258,7 +256,7 @@ pub fn get_lut_bindings<'a>(
             deband_dither: _,
             method,
         } => match method {
-            //agx lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
+            //AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
             TonemappingMethod::None
             | TonemappingMethod::Reinhard
             | TonemappingMethod::ReinhardLuminance
@@ -304,15 +302,8 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 }
 
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let mut image = Image::from_buffer(
-        bytes, //AgX-default_contrast_vert.lut.exr
-        image_type,
-        CompressedImageFormats::NONE,
-        true,
-    )
-    .unwrap();
-
-    //image.texture_descriptor.format = TextureFormat::Rgba16Unorm;
+    let mut image =
+        Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, true).unwrap();
 
     let block_size = image.size().x as u32;
 
@@ -332,7 +323,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     };
 
     image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
-        label: Some("Tonemapping LUT"),
+        label: Some("Tonemapping LUT sampler"),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
         address_mode_w: AddressMode::ClampToEdge,

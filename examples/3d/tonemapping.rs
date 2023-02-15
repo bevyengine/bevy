@@ -51,7 +51,7 @@ struct CamTrans(Transform);
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_trans: Res<CamTrans>) {
     println!("Toggle with:");
-    println!("1 - Helmet and stuff");
+    println!("1 - Flight helmet and simple 3D shapes");
     println!("2 - Image viewer");
     println!("3 - Color Sweep");
 
@@ -60,7 +60,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
     println!("B - Bypass");
     println!("4 - Reinhard");
     println!("5 - Reinhard Luminance (old bevy default)");
-    println!("6 - Aces");
+    println!("6 - ACES");
     println!("7 - AgX");
     println!("8 - SBDT");
     println!("9 - SBDT2");
