@@ -16,6 +16,8 @@ mod sealed {
     pub trait Condition<Params>:
         IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
     {
+        // This associated type is necessary to let the compiler
+        // know that `Self::System` is `ReadOnlySystem`.
         type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
     }
 
