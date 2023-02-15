@@ -1,7 +1,7 @@
 use crate::{
     render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet, texture::TextureFormatPixelInfo,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
