@@ -50,14 +50,14 @@ pub(super) mod sealed {
 
     use crate::{App, Plugin, PluginGroup, PluginGroupBuilder};
 
-    pub trait IntoPlugin<Marker> {
+    pub trait IntoPlugin<Params> {
         type Plugin: Plugin;
         fn into_plugin(self, app: &mut App) -> Self::Plugin;
     }
 
-    pub trait IntoPluginGroup<Marker>: IntoPluginGroupBuilder<Marker> {}
+    pub trait IntoPluginGroup<Params>: IntoPluginGroupBuilder<Params> {}
 
-    pub trait IntoPluginGroupBuilder<Marker> {
+    pub trait IntoPluginGroupBuilder<Params> {
         fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder;
     }
 
