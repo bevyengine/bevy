@@ -10,6 +10,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(display_buttons)
         .add_system(visibility_buttons)
+        .add_system(text_hover)
         .run();
 }
 
@@ -218,13 +219,13 @@ fn spawn_right_panel(
                     let target = target_ids.pop().unwrap();
                     spawn_button::<Display>(
                         parent,
-                        format!("Display::{:?}", Display::default()),
+                        format!(" Display::{:?} ", Display::default()),
                         text_style.clone(),
                         Target::new(target),
                     );
                     spawn_button::<Visibility>(
                         parent,
-                        format!("Visibility::{:?}", Visibility::default()),
+                        format!(" Visibility::{:?} ", Visibility::default()),
                         text_style.clone(),
                         Target::new(target),
                     );
@@ -250,13 +251,13 @@ fn spawn_right_panel(
                             let target = target_ids.pop().unwrap();
                             spawn_button::<Display>(
                                 parent,
-                                format!("Display::{:?}", Display::default()),
+                                format!("Display::{:?} ", Display::default()),
                                 text_style.clone(),
                                 Target::new(target),
                             );
                             spawn_button::<Visibility>(
                                 parent,
-                                format!("Visibility::{:?}", Visibility::default()),
+                                format!(" Visibility::{:?} ", Visibility::default()),
                                 text_style.clone(),
                                 Target::new(target),
                             );
@@ -282,13 +283,13 @@ fn spawn_right_panel(
                                     let target = target_ids.pop().unwrap();
                                     spawn_button::<Display>(
                                         parent,
-                                        format!("Display::{:?}", Display::default()),
+                                        format!(" Display::{:?} ", Display::default()),
                                         text_style.clone(),
                                         Target::new(target),
                                     );
                                     spawn_button::<Visibility>(
                                         parent,
-                                        format!("Visibility::{:?}", Visibility::default()),
+                                        format!(" Visibility::{:?} ", Visibility::default()),
                                         text_style.clone(),
                                         Target::new(target),
                                     );
@@ -314,13 +315,13 @@ fn spawn_right_panel(
                                             let target = target_ids.pop().unwrap();
                                             spawn_button::<Display>(
                                                 parent,
-                                                format!("Display::{:?}", Display::default()),
+                                                format!(" Display::{:?} ", Display::default()),
                                                 text_style.clone(),
                                                 Target::new(target),
                                             );
                                             spawn_button::<Visibility>(
                                                 parent,
-                                                format!("Visibility::{:?}", Visibility::default()),
+                                                format!(" Visibility::{:?} ", Visibility::default()),
                                                 text_style.clone(),
                                                 Target::new(target),
                                             );
@@ -376,7 +377,7 @@ fn display_buttons(
                 Display::Flex => Display::None,
                 Display::None => Display::Flex,
             };
-            text.sections[0].value = format!("Display::{:?}", style.display);
+            text.sections[0].value = format!(" Display::{:?} ", style.display);
         }
     }
 }
@@ -396,7 +397,24 @@ fn visibility_buttons(
                 Visibility::Visible => Visibility::Hidden,
                 Visibility::Hidden => Visibility::Inherited,
             };
-            text.sections[0].value = format!("Visibility::{:?}", *visibility);
+            text.sections[0].value = format!(" Visibility::{:?} ", *visibility);
+        }
+    }
+}
+
+fn text_hover(
+    mut text_query: Query<(&mut Text, &mut BackgroundColor, &Interaction), Changed<Interaction>>,
+) {
+    for (mut text, mut background_color, interaction) in text_query.iter_mut() {
+        match interaction {
+            Interaction::Hovered => {
+                text.sections[0].style.color = Color::YELLOW;
+                *background_color = BackgroundColor(Color::BLACK.with_a(0.6));
+            }   
+            _ => {
+                text.sections[0].style.color = Color::WHITE;
+                *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
+            }
         }
     }
 }
