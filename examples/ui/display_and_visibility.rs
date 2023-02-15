@@ -64,15 +64,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         parent
             .spawn(NodeBundle {
                 style: Style {
-                    justify_content: JustifyContent::SpaceEvenly,
-                    size: Size::width(Val::Percent(100.)),
+                    size: Size::width(Val::Percent(100.)),                    
                     ..Default::default()
                 },
                 ..Default::default()
             })
             .with_children(|parent| {
-                let target_ids = spawn_left_panel(parent, &palette);
-                spawn_right_panel(parent, text_style, &palette, target_ids);
+                let mut target_ids = vec![];
+                parent.spawn(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(50.), Val::Px(520.)),
+                        justify_content: JustifyContent::Center,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }).with_children(|parent| {
+                    target_ids = spawn_left_panel(parent, &palette);
+                });
+
+                parent.spawn(NodeBundle {
+                    style: Style {
+                        size: Size::width(Val::Percent(50.)),
+                        justify_content: JustifyContent::Center,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }).with_children(|parent| {
+                    spawn_right_panel(parent, text_style, &palette, target_ids);
+                });
             });
     });
 }
@@ -321,7 +340,10 @@ fn spawn_right_panel(
                                             );
                                             spawn_button::<Visibility>(
                                                 parent,
-                                                format!(" Visibility::{:?} ", Visibility::default()),
+                                                format!(
+                                                    " Visibility::{:?} ",
+                                                    Visibility::default()
+                                                ),
                                                 text_style.clone(),
                                                 Target::new(target),
                                             );
@@ -410,7 +432,7 @@ fn text_hover(
             Interaction::Hovered => {
                 text.sections[0].style.color = Color::YELLOW;
                 *background_color = BackgroundColor(Color::BLACK.with_a(0.6));
-            }   
+            }
             _ => {
                 text.sections[0].style.color = Color::WHITE;
                 *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
