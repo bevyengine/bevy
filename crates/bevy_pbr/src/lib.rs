@@ -284,6 +284,7 @@ impl Plugin for PbrPlugin {
             // because prepare_lights creates new views for shadow mapping
             .add_system(
                 apply_system_buffers
+                    .in_set(RenderSet::Prepare)
                     .after(RenderLightSystems::PrepareLights)
                     .before(ViewSet::PrepareUniforms),
             )

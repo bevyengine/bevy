@@ -5,12 +5,12 @@ use syn::parse::{Parse, ParseStream};
 pub static SYSTEM_SET_ATTRIBUTE_NAME: &str = "system_set";
 pub static BASE_ATTRIBUTE_NAME: &str = "base";
 
-/// Derive a label trait
+/// Derive a set trait
 ///
 /// # Args
 ///
-/// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
-/// - `trait_path`: The path [`syn::Path`] to the label trait
+/// - `input`: The [`syn::DeriveInput`] for the struct that we want to derive the set trait for
+/// - `trait_path`: The [`syn::Path`] to the set trait
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
     let ident = input.ident;
 

@@ -92,7 +92,7 @@ pub mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn state_equals<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
