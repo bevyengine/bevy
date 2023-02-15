@@ -1002,6 +1002,42 @@ impl App {
 
         self
     }
+
+    /// TODO: Docs
+    pub fn add<V: sealed::Add<M>, M>(&mut self, value: V) -> &mut Self {
+        value.add_to(self);
+        self
+    }
+}
+
+mod sealed {
+    use crate::{App, Plugin, PluginGroup};
+
+    pub trait Add<Marker> {
+        fn add_to(self, app: &mut App);
+    }
+
+    pub struct IsPlugin;
+    pub struct IsPluginGroup;
+    pub struct IsFunction;
+
+    impl<P: Plugin> Add<IsPlugin> for P {
+        fn add_to(self, app: &mut App) {
+            app.add_plugin(self);
+        }
+    }
+
+    impl<P: PluginGroup> Add<IsPluginGroup> for P {
+        fn add_to(self, app: &mut App) {
+            app.add_plugins(self);
+        }
+    }
+
+    impl<F: FnOnce(&mut App)> Add<IsFunction> for F {
+        fn add_to(self, app: &mut App) {
+            self(app)
+        }
+    }
 }
 
 fn run_once(mut app: App) {
@@ -1076,5 +1112,31 @@ mod tests {
             }
         }
         App::new().add_plugin(PluginRun);
+    }
+
+    // Just for Demonstration purposes, will be removed
+    #[test]
+    fn logger_example() {
+        use bevy_ecs::system::Resource;
+        #[derive(Resource)]
+        struct Loggers;
+
+        struct LoggerPlugin;
+
+        impl LoggerPlugin {
+            fn with_loggers(loggers: Loggers) -> impl FnOnce(&mut App) {
+                |app| {
+                    app.insert_resource::<Loggers>(loggers).add(LoggerPlugin);
+                }
+            }
+        }
+
+        impl Plugin for LoggerPlugin {
+            fn build(&self, app: &mut App) {
+                let _loggers = app.world.remove_resource::<Loggers>();
+            }
+        }
+
+        App::new().add(LoggerPlugin::with_loggers(Loggers)).run();
     }
 }
