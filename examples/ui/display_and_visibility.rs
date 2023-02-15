@@ -1,12 +1,15 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
 use bevy::prelude::*;
+use bevy::winit::WinitSettings;
 
 const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "F4B942"];
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
         .add_system(display_buttons)
         .add_system(visibility_buttons)
@@ -64,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         parent
             .spawn(NodeBundle {
                 style: Style {
-                    size: Size::width(Val::Percent(100.)),             
+                    size: Size::width(Val::Percent(100.)),
                     ..Default::default()
                 },
                 ..Default::default()
