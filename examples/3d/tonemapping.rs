@@ -115,7 +115,10 @@ fn scene1(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+            mesh: meshes.add(Mesh::from(shape::Plane {
+                size: 5.0,
+                ..default()
+            })),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.3, 0.5, 0.3),
                 perceptual_roughness: 0.5,
