@@ -105,7 +105,7 @@ impl RenderSet {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
     /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_system_buffers`] is inserted at each `*Flush` label.
+    /// and a copy of [`apply_system_buffers`] is inserted into each `*Flush` set.
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 

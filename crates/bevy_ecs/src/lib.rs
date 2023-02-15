@@ -19,6 +19,8 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+use std::any::TypeId;
+
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
