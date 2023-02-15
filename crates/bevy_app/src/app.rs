@@ -1090,9 +1090,8 @@ mod tests {
         App::new().add_plugin(PluginRun);
     }
 
-    // Just for Demonstration purposes, will be removed
     #[test]
-    fn logger_example() {
+    fn add_plugin_via_factory_fn() {
         use bevy_ecs::system::Resource;
         #[derive(Resource)]
         struct Loggers;
