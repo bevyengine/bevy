@@ -362,7 +362,9 @@ mod menu {
     ) {
         for (interaction, mut color, selected) in &mut interaction_query {
             *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
+                (Interaction::Clicked(_), _) | (Interaction::None, Some(_)) => {
+                    PRESSED_BUTTON.into()
+                }
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
                 (Interaction::None, None) => NORMAL_BUTTON.into(),
@@ -379,7 +381,7 @@ mod menu {
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Clicked && *setting != *button_setting {
+            if matches!(*interaction, Interaction::Clicked(_)) && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
                 *previous_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
@@ -796,7 +798,7 @@ mod menu {
         mut game_state: ResMut<NextState<GameState>>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Clicked {
+            if matches!(*interaction, Interaction::Clicked(_)) {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {
