@@ -47,6 +47,39 @@ impl PluginGroupBuilder {
         }
     }
 
+    pub(crate) fn from_plugin<P: Plugin>(plugin: P) -> Self {
+        Self {
+            group_name: plugin.name().to_string(),
+            plugins: Default::default(),
+            order: Default::default(),
+        }
+        .add(plugin)
+    }
+
+    pub(crate) fn merge(builders: Vec<PluginGroupBuilder>) -> Self {
+        let mut group_name = "(".to_string();
+        let mut plugins = HashMap::new();
+        let mut order = Vec::new();
+        let mut first = true;
+        for mut builder in builders {
+            if first {
+                first = false;
+            } else {
+                group_name += ", ";
+            }
+            for (type_id, entry) in builder.plugins {
+                plugins.insert(type_id, entry);
+            }
+            order.append(&mut builder.order);
+        }
+        group_name += ")";
+        Self {
+            group_name,
+            plugins,
+            order,
+        }
+    }
+
     /// Finds the index of a target [`Plugin`]. Panics if the target's [`TypeId`] is not found.
     fn index_of<Target: Plugin>(&self) -> usize {
         let index = self

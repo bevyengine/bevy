@@ -1,4 +1,4 @@
-use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
+use crate::{CoreSchedule, CoreSet, Plugin, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -13,6 +13,8 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+
+use self::sealed::{IntoPlugin, IntoPluginGroup};
 bevy_utils::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
@@ -742,11 +744,9 @@ impl App {
     /// # Panics
     ///
     /// Panics if the plugin was already added to the application.
-    pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
-    where
-        T: Plugin,
-    {
-        match self.add_boxed_plugin(Box::new(plugin)) {
+    pub fn add_plugin<P>(&mut self, plugin: impl IntoPlugin<P>) -> &mut Self {
+        let plugin = Box::new(plugin.into_plugin(self));
+        match self.add_boxed_plugin(plugin) {
             Ok(app) => app,
             Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
                 "Error adding plugin {plugin_name}: : plugin was already added in application"
@@ -836,8 +836,8 @@ impl App {
     /// # Panics
     ///
     /// Panics if one of the plugin in the group was already added to the application.
-    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
-        let builder = group.build();
+    pub fn add_plugins<P>(&mut self, group: impl IntoPluginGroup<P>) -> &mut Self {
+        let builder = group.into_plugin_group_builder(self);
         builder.finish(self);
         self
     }
@@ -1002,42 +1002,86 @@ impl App {
 
         self
     }
-
-    /// TODO: Docs
-    pub fn add<V: sealed::Add<M>, M>(&mut self, value: V) -> &mut Self {
-        value.add_to(self);
-        self
-    }
 }
 
 mod sealed {
-    use crate::{App, Plugin, PluginGroup};
+    use bevy_ecs::all_tuples;
 
-    pub trait Add<Marker> {
-        fn add_to(self, app: &mut App);
+    use crate::{App, Plugin, PluginGroup, PluginGroupBuilder};
+
+    pub trait IntoPlugin<Marker> {
+        type Plugin: Plugin;
+        fn into_plugin(self, app: &mut App) -> Self::Plugin;
+    }
+
+    pub trait IntoPluginGroup<Marker>: IntoPluginGroupBuilder<Marker> {}
+
+    pub trait IntoPluginGroupBuilder<Marker> {
+        fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder;
     }
 
     pub struct IsPlugin;
     pub struct IsPluginGroup;
     pub struct IsFunction;
 
-    impl<P: Plugin> Add<IsPlugin> for P {
-        fn add_to(self, app: &mut App) {
-            app.add_plugin(self);
+    impl<P: Plugin> IntoPlugin<IsPlugin> for P {
+        type Plugin = Self;
+        fn into_plugin(self, _: &mut App) -> Self {
+            self
         }
     }
 
-    impl<P: PluginGroup> Add<IsPluginGroup> for P {
-        fn add_to(self, app: &mut App) {
-            app.add_plugins(self);
+    impl<P: Plugin> IntoPluginGroupBuilder<IsPlugin> for P {
+        fn into_plugin_group_builder(self, _: &mut App) -> PluginGroupBuilder {
+            PluginGroupBuilder::from_plugin(self)
         }
     }
 
-    impl<F: FnOnce(&mut App)> Add<IsFunction> for F {
-        fn add_to(self, app: &mut App) {
-            self(app);
+    impl<P: PluginGroup> IntoPluginGroupBuilder<IsPluginGroup> for P {
+        fn into_plugin_group_builder(self, _: &mut App) -> PluginGroupBuilder {
+            self.build()
         }
     }
+
+    impl<P: PluginGroup> IntoPluginGroup<IsPluginGroup> for P {}
+
+    impl<F: FnOnce(&mut App) -> P, P: Plugin> IntoPlugin<IsFunction> for F {
+        type Plugin = P;
+
+        fn into_plugin(self, app: &mut App) -> Self::Plugin {
+            self(app)
+        }
+    }
+
+    impl<F: FnOnce(&mut App) -> PG, PG: PluginGroup> IntoPluginGroupBuilder<IsFunction> for F {
+        fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder {
+            self(app).build()
+        }
+    }
+
+    impl<F: FnOnce(&mut App) -> PG, PG: PluginGroup> IntoPluginGroup<IsFunction> for F {}
+
+    macro_rules! impl_plugin_collection {
+        ($(($param: ident, $plugins: ident)),*) => {
+            impl<$($param, $plugins),*> IntoPluginGroupBuilder<($($param,)*)> for ($($plugins,)*)
+            where
+                $($plugins: IntoPluginGroupBuilder<$param>),*
+            {
+                #[allow(non_snake_case, unused_variables)]
+                fn into_plugin_group_builder(self, app: &mut App) -> PluginGroupBuilder {
+                    let ($($plugins,)*) = self;
+                    PluginGroupBuilder::merge(vec![$($plugins.into_plugin_group_builder(app),)*])
+                }
+            }
+
+            impl<$($param, $plugins),*> IntoPluginGroup<($($param,)*)> for ($($plugins,)*)
+            where
+                $($plugins: IntoPluginGroupBuilder<$param>),*
+            {}
+        }
+    }
+
+    all_tuples!(impl_plugin_collection, 0, 15, P, S);
 }
 
 fn run_once(mut app: App) {
@@ -1124,9 +1168,10 @@ mod tests {
         struct LoggerPlugin;
 
         impl LoggerPlugin {
-            fn with_loggers(loggers: Loggers) -> impl FnOnce(&mut App) {
+            fn with_loggers(loggers: Loggers) -> impl FnOnce(&mut App) -> LoggerPlugin {
                 |app| {
-                    app.insert_resource(loggers).add(LoggerPlugin);
+                    app.insert_resource(loggers);
+                    LoggerPlugin
                 }
             }
         }
@@ -1137,6 +1182,8 @@ mod tests {
             }
         }
 
-        App::new().add(LoggerPlugin::with_loggers(Loggers)).run();
+        App::new()
+            .add_plugin(LoggerPlugin::with_loggers(Loggers))
+            .run();
     }
 }
