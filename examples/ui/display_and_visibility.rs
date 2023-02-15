@@ -92,7 +92,6 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        
                         ..Default::default()
                     },
                     background_color: BackgroundColor(Color::BLACK),
@@ -102,10 +101,9 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                     let id = parent
                         .spawn((NodeBundle {
                             style: Style {
-                                //size: Size::height(Val::Px(500.)),
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
-                                
+
                                 ..Default::default()
                             },
                             background_color: BackgroundColor(palette[0]),
@@ -123,10 +121,10 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             let id = parent
                                 .spawn((NodeBundle {
                                     style: Style {
-                                        size: Size::all(Val::Px(400.)),
+                                        size: Size::height(Val::Px(400.)),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
-                                        
+
                                         ..Default::default()
                                     },
                                     background_color: BackgroundColor(palette[1]),
@@ -144,10 +142,10 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     let id = parent
                                         .spawn((NodeBundle {
                                             style: Style {
-                                                size: Size::all(Val::Px(300.)),
+                                                size: Size::height(Val::Px(300.)),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
-                                                
+
                                                 ..Default::default()
                                             },
                                             background_color: BackgroundColor(palette[2]),
@@ -166,8 +164,6 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                 .spawn((NodeBundle {
                                                     style: Style {
                                                         size: Size::all(Val::Px(200.)),
-                                                        align_items: AlignItems::FlexEnd,
-                                                        justify_content: JustifyContent::FlexEnd,
                                                         ..Default::default()
                                                     },
                                                     background_color: BackgroundColor(palette[3]),
