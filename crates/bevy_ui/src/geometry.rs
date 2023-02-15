@@ -235,6 +235,29 @@ impl UiRect {
         }
     }
 
+    /// Creates a new [`UiRect`] with both `UiRect::horizontal` and `UiRect::vertical` effects applied.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::axis(Val::Px(20.0), Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(20.0));
+    /// assert_eq!(ui_rect.right, Val::Px(20.0));
+    /// assert_eq!(ui_rect.top, Val::Px(10.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
+    /// ```
+    pub fn axis(horizontal: Val, vertical: Val) -> Self {
+        UiRect {
+            left: horizontal,
+            right: horizontal,
+            top: vertical,
+            bottom: vertical,
+        }
+    }
+
     /// Creates a new [`UiRect`] where `left` takes the given value.
     ///
     /// # Example
