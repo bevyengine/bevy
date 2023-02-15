@@ -58,8 +58,8 @@ impl Plugin for TonemappingPlugin {
                 ImageType::Extension("exr"),
             )),
             sbdt2: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/sbdt2.dds"),
-                ImageType::Extension("dds"),
+                include_bytes!("luts/sbdt2.exr"),
+                ImageType::Extension("exr"),
             )),
         };
 
@@ -303,7 +303,7 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let mut image =
-        Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, true).unwrap();
+        Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, false).unwrap();
 
     let block_size = image.size().x as u32;
 
