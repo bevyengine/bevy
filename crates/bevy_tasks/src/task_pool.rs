@@ -275,8 +275,9 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        let scope_executor = ThreadExecutor::new();
-        self.scope_with_executor_inner(true, &scope_executor, &scope_executor, f)
+        Self::THREAD_EXECUTOR.with(|scope_executor| {
+            self.scope_with_executor_inner(true, scope_executor, scope_executor, f)
+        })
     }
 
     /// This allows passing an external executor to spawn tasks on. When you pass an external executor
@@ -298,24 +299,25 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        let scope_executor = ThreadExecutor::new();
-        // If a `external_executor` is passed use that. Otherwise get the executor stored
-        // in the `THREAD_EXECUTOR` thread local.
-        if let Some(external_executor) = external_executor {
-            self.scope_with_executor_inner(
-                tick_task_pool_executor,
-                external_executor,
-                &scope_executor,
-                f,
-            )
-        } else {
-            self.scope_with_executor_inner(
-                tick_task_pool_executor,
-                &scope_executor,
-                &scope_executor,
-                f,
-            )
-        }
+        Self::THREAD_EXECUTOR.with(|scope_executor| {
+            // If a `external_executor` is passed use that. Otherwise get the executor stored
+            // in the `THREAD_EXECUTOR` thread local.
+            if let Some(external_executor) = external_executor {
+                self.scope_with_executor_inner(
+                    tick_task_pool_executor,
+                    external_executor,
+                    scope_executor,
+                    f,
+                )
+            } else {
+                self.scope_with_executor_inner(
+                    tick_task_pool_executor,
+                    scope_executor,
+                    scope_executor,
+                    f,
+                )
+            }
+        })
     }
 
     fn scope_with_executor_inner<'env, F, T>(
