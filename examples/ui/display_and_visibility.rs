@@ -92,7 +92,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(Val::Px(500.)),
+                        
                         ..Default::default()
                     },
                     background_color: BackgroundColor(Color::BLACK),
