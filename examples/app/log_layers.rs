@@ -1,11 +1,15 @@
 //! This example illustrates how to add custom log layers in bevy.
 
-use bevy::{log::tracing_subscriber::Layer, prelude::*, utils::tracing::field::Visit};
+use bevy::{
+    log::tracing_subscriber::Layer,
+    prelude::*,
+    utils::tracing::{field::Visit, Subscriber},
+};
 use std::sync::{Arc, Mutex};
 
 struct DebugLogToStdErrLayer;
 
-impl<S: bevy::utils::tracing::Subscriber> Layer<S> for DebugLogToStdErrLayer {
+impl<S: Subscriber> Layer<S> for DebugLogToStdErrLayer {
     fn on_event(
         &self,
         event: &bevy::utils::tracing::Event<'_>,
@@ -27,7 +31,7 @@ struct ErrorMessageReceiver(crossbeam_channel::Receiver<String>);
 #[derive(Component)]
 struct LastErrorText;
 
-impl<S: bevy::utils::tracing::Subscriber> Layer<S> for ChannelLayer {
+impl<S: Subscriber> Layer<S> for ChannelLayer {
     fn on_event(
         &self,
         event: &bevy::utils::tracing::Event<'_>,
