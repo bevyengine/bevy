@@ -497,19 +497,19 @@ pub struct SparseSets {
 }
 
 impl SparseSets {
-    /// Returns the number of [`SparseSet`]s this collection contains.
+    /// Returns the number of [`ComponentSparseSet`]s this collection contains.
     #[inline]
     pub fn len(&self) -> usize {
         self.sets.len()
     }
 
-    /// Returns true if this collection contains no [`SparseSet`]s.
+    /// Returns true if this collection contains no [`ComponentSparseSet`]s.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.sets.is_empty()
     }
 
-    /// An Iterator visiting all ([`ComponentId`], [`SparseSet`]) pairs.
+    /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.
     /// NOTE: Order is not guaranteed.
     pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
         self.sets.iter().map(|(id, data)| (*id, data))
