@@ -7,9 +7,11 @@
 #![warn(missing_docs)]
 
 mod bezier;
+mod catmull_rom;
 mod ray;
 mod rect;
 
+pub use catmull_rom::CatmullRom;
 pub use bezier::{
     generic as generic_bezier, Bezier, CubicBezier2d, CubicBezier3d, CubicBezierEasing,
     QuadraticBezier2d, QuadraticBezier3d,
