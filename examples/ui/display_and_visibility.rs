@@ -3,7 +3,6 @@
 use bevy::prelude::*;
 
 const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "F4B942"];
-const SELECTION_COLOR: &str = "EFF2F1";
 
 fn main() {
     App::new()
@@ -103,7 +102,6 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             style: Style {
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
-
                                 ..Default::default()
                             },
                             background_color: BackgroundColor(palette[0]),
@@ -124,7 +122,6 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                         size: Size::height(Val::Px(400.)),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
-
                                         ..Default::default()
                                     },
                                     background_color: BackgroundColor(palette[1]),
@@ -145,7 +142,6 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                 size: Size::height(Val::Px(300.)),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
-
                                                 ..Default::default()
                                             },
                                             background_color: BackgroundColor(palette[2]),
@@ -362,7 +358,7 @@ fn spawn_button<T>(
             ..Default::default()
         },
         target,
-        Text::from_section(label, text_style.clone()).with_alignment(TextAlignment::Center),
+        Text::from_section(label, text_style).with_alignment(TextAlignment::Center),
         CalculatedSize::default(),
     ));
 }
@@ -375,16 +371,13 @@ fn display_buttons(
     >,
 ) {
     for (mut text, target, interaction) in display_button_query.iter_mut() {
-        match interaction {
-            Interaction::Clicked => {
-                let mut style = left_panel_query.get_mut(target.id).unwrap();
-                style.display = match style.display {
-                    Display::Flex => Display::None,
-                    Display::None => Display::Flex,
-                };
-                text.sections[0].value = format!("Display::{:?}", style.display);
-            }
-            _ => {}
+        if matches!(interaction, Interaction::Clicked) {
+            let mut style = left_panel_query.get_mut(target.id).unwrap();
+            style.display = match style.display {
+                Display::Flex => Display::None,
+                Display::None => Display::Flex,
+            };
+            text.sections[0].value = format!("Display::{:?}", style.display);
         }
     }
 }
@@ -397,17 +390,14 @@ fn visibility_buttons(
     >,
 ) {
     for (mut text, target, interaction) in visibility_button_query.iter_mut() {
-        match interaction {
-            Interaction::Clicked => {
-                let mut visibility = left_panel_query.get_mut(target.id).unwrap();
-                *visibility = match *visibility {
-                    Visibility::Inherited => Visibility::Visible,
-                    Visibility::Visible => Visibility::Hidden,
-                    Visibility::Hidden => Visibility::Inherited,
-                };
-                text.sections[0].value = format!("Visibility::{:?}", *visibility);
-            }
-            _ => {}
+        if matches!(interaction, Interaction::Clicked) {
+            let mut visibility = left_panel_query.get_mut(target.id).unwrap();
+            *visibility = match *visibility {
+                Visibility::Inherited => Visibility::Visible,
+                Visibility::Visible => Visibility::Hidden,
+                Visibility::Hidden => Visibility::Inherited,
+            };
+            text.sections[0].value = format!("Visibility::{:?}", *visibility);
         }
     }
 }
