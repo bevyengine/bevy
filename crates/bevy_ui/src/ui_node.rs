@@ -249,7 +249,7 @@ pub struct Style {
     pub flex_shrink: f32,
     /// The initial length of the main axis, before other properties are applied.
     /// 
-    /// `flex_basis` overrides `size` if both are set, but it obeys the bounds defined by `min_size` and `max_size`.
+    /// If both are set, `flex_basis` overrides `size` on the main axis but it obeys the bounds defined by `min_size` and `max_size`.
     pub flex_basis: Val,
     /// The ideal size of the flexbox
     ///
