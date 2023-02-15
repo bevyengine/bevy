@@ -177,3 +177,84 @@ where
         .new_line("\n".to_string());
     ron::ser::to_string_pretty(&serialize, pretty_config)
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::AppTypeRegistry;
+    use bevy_ecs::{entity::EntityMap, system::Command, world::World};
+    use bevy_hierarchy::{AddChild, Parent};
+
+    use crate::dynamic_scene_builder::DynamicSceneBuilder;
+
+    #[test]
+    fn components_not_defined_in_scene_should_not_be_effected_by_scene_entity_map() {
+        // Testing that scene reloading applies EntitiyMap correctly to MapEntities components.
+
+        // First, we create a simple world with a parent and a child relationship
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+        world
+            .resource_mut::<AppTypeRegistry>()
+            .write()
+            .register::<Parent>();
+        let gen_0_entity = world.spawn_empty().id();
+        let gen_1_entity = world.spawn_empty().id();
+        AddChild {
+            parent: gen_0_entity,
+            child: gen_1_entity,
+        }
+        .write(&mut world);
+
+        // We then write this relationship to a new scene, and then write that scene back to the world to create another parent and child relationship
+        let mut scene_builder = DynamicSceneBuilder::from_world(&world);
+        scene_builder.extract_entity(gen_0_entity);
+        scene_builder.extract_entity(gen_1_entity);
+        let scene = scene_builder.build();
+        let mut entity_map = EntityMap::default();
+        scene.write_to_world(&mut world, &mut entity_map).unwrap();
+
+        // We then add the parent in the scene relationship (gen_2) as a child of the first child relationship (gen_1)
+        let gen_2_entity = entity_map.get(gen_0_entity).unwrap();
+        let gen_3_entity = entity_map.get(gen_1_entity).unwrap();
+        AddChild {
+            parent: gen_1_entity,
+            child: gen_2_entity,
+        }
+        .write(&mut world);
+
+        // We then reload the scene to make sure that gen_2_entity's parent component isn't updated with the entity map, since this component isn't defined in the scene.
+        // With bevy_hierarchy, this can cause serious errors and malformed hierarchies.
+        scene.write_to_world(&mut world, &mut entity_map).unwrap();
+
+        assert_eq!(
+            gen_0_entity,
+            world
+                .get_entity(gen_1_entity)
+                .unwrap()
+                .get::<Parent>()
+                .unwrap()
+                .get(),
+            "Something about reloading the scene is touching entities with the same scene Ids"
+        );
+        assert_eq!(
+            gen_1_entity,
+            world
+                .get_entity(gen_2_entity)
+                .unwrap()
+                .get::<Parent>()
+                .unwrap()
+                .get(),
+            "Something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
+        );
+        assert_eq!(
+            gen_2_entity,
+            world
+                .get_entity(gen_3_entity)
+                .unwrap()
+                .get::<Parent>()
+                .expect("Something is wrong with this test, and the scene components don't have a parent/child relationship")
+                .get(),
+            "Something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
+        );
+    }
+}
