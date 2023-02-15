@@ -541,7 +541,7 @@ impl SparseSets {
         self.sets.get_mut(component_id)
     }
 
-    /// Clear entities stored in each [`SparseSet`]
+    /// Clear entities stored in each [`ComponentSparseSet`]
     pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
