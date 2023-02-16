@@ -2,6 +2,11 @@
 //!
 //! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
 //!
+//! **empty entity**: Entity ownes zero [component] is called empty entity, it has a valid [`EntityLocation`] which points to [`ArchetypeId::EMPTY`]
+//! **pending entity**: Entity reserved, but not flushed yet([`Entities::flush`] docs for reference).
+//! **reserved entity**: same as **pending entitiy**.
+//! **invalid entity**: **pending entity** flushed with location [`EntityLocation::INVALID`]([`Entities::flush_as_invalid`] docs for reference).
+//!
 //! See [`Entity`] to learn more.
 //!
 //! [component]: crate::component::Component
@@ -732,6 +737,7 @@ struct EntityMeta {
 }
 
 impl EntityMeta {
+    /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
         location: EntityLocation::INVALID,
@@ -768,6 +774,7 @@ pub struct EntityLocation {
 }
 
 impl EntityLocation {
+    /// location for **pending entity** and **invalid entity**
     const INVALID: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
