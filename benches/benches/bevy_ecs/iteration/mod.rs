@@ -1,5 +1,8 @@
 use criterion::*;
 
+#[cfg(target_feature = "avx")]
+mod batched_compute;
+
 mod heavy_compute;
 mod iter_frag;
 mod iter_frag_foreach;
@@ -19,8 +22,21 @@ mod iter_simple_system;
 mod iter_simple_wide;
 mod iter_simple_wide_sparse_set;
 
+#[cfg(target_feature = "avx")]
+use batched_compute::batched_compute;
+
 use heavy_compute::*;
 
+#[cfg(target_feature = "avx")]
+criterion_group!(
+    iterations_benches,
+    iter_frag,
+    iter_frag_sparse,
+    iter_simple,
+    heavy_compute,
+    batched_compute,
+);
+#[cfg(not(target_feature = "avx"))]
 criterion_group!(
     iterations_benches,
     iter_frag,

@@ -2,12 +2,12 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
+    ptr::{ThinSlicePtr, UnsafeCellDeref},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
-use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyWorldQuery;

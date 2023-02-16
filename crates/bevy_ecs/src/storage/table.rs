@@ -1,10 +1,10 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
+    ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref},
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{aligned_vec::SimdAlignedVec, blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
-use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 use std::alloc::Layout;
 use std::{
@@ -89,8 +89,8 @@ impl TableRow {
 #[derive(Debug)]
 pub struct Column {
     data: BlobVec,
-    added_ticks: Vec<UnsafeCell<Tick>>,
-    changed_ticks: Vec<UnsafeCell<Tick>>,
+    added_ticks: SimdAlignedVec<UnsafeCell<Tick>>,
+    changed_ticks: SimdAlignedVec<UnsafeCell<Tick>>,
 }
 
 impl Column {
@@ -99,8 +99,8 @@ impl Column {
         Column {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
-            added_ticks: Vec::with_capacity(capacity),
-            changed_ticks: Vec::with_capacity(capacity),
+            added_ticks: SimdAlignedVec::with_capacity(capacity),
+            changed_ticks: SimdAlignedVec::with_capacity(capacity),
         }
     }
 
@@ -408,7 +408,7 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
-            entities: Vec::with_capacity(self.capacity),
+            entities: SimdAlignedVec::with_capacity(self.capacity),
         }
     }
 }
@@ -427,7 +427,7 @@ impl TableBuilder {
 /// [`World`]: crate::world::World
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, Column>,
-    entities: Vec<Entity>,
+    entities: SimdAlignedVec<Entity>,
 }
 
 impl Table {
@@ -610,6 +610,13 @@ impl Table {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
+    }
+
+    #[inline]
+    /// Returns the end index, exclusive, of the batchable region of this table with batch size `N`.
+    /// For example, if N = 8, and the table has 12 rows, then this would return `8`.
+    pub fn batchable_region_end<const N: usize>(&self) -> usize {
+        (self.entity_count() / N) * N
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {

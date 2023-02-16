@@ -1,5 +1,6 @@
 //! Storage layouts for ECS data.
 
+pub(super) mod aligned_vec;
 mod blob_vec;
 mod resource;
 mod sparse_set;
