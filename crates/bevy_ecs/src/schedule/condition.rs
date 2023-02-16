@@ -26,6 +26,7 @@ mod sealed {
 pub mod common_conditions {
     use super::Condition;
     use crate::{
+        prelude::{Added, Changed, Component, Query},
         schedule::{State, States},
         system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
     };
@@ -140,5 +141,25 @@ pub mod common_conditions {
         C::System: ReadOnlySystem,
     {
         condition.pipe(|In(val): In<bool>| !val)
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entities with the added given component type.
+    ///
+    /// It's recommended to use this condition only if there is only a few entities
+    /// with the component `T`. Otherwise this check could be expensive and hold
+    /// up the executor preventing it from running any systems during the check.
+    pub fn any_component_added<T: Component>() -> impl FnMut(Query<(), Added<T>>) -> bool {
+        move |query: Query<(), Added<T>>| !query.is_empty()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entities with the changed given component type.
+    ///
+    /// It's recommended to use this condition only if there is only a few entities
+    /// with the component `T`. Otherwise this check could be expensive and hold
+    /// up the executor preventing it from running any systems during the check.
+    pub fn any_component_changed<T: Component>() -> impl FnMut(Query<(), Changed<T>>) -> bool {
+        move |query: Query<(), Changed<T>>| !query.is_empty()
     }
 }
