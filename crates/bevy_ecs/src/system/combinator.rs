@@ -216,6 +216,12 @@ where
         self.a.set_last_change_tick(last_change_tick);
         self.b.set_last_change_tick(last_change_tick);
     }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let mut default_sets = self.a.default_system_sets();
+        default_sets.append(&mut self.b.default_system_sets());
+        default_sets
+    }
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
