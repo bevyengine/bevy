@@ -382,7 +382,7 @@ pub struct ScheduleGraph {
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
-    pub conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
+    conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
     default_base_set: Option<BoxedSystemSet>,
