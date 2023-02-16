@@ -200,7 +200,7 @@ where
 }
 
 /// Use this [`Resource`] to control the global volume of all non-absolute audio.
-/// Non-abosolute being any audio source that doesn't have [`absolute_volume`](PlaybackSettings::absolute_volume) set to `true`.
+/// Sources can be set to ignore this setting by setting the `absolute_volume` field on [`PlaybackSettings`] to `true`.
 #[derive(Resource)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
