@@ -196,7 +196,7 @@ mod game {
                                 },
                             )
                             .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: Margin::all(Val::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -228,7 +228,7 @@ mod game {
                                 ),
                             ])
                             .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: Margin::all(Val::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -398,7 +398,7 @@ mod menu {
         // Common style for all buttons on the screen
         let button_style = Style {
             size: Size::new(Val::Px(250.0), Val::Px(65.0)),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -408,7 +408,7 @@ mod menu {
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            position: UiRect {
+            position: Position {
                 left: Val::Px(10.0),
                 right: Val::Auto,
                 top: Val::Auto,
@@ -458,7 +458,7 @@ mod menu {
                                 },
                             )
                             .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: Margin::all(Val::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -534,7 +534,7 @@ mod menu {
     fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -603,7 +603,7 @@ mod menu {
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -705,7 +705,7 @@ mod menu {
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()

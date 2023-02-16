@@ -204,7 +204,7 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            position: Position {
                 top: Val::Px(10.0),
                 left: Val::Px(10.0),
                 ..default()
@@ -216,7 +216,7 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            position: Position {
                 top: Val::Px(10.0),
                 right: Val::Px(10.0),
                 ..default()

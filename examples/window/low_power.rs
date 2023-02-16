@@ -199,7 +199,7 @@ pub(crate) mod test_setup {
             .with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect {
+                position: Position {
                     top: Val::Px(5.0),
                     left: Val::Px(5.0),
                     ..default()

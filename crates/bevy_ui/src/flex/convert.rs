@@ -1,17 +1,53 @@
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, Border, Display, FlexDirection, FlexWrap, JustifyContent,
+    Margin, Padding, Position, PositionType, Size, Style, Val,
 };
 
-pub fn from_rect(
+fn from_margin(
     scale_factor: f64,
-    rect: UiRect,
+    margin: Margin,
 ) -> taffy::geometry::Rect<taffy::style::Dimension> {
     taffy::geometry::Rect {
-        left: from_val(scale_factor, rect.left),
-        right: from_val(scale_factor, rect.right),
-        top: from_val(scale_factor, rect.top),
-        bottom: from_val(scale_factor, rect.bottom),
+        left: from_val(scale_factor, margin.left),
+        right: from_val(scale_factor, margin.right),
+        top: from_val(scale_factor, margin.top),
+        bottom: from_val(scale_factor, margin.bottom),
+    }
+}
+
+fn from_padding(
+    scale_factor: f64,
+    padding: Padding,
+) -> taffy::geometry::Rect<taffy::style::Dimension> {
+    taffy::geometry::Rect {
+        left: from_val(scale_factor, padding.left),
+        right: from_val(scale_factor, padding.right),
+        top: from_val(scale_factor, padding.top),
+        bottom: from_val(scale_factor, padding.bottom),
+    }
+}
+
+fn from_border(
+    scale_factor: f64,
+    border: Border,
+) -> taffy::geometry::Rect<taffy::style::Dimension> {
+    taffy::geometry::Rect {
+        left: from_val(scale_factor, border.left),
+        right: from_val(scale_factor, border.right),
+        top: from_val(scale_factor, border.top),
+        bottom: from_val(scale_factor, border.bottom),
+    }
+}
+
+fn from_position(
+    scale_factor: f64,
+    position: Position,
+) -> taffy::geometry::Rect<taffy::style::Dimension> {
+    taffy::geometry::Rect {
+        left: from_val(scale_factor, position.left),
+        right: from_val(scale_factor, position.right),
+        top: from_val(scale_factor, position.top),
+        bottom: from_val(scale_factor, position.bottom),
     }
 }
 
@@ -35,10 +71,10 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         align_self: value.align_self.into(),
         align_content: value.align_content.into(),
         justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position),
-        margin: from_rect(scale_factor, value.margin),
-        padding: from_rect(scale_factor, value.padding),
-        border: from_rect(scale_factor, value.border),
+        position: from_position(scale_factor, value.position),
+        margin: from_margin(scale_factor, value.margin),
+        padding: from_padding(scale_factor, value.padding),
+        border: from_border(scale_factor, value.border),
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
         flex_basis: from_val(scale_factor, value.flex_basis),
