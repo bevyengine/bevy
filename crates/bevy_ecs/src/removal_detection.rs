@@ -97,7 +97,7 @@ impl RemovedComponentEvents {
 
 /// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
 ///
-/// This acts effectively the same as an [`EventReader`].
+/// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
 ///
 /// Note that this does not allow you to see which data existed before removal.
 /// If you need this, you will need to track the component data value on your own,
