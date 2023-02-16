@@ -42,6 +42,7 @@ skip = [
     { name = "rustc_version", version = "0.2" },         # from postcard v1.0.2
     { name = "semver", version = "0.9" },                # from postcard v1.0.2
     { name = "windows-sys", version = "0.42" },          # from notify v5.1.0
+		{ name = "windows", version = "0.43"},               # from gilrs v0.10.1
     { name = "windows", version = "0.37" },              # from rodio v0.16.0
     { name = "windows_aarch64_msvc", version = "0.37" }, # from rodio v0.16.0
     { name = "windows_i686_gnu", version = "0.37" },     # from rodio v0.16.0
