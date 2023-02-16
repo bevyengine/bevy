@@ -13,7 +13,6 @@ use bevy::{
         texture::ImageSampler,
         view::ColorGrading,
     },
-    utils::HashMap,
 };
 use std::f32::consts::PI;
 
@@ -47,6 +46,10 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
+                ..default()
+            },
+            color_grading: ColorGrading {
+                exposure: 0.5,
                 ..default()
             },
             transform: camera_transform.0,
@@ -360,8 +363,13 @@ fn toggle_scene(
     }
 }
 
-fn toggle_tonemapping_method(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemapping>) {
-    let Tonemapping::Enabled { method, .. } = &mut *query.single_mut() else { unreachable!() };
+fn toggle_tonemapping_method(
+    keys: Res<Input<KeyCode>>,
+    mut tonemapping: Query<&mut Tonemapping>,
+    mut color_grading: Query<&mut ColorGrading>,
+) {
+    let Tonemapping::Enabled { method, .. } = &mut *tonemapping.single_mut() else { unreachable!() };
+    let mut color_grading = color_grading.single_mut();
 
     if keys.just_pressed(KeyCode::Q) {
         *method = TonemappingMethod::None;
@@ -380,14 +388,44 @@ fn toggle_tonemapping_method(keys: Res<Input<KeyCode>>, mut query: Query<&mut To
     } else if keys.just_pressed(KeyCode::I) {
         *method = TonemappingMethod::BlenderFilmic;
     }
+
+    if keys.just_pressed(KeyCode::Q)
+        || keys.just_pressed(KeyCode::W)
+        || keys.just_pressed(KeyCode::E)
+        || keys.just_pressed(KeyCode::R)
+        || keys.just_pressed(KeyCode::T)
+        || keys.just_pressed(KeyCode::Y)
+        || keys.just_pressed(KeyCode::U)
+        || keys.just_pressed(KeyCode::I)
+    {
+        *color_grading = match method {
+            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
+                exposure: 0.5,
+                ..default()
+            },
+            TonemappingMethod::Aces => ColorGrading {
+                exposure: -0.3,
+                ..default()
+            },
+            TonemappingMethod::AgX => ColorGrading {
+                exposure: -0.2,
+                gamma: 1.0,
+                pre_saturation: 1.1,
+                post_saturation: 1.1,
+            },
+            _ => ColorGrading::default(),
+        };
+    }
 }
 
 fn update_color_grading_settings(
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut color_grading: Query<&mut ColorGrading>,
+    tonemapping: Query<&Tonemapping>,
 ) {
     let mut color_grading = color_grading.single_mut();
+    let Tonemapping::Enabled { method, .. } = *tonemapping.single() else { unreachable!() };
     let dt = time.delta_seconds();
 
     if keys.pressed(KeyCode::S) {
@@ -419,7 +457,23 @@ fn update_color_grading_settings(
     }
 
     if keys.pressed(KeyCode::Space) {
-        *color_grading = ColorGrading::default();
+        *color_grading = match method {
+            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
+                exposure: 0.5,
+                ..default()
+            },
+            TonemappingMethod::Aces => ColorGrading {
+                exposure: -0.3,
+                ..default()
+            },
+            TonemappingMethod::AgX => ColorGrading {
+                exposure: -0.2,
+                gamma: 1.0,
+                pre_saturation: 1.1,
+                post_saturation: 1.1,
+            },
+            _ => ColorGrading::default(),
+        };
     }
 }
 
