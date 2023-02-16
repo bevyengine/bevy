@@ -29,7 +29,7 @@ impl<T: ?Sized> SyncCell<T> {
         &mut self.inner
     }
 
-    /// For types that implement [`Sync`], gets read-only access to this `SyncCell`'s inner value.
+    /// For types that implement [`Sync`], get shared access to this `SyncCell`'s inner value.
     pub fn read(&self) -> &T
     where
         T: Sync,
