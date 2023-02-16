@@ -74,7 +74,7 @@ pub trait Frame<T: Copy>: Sized {
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{Margin, Val};
+/// # use bevy_ui::{Margin, Frame, Val};
 /// #
 /// let margin = Margin::all(Val::Auto); // Centers the UI element
 /// ```
