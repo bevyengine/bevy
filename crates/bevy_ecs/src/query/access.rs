@@ -356,34 +356,47 @@ impl<T, I: SparseSetIndex> Default for NormalizedAccess<T, I> {
 }
 
 impl<T, I: SparseSetIndex> NormalizedAccess<T, I> {
+    // Corresponds to a conjunction (AND) operation.
+    //
+    // For example, in case we have `Or<(With<A>, With<B>)>`, which is represented by an array of two bitsets,
+    // adding `AND With<C>` needs to be expanded into `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     fn add(&mut self, index: usize) {
-        for with in &mut self.arr {
-            with.grow(index + 1);
-            with.insert(index);
+        for bitset in &mut self.arr {
+            bitset.grow(index + 1);
+            bitset.insert(index);
         }
     }
 
+    // Corresponds to a disjunction (OR) operation.
+    //
+    // As the array represents a disjunction, where each element (bitset) represents a conjunction, we can simply append to the array.
     fn extend_with_or(&mut self, other: &Self) {
         self.arr.append(&mut other.arr.clone());
     }
 
+    // Corresponds to a conjunction (AND) operation with another `NormalizedAccess`.
+    //
+    // Is used for expanding expressions such as `(Or<(With<A>, With<B>)>, Or<(With<C>, With<D>)>)`
+    // into `Or<((With<A>, With<C>), (With<A>, With<D>), (With<B>, With<C>), (With<B>, With<D>))>`.
     fn union_with(&mut self, other: &Self) {
+        // We can avoid allocating a new array of bitsets if `other` contains just a single bitset:
+        // in this case we can short-circuit by performing an in-place union for each bitset.
         if other.arr.len() == 1 {
-            for with in &mut self.arr {
-                with.union_with(&other.arr[0]);
+            for bitset in &mut self.arr {
+                bitset.union_with(&other.arr[0]);
             }
             return;
         }
 
-        let mut new_with = SmallVec::with_capacity(self.arr.len() * other.arr.len());
-        for with in &self.arr {
-            for other_with in &other.arr {
-                let mut w = with.clone();
-                w.union_with(other_with);
-                new_with.push(w);
+        let mut new_arr = SmallVec::with_capacity(self.arr.len() * other.arr.len());
+        for bitset in &self.arr {
+            for other_bitset in &other.arr {
+                let mut new_bitset = bitset.clone();
+                new_bitset.union_with(other_bitset);
+                new_arr.push(new_bitset);
             }
         }
-        self.arr = new_with;
+        self.arr = new_arr;
     }
 }
 
