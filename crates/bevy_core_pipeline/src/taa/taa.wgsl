@@ -5,7 +5,7 @@
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
 const HISTORY_BLEND_RATE: f32 = 0.1;
-const MIN_HISTORY_BLEND_RATE: f32 = 0.002;
+const MIN_HISTORY_BLEND_RATE: f32 = 0.009;
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
