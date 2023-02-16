@@ -16,6 +16,14 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
+    // Circle
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
+        material: materials.add(ColorMaterial::from(Color::PURPLE)),
+        transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
+        ..default()
+    });
+
     // Rectangle
     commands.spawn(SpriteBundle {
         sprite: Sprite {
@@ -23,14 +31,7 @@ fn setup(
             custom_size: Some(Vec2::new(50.0, 100.0)),
             ..default()
         },
-        ..default()
-    });
-
-    // Circle
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        transform: Transform::from_translation(Vec3::new(-100., 0., 0.)),
+        transform: Transform::from_translation(Vec3::new(-50., 0., 0.)),
         ..default()
     });
 
@@ -39,8 +40,8 @@ fn setup(
         mesh: meshes
             .add(shape::Quad::new(Vec2::new(50., 100.)).into())
             .into(),
-        material: materials.add(ColorMaterial::from(Color::BLUE)),
-        transform: Transform::from_translation(Vec3::new(100., 0., 0.)),
+        material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
+        transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
         ..default()
     });
 
@@ -48,7 +49,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
         material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
+        transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
         ..default()
     });
 }
