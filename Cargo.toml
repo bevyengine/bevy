@@ -13,7 +13,11 @@ repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
   "examples/mobile",
@@ -40,10 +44,12 @@ default = [
   "bevy_ui",
   "png",
   "hdr",
+  "ktx2",
+  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
-  "android_shared_stdcxx"
+  "android_shared_stdcxx",
 ]
 
 # Force dynamic linking, which improves iterative compile times
