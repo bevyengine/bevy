@@ -27,11 +27,13 @@ pub enum WindowSystem {
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
+        let api = app.world.remove_resource::<RenderApi>().unwrap();
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
+                .insert_resource(api)
                 .add_system_to_schedule(ExtractSchedule, extract_windows)
                 .configure_set(WindowSystem::Prepare.in_set(RenderSet::Prepare))
                 .add_system(prepare_windows.in_set(WindowSystem::Prepare));
