@@ -313,7 +313,9 @@ fn update_image_viewer(
             if let Some(ref new_image) = new_image {
                 mat.base_color_texture = Some(new_image.clone());
 
-                commands.entity(text.single()).despawn();
+                if let Some(text_entity) = text.get_single {
+                    commands.entity(text_entity).despawn();
+                }
             }
 
             for event in image_events.iter() {
