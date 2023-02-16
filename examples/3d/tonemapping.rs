@@ -459,11 +459,11 @@ fn update_color_grading_settings(
         color_grading.post_saturation += dt;
     }
 
-    if keys.pressed(KeyCode::Return) {
+    if keys.pressed(KeyCode::Space) {
         *color_grading = ColorGrading::default();
     }
 
-    if keys.pressed(KeyCode::Space) && current_scene.0 == 1 {
+    if keys.pressed(KeyCode::Enter) && current_scene.0 == 1 {
         *color_grading = match method {
             TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
                 exposure: 0.5,
