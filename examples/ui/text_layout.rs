@@ -50,14 +50,14 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         builder,
                         font.clone(),
                         ALIGN_ITEMS_COLOR,
-                        UiRect::right(MARGIN),
+                        Margin::right(MARGIN),
                         "AlignItems",
                     );
                     spawn_nested_text_bundle(
                         builder,
                         font.clone(),
                         JUSTIFY_CONTENT_COLOR,
-                        UiRect::default(),
+                        Margin::default(),
                         "JustifyContent",
                     );
                 });
@@ -142,7 +142,7 @@ fn spawn_child_node(
                     builder,
                     font.clone(),
                     color,
-                    UiRect::top(Val::Px(top_margin)),
+                    Margin::top(Val::Px(top_margin)),
                     &text,
                 );
             }
