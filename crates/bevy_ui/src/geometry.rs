@@ -2,19 +2,235 @@ use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// A type which is commonly used to define positions, margins, paddings and borders.
+/// Common constructor functions for Bevy UI's geometric types.
+pub trait Frame<T: Copy>: Sized {
+    /// Default value for the fields of the frame type.
+    const FIELD_DEFAULT: T;
+
+    /// Creates a new frame type from the values specified.
+    fn new(left: T, right: T, top: T, bottom: T) -> Self;
+
+    /// Creates a new frame type where `left` takes the given value.
+    fn left(left: T) -> Self {
+        Self::new(
+            left,
+            Self::FIELD_DEFAULT,
+            Self::FIELD_DEFAULT,
+            Self::FIELD_DEFAULT,
+        )
+    }
+
+    /// Creates a new frame type where `right` takes the given value.
+    fn right(right: T) -> Self {
+        Self::new(
+            Self::FIELD_DEFAULT,
+            right,
+            Self::FIELD_DEFAULT,
+            Self::FIELD_DEFAULT,
+        )
+    }
+
+    /// Creates a new frame type where `top` takes the given value.
+    fn top(top: T) -> Self {
+        Self::new(
+            Self::FIELD_DEFAULT,
+            Self::FIELD_DEFAULT,
+            top,
+            Self::FIELD_DEFAULT,
+        )
+    }
+
+    /// Creates a new frame type where `bottom` takes the given value.
+    fn bottom(bottom: T) -> Self {
+        Self::new(
+            Self::FIELD_DEFAULT,
+            Self::FIELD_DEFAULT,
+            Self::FIELD_DEFAULT,
+            bottom,
+        )
+    }
+
+    /// Creates a new frame type where `left` and `right` take the given value.
+    fn horizontal(value: T) -> Self {
+        Self::new(value, value, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+    }
+
+    /// Creates a new frame type where `top` and `bottom` take the given value.
+    fn vertical(value: T) -> Self {
+        Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
+    }
+
+    /// Creates a new frame type where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
+    fn axes(horizontal: T, vertical: T) -> Self {
+        Self::new(horizontal, horizontal, vertical, vertical)
+    }
+
+    /// Creates a new frame type where all sides have the same value.
+    fn all(value: T) -> Self {
+        Self::new(value, value, value, value)
+    }
+}
+
+/// A margin is used to create space around UI elements, outside of any defined borders.
 ///
-/// # Examples
+/// ```
+/// # use bevy_ui::{Margin, Val};
+/// #
+/// let margin = Margin::all(Val::Auto); // Centers the UI element
+/// ```
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Margin {
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
+}
+
+impl Frame<Val> for Margin {
+    const FIELD_DEFAULT: Val = Val::Px(0.);
+
+    #[inline]
+    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+        Self {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+}
+
+impl Padding {
+    pub const DEFAULT: Self = {
+        Self {
+            left: Self::FIELD_DEFAULT,
+            right: Self::FIELD_DEFAULT,
+            top: Self::FIELD_DEFAULT,
+            bottom: Self::FIELD_DEFAULT,
+        }
+    };
+}
+
+impl Default for Margin {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// A padding is used to create space around UI elements, inside of any defined borders.
 ///
-/// ## Position
+/// ```
+/// # use bevy_ui::{Padding, Val};
+/// #
+/// let padding = Padding {
+///     left: Val::Px(10.0),
+///     right: Val::Px(20.0),
+///     top: Val::Px(30.0),
+///     bottom: Val::Px(40.0),
+/// };
+/// ```
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Padding {
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
+}
+
+impl Frame<Val> for Padding {
+    const FIELD_DEFAULT: Val = Val::Px(0.);
+
+    #[inline]
+    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+        Self {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+}
+
+impl Margin {
+    pub const DEFAULT: Self = {
+        Self {
+            left: Self::FIELD_DEFAULT,
+            right: Self::FIELD_DEFAULT,
+            top: Self::FIELD_DEFAULT,
+            bottom: Self::FIELD_DEFAULT,
+        }
+    };
+}
+
+impl Default for Padding {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// ## Borders
 ///
+/// A border is used to define the width of the border of a UI element.
+///
+/// ```
+/// # use bevy_ui::{Border, Val};
+/// #
+/// let border = Border {
+///     left: Val::Px(10.0),
+///     right: Val::Px(20.0),
+///     top: Val::Px(30.0),
+///     bottom: Val::Px(40.0),
+/// };
+/// ```
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Border {
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
+}
+
+impl Frame<Val> for Border {
+    const FIELD_DEFAULT: Val = Val::Px(0.);
+
+    #[inline]
+    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+        Self {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+}
+
+impl Border {
+    pub const DEFAULT: Self = {
+        Self {
+            left: Self::FIELD_DEFAULT,
+            right: Self::FIELD_DEFAULT,
+            top: Self::FIELD_DEFAULT,
+            bottom: Self::FIELD_DEFAULT,
+        }
+    };
+}
+
+impl Default for Border {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// A position is used to determine where to place a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Position, Val};
 /// # use bevy_utils::default;
 /// #
-/// let position = UiRect {
+/// let position = Position {
 ///     left: Val::Px(100.0),
 ///     top: Val::Px(50.0),
 ///     ..default()
@@ -26,9 +242,9 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// as a width and height, the size would be determined by the window size and the values specified in the position.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Position, Val};
 /// #
-/// let position = UiRect {
+/// let position = Position {
 ///     left: Val::Px(100.0),
 ///     right: Val::Px(200.0),
 ///     top: Val::Px(300.0),
@@ -65,11 +281,11 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// right values of the position because the size of the UI element is already explicitly specified.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Size, Val, Style};
+/// # use bevy_ui::{Position, Size, Val, Style};
 /// # use bevy_utils::default;
 /// #
 /// let style = Style {
-///     position: UiRect { // Defining all four sides
+///     position: Position { // Defining all four sides
 ///         left: Val::Px(100.0),
 ///         right: Val::Px(200.0),
 ///         top: Val::Px(300.0),
@@ -80,247 +296,41 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// };
 /// ```
 ///
-/// ## Margin
-///
-/// A margin is used to create space around UI elements, outside of any defined borders.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let margin = UiRect::all(Val::Auto); // Centers the UI element
-/// ```
-///
-/// ## Padding
-///
-/// A padding is used to create space around UI elements, inside of any defined borders.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let padding = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
-/// };
-/// ```
-///
-/// ## Borders
-///
-/// A border is used to define the width of the border of a UI element.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let border = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
-/// };
-/// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect {
-    /// The value corresponding to the left side of the UI rect.
+pub struct Position {
     pub left: Val,
-    /// The value corresponding to the right side of the UI rect.
     pub right: Val,
-    /// The value corresponding to the top side of the UI rect.
     pub top: Val,
-    /// The value corresponding to the bottom side of the UI rect.
     pub bottom: Val,
 }
 
-impl UiRect {
-    pub const DEFAULT: Self = Self {
-        left: Val::DEFAULT,
-        right: Val::DEFAULT,
-        top: Val::DEFAULT,
-        bottom: Val::DEFAULT,
-    };
+impl Frame<Val> for Position {
+    const FIELD_DEFAULT: Val = Val::Auto;
 
-    /// Creates a new [`UiRect`] from the values specified.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::new(
-    ///     Val::Px(10.0),
-    ///     Val::Px(20.0),
-    ///     Val::Px(30.0),
-    ///     Val::Px(40.0),
-    /// );
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(20.0));
-    /// assert_eq!(ui_rect.top, Val::Px(30.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
-    /// ```
-    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        UiRect {
+    #[inline]
+    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+        Self {
             left,
             right,
             top,
             bottom,
         }
     }
-
-    /// Creates a new [`UiRect`] where all sides have the same value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::all(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
-    /// ```
-    pub const fn all(value: Val) -> Self {
-        UiRect {
-            left: value,
-            right: value,
-            top: value,
-            bottom: value,
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `left` and `right` take the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::horizontal(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
-    /// ```
-    pub fn horizontal(value: Val) -> Self {
-        UiRect {
-            left: value,
-            right: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::vertical(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
-    /// ```
-    pub fn vertical(value: Val) -> Self {
-        UiRect {
-            top: value,
-            bottom: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `left` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::left(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
-    /// ```
-    pub fn left(value: Val) -> Self {
-        UiRect {
-            left: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `right` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::right(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
-    /// ```
-    pub fn right(value: Val) -> Self {
-        UiRect {
-            right: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `top` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::top(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
-    /// ```
-    pub fn top(value: Val) -> Self {
-        UiRect {
-            top: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `bottom` takes the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::bottom(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
-    /// ```
-    pub fn bottom(value: Val) -> Self {
-        UiRect {
-            bottom: value,
-            ..Default::default()
-        }
-    }
 }
 
-impl Default for UiRect {
+impl Position {
+    pub const DEFAULT: Self = {
+        Self {
+            left: Self::FIELD_DEFAULT,
+            right: Self::FIELD_DEFAULT,
+            top: Self::FIELD_DEFAULT,
+            bottom: Self::FIELD_DEFAULT,
+        }
+    };
+}
+
+impl Default for Position {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -358,17 +368,6 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where both sides take the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::all(Val::Px(10.));
-    ///
-    /// assert_eq!(size.width, Val::Px(10.0));
-    /// assert_eq!(size.height, Val::Px(10.0));
-    /// ```
     pub const fn all(value: Val) -> Self {
         Self {
             width: value,
@@ -376,18 +375,7 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `width` takes the given value and its `height` is `Val::Auto`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::width(Val::Px(10.));
-    ///
-    /// assert_eq!(size.width, Val::Px(10.0));
-    /// assert_eq!(size.height, Val::Auto);
-    /// ```
+    /// Creates a new [`Size`] where `width` takes the given value.
     pub const fn width(width: Val) -> Self {
         Self {
             width,
@@ -395,18 +383,7 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `height` takes the given value and its `width` is `Val::Auto`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::height(Val::Px(10.));
-    ///
-    /// assert_eq!(size.width, Val::Auto);
-    /// assert_eq!(size.height, Val::Px(10.));
-    /// ```
+    /// Creates a new [`Size`] where `height` takes the given value.
     pub const fn height(height: Val) -> Self {
         Self {
             width: Val::Auto,
@@ -477,17 +454,63 @@ mod tests {
     use super::*;
 
     #[test]
-    fn uirect_default_equals_const_default() {
+    fn position_default_equals_const_default() {
+        assert_eq!(Position::default().left, Position::FIELD_DEFAULT);
         assert_eq!(
-            UiRect::default(),
-            UiRect {
-                left: Val::Undefined,
-                right: Val::Undefined,
-                top: Val::Undefined,
-                bottom: Val::Undefined
+            Position::default(),
+            Position {
+                left: Val::Auto,
+                right: Val::Auto,
+                top: Val::Auto,
+                bottom: Val::Auto
             }
         );
-        assert_eq!(UiRect::default(), UiRect::DEFAULT);
+        assert_eq!(Position::default(), Position::DEFAULT);
+    }
+
+    #[test]
+    fn border_default_equals_const_default() {
+        assert_eq!(Border::default().left, Padding::FIELD_DEFAULT);
+        assert_eq!(
+            Border::default(),
+            Border {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.)
+            }
+        );
+        assert_eq!(Border::default(), Border::DEFAULT);
+    }
+
+    #[test]
+    fn margin_default_equals_const_default() {
+        assert_eq!(Margin::default().left, Padding::FIELD_DEFAULT);
+        assert_eq!(
+            Margin::default(),
+            Margin {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.)
+            }
+        );
+        assert_eq!(Margin::default(), Margin::DEFAULT);
+    }
+
+    #[test]
+    fn padding_default_equals_const_default() {
+        assert_eq!(Padding::default().left, Padding::FIELD_DEFAULT);
+        assert_eq!(
+            Padding::default(),
+            Padding {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.)
+            }
+        );
+        assert_eq!(Padding::default(), Padding::DEFAULT);
     }
 
     #[test]

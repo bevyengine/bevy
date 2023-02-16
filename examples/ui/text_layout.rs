@@ -40,7 +40,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Row,
-                        margin: UiRect::top(MARGIN),
+                        margin: Margin::top(MARGIN),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -125,7 +125,7 @@ fn spawn_child_node(
                 align_items,
                 justify_content,
                 size: Size::all(Val::Px(160.)),
-                margin: UiRect::all(MARGIN),
+                margin: Margin::all(MARGIN),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::DARK_GRAY),
@@ -153,14 +153,14 @@ fn spawn_nested_text_bundle(
     builder: &mut ChildBuilder,
     font: Handle<Font>,
     background_color: Color,
-    margin: UiRect,
+    margin: Margin,
     text: &str,
 ) {
     builder
         .spawn(NodeBundle {
             style: Style {
                 margin,
-                padding: UiRect {
+                padding: Padding {
                     top: Val::Px(1.),
                     left: Val::Px(5.),
                     right: Val::Px(5.),

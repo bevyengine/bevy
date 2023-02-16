@@ -1,4 +1,4 @@
-use crate::{Size, UiRect};
+use crate::{Border, Margin, Padding, Position, Size};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -236,13 +236,13 @@ pub struct Style {
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
     /// The position of the node as described by its Rect
-    pub position: UiRect,
+    pub position: Position,
     /// The margin of the node
-    pub margin: UiRect,
+    pub margin: Margin,
     /// The padding of the node
-    pub padding: UiRect,
+    pub padding: Padding,
     /// The border of the node
-    pub border: UiRect,
+    pub border: Border,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -287,10 +287,10 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        position: UiRect::DEFAULT,
-        margin: UiRect::DEFAULT,
-        padding: UiRect::DEFAULT,
-        border: UiRect::DEFAULT,
+        position: Position::DEFAULT,
+        margin: Margin::DEFAULT,
+        padding: Padding::DEFAULT,
+        border: Border::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,

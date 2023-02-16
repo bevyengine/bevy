@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: UiRect::all(Val::Px(2.0)),
+                        border: Border::all(Val::Px(2.0)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
