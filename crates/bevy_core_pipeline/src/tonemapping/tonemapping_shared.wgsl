@@ -117,25 +117,50 @@ fn tonemapping_aces_godot_4(color: vec3<f32>, white: f32) -> vec3<f32> {
 }
 
 // --------------------------------
-// ---- tonemap_filmic godot 4 ----
+// ---------- ACES Fitted ---------
 // --------------------------------
-fn tonemap_filmic_godot_4(color: vec3<f32>, white: f32) -> vec3<f32> {
-    // exposure bias: input scale (color *= bias, white *= bias) to make the brightness consistent with other tonemappers
-    // also useful to scale the input to the range that the tonemapper is designed for (some require very high input values)
-    // has no effect on the curve's general shape or visual properties
-    // TODO make const
-    let exposure_bias = 2.0;
-    let A = 0.22 * exposure_bias * exposure_bias; // bias baked into constants for performance
-    let B = 0.30 * exposure_bias;
-    let C = 0.10;
-    let D = 0.20;
-    let E = 0.01;
-    let F = 0.30;
 
-    let color_tonemapped = ((color * (A * color + C * B) + D * E) / (color * (A * color + B) + D * F)) - E / F;
-    let white_tonemapped = ((white * (A * white + C * B) + D * E) / (white * (A * white + B) + D * F)) - E / F;
+// Same base implementation that Godot 4.0 uses for Tonemap ACES.
 
-    return color_tonemapped / white_tonemapped;
+// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+
+// The code in this file was originally written by Stephen Hill (@self_shadow), who deserves all
+// credit for coming up with this fit and implementing it. Buy him a beer next time you see him. :)
+
+fn RRTAndODTFit(v: vec3<f32>) -> vec3<f32> {
+    let a = v * (v + 0.0245786) - 0.000090537;
+    let b = v * (0.983729 * v + 0.4329510) + 0.238081;
+    return a / b;
+}
+
+fn ACESFitted(color: vec3<f32>) -> vec3<f32> {    
+    var color = color;
+
+    // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
+    let rgb_to_rrt = mat3x3<f32>(
+        vec3(0.59719, 0.35458, 0.04823),
+        vec3(0.07600, 0.90834, 0.01566),
+        vec3(0.02840, 0.13383, 0.83777)    
+    );
+
+    // ODT_SAT => XYZ => D60_2_D65 => sRGB
+    let odt_to_rgb = mat3x3<f32>(
+        vec3(1.60475, -0.53108, -0.07367),
+        vec3(-0.10208, 1.10813, -0.00605),
+        vec3(-0.00327, -0.07276, 1.07602)
+    );
+
+    color *= rgb_to_rrt;
+
+    // Apply RRT and ODT
+    color = RRTAndODTFit(color);
+
+    color *= odt_to_rgb;
+
+    // Clamp to [0, 1]
+    color = saturate(color);
+
+    return color;
 }
 
 // --------------------------------
@@ -294,8 +319,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
 #else ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
     color = tonemapping_reinhard_luminance(color.rgb);
 #else ifdef  TONEMAP_METHOD_ACES
-    // TODO figure out correct value for white here, or factor it out
-    color = tonemapping_aces_godot_4(color.rgb, 1000.0);
+    color = ACESFitted(color.rgb);
 #else ifdef  TONEMAP_METHOD_AGX
     color = applyAgXLog(color);
     color = applyLUT3D(color, 32.0);
