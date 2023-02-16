@@ -262,7 +262,7 @@ fn setup_image_viewer_scene(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 28.0,
+                    font_size: 36.0,
                     color: Color::BLACK,
                 },
             )
@@ -417,6 +417,10 @@ fn update_color_grading_settings(
     if keys.pressed(KeyCode::C) {
         color_grading.post_saturation += dt;
     }
+
+    if keys.pressed(KeyCode::Space) {
+        *color_grading = ColorGrading::default();
+    }
 }
 
 fn update_ui(
@@ -496,101 +500,11 @@ fn update_ui(
         color_grading.pre_saturation
     ));
     text.push_str(&format!(
-        "(C/V) PostSaturation: {}",
+        "(C/V) PostSaturation: {}\n",
         color_grading.post_saturation
     ));
+    text.push_str("(Space) Reset");
 }
-
-// ----------------------------------------------------------------------------
-
-// pub struct PerMethodSettings {
-//     pub settings: HashMap<TonemappingMethod, ColorGrading>,
-// }
-
-// impl Default for PerMethodSettings {
-//     fn default() -> Self {
-//         let mut settings = HashMap::new();
-
-//         settings.insert(TonemappingMethod::None, ColorGrading::default());
-//         settings.insert(TonemappingMethod::Reinhard, ColorGrading::default());
-//         settings.insert(
-//             TonemappingMethod::ReinhardLuminance,
-//             ColorGrading::default(),
-//         );
-//         settings.insert(TonemappingMethod::Aces, ColorGrading::default());
-//         settings.insert(TonemappingMethod::AgX, ColorGrading::default());
-//         settings.insert(
-//             TonemappingMethod::SomewhatBoringDisplayTransform,
-//             ColorGrading::default(),
-//         );
-//         settings.insert(TonemappingMethod::TonyMcMapface, ColorGrading::default());
-//         settings.insert(TonemappingMethod::BlenderFilmic, ColorGrading::default());
-
-//         Self { settings }
-//     }
-// }
-
-// impl PerMethodSettings {
-//     fn matched() -> Self {
-//         // Settings to somewhat match the tone mappers, especially in exposure, for this specific scene.
-//         let mut settings = HashMap::new();
-
-//         settings.insert(TonemappingMethod::None, ColorGrading::default());
-//         settings.insert(
-//             TonemappingMethod::Reinhard,
-//             ColorGrading {
-//                 exposure: 0.5,
-//                 ..default()
-//             },
-//         );
-//         settings.insert(
-//             TonemappingMethod::ReinhardLuminance,
-//             ColorGrading {
-//                 exposure: 0.5,
-//                 ..default()
-//             },
-//         );
-//         settings.insert(
-//             TonemappingMethod::Aces,
-//             ColorGrading {
-//                 exposure: -0.3,
-//                 ..default()
-//             },
-//         );
-//         settings.insert(
-//             TonemappingMethod::AgX,
-//             ColorGrading {
-//                 exposure: -0.2,
-//                 gamma: 1.0,
-//                 pre_saturation: 1.1,
-//                 post_saturation: 1.1,
-//             },
-//         );
-//         settings.insert(
-//             TonemappingMethod::SomewhatBoringDisplayTransform,
-//             ColorGrading {
-//                 exposure: 0.0,
-//                 ..default()
-//             },
-//         );
-//         settings.insert(
-//             TonemappingMethod::TonyMcMapface,
-//             ColorGrading {
-//                 exposure: 0.0,
-//                 ..default()
-//             },
-//         );
-//         settings.insert(
-//             TonemappingMethod::BlenderFilmic,
-//             ColorGrading {
-//                 exposure: 0.0,
-//                 ..default()
-//             },
-//         );
-
-//         Self { settings }
-//     }
-// }
 
 /// Creates a colorful test pattern
 fn uv_debug_texture() -> Image {
