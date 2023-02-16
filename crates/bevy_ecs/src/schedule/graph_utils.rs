@@ -129,21 +129,21 @@ pub(crate) fn row_col(index: usize, num_cols: usize) -> (usize, usize) {
 }
 
 /// Stores the results of the graph analysis.
-pub(crate) struct CheckGraphResults<V> {
+pub struct CheckGraphResults<V> {
     /// Boolean reachability matrix for the graph.
-    pub(crate) reachable: FixedBitSet,
+    pub reachable: FixedBitSet,
     /// Pairs of nodes that have a path connecting them.
-    pub(crate) connected: HashSet<(V, V)>,
+    pub connected: HashSet<(V, V)>,
     /// Pairs of nodes that don't have a path connecting them.
-    pub(crate) disconnected: HashSet<(V, V)>,
+    pub disconnected: HashSet<(V, V)>,
     /// Edges that are redundant because a longer path exists.
-    pub(crate) transitive_edges: Vec<(V, V)>,
+    pub transitive_edges: Vec<(V, V)>,
     /// Variant of the graph with no transitive edges.
-    pub(crate) transitive_reduction: DiGraphMap<V, ()>,
+    pub transitive_reduction: DiGraphMap<V, ()>,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
     #[allow(dead_code)]
-    pub(crate) transitive_closure: DiGraphMap<V, ()>,
+    pub transitive_closure: DiGraphMap<V, ()>,
 }
 
 impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {

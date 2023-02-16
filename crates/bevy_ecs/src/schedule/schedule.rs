@@ -887,6 +887,167 @@ impl ScheduleGraph {
         Ok(base_set)
     }
 
+    pub fn compute_schedule_data(&self) -> ComputedScheduleData {
+        // check hierarchy for cycles
+        let hier_scc = tarjan_scc(&self.hierarchy.graph);
+        let hier_topsort = hier_scc.iter().flatten().copied().rev().collect::<Vec<_>>();
+        let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
+
+        // check dependencies for cycles
+        let dep_scc = tarjan_scc(&self.dependency.graph);
+        let dep_topsort = dep_scc.iter().flatten().copied().rev().collect::<Vec<_>>();
+        let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
+
+        // map all system sets to their systems
+        // go in reverse topological order (bottom-up) for efficiency
+        let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
+            HashMap::with_capacity(self.system_sets.len());
+        let mut set_system_bitsets = HashMap::with_capacity(self.system_sets.len());
+        for &id in self.hierarchy.topsort.iter().rev() {
+            if id.is_system() {
+                continue;
+            }
+
+            let mut systems = Vec::new();
+            let mut system_bitset = FixedBitSet::with_capacity(self.systems.len());
+
+            for child in self
+                .hierarchy
+                .graph
+                .neighbors_directed(id, Direction::Outgoing)
+            {
+                match child {
+                    NodeId::System(_) => {
+                        systems.push(child);
+                        system_bitset.insert(child.index());
+                    }
+                    NodeId::Set(_) => {
+                        let child_systems = set_systems.get(&child).unwrap();
+                        let child_system_bitset = set_system_bitsets.get(&child).unwrap();
+                        systems.extend_from_slice(child_systems);
+                        system_bitset.union_with(child_system_bitset);
+                    }
+                }
+            }
+
+            set_systems.insert(id, systems);
+            set_system_bitsets.insert(id, system_bitset);
+        }
+
+        // flatten: combine `in_set` with `before` and `after` information
+        // have to do it like this to preserve transitivity
+        let mut dep_flattened = self.dependency.graph.clone();
+        let mut temp = Vec::new();
+        for (&set, systems) in set_systems.iter() {
+            if systems.is_empty() {
+                for a in dep_flattened.neighbors_directed(set, Direction::Incoming) {
+                    for b in dep_flattened.neighbors_directed(set, Direction::Outgoing) {
+                        temp.push((a, b));
+                    }
+                }
+            } else {
+                for a in dep_flattened.neighbors_directed(set, Direction::Incoming) {
+                    for &sys in systems {
+                        temp.push((a, sys));
+                    }
+                }
+
+                for b in dep_flattened.neighbors_directed(set, Direction::Outgoing) {
+                    for &sys in systems {
+                        temp.push((sys, b));
+                    }
+                }
+            }
+
+            dep_flattened.remove_node(set);
+            for (a, b) in temp.drain(..) {
+                dep_flattened.add_edge(a, b, ());
+            }
+        }
+
+        // topsort
+        let dep_flat_scc = tarjan_scc(&dep_flattened);
+        let dep_flat_topsort = dep_flat_scc
+            .iter()
+            .flatten()
+            .copied()
+            .rev()
+            .collect::<Vec<_>>();
+
+        let dep_flat_results = check_graph(
+            &self.dependency_flattened.graph,
+            &self.dependency_flattened.topsort,
+        );
+
+        // flatten: combine `in_set` with `ambiguous_with` information
+        let mut ambiguous_with_flattened = UnGraphMap::new();
+        for (lhs, rhs, _) in self.ambiguous_with.all_edges() {
+            match (lhs, rhs) {
+                (NodeId::System(_), NodeId::System(_)) => {
+                    ambiguous_with_flattened.add_edge(lhs, rhs, ());
+                }
+                (NodeId::Set(_), NodeId::System(_)) => {
+                    for &lhs_ in set_systems.get(&lhs).unwrap() {
+                        ambiguous_with_flattened.add_edge(lhs_, rhs, ());
+                    }
+                }
+                (NodeId::System(_), NodeId::Set(_)) => {
+                    for &rhs_ in set_systems.get(&rhs).unwrap() {
+                        ambiguous_with_flattened.add_edge(lhs, rhs_, ());
+                    }
+                }
+                (NodeId::Set(_), NodeId::Set(_)) => {
+                    for &lhs_ in set_systems.get(&lhs).unwrap() {
+                        for &rhs_ in set_systems.get(&rhs).unwrap() {
+                            ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
+                        }
+                    }
+                }
+            }
+        }
+
+        // check for conflicts
+        let mut conflicting_systems = Vec::new();
+        for &(a, b) in dep_flat_results.disconnected.iter() {
+            if self.ambiguous_with_flattened.contains_edge(a, b)
+                || self.ambiguous_with_all.contains(&a)
+                || self.ambiguous_with_all.contains(&b)
+            {
+                continue;
+            }
+
+            let system_a = self.systems[a.index()].get().unwrap();
+            let system_b = self.systems[b.index()].get().unwrap();
+            if system_a.is_exclusive() || system_b.is_exclusive() {
+                conflicting_systems.push((a, b, Vec::new()));
+            } else {
+                let access_a = system_a.component_access();
+                let access_b = system_b.component_access();
+                if !access_a.is_compatible(access_b) {
+                    let conflicts = access_a.get_conflicts(access_b);
+                    conflicting_systems.push((a, b, conflicts));
+                }
+            }
+        }
+
+        ComputedScheduleData {
+            hier_results,
+            hier_scc,
+            hier_topsort,
+            dep_results,
+            dep_scc,
+            dep_topsort,
+            dep_flattened,
+            dep_flat_results,
+            dep_flat_scc,
+            dep_flat_topsort,
+            ambiguous_with_flattened,
+            set_systems,
+            set_system_bitsets,
+            conflicting_systems,
+        }
+    }
+
     /// Build a [`SystemSchedule`] optimized for scheduler access from the [`ScheduleGraph`].
     ///
     /// This method also
@@ -1308,6 +1469,26 @@ impl ScheduleGraph {
             self.default_base_set = None;
         }
     }
+}
+
+pub struct ComputedScheduleData {
+    pub hier_results: CheckGraphResults<NodeId>,
+    pub hier_scc: Vec<Vec<NodeId>>,
+    pub hier_topsort: Vec<NodeId>,
+    pub dep_results: CheckGraphResults<NodeId>,
+    pub dep_scc: Vec<Vec<NodeId>>,
+    pub dep_topsort: Vec<NodeId>,
+
+    pub dep_flattened: DiGraphMap<NodeId, ()>,
+    pub dep_flat_scc: Vec<Vec<NodeId>>,
+    pub dep_flat_results: CheckGraphResults<NodeId>,
+    pub dep_flat_topsort: Vec<NodeId>,
+
+    pub ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
+
+    pub set_systems: HashMap<NodeId, Vec<NodeId>>,
+    pub set_system_bitsets: HashMap<NodeId, FixedBitSet>,
+    pub conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
 }
 
 // methods for reporting errors
