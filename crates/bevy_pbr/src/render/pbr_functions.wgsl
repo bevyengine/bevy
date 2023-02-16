@@ -255,7 +255,7 @@ fn pbr(
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tone_mapping
-    return vec4<f32>(aces_filmic(in.rgb), in.a);
+    return vec4<f32>(reinhard_luminance(in.rgb), in.a);
 
     // Gamma correction.
     // Not needed with sRGB buffer
