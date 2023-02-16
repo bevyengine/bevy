@@ -91,7 +91,7 @@ pub enum TonemappingMethod {
     /// Old bevy default. Suffers from hue shifting, brights don't desaturate much at all.
     ReinhardLuminance,
     /// Bad
-    Aces,
+    ACES,
     /// Very Good
     AgX,
     /// Also good
@@ -123,7 +123,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             TonemappingMethod::ReinhardLuminance => {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
-            TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
+            TonemappingMethod::ACES => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
             TonemappingMethod::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into())
@@ -264,7 +264,7 @@ pub fn get_lut_bindings<'a>(
             TonemappingMethod::None
             | TonemappingMethod::Reinhard
             | TonemappingMethod::ReinhardLuminance
-            | TonemappingMethod::Aces
+            | TonemappingMethod::ACES
             | TonemappingMethod::AgX
             | TonemappingMethod::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
             TonemappingMethod::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,

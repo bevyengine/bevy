@@ -378,7 +378,7 @@ fn toggle_tonemapping_method(
     } else if keys.just_pressed(KeyCode::E) {
         *method = TonemappingMethod::ReinhardLuminance;
     } else if keys.just_pressed(KeyCode::R) {
-        *method = TonemappingMethod::Aces;
+        *method = TonemappingMethod::ACES;
     } else if keys.just_pressed(KeyCode::T) {
         *method = TonemappingMethod::AgX;
     } else if keys.just_pressed(KeyCode::Y) {
@@ -403,7 +403,7 @@ fn toggle_tonemapping_method(
                 exposure: 0.5,
                 ..default()
             },
-            TonemappingMethod::Aces => ColorGrading {
+            TonemappingMethod::ACES => ColorGrading {
                 exposure: -0.3,
                 ..default()
             },
@@ -462,7 +462,7 @@ fn update_color_grading_settings(
                 exposure: 0.5,
                 ..default()
             },
-            TonemappingMethod::Aces => ColorGrading {
+            TonemappingMethod::ACES => ColorGrading {
                 exposure: -0.3,
                 ..default()
             },
@@ -520,7 +520,7 @@ fn update_ui(
     } else {
         text.push_str("(E) ReinhardLuminance\n");
     }
-    if method == TonemappingMethod::Aces {
+    if method == TonemappingMethod::ACES {
         text.push_str("(R) *ACES*\n");
     } else {
         text.push_str("(R) ACES\n");
