@@ -15,7 +15,7 @@ use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet, Hashed,
+    Entry, HashMap, HashSet,
 };
 use parking_lot::Mutex;
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
