@@ -209,9 +209,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let field_ty = &field.ty;
 
                     let min_binding_size = if buffer {
-                        quote!{None}
+                        quote! {None}
                     } else {
-                        quote!{Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size())}
+                        quote! {Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size())}
                     };
 
                     if buffer {
