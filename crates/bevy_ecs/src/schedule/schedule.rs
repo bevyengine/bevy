@@ -330,7 +330,7 @@ impl SystemSetNode {
     }
 
     pub fn is_system_type(&self) -> bool {
-        self.inner.is_system_type()
+        self.inner.system_type().is_some()
     }
 }
 
