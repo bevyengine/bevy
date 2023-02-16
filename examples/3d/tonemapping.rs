@@ -425,6 +425,7 @@ fn update_color_grading_settings(
     time: Res<Time>,
     mut color_grading: Query<&mut ColorGrading>,
     tonemapping: Query<&Tonemapping>,
+    current_scene: Res<CurrentScene>,
 ) {
     let mut color_grading = color_grading.single_mut();
     let Tonemapping::Enabled { method, .. } = *tonemapping.single() else { unreachable!() };
@@ -458,7 +459,11 @@ fn update_color_grading_settings(
         color_grading.post_saturation += dt;
     }
 
-    if keys.pressed(KeyCode::Space) {
+    if keys.pressed(KeyCode::Return) {
+        *color_grading = ColorGrading::default();
+    }
+
+    if keys.pressed(KeyCode::Space) && current_scene.0 == 1 {
         *color_grading = match method {
             TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
                 exposure: 0.5,
@@ -559,8 +564,14 @@ fn update_ui(
         "(C/V) PostSaturation: {}\n",
         color_grading.post_saturation
     ));
-    text.push_str("(Space) Reset");
+    text.push_str("(Space) Reset to default");
+
+    if current_scene.0 == 1 {
+        text.push_str("\n(Enter) Reset to scene recommendation");
+    }
 }
+
+// ----------------------------------------------------------------------------
 
 /// Creates a colorful test pattern
 fn uv_debug_texture() -> Image {
