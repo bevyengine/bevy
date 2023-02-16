@@ -164,12 +164,12 @@ fn map_id_events(
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Fetch underlying [`ManualEventReader`].
     pub fn reader(&self) -> &ManualEventReader<RemovedComponentEntity> {
-        &*self.reader
+        &self.reader
     }
 
     /// Fetch underlying [`ManualEventReader`] mutably.
     pub fn reader_mut(&mut self) -> &mut ManualEventReader<RemovedComponentEntity> {
-        &mut *self.reader
+        &mut self.reader
     }
 
     /// Fetch underlying [`Events`].
@@ -216,14 +216,14 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
     pub fn len(&self) -> usize {
         self.events()
-            .map(|events| self.reader.len(&events))
+            .map(|events| self.reader.len(events))
             .unwrap_or(0)
     }
 
     /// Returns `true` if there are no events available to read.
     pub fn is_empty(&self) -> bool {
         self.events()
-            .map(|events| self.reader.is_empty(&events))
+            .map(|events| self.reader.is_empty(events))
             .unwrap_or(true)
     }
 
@@ -232,8 +232,9 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// This means these events will not appear in calls to [`RemovedComponents::iter()`] or
     /// [`RemovedComponents::iter_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
     pub fn clear(&mut self) {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.clear(&events));
+        if let Some((reader, events)) = self.reader_mut_with_events() {
+            reader.clear(events);
+        }
     }
 }
 
