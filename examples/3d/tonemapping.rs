@@ -62,8 +62,8 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_tran
     println!("5 - Reinhard Luminance (old bevy default)");
     println!("6 - ACES");
     println!("7 - AgX");
-    println!("8 - SBDT");
-    println!("9 - SBDT2");
+    println!("8 - SomewhatBoringDisplayTransform");
+    println!("9 - TonyMcMapface");
     println!("0 - Blender Filmic");
 
     // camera
@@ -400,15 +400,15 @@ fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemappi
         } else if keys.just_pressed(KeyCode::Key8) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
-                method: TonemappingMethod::SBDT,
+                method: TonemappingMethod::SomewhatBoringDisplayTransform,
             };
-            println!("SBDT");
+            println!("SomewhatBoringDisplayTransform");
         } else if keys.just_pressed(KeyCode::Key9) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
-                method: TonemappingMethod::SBDT2,
+                method: TonemappingMethod::TonyMcMapface,
             };
-            println!("SBDT2");
+            println!("TonyMcMapface");
         } else if keys.just_pressed(KeyCode::Key0) {
             *tonemapping = Tonemapping::Enabled {
                 deband_dither: true,
@@ -435,8 +435,11 @@ impl Default for PerMethodSettings {
         );
         settings.insert(TonemappingMethod::Aces, ColorGrading::default());
         settings.insert(TonemappingMethod::AgX, ColorGrading::default());
-        settings.insert(TonemappingMethod::SBDT, ColorGrading::default());
-        settings.insert(TonemappingMethod::SBDT2, ColorGrading::default());
+        settings.insert(
+            TonemappingMethod::SomewhatBoringDisplayTransform,
+            ColorGrading::default(),
+        );
+        settings.insert(TonemappingMethod::TonyMcMapface, ColorGrading::default());
         settings.insert(TonemappingMethod::BlenderFilmic, ColorGrading::default());
 
         Self { settings }
@@ -480,14 +483,14 @@ impl PerMethodSettings {
             },
         );
         settings.insert(
-            TonemappingMethod::SBDT,
+            TonemappingMethod::SomewhatBoringDisplayTransform,
             ColorGrading {
                 exposure: 0.0,
                 ..default()
             },
         );
         settings.insert(
-            TonemappingMethod::SBDT2,
+            TonemappingMethod::TonyMcMapface,
             ColorGrading {
                 exposure: 0.0,
                 ..default()
@@ -545,8 +548,10 @@ fn update_color_grading_settings(
                 }
                 TonemappingMethod::Aces => text.push_str("Tonemapping:\nAces\n"),
                 TonemappingMethod::AgX => text.push_str("Tonemapping:\nAgX\n"),
-                TonemappingMethod::SBDT => text.push_str("Tonemapping:\nSBDT\n"),
-                TonemappingMethod::SBDT2 => text.push_str("Tonemapping:\nSBDT2\n"),
+                TonemappingMethod::SomewhatBoringDisplayTransform => {
+                    text.push_str("Tonemapping:\nSomewhatBoringDisplayTransform\n")
+                }
+                TonemappingMethod::TonyMcMapface => text.push_str("Tonemapping:\nTonyMcMapface\n"),
                 TonemappingMethod::BlenderFilmic => text.push_str("Tonemapping:\nBlender Filmic\n"),
             }
         }

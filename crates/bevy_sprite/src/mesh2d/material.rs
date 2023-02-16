@@ -361,8 +361,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     }
                     TonemappingMethod::Aces => Mesh2dPipelineKey::TONEMAP_METHOD_ACES,
                     TonemappingMethod::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
-                    TonemappingMethod::SBDT => Mesh2dPipelineKey::TONEMAP_METHOD_SBDT,
-                    TonemappingMethod::SBDT2 => Mesh2dPipelineKey::TONEMAP_METHOD_SBDT2,
+                    TonemappingMethod::SomewhatBoringDisplayTransform => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                    }
+                    TonemappingMethod::TonyMcMapface => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
+                    }
                     TonemappingMethod::BlenderFilmic => {
                         Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
                     }

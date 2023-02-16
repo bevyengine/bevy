@@ -26,7 +26,7 @@ const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
 pub struct TonemappingLuts {
     blender_filmic: Handle<Image>,
     agx: Handle<Image>,
-    sbdt2: Handle<Image>,
+    tony_mc_mapface: Handle<Image>,
 }
 
 pub struct TonemappingPlugin;
@@ -50,16 +50,16 @@ impl Plugin for TonemappingPlugin {
 
         let tonemapping_luts = TonemappingLuts {
             blender_filmic: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/blender_-11_12.exr"),
-                ImageType::Extension("exr"),
+                include_bytes!("luts/Blender_-11_12.ktx2"),
+                ImageType::Extension("ktx2"),
             )),
             agx: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/AgX-default_contrast_vert.lut.exr"),
-                ImageType::Extension("exr"),
+                include_bytes!("luts/AgX-default_contrast.ktx2"),
+                ImageType::Extension("ktx2"),
             )),
-            sbdt2: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/sbdt2.exr"),
-                ImageType::Extension("exr"),
+            tony_mc_mapface: images.add(setup_tonemapping_lut_image(
+                include_bytes!("luts/TonyMcMapface.ktx2"),
+                ImageType::Extension("ktx2"),
             )),
         };
 
@@ -95,9 +95,9 @@ pub enum TonemappingMethod {
     /// Very Good
     AgX,
     /// Also good
-    SBDT,
+    SomewhatBoringDisplayTransform,
     /// Very Good
-    SBDT2,
+    TonyMcMapface,
     /// Also good
     #[default]
     BlenderFilmic,
@@ -125,8 +125,12 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
-            TonemappingMethod::SBDT => shader_defs.push("TONEMAP_METHOD_SBDT".into()),
-            TonemappingMethod::SBDT2 => shader_defs.push("TONEMAP_METHOD_SBDT2".into()),
+            TonemappingMethod::SomewhatBoringDisplayTransform => {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into())
+            }
+            TonemappingMethod::TonyMcMapface => {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into())
+            }
             TonemappingMethod::BlenderFilmic => {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
@@ -262,8 +266,8 @@ pub fn get_lut_bindings<'a>(
             | TonemappingMethod::ReinhardLuminance
             | TonemappingMethod::Aces
             | TonemappingMethod::AgX
-            | TonemappingMethod::SBDT => &tonemapping_luts.agx,
-            TonemappingMethod::SBDT2 => &tonemapping_luts.sbdt2,
+            | TonemappingMethod::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
+            TonemappingMethod::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
             TonemappingMethod::BlenderFilmic => &tonemapping_luts.blender_filmic,
         },
     };
@@ -304,23 +308,6 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let mut image =
         Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, false).unwrap();
-
-    let block_size = image.size().x as u32;
-
-    image.texture_descriptor = TextureDescriptor {
-        label: Some("tonemapping lut"),
-        size: Extent3d {
-            width: block_size,
-            height: block_size,
-            depth_or_array_layers: block_size,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: TextureDimension::D3,
-        format: image.texture_descriptor.format,
-        usage: image.texture_descriptor.usage,
-        view_formats: image.texture_descriptor.view_formats,
-    };
 
     image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
         label: Some("Tonemapping LUT sampler"),

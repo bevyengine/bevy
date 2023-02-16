@@ -1,8 +1,8 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
-// -------------------------------------
-// ------------- SBDT 1 ----------------
-// -------------------------------------
+// --------------------------------------
+// --- SomewhatBoringDisplayTransform ---
+// --------------------------------------
 
 fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
@@ -36,7 +36,7 @@ fn tonemap_curve3(v: vec3<f32>) -> vec3<f32> {
     return vec3(tonemap_curve(v.r), tonemap_curve(v.g), tonemap_curve(v.b));
 }
 
-fn tonemapping_sbdt(col: vec3<f32>) -> vec3<f32> {
+fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
     var col = col;
     let ycbcr = rgb_to_ycbcr(col);
 
@@ -56,27 +56,27 @@ fn tonemapping_sbdt(col: vec3<f32>) -> vec3<f32> {
     return col * final_mult;
 }
 
-// -------------------------------------
-// ------------- SBDT 2 ----------------
-// -------------------------------------
+// --------------------------------------
+// ---------- TonyMcMapface -------------
+// --------------------------------------
 
-const SBDT2_LUT_EV_RANGE = vec2<f32>(-13.0, 8.0);
-const SBDT2_LUT_DIMS: f32 = 48.0;
+const TONY_MC_MAPFACE_LUT_EV_RANGE = vec2<f32>(-13.0, 8.0);
+const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
 
-fn sbdt2_lut_range_encode(x: vec3<f32>) -> vec3<f32> {
+fn tony_mc_mapface_lut_range_encode(x: vec3<f32>) -> vec3<f32> {
     return x / (x + 1.0);
 }
 
-fn sample_sbdt2_lut(stimulus: vec3<f32>) -> vec3<f32> {
-    let range = sbdt2_lut_range_encode(exp2(SBDT2_LUT_EV_RANGE.xyy)).xy;
-    let normalized = (sbdt2_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
-    var uv = saturate(normalized * (f32(SBDT2_LUT_DIMS - 1.0) / f32(SBDT2_LUT_DIMS)) + 0.5 / f32(SBDT2_LUT_DIMS));
+fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
+    let range = tony_mc_mapface_lut_range_encode(exp2(TONY_MC_MAPFACE_LUT_EV_RANGE.xyy)).xy;
+    let normalized = (tony_mc_mapface_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
+    var uv = saturate(normalized * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS));
     uv.y = 1.0 - uv.y;
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, uv, 0.0).rgb;
 }
 
 // -------------------------
-// ---- aces from godot ----
+// ---- ACES from godot ----
 // -------------------------
 // Adapted from https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
 // (MIT License).
@@ -214,13 +214,20 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     return Image;
 }
 
-fn applyLUT3D(Image: vec3<f32>, block_size: f32, dimensions: vec2<f32>, offset: vec2<f32>) -> vec3<f32> {
+fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, Image * ((block_size - 1.0) / block_size) + 0.5 / block_size, 0.0).rgb;
 }
 
 // -------------------------
 // -------------------------
 // -------------------------
+
+fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
+    let block_size = 64.0;
+    var c = stimulus;
+    let normalized = saturate(convertOpenDomainToNormalizedLog2(stimulus, -11.0, 12.0));
+    return applyLUT3D(normalized, block_size);
+}
 
 fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));
@@ -265,9 +272,15 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     var color = max(in.rgb, vec3(0.0));
 
-    //let luma = powsafe(vec3(tonemapping_luminance(color)), 1.0); // highlight gain gamma: 0..
-    //color += color * luma.xxx * 1.0; // highlight gain: 0.. 
+    // Possible future grading:
 
+    // highlight gain gamma: 0..
+    // let luma = powsafe(vec3(tonemapping_luminance(color)), 1.0); 
+
+    // highlight gain: 0.. 
+    // color += color * luma.xxx * 1.0; 
+
+    // Linear pre tonemapping grading
     color = saturation(color, view.color_grading.pre_saturation);
     color = powsafe(color, view.color_grading.gamma);
     color = color * powsafe(vec3(2.0), view.color_grading.exposure);
@@ -285,21 +298,16 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     color = tonemapping_aces_godot_4(color.rgb, 1000.0);
 #else ifdef  TONEMAP_METHOD_AGX
     color = applyAgXLog(color);
-    color = applyLUT3D(color, 32.0, vec2<f32>(1024.0, 32.0), vec2(0.0));
-#else ifdef  TONEMAP_METHOD_SBDT
-    color = tonemapping_sbdt(color.rgb);
-#else ifdef  TONEMAP_METHOD_SBDT2
-    color = sample_sbdt2_lut(color);
+    color = applyLUT3D(color, 32.0);
+#else ifdef  TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+    color = somewhat_boring_display_transform(color.rgb);
+#else ifdef  TONEMAP_METHOD_TONY_MC_MAPFACE
+    color = sample_tony_mc_mapface_lut(color); 
 #else ifdef  TONEMAP_METHOD_BLENDER_FILMIC
-    let block_size = 64.0;
-    let selector = 0.0;
-    var c = color.rgb;
-    c = convertOpenDomainToNormalizedLog2(c, -11.0, 12.0);
-    c = saturate(c);
-    c = applyLUT3D(c, block_size, vec2<f32>(4096.0, 64.0), vec2(0.0, 32.0 + block_size * selector));
-    color = c;
+    color = sample_blender_filmic_lut(color.rgb);
 #endif
 
+    // Perceptual post tonemapping grading
     color = saturation(color, view.color_grading.post_saturation);
     
     return vec4(color, in.a);
