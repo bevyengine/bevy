@@ -3,53 +3,29 @@ use crate::{
     Margin, Padding, Position, PositionType, Size, Style, Val,
 };
 
-fn from_margin(
-    scale_factor: f64,
-    margin: Margin,
-) -> taffy::geometry::Rect<taffy::style::Dimension> {
-    taffy::geometry::Rect {
-        left: from_val(scale_factor, margin.left),
-        right: from_val(scale_factor, margin.right),
-        top: from_val(scale_factor, margin.top),
-        bottom: from_val(scale_factor, margin.bottom),
-    }
+trait AsRect {
+    fn as_rect(self, scale_factor: f64) -> taffy::geometry::Rect<taffy::style::Dimension>;
 }
 
-fn from_padding(
-    scale_factor: f64,
-    padding: Padding,
-) -> taffy::geometry::Rect<taffy::style::Dimension> {
-    taffy::geometry::Rect {
-        left: from_val(scale_factor, padding.left),
-        right: from_val(scale_factor, padding.right),
-        top: from_val(scale_factor, padding.top),
-        bottom: from_val(scale_factor, padding.bottom),
-    }
+macro_rules! as_rect {
+    ($f:ty) => {
+        impl AsRect for $f {
+            fn as_rect(self, scale_factor: f64) -> taffy::geometry::Rect<taffy::style::Dimension> {
+                taffy::geometry::Rect {
+                    left: from_val(scale_factor, self.left),
+                    right: from_val(scale_factor, self.right),
+                    top: from_val(scale_factor, self.top),
+                    bottom: from_val(scale_factor, self.bottom),
+                }
+            }
+        }
+    };
 }
 
-fn from_border(
-    scale_factor: f64,
-    border: Border,
-) -> taffy::geometry::Rect<taffy::style::Dimension> {
-    taffy::geometry::Rect {
-        left: from_val(scale_factor, border.left),
-        right: from_val(scale_factor, border.right),
-        top: from_val(scale_factor, border.top),
-        bottom: from_val(scale_factor, border.bottom),
-    }
-}
-
-fn from_position(
-    scale_factor: f64,
-    position: Position,
-) -> taffy::geometry::Rect<taffy::style::Dimension> {
-    taffy::geometry::Rect {
-        left: from_val(scale_factor, position.left),
-        right: from_val(scale_factor, position.right),
-        top: from_val(scale_factor, position.top),
-        bottom: from_val(scale_factor, position.bottom),
-    }
-}
+as_rect!(Margin);
+as_rect!(Padding);
+as_rect!(Border);
+as_rect!(Position);
 
 pub fn from_val_size(
     scale_factor: f64,
@@ -71,10 +47,10 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         align_self: value.align_self.into(),
         align_content: value.align_content.into(),
         justify_content: value.justify_content.into(),
-        position: from_position(scale_factor, value.position),
-        margin: from_margin(scale_factor, value.margin),
-        padding: from_padding(scale_factor, value.padding),
-        border: from_border(scale_factor, value.border),
+        position: value.position.as_rect(scale_factor),
+        margin: value.margin.as_rect(scale_factor),
+        padding: value.padding.as_rect(scale_factor),
+        border: value.border.as_rect(scale_factor),
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
         flex_basis: from_val(scale_factor, value.flex_basis),
