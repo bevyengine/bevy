@@ -4,7 +4,7 @@ use crate::{
 };
 
 trait AsRect {
-    fn as_rect(self, scale_factor: f64) -> taffy::geometry::Rect<taffy::style::Dimension>;
+    fn as_rect(&self, scale_factor: f64) -> taffy::geometry::Rect<taffy::style::Dimension>;
 }
 
 macro_rules! as_rect {
