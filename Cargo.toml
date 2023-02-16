@@ -432,7 +432,6 @@ wasm = true
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
@@ -473,7 +472,6 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
