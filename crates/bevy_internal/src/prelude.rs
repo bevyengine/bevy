@@ -1,7 +1,7 @@
 #[doc(hidden)]
 pub use crate::{
     app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
-    log::prelude::*, math::prelude::*, reflect::prelude::*, shape, time::prelude::*,
+    log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
     transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
@@ -34,6 +34,10 @@ pub use crate::render::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_scene")]
 pub use crate::scene::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_shape")]
+pub use crate::shape;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_sprite")]
