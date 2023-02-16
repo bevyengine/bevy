@@ -26,6 +26,7 @@ fn main() {
         ))
         .init_resource::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
+        .insert_resource(SelectedParameter { value: 0, max: 4 })
         .add_startup_system(setup)
         .add_startup_system(setup_basic_scene)
         .add_startup_system(setup_color_gradient_scene)
@@ -379,7 +380,7 @@ fn toggle_tonemapping_method(
     } else if keys.just_pressed(KeyCode::Key3) {
         *method = TonemappingMethod::ReinhardLuminance;
     } else if keys.just_pressed(KeyCode::Key4) {
-        *method = TonemappingMethod::ACES;
+        *method = TonemappingMethod::Aces;
     } else if keys.just_pressed(KeyCode::Key5) {
         *method = TonemappingMethod::AgX;
     } else if keys.just_pressed(KeyCode::Key6) {
@@ -393,49 +394,64 @@ fn toggle_tonemapping_method(
     *color_grading = *per_method_settings.settings.get(method).unwrap();
 }
 
+#[derive(Resource)]
+struct SelectedParameter {
+    value: u32,
+    max: u32,
+}
+
+impl SelectedParameter {
+    fn next(&mut self) {
+        self.value = (self.value + 1).rem_euclid(self.max);
+    }
+    fn prev(&mut self) {
+        self.value = (self.value - 1).rem_euclid(self.max);
+    }
+}
+
 fn update_color_grading_settings(
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut per_method_settings: ResMut<PerMethodSettings>,
     tonemapping: Query<&Tonemapping>,
     current_scene: Res<CurrentScene>,
+    mut selected_parameter: ResMut<SelectedParameter>,
 ) {
     let Tonemapping::Enabled { method, .. } = *tonemapping.single() else { unreachable!() };
     let mut color_grading = per_method_settings.settings.get_mut(&method).unwrap();
-    let dt = time.delta_seconds();
-
-    if keys.pressed(KeyCode::S) {
-        color_grading.exposure -= dt;
-    }
-    if keys.pressed(KeyCode::A) {
-        color_grading.exposure += dt;
+    let mut dt = time.delta_seconds() * 0.25;
+    if keys.pressed(KeyCode::Left) {
+        dt = -dt;
     }
 
-    if keys.pressed(KeyCode::F) {
-        color_grading.gamma -= dt;
+    if keys.just_pressed(KeyCode::Down) {
+        selected_parameter.next();
     }
-    if keys.pressed(KeyCode::D) {
-        color_grading.gamma += dt;
+    if keys.just_pressed(KeyCode::Up) {
+        selected_parameter.prev();
+    }
+    if keys.pressed(KeyCode::Left) || keys.pressed(KeyCode::Right) {
+        match selected_parameter.value {
+            0 => {
+                color_grading.exposure += dt;
+            }
+            1 => {
+                color_grading.gamma += dt;
+            }
+            2 => {
+                color_grading.pre_saturation += dt;
+            }
+            3 => {
+                color_grading.post_saturation += dt;
+            }
+            _ => {}
+        }
     }
 
-    if keys.pressed(KeyCode::X) {
-        color_grading.pre_saturation -= dt;
-    }
-    if keys.pressed(KeyCode::Z) {
-        color_grading.pre_saturation += dt;
-    }
-
-    if keys.pressed(KeyCode::V) {
-        color_grading.post_saturation -= dt;
-    }
-    if keys.pressed(KeyCode::C) {
-        color_grading.post_saturation += dt;
-    }
-
-    if keys.pressed(KeyCode::Space) {
+    if keys.just_pressed(KeyCode::Space) {
         *color_grading = ColorGrading::default();
     }
-    if keys.pressed(KeyCode::Return) && current_scene.0 == 1 {
+    if keys.just_pressed(KeyCode::Return) && current_scene.0 == 1 {
         *color_grading = PerMethodSettings::basic_scene_recommendation(method);
     }
 }
@@ -444,6 +460,7 @@ fn update_ui(
     mut text: Query<&mut Text, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
+    selected_parameter: Res<SelectedParameter>,
 ) {
     let (&Tonemapping::Enabled { method, .. }, color_grading) = settings.single() else { unreachable!() };
 
@@ -451,74 +468,109 @@ fn update_ui(
     let text = &mut text.sections[0].value;
     text.clear();
 
+    let scn = current_scene.0;
     text.push_str("Test Scene: \n");
-    if current_scene.0 == 1 {
-        text.push_str("(Q) *Basic Scene*\n");
-    } else {
-        text.push_str("(Q) Basic Scene\n");
-    }
-    if current_scene.0 == 2 {
-        text.push_str("(W) *Color Gradient*\n");
-    } else {
-        text.push_str("(W) Color Gradient\n");
-    }
-    if current_scene.0 == 3 {
-        text.push_str("(E) *Image Viewer*");
-    } else {
-        text.push_str("(E) Image Viewer");
-    }
-
-    text.push_str("\n\nTonemapping Method:\n");
-    if method == TonemappingMethod::None {
-        text.push_str("(1) *Disabled*\n");
-    } else {
-        text.push_str("(1) Disabled\n");
-    }
-    if method == TonemappingMethod::Reinhard {
-        text.push_str("(2) *Reinhard*\n");
-    } else {
-        text.push_str("(2) Reinhard\n");
-    }
-    if method == TonemappingMethod::ReinhardLuminance {
-        text.push_str("(3) *ReinhardLuminance*\n");
-    } else {
-        text.push_str("(3) ReinhardLuminance\n");
-    }
-    if method == TonemappingMethod::ACES {
-        text.push_str("(4) *ACES*\n");
-    } else {
-        text.push_str("(4) ACES\n");
-    }
-    if method == TonemappingMethod::AgX {
-        text.push_str("(5) *AgX*\n");
-    } else {
-        text.push_str("(5) AgX\n");
-    }
-    if method == TonemappingMethod::SomewhatBoringDisplayTransform {
-        text.push_str("(6) *SomewhatBoringDisplayTransform*\n");
-    } else {
-        text.push_str("(6) SomewhatBoringDisplayTransform\n");
-    }
-    if method == TonemappingMethod::TonyMcMapface {
-        text.push_str("(7) *TonyMcMapface*\n");
-    } else {
-        text.push_str("(7) TonyMcMapface\n");
-    }
-    if method == TonemappingMethod::BlenderFilmic {
-        text.push_str("(8) *BlenderFilmic*");
-    } else {
-        text.push_str("(8) BlenderFilmic");
-    }
-
-    text.push_str("\n\nColor Grading:\n");
-    text.push_str(&format!("(A/S) Exposure: {}\n", color_grading.exposure));
-    text.push_str(&format!("(D/F) Gamma: {}\n", color_grading.gamma));
     text.push_str(&format!(
-        "(Z/X) PreSaturation: {}\n",
-        color_grading.pre_saturation
+        "(Q) {} Basic Scene\n",
+        if scn == 1 { ">" } else { "" }
     ));
     text.push_str(&format!(
-        "(C/V) PostSaturation: {}\n",
+        "(W) {} Color Gradient\n",
+        if scn == 2 { ">" } else { "" }
+    ));
+    text.push_str(&format!(
+        "(E) {} Image Viewer\n",
+        if scn == 3 { ">" } else { "" }
+    ));
+
+    text.push_str("\n\nTonemapping Method:\n");
+    text.push_str(&format!(
+        "(1) {} Disabled\n",
+        if method == TonemappingMethod::None {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(2) {} Reinhard\n",
+        if method == TonemappingMethod::Reinhard {
+            "> "
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(3) {} Reinhard Luminance\n",
+        if method == TonemappingMethod::ReinhardLuminance {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(4) {} ACES\n",
+        if method == TonemappingMethod::Aces {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(5) {} AgX\n",
+        if method == TonemappingMethod::AgX {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(6) {} SomewhatBoringDisplayTransform\n",
+        if method == TonemappingMethod::SomewhatBoringDisplayTransform {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(7) {} TonyMcMapface\n",
+        if method == TonemappingMethod::TonyMcMapface {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(8) {} Blender Filmic\n",
+        if method == TonemappingMethod::BlenderFilmic {
+            ">"
+        } else {
+            ""
+        }
+    ));
+
+    text.push_str("\n\nColor Grading:\n");
+    text.push_str("(arrow keys)\n");
+    if selected_parameter.value == 0 {
+        text.push_str("> ");
+    }
+    text.push_str(&format!("Exposure: {}\n", color_grading.exposure));
+    if selected_parameter.value == 1 {
+        text.push_str("> ");
+    }
+    text.push_str(&format!("Gamma: {}\n", color_grading.gamma));
+    if selected_parameter.value == 2 {
+        text.push_str("> ");
+    }
+    text.push_str(&format!(
+        "PreSaturation: {}\n",
+        color_grading.pre_saturation
+    ));
+    if selected_parameter.value == 3 {
+        text.push_str("> ");
+    }
+    text.push_str(&format!(
+        "PostSaturation: {}\n",
         color_grading.post_saturation
     ));
     text.push_str("(Space) Reset to default");
@@ -542,8 +594,8 @@ impl PerMethodSettings {
                 exposure: 0.5,
                 ..default()
             },
-            TonemappingMethod::ACES => ColorGrading {
-                exposure: -0.3,
+            TonemappingMethod::Aces => ColorGrading {
+                exposure: 0.35,
                 ..default()
             },
             TonemappingMethod::AgX => ColorGrading {
@@ -565,7 +617,7 @@ impl Default for PerMethodSettings {
             TonemappingMethod::None,
             TonemappingMethod::Reinhard,
             TonemappingMethod::ReinhardLuminance,
-            TonemappingMethod::ACES,
+            TonemappingMethod::Aces,
             TonemappingMethod::AgX,
             TonemappingMethod::SomewhatBoringDisplayTransform,
             TonemappingMethod::TonyMcMapface,
