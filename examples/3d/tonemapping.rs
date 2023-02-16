@@ -129,7 +129,7 @@ fn setup_basic_scene(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
+                base_color: Color::rgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -143,7 +143,7 @@ fn setup_basic_scene(
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
+                base_color: Color::rgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -158,9 +158,9 @@ fn setup_basic_scene(
                 })),
                 material,
                 transform: Transform::from_xyz(
-                    j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 },
+                    j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
                     0.125,
-                    -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 },
+                    -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
                 ),
                 ..default()
             },
@@ -172,7 +172,8 @@ fn setup_basic_scene(
     commands.spawn((
         SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-            transform: Transform::from_xyz(-0.5, 0.0, 0.25),
+            transform: Transform::from_xyz(0.5, 0.0, -0.5)
+                .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
             ..default()
         },
         SceneNumber(1),
