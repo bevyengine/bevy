@@ -4,7 +4,7 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
-    event::{Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader, EventId},
+    event::{EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -96,7 +96,7 @@ impl RemovedComponentEvents {
 }
 
 /// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
-/// 
+///
 /// This acts effectively the same as an [`EventReader`].
 ///
 /// Note that this does not allow you to see which data existed before removal.
@@ -146,11 +146,16 @@ pub type RemovedIter<'a> = iter::Map<
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
-pub type RemovedIterWithId<'a> = iter::Map<iter::Flatten<
-    option::IntoIter<ManualEventIteratorWithId<'a, RemovedComponentEntity>>,
->, fn((&RemovedComponentEntity, EventId<RemovedComponentEntity>)) -> (Entity, EventId<RemovedComponentEntity>)>;
+pub type RemovedIterWithId<'a> = iter::Map<
+    iter::Flatten<option::IntoIter<ManualEventIteratorWithId<'a, RemovedComponentEntity>>>,
+    fn(
+        (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
+    ) -> (Entity, EventId<RemovedComponentEntity>),
+>;
 
-fn map_id_events((entity, id): (&RemovedComponentEntity, EventId<RemovedComponentEntity>)) -> (Entity, EventId<RemovedComponentEntity>) {
+fn map_id_events(
+    (entity, id): (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
+) -> (Entity, EventId<RemovedComponentEntity>) {
     (entity.clone().into(), id)
 }
 
@@ -174,7 +179,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 
     /// Destructures to get a mutable reference to the `ManualEventReader`
     /// and a reference to `Events`.
-    /// 
+    ///
     /// This is necessary since Rust can't detect destructuring through methods and most
     /// usecases of the reader uses the `Events` as well.
     pub fn reader_mut_with_events(
