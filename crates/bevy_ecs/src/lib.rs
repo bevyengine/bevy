@@ -57,6 +57,13 @@ pub use bevy_ecs_macros::all_tuples;
 /// A specialized hashmap type with Key of `TypeId`
 type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
+/// Optimization level with which this crate is compiled.
+/// Used by bevy_app to emit a warning if bevy_ecs is unoptimized.
+/// When https://github.com/rust-lang/rust/issues/54140 is stabilized,
+/// the warning can be emitted here at compile time.
+#[doc(hidden)]
+pub const OPT_LEVEL: &str = env!("OPT_LEVEL");
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;

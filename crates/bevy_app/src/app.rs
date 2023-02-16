@@ -8,7 +8,10 @@ use bevy_ecs::{
         ScheduleLabel,
     },
 };
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{debug, warn},
+    HashMap, HashSet,
+};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -190,6 +193,8 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_default_schedules();
+
+        app.add_system_to_schedule(CoreSchedule::Startup, warn_on_missing_optimization);
 
         app.add_event::<AppExit>();
 
@@ -1006,6 +1011,12 @@ impl App {
 
 fn run_once(mut app: App) {
     app.update();
+}
+
+fn warn_on_missing_optimization() {
+    if bevy_ecs::OPT_LEVEL == "0" {
+        warn!("Running without optimizations. To enable them, see https://bevyengine.org/learn/book/getting-started/setup/#compile-with-performance-optimizations");
+    }
 }
 
 /// An event that indicates the [`App`] should exit. This will fully exit the app process at the
