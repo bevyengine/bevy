@@ -796,6 +796,28 @@ mod tests {
         }
 
         #[test]
+        fn allow_same_base_sets() {
+            let mut world = World::new();
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::A))
+                .add_system(named_system.in_set(Normal::X).in_set(Normal::Y));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Ok(())));
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::A).in_set(Normal::X));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Ok(())));
+        }
+
+        #[test]
         fn default_base_set_ordering() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
