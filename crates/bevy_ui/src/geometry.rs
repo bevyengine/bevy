@@ -242,7 +242,7 @@ impl UiRect {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = UiRect::horizontal_vertical(Val::Px(10.0), Val::Percent(15.0));
+    /// let ui_rect = UiRect::axes(Val::Px(10.0), Val::Percent(15.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
