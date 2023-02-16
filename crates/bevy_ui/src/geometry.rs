@@ -249,7 +249,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Percent(15.0));
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
-    pub fn horizontal_vertical(horizontal: Val, vertical: Val) -> Self {
+    pub fn axes(horizontal: Val, vertical: Val) -> Self {
         UiRect {
             left: horizontal,
             right: horizontal,
