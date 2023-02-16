@@ -48,7 +48,7 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: false,
+                hdr: true,
                 ..default()
             },
             transform: camera_transform.0,
@@ -397,8 +397,8 @@ fn toggle_tonemapping_method(
 
 #[derive(Resource)]
 struct SelectedParameter {
-    value: u32,
-    max: u32,
+    value: i32,
+    max: i32,
 }
 
 impl SelectedParameter {
@@ -462,13 +462,22 @@ fn update_ui(
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
+    mut hide_ui: Local<bool>,
+    keys: Res<Input<KeyCode>>,
 ) {
     let (method, color_grading) = settings.single();
     let method = *method;
 
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
+
+    if keys.just_pressed(KeyCode::H) {
+        *hide_ui = !*hide_ui;
+    }
     text.clear();
+    if *hide_ui {
+        return;
+    }
 
     let scn = current_scene.0;
     text.push_str("Test Scene: \n");
@@ -563,11 +572,12 @@ fn update_ui(
         "PostSaturation: {}\n",
         color_grading.post_saturation
     ));
-    text.push_str("(Space) Reset to default");
+    text.push_str("(Space) Reset to default\n");
 
     if current_scene.0 == 1 {
-        text.push_str("\n(Enter) Reset to scene recommendation");
+        text.push_str("(Enter) Reset to scene recommendation\n");
     }
+    text.push_str("Press H to hide UI\n");
 }
 
 // ----------------------------------------------------------------------------
