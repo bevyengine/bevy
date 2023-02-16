@@ -146,9 +146,9 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entities with the added given component type.
     ///
-    /// It's recommended to use this condition only if there is only a few entities
-    /// with the component `T`. Otherwise this check could be expensive and hold
-    /// up the executor preventing it from running any systems during the check.
+    /// Run conditions are evaluated on the main thread, blocking any other systems from running.
+    /// This run condition is relatively expensive, as it iterates over every entity with this component.
+    /// As a result, you likely only want to use this run condition when the number of entitities with the component `T` is small.
     pub fn any_component_added<T: Component>() -> impl FnMut(Query<(), Added<T>>) -> bool {
         move |query: Query<(), Added<T>>| !query.is_empty()
     }
@@ -156,9 +156,9 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entities with the changed given component type.
     ///
-    /// It's recommended to use this condition only if there is only a few entities
-    /// with the component `T`. Otherwise this check could be expensive and hold
-    /// up the executor preventing it from running any systems during the check.
+    /// Run conditions are evaluated on the main thread, blocking any other systems from running.
+    /// This run condition is relatively expensive, as it iterates over every entity with this component.
+    /// As a result, you likely only want to use this run condition when the number of entitities with the component `T` is small.
     pub fn any_component_changed<T: Component>() -> impl FnMut(Query<(), Changed<T>>) -> bool {
         move |query: Query<(), Changed<T>>| !query.is_empty()
     }
