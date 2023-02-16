@@ -1,6 +1,6 @@
 use crate::{
     clear_color::ClearColorConfig,
-    tonemapping::{Tonemapping, TonemappingMethod},
+    tonemapping::{Dither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -62,6 +62,7 @@ pub struct Camera3dBundle {
     pub global_transform: GlobalTransform,
     pub camera_3d: Camera3d,
     pub tonemapping: Tonemapping,
+    pub dither: Dither,
     pub color_grading: ColorGrading,
 }
 
@@ -70,10 +71,6 @@ impl Default for Camera3dBundle {
     fn default() -> Self {
         Self {
             camera_render_graph: CameraRenderGraph::new(crate::core_3d::graph::NAME),
-            tonemapping: Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::ReinhardLuminance,
-            },
             camera: Default::default(),
             projection: Default::default(),
             visible_entities: Default::default(),
@@ -81,6 +78,8 @@ impl Default for Camera3dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             camera_3d: Default::default(),
+            tonemapping: Tonemapping::ReinhardLuminance,
+            dither: Dither::Enabled,
             color_grading: ColorGrading::default(),
         }
     }

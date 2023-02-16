@@ -2,7 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::render_asset::RenderAssets;
@@ -64,8 +64,10 @@ impl Plugin for TonemappingPlugin {
         };
 
         app.register_type::<Tonemapping>();
+        app.register_type::<Dither>();
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
+        app.add_plugin(ExtractComponentPlugin::<Dither>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -82,9 +84,22 @@ pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
 }
 
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(FromReflect)]
-pub enum TonemappingMethod {
+#[derive(
+    Component,
+    Debug,
+    Hash,
+    Clone,
+    Copy,
+    Reflect,
+    Default,
+    ExtractComponent,
+    PartialEq,
+    Eq,
+    FromReflect,
+)]
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component)]
+pub enum Tonemapping {
     None,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     Reinhard,
@@ -103,10 +118,15 @@ pub enum TonemappingMethod {
     BlenderFilmic,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+impl Tonemapping {
+    pub fn is_enabled(&self) -> bool {
+        *self != Tonemapping::None
+    }
+}
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
-    deband_dither: bool,
-    method: TonemappingMethod,
+    deband_dither: Dither,
+    tonemapping: Tonemapping,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -114,24 +134,22 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
-        if key.deband_dither {
+        if let Dither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }
-        match key.method {
-            TonemappingMethod::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
-            TonemappingMethod::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
-            TonemappingMethod::ReinhardLuminance => {
+        match key.tonemapping {
+            Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
+            Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
+            Tonemapping::ReinhardLuminance => {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
-            TonemappingMethod::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
-            TonemappingMethod::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
-            TonemappingMethod::SomewhatBoringDisplayTransform => {
+            Tonemapping::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
+            Tonemapping::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
+            Tonemapping::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into())
             }
-            TonemappingMethod::TonyMcMapface => {
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into())
-            }
-            TonemappingMethod::BlenderFilmic => {
+            Tonemapping::TonyMcMapface => shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into()),
+            Tonemapping::BlenderFilmic => {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
         }
@@ -209,43 +227,40 @@ pub fn queue_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, &Tonemapping)>,
+    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&Dither>), With<ViewTarget>>,
 ) {
-    for (entity, tonemapping) in view_targets.iter() {
-        if let Tonemapping::Enabled {
-            deband_dither,
-            method,
-        } = tonemapping
-        {
-            let key = TonemappingPipelineKey {
-                deband_dither: *deband_dither,
-                method: *method,
-            };
-            let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
+    for (entity, tonemapping, dither) in view_targets.iter() {
+        let key = TonemappingPipelineKey {
+            deband_dither: *dither.unwrap_or(&Dither::Disabled),
+            tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
+        };
+        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
-            commands
-                .entity(entity)
-                .insert(ViewTonemappingPipeline(pipeline));
-        }
+        commands
+            .entity(entity)
+            .insert(ViewTonemappingPipeline(pipeline));
     }
 }
 
-#[derive(Component, Debug, Hash, Clone, Reflect, Default, ExtractComponent, PartialEq, Eq)]
+#[derive(
+    Component,
+    Debug,
+    Hash,
+    Clone,
+    Copy,
+    Reflect,
+    Default,
+    ExtractComponent,
+    PartialEq,
+    Eq,
+    FromReflect,
+)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
-pub enum Tonemapping {
+pub enum Dither {
     #[default]
     Disabled,
-    Enabled {
-        deband_dither: bool,
-        method: TonemappingMethod,
-    },
-}
-
-impl Tonemapping {
-    pub fn is_enabled(&self) -> bool {
-        matches!(self, Tonemapping::Enabled { .. })
-    }
+    Enabled,
 }
 
 pub fn get_lut_bindings<'a>(
@@ -255,21 +270,15 @@ pub fn get_lut_bindings<'a>(
     bindings: [u32; 2],
 ) -> [BindGroupEntry<'a>; 2] {
     let image = match tonemapping {
-        Tonemapping::Disabled => &tonemapping_luts.agx,
-        Tonemapping::Enabled {
-            deband_dither: _,
-            method,
-        } => match method {
-            //AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
-            TonemappingMethod::None
-            | TonemappingMethod::Reinhard
-            | TonemappingMethod::ReinhardLuminance
-            | TonemappingMethod::Aces
-            | TonemappingMethod::AgX
-            | TonemappingMethod::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
-            TonemappingMethod::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
-            TonemappingMethod::BlenderFilmic => &tonemapping_luts.blender_filmic,
-        },
+        //AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
+        Tonemapping::None
+        | Tonemapping::Reinhard
+        | Tonemapping::ReinhardLuminance
+        | Tonemapping::Aces
+        | Tonemapping::AgX
+        | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
+        Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
+        Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
     let lut_image = images.get(image).unwrap();
     [

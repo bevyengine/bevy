@@ -1,7 +1,7 @@
 //! This examples compares Tonemapping options
 
 use bevy::{
-    core_pipeline::tonemapping::{Tonemapping, TonemappingMethod},
+    core_pipeline::tonemapping::Tonemapping,
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -48,7 +48,7 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                hdr: false,
                 ..default()
             },
             transform: camera_transform.0,
@@ -371,28 +371,28 @@ fn toggle_tonemapping_method(
     mut color_grading: Query<&mut ColorGrading>,
     per_method_settings: Res<PerMethodSettings>,
 ) {
-    let Tonemapping::Enabled { method, .. } = &mut *tonemapping.single_mut() else { unreachable!() };
+    let mut method = tonemapping.single_mut();
     let mut color_grading = color_grading.single_mut();
 
     if keys.just_pressed(KeyCode::Key1) {
-        *method = TonemappingMethod::None;
+        *method = Tonemapping::None;
     } else if keys.just_pressed(KeyCode::Key2) {
-        *method = TonemappingMethod::Reinhard;
+        *method = Tonemapping::Reinhard;
     } else if keys.just_pressed(KeyCode::Key3) {
-        *method = TonemappingMethod::ReinhardLuminance;
+        *method = Tonemapping::ReinhardLuminance;
     } else if keys.just_pressed(KeyCode::Key4) {
-        *method = TonemappingMethod::Aces;
+        *method = Tonemapping::Aces;
     } else if keys.just_pressed(KeyCode::Key5) {
-        *method = TonemappingMethod::AgX;
+        *method = Tonemapping::AgX;
     } else if keys.just_pressed(KeyCode::Key6) {
-        *method = TonemappingMethod::SomewhatBoringDisplayTransform;
+        *method = Tonemapping::SomewhatBoringDisplayTransform;
     } else if keys.just_pressed(KeyCode::Key7) {
-        *method = TonemappingMethod::TonyMcMapface;
+        *method = Tonemapping::TonyMcMapface;
     } else if keys.just_pressed(KeyCode::Key8) {
-        *method = TonemappingMethod::BlenderFilmic;
+        *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings.settings.get(method).unwrap();
+    *color_grading = *per_method_settings.settings.get(&method).unwrap();
 }
 
 #[derive(Resource)]
@@ -418,7 +418,7 @@ fn update_color_grading_settings(
     current_scene: Res<CurrentScene>,
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
-    let Tonemapping::Enabled { method, .. } = *tonemapping.single() else { unreachable!() };
+    let method = tonemapping.single();
     let mut color_grading = per_method_settings.settings.get_mut(&method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
     if keys.pressed(KeyCode::Left) {
@@ -453,7 +453,7 @@ fn update_color_grading_settings(
         *color_grading = ColorGrading::default();
     }
     if keys.just_pressed(KeyCode::Return) && current_scene.0 == 1 {
-        *color_grading = PerMethodSettings::basic_scene_recommendation(method);
+        *color_grading = PerMethodSettings::basic_scene_recommendation(*method);
     }
 }
 
@@ -463,7 +463,8 @@ fn update_ui(
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
 ) {
-    let (&Tonemapping::Enabled { method, .. }, color_grading) = settings.single() else { unreachable!() };
+    let (method, color_grading) = settings.single();
+    let method = *method;
 
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
@@ -487,15 +488,11 @@ fn update_ui(
     text.push_str("\n\nTonemapping Method:\n");
     text.push_str(&format!(
         "(1) {} Disabled\n",
-        if method == TonemappingMethod::None {
-            ">"
-        } else {
-            ""
-        }
+        if method == Tonemapping::None { ">" } else { "" }
     ));
     text.push_str(&format!(
         "(2) {} Reinhard\n",
-        if method == TonemappingMethod::Reinhard {
+        if method == Tonemapping::Reinhard {
             "> "
         } else {
             ""
@@ -503,7 +500,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(3) {} Reinhard Luminance\n",
-        if method == TonemappingMethod::ReinhardLuminance {
+        if method == Tonemapping::ReinhardLuminance {
             ">"
         } else {
             ""
@@ -511,23 +508,15 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(4) {} ACES\n",
-        if method == TonemappingMethod::Aces {
-            ">"
-        } else {
-            ""
-        }
+        if method == Tonemapping::Aces { ">" } else { "" }
     ));
     text.push_str(&format!(
         "(5) {} AgX\n",
-        if method == TonemappingMethod::AgX {
-            ">"
-        } else {
-            ""
-        }
+        if method == Tonemapping::AgX { ">" } else { "" }
     ));
     text.push_str(&format!(
         "(6) {} SomewhatBoringDisplayTransform\n",
-        if method == TonemappingMethod::SomewhatBoringDisplayTransform {
+        if method == Tonemapping::SomewhatBoringDisplayTransform {
             ">"
         } else {
             ""
@@ -535,7 +524,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(7) {} TonyMcMapface\n",
-        if method == TonemappingMethod::TonyMcMapface {
+        if method == Tonemapping::TonyMcMapface {
             ">"
         } else {
             ""
@@ -543,7 +532,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(8) {} Blender Filmic\n",
-        if method == TonemappingMethod::BlenderFilmic {
+        if method == Tonemapping::BlenderFilmic {
             ">"
         } else {
             ""
@@ -585,21 +574,21 @@ fn update_ui(
 
 #[derive(Resource)]
 struct PerMethodSettings {
-    settings: HashMap<TonemappingMethod, ColorGrading>,
+    settings: HashMap<Tonemapping, ColorGrading>,
 }
 
 impl PerMethodSettings {
-    fn basic_scene_recommendation(method: TonemappingMethod) -> ColorGrading {
+    fn basic_scene_recommendation(method: Tonemapping) -> ColorGrading {
         match method {
-            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
+            Tonemapping::Reinhard | Tonemapping::ReinhardLuminance => ColorGrading {
                 exposure: 0.5,
                 ..default()
             },
-            TonemappingMethod::Aces => ColorGrading {
+            Tonemapping::Aces => ColorGrading {
                 exposure: 0.35,
                 ..default()
             },
-            TonemappingMethod::AgX => ColorGrading {
+            Tonemapping::AgX => ColorGrading {
                 exposure: -0.2,
                 gamma: 1.0,
                 pre_saturation: 1.1,
@@ -615,14 +604,14 @@ impl Default for PerMethodSettings {
         let mut settings = HashMap::new();
 
         for method in [
-            TonemappingMethod::None,
-            TonemappingMethod::Reinhard,
-            TonemappingMethod::ReinhardLuminance,
-            TonemappingMethod::Aces,
-            TonemappingMethod::AgX,
-            TonemappingMethod::SomewhatBoringDisplayTransform,
-            TonemappingMethod::TonyMcMapface,
-            TonemappingMethod::BlenderFilmic,
+            Tonemapping::None,
+            Tonemapping::Reinhard,
+            Tonemapping::ReinhardLuminance,
+            Tonemapping::Aces,
+            Tonemapping::AgX,
+            Tonemapping::SomewhatBoringDisplayTransform,
+            Tonemapping::TonyMcMapface,
+            Tonemapping::BlenderFilmic,
         ] {
             settings.insert(
                 method,

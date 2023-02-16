@@ -5,7 +5,10 @@ use crate::{
     Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{Dither, Tonemapping},
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -494,6 +497,7 @@ pub fn queue_sprites(
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
+        Option<&Dither>,
     )>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -549,21 +553,38 @@ pub fn queue_sprites(
         });
         let image_bind_groups = &mut *image_bind_groups;
 
-        for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
+        for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(Tonemapping::Enabled {
-                deband_dither,
-                method: _,
-            }) = tonemapping
-            {
-                if !view.hdr {
-                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
 
-                    if *deband_dither {
+            if !view.hdr {
+                if let Some(tonemapping) = tonemapping {
+                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+                    view_key |= match tonemapping {
+                        Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                        Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                        Tonemapping::ReinhardLuminance => {
+                            SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                        }
+                        Tonemapping::Aces => SpritePipelineKey::TONEMAP_METHOD_ACES,
+                        Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                        Tonemapping::SomewhatBoringDisplayTransform => {
+                            SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                        }
+                        Tonemapping::TonyMcMapface => {
+                            SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
+                        }
+                        Tonemapping::BlenderFilmic => {
+                            SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
+                        }
+                    };
+                }
+                if let Some(dither) = dither {
+                    if let Dither::Enabled = dither {
                         view_key |= SpritePipelineKey::DEBAND_DITHER;
                     }
                 }
             }
+
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &sprite_pipeline,
