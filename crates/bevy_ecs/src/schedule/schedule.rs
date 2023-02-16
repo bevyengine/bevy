@@ -840,20 +840,26 @@ impl ScheduleGraph {
                         neighbor,
                     )? {
                         if let Some(first_set) = base_set {
-                            return Err(match node_id {
-                                NodeId::System(index) => {
-                                    ScheduleBuildError::SystemInMultipleBaseSets {
-                                        system: systems[index].name(),
-                                        first_set: system_sets[first_set.index()].name(),
-                                        second_set: system_sets[calculated_base_set.index()].name(),
+                            if first_set != calculated_base_set {
+                                return Err(match node_id {
+                                    NodeId::System(index) => {
+                                        ScheduleBuildError::SystemInMultipleBaseSets {
+                                            system: systems[index].name(),
+                                            first_set: system_sets[first_set.index()].name(),
+                                            second_set: system_sets[calculated_base_set.index()]
+                                                .name(),
+                                        }
                                     }
-                                }
-                                NodeId::Set(index) => ScheduleBuildError::SetInMultipleBaseSets {
-                                    set: system_sets[index].name(),
-                                    first_set: system_sets[first_set.index()].name(),
-                                    second_set: system_sets[calculated_base_set.index()].name(),
-                                },
-                            });
+                                    NodeId::Set(index) => {
+                                        ScheduleBuildError::SetInMultipleBaseSets {
+                                            set: system_sets[index].name(),
+                                            first_set: system_sets[first_set.index()].name(),
+                                            second_set: system_sets[calculated_base_set.index()]
+                                                .name(),
+                                        }
+                                    }
+                                });
+                            }
                         }
                         base_set = Some(calculated_base_set);
                     }
