@@ -86,7 +86,7 @@ pub struct TonemappingPipeline {
 #[reflect(FromReflect)]
 pub enum TonemappingMethod {
     None,
-    /// Suffers from lots hue of shifting, brights don't desaturate naturally.
+    /// Suffers from lots of hue shifting, brights don't desaturate naturally.
     Reinhard,
     /// Old bevy default. Suffers from hue shifting, brights don't desaturate much at all.
     ReinhardLuminance,
