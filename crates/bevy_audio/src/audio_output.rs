@@ -1,4 +1,4 @@
-use crate::{Audio, AudioSource, Decodable};
+use crate::{Audio, AudioSource, Decodable, GlobalVolume};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_reflect::TypeUuid;
@@ -70,6 +70,7 @@ where
         audio_sources: &Assets<Source>,
         audio: &mut Audio<Source>,
         sinks: &mut Assets<AudioSink>,
+        global_volume: &GlobalVolume,
     ) {
         let mut queue = audio.queue.write();
         let len = queue.len();
@@ -79,7 +80,7 @@ where
             if let Some(audio_source) = audio_sources.get(&config.source_handle) {
                 if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
                     sink.set_speed(config.settings.speed);
-                    sink.set_volume(config.settings.volume);
+                    sink.set_volume(config.settings.volume * global_volume.volume);
 
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
                     let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
@@ -97,11 +98,12 @@ where
 pub fn play_queued_audio_system<Source: Asset + Decodable>(
     audio_output: Res<AudioOutput<Source>>,
     audio_sources: Option<Res<Assets<Source>>>,
+    global_volume: Res<GlobalVolume>,
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
 ) {
     if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
+        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks, &*global_volume);
     };
 }
 

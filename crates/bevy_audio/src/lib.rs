@@ -29,7 +29,7 @@ mod audio_source;
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Audio, AudioOutput, AudioSource, Decodable, PlaybackSettings};
+    pub use crate::{Audio, AudioOutput, AudioSource, Decodable, GlobalVolume, PlaybackSettings};
 }
 
 pub use audio::*;
@@ -56,6 +56,7 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()
             .init_resource::<Audio<AudioSource>>()
+            .init_resource::<GlobalVolume>()
             .add_system(play_queued_audio_system::<AudioSource>.in_base_set(CoreSet::PostUpdate));
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]

@@ -128,6 +128,8 @@ pub struct PlaybackSettings {
     pub repeat: bool,
     /// Volume to play at.
     pub volume: f32,
+    /// Ignore global volume
+    pub absolue_volume: bool,
     /// Speed to play at.
     pub speed: f32,
 }
@@ -143,6 +145,7 @@ impl PlaybackSettings {
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         repeat: false,
         volume: 1.0,
+        absolue_volume: false,
         speed: 1.0,
     };
 
@@ -150,6 +153,7 @@ impl PlaybackSettings {
     pub const LOOP: PlaybackSettings = PlaybackSettings {
         repeat: true,
         volume: 1.0,
+        absolue_volume: false,
         speed: 1.0,
     };
 
@@ -162,6 +166,12 @@ impl PlaybackSettings {
     /// Helper to set the speed from start of playback.
     pub const fn with_speed(mut self, speed: f32) -> Self {
         self.speed = speed;
+        self
+    }
+
+    /// Helper to set if the volume sould ignore the global volume.
+    pub const fn with_absolute_volume(mut self, absolue_volume: bool) -> Self {
+        self.absolue_volume = absolue_volume;
         self
     }
 }
@@ -186,5 +196,25 @@ where
             .field("source_handle", &self.source_handle)
             .field("settings", &self.settings)
             .finish()
+    }
+}
+
+/// Use this [`Resource`] to control the global volume of all non-absolute audio.
+#[derive(Resource)]
+pub struct GlobalVolume {
+    /// The global volume of all audio.
+    pub volume: f32,
+}
+
+impl Default for GlobalVolume {
+    fn default() -> Self {
+        Self { volume: 1.0 }
+    }
+}
+
+impl GlobalVolume {
+    /// Create a new [`GlobalVolume`] with the given volume.
+    pub const fn new(volume: f32) -> Self {
+        Self { volume }
     }
 }
