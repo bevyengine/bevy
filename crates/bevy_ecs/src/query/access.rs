@@ -223,8 +223,8 @@ impl<T: SparseSetIndex> Access<T> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
-    with: ExpandedOrAccess<WithMarker, T>,
-    without: ExpandedOrAccess<WithoutMarker, T>,
+    with: NormalizedAccess<WithMarker, T>,
+    without: NormalizedAccess<WithoutMarker, T>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
@@ -318,12 +318,15 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
-// A struct to express something like `Or<(With<A>, With<B>)>`.
+// A struct to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
 // Filters like `(With<A>, Or<(With<B>, With<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, With<C>))>`.
+//
+// The `T` generic argument is expected to be either `WithMarker` or `WithoutMarker`, to prevent
+// incorrect usage (for example, calculating a union of `With` and `Without` filters).
+// The `I` generic argument is used for debug formatting (see `FormattedBitSet`).
 #[derive(Clone, Eq, PartialEq)]
-struct ExpandedOrAccess<T, I> {
+struct NormalizedAccess<T, I> {
     arr: SmallVec<[FixedBitSet; 8]>,
-    // To prevent mixing `With` and `Without` filters.
     _filter_type: PhantomData<T>,
     _index_type: PhantomData<I>,
 }
@@ -334,7 +337,7 @@ struct WithMarker;
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct WithoutMarker;
 
-impl<T, I: SparseSetIndex + fmt::Debug> fmt::Debug for ExpandedOrAccess<T, I> {
+impl<T, I: SparseSetIndex + fmt::Debug> fmt::Debug for NormalizedAccess<T, I> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list()
             .entries(self.arr.iter().map(FormattedBitSet::<I>::new))
@@ -342,7 +345,7 @@ impl<T, I: SparseSetIndex + fmt::Debug> fmt::Debug for ExpandedOrAccess<T, I> {
     }
 }
 
-impl<T, I: SparseSetIndex> Default for ExpandedOrAccess<T, I> {
+impl<T, I: SparseSetIndex> Default for NormalizedAccess<T, I> {
     fn default() -> Self {
         Self {
             arr: smallvec::smallvec![FixedBitSet::default()],
@@ -352,7 +355,7 @@ impl<T, I: SparseSetIndex> Default for ExpandedOrAccess<T, I> {
     }
 }
 
-impl<T, I: SparseSetIndex> ExpandedOrAccess<T, I> {
+impl<T, I: SparseSetIndex> NormalizedAccess<T, I> {
     fn add(&mut self, index: usize) {
         for with in &mut self.arr {
             with.grow(index + 1);
@@ -384,8 +387,8 @@ impl<T, I: SparseSetIndex> ExpandedOrAccess<T, I> {
     }
 }
 
-impl<I: SparseSetIndex> ExpandedOrAccess<WithMarker, I> {
-    fn is_disjoint(&self, other: &ExpandedOrAccess<WithoutMarker, I>) -> bool {
+impl<I: SparseSetIndex> NormalizedAccess<WithMarker, I> {
+    fn is_disjoint(&self, other: &NormalizedAccess<WithoutMarker, I>) -> bool {
         // We need to make sure that every `without` variant is disjoint with any `with`.
         // For example, `Or<(Without<A>, Without<B>)>` is disjoint with `Or<(With<A>, With<B>)>`,
         // but not with `Or<((With<A>, With<B>), (With<B>, With<C>))>`.
@@ -512,7 +515,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::access::ExpandedOrAccess;
+    use crate::query::access::NormalizedAccess;
     use crate::query::{Access, FilteredAccess, FilteredAccessSet};
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
@@ -624,7 +627,7 @@ mod tests {
         let mut expected = FilteredAccess::<usize>::default();
         expected.add_write(0);
         expected.add_write(1);
-        expected.with = ExpandedOrAccess {
+        expected.with = NormalizedAccess {
             arr: smallvec::smallvec![
                 FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
                 FixedBitSet::with_capacity_and_blocks(5, [0b10011]),
@@ -632,7 +635,7 @@ mod tests {
             _filter_type: PhantomData,
             _index_type: PhantomData,
         };
-        expected.without = ExpandedOrAccess {
+        expected.without = NormalizedAccess {
             arr: smallvec::smallvec![FixedBitSet::new(), FixedBitSet::new(),],
             _filter_type: PhantomData,
             _index_type: PhantomData,
