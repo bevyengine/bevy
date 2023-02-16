@@ -34,11 +34,19 @@ fn setup(
         ..default()
     });
 
+    // Quad
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(shape::Quad::new(Vec2::new(50., 100.)).into()).into(),
+        material: materials.add(ColorMaterial::from(Color::BLUE)),
+        transform: Transform::from_translation(Vec3::new(100., 0., 0.)),
+        ..default()
+    });
+
     // Hexagon
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
         material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(100., 0., 0.)),
+        transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
         ..default()
     });
 }
