@@ -143,6 +143,12 @@ pub mod render {
     pub use bevy_render::*;
 }
 
+#[cfg(feature = "bevy_shape")]
+pub mod shape {
+    //! Provides generation for some primitive shape meshes.
+    pub use bevy_shape::*;
+}
+
 #[cfg(feature = "bevy_sprite")]
 pub mod sprite {
     //! Items for sprites, rects, texture atlases, etc.

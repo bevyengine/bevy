@@ -30,7 +30,7 @@ pub mod prelude {
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
-        mesh::{shape, Mesh},
+        mesh::Mesh,
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},

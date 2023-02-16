@@ -1,5 +1,5 @@
-use super::{Indices, Mesh};
 use bevy_math::*;
+use bevy_render::mesh::{Indices, Mesh};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Cube {

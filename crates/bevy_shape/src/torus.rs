@@ -1,5 +1,5 @@
-use crate::mesh::{Indices, Mesh};
 use bevy_math::Vec3;
+use bevy_render::mesh::{Indices, Mesh};
 use wgpu::PrimitiveTopology;
 
 /// A torus (donut) shape.

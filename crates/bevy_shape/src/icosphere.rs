@@ -1,4 +1,4 @@
-use crate::mesh::{Indices, Mesh};
+use bevy_render::mesh::{Indices, Mesh};
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;

@@ -1,4 +1,4 @@
-use crate::mesh::{Indices, Mesh};
+use bevy_render::mesh::{Indices, Mesh};
 use wgpu::PrimitiveTopology;
 
 /// A cylinder which stands on the XZ plane
