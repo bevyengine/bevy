@@ -19,7 +19,7 @@ use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components},
     schedule::*,
-    system::{BoxedSystem, Resource},
+    system::{BoxedSystem, Resource, System},
     world::World,
 };
 
@@ -81,6 +81,19 @@ impl Schedules {
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
     pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
         self.inner.get_mut(label)
+    }
+
+    /// Returns an iterator over all schedules. Iteration order is undefined.
+    pub fn iter(&self) -> impl Iterator<Item = (&dyn ScheduleLabel, &Schedule)> {
+        self.inner
+            .iter()
+            .map(|(label, schedule)| (&**label, schedule))
+    }
+    /// Returns an iterator over mutable references to all schedules. Iteration order is undefined.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&dyn ScheduleLabel, &mut Schedule)> {
+        self.inner
+            .iter_mut()
+            .map(|(label, schedule)| (&**label, schedule))
     }
 
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
@@ -216,6 +229,11 @@ impl Schedule {
         Ok(())
     }
 
+    /// Returns the [`ScheduleGraph`].
+    pub fn graph(&self) -> &ScheduleGraph {
+        &self.graph
+    }
+
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
@@ -254,7 +272,7 @@ impl Schedule {
 
 /// A directed acylic graph structure.
 #[derive(Default)]
-struct Dag {
+pub struct Dag {
     /// A directed graph.
     graph: DiGraphMap<NodeId, ()>,
     /// A cached topological ordering of the graph.
@@ -268,10 +286,26 @@ impl Dag {
             topsort: Vec::new(),
         }
     }
+
+    /// The directed graph of the stored systems, connected by their ordering dependencies.
+    pub fn graph(&self) -> &DiGraphMap<NodeId, ()> {
+        &self.graph
+    }
+
+    /// A cached topological ordering of the graph.
+    ///
+    /// The order is determined by the ordering dependencies between systems.
+    pub fn cached_topsort(&self) -> &[NodeId] {
+        &self.topsort
+    }
 }
 
+/// Describes which base set (i.e. [`SystemSet`] where [`SystemSet::is_base`] returns true)
+/// a system belongs to.
+///
+/// Note that this is only populated once [`ScheduleGraph::build_schedule`] is called.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-enum BaseSetMembership {
+pub enum BaseSetMembership {
     Uncalculated,
     None,
     Some(NodeId),
@@ -329,7 +363,7 @@ impl SystemNode {
 
 /// Metadata for a [`Schedule`].
 #[derive(Default)]
-struct ScheduleGraph {
+pub struct ScheduleGraph {
     systems: Vec<SystemNode>,
     system_conditions: Vec<Option<Vec<BoxedCondition>>>,
     system_sets: Vec<SystemSetNode>,
@@ -368,6 +402,102 @@ impl ScheduleGraph {
             settings: default(),
             default_base_set: None,
         }
+    }
+
+    /// Returns the system at the given [`NodeId`], if it exists.
+    pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
+        if !id.is_system() {
+            return None;
+        }
+        self.systems
+            .get(id.index())
+            .and_then(|system| system.inner.as_deref())
+    }
+
+    /// Returns the system at the given [`NodeId`].
+    ///
+    /// Panics if it doesn't exist.
+    #[track_caller]
+    pub fn system_at(&self, id: NodeId) -> &dyn System<In = (), Out = ()> {
+        self.get_system_at(id)
+            .ok_or_else(|| format!("system with id {id:?} does not exist in this Schedule"))
+            .unwrap()
+    }
+
+    /// Returns the set at the given [`NodeId`], if it exists.
+    pub fn get_set_at(&self, id: NodeId) -> Option<&dyn SystemSet> {
+        if !id.is_set() {
+            return None;
+        }
+        self.system_sets.get(id.index()).map(|set| &*set.inner)
+    }
+
+    /// Returns the set at the given [`NodeId`].
+    ///
+    /// Panics if it doesn't exist.
+    #[track_caller]
+    pub fn set_at(&self, id: NodeId) -> &dyn SystemSet {
+        self.get_set_at(id)
+            .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
+            .unwrap()
+    }
+
+    /// Returns an iterator over all systems in this schedule.
+    ///
+    /// Note that the [`BaseSetMembership`] will only be initialized after [`ScheduleGraph::build_schedule`] is called.
+    pub fn systems(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            NodeId,
+            &dyn System<In = (), Out = ()>,
+            BaseSetMembership,
+            &[BoxedCondition],
+        ),
+    > {
+        self.systems
+            .iter()
+            .zip(self.system_conditions.iter())
+            .enumerate()
+            .filter_map(|(i, (system_node, condition))| {
+                let system = system_node.inner.as_deref()?;
+                let base_set_membership = system_node.base_set_membership;
+                let condition = condition.as_ref()?.as_slice();
+                Some((NodeId::System(i), system, base_set_membership, condition))
+            })
+    }
+
+    /// Returns an iterator over all system sets in this schedule.
+    ///
+    /// Note that the [`BaseSetMembership`] will only be initialized after [`ScheduleGraph::build_schedule`] is called.
+    pub fn system_sets(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, &dyn SystemSet, BaseSetMembership, &[BoxedCondition])> {
+        self.system_set_ids.iter().map(|(_, node_id)| {
+            let set_node = &self.system_sets[node_id.index()];
+            let set = &*set_node.inner;
+            let base_set_membership = set_node.base_set_membership;
+            let conditions = self.system_set_conditions[node_id.index()]
+                .as_deref()
+                .unwrap_or(&[]);
+            (*node_id, set, base_set_membership, conditions)
+        })
+    }
+
+    /// Returns the [`Dag`] of the hierarchy.
+    ///
+    /// The hierarchy is a directed acyclic graph of the systems and sets,
+    /// where an edge denotes that a system or set is the child of another set.
+    pub fn hierarchy(&self) -> &Dag {
+        &self.hierarchy
+    }
+
+    /// Returns the [`Dag`] of the dependencies in the schedule.
+    ///
+    /// Nodes in this graph are systems and sets, and edges denote that
+    /// a system or set has to run before another system or set.
+    pub fn dependency(&self) -> &Dag {
+        &self.dependency
     }
 
     fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
@@ -751,7 +881,13 @@ impl ScheduleGraph {
         Ok(base_set)
     }
 
-    fn build_schedule(
+    /// Build a [`SystemSchedule`] optimized for scheduler access from the [`ScheduleGraph`].
+    ///
+    /// This method also
+    /// - calculates [`BaseSetMembership`]
+    /// - checks for dependency or hierarchy cycles
+    /// - checks for system access conflicts and reports ambiguities
+    pub fn build_schedule(
         &mut self,
         components: &Components,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
