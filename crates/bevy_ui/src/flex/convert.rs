@@ -10,7 +10,7 @@ trait AsRect {
 macro_rules! as_rect {
     ($f:ty) => {
         impl AsRect for $f {
-            fn as_rect(self, scale_factor: f64) -> taffy::geometry::Rect<taffy::style::Dimension> {
+            fn as_rect(&self, scale_factor: f64) -> taffy::geometry::Rect<taffy::style::Dimension> {
                 taffy::geometry::Rect {
                     left: from_val(scale_factor, self.left),
                     right: from_val(scale_factor, self.right),
