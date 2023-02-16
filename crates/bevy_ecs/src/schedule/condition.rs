@@ -27,6 +27,7 @@ pub mod common_conditions {
     use super::Condition;
     use crate::{
         prelude::{Added, Changed, Component, Query},
+        removal_detection::RemovedComponents,
         schedule::{State, States},
         system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
     };
@@ -161,5 +162,11 @@ pub mod common_conditions {
     /// As a result, you likely only want to use this run condition when the number of entitities with the component `T` is small.
     pub fn any_component_changed<T: Component>() -> impl FnMut(Query<(), Changed<T>>) -> bool {
         move |query: Query<(), Changed<T>>| !query.is_empty()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entities with the removed given component type.
+    pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
+        move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
     }
 }
