@@ -248,7 +248,7 @@ fn scene2(
     let mut transform = cam_trans.0;
     transform.translation += transform.forward();
 
-    // exr/hdr viewer
+    // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Quad {
