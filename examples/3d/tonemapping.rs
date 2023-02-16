@@ -13,6 +13,7 @@ use bevy::{
         texture::ImageSampler,
         view::ColorGrading,
     },
+    utils::HashMap,
 };
 use std::f32::consts::PI;
 
@@ -23,6 +24,7 @@ fn main() {
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
+        .init_resource::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
         .add_startup_system(setup)
         .add_startup_system(setup_basic_scene)
@@ -46,10 +48,6 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
-            },
-            color_grading: ColorGrading {
-                exposure: 0.5,
                 ..default()
             },
             transform: camera_transform.0,
@@ -369,6 +367,7 @@ fn toggle_tonemapping_method(
     keys: Res<Input<KeyCode>>,
     mut tonemapping: Query<&mut Tonemapping>,
     mut color_grading: Query<&mut ColorGrading>,
+    per_method_settings: Res<PerMethodSettings>,
 ) {
     let Tonemapping::Enabled { method, .. } = &mut *tonemapping.single_mut() else { unreachable!() };
     let mut color_grading = color_grading.single_mut();
@@ -391,44 +390,18 @@ fn toggle_tonemapping_method(
         *method = TonemappingMethod::BlenderFilmic;
     }
 
-    if keys.just_pressed(KeyCode::Q)
-        || keys.just_pressed(KeyCode::W)
-        || keys.just_pressed(KeyCode::E)
-        || keys.just_pressed(KeyCode::R)
-        || keys.just_pressed(KeyCode::T)
-        || keys.just_pressed(KeyCode::Y)
-        || keys.just_pressed(KeyCode::U)
-        || keys.just_pressed(KeyCode::I)
-    {
-        *color_grading = match method {
-            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
-                exposure: 0.5,
-                ..default()
-            },
-            TonemappingMethod::ACES => ColorGrading {
-                exposure: -0.3,
-                ..default()
-            },
-            TonemappingMethod::AgX => ColorGrading {
-                exposure: -0.2,
-                gamma: 1.0,
-                pre_saturation: 1.1,
-                post_saturation: 1.1,
-            },
-            _ => ColorGrading::default(),
-        };
-    }
+    *color_grading = *per_method_settings.settings.get(method).unwrap();
 }
 
 fn update_color_grading_settings(
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut color_grading: Query<&mut ColorGrading>,
+    mut per_method_settings: ResMut<PerMethodSettings>,
     tonemapping: Query<&Tonemapping>,
     current_scene: Res<CurrentScene>,
 ) {
-    let mut color_grading = color_grading.single_mut();
     let Tonemapping::Enabled { method, .. } = *tonemapping.single() else { unreachable!() };
+    let mut color_grading = per_method_settings.settings.get_mut(&method).unwrap();
     let dt = time.delta_seconds();
 
     if keys.pressed(KeyCode::S) {
@@ -462,25 +435,8 @@ fn update_color_grading_settings(
     if keys.pressed(KeyCode::Space) {
         *color_grading = ColorGrading::default();
     }
-
-    if keys.pressed(KeyCode::Enter) && current_scene.0 == 1 {
-        *color_grading = match method {
-            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
-                exposure: 0.5,
-                ..default()
-            },
-            TonemappingMethod::ACES => ColorGrading {
-                exposure: -0.3,
-                ..default()
-            },
-            TonemappingMethod::AgX => ColorGrading {
-                exposure: -0.2,
-                gamma: 1.0,
-                pre_saturation: 1.1,
-                post_saturation: 1.1,
-            },
-            _ => ColorGrading::default(),
-        };
+    if keys.pressed(KeyCode::Return) && current_scene.0 == 1 {
+        *color_grading = PerMethodSettings::basic_scene_recommendation(method);
     }
 }
 
@@ -572,6 +528,57 @@ fn update_ui(
 }
 
 // ----------------------------------------------------------------------------
+
+#[derive(Resource)]
+struct PerMethodSettings {
+    settings: HashMap<TonemappingMethod, ColorGrading>,
+}
+
+impl PerMethodSettings {
+    fn basic_scene_recommendation(method: TonemappingMethod) -> ColorGrading {
+        match method {
+            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
+                exposure: 0.5,
+                ..default()
+            },
+            TonemappingMethod::ACES => ColorGrading {
+                exposure: -0.3,
+                ..default()
+            },
+            TonemappingMethod::AgX => ColorGrading {
+                exposure: -0.2,
+                gamma: 1.0,
+                pre_saturation: 1.1,
+                post_saturation: 1.1,
+            },
+            _ => ColorGrading::default(),
+        }
+    }
+}
+
+impl Default for PerMethodSettings {
+    fn default() -> Self {
+        let mut settings = HashMap::new();
+
+        for method in [
+            TonemappingMethod::None,
+            TonemappingMethod::Reinhard,
+            TonemappingMethod::ReinhardLuminance,
+            TonemappingMethod::ACES,
+            TonemappingMethod::AgX,
+            TonemappingMethod::SomewhatBoringDisplayTransform,
+            TonemappingMethod::TonyMcMapface,
+            TonemappingMethod::BlenderFilmic,
+        ] {
+            settings.insert(
+                method,
+                PerMethodSettings::basic_scene_recommendation(method),
+            );
+        }
+
+        Self { settings }
+    }
+}
 
 /// Creates a colorful test pattern
 fn uv_debug_texture() -> Image {
