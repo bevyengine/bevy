@@ -626,24 +626,35 @@ mod tests {
     #[test]
     fn filtered_access_extend_or() {
         let mut access_a = FilteredAccess::<usize>::default();
+        // Exclusive access to `(&mut A, &mut B)`.
         access_a.add_write(0);
         access_a.add_write(1);
 
+        // Filter by `With<C>`.
         let mut access_b = FilteredAccess::<usize>::default();
-        access_b.add_with(3);
+        access_b.add_with(2);
 
+        // Filter by `With<D>`.
         let mut access_c = FilteredAccess::<usize>::default();
-        access_c.add_with(4);
+        access_c.add_with(3);
+
+        // Turns `access_b` into `Or<(With<C>, With<D>)>`.
         access_b.extend_intersect_filter(&access_c);
+        // Applies the filters to the initial query, which corresponds to the FilteredAccess'
+        // representation of `Query<(&mut A, &mut B), Or<(With<C>, With<D>)>>`.
         access_a.extend(&access_b);
 
+        // Construct the expected `FilteredAccess` struct.
+        // The intention here is to test that exclusive access implied by `add_write`
+        // forms correct normalized access structs when extended with `Or` filters.
         let mut expected = FilteredAccess::<usize>::default();
         expected.add_write(0);
         expected.add_write(1);
+        // The resulted access is expected represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>))>`.
         expected.with = NormalizedAccess {
             arr: smallvec::smallvec![
+                FixedBitSet::with_capacity_and_blocks(3, [0b111]),
                 FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
-                FixedBitSet::with_capacity_and_blocks(5, [0b10011]),
             ],
             _filter_type: PhantomData,
             _index_type: PhantomData,
