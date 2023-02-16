@@ -1,6 +1,6 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{RenderAdapter, RenderDevice, RenderInstance},
+    renderer::{RenderAdapter, RenderApi, RenderDevice, RenderInstance},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -167,15 +167,18 @@ pub struct WindowSurfaces {
 ///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
 ///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
+    render_api: Res<RenderApi>,
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
+
     mut msaa: ResMut<Msaa>,
 ) {
     for window in windows.windows.values_mut() {
@@ -186,8 +189,8 @@ pub fn prepare_windows(
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
                 // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
+                let surface = render_api
+                    .create_surface(&render_instance, &window.handle.get_handle())
                     .expect("Failed to create wgpu surface");
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
