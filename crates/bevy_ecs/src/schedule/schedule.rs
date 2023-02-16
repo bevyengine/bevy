@@ -234,6 +234,11 @@ impl Schedule {
         &self.graph
     }
 
+    /// Returns a mutable reference to the [`ScheduleGraph`].
+    pub fn graph_mut(&mut self) -> &mut ScheduleGraph {
+        &mut self.graph
+    }
+
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
