@@ -1,7 +1,5 @@
 //! This examples compares Tonemapping options
 
-use std::f32::consts::PI;
-
 use bevy::{
     core_pipeline::tonemapping::{Tonemapping, TonemappingMethod},
     math::vec2,
@@ -15,108 +13,77 @@ use bevy::{
         texture::ImageSampler,
         view::ColorGrading,
     },
-    utils::HashMap,
 };
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Tell the asset server to watch for asset changes on disk:
-            watch_for_changes: true,
-            ..default()
-        }))
-        .add_plugin(MaterialPlugin::<TestMaterial>::default())
-        .insert_resource(CamTrans(
+        .add_plugins(DefaultPlugins)
+        .add_plugin(MaterialPlugin::<ColorGradientMaterial>::default())
+        .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
-        .add_startup_system(setup_camera)
-        .add_startup_system(scene1)
-        .add_startup_system(scene2)
-        .add_startup_system(scene3)
-        .add_system(hdr_viewer)
+        .insert_resource(CurrentScene(1))
+        .add_startup_system(setup)
+        .add_startup_system(setup_basic_scene)
+        .add_startup_system(setup_color_gradient_scene)
+        .add_startup_system(setup_image_viewer_scene)
+        .add_system(update_image_viewer)
         .add_system(toggle_scene)
-        .add_system(toggle_tonemapping)
+        .add_system(toggle_tonemapping_method)
         .add_system(update_color_grading_settings)
+        .add_system(update_ui)
         .run();
 }
 
-#[derive(Component)]
-struct Scene(u32);
-
-#[derive(Component)]
-struct HDRViewer;
-
-#[derive(Resource)]
-struct CamTrans(Transform);
-
-fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, cam_trans: Res<CamTrans>) {
-    println!("Toggle with:");
-    println!("1 - Flight helmet and simple 3D shapes");
-    println!("2 - Image viewer");
-    println!("3 - Color Sweep");
-
-    println!();
-
-    println!("B - Bypass");
-    println!("4 - Reinhard");
-    println!("5 - Reinhard Luminance (old bevy default)");
-    println!("6 - ACES");
-    println!("7 - AgX");
-    println!("8 - SomewhatBoringDisplayTransform");
-    println!("9 - TonyMcMapface");
-    println!("0 - Blender Filmic");
-
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    camera_transform: Res<CameraTransform>,
+) {
     // camera
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             camera: Camera {
-                hdr: true, // Works with and without hdr
+                hdr: true,
                 ..default()
             },
-            transform: cam_trans.0,
-            tonemapping: Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::ReinhardLuminance,
-            },
             color_grading: ColorGrading {
-                // to initially match other tonemappers
                 exposure: 0.5,
                 ..default()
             },
+            transform: camera_transform.0,
             ..default()
-        })
-        .insert(EnvironmentMapLight {
+        },
+        EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-        });
+        },
+    ));
 
-    commands
-        .spawn(
-            TextBundle::from_section(
-                "",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 18.0,
-                    color: Color::BLACK,
-                },
-            )
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(10.0),
-                    left: Val::Px(10.0),
-                    ..default()
-                },
-                ..default()
-            }),
+    // ui
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 18.0,
+                color: Color::WHITE,
+            },
         )
-        .insert(ControlsUI);
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+            ..default()
+        }),
+    );
 }
 
-#[derive(Component)]
-struct ControlsUI;
-
-fn scene1(
+fn setup_basic_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -137,15 +104,14 @@ fn scene1(
             }),
             ..default()
         },
-        Scene(1),
+        SceneNumber(1),
     ));
 
+    // cubes
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
         ..default()
     });
-
-    // cubes
     for i in 0..5 {
         commands.spawn((
             PbrBundle {
@@ -154,7 +120,7 @@ fn scene1(
                 transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
                 ..default()
             },
-            Scene(1),
+            SceneNumber(1),
         ));
     }
 
@@ -199,7 +165,7 @@ fn scene1(
                 ),
                 ..default()
             },
-            Scene(1),
+            SceneNumber(1),
         ));
     }
 
@@ -210,7 +176,7 @@ fn scene1(
             transform: Transform::from_xyz(-0.5, 0.0, 0.25),
             ..default()
         },
-        Scene(1),
+        SceneNumber(1),
     ));
 
     // light
@@ -235,17 +201,42 @@ fn scene1(
             .into(),
             ..default()
         },
-        Scene(1),
+        SceneNumber(1),
     ));
 }
 
-fn scene2(
+fn setup_color_gradient_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorGradientMaterial>>,
+    camera_transform: Res<CameraTransform>,
+) {
+    let mut transform = camera_transform.0;
+    transform.translation += transform.forward();
+
+    commands.spawn((
+        MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad {
+                size: vec2(1.0, 1.0) * 0.7,
+                flip: false,
+            })),
+            material: materials.add(ColorGradientMaterial {}),
+            transform,
+            visibility: Visibility::Hidden,
+            ..default()
+        },
+        SceneNumber(2),
+    ));
+}
+
+fn setup_image_viewer_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    cam_trans: Res<CamTrans>,
+    camera_transform: Res<CameraTransform>,
+    asset_server: Res<AssetServer>,
 ) {
-    let mut transform = cam_trans.0;
+    let mut transform = camera_transform.0;
     transform.translation += transform.forward();
 
     // exr/hdr viewer (exr requires enabling bevy feature)
@@ -264,39 +255,37 @@ fn scene2(
             visibility: Visibility::Hidden,
             ..default()
         },
-        Scene(2),
+        SceneNumber(3),
         HDRViewer,
     ));
+
+    commands
+        .spawn((
+            TextBundle::from_section(
+                "Drag and drop an HDR or EXR file",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 36.0,
+                    color: Color::BLACK,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_style(Style {
+                align_self: AlignSelf::Center,
+                margin: UiRect::all(Val::Auto),
+                ..default()
+            }),
+            SceneNumber(3),
+        ))
+        .insert(Visibility::Hidden);
 }
 
-fn scene3(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<TestMaterial>>,
-    cam_trans: Res<CamTrans>,
-) {
-    let mut transform = cam_trans.0;
-    transform.translation += transform.forward();
-    // exr/hdr viewer
-    commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
-                size: vec2(1.0, 1.0) * 0.7,
-                flip: false,
-            })),
-            material: materials.add(TestMaterial {}),
-            transform,
-            visibility: Visibility::Hidden,
-            ..default()
-        },
-        Scene(3),
-        HDRViewer,
-    ));
-}
+// ----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-fn hdr_viewer(
-    query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+fn update_image_viewer(
+    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,
@@ -304,6 +293,7 @@ fn hdr_viewer(
     mut drop_hovered: Local<bool>,
     asset_server: Res<AssetServer>,
     mut image_events: EventReader<AssetEvent<Image>>,
+    mut commands: Commands,
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
@@ -318,11 +308,12 @@ fn hdr_viewer(
         }
     }
 
-    for (mat_h, mesh_h) in &query {
+    for (mat_h, mesh_h) in &image_mesh {
         if let Some(mat) = materials.get_mut(mat_h) {
             if let Some(ref new_image) = new_image {
-                // Update texture
                 mat.base_color_texture = Some(new_image.clone());
+
+                commands.entity(text.single()).despawn();
             }
 
             for event in image_events.iter() {
@@ -345,7 +336,11 @@ fn hdr_viewer(
     }
 }
 
-fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &Scene)>) {
+fn toggle_scene(
+    keys: Res<Input<KeyCode>>,
+    mut query: Query<(&mut Visibility, &SceneNumber)>,
+    mut current_scene: ResMut<CurrentScene>,
+) {
     let mut pressed = None;
     if keys.just_pressed(KeyCode::Key1) {
         pressed = Some(1);
@@ -354,285 +349,215 @@ fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &S
     } else if keys.just_pressed(KeyCode::Key3) {
         pressed = Some(3);
     }
+
     if let Some(pressed) = pressed {
-        for (mut vis, scene) in query.iter_mut() {
+        current_scene.0 = pressed;
+
+        for (mut visibility, scene) in query.iter_mut() {
             if scene.0 == pressed {
-                *vis = Visibility::Visible;
+                *visibility = Visibility::Visible;
             } else {
-                *vis = Visibility::Hidden;
+                *visibility = Visibility::Hidden;
             }
         }
     }
 }
 
-fn toggle_tonemapping(keys: Res<Input<KeyCode>>, mut query: Query<&mut Tonemapping>) {
-    if let Some(mut tonemapping) = query.iter_mut().next() {
-        if keys.just_pressed(KeyCode::B) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::None,
-            };
-            println!("Bypass");
-        } else if keys.just_pressed(KeyCode::Key4) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::Reinhard,
-            };
-            println!("Reinhard");
-        } else if keys.just_pressed(KeyCode::Key5) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::ReinhardLuminance,
-            };
-            println!("ReinhardLuminance (old bevy default)");
-        } else if keys.just_pressed(KeyCode::Key6) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::Aces,
-            };
-            println!("Aces");
-        } else if keys.just_pressed(KeyCode::Key7) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::AgX,
-            };
-            println!("AgX");
-        } else if keys.just_pressed(KeyCode::Key8) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::SomewhatBoringDisplayTransform,
-            };
-            println!("SomewhatBoringDisplayTransform");
-        } else if keys.just_pressed(KeyCode::Key9) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::TonyMcMapface,
-            };
-            println!("TonyMcMapface");
-        } else if keys.just_pressed(KeyCode::Key0) {
-            *tonemapping = Tonemapping::Enabled {
-                deband_dither: true,
-                method: TonemappingMethod::BlenderFilmic,
-            };
-            println!("Blender Filmic");
-        }
+fn toggle_tonemapping_method(
+    keys: Res<Input<KeyCode>>,
+    mut tonemapping: Query<&mut Tonemapping>,
+    mut color_grading: Query<&mut ColorGrading>,
+) {
+    let Tonemapping::Enabled { method, .. } = &mut *tonemapping.single_mut() else { unreachable!() };
+    let mut color_grading = color_grading.single_mut();
+
+    if keys.just_pressed(KeyCode::Q) {
+        *method = TonemappingMethod::None;
+    } else if keys.just_pressed(KeyCode::W) {
+        *method = TonemappingMethod::Reinhard;
+    } else if keys.just_pressed(KeyCode::E) {
+        *method = TonemappingMethod::ReinhardLuminance;
+    } else if keys.just_pressed(KeyCode::R) {
+        *method = TonemappingMethod::ACES;
+    } else if keys.just_pressed(KeyCode::T) {
+        *method = TonemappingMethod::AgX;
+    } else if keys.just_pressed(KeyCode::Y) {
+        *method = TonemappingMethod::SomewhatBoringDisplayTransform;
+    } else if keys.just_pressed(KeyCode::U) {
+        *method = TonemappingMethod::TonyMcMapface;
+    } else if keys.just_pressed(KeyCode::I) {
+        *method = TonemappingMethod::BlenderFilmic;
     }
-}
 
-pub struct PerMethodSettings {
-    pub settings: HashMap<TonemappingMethod, ColorGrading>,
-}
-
-impl Default for PerMethodSettings {
-    fn default() -> Self {
-        let mut settings = HashMap::new();
-
-        settings.insert(TonemappingMethod::None, ColorGrading::default());
-        settings.insert(TonemappingMethod::Reinhard, ColorGrading::default());
-        settings.insert(
-            TonemappingMethod::ReinhardLuminance,
-            ColorGrading::default(),
-        );
-        settings.insert(TonemappingMethod::Aces, ColorGrading::default());
-        settings.insert(TonemappingMethod::AgX, ColorGrading::default());
-        settings.insert(
-            TonemappingMethod::SomewhatBoringDisplayTransform,
-            ColorGrading::default(),
-        );
-        settings.insert(TonemappingMethod::TonyMcMapface, ColorGrading::default());
-        settings.insert(TonemappingMethod::BlenderFilmic, ColorGrading::default());
-
-        Self { settings }
-    }
-}
-
-impl PerMethodSettings {
-    fn matched() -> Self {
-        // Settings to somewhat match the tone mappers, especially in exposure, for this specific scene.
-        let mut settings = HashMap::new();
-
-        settings.insert(TonemappingMethod::None, ColorGrading::default());
-        settings.insert(
-            TonemappingMethod::Reinhard,
-            ColorGrading {
+    if keys.just_pressed(KeyCode::Q)
+        || keys.just_pressed(KeyCode::W)
+        || keys.just_pressed(KeyCode::E)
+        || keys.just_pressed(KeyCode::R)
+        || keys.just_pressed(KeyCode::T)
+        || keys.just_pressed(KeyCode::Y)
+        || keys.just_pressed(KeyCode::U)
+        || keys.just_pressed(KeyCode::I)
+    {
+        *color_grading = match method {
+            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
                 exposure: 0.5,
                 ..default()
             },
-        );
-        settings.insert(
-            TonemappingMethod::ReinhardLuminance,
-            ColorGrading {
-                exposure: 0.5,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::Aces,
-            ColorGrading {
+            TonemappingMethod::ACES => ColorGrading {
                 exposure: -0.3,
                 ..default()
             },
-        );
-        settings.insert(
-            TonemappingMethod::AgX,
-            ColorGrading {
+            TonemappingMethod::AgX => ColorGrading {
                 exposure: -0.2,
                 gamma: 1.0,
                 pre_saturation: 1.1,
                 post_saturation: 1.1,
             },
-        );
-        settings.insert(
-            TonemappingMethod::SomewhatBoringDisplayTransform,
-            ColorGrading {
-                exposure: 0.0,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::TonyMcMapface,
-            ColorGrading {
-                exposure: 0.0,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::BlenderFilmic,
-            ColorGrading {
-                exposure: 0.0,
-                ..default()
-            },
-        );
-
-        Self { settings }
+            _ => ColorGrading::default(),
+        };
     }
 }
 
 fn update_color_grading_settings(
-    mut grading: Query<&mut ColorGrading>,
-    mut text: Query<&mut Text>,
-    keycode: Res<Input<KeyCode>>,
-    tonemapping: Query<&Tonemapping>,
+    keys: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut per_method_settings: Local<PerMethodSettings>,
-    mut controls_vis: Query<&mut Visibility, With<ControlsUI>>,
+    mut color_grading: Query<&mut ColorGrading>,
+    tonemapping: Query<&Tonemapping>,
 ) {
-    let mut color_grading = grading.single_mut();
-    let tonemapping = tonemapping.single();
+    let mut color_grading = color_grading.single_mut();
+    let Tonemapping::Enabled { method, .. } = *tonemapping.single() else { unreachable!() };
+    let dt = time.delta_seconds();
 
+    if keys.pressed(KeyCode::S) {
+        color_grading.exposure -= dt;
+    }
+    if keys.pressed(KeyCode::A) {
+        color_grading.exposure += dt;
+    }
+
+    if keys.pressed(KeyCode::F) {
+        color_grading.gamma -= dt;
+    }
+    if keys.pressed(KeyCode::D) {
+        color_grading.gamma += dt;
+    }
+
+    if keys.pressed(KeyCode::X) {
+        color_grading.pre_saturation -= dt;
+    }
+    if keys.pressed(KeyCode::Z) {
+        color_grading.pre_saturation += dt;
+    }
+
+    if keys.pressed(KeyCode::V) {
+        color_grading.post_saturation -= dt;
+    }
+    if keys.pressed(KeyCode::C) {
+        color_grading.post_saturation += dt;
+    }
+
+    if keys.pressed(KeyCode::Space) {
+        *color_grading = match method {
+            TonemappingMethod::Reinhard | TonemappingMethod::ReinhardLuminance => ColorGrading {
+                exposure: 0.5,
+                ..default()
+            },
+            TonemappingMethod::ACES => ColorGrading {
+                exposure: -0.3,
+                ..default()
+            },
+            TonemappingMethod::AgX => ColorGrading {
+                exposure: -0.2,
+                gamma: 1.0,
+                pre_saturation: 1.1,
+                post_saturation: 1.1,
+            },
+            _ => ColorGrading::default(),
+        };
+    }
+}
+
+fn update_ui(
+    mut text: Query<&mut Text, Without<SceneNumber>>,
+    settings: Query<(&Tonemapping, &ColorGrading)>,
+    current_scene: Res<CurrentScene>,
+) {
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
+    text.clear();
+    let (&Tonemapping::Enabled { method, .. }, color_grading) = settings.single() else { unreachable!() };
 
-    *text = "Settings\n".to_string();
-    text.push_str("-------------\n");
-
-    let mut current_setting = None;
-
-    text.push_str("Tonemapping options: \n");
-    text.push_str("number keys 4..0\n\n");
-    text.push_str("Bypass: B\n\n");
-
-    match tonemapping {
-        Tonemapping::Disabled => text.push_str("Tonemapping: Disabled\n"),
-        Tonemapping::Enabled {
-            deband_dither: _,
-            method,
-        } => {
-            current_setting = Some(per_method_settings.settings.get_mut(method).unwrap());
-
-            match method {
-                TonemappingMethod::None => text.push_str("Tonemapping:\nBypassed\n"),
-                TonemappingMethod::Reinhard => text.push_str("Tonemapping:\nReinhard\n"),
-                TonemappingMethod::ReinhardLuminance => {
-                    text.push_str("Tonemapping:\nReinhard Luminance\n");
-                }
-                TonemappingMethod::Aces => text.push_str("Tonemapping:\nAces\n"),
-                TonemappingMethod::AgX => text.push_str("Tonemapping:\nAgX\n"),
-                TonemappingMethod::SomewhatBoringDisplayTransform => {
-                    text.push_str("Tonemapping:\nSomewhatBoringDisplayTransform\n")
-                }
-                TonemappingMethod::TonyMcMapface => text.push_str("Tonemapping:\nTonyMcMapface\n"),
-                TonemappingMethod::BlenderFilmic => text.push_str("Tonemapping:\nBlender Filmic\n"),
-            }
-        }
+    text.push_str("Scene: ");
+    if current_scene.0 == 1 {
+        text.push_str("(*1*)");
+    } else {
+        text.push_str("(1)");
+    }
+    if current_scene.0 == 2 {
+        text.push_str("(*2*)");
+    } else {
+        text.push_str("(2)");
+    }
+    if current_scene.0 == 3 {
+        text.push_str("(*3*)");
+    } else {
+        text.push_str("(3)");
     }
 
-    if let Some(mut current_setting) = current_setting {
-        text.push_str("\n\n");
-        text.push_str(&format!("Exposure: {}\n", current_setting.exposure));
-        text.push_str(&format!("Gamma: {}\n", current_setting.gamma));
-        text.push_str(&format!(
-            "Pre Saturation: {}\n",
-            current_setting.pre_saturation
-        ));
-        text.push_str(&format!(
-            "Post Saturation: {}\n",
-            current_setting.post_saturation
-        ));
-
-        text.push_str("\n\n");
-
-        text.push_str("Controls (-/+)\n");
-        text.push_str("---------------\n");
-        text.push_str("Q/W - Exposure\n");
-        text.push_str("E/R - Gamma\n");
-        text.push_str("A/S - Pre Saturation\n");
-        text.push_str("D/F - Post Saturation\n");
-
-        text.push_str("\n\n");
-
-        text.push_str("R - Reset Correction\n");
-        text.push_str("M - Matched Correction\n");
-
-        let dt = time.delta_seconds();
-
-        if keycode.pressed(KeyCode::Q) {
-            current_setting.exposure -= dt;
-        }
-        if keycode.pressed(KeyCode::W) {
-            current_setting.exposure += dt;
-        }
-
-        if keycode.pressed(KeyCode::E) {
-            current_setting.gamma -= dt;
-        }
-        if keycode.pressed(KeyCode::R) {
-            current_setting.gamma += dt;
-        }
-
-        if keycode.pressed(KeyCode::A) {
-            current_setting.pre_saturation -= dt;
-        }
-        if keycode.pressed(KeyCode::S) {
-            current_setting.pre_saturation += dt;
-        }
-
-        if keycode.pressed(KeyCode::D) {
-            current_setting.post_saturation -= dt;
-        }
-        if keycode.pressed(KeyCode::F) {
-            current_setting.post_saturation += dt;
-        }
-
-        *color_grading = *current_setting;
+    text.push_str("\n\nTonemapping Method:\n");
+    if method == TonemappingMethod::None {
+        text.push_str("(Q) *Disabled*\n");
+    } else {
+        text.push_str("(Q) Disabled\n");
+    }
+    if method == TonemappingMethod::Reinhard {
+        text.push_str("(W) *Reinhard*\n");
+    } else {
+        text.push_str("(W) Reinhard\n");
+    }
+    if method == TonemappingMethod::ReinhardLuminance {
+        text.push_str("(E) *ReinhardLuminance*\n");
+    } else {
+        text.push_str("(E) ReinhardLuminance\n");
+    }
+    if method == TonemappingMethod::ACES {
+        text.push_str("(R) *ACES*\n");
+    } else {
+        text.push_str("(R) ACES\n");
+    }
+    if method == TonemappingMethod::AgX {
+        text.push_str("(T) *AgX*\n");
+    } else {
+        text.push_str("(T) AgX\n");
+    }
+    if method == TonemappingMethod::SomewhatBoringDisplayTransform {
+        text.push_str("(Y) *SomewhatBoringDisplayTransform*\n");
+    } else {
+        text.push_str("(Y) SomewhatBoringDisplayTransform\n");
+    }
+    if method == TonemappingMethod::TonyMcMapface {
+        text.push_str("(U) *TonyMcMapface*\n");
+    } else {
+        text.push_str("(U) TonyMcMapface\n");
+    }
+    if method == TonemappingMethod::BlenderFilmic {
+        text.push_str("(I) *BlenderFilmic*");
+    } else {
+        text.push_str("(I) BlenderFilmic");
     }
 
-    if keycode.just_pressed(KeyCode::H) {
-        let mut controls_vis = controls_vis.single_mut();
-
-        if let Visibility::Hidden = *controls_vis {
-            *controls_vis = Visibility::Visible;
-        } else {
-            *controls_vis = Visibility::Hidden;
-        }
-    }
-
-    if keycode.pressed(KeyCode::M) {
-        *per_method_settings = PerMethodSettings::matched();
-    }
-    if keycode.pressed(KeyCode::R) {
-        *per_method_settings = PerMethodSettings::default();
-    }
+    text.push_str("\n\nColor Grading:\n");
+    text.push_str(&format!("(A/S) Exposure: {}\n", color_grading.exposure));
+    text.push_str(&format!("(D/F) Gamma: {}\n", color_grading.gamma));
+    text.push_str(&format!(
+        "(Z/X) PreSaturation: {}\n",
+        color_grading.pre_saturation
+    ));
+    text.push_str(&format!(
+        "(C/V) PostSaturation: {}\n",
+        color_grading.post_saturation
+    ));
+    text.push_str("(Space) Reset");
 }
 
 /// Creates a colorful test pattern
@@ -665,7 +590,7 @@ fn uv_debug_texture() -> Image {
     img
 }
 
-impl Material for TestMaterial {
+impl Material for ColorGradientMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/tonemapping_test_patterns.wgsl".into()
     }
@@ -673,4 +598,16 @@ impl Material for TestMaterial {
 
 #[derive(AsBindGroup, Debug, Clone, TypeUuid)]
 #[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
-pub struct TestMaterial {}
+pub struct ColorGradientMaterial {}
+
+#[derive(Resource)]
+struct CameraTransform(Transform);
+
+#[derive(Resource)]
+struct CurrentScene(u32);
+
+#[derive(Component)]
+struct SceneNumber(u32);
+
+#[derive(Component)]
+struct HDRViewer;
