@@ -821,7 +821,7 @@ impl App {
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
     /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
-    /// before / after another plugin), call [`build()`](PluginGroup::build) on the group,
+    /// before / after another plugin), call [`build()`](super::PluginGroup::build) on the group,
     /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
     ///
     /// You can also specify a group of [`Plugin`]s by using a tuple over [`Plugin`]s and
