@@ -80,7 +80,11 @@ where
             if let Some(audio_source) = audio_sources.get(&config.source_handle) {
                 if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
                     sink.set_speed(config.settings.speed);
-                    sink.set_volume(config.settings.volume * global_volume.volume);
+                    if config.settings.absolute_volume {
+                        sink.set_volume(config.settings.volume);
+                    } else {
+                        sink.set_volume(config.settings.volume * global_volume.volume);
+                    }
 
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
                     let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
