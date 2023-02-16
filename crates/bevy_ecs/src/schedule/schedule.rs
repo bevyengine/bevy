@@ -1345,6 +1345,7 @@ impl ScheduleGraph {
     }
 }
 
+#[non_exhaustive]
 pub struct ComputedScheduleData {
     pub hier_results: CheckGraphResults<NodeId>,
     pub hier_scc: Vec<Vec<NodeId>>,
