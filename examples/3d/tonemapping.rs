@@ -342,11 +342,11 @@ fn toggle_scene(
     mut current_scene: ResMut<CurrentScene>,
 ) {
     let mut pressed = None;
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Q) {
         pressed = Some(1);
-    } else if keys.just_pressed(KeyCode::Key2) {
+    } else if keys.just_pressed(KeyCode::W) {
         pressed = Some(2);
-    } else if keys.just_pressed(KeyCode::Key3) {
+    } else if keys.just_pressed(KeyCode::E) {
         pressed = Some(3);
     }
 
@@ -372,21 +372,21 @@ fn toggle_tonemapping_method(
     let Tonemapping::Enabled { method, .. } = &mut *tonemapping.single_mut() else { unreachable!() };
     let mut color_grading = color_grading.single_mut();
 
-    if keys.just_pressed(KeyCode::Q) {
+    if keys.just_pressed(KeyCode::Key1) {
         *method = TonemappingMethod::None;
-    } else if keys.just_pressed(KeyCode::W) {
+    } else if keys.just_pressed(KeyCode::Key2) {
         *method = TonemappingMethod::Reinhard;
-    } else if keys.just_pressed(KeyCode::E) {
+    } else if keys.just_pressed(KeyCode::Key3) {
         *method = TonemappingMethod::ReinhardLuminance;
-    } else if keys.just_pressed(KeyCode::R) {
+    } else if keys.just_pressed(KeyCode::Key4) {
         *method = TonemappingMethod::ACES;
-    } else if keys.just_pressed(KeyCode::T) {
+    } else if keys.just_pressed(KeyCode::Key5) {
         *method = TonemappingMethod::AgX;
-    } else if keys.just_pressed(KeyCode::Y) {
+    } else if keys.just_pressed(KeyCode::Key6) {
         *method = TonemappingMethod::SomewhatBoringDisplayTransform;
-    } else if keys.just_pressed(KeyCode::U) {
+    } else if keys.just_pressed(KeyCode::Key7) {
         *method = TonemappingMethod::TonyMcMapface;
-    } else if keys.just_pressed(KeyCode::I) {
+    } else if keys.just_pressed(KeyCode::Key8) {
         *method = TonemappingMethod::BlenderFilmic;
     }
 
@@ -445,68 +445,69 @@ fn update_ui(
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
 ) {
+    let (&Tonemapping::Enabled { method, .. }, color_grading) = settings.single() else { unreachable!() };
+
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
     text.clear();
-    let (&Tonemapping::Enabled { method, .. }, color_grading) = settings.single() else { unreachable!() };
 
-    text.push_str("Scene: ");
+    text.push_str("Test Scene: \n");
     if current_scene.0 == 1 {
-        text.push_str("(*1*)");
+        text.push_str("(Q) *Basic Scene*\n");
     } else {
-        text.push_str("(1)");
+        text.push_str("(Q) Basic Scene\n");
     }
     if current_scene.0 == 2 {
-        text.push_str("(*2*)");
+        text.push_str("(W) *Color Gradient*\n");
     } else {
-        text.push_str("(2)");
+        text.push_str("(W) Color Gradient\n");
     }
     if current_scene.0 == 3 {
-        text.push_str("(*3*)");
+        text.push_str("(E) *Image Viewer*");
     } else {
-        text.push_str("(3)");
+        text.push_str("(E) Image Viewer");
     }
 
     text.push_str("\n\nTonemapping Method:\n");
     if method == TonemappingMethod::None {
-        text.push_str("(Q) *Disabled*\n");
+        text.push_str("(1) *Disabled*\n");
     } else {
-        text.push_str("(Q) Disabled\n");
+        text.push_str("(1) Disabled\n");
     }
     if method == TonemappingMethod::Reinhard {
-        text.push_str("(W) *Reinhard*\n");
+        text.push_str("(2) *Reinhard*\n");
     } else {
-        text.push_str("(W) Reinhard\n");
+        text.push_str("(2) Reinhard\n");
     }
     if method == TonemappingMethod::ReinhardLuminance {
-        text.push_str("(E) *ReinhardLuminance*\n");
+        text.push_str("(3) *ReinhardLuminance*\n");
     } else {
-        text.push_str("(E) ReinhardLuminance\n");
+        text.push_str("(3) ReinhardLuminance\n");
     }
     if method == TonemappingMethod::ACES {
-        text.push_str("(R) *ACES*\n");
+        text.push_str("(4) *ACES*\n");
     } else {
-        text.push_str("(R) ACES\n");
+        text.push_str("(4) ACES\n");
     }
     if method == TonemappingMethod::AgX {
-        text.push_str("(T) *AgX*\n");
+        text.push_str("(5) *AgX*\n");
     } else {
-        text.push_str("(T) AgX\n");
+        text.push_str("(5) AgX\n");
     }
     if method == TonemappingMethod::SomewhatBoringDisplayTransform {
-        text.push_str("(Y) *SomewhatBoringDisplayTransform*\n");
+        text.push_str("(6) *SomewhatBoringDisplayTransform*\n");
     } else {
-        text.push_str("(Y) SomewhatBoringDisplayTransform\n");
+        text.push_str("(6) SomewhatBoringDisplayTransform\n");
     }
     if method == TonemappingMethod::TonyMcMapface {
-        text.push_str("(U) *TonyMcMapface*\n");
+        text.push_str("(7) *TonyMcMapface*\n");
     } else {
-        text.push_str("(U) TonyMcMapface\n");
+        text.push_str("(7) TonyMcMapface\n");
     }
     if method == TonemappingMethod::BlenderFilmic {
-        text.push_str("(I) *BlenderFilmic*");
+        text.push_str("(8) *BlenderFilmic*");
     } else {
-        text.push_str("(I) BlenderFilmic");
+        text.push_str("(8) BlenderFilmic");
     }
 
     text.push_str("\n\nColor Grading:\n");
