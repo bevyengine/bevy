@@ -7,7 +7,8 @@ use crate::{
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
-use bevy_ecs_macros::all_tuples;
+
+use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 use super::ReadOnlySystem;
