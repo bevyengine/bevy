@@ -33,7 +33,8 @@ pub struct StorageBuffer<T: ShaderType> {
     buffer: Option<Buffer>,
     capacity: usize,
     label: Option<String>,
-    label_changed: bool,
+    changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> From<T> for StorageBuffer<T> {
@@ -44,7 +45,8 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             buffer: None,
             capacity: 0,
             label: None,
-            label_changed: false,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
         }
     }
 }
@@ -57,7 +59,8 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             buffer: None,
             capacity: 0,
             label: None,
-            label_changed: false,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
         }
     }
 }
@@ -91,7 +94,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         let label = label.map(str::to_string);
 
         if label != self.label {
-            self.label_changed = true;
+            self.changed = true;
         }
 
         self.label = label;
@@ -99,6 +102,16 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
     pub fn get_label(&self) -> Option<&str> {
         self.label.as_deref()
+    }
+
+    /// Add more [`BufferUsages`] to the buffer.
+    ///
+    /// This method only allows addition of flags to the default usage flags.
+    ///
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::STORAGE`.
+    pub fn add_usages(&mut self, usage: BufferUsages) {
+        self.buffer_usage |= usage;
+        self.changed = true;
     }
 
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
@@ -111,14 +124,14 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
         let size = self.scratch.as_ref().len();
 
-        if self.capacity < size || self.label_changed {
+        if self.capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
-            self.label_changed = false;
+            self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
@@ -152,7 +165,8 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     buffer: Option<Buffer>,
     capacity: usize,
     label: Option<String>,
-    label_changed: bool,
+    changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
@@ -163,7 +177,8 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             buffer: None,
             capacity: 0,
             label: None,
-            label_changed: false,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
         }
     }
 }
@@ -204,7 +219,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         let label = label.map(str::to_string);
 
         if label != self.label {
-            self.label_changed = true;
+            self.changed = true;
         }
 
         self.label = label;
@@ -214,18 +229,28 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         self.label.as_deref()
     }
 
+    /// Add more [`BufferUsages`] to the buffer.
+    ///
+    /// This method only allows addition of flags to the default usage flags.
+    ///
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::STORAGE`.
+    pub fn add_usages(&mut self, usage: BufferUsages) {
+        self.buffer_usage |= usage;
+        self.changed = true;
+    }
+
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
 
-        if self.capacity < size || self.label_changed {
+        if self.capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
-            self.label_changed = false;
+            self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }

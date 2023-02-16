@@ -7,20 +7,12 @@ use bevy::prelude::*;
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum GameState {
     #[default]
     Splash,
     Menu,
     Game,
-}
-
-impl States for GameState {
-    type Iter = std::array::IntoIter<GameState, 3>;
-
-    fn variants() -> Self::Iter {
-        [GameState::Splash, GameState::Menu, GameState::Game].into_iter()
-    }
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
@@ -70,7 +62,7 @@ mod splash {
                 // When entering the state, spawn everything needed for this screen
                 .add_system_to_schedule(OnEnter(GameState::Splash), splash_setup)
                 // While in this state, run the `countdown` system
-                .add_system(countdown.on_update(GameState::Splash))
+                .add_system(countdown.in_set(OnUpdate(GameState::Splash)))
                 // When exiting the state, despawn everything that was spawned for this screen
                 .add_system_to_schedule(
                     OnExit(GameState::Splash),
@@ -142,7 +134,7 @@ mod game {
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
             app.add_system_to_schedule(OnEnter(GameState::Game), game_setup)
-                .add_system(game.on_update(GameState::Game))
+                .add_system(game.in_set(OnUpdate(GameState::Game)))
                 .add_system_to_schedule(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
@@ -291,7 +283,9 @@ mod menu {
                     OnEnter(MenuState::SettingsDisplay),
                     display_settings_menu_setup,
                 )
-                .add_system(setting_button::<DisplayQuality>.on_update(MenuState::SettingsDisplay))
+                .add_system(
+                    setting_button::<DisplayQuality>.in_set(OnUpdate(MenuState::SettingsDisplay)),
+                )
                 .add_system_to_schedule(
                     OnExit(MenuState::SettingsDisplay),
                     despawn_screen::<OnDisplaySettingsMenuScreen>,
@@ -301,18 +295,18 @@ mod menu {
                     OnEnter(MenuState::SettingsSound),
                     sound_settings_menu_setup,
                 )
-                .add_system(setting_button::<Volume>.on_update(MenuState::SettingsSound))
+                .add_system(setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)))
                 .add_system_to_schedule(
                     OnExit(MenuState::SettingsSound),
                     despawn_screen::<OnSoundSettingsMenuScreen>,
                 )
                 // Common systems to all screens that handles buttons behaviour
-                .add_systems((menu_action, button_system).on_update(GameState::Menu));
+                .add_systems((menu_action, button_system).in_set(OnUpdate(GameState::Menu)));
         }
     }
 
     // State used for the current menu screen
-    #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+    #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
     enum MenuState {
         Main,
         Settings,
@@ -320,21 +314,6 @@ mod menu {
         SettingsSound,
         #[default]
         Disabled,
-    }
-
-    impl States for MenuState {
-        type Iter = std::array::IntoIter<MenuState, 5>;
-
-        fn variants() -> Self::Iter {
-            [
-                MenuState::Main,
-                MenuState::Settings,
-                MenuState::SettingsDisplay,
-                MenuState::SettingsSound,
-                MenuState::Disabled,
-            ]
-            .into_iter()
-        }
     }
 
     // Tag component used to tag entities added on the main menu screen

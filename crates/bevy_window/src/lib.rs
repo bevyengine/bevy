@@ -102,7 +102,8 @@ impl Plugin for WindowPlugin {
         }
 
         if self.close_when_requested {
-            app.add_system(close_when_requested.in_base_set(CoreSet::PostUpdate));
+            // Need to run before `exit_on_*` systems
+            app.add_system(close_when_requested);
         }
 
         // Register event types
@@ -136,9 +137,6 @@ impl Plugin for WindowPlugin {
         app.register_type::<PathBuf>();
     }
 }
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct ModifiesWindows;
 
 /// Defines the specific conditions the application should exit on
 #[derive(Clone)]

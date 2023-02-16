@@ -7,6 +7,8 @@ use crate::schedule::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
+pub use bevy_ecs_macros::States;
+
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
@@ -25,20 +27,12 @@ use crate::world::World;
 /// ```rust
 /// use bevy_ecs::prelude::States;
 ///
-/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
 ///  #[default]
 ///   MainMenu,
 ///   SettingsMenu,
 ///   InGame,
-/// }
-///
-/// impl States for GameState {
-///   type Iter = std::array::IntoIter<GameState, 3>;
-///
-///   fn variants() -> Self::Iter {
-///     [GameState::MainMenu, GameState::SettingsMenu, GameState::InGame].into_iter()
-///   }
 /// }
 ///
 /// ```
@@ -59,10 +53,11 @@ pub struct OnEnter<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
-/// A [`SystemSet`] that will run within `CoreSet::StateTransitions` when this state is active.
+/// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
 ///
-/// This is provided for convenience. A more general [`state_equals`](crate::schedule::common_conditions::state_equals)
-/// [condition](super::Condition) also exists for systems that need to run elsewhere.
+/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
+/// If all you want is the run condition, use the [`in_state`](crate::schedule::common_conditions::in_state)
+/// [condition](super::Condition) directly.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnUpdate<S: States>(pub S);
 
@@ -74,7 +69,7 @@ pub struct OnUpdate<S: States>(pub S);
 /// [`apply_state_transition::<S>`] system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct State<S: States>(pub S);
 
 /// The next state of [`State<S>`].
@@ -82,7 +77,7 @@ pub struct State<S: States>(pub S);
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overriden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct NextState<S: States>(pub Option<S>);
 
 impl<S: States> NextState<S> {

@@ -2,16 +2,18 @@ mod command_queue;
 mod parallel_scope;
 
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
+use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::Resource;
+use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -97,9 +99,21 @@ pub trait Command: Send + 'static {
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
 /// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
 /// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: &'s mut CommandQueue,
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
+}
+
+impl SystemBuffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
+        self.apply(world);
+    }
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -109,10 +123,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self {
-            queue,
-            entities: world.entities(),
-        }
+        Self::new_from_entities(queue, world.entities())
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -121,7 +132,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
-        Self { queue, entities }
+        Self {
+            queue: Deferred(queue),
+            entities,
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],

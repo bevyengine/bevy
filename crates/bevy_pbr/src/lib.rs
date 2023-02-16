@@ -2,6 +2,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod environment_map;
 mod fog;
 mod light;
 mod material;
@@ -10,9 +11,8 @@ mod prepass;
 mod render;
 
 pub use alpha::*;
-use bevy_transform::TransformSystem;
-use bevy_window::ModifiesWindows;
 pub use bundle::*;
+pub use environment_map::EnvironmentMapLight;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
@@ -28,6 +28,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
+        environment_map::EnvironmentMapLight,
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
@@ -56,6 +57,8 @@ use bevy_render::{
     view::{ViewSet, VisibilitySystems},
     ExtractSchedule, RenderApp, RenderSet,
 };
+use bevy_transform::TransformSystem;
+use environment_map::EnvironmentMapPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
@@ -75,6 +78,8 @@ pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
+pub const PBR_AMBIENT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
@@ -132,6 +137,12 @@ impl Plugin for PbrPlugin {
             "render/pbr_functions.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PBR_AMBIENT_HANDLE,
+            "render/pbr_ambient.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -165,6 +176,7 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..Default::default()
             })
+            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -191,8 +203,7 @@ impl Plugin for PbrPlugin {
                     .in_set(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CheckVisibility)
-                    .after(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .after(CameraUpdateSystem),
             )
             .add_system(
                 update_directional_light_cascades
@@ -254,6 +265,9 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
+            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
             .add_systems_to_schedule(
                 ExtractSchedule,
                 (
@@ -264,27 +278,22 @@ impl Plugin for PbrPlugin {
             .add_system(
                 render::prepare_lights
                     .before(ViewSet::PrepareUniforms)
-                    .in_set(RenderLightSystems::PrepareLights)
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderLightSystems::PrepareLights),
             )
             // A sync is needed after prepare_lights, before prepare_view_uniforms,
             // because prepare_lights creates new views for shadow mapping
             .add_system(
                 apply_system_buffers
+                    .in_set(RenderSet::Prepare)
                     .after(RenderLightSystems::PrepareLights)
                     .before(ViewSet::PrepareUniforms),
             )
             .add_system(
                 render::prepare_clusters
                     .after(render::prepare_lights)
-                    .in_set(RenderLightSystems::PrepareClusters)
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderLightSystems::PrepareClusters),
             )
-            .add_system(
-                render::queue_shadows
-                    .in_set(RenderLightSystems::QueueShadows)
-                    .in_set(RenderSet::Queue),
-            )
+            .add_system(render::queue_shadows.in_set(RenderLightSystems::QueueShadows))
             .add_system(render::queue_shadow_view_bind_group.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort))
             .init_resource::<ShadowPipeline>()

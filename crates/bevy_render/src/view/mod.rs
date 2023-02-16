@@ -1,13 +1,14 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_asset::{load_internal_asset, HandleUntyped};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    prelude::Image,
+    prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -18,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -27,10 +28,15 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
+pub const VIEW_TYPE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+
         app.register_type::<ComputedVisibility>()
             .register_type::<ComputedVisibilityFlags>()
             .register_type::<Msaa>()
@@ -45,11 +51,8 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system(
-                    prepare_view_uniforms
-                        .in_set(RenderSet::Prepare)
-                        .in_set(ViewSet::PrepareUniforms),
-                )
+                .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .add_system(prepare_view_uniforms.in_set(ViewSet::PrepareUniforms))
                 .add_system(
                     prepare_view_targets
                         .after(WindowSystem::Prepare)

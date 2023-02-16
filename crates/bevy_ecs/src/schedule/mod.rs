@@ -15,6 +15,8 @@ pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;
 
+pub use self::graph_utils::NodeId;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,13 +177,11 @@ mod tests {
 
         #[test]
         fn add_systems_correct_order() {
-            #[derive(Resource)]
-            struct X(Vec<TestSet>);
-
             let mut world = World::new();
+            let mut schedule = Schedule::new();
+
             world.init_resource::<SystemOrder>();
 
-            let mut schedule = Schedule::new();
             schedule.add_systems(
                 (
                     make_function_system(0),
@@ -795,6 +795,28 @@ mod tests {
                 result,
                 Err(ScheduleBuildError::SetInMultipleBaseSets { .. })
             ));
+        }
+
+        #[test]
+        fn allow_same_base_sets() {
+            let mut world = World::new();
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::A))
+                .add_system(named_system.in_set(Normal::X).in_set(Normal::Y));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Ok(())));
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::A).in_set(Normal::X));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Ok(())));
         }
 
         #[test]

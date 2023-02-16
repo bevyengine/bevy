@@ -278,8 +278,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///     // NOTE: the event won't actually be sent until commands get flushed
 ///     // at the end of the current stage.
 ///     commands.add(|w: &mut World| {
-///         let mut events_resource = w.resource_mut::<Events<_>>();
-///         events_resource.send(MyEvent);
+///         w.send_event(MyEvent);
 ///     });
 /// }
 /// ```
@@ -390,6 +389,10 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
         self.iter.last().map(|(event, _)| event)
     }
 
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -476,6 +479,11 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
         let EventInstance { event_id, event } = self.chain.last()?;
         self.reader.last_event_count += self.unread;
         Some((event, *event_id))
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

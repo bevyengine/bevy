@@ -86,7 +86,10 @@ impl FlexSurface {
         let taffy_style = convert::from_style(scale_factor, style);
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-                let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
+                let mut size = Size {
+                    width: (scale_factor * calculated_size.size.x as f64) as f32,
+                    height: (scale_factor * calculated_size.size.y as f64) as f32,
+                };
                 match (constraints.width, constraints.height) {
                     (None, None) => {}
                     (Some(width), None) => {

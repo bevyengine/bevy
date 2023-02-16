@@ -28,7 +28,6 @@ use bevy_asset::AddAsset;
 use bevy_ecs::prelude::*;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
-use bevy_window::ModifiesWindows;
 use std::num::NonZeroUsize;
 
 #[derive(Default)]
@@ -83,7 +82,6 @@ impl Plugin for TextPlugin {
             .add_system(
                 update_text2d_layout
                     .in_base_set(CoreSet::PostUpdate)
-                    .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `update_text2d_layout`
