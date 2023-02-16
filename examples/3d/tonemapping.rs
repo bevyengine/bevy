@@ -24,6 +24,7 @@ fn main() {
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
+        .insert_resource(CurrentScene(1))
         .add_startup_system(setup)
         .add_startup_system(setup_basic_scene)
         .add_startup_system(setup_color_gradient_scene)
@@ -230,6 +231,7 @@ fn setup_image_viewer_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     camera_transform: Res<CameraTransform>,
+    asset_server: Res<AssetServer>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += transform.forward();
@@ -253,13 +255,34 @@ fn setup_image_viewer_scene(
         SceneNumber(3),
         HDRViewer,
     ));
+
+    commands
+        .spawn((
+            TextBundle::from_section(
+                "Drag and drop an HDR or EXR file",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 28.0,
+                    color: Color::BLACK,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_style(Style {
+                align_self: AlignSelf::Center,
+                margin: UiRect::all(Val::Auto),
+                ..default()
+            }),
+            SceneNumber(3),
+        ))
+        .insert(Visibility::Hidden);
 }
 
 // ----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
 fn update_image_viewer(
-    query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,
@@ -267,6 +290,7 @@ fn update_image_viewer(
     mut drop_hovered: Local<bool>,
     asset_server: Res<AssetServer>,
     mut image_events: EventReader<AssetEvent<Image>>,
+    mut commands: Commands,
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
@@ -281,11 +305,12 @@ fn update_image_viewer(
         }
     }
 
-    for (mat_h, mesh_h) in &query {
+    for (mat_h, mesh_h) in &image_mesh {
         if let Some(mat) = materials.get_mut(mat_h) {
             if let Some(ref new_image) = new_image {
-                // Update texture
                 mat.base_color_texture = Some(new_image.clone());
+
+                commands.entity(text.single()).despawn();
             }
 
             for event in image_events.iter() {
@@ -308,7 +333,11 @@ fn update_image_viewer(
     }
 }
 
-fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &SceneNumber)>) {
+fn toggle_scene(
+    keys: Res<Input<KeyCode>>,
+    mut query: Query<(&mut Visibility, &SceneNumber)>,
+    mut current_scene: ResMut<CurrentScene>,
+) {
     let mut pressed = None;
     if keys.just_pressed(KeyCode::Key1) {
         pressed = Some(1);
@@ -317,7 +346,10 @@ fn toggle_scene(keys: Res<Input<KeyCode>>, mut query: Query<(&mut Visibility, &S
     } else if keys.just_pressed(KeyCode::Key3) {
         pressed = Some(3);
     }
+
     if let Some(pressed) = pressed {
+        current_scene.0 = pressed;
+
         for (mut visibility, scene) in query.iter_mut() {
             if scene.0 == pressed {
                 *visibility = Visibility::Visible;
@@ -350,226 +382,215 @@ fn toggle_tonemapping_method(keys: Res<Input<KeyCode>>, mut query: Query<&mut To
     }
 }
 
-fn update_color_grading_settings(// mut grading: Query<&mut ColorGrading>,
-    // mut text: Query<&mut Text>,
-    // keycode: Res<Input<KeyCode>>,
-    // tonemapping: Query<&Tonemapping>,
-    // time: Res<Time>,
-    // mut per_method_settings: Local<PerMethodSettings>,
-    // mut controls_vis: Query<&mut Visibility, With<ControlsUI>>,
+fn update_color_grading_settings(
+    keys: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    mut color_grading: Query<&mut ColorGrading>,
 ) {
-    // let mut color_grading = grading.single_mut();
-    // let tonemapping = tonemapping.single();
+    let mut color_grading = color_grading.single_mut();
+    let dt = time.delta_seconds();
 
-    // let mut text = text.single_mut();
-    // let text = &mut text.sections[0].value;
+    if keys.pressed(KeyCode::S) {
+        color_grading.exposure -= dt;
+    }
+    if keys.pressed(KeyCode::A) {
+        color_grading.exposure += dt;
+    }
 
-    // *text = "Settings\n".to_string();
-    // text.push_str("-------------\n");
+    if keys.pressed(KeyCode::F) {
+        color_grading.gamma -= dt;
+    }
+    if keys.pressed(KeyCode::D) {
+        color_grading.gamma += dt;
+    }
 
-    // let mut current_setting = None;
+    if keys.pressed(KeyCode::X) {
+        color_grading.pre_saturation -= dt;
+    }
+    if keys.pressed(KeyCode::Z) {
+        color_grading.pre_saturation += dt;
+    }
 
-    // text.push_str("Tonemapping options: \n");
-    // text.push_str("number keys 4..0\n\n");
-    // text.push_str("Bypass: B\n\n");
-
-    // match tonemapping {
-    //     Tonemapping::Disabled => text.push_str("Tonemapping: Disabled\n"),
-    //     Tonemapping::Enabled {
-    //         deband_dither: _,
-    //         method,
-    //     } => {
-    //         current_setting = Some(per_method_settings.settings.get_mut(method).unwrap());
-
-    //         match method {
-    //             TonemappingMethod::None => text.push_str("Tonemapping:\nBypassed\n"),
-    //             TonemappingMethod::Reinhard => text.push_str("Tonemapping:\nReinhard\n"),
-    //             TonemappingMethod::ReinhardLuminance => {
-    //                 text.push_str("Tonemapping:\nReinhard Luminance\n");
-    //             }
-    //             TonemappingMethod::Aces => text.push_str("Tonemapping:\nAces\n"),
-    //             TonemappingMethod::AgX => text.push_str("Tonemapping:\nAgX\n"),
-    //             TonemappingMethod::SomewhatBoringDisplayTransform => {
-    //                 text.push_str("Tonemapping:\nSomewhatBoringDisplayTransform\n")
-    //             }
-    //             TonemappingMethod::TonyMcMapface => text.push_str("Tonemapping:\nTonyMcMapface\n"),
-    //             TonemappingMethod::BlenderFilmic => text.push_str("Tonemapping:\nBlender Filmic\n"),
-    //         }
-    //     }
-    // }
-
-    // if let Some(mut current_setting) = current_setting {
-    //     text.push_str("\n\n");
-    //     text.push_str(&format!("Exposure: {}\n", current_setting.exposure));
-    //     text.push_str(&format!("Gamma: {}\n", current_setting.gamma));
-    //     text.push_str(&format!(
-    //         "Pre Saturation: {}\n",
-    //         current_setting.pre_saturation
-    //     ));
-    //     text.push_str(&format!(
-    //         "Post Saturation: {}\n",
-    //         current_setting.post_saturation
-    //     ));
-
-    //     text.push_str("\n\n");
-
-    //     text.push_str("Controls (-/+)\n");
-    //     text.push_str("---------------\n");
-    //     text.push_str("Q/W - Exposure\n");
-    //     text.push_str("E/R - Gamma\n");
-    //     text.push_str("A/S - Pre Saturation\n");
-    //     text.push_str("D/F - Post Saturation\n");
-
-    //     text.push_str("\n\n");
-
-    //     text.push_str("R - Reset Correction\n");
-    //     text.push_str("M - Matched Correction\n");
-
-    //     let dt = time.delta_seconds();
-
-    //     if keycode.pressed(KeyCode::Q) {
-    //         current_setting.exposure -= dt;
-    //     }
-    //     if keycode.pressed(KeyCode::W) {
-    //         current_setting.exposure += dt;
-    //     }
-
-    //     if keycode.pressed(KeyCode::E) {
-    //         current_setting.gamma -= dt;
-    //     }
-    //     if keycode.pressed(KeyCode::R) {
-    //         current_setting.gamma += dt;
-    //     }
-
-    //     if keycode.pressed(KeyCode::A) {
-    //         current_setting.pre_saturation -= dt;
-    //     }
-    //     if keycode.pressed(KeyCode::S) {
-    //         current_setting.pre_saturation += dt;
-    //     }
-
-    //     if keycode.pressed(KeyCode::D) {
-    //         current_setting.post_saturation -= dt;
-    //     }
-    //     if keycode.pressed(KeyCode::F) {
-    //         current_setting.post_saturation += dt;
-    //     }
-
-    //     *color_grading = *current_setting;
-    // }
-
-    // if keycode.just_pressed(KeyCode::H) {
-    //     let mut controls_vis = controls_vis.single_mut();
-
-    //     if let Visibility::Hidden = *controls_vis {
-    //         *controls_vis = Visibility::Visible;
-    //     } else {
-    //         *controls_vis = Visibility::Hidden;
-    //     }
-    // }
-
-    // if keycode.pressed(KeyCode::M) {
-    //     *per_method_settings = PerMethodSettings::matched();
-    // }
-    // if keycode.pressed(KeyCode::R) {
-    //     *per_method_settings = PerMethodSettings::default();
-    // }
+    if keys.pressed(KeyCode::V) {
+        color_grading.post_saturation -= dt;
+    }
+    if keys.pressed(KeyCode::C) {
+        color_grading.post_saturation += dt;
+    }
 }
 
-fn update_ui() {
-    // TODO
+fn update_ui(
+    mut text: Query<&mut Text, Without<SceneNumber>>,
+    settings: Query<(&Tonemapping, &ColorGrading)>,
+    current_scene: Res<CurrentScene>,
+) {
+    let mut text = text.single_mut();
+    let text = &mut text.sections[0].value;
+    text.clear();
+    let (&Tonemapping::Enabled { method, .. }, color_grading) = settings.single() else { unreachable!() };
+
+    text.push_str("Scene: ");
+    if current_scene.0 == 1 {
+        text.push_str("(*1*)");
+    } else {
+        text.push_str("(1)");
+    }
+    if current_scene.0 == 2 {
+        text.push_str("(*2*)");
+    } else {
+        text.push_str("(2)");
+    }
+    if current_scene.0 == 3 {
+        text.push_str("(*3*)");
+    } else {
+        text.push_str("(3)");
+    }
+
+    text.push_str("\n\nTonemapping Method:\n");
+    if method == TonemappingMethod::None {
+        text.push_str("(Q) *Disabled*\n");
+    } else {
+        text.push_str("(Q) Disabled\n");
+    }
+    if method == TonemappingMethod::Reinhard {
+        text.push_str("(W) *Reinhard*\n");
+    } else {
+        text.push_str("(W) Reinhard\n");
+    }
+    if method == TonemappingMethod::ReinhardLuminance {
+        text.push_str("(E) *ReinhardLuminance*\n");
+    } else {
+        text.push_str("(E) ReinhardLuminance\n");
+    }
+    if method == TonemappingMethod::Aces {
+        text.push_str("(R) *ACES*\n");
+    } else {
+        text.push_str("(R) ACES\n");
+    }
+    if method == TonemappingMethod::AgX {
+        text.push_str("(T) *AgX*\n");
+    } else {
+        text.push_str("(T) AgX\n");
+    }
+    if method == TonemappingMethod::SomewhatBoringDisplayTransform {
+        text.push_str("(Y) *SomewhatBoringDisplayTransform*\n");
+    } else {
+        text.push_str("(Y) SomewhatBoringDisplayTransform\n");
+    }
+    if method == TonemappingMethod::TonyMcMapface {
+        text.push_str("(U) *TonyMcMapface*\n");
+    } else {
+        text.push_str("(U) TonyMcMapface\n");
+    }
+    if method == TonemappingMethod::BlenderFilmic {
+        text.push_str("(I) *BlenderFilmic*");
+    } else {
+        text.push_str("(I) BlenderFilmic");
+    }
+
+    text.push_str("\n\nColor Grading:\n");
+    text.push_str(&format!("(A/S) Exposure: {}\n", color_grading.exposure));
+    text.push_str(&format!("(D/F) Gamma: {}\n", color_grading.gamma));
+    text.push_str(&format!(
+        "(Z/X) PreSaturation: {}\n",
+        color_grading.pre_saturation
+    ));
+    text.push_str(&format!(
+        "(C/V) PostSaturation: {}",
+        color_grading.post_saturation
+    ));
 }
 
 // ----------------------------------------------------------------------------
 
-pub struct PerMethodSettings {
-    pub settings: HashMap<TonemappingMethod, ColorGrading>,
-}
+// pub struct PerMethodSettings {
+//     pub settings: HashMap<TonemappingMethod, ColorGrading>,
+// }
 
-impl Default for PerMethodSettings {
-    fn default() -> Self {
-        let mut settings = HashMap::new();
+// impl Default for PerMethodSettings {
+//     fn default() -> Self {
+//         let mut settings = HashMap::new();
 
-        settings.insert(TonemappingMethod::None, ColorGrading::default());
-        settings.insert(TonemappingMethod::Reinhard, ColorGrading::default());
-        settings.insert(
-            TonemappingMethod::ReinhardLuminance,
-            ColorGrading::default(),
-        );
-        settings.insert(TonemappingMethod::Aces, ColorGrading::default());
-        settings.insert(TonemappingMethod::AgX, ColorGrading::default());
-        settings.insert(
-            TonemappingMethod::SomewhatBoringDisplayTransform,
-            ColorGrading::default(),
-        );
-        settings.insert(TonemappingMethod::TonyMcMapface, ColorGrading::default());
-        settings.insert(TonemappingMethod::BlenderFilmic, ColorGrading::default());
+//         settings.insert(TonemappingMethod::None, ColorGrading::default());
+//         settings.insert(TonemappingMethod::Reinhard, ColorGrading::default());
+//         settings.insert(
+//             TonemappingMethod::ReinhardLuminance,
+//             ColorGrading::default(),
+//         );
+//         settings.insert(TonemappingMethod::Aces, ColorGrading::default());
+//         settings.insert(TonemappingMethod::AgX, ColorGrading::default());
+//         settings.insert(
+//             TonemappingMethod::SomewhatBoringDisplayTransform,
+//             ColorGrading::default(),
+//         );
+//         settings.insert(TonemappingMethod::TonyMcMapface, ColorGrading::default());
+//         settings.insert(TonemappingMethod::BlenderFilmic, ColorGrading::default());
 
-        Self { settings }
-    }
-}
+//         Self { settings }
+//     }
+// }
 
-impl PerMethodSettings {
-    fn matched() -> Self {
-        // Settings to somewhat match the tone mappers, especially in exposure, for this specific scene.
-        let mut settings = HashMap::new();
+// impl PerMethodSettings {
+//     fn matched() -> Self {
+//         // Settings to somewhat match the tone mappers, especially in exposure, for this specific scene.
+//         let mut settings = HashMap::new();
 
-        settings.insert(TonemappingMethod::None, ColorGrading::default());
-        settings.insert(
-            TonemappingMethod::Reinhard,
-            ColorGrading {
-                exposure: 0.5,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::ReinhardLuminance,
-            ColorGrading {
-                exposure: 0.5,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::Aces,
-            ColorGrading {
-                exposure: -0.3,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::AgX,
-            ColorGrading {
-                exposure: -0.2,
-                gamma: 1.0,
-                pre_saturation: 1.1,
-                post_saturation: 1.1,
-            },
-        );
-        settings.insert(
-            TonemappingMethod::SomewhatBoringDisplayTransform,
-            ColorGrading {
-                exposure: 0.0,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::TonyMcMapface,
-            ColorGrading {
-                exposure: 0.0,
-                ..default()
-            },
-        );
-        settings.insert(
-            TonemappingMethod::BlenderFilmic,
-            ColorGrading {
-                exposure: 0.0,
-                ..default()
-            },
-        );
+//         settings.insert(TonemappingMethod::None, ColorGrading::default());
+//         settings.insert(
+//             TonemappingMethod::Reinhard,
+//             ColorGrading {
+//                 exposure: 0.5,
+//                 ..default()
+//             },
+//         );
+//         settings.insert(
+//             TonemappingMethod::ReinhardLuminance,
+//             ColorGrading {
+//                 exposure: 0.5,
+//                 ..default()
+//             },
+//         );
+//         settings.insert(
+//             TonemappingMethod::Aces,
+//             ColorGrading {
+//                 exposure: -0.3,
+//                 ..default()
+//             },
+//         );
+//         settings.insert(
+//             TonemappingMethod::AgX,
+//             ColorGrading {
+//                 exposure: -0.2,
+//                 gamma: 1.0,
+//                 pre_saturation: 1.1,
+//                 post_saturation: 1.1,
+//             },
+//         );
+//         settings.insert(
+//             TonemappingMethod::SomewhatBoringDisplayTransform,
+//             ColorGrading {
+//                 exposure: 0.0,
+//                 ..default()
+//             },
+//         );
+//         settings.insert(
+//             TonemappingMethod::TonyMcMapface,
+//             ColorGrading {
+//                 exposure: 0.0,
+//                 ..default()
+//             },
+//         );
+//         settings.insert(
+//             TonemappingMethod::BlenderFilmic,
+//             ColorGrading {
+//                 exposure: 0.0,
+//                 ..default()
+//             },
+//         );
 
-        Self { settings }
-    }
-}
+//         Self { settings }
+//     }
+// }
 
 /// Creates a colorful test pattern
 fn uv_debug_texture() -> Image {
@@ -613,6 +634,9 @@ pub struct ColorGradientMaterial {}
 
 #[derive(Resource)]
 struct CameraTransform(Transform);
+
+#[derive(Resource)]
+struct CurrentScene(u32);
 
 #[derive(Component)]
 struct SceneNumber(u32);
