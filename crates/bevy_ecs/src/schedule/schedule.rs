@@ -1054,7 +1054,7 @@ impl ScheduleGraph {
     /// - calculates [`BaseSetMembership`]
     /// - checks for dependency or hierarchy cycles
     /// - checks for system access conflicts and reports ambiguities
-    pub fn build_schedule(
+    fn build_schedule(
         &mut self,
         components: &Components,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
@@ -1079,43 +1079,42 @@ impl ScheduleGraph {
             }
         }
 
+        let computed_data = self.compute_schedule_data();
+
         // check hierarchy for cycles
-        let hier_scc = tarjan_scc(&self.hierarchy.graph);
         // PERF: in theory we can skip this contains_cycles because we've already detected cycles
         // using calculate_base_sets_and_detect_cycles
-        if self.contains_cycles(&hier_scc) {
-            self.report_cycles(&hier_scc);
+        if self.contains_cycles(&computed_data.hier_scc) {
+            self.report_cycles(&computed_data.hier_scc);
             return Err(ScheduleBuildError::HierarchyCycle);
         }
 
-        self.hierarchy.topsort = hier_scc.into_iter().flatten().rev().collect::<Vec<_>>();
+        self.hierarchy.topsort = computed_data.hier_topsort;
 
-        let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
         if self.settings.hierarchy_detection != LogLevel::Ignore
-            && self.contains_hierarchy_conflicts(&hier_results.transitive_edges)
+            && self.contains_hierarchy_conflicts(&computed_data.hier_results.transitive_edges)
         {
-            self.report_hierarchy_conflicts(&hier_results.transitive_edges);
+            self.report_hierarchy_conflicts(&computed_data.hier_results.transitive_edges);
             if matches!(self.settings.hierarchy_detection, LogLevel::Error) {
                 return Err(ScheduleBuildError::HierarchyRedundancy);
             }
         }
 
         // remove redundant edges
-        self.hierarchy.graph = hier_results.transitive_reduction;
+        self.hierarchy.graph = computed_data.hier_results.transitive_reduction;
 
         // check dependencies for cycles
-        let dep_scc = tarjan_scc(&self.dependency.graph);
-        if self.contains_cycles(&dep_scc) {
-            self.report_cycles(&dep_scc);
+        if self.contains_cycles(&computed_data.dep_scc) {
+            self.report_cycles(&computed_data.dep_scc);
             return Err(ScheduleBuildError::DependencyCycle);
         }
 
-        self.dependency.topsort = dep_scc.into_iter().flatten().rev().collect::<Vec<_>>();
+        self.dependency.topsort = computed_data.dep_topsort;
 
         // check for systems or system sets depending on sets they belong to
-        let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
-        for &(a, b) in dep_results.connected.iter() {
-            if hier_results.connected.contains(&(a, b)) || hier_results.connected.contains(&(b, a))
+        for &(a, b) in computed_data.dep_results.connected.iter() {
+            if computed_data.hier_results.connected.contains(&(a, b))
+                || computed_data.hier_results.connected.contains(&(b, a))
             {
                 let name_a = self.get_node_name(&a);
                 let name_b = self.get_node_name(&b);
@@ -1123,50 +1122,14 @@ impl ScheduleGraph {
             }
         }
 
-        // map all system sets to their systems
-        // go in reverse topological order (bottom-up) for efficiency
-        let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
-            HashMap::with_capacity(self.system_sets.len());
-        let mut set_system_bitsets = HashMap::with_capacity(self.system_sets.len());
-        for &id in self.hierarchy.topsort.iter().rev() {
-            if id.is_system() {
-                continue;
-            }
-
-            let mut systems = Vec::new();
-            let mut system_bitset = FixedBitSet::with_capacity(self.systems.len());
-
-            for child in self
-                .hierarchy
-                .graph
-                .neighbors_directed(id, Direction::Outgoing)
-            {
-                match child {
-                    NodeId::System(_) => {
-                        systems.push(child);
-                        system_bitset.insert(child.index());
-                    }
-                    NodeId::Set(_) => {
-                        let child_systems = set_systems.get(&child).unwrap();
-                        let child_system_bitset = set_system_bitsets.get(&child).unwrap();
-                        systems.extend_from_slice(child_systems);
-                        system_bitset.union_with(child_system_bitset);
-                    }
-                }
-            }
-
-            set_systems.insert(id, systems);
-            set_system_bitsets.insert(id, system_bitset);
-        }
-
         // check that there is no ordering between system sets that intersect
-        for (a, b) in dep_results.connected.iter() {
+        for (a, b) in computed_data.dep_results.connected.iter() {
             if !(a.is_set() && b.is_set()) {
                 continue;
             }
 
-            let a_systems = set_system_bitsets.get(a).unwrap();
-            let b_systems = set_system_bitsets.get(b).unwrap();
+            let a_systems = computed_data.set_system_bitsets.get(a).unwrap();
+            let b_systems = computed_data.set_system_bitsets.get(b).unwrap();
 
             if !(a_systems.is_disjoint(b_systems)) {
                 return Err(ScheduleBuildError::SetsHaveOrderButIntersect(
@@ -1177,7 +1140,7 @@ impl ScheduleGraph {
         }
 
         // check that there are no edges to system-type sets that have multiple instances
-        for (&id, systems) in set_systems.iter() {
+        for (&id, systems) in computed_data.set_systems.iter() {
             let set = &self.system_sets[id.index()];
             if set.is_system_type() {
                 let instances = systems.len();
@@ -1199,113 +1162,23 @@ impl ScheduleGraph {
             }
         }
 
-        // flatten: combine `in_set` with `before` and `after` information
-        // have to do it like this to preserve transitivity
-        let mut dependency_flattened = self.dependency.graph.clone();
-        let mut temp = Vec::new();
-        for (&set, systems) in set_systems.iter() {
-            if systems.is_empty() {
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
-                    for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
-                        temp.push((a, b));
-                    }
-                }
-            } else {
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
-                    for &sys in systems {
-                        temp.push((a, sys));
-                    }
-                }
-
-                for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
-                    for &sys in systems {
-                        temp.push((sys, b));
-                    }
-                }
-            }
-
-            dependency_flattened.remove_node(set);
-            for (a, b) in temp.drain(..) {
-                dependency_flattened.add_edge(a, b, ());
-            }
-        }
-
-        // topsort
-        let flat_scc = tarjan_scc(&dependency_flattened);
-        if self.contains_cycles(&flat_scc) {
-            self.report_cycles(&flat_scc);
+        if self.contains_cycles(&computed_data.dep_flat_scc) {
+            self.report_cycles(&computed_data.dep_flat_scc);
             return Err(ScheduleBuildError::DependencyCycle);
         }
 
-        self.dependency_flattened.graph = dependency_flattened;
-        self.dependency_flattened.topsort =
-            flat_scc.into_iter().flatten().rev().collect::<Vec<_>>();
-
-        let flat_results = check_graph(
-            &self.dependency_flattened.graph,
-            &self.dependency_flattened.topsort,
-        );
+        self.dependency_flattened.graph = computed_data.dep_flattened;
+        self.dependency_flattened.topsort = computed_data.dep_flat_topsort;
 
         // remove redundant edges
-        self.dependency_flattened.graph = flat_results.transitive_reduction;
-
-        // flatten: combine `in_set` with `ambiguous_with` information
-        let mut ambiguous_with_flattened = UnGraphMap::new();
-        for (lhs, rhs, _) in self.ambiguous_with.all_edges() {
-            match (lhs, rhs) {
-                (NodeId::System(_), NodeId::System(_)) => {
-                    ambiguous_with_flattened.add_edge(lhs, rhs, ());
-                }
-                (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in set_systems.get(&lhs).unwrap() {
-                        ambiguous_with_flattened.add_edge(lhs_, rhs, ());
-                    }
-                }
-                (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in set_systems.get(&rhs).unwrap() {
-                        ambiguous_with_flattened.add_edge(lhs, rhs_, ());
-                    }
-                }
-                (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in set_systems.get(&lhs).unwrap() {
-                        for &rhs_ in set_systems.get(&rhs).unwrap() {
-                            ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
-                        }
-                    }
-                }
-            }
-        }
-
-        self.ambiguous_with_flattened = ambiguous_with_flattened;
+        self.dependency_flattened.graph = computed_data.dep_flat_results.transitive_reduction;
+        self.ambiguous_with_flattened = computed_data.ambiguous_with_flattened;
 
         // check for conflicts
-        let mut conflicting_systems = Vec::new();
-        for &(a, b) in flat_results.disconnected.iter() {
-            if self.ambiguous_with_flattened.contains_edge(a, b)
-                || self.ambiguous_with_all.contains(&a)
-                || self.ambiguous_with_all.contains(&b)
-            {
-                continue;
-            }
-
-            let system_a = self.systems[a.index()].get().unwrap();
-            let system_b = self.systems[b.index()].get().unwrap();
-            if system_a.is_exclusive() || system_b.is_exclusive() {
-                conflicting_systems.push((a, b, Vec::new()));
-            } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
-                if !access_a.is_compatible(access_b) {
-                    let conflicts = access_a.get_conflicts(access_b);
-                    conflicting_systems.push((a, b, conflicts));
-                }
-            }
-        }
-
         if self.settings.ambiguity_detection != LogLevel::Ignore
-            && self.contains_conflicts(&conflicting_systems)
+            && self.contains_conflicts(&computed_data.conflicting_systems)
         {
-            self.report_conflicts(&conflicting_systems, components);
+            self.report_conflicts(&computed_data.conflicting_systems, components);
             if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
                 return Err(ScheduleBuildError::Ambiguity);
             }
@@ -1380,7 +1253,8 @@ impl ScheduleGraph {
             let bitset = &mut systems_in_sets_with_conditions[i];
             for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
-                let is_descendant = hier_results.reachable[index(row, col, node_count)];
+                let is_descendant =
+                    computed_data.hier_results.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_descendant);
             }
         }
@@ -1395,7 +1269,7 @@ impl ScheduleGraph {
                 .enumerate()
                 .take_while(|&(_idx, &row)| row < col)
             {
-                let is_ancestor = hier_results.reachable[index(row, col, node_count)];
+                let is_ancestor = computed_data.hier_results.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_ancestor);
             }
         }
