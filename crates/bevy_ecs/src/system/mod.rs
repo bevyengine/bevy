@@ -571,8 +571,6 @@ mod tests {
 
     #[test]
     fn or_with_without_and_compatible_with_without() {
-        // TODO: atm, it doesn't fail, even though the current implementation is believed
-        //  not to support this case, need to investigate.
         fn sys(
             _: Query<&mut C, Or<(With<A>, Without<B>)>>,
             _: Query<&mut C, (With<B>, Without<A>)>,
@@ -585,11 +583,7 @@ mod tests {
     #[test]
     #[should_panic = "error[B0001]"]
     fn with_and_disjoint_or_empty_without() {
-        fn sys(
-            _: Query<&mut B, With<A>>,
-            _: Query<&mut B, Or<((), Without<A>)>>,
-        ) {
-        }
+        fn sys(_: Query<&mut B, With<A>>, _: Query<&mut B, Or<((), Without<A>)>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
     }

@@ -1293,7 +1293,7 @@ macro_rules! impl_anytuple_fetch {
                     if _not_first {
                         let mut intermediate = _access.clone();
                         $name::update_component_access($name, &mut intermediate);
-                        _intersected_access.extend_intersect_filter(&intermediate);
+                        _intersected_access.append_or(&intermediate);
                         _intersected_access.extend_access(&intermediate);
                     } else {
 

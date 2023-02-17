@@ -223,16 +223,16 @@ impl<T: SparseSetIndex> Access<T> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
-    with: NormalizedAccess<WithMarker, T>,
-    without: NormalizedAccess<WithoutMarker, T>,
+    // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
+    // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
+    filter_sets: SmallVec<[AccessFilters<T>; 8]>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     fn default() -> Self {
         Self {
             access: Access::default(),
-            with: Default::default(),
-            without: Default::default(),
+            filter_sets: smallvec::smallvec![AccessFilters::default()],
         }
     }
 }
@@ -261,28 +261,46 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
         self.access.add_read(index.clone());
-        self.add_with(index);
+        self.and_with(index);
     }
 
     /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
         self.access.add_write(index.clone());
-        self.add_with(index);
+        self.and_with(index);
     }
 
-    /// Retains only combinations where the element given by `index` is also present.
-    pub fn add_with(&mut self, index: T) {
-        self.with.add(index.sparse_set_index());
+    /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
+    ///
+    /// For example, in case we have `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances,
+    /// adding `AND With<C>` gets expanded into `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
+    pub fn and_with(&mut self, index: T) {
+        let index = index.sparse_set_index();
+        for filter in &mut self.filter_sets {
+            filter.with.grow(index + 1);
+            filter.with.insert(index);
+        }
     }
 
-    /// Retains only combinations where the element given by `index` is not present.
-    pub fn add_without(&mut self, index: T) {
-        self.without.add(index.sparse_set_index());
+    /// Adds a `Without` filter: corresponds to a conjunction (AND) operation.
+    ///
+    /// For example, in case we have `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances,
+    /// adding `AND Without<C>` gets expanded into `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
+    pub fn and_without(&mut self, index: T) {
+        let index = index.sparse_set_index();
+        for filter in &mut self.filter_sets {
+            filter.without.grow(index + 1);
+            filter.without.insert(index);
+        }
     }
 
-    pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {
-        self.without.extend_with_or(&other.without);
-        self.with.extend_with_or(&other.with);
+    /// Appends an array of filters: corresponds to a disjunction (OR) operation.
+    ///
+    /// As the underlying array of filters represents a disjunction,
+    /// where each element (`AccessFilters`) represents a conjunction,
+    /// we can simply append to the array.
+    pub fn append_or(&mut self, other: &FilteredAccess<T>) {
+        self.filter_sets.append(&mut other.filter_sets.clone());
     }
 
     pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
@@ -291,9 +309,23 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
-        self.access.is_compatible(&other.access)
-            || !self.with.is_disjoint(&other.without)
-            || !other.with.is_disjoint(&self.without)
+        if self.access.is_compatible(&other.access) {
+            return true;
+        }
+
+        // If the access instances are incompatible, we want to check that whether filters can
+        // guarantee that queries are disjoint.
+        // Since the `filter_sets` array represents a DNF formula ("ORs of ANDs"),
+        // we need to make sure that each filter set (ANDs) rule out every filter set from the `other` instance.
+        //
+        // For example, `Query<&mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<&mut C, (With<B>, Without<A>)>`,
+        // but `Query<&mut C, Or<(Without<A>, Without<B>)>>` isn't compatible with `Query<&mut C, Or<(With<A>, With<B>)>>`.
+        self.filter_sets.iter().all(|filter| {
+            other
+                .filter_sets
+                .iter()
+                .all(|other_filter| filter.is_ruled_out_by(other_filter))
+        })
     }
 
     /// Returns a vector of elements that this and `other` cannot access at the same time.
@@ -306,10 +338,35 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 
     /// Adds all access and filters from `other`.
-    pub fn extend(&mut self, access: &FilteredAccess<T>) {
-        self.access.extend(&access.access);
-        self.with.union_with(&access.with);
-        self.without.union_with(&access.without);
+    ///
+    /// Corresponds to a conjunction operation (AND) for filters.
+    ///
+    /// Extending `Or<(With<A>, Without<B>)>` with `Or<(With<C>, Without<D>)>` will result in
+    /// `Or<((With<A>, With<C>), (With<A>, Without<D>), (Without<B>, With<C>), (Without<B>, Without<D>))>`.
+    pub fn extend(&mut self, other: &FilteredAccess<T>) {
+        self.access.extend(&other.access);
+
+        // We can avoid allocating a new array of bitsets if `other` contains just a single set of filters:
+        // in this case we can short-circuit by performing an in-place union for each bitset.
+        if other.filter_sets.len() == 1 {
+            for filter in &mut self.filter_sets {
+                filter.with.union_with(&other.filter_sets[0].with);
+                filter.without.union_with(&other.filter_sets[0].without);
+            }
+            return;
+        }
+
+        let mut new_filters =
+            SmallVec::with_capacity(self.filter_sets.len() * other.filter_sets.len());
+        for filter in &self.filter_sets {
+            for other_filter in &other.filter_sets {
+                let mut new_filter = filter.clone();
+                new_filter.with.union_with(&other_filter.with);
+                new_filter.without.union_with(&other_filter.without);
+                new_filters.push(new_filter);
+            }
+        }
+        self.filter_sets = new_filters;
     }
 
     /// Sets the underlying unfiltered access as having access to all indexed elements.
@@ -318,97 +375,35 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
-// A struct to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
-// Filters like `(With<A>, Or<(With<B>, With<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, With<C>))>`.
-//
-// The `T` generic argument is expected to be either `WithMarker` or `WithoutMarker`, to prevent
-// incorrect usage (for example, calculating a union of `With` and `Without` filters).
-// The `I` generic argument is used for debug formatting (see `FormattedBitSet`).
 #[derive(Clone, Eq, PartialEq)]
-struct NormalizedAccess<T, I> {
-    arr: SmallVec<[FixedBitSet; 8]>,
-    _filter_type: PhantomData<T>,
-    _index_type: PhantomData<I>,
+struct AccessFilters<T> {
+    with: FixedBitSet,
+    without: FixedBitSet,
+    _index_type: PhantomData<T>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct WithMarker;
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct WithoutMarker;
-
-impl<T, I: SparseSetIndex + fmt::Debug> fmt::Debug for NormalizedAccess<T, I> {
+impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for AccessFilters<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.arr.iter().map(FormattedBitSet::<I>::new))
+        f.debug_struct("AccessFilters")
+            .field("with", &FormattedBitSet::<T>::new(&self.with))
+            .field("without", &FormattedBitSet::<T>::new(&self.without))
             .finish()
     }
 }
 
-impl<T, I: SparseSetIndex> Default for NormalizedAccess<T, I> {
+impl<T: SparseSetIndex> Default for AccessFilters<T> {
     fn default() -> Self {
         Self {
-            arr: smallvec::smallvec![FixedBitSet::default()],
-            _filter_type: PhantomData,
+            with: FixedBitSet::default(),
+            without: FixedBitSet::default(),
             _index_type: PhantomData,
         }
     }
 }
 
-impl<T, I: SparseSetIndex> NormalizedAccess<T, I> {
-    // Corresponds to a conjunction (AND) operation.
-    //
-    // For example, in case we have `Or<(With<A>, With<B>)>`, which is represented by an array of two bitsets,
-    // adding `AND With<C>` needs to be expanded into `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
-    fn add(&mut self, index: usize) {
-        for bitset in &mut self.arr {
-            bitset.grow(index + 1);
-            bitset.insert(index);
-        }
-    }
-
-    // Corresponds to a disjunction (OR) operation.
-    //
-    // As the array represents a disjunction, where each element (bitset) represents a conjunction, we can simply append to the array.
-    fn extend_with_or(&mut self, other: &Self) {
-        self.arr.append(&mut other.arr.clone());
-    }
-
-    // Corresponds to a conjunction (AND) operation with another `NormalizedAccess`.
-    //
-    // Is used for expanding expressions such as `(Or<(With<A>, With<B>)>, Or<(With<C>, With<D>)>)`
-    // into `Or<((With<A>, With<C>), (With<A>, With<D>), (With<B>, With<C>), (With<B>, With<D>))>`.
-    fn union_with(&mut self, other: &Self) {
-        // We can avoid allocating a new array of bitsets if `other` contains just a single bitset:
-        // in this case we can short-circuit by performing an in-place union for each bitset.
-        if other.arr.len() == 1 {
-            for bitset in &mut self.arr {
-                bitset.union_with(&other.arr[0]);
-            }
-            return;
-        }
-
-        let mut new_arr = SmallVec::with_capacity(self.arr.len() * other.arr.len());
-        for bitset in &self.arr {
-            for other_bitset in &other.arr {
-                let mut new_bitset = bitset.clone();
-                new_bitset.union_with(other_bitset);
-                new_arr.push(new_bitset);
-            }
-        }
-        self.arr = new_arr;
-    }
-}
-
-impl<I: SparseSetIndex> NormalizedAccess<WithMarker, I> {
-    fn is_disjoint(&self, other: &NormalizedAccess<WithoutMarker, I>) -> bool {
-        // We need to make sure that every `without` variant is disjoint with any `with`.
-        // For example, `Or<(Without<A>, Without<B>)>` is disjoint with `Or<(With<A>, With<B>)>`,
-        // but not with `Or<((With<A>, With<B>), (With<B>, With<C>))>`.
-        other
-            .arr
-            .iter()
-            .all(|without| self.arr.iter().any(|with| with.is_disjoint(without)))
+impl<T: SparseSetIndex> AccessFilters<T> {
+    fn is_ruled_out_by(&self, other: &Self) -> bool {
+        !self.with.is_disjoint(&other.without) || !self.without.is_disjoint(&other.with)
     }
 }
 
@@ -528,7 +523,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::access::NormalizedAccess;
+    use crate::query::access::AccessFilters;
     use crate::query::{Access, FilteredAccess, FilteredAccessSet};
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
@@ -604,21 +599,21 @@ mod tests {
         let mut access_a = FilteredAccess::<usize>::default();
         access_a.add_read(0);
         access_a.add_read(1);
-        access_a.add_with(2);
+        access_a.and_with(2);
 
         let mut access_b = FilteredAccess::<usize>::default();
         access_b.add_read(0);
         access_b.add_write(3);
-        access_b.add_without(4);
+        access_b.and_without(4);
 
         access_a.extend(&access_b);
 
         let mut expected = FilteredAccess::<usize>::default();
         expected.add_read(0);
         expected.add_read(1);
-        expected.add_with(2);
+        expected.and_with(2);
         expected.add_write(3);
-        expected.add_without(4);
+        expected.and_without(4);
 
         assert!(access_a.eq(&expected));
     }
@@ -632,16 +627,17 @@ mod tests {
 
         // Filter by `With<C>`.
         let mut access_b = FilteredAccess::<usize>::default();
-        access_b.add_with(2);
+        access_b.and_with(2);
 
-        // Filter by `With<D>`.
+        // Filter by `(With<D>, Without<E>)`.
         let mut access_c = FilteredAccess::<usize>::default();
-        access_c.add_with(3);
+        access_c.and_with(3);
+        access_c.and_without(4);
 
-        // Turns `access_b` into `Or<(With<C>, With<D>)>`.
-        access_b.extend_intersect_filter(&access_c);
+        // Turns `access_b` into `Or<(With<C>, (With<D>, Without<D>))>`.
+        access_b.append_or(&access_c);
         // Applies the filters to the initial query, which corresponds to the FilteredAccess'
-        // representation of `Query<(&mut A, &mut B), Or<(With<C>, With<D>)>>`.
+        // representation of `Query<(&mut A, &mut B), Or<(With<C>, (With<D>, Without<E>))>>`.
         access_a.extend(&access_b);
 
         // Construct the expected `FilteredAccess` struct.
@@ -650,20 +646,19 @@ mod tests {
         let mut expected = FilteredAccess::<usize>::default();
         expected.add_write(0);
         expected.add_write(1);
-        // The resulted access is expected represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>))>`.
-        expected.with = NormalizedAccess {
-            arr: smallvec::smallvec![
-                FixedBitSet::with_capacity_and_blocks(3, [0b111]),
-                FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
-            ],
-            _filter_type: PhantomData,
-            _index_type: PhantomData,
-        };
-        expected.without = NormalizedAccess {
-            arr: smallvec::smallvec![FixedBitSet::new(), FixedBitSet::new(),],
-            _filter_type: PhantomData,
-            _index_type: PhantomData,
-        };
+        // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
+        expected.filter_sets = smallvec::smallvec![
+            AccessFilters {
+                with: FixedBitSet::with_capacity_and_blocks(3, [0b111]),
+                without: FixedBitSet::default(),
+                _index_type: PhantomData,
+            },
+            AccessFilters {
+                with: FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
+                without: FixedBitSet::with_capacity_and_blocks(5, [0b10000]),
+                _index_type: PhantomData,
+            }
+        ];
 
         assert_eq!(access_a, expected);
     }

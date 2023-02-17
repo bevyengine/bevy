@@ -85,7 +85,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        access.add_with(id);
+        access.and_with(id);
     }
 
     #[inline]
@@ -181,7 +181,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        access.add_without(id);
+        access.and_without(id);
     }
 
     #[inline]
@@ -354,7 +354,7 @@ macro_rules! impl_query_filter_tuple {
                     if _not_first {
                         let mut intermediate = access.clone();
                         $filter::update_component_access($filter, &mut intermediate);
-                        _intersected_access.extend_intersect_filter(&intermediate);
+                        _intersected_access.append_or(&intermediate);
                         _intersected_access.extend_access(&intermediate);
                     } else {
                         $filter::update_component_access($filter, &mut _intersected_access);
