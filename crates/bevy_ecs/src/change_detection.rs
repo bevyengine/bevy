@@ -797,9 +797,7 @@ mod tests {
         world::World,
     };
 
-    use super::DetectChanges;
-    use super::DetectChangesMut;
-    use super::MutUntyped;
+    use super::{DetectChanges, DetectChangesMut, MutUntyped};
 
     #[derive(Component, PartialEq)]
     struct C;
