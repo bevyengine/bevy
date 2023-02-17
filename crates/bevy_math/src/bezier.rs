@@ -202,7 +202,7 @@ impl CubicBezierEasing {
     /// halfway through. This is known as linear interpolation, and results in objects animating
     /// with a constant velocity, and no smooth acceleration or deceleration at the start or end.
     ///
-    /// ```ignore
+    /// ```text
     /// y
     /// │         ●
     /// │       ⬈
@@ -217,7 +217,7 @@ impl CubicBezierEasing {
     /// smooth curve. As `time` (x-axis) progresses, we now follow the curved curve, and use the `y`
     /// value to determine how far along the animation is.
     ///
-    /// ```ignore
+    /// ```text
     /// y
     /// │         ⬈➔➔●
     /// │       ⬈   
