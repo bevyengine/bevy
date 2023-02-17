@@ -26,7 +26,6 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
-    collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
 };
@@ -601,7 +600,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
-    archetype_ids: HashMap<ArchetypeIdentity, ArchetypeId>,
+    archetype_ids: bevy_utils::HashMap<ArchetypeIdentity, ArchetypeId>,
 }
 
 impl Archetypes {

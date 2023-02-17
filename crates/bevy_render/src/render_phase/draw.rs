@@ -1,13 +1,12 @@
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::App;
 use bevy_ecs::{
-    all_tuples,
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{all_tuples, HashMap};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 

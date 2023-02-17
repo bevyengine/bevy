@@ -13,6 +13,7 @@ mod tuple_struct;
 mod type_info;
 mod type_registry;
 mod type_uuid;
+mod type_uuid_impl;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
