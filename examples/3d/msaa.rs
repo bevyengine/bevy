@@ -2,9 +2,7 @@
 //! will result in smoother edges, but it will also increase the cost to render those edges. The
 //! range should generally be somewhere between 1 (no multi sampling, but cheap) to 8 (crisp but
 //! expensive).
-//! Note that WGPU currently only supports 1 or 4 samples.
-//! Ultimately we plan on supporting whatever is natively supported on a given device.
-//! Check out [this issue](https://github.com/gfx-rs/wgpu/issues/1832) for more info.
+//! Note that web currently only supports 1 or 4 samples.
 
 use bevy::prelude::*;
 
@@ -23,7 +21,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    info!("Press 'm' to toggle MSAA");
+    info!("Press '1/2/4/8' respectively to set MSAA sample count");
     info!("Using 4x MSAA");
 
     // cube
@@ -45,16 +43,23 @@ fn setup(
 }
 
 fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
-    if input.just_pressed(KeyCode::M) {
-        match *msaa {
-            Msaa::Sample4 => {
-                info!("Not using MSAA");
-                *msaa = Msaa::Off;
-            }
-            Msaa::Off => {
-                info!("Using 4x MSAA");
-                *msaa = Msaa::Sample4;
-            }
-        }
+    if input.just_pressed(KeyCode::Key1) {
+        info!("Not using MSAA");
+        *msaa = Msaa::Off;
+    }
+
+    if input.just_pressed(KeyCode::Key2) {
+        info!("Using 2x MSAA");
+        *msaa = Msaa::Sample2;
+    }
+
+    if input.just_pressed(KeyCode::Key4) {
+        info!("Using 4x MSAA");
+        *msaa = Msaa::Sample4;
+    }
+
+    if input.just_pressed(KeyCode::Key8) {
+        info!("Using 8x MSAA");
+        *msaa = Msaa::Sample8;
     }
 }

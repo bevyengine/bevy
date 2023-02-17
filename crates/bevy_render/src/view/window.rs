@@ -237,16 +237,26 @@ pub fn prepare_windows(
         let sample_flags = render_adapter
             .get_texture_format_features(surface_configuration.format)
             .flags;
-        match *msaa {
-            Msaa::Off => (),
-            Msaa::Sample4 => {
-                if !sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
-                    bevy_log::warn!(
-                        "MSAA 4x is not supported on this device. Falling back to disabling MSAA."
-                    );
-                    *msaa = Msaa::Off;
-                }
-            }
+
+        if !sample_flags.sample_count_supported(msaa.samples()) {
+            let fallback = if sample_flags.sample_count_supported(Msaa::default().samples()) {
+                Msaa::default()
+            } else {
+                Msaa::Off
+            };
+
+            let fallback_str = if fallback == Msaa::Off {
+                "disabling MSAA".to_owned()
+            } else {
+                format!("MSAA {}x", fallback.samples())
+            };
+
+            bevy_log::warn!(
+                "MSAA {}x is not supported on this device. Falling back to {}.",
+                msaa.samples(),
+                fallback_str,
+            );
+            *msaa = fallback;
         }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
