@@ -10,25 +10,25 @@ mod stack;
 mod ui_node;
 
 pub mod camera_config;
+pub mod measurement;
 pub mod node_bundles;
 pub mod update;
 pub mod widget;
-pub mod measurement;
 
 use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
+pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
-pub use measurement::*;
 
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale, measurement::*
+        camera_config::*, geometry::*, measurement::*, node_bundles::*, ui_node::*, widget::Button,
+        Interaction, UiScale,
     };
 }
 

@@ -1,4 +1,4 @@
-use crate::{Size, UiRect, MeasureNode, BasicMeasure};
+use crate::{BasicMeasure, MeasureNode, Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -567,20 +567,23 @@ pub struct CalculatedSize {
     /// The size of the node in logical pixels
     pub size: Vec2,
     /// The measure function used to calculate the size
-    pub measure: Box<dyn MeasureNode + 'static + Send + Sync>
-
+    pub measure: Box<dyn MeasureNode + 'static + Send + Sync>,
 }
 
 impl std::fmt::Debug for CalculatedSize {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CalculatedSize")
-            .finish()
+        f.debug_struct("CalculatedSize").finish()
     }
 }
 
 impl Default for CalculatedSize {
     fn default() -> Self {
-        Self { size: Default::default(), measure: Box::new(BasicMeasure { size: Default::default() }) }
+        Self {
+            size: Default::default(),
+            measure: Box::new(BasicMeasure {
+                size: Default::default(),
+            }),
+        }
     }
 }
 

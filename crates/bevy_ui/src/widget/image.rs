@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, UiImage, MeasureNode};
+use crate::{CalculatedSize, MeasureNode, UiImage};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
@@ -9,20 +9,25 @@ use bevy_render::texture::Image;
 use bevy_text::Text;
 use taffy::prelude::AvailableSpace;
 
-#[derive(Clone)] 
+#[derive(Clone)]
 pub struct ImageMeasure {
     size: Vec2,
 }
 
 impl MeasureNode for ImageMeasure {
-    fn measure(&self, width: Option<f32>, height: Option<f32>, _: AvailableSpace, _: AvailableSpace) -> Vec2 {
+    fn measure(
+        &self,
+        width: Option<f32>,
+        height: Option<f32>,
+        _: AvailableSpace,
+        _: AvailableSpace,
+    ) -> Vec2 {
         let mut size = self.size;
         match (width, height) {
             (None, None) => {}
-            (Some(width), None) => {          
+            (Some(width), None) => {
                 size.y = width * size.y / size.x;
-                size.x = width;  
-
+                size.x = width;
             }
             (None, Some(height)) => {
                 size.x = height * size.x / size.y;
@@ -40,7 +45,6 @@ impl MeasureNode for ImageMeasure {
         Box::new(self.clone())
     }
 }
-
 
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(

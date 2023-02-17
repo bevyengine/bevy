@@ -3,7 +3,13 @@ pub use taffy::layout::AvailableSpace;
 
 pub trait MeasureNode: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
-    fn measure(&self, max_width: Option<f32>, max_height: Option<f32>, available_width: AvailableSpace, available_height: AvailableSpace) -> Vec2;
+    fn measure(
+        &self,
+        max_width: Option<f32>,
+        max_height: Option<f32>,
+        available_width: AvailableSpace,
+        available_height: AvailableSpace,
+    ) -> Vec2;
     /// Clone and box self.
     fn box_clone(&self) -> Box<dyn MeasureNode>;
 }
@@ -15,7 +21,13 @@ pub struct BasicMeasure {
 }
 
 impl MeasureNode for BasicMeasure {
-    fn measure(&self, width: Option<f32>, height: Option<f32>, _: AvailableSpace, _: AvailableSpace) -> Vec2 {
+    fn measure(
+        &self,
+        width: Option<f32>,
+        height: Option<f32>,
+        _: AvailableSpace,
+        _: AvailableSpace,
+    ) -> Vec2 {
         match (width, height) {
             (Some(width), Some(height)) => Vec2::new(width, height),
             (Some(width), None) => Vec2::new(width, self.size.y),
@@ -23,6 +35,7 @@ impl MeasureNode for BasicMeasure {
             (None, None) => self.size,
         }
     }
+
     fn box_clone(&self) -> Box<dyn MeasureNode> {
         Box::new(self.clone())
     }

@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Node, Style, UiScale, Val, MeasureNode, BasicMeasure};
+use crate::{BasicMeasure, CalculatedSize, MeasureNode, Node, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
