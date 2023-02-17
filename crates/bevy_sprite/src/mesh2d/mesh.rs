@@ -409,7 +409,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

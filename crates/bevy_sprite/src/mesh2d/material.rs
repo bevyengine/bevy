@@ -248,11 +248,11 @@ where
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = Some(vec![
+        descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
             self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
-        ]);
+        ];
 
         M::specialize(&mut descriptor, layout, key)?;
         Ok(descriptor)
