@@ -1,5 +1,20 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
+
+fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
+    // Don't include code that will try to sample from LUTs if tonemap method doesn't require it
+    // Allows this file to be imported without necessarily needing the lut texture bindings
+#ifdef TONEMAP_METHOD_AGX
+    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
+#else ifdef TONEMAP_METHOD_TONY_MC_MAPFACE
+    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
+#else ifdef TONEMAP_METHOD_BLENDER_FILMIC
+    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
+#else 
+    return vec3(1.0, 0.0, 1.0);
+ #endif
+}
+
 // --------------------------------------
 // --- SomewhatBoringDisplayTransform ---
 // --------------------------------------
@@ -72,11 +87,7 @@ fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let normalized = (tony_mc_mapface_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
     var uv = saturate(normalized * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS));
     uv.y = 1.0 - uv.y;
-#ifdef TONEMAP_METHOD_NONE
-    return stimulus;
-#else // Don't include code that will try to sample from LUTs if tonemap method is none
-    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, uv, 0.0).rgb;
-#endif
+    return sample_current_lut(uv).rgb;
 }
 
 // -------------------------
@@ -244,11 +255,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
 }
 
 fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
-#ifdef TONEMAP_METHOD_NONE
-    return Image;
-#else // Don't include code that will try to sample from LUTs if tonemap method is none
-    return textureSampleLevel(dt_lut_texture, dt_lut_sampler, Image * ((block_size - 1.0) / block_size) + 0.5 / block_size, 0.0).rgb;
-#endif
+    return sample_current_lut(Image * ((block_size - 1.0) / block_size) + 0.5 / block_size).rgb;
 }
 
 // -------------------------
