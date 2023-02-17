@@ -48,7 +48,10 @@ use bevy_ecs::prelude::*;
 ///
 /// Use the [`Audio`] resource to play audio.
 #[derive(Default)]
-pub struct AudioPlugin;
+pub struct AudioPlugin {
+    /// The global volume for all audio sources with a [`Volume::Relative] volume.
+    global_volume: GlobalVolume,
+}
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
@@ -56,7 +59,7 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()
             .init_resource::<Audio<AudioSource>>()
-            .init_resource::<GlobalVolume>()
+            .insert_resource(self.global_volume)
             .add_system(play_queued_audio_system::<AudioSource>.in_base_set(CoreSet::PostUpdate));
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]

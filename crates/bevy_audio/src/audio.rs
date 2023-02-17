@@ -121,15 +121,46 @@ where
     }
 }
 
+/// Defines the volume to play an audio source at.
+#[derive(Clone, Debug)]
+pub enum Volume {
+    /// A volume level relative to the global volume.
+    Relative(VolumeLevel),
+    /// A volume level that ignores the global volume.
+    Absolute(VolumeLevel),
+}
+
+impl Default for Volume {
+    fn default() -> Self {
+        Self::Relative(VolumeLevel::default())
+    }
+}
+
+/// A volume level equivalent to a positive only float.
+#[derive(Clone, Debug)]
+pub struct VolumeLevel(pub(crate) f32);
+
+impl Default for VolumeLevel {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl VolumeLevel {
+    /// Create a new volume level.
+    pub fn new(volume: f32) -> Self {
+        debug_assert!(volume >= 0.0);
+        Self(volume)
+    }
+}
+
 /// Settings to control playback from the start.
 #[derive(Clone, Debug)]
 pub struct PlaybackSettings {
     /// Play in repeat
     pub repeat: bool,
     /// Volume to play at.
-    pub volume: f32,
-    /// Ignore global volume
-    pub absolute_volume: bool,
+    pub volume: Volume,
     /// Speed to play at.
     pub speed: f32,
 }
@@ -144,21 +175,19 @@ impl PlaybackSettings {
     /// Will play the associate audio source once.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         repeat: false,
-        volume: 1.0,
-        absolute_volume: false,
+        volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
     };
 
     /// Will play the associate audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
         repeat: true,
-        volume: 1.0,
-        absolute_volume: false,
+        volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
     };
 
     /// Helper to set the volume from start of playback.
-    pub const fn with_volume(mut self, volume: f32) -> Self {
+    pub const fn with_volume(mut self, volume: Volume) -> Self {
         self.volume = volume;
         self
     }
@@ -166,12 +195,6 @@ impl PlaybackSettings {
     /// Helper to set the speed from start of playback.
     pub const fn with_speed(mut self, speed: f32) -> Self {
         self.speed = speed;
-        self
-    }
-
-    /// Helper to set if the volume should ignore the global volume.
-    pub const fn with_absolute_volume(mut self, absolute_volume: bool) -> Self {
-        self.absolute_volume = absolute_volume;
         self
     }
 }
@@ -201,7 +224,7 @@ where
 
 /// Use this [`Resource`] to control the global volume of all non-absolute audio.
 /// Sources can be set to ignore this setting by setting the `absolute_volume` field on [`PlaybackSettings`] to `true`.
-#[derive(Resource)]
+#[derive(Resource, Clone, Copy)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
     pub volume: f32,

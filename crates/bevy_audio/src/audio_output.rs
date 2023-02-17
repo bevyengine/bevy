@@ -1,4 +1,4 @@
-use crate::{Audio, AudioSource, Decodable, GlobalVolume};
+use crate::{Audio, AudioSource, Decodable, GlobalVolume, Volume};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_reflect::TypeUuid;
@@ -80,10 +80,10 @@ where
             if let Some(audio_source) = audio_sources.get(&config.source_handle) {
                 if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
                     sink.set_speed(config.settings.speed);
-                    if config.settings.absolute_volume {
-                        sink.set_volume(config.settings.volume);
-                    } else {
-                        sink.set_volume(config.settings.volume * global_volume.volume);
+
+                    match config.settings.volume {
+                        Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume),
+                        Volume::Absolute(vol) => sink.set_volume(vol.0),
                     }
 
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
