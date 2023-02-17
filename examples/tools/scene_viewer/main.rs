@@ -9,6 +9,7 @@ use bevy::{
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
+    window::WindowPlugin,
 };
 
 mod camera_controller_plugin;
@@ -26,10 +27,10 @@ fn main() {
     .add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
-                window: WindowDescriptor {
+                primary_window: Some(Window {
                     title: "bevy scene viewer".to_string(),
                     ..default()
-                },
+                }),
                 ..default()
             })
             .set(AssetPlugin {
@@ -41,7 +42,7 @@ fn main() {
     .add_plugin(CameraControllerPlugin)
     .add_plugin(SceneViewerPlugin)
     .add_startup_system(setup)
-    .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load);
+    .add_system(setup_scene_after_load.in_base_set(CoreSet::PreUpdate));
 
     app.run();
 }
@@ -75,6 +76,7 @@ fn setup_scene_after_load(
     mut commands: Commands,
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
+    asset_server: Res<AssetServer>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
 ) {
     if scene_handle.is_loaded && !*setup {
@@ -126,31 +128,20 @@ fn setup_scene_after_load(
                 },
                 ..default()
             },
+            EnvironmentMapLight {
+                diffuse_map: asset_server
+                    .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+                specular_map: asset_server
+                    .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            },
             camera_controller,
         ));
 
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
-            let sphere = Sphere {
-                center: aabb.center,
-                radius: aabb.half_extents.length(),
-            };
-            let aabb = Aabb::from(sphere);
-            let min = aabb.min();
-            let max = aabb.max();
-
             info!("Spawning a directional light");
             commands.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    shadow_projection: OrthographicProjection {
-                        left: min.x,
-                        right: max.x,
-                        bottom: min.y,
-                        top: max.y,
-                        near: min.z,
-                        far: max.z,
-                        ..default()
-                    },
                     shadows_enabled: false,
                     ..default()
                 },

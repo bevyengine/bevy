@@ -35,12 +35,14 @@ pub mod prelude {
 pub use audio::*;
 pub use audio_output::*;
 pub use audio_source::*;
+
 pub use rodio::cpal::Sample as CpalSample;
 pub use rodio::source::Source;
 pub use rodio::Sample;
 
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
+use bevy_asset::{AddAsset, Asset};
+use bevy_ecs::prelude::*;
 
 /// Adds support for audio playback to a Bevy Application
 ///
@@ -54,12 +56,21 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()
             .init_resource::<Audio<AudioSource>>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                play_queued_audio_system::<AudioSource>,
-            );
+            .add_system(play_queued_audio_system::<AudioSource>.in_base_set(CoreSet::PostUpdate));
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         app.init_asset_loader::<AudioLoader>();
+    }
+}
+
+impl AddAudioSource for App {
+    fn add_audio_source<T>(&mut self) -> &mut Self
+    where
+        T: Decodable + Asset,
+    {
+        self.add_asset::<T>()
+            .init_resource::<Audio<T>>()
+            .init_resource::<AudioOutput<T>>()
+            .add_system(play_queued_audio_system::<T>.in_base_set(CoreSet::PostUpdate))
     }
 }

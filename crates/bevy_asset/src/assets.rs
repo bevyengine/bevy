@@ -1,13 +1,9 @@
 use crate::{
-    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
+    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetSet, Handle, HandleId,
     RefChange, ReflectAsset, ReflectHandle,
 };
 use bevy_app::{App, AppTypeRegistry};
-use bevy_ecs::{
-    event::{EventWriter, Events},
-    system::{ResMut, Resource},
-    world::FromWorld,
-};
+use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
@@ -335,8 +331,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
-            .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
+            .add_system(Assets::<T>::asset_event_system.in_base_set(AssetSet::AssetEvents))
+            .add_system(update_asset_storage_system::<T>.in_base_set(AssetSet::LoadAssets))
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
@@ -364,7 +360,10 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
+            self.add_system(
+                crate::debug_asset_server::sync_debug_assets::<T>
+                    .in_base_set(bevy_app::CoreSet::Update),
+            );
             let mut app = self
                 .world
                 .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
@@ -417,7 +416,7 @@ macro_rules! load_internal_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static str>(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -455,7 +454,7 @@ macro_rules! load_internal_binary_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static [u8]>(
                 $loader,
                 &mut debug_app,
                 $handle,

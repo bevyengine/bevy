@@ -2,85 +2,19 @@ extern crate proc_macro;
 
 mod component;
 mod fetch;
+mod set;
+mod states;
 
-use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
+use crate::{fetch::derive_world_query_impl, set::derive_set};
+use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::Comma,
-    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
-    Result, Token, TypeParam,
+    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
+    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
+    TypeParam,
 };
-
-struct AllTuples {
-    macro_ident: Ident,
-    start: usize,
-    end: usize,
-    idents: Vec<Ident>,
-}
-
-impl Parse for AllTuples {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let macro_ident = input.parse::<Ident>()?;
-        input.parse::<Comma>()?;
-        let start = input.parse::<LitInt>()?.base10_parse()?;
-        input.parse::<Comma>()?;
-        let end = input.parse::<LitInt>()?.base10_parse()?;
-        input.parse::<Comma>()?;
-        let mut idents = vec![input.parse::<Ident>()?];
-        while input.parse::<Comma>().is_ok() {
-            idents.push(input.parse::<Ident>()?);
-        }
-
-        Ok(AllTuples {
-            macro_ident,
-            start,
-            end,
-            idents,
-        })
-    }
-}
-
-#[proc_macro]
-pub fn all_tuples(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as AllTuples);
-    let len = input.end - input.start;
-    let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..=input.end {
-        let idents = input
-            .idents
-            .iter()
-            .map(|ident| format_ident!("{}{}", ident, i));
-        if input.idents.len() < 2 {
-            ident_tuples.push(quote! {
-                #(#idents)*
-            });
-        } else {
-            ident_tuples.push(quote! {
-                (#(#idents),*)
-            });
-        }
-    }
-
-    let macro_ident = &input.macro_ident;
-    let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[..i];
-        quote! {
-            #macro_ident!(#(#ident_tuples),*);
-        }
-    });
-    TokenStream::from(quote! {
-        #(
-            #invocations
-        )*
-    })
-}
 
 enum BundleFieldKind {
     Component,
@@ -216,7 +150,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_params = 8;
     let params = get_idents(|i| format!("P{i}"), max_params);
-    let params_state = get_idents(|i| format!("PF{i}"), max_params);
     let metas = get_idents(|i| format!("m{i}"), max_params);
     let mut param_fn_muts = Vec::new();
     for (i, param) in params.iter().enumerate() {
@@ -238,7 +171,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param::State as SystemParamState>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    #param::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -246,36 +179,29 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
     for param_count in 1..=max_params {
         let param = &params[0..param_count];
-        let param_state = &params_state[0..param_count];
         let meta = &metas[0..param_count];
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
-            {
-                type State = ParamSetState<(#(#param::State,)*)>;
-            }
-
-            // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
-
+            // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
             unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
             where #(#param: ReadOnlySystemParam,)*
             { }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
-
-            unsafe impl<#(#param_state: SystemParamState,)*> SystemParamState for ParamSetState<(#(#param_state,)*)>
+            unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
             {
-                type Item<'w, 's> = ParamSet<'w, 's, (#(<#param_state as SystemParamState>::Item::<'w, 's>,)*)>;
+                type State = (#(#param::State,)*);
+                type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
-                fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+                fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
                         let mut #meta = system_meta.clone();
                         #meta.component_access_set.clear();
                         #meta.archetype_component_access.clear();
-                        #param_state::init(world, &mut #meta);
-                        let #param = #param_state::init(world, &mut system_meta.clone());
+                        #param::init_state(world, &mut #meta);
+                        let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
                     #(
                         system_meta
@@ -285,29 +211,26 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                             .archetype_component_access
                             .extend(&#meta.archetype_component_access);
                     )*
-                    ParamSetState((#(#param,)*))
+                    (#(#param,)*)
                 }
 
-                fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    let (#(#param,)*) = &mut self.0;
-                    #(
-                        #param.new_archetype(archetype, system_meta);
-                    )*
+                fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+                    <(#(#param,)*) as SystemParam>::new_archetype(state, archetype, system_meta);
                 }
 
-                fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
-                    self.0.apply(system_meta, world)
+                fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                    <(#(#param,)*) as SystemParam>::apply(state, system_meta, world);
                 }
 
                 #[inline]
                 unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self,
+                    state: &'s mut Self::State,
                     system_meta: &SystemMeta,
                     world: &'w World,
                     change_tick: u32,
                 ) -> Self::Item<'w, 's> {
                     ParamSet {
-                        param_states: &mut state.0,
+                        param_states: state,
                         system_meta: system_meta.clone(),
                         world,
                         change_tick,
@@ -317,7 +240,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
-
                 #(#param_fn_mut)*
             }
         }));
@@ -411,13 +333,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }
     }
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (_impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let lifetimeless_generics: Vec<_> = generics
         .params
         .iter()
         .filter(|g| !matches!(g, GenericParam::Lifetime(_)))
         .collect();
+
+    let mut shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|x| x.lifetime.clone()).collect();
+    for lifetime in &mut shadowed_lifetimes {
+        let shadowed_ident = format_ident!("_{}", lifetime.ident);
+        lifetime.ident = shadowed_ident;
+    }
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
     punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
@@ -431,15 +359,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }),
         _ => unreachable!(),
     }));
-
-    let mut punctuated_generics_no_bounds = punctuated_generics.clone();
-    for g in &mut punctuated_generics_no_bounds {
-        match g {
-            GenericParam::Type(g) => g.bounds.clear(),
-            GenericParam::Lifetime(g) => g.bounds.clear(),
-            GenericParam::Const(_) => {}
-        }
-    }
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
@@ -479,12 +398,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = FetchState<'static, 'static, #punctuated_generic_idents>;
-            }
-
             #[doc(hidden)]
-            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*> {
+            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*>
+            #where_clause {
                 state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
                     <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
@@ -492,38 +408,37 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 )>,
             }
 
-            unsafe impl<#punctuated_generics> #path::system::SystemParamState for
-                FetchState<'static, 'static, #punctuated_generic_idents>
-            #where_clause {
-                type Item<'w, 's> = #struct_name #ty_generics;
+            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type State = FetchState<'static, 'static, #punctuated_generic_idents>;
+                type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
-                fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
-                    Self {
-                        state: #path::system::SystemParamState::init(world, system_meta),
+                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                    FetchState {
+                        state: <(#(#tuple_types,)*) as #path::system::SystemParam>::init_state(world, system_meta),
                         marker: std::marker::PhantomData,
                     }
                 }
 
-                fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    self.state.new_archetype(archetype, system_meta)
+                fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
                 }
 
-                fn apply(&mut self, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    self.state.apply(system_meta, world)
+                fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
-                unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self,
+                unsafe fn get_param<'w2, 's2>(
+                    state: &'s2 mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w #path::world::World,
+                    world: &'w2 #path::world::World,
                     change_tick: u32,
-                ) -> Self::Item<'w, 's> {
+                ) -> Self::Item<'w2, 's2> {
                     let (#(#tuple_patterns,)*) = <
-                        <(#(#tuple_types,)*) as #path::system::SystemParam>::State as #path::system::SystemParamState
+                        (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
-                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                        #(#ignored_fields: std::default::Default::default(),)*
                     }
                 }
             }
@@ -541,47 +456,26 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-/// Generates an impl of the `SystemLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
-#[proc_macro_derive(SystemLabel, attributes(system_label))]
-pub fn derive_system_label(input: TokenStream) -> TokenStream {
+/// Derive macro generating an impl of the trait `ScheduleLabel`.
+#[proc_macro_derive(ScheduleLabel)]
+pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path, "system_label")
+        .push(format_ident!("ScheduleLabel").into());
+    derive_boxed_label(input, &trait_path)
 }
 
-/// Generates an impl of the `StageLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
-#[proc_macro_derive(StageLabel, attributes(stage_label))]
-pub fn derive_stage_label(input: TokenStream) -> TokenStream {
+/// Derive macro generating an impl of the trait `SystemSet`.
+#[proc_macro_derive(SystemSet, attributes(system_set))]
+pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path, "stage_label")
-}
-
-/// Generates an impl of the `RunCriteriaLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
-#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
-pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path, "run_criteria_label")
+    trait_path.segments.push(format_ident!("SystemSet").into());
+    derive_set(input, &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
@@ -596,4 +490,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+#[proc_macro_derive(States)]
+pub fn derive_states(input: TokenStream) -> TokenStream {
+    states::derive_states(input)
 }

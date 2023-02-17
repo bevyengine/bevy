@@ -13,6 +13,7 @@ mod tuple_struct;
 mod type_info;
 mod type_registry;
 mod type_uuid;
+mod type_uuid_impl;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
@@ -394,7 +395,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", List::clone_dynamic(&list));
+        foo_patch.insert("c", list.clone_dynamic());
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -607,11 +608,11 @@ mod tests {
     #[test]
     fn dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = List::clone_dynamic(&list);
+        let dyn_list = list.clone_dynamic();
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
 
         let array = [b'0'; 4];
-        let dyn_array = Array::clone_dynamic(&array);
+        let dyn_array = array.clone_dynamic();
         assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
@@ -1274,9 +1275,15 @@ bevy_reflect::tests::should_reflect_debug::Test {
         fn vec3_path_access() {
             let mut v = vec3(1.0, 2.0, 3.0);
 
-            assert_eq!(*v.path("x").unwrap().downcast_ref::<f32>().unwrap(), 1.0);
+            assert_eq!(
+                *v.reflect_path("x").unwrap().downcast_ref::<f32>().unwrap(),
+                1.0
+            );
 
-            *v.path_mut("y").unwrap().downcast_mut::<f32>().unwrap() = 6.0;
+            *v.reflect_path_mut("y")
+                .unwrap()
+                .downcast_mut::<f32>()
+                .unwrap() = 6.0;
 
             assert_eq!(v.y, 6.0);
         }

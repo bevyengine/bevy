@@ -2,8 +2,10 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::TypeUuid;
+use bevy_ecs::prelude::*;
+use bevy_reflect::{
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
+};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
@@ -12,14 +14,15 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Reflect, FromReflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[reflect(FromReflect, PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -40,14 +43,17 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Reflect, FromReflect, Component, Clone, ExtractComponent)]
+#[reflect(Component, FromReflect, Default)]
+#[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
 
     /// Use lower sensitivity for a sharper, faster, result.
     /// Use higher sensitivity for a slower, smoother, result.
-    /// Ultra and Turbo settings can result in significant smearing and loss of detail.
+    /// [Ultra](`Sensitivity::Ultra`) and [Extreme](`Sensitivity::Extreme`)
+    /// settings can result in significant smearing and loss of detail.
 
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
@@ -63,16 +69,6 @@ impl Default for Fxaa {
             edge_threshold: Sensitivity::High,
             edge_threshold_min: Sensitivity::High,
         }
-    }
-}
-
-impl ExtractComponent for Fxaa {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self> {
-        Some(item.clone())
     }
 }
 
@@ -94,7 +90,7 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_fxaa_pipelines);
+            .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
 
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);
@@ -198,7 +194,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: FXAA_SHADER_HANDLE.typed(),
@@ -216,13 +212,14 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
 
 pub fn prepare_fxaa_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
     views: Query<(Entity, &ExtractedView, &Fxaa)>,
@@ -232,7 +229,7 @@ pub fn prepare_fxaa_pipelines(
             continue;
         }
         let pipeline_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &fxaa_pipeline,
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,

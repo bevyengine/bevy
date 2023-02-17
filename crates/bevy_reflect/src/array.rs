@@ -21,19 +21,25 @@ use std::{
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-    /// Returns the number of elements in the collection.
+
+    /// Returns the number of elements in the array.
     fn len(&self) -> usize;
+
     /// Returns `true` if the collection contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    /// Returns an iterator over the collection.
+
+    /// Returns an iterator over the array.
     fn iter(&self) -> ArrayIter;
+
     /// Drain the elements of this array to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
+    /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.type_name().to_string(),
@@ -270,10 +276,7 @@ impl Array for DynamicArray {
 
     #[inline]
     fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+        ArrayIter::new(self)
     }
 
     #[inline]
@@ -303,8 +306,16 @@ impl Typed for DynamicArray {
 
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
-    pub(crate) array: &'a dyn Array,
-    pub(crate) index: usize,
+    array: &'a dyn Array,
+    index: usize,
+}
+
+impl<'a> ArrayIter<'a> {
+    /// Creates a new [`ArrayIter`].
+    #[inline]
+    pub const fn new(array: &'a dyn Array) -> ArrayIter {
+        ArrayIter { array, index: 0 }
+    }
 }
 
 impl<'a> Iterator for ArrayIter<'a> {

@@ -2,13 +2,12 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
 
@@ -45,7 +44,7 @@ impl Plugin for TonemappingPlugin {
             render_app
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_view_tonemapping_pipelines);
+                .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
         }
     }
 }
@@ -70,7 +69,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TONEMAPPING_SHADER_HANDLE.typed(),
@@ -85,6 +84,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
@@ -126,7 +126,7 @@ pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
 pub fn queue_view_tonemapping_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
     view_targets: Query<(Entity, &Tonemapping)>,
@@ -136,7 +136,7 @@ pub fn queue_view_tonemapping_pipelines(
             let key = TonemappingPipelineKey {
                 deband_dither: *deband_dither,
             };
-            let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
+            let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
             commands
                 .entity(entity)
@@ -145,7 +145,8 @@ pub fn queue_view_tonemapping_pipelines(
     }
 }
 
-#[derive(Component, Clone, Reflect, Default)]
+#[derive(Component, Clone, Reflect, Default, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub enum Tonemapping {
     #[default]
@@ -158,15 +159,5 @@ pub enum Tonemapping {
 impl Tonemapping {
     pub fn is_enabled(&self) -> bool {
         matches!(self, Tonemapping::Enabled { .. })
-    }
-}
-
-impl ExtractComponent for Tonemapping {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
     }
 }

@@ -82,6 +82,8 @@ impl Deref for BindGroup {
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
+///     #[storage(3, read_only)]
+///     values: Vec<f32>,
 /// }
 /// ```
 ///
@@ -94,6 +96,8 @@ impl Deref for BindGroup {
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
+/// @group(1) @binding(3)
+/// var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 1.
@@ -131,6 +135,15 @@ impl Deref for BindGroup {
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
 /// | `sampler_type` = "..." | `"filtering"`, `"non_filtering"`, `"comparison"`.                       |  `"filtering"`         |
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
+///
+/// * `storage(BINDING_INDEX, arguments)`
+///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a storage buffer.
+///     * It supports and optional `read_only` parameter. Defaults to false if not present.
+///
+/// | Arguments              | Values                                                                  | Default              |
+/// |------------------------|-------------------------------------------------------------------------|----------------------|
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
+/// | `read_only`            | if present then value is true, otherwise false                          | `false`              |
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```

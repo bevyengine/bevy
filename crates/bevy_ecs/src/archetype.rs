@@ -26,7 +26,6 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
-    collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
 };
@@ -40,6 +39,7 @@ use std::{
 /// [`World`]: crate::world::World
 /// [`Entities::get`]: crate::entity::Entities
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
 pub struct ArchetypeRow(u32);
 
@@ -63,11 +63,12 @@ impl ArchetypeRow {
 /// Archetype IDs are only valid for a given World, and are not globally unique.
 /// Attempting to use an archetype ID on a world that it wasn't sourced from will
 /// not return the archetype with the same components. The only exception to this is
-/// [`EMPTY`] which is guarenteed to be identical for all Worlds.
+/// [`EMPTY`] which is guaranteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
 /// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
 pub struct ArchetypeId(u32);
 
@@ -599,7 +600,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
-    archetype_ids: HashMap<ArchetypeIdentity, ArchetypeId>,
+    archetype_ids: bevy_utils::HashMap<ArchetypeIdentity, ArchetypeId>,
 }
 
 impl Archetypes {

@@ -26,6 +26,8 @@ use std::{
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
+#[repr(transparent)]
 pub struct TableId(u32);
 
 impl TableId {
@@ -64,6 +66,8 @@ impl TableId {
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 /// [`Entity`]: crate::entity::Entity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
+#[repr(transparent)]
 pub struct TableRow(u32);
 
 impl TableRow {
@@ -650,11 +654,13 @@ pub(crate) struct TableMoveResult {
 }
 
 impl Tables {
+    /// Returns the number of [`Table`]s this collection contains
     #[inline]
     pub fn len(&self) -> usize {
         self.tables.len()
     }
 
+    /// Returns true if this collection contains no [`Table`]s
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.tables.is_empty()

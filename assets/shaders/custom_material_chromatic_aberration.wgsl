@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_view_bindings
+#import bevy_sprite::mesh2d_view_bindings
 #import bevy_pbr::utils
 
 @group(1) @binding(0)
@@ -22,7 +22,7 @@ fn fragment(
         textureSample(texture, our_sampler, uv + vec2<f32>(-offset_strength, 0.0)).g,
         textureSample(texture, our_sampler, uv + vec2<f32>(0.0, offset_strength)).b,
         1.0
-        );
+    );
 
     return output_color;
 }

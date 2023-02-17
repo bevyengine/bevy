@@ -4,14 +4,18 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+#ifdef ENVIRONMENT_MAP
+#import bevy_pbr::environment_map
+#endif
 
-fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
+fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-        if (color.a >= material.alpha_cutoff) {
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
@@ -75,7 +79,7 @@ fn apply_normal_mapping(
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -83,7 +87,7 @@ fn apply_normal_mapping(
         Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -106,7 +110,7 @@ fn calculate_view(
     is_orthographic: bool,
 ) -> vec3<f32> {
     var V: vec3<f32>;
-    if (is_orthographic) {
+    if is_orthographic {
         // Orthographic view vector
         V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
     } else {
@@ -151,6 +155,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
+#ifndef NORMAL_PREPASS
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -181,8 +186,9 @@ fn pbr(
 
     let R = reflect(-in.V, in.N);
 
-    // accumulate color
-    var light_accum: vec3<f32> = vec3<f32>(0.0);
+    let f_ab = F_AB(perceptual_roughness, NdotV);
+
+    var direct_light: vec3<f32> = vec3<f32>(0.0);
 
     let view_z = dot(vec4<f32>(
         view.inverse_view[0].z,
@@ -193,7 +199,7 @@ fn pbr(
     let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     let offset_and_counts = unpack_offset_and_counts(cluster_index);
 
-    // point lights
+    // Point lights (direct)
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
         var shadow: f32 = 1.0;
@@ -201,11 +207,11 @@ fn pbr(
                 && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        light_accum = light_accum + light_contrib * shadow;
+        let light_contrib = point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+        direct_light += light_contrib * shadow;
     }
 
-    // spot lights
+    // Spot lights (direct)
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
         var shadow: f32 = 1.0;
@@ -213,29 +219,41 @@ fn pbr(
                 && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        light_accum = light_accum + light_contrib * shadow;
+        let light_contrib = spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+        direct_light += light_contrib * shadow;
     }
 
+    // Directional lights (direct)
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
-        let light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        light_accum = light_accum + light_contrib * shadow;
+        var light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+#ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
+        light_contrib = cascade_debug_visualization(light_contrib, i, view_z);
+#endif
+        direct_light += light_contrib * shadow;
     }
 
-    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
-    let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
+    // Ambient light (indirect)
+    var indirect_light = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
+    // Environment map light (indirect)
+#ifdef ENVIRONMENT_MAP
+    let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+#endif
+
+    let emissive_light = emissive.rgb * output_color.a;
+
+    // Total light
     output_color = vec4<f32>(
-        light_accum +
-            (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
-            emissive.rgb * output_color.a,
-        output_color.a);
+        direct_light + indirect_light + emissive_light,
+        output_color.a
+    );
 
     output_color = cluster_debug_visualization(
         output_color,
@@ -247,6 +265,7 @@ fn pbr(
 
     return output_color;
 }
+#endif // NORMAL_PREPASS
 
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
@@ -257,11 +276,114 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
-#endif
+#endif // TONEMAP_IN_SHADER
 
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
 }
+#endif // DEBAND_DITHER
+
+#ifndef NORMAL_PREPASS
+fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+    let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
+
+    // `length()` is used here instead of just `view_to_world.z` since that produces more
+    // high quality results, especially for denser/smaller fogs. we get a "curved"
+    // fog shape that remains consistent with camera rotation, instead of a "linear"
+    // fog shape that looks a bit fake
+    let distance = length(view_to_world);
+
+    var scattering = vec3<f32>(0.0);
+    if fog.directional_light_color.a > 0.0 {
+        let view_to_world_normalized = view_to_world / distance;
+        let n_directional_lights = lights.n_directional_lights;
+        for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+            let light = lights.directional_lights[i];
+            scattering += pow(
+                max(
+                    dot(view_to_world_normalized, light.direction_to_light),
+                    0.0
+                ),
+                fog.directional_light_exponent
+            ) * light.color.rgb;
+        }
+    }
+
+    if fog.mode == FOG_MODE_LINEAR {
+        return linear_fog(input_color, distance, scattering);
+    } else if fog.mode == FOG_MODE_EXPONENTIAL {
+        return exponential_fog(input_color, distance, scattering);
+    } else if fog.mode == FOG_MODE_EXPONENTIAL_SQUARED {
+        return exponential_squared_fog(input_color, distance, scattering);
+    } else if fog.mode == FOG_MODE_ATMOSPHERIC {
+        return atmospheric_fog(input_color, distance, scattering);
+    } else {
+        return input_color;
+    }
+}
 #endif
 
+#ifdef PREMULTIPLY_ALPHA
+fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
+// `Blend`, `Premultiplied` and `Alpha` all share the same `BlendState`. Depending
+// on the alpha mode, we premultiply the color channels by the alpha channel value,
+// (and also optionally replace the alpha value with 0.0) so that the result produces
+// the desired blend mode when sent to the blending operation.
+#ifdef BLEND_PREMULTIPLIED_ALPHA
+    // For `BlendState::PREMULTIPLIED_ALPHA_BLENDING` the blend function is:
+    //
+    //     result = 1 * src_color + (1 - src_alpha) * dst_color
+    let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
+        // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
+        //
+        //     src_color *= src_alpha
+        //
+        // We end up with:
+        //
+        //     result = 1 * (src_alpha * src_color) + (1 - src_alpha) * dst_color
+        //     result = src_alpha * src_color + (1 - src_alpha) * dst_color
+        //
+        // Which is the blend operation for regular alpha blending `BlendState::ALPHA_BLENDING`
+        return vec4<f32>(color.rgb * color.a, color.a);
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
+        // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
+        //
+        //     src_color *= src_alpha
+        //     src_alpha = 0.0
+        //
+        // We end up with:
+        //
+        //     result = 1 * (src_alpha * src_color) + (1 - 0) * dst_color
+        //     result = src_alpha * src_color + 1 * dst_color
+        //
+        // Which is the blend operation for additive blending
+        return vec4<f32>(color.rgb * color.a, 0.0);
+    } else {
+        // Here, we don't do anything, so that we get premultiplied alpha blending. (As expected)
+        return color.rgba;
+    }
+#endif
+// `Multiply` uses its own `BlendState`, but we still need to premultiply here in the
+// shader so that we get correct results as we tweak the alpha channel
+#ifdef BLEND_MULTIPLY
+    // The blend function is:
+    //
+    //     result = dst_color * src_color + (1 - src_alpha) * dst_color
+    //
+    // We premultiply `src_color` by `src_alpha`:
+    //
+    //     src_color *= src_alpha
+    //
+    // We end up with:
+    //
+    //     result = dst_color * (src_color * src_alpha) + (1 - src_alpha) * dst_color
+    //     result = src_alpha * (src_color * dst_color) + (1 - src_alpha) * dst_color
+    //
+    // Which is the blend operation for multiplicative blending with arbitrary mixing
+    // controlled by the source alpha channel
+    return vec4<f32>(color.rgb * color.a, color.a);
+#endif
+}
+#endif

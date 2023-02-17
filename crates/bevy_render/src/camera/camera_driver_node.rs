@@ -1,5 +1,5 @@
 use crate::{
-    camera::{ExtractedCamera, RenderTarget},
+    camera::{ExtractedCamera, NormalizedRenderTarget},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
     renderer::RenderContext,
     view::ExtractedWindows,
@@ -52,8 +52,8 @@ impl Node for CameraDriverNode {
             }
             previous_order_target = Some(new_order_target);
             if let Ok((_, camera)) = self.cameras.get_manual(world, entity) {
-                if let RenderTarget::Window(id) = camera.target {
-                    camera_windows.insert(id);
+                if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
+                    camera_windows.insert(window_ref.entity());
                 }
                 graph
                     .run_sub_graph(camera.render_graph.clone(), vec![SlotValue::Entity(entity)])?;
@@ -98,7 +98,7 @@ impl Node for CameraDriverNode {
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 

@@ -27,12 +27,13 @@ pub use image_texture_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::{PrepareAssetLabel, RenderAssetPlugin},
+    render_asset::{PrepareAssetSet, RenderAssetPlugin},
     renderer::RenderDevice,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
+use bevy_ecs::prelude::*;
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -83,8 +84,8 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
-            PrepareAssetLabel::PreAssetPrepare,
+        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_set(
+            PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
         .add_asset::<Image>()
@@ -102,7 +103,10 @@ impl Plugin for ImagePlugin {
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
-                .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+                .init_resource::<FallbackImageCubemap>()
+                .init_resource::<FallbackImageMsaaCache>()
+                .init_resource::<FallbackImageDepthCache>()
+                .add_system(update_texture_cache_system.in_set(RenderSet::Cleanup));
         }
     }
 }
