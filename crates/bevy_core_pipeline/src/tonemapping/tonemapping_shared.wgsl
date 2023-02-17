@@ -90,47 +90,6 @@ fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
     return sample_current_lut(uv).rgb;
 }
 
-// -------------------------
-// ---- ACES from godot ----
-// -------------------------
-// Adapted from https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
-// (MIT License).
-fn tonemapping_aces_godot_4(color: vec3<f32>, white: f32) -> vec3<f32> {
-    var color = color;
-    var white = white;
-
-    // TODO make const 
-    // (why won't wgpu allow local const?)
-    let exposure_bias = 1.8;
-    let A = 0.0245786;
-    let B = 0.000090537;
-    let C = 0.983729;
-    let D = 0.432951;
-    let E = 0.238081;
-
-    // Exposure bias baked into transform to save shader instructions. Equivalent to `color *= exposure_bias`
-    let rgb_to_rrt = mat3x3<f32>(
-        vec3(0.59719 * exposure_bias, 0.35458 * exposure_bias, 0.04823 * exposure_bias),
-        vec3(0.07600 * exposure_bias, 0.90834 * exposure_bias, 0.01566 * exposure_bias),
-        vec3(0.02840 * exposure_bias, 0.13383 * exposure_bias, 0.83777 * exposure_bias)    
-    );
-
-    let odt_to_rgb = mat3x3<f32>(
-        vec3(1.60475, -0.53108, -0.07367),
-        vec3(-0.10208, 1.10813, -0.00605),
-        vec3(-0.00327, -0.07276, 1.07602)
-    );
-
-    color *= rgb_to_rrt;
-    var color_tonemapped = (color * (color + A) - B) / (color * (C * color + D) + E);
-    color_tonemapped *= odt_to_rgb;
-
-    white *= exposure_bias;
-    let white_tonemapped = (white * (white + A) - B) / (white * (C * white + D) + E);
-
-    return color_tonemapped / white_tonemapped;
-}
-
 // --------------------------------
 // ---------- ACES Fitted ---------
 // --------------------------------
