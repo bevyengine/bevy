@@ -18,6 +18,7 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
 // --------------------------------------
 // --- SomewhatBoringDisplayTransform ---
 // --------------------------------------
+// By Tomasz Stachowiak
 
 fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
@@ -71,9 +72,11 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
     return col * final_mult;
 }
 
-// --------------------------------------
-// ---------- TonyMcMapface -------------
-// --------------------------------------
+// ------------------------------------------
+// ------------- Tony McMapface -------------
+// ------------------------------------------
+// By Tomasz Stachowiak
+// https://github.com/h3r2tic/tony-mc-mapface
 
 const TONY_MC_MAPFACE_LUT_EV_RANGE = vec2<f32>(-13.0, 8.0);
 const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
@@ -86,13 +89,12 @@ fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let range = tony_mc_mapface_lut_range_encode(exp2(TONY_MC_MAPFACE_LUT_EV_RANGE.xyy)).xy;
     let normalized = (tony_mc_mapface_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
     var uv = saturate(normalized * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS));
-    uv.y = 1.0 - uv.y;
     return sample_current_lut(uv).rgb;
 }
 
-// --------------------------------
-// ---------- ACES Fitted ---------
-// --------------------------------
+// ---------------------------------
+// ---------- ACES Fitted ----------
+// ---------------------------------
 
 // Same base implementation that Godot 4.0 uses for Tonemap ACES.
 
@@ -137,9 +139,10 @@ fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
     return color;
 }
 
-// --------------------------------
-// ------------- AgX --------------
-// --------------------------------
+// -------------------------------
+// ------------- AgX -------------
+// -------------------------------
+// By Troy Sobotka
 // https://github.com/MrLixm/AgXc
 // https://github.com/sobotka/AgX
 

@@ -58,7 +58,7 @@ impl Plugin for TonemappingPlugin {
                 ImageType::Extension("ktx2"),
             )),
             tony_mc_mapface: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/TonyMcMapface.ktx2"),
+                include_bytes!("luts/tony_mc_mapface.ktx2"),
                 ImageType::Extension("ktx2"),
             )),
         };
