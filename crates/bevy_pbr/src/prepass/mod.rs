@@ -352,7 +352,7 @@ where
                 buffers: vec![vertex_buffer_layout],
             },
             fragment,
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 topology: key.mesh_key.primitive_topology(),
                 strip_index_format: None,
@@ -383,6 +383,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            push_constant_ranges: Vec::new(),
             label: Some("prepass_pipeline".into()),
         };
 
