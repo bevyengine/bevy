@@ -585,8 +585,11 @@ impl App {
         T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>()
-                .add_system(Events::<T>::update_system.in_base_set(CoreSet::First));
+            self.init_resource::<Events<T>>().add_system(
+                Events::<T>::update_system
+                    .in_base_set(CoreSet::First)
+                    .run_if(Events::<T>::update_condition),
+            );
         }
         self
     }

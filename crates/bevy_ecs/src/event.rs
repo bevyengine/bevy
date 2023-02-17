@@ -552,6 +552,12 @@ impl<E: Event> Events<E> {
         events.update();
     }
 
+    /// A [`Condition`] that checks if the event's [`update_system`](Self::update_system)
+    /// needs to run or not.
+    pub fn update_condition(events: Res<Self>) -> bool {
+        !events.events_a.is_empty() || !events.events_b.is_empty()
+    }
+
     #[inline]
     fn reset_start_event_count(&mut self) {
         self.events_a.start_event_count = self.event_count;
