@@ -79,37 +79,30 @@ impl FlexSurface {
         &mut self,
         entity: Entity,
         style: &Style,
-        calculated_size: CalculatedSize,
+        calculated_size: &CalculatedSize,
         scale_factor: f64,
     ) {
         let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(scale_factor, style);
+        let  m = calculated_size.measure.box_clone();
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-                let mut size = Size {
-                    width: (scale_factor * calculated_size.size.x as f64) as f32,
-                    height: (scale_factor * calculated_size.size.y as f64) as f32,
-                };
-                match (constraints.width, constraints.height) {
-                    (None, None) => {}
-                    (Some(width), None) => {
-                        if calculated_size.preserve_aspect_ratio {
-                            size.height = width * size.height / size.width;
-                        }
-                        size.width = width;
+            move |constraints: Size<Option<f32>>, available_space: Size<AvailableSpace>| {
+                let size = m.measure(
+                    constraints.width.map(|w| (w as f64 / scale_factor) as f32),
+                    constraints.height.map(|h| (h as f64 / scale_factor) as f32),
+                    match available_space.width {
+                        AvailableSpace::Definite(w) => AvailableSpace::Definite((w as f64 / scale_factor as f64) as f32),
+                        s => s,
+                    },
+                    match available_space.height {
+                        AvailableSpace::Definite(h) => AvailableSpace::Definite((h as f64 / scale_factor as f64) as f32),
+                        s => s,
                     }
-                    (None, Some(height)) => {
-                        if calculated_size.preserve_aspect_ratio {
-                            size.width = height * size.width / size.height;
-                        }
-                        size.height = height;
-                    }
-                    (Some(width), Some(height)) => {
-                        size.width = width;
-                        size.height = height;
-                    }
+                );
+                taffy::geometry::Size {
+                    width: (size.x as f64 * scale_factor) as f32,
+                    height: (size.y as f64 * scale_factor) as f32,
                 }
-                size
             },
         ));
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
@@ -266,7 +259,7 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(entity, style, calculated_size, scaling_factor);
             } else {
                 flex_surface.upsert_node(entity, style, scaling_factor);
             }
@@ -281,7 +274,7 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
+        flex_surface.upsert_leaf(entity, style, calculated_size, scale_factor);
     }
 
     // clean up removed nodes

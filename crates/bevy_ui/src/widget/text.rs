@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Node, Style, UiScale, Val};
+use crate::{CalculatedSize, Node, Style, UiScale, Val, MeasureNode, BasicMeasure};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -139,6 +139,9 @@ pub fn text_system(
                         scale_value(info.size.x, inv_scale_factor),
                         scale_value(info.size.y, inv_scale_factor),
                     );
+                    calculated_size.measure = Box::new(BasicMeasure {
+                        size: calculated_size.size,
+                    });
                     match text_layout_info {
                         Some(mut t) => *t = info,
                         None => {

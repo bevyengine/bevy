@@ -1,4 +1,4 @@
-use crate::{Size, UiRect};
+use crate::{Size, UiRect, MeasureNode, BasicMeasure};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -562,25 +562,25 @@ impl Default for FlexWrap {
 }
 
 /// The calculated size of the node
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct CalculatedSize {
     /// The size of the node in logical pixels
     pub size: Vec2,
-    /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
-    pub preserve_aspect_ratio: bool,
+    /// The measure function used to calculate the size
+    pub measure: Box<dyn MeasureNode + 'static + Send + Sync>
+
 }
 
-impl CalculatedSize {
-    const DEFAULT: Self = Self {
-        size: Vec2::ZERO,
-        preserve_aspect_ratio: false,
-    };
+impl std::fmt::Debug for CalculatedSize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CalculatedSize")
+            .finish()
+    }
 }
 
 impl Default for CalculatedSize {
     fn default() -> Self {
-        Self::DEFAULT
+        Self { size: Default::default(), measure: Box::new(BasicMeasure { size: Default::default() }) }
     }
 }
 

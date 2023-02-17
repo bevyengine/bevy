@@ -61,7 +61,7 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -96,7 +96,7 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
