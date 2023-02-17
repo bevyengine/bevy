@@ -114,6 +114,14 @@ impl Schedules {
     }
 }
 
+fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
+    match kind {
+        ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
+        ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
+        ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
+    }
+}
+
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
 pub struct Schedule {
@@ -135,7 +143,7 @@ impl Schedule {
         Self {
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
-            executor: Box::new(MultiThreadedExecutor::new()),
+            executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         }
     }
@@ -184,11 +192,7 @@ impl Schedule {
     /// Sets the schedule's execution strategy.
     pub fn set_executor_kind(&mut self, executor: ExecutorKind) -> &mut Self {
         if executor != self.executor.kind() {
-            self.executor = match executor {
-                ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
-                ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
-                ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
-            };
+            self.executor = make_executor(executor);
             self.executor_initialized = false;
         }
         self
