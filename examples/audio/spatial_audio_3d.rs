@@ -90,8 +90,8 @@ fn update_positions(
 ) {
     if let Some(sink) = audio_sinks.get(&music_controller.0) {
         let mut emitter_transform = emitter.single_mut();
-        emitter_transform.translation.x = (time.elapsed_seconds()).sin() as f32 * 3.0;
-        emitter_transform.translation.z = (time.elapsed_seconds()).cos() as f32 * 3.0;
+        emitter_transform.translation.x = time.elapsed_seconds().sin() * 3.0;
+        emitter_transform.translation.z = time.elapsed_seconds().cos() * 3.0;
         sink.set_emitter_position(emitter_transform.translation);
     }
 }
