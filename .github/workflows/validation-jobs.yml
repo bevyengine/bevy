@@ -80,7 +80,7 @@ jobs:
         shell: bash
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,ktx2,zstd"
+          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
 
       - name: Run examples
         shell: bash
@@ -88,7 +88,7 @@ jobs:
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,ktx2,zstd"
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
 

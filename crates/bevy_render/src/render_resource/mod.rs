@@ -35,14 +35,14 @@ pub use wgpu::{
     FrontFace, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase,
     ImageDataLayout, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode,
     MultisampleState, Operations, Origin3d, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
-    PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    RenderPassDescriptor, RenderPipelineDescriptor as RawRenderPipelineDescriptor,
-    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess,
-    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
-    VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
-    VertexStepMode,
+    PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor,
+    RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
+    StencilOperation, StencilState, StorageTextureAccess, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension, VertexAttribute, VertexBufferLayout as RawVertexBufferLayout,
+    VertexFormat, VertexState as RawVertexState, VertexStepMode,
 };
 
 pub mod encase {
