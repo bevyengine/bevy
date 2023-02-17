@@ -31,6 +31,10 @@ impl Debug for TypeRegistryArc {
 /// A trait which allows a type to generate its [`TypeRegistration`].
 ///
 /// This trait is automatically implemented for types which derive [`Reflect`].
+///
+/// As a core trait to the reflection system, it is a supertrait of [`Reflectable`].
+///
+/// [`Reflectable`]: crate::Reflectable
 pub trait GetTypeRegistration {
     fn get_type_registration() -> TypeRegistration;
 }
