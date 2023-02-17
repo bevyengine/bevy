@@ -9,7 +9,7 @@
 //!    App::new()
 //!         .add_plugins(MinimalPlugins)
 //!         .add_plugin(AssetPlugin::default())
-//!         .add_plugin(AudioPlugin)
+//!         .add_plugin(AudioPlugin::default())
 //!         .add_startup_system(play_background_audio)
 //!         .run();
 //! }

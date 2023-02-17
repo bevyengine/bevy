@@ -94,12 +94,12 @@ where
     /// ```
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
+    /// # use bevy_audio::{Audio, Volume};
     /// # use bevy_audio::PlaybackSettings;
     /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     ///     audio.play_with_settings(
     ///         asset_server.load("my_sound.ogg"),
-    ///         PlaybackSettings::LOOP.with_volume(0.75),
+    ///         PlaybackSettings::LOOP.with_volume(Volume::new_relative(0.75)),
     ///     );
     /// }
     /// ```
@@ -133,6 +133,17 @@ pub enum Volume {
 impl Default for Volume {
     fn default() -> Self {
         Self::Relative(VolumeLevel::default())
+    }
+}
+
+impl Volume {
+    /// Create a new volume level relative to the global volume.
+    pub fn new_relative(volume: f32) -> Self {
+        Self::Relative(VolumeLevel::new(volume))
+    }
+    /// Create a new volume level that ignores the global volume.
+    pub fn new_absolute(volume: f32) -> Self {
+        Self::Absolute(VolumeLevel::new(volume))
     }
 }
 
