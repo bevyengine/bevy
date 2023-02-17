@@ -56,15 +56,22 @@ where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
     fn play_source(&self, audio_source: &Source, repeat: bool) -> Option<Sink> {
-        self.stream_handle.as_ref().map(|stream_handle| {
-            let sink = Sink::try_new(stream_handle).unwrap();
-            if repeat {
-                sink.append(audio_source.decoder().repeat_infinite());
-            } else {
-                sink.append(audio_source.decoder());
-            }
-            sink
-        })
+        self.stream_handle
+            .as_ref()
+            .and_then(|stream_handle| match Sink::try_new(stream_handle) {
+                Ok(sink) => {
+                    if repeat {
+                        sink.append(audio_source.decoder().repeat_infinite());
+                    } else {
+                        sink.append(audio_source.decoder());
+                    }
+                    Some(sink)
+                }
+                Err(err) => {
+                    warn!("Error playing sound: {err:?}");
+                    None
+                }
+            })
     }
 
     fn play_spatial_source(
@@ -73,20 +80,26 @@ where
         repeat: bool,
         spatial: SpatialSettings,
     ) -> Option<SpatialSink> {
-        self.stream_handle.as_ref().map(|stream_handle| {
-            let sink = SpatialSink::try_new(
+        self.stream_handle.as_ref().and_then(|stream_handle| {
+            match SpatialSink::try_new(
                 stream_handle,
                 spatial.emitter,
                 spatial.left_ear,
                 spatial.right_ear,
-            )
-            .unwrap();
-            if repeat {
-                sink.append(audio_source.decoder().repeat_infinite());
-            } else {
-                sink.append(audio_source.decoder());
+            ) {
+                Ok(sink) => {
+                    if repeat {
+                        sink.append(audio_source.decoder().repeat_infinite());
+                    } else {
+                        sink.append(audio_source.decoder());
+                    }
+                    Some(sink)
+                }
+                Err(err) => {
+                    warn!("Error playing spatial sound: {err:?}");
+                    None
+                }
             }
-            sink
         })
     }
 
