@@ -45,7 +45,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 #endif
 
 #ifdef TONEMAP_IN_SHADER
-    color = vec4<f32>(reinhard_luminance(color.rgb), color.a);
+    color = vec4<f32>(tonemapping_reinhard_luminance(color.rgb), color.a);
 #endif
 
     return color;

@@ -72,7 +72,11 @@ fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let normalized = (tony_mc_mapface_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
     var uv = saturate(normalized * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS));
     uv.y = 1.0 - uv.y;
+#ifdef TONEMAP_METHOD_NONE
+    return stimulus;
+#else // Don't include code that will try to sample from LUTs if tonemap method is none
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, uv, 0.0).rgb;
+#endif
 }
 
 // -------------------------
@@ -240,7 +244,11 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
 }
 
 fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
+#ifdef TONEMAP_METHOD_NONE
+    return Image;
+#else // Don't include code that will try to sample from LUTs if tonemap method is none
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, Image * ((block_size - 1.0) / block_size) + 0.5 / block_size, 0.0).rgb;
+#endif
 }
 
 // -------------------------
@@ -253,6 +261,7 @@ fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let normalized = saturate(convertOpenDomainToNormalizedLog2(stimulus, -11.0, 12.0));
     return applyLUT3D(normalized, block_size);
 }
+
 
 fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));

@@ -2,7 +2,9 @@
 #import bevy_pbr::mesh_bindings
 #import bevy_pbr::utils
 
+#ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
+#endif
 
 @group(1) @binding(0)
 var texture: texture_2d<f32>;

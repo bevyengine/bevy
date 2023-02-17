@@ -530,7 +530,7 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
-            &ColorGrading,
+            Option<&ColorGrading>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -539,6 +539,8 @@ pub fn extract_cameras(
     for (entity, camera, camera_render_graph, transform, visible_entities, color_grading) in
         query.iter()
     {
+        let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
+
         if !camera.is_active {
             continue;
         }
@@ -570,7 +572,7 @@ pub fn extract_cameras(
                         viewport_size.x,
                         viewport_size.y,
                     ),
-                    color_grading: *color_grading,
+                    color_grading,
                 },
                 visible_entities.clone(),
             ));
