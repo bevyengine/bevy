@@ -4,7 +4,7 @@ use bevy_transform::prelude::Transform;
 use rodio::{Sink, SpatialSink};
 
 /// Common interactions with an audio sink.
-pub trait AudioSinkExt {
+pub trait AudioSinkPlayback {
     /// Gets the volume of the sound.
     ///
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
@@ -67,7 +67,7 @@ pub trait AudioSinkExt {
 /// ```
 /// # use bevy_ecs::system::{Local, Res};
 /// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::{AudioSink, AudioSinkExt};
+/// # use bevy_audio::{AudioSink, AudioSinkPlayback};
 /// // Execution of this system should be controlled by a state or input,
 /// // otherwise it would just toggle between play and pause every frame.
 /// fn pause(
@@ -98,7 +98,7 @@ impl Drop for AudioSink {
     }
 }
 
-impl AudioSinkExt for AudioSink {
+impl AudioSinkPlayback for AudioSink {
     fn volume(&self) -> f32 {
         self.sink.as_ref().unwrap().volume()
     }
@@ -165,7 +165,7 @@ impl Drop for SpatialAudioSink {
     }
 }
 
-impl AudioSinkExt for SpatialAudioSink {
+impl AudioSinkPlayback for SpatialAudioSink {
     fn volume(&self) -> f32 {
         self.sink.as_ref().unwrap().volume()
     }
