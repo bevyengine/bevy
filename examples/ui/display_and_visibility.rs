@@ -11,8 +11,8 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
-        .add_system(display_buttons)
-        .add_system(visibility_buttons)
+        .add_system(buttons_handler::<Display>)
+        .add_system(buttons_handler::<Visibility>)
         .add_system(text_hover)
         .run();
 }
@@ -29,6 +29,37 @@ impl<T> Target<T> {
             id,
             phantom: std::marker::PhantomData,
         }
+    }
+}
+
+trait TargetUpdate {
+    type TargetComponent: Component;
+    const NAME: &'static str;
+    fn update_target(&self, target: &mut Self::TargetComponent) -> String;
+}
+
+impl TargetUpdate for Target<Display> {
+    type TargetComponent = Style;
+    const NAME: &'static str = "Display";
+    fn update_target(&self, style: &mut Self::TargetComponent) -> String {
+        style.display = match style.display {
+            Display::Flex => Display::None,
+            Display::None => Display::Flex,
+        };
+        format!(" {}::{:?} ", Self::NAME, style.display)
+    }
+}
+
+impl TargetUpdate for Target<Visibility> {
+    type TargetComponent = Visibility;
+    const NAME: &'static str = "Visibility";
+    fn update_target(&self, visibility: &mut Self::TargetComponent) -> String {
+        *visibility = match *visibility {
+            Visibility::Inherited => Visibility::Visible,
+            Visibility::Visible => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Inherited,
+        };
+        format!(" {}::{visibility:?}", Self::NAME)
     }
 }
 
@@ -210,6 +241,10 @@ fn spawn_right_panel(
     palette: &[Color; 4],
     mut target_ids: Vec<Entity>,
 ) {
+    let spawn_buttons = |parent: &mut ChildBuilder, target_id| {
+        spawn_button::<Display>(parent, text_style.clone(), target_id);
+        spawn_button::<Visibility>(parent, text_style.clone(), target_id);
+    };
     parent
         .spawn(NodeBundle {
             style: Style {
@@ -238,19 +273,7 @@ fn spawn_right_panel(
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    let target = target_ids.pop().unwrap();
-                    spawn_button::<Display>(
-                        parent,
-                        format!(" Display::{:?} ", Display::default()),
-                        text_style.clone(),
-                        Target::new(target),
-                    );
-                    spawn_button::<Visibility>(
-                        parent,
-                        format!(" Visibility::{:?} ", Visibility::default()),
-                        text_style.clone(),
-                        Target::new(target),
-                    );
+                    spawn_buttons(parent, target_ids.pop().unwrap());
 
                     parent
                         .spawn((NodeBundle {
@@ -270,19 +293,7 @@ fn spawn_right_panel(
                             ..Default::default()
                         },))
                         .with_children(|parent| {
-                            let target = target_ids.pop().unwrap();
-                            spawn_button::<Display>(
-                                parent,
-                                format!("Display::{:?} ", Display::default()),
-                                text_style.clone(),
-                                Target::new(target),
-                            );
-                            spawn_button::<Visibility>(
-                                parent,
-                                format!(" Visibility::{:?} ", Visibility::default()),
-                                text_style.clone(),
-                                Target::new(target),
-                            );
+                            spawn_buttons(parent, target_ids.pop().unwrap());
 
                             parent
                                 .spawn((NodeBundle {
@@ -302,19 +313,7 @@ fn spawn_right_panel(
                                     ..Default::default()
                                 },))
                                 .with_children(|parent| {
-                                    let target = target_ids.pop().unwrap();
-                                    spawn_button::<Display>(
-                                        parent,
-                                        format!(" Display::{:?} ", Display::default()),
-                                        text_style.clone(),
-                                        Target::new(target),
-                                    );
-                                    spawn_button::<Visibility>(
-                                        parent,
-                                        format!(" Visibility::{:?} ", Visibility::default()),
-                                        text_style.clone(),
-                                        Target::new(target),
-                                    );
+                                    spawn_buttons(parent, target_ids.pop().unwrap());
 
                                     parent
                                         .spawn((NodeBundle {
@@ -334,22 +333,8 @@ fn spawn_right_panel(
                                             ..Default::default()
                                         },))
                                         .with_children(|parent| {
-                                            let target = target_ids.pop().unwrap();
-                                            spawn_button::<Display>(
-                                                parent,
-                                                format!(" Display::{:?} ", Display::default()),
-                                                text_style.clone(),
-                                                Target::new(target),
-                                            );
-                                            spawn_button::<Visibility>(
-                                                parent,
-                                                format!(
-                                                    " Visibility::{:?} ",
-                                                    Visibility::default()
-                                                ),
-                                                text_style.clone(),
-                                                Target::new(target),
-                                            );
+                                            spawn_buttons(parent, target_ids.pop().unwrap());
+
                                             parent.spawn(NodeBundle {
                                                 style: Style {
                                                     size: Size::all(Val::Px(100.)),
@@ -364,13 +349,10 @@ fn spawn_right_panel(
         });
 }
 
-fn spawn_button<T>(
-    parent: &mut ChildBuilder,
-    label: String,
-    text_style: TextStyle,
-    target: Target<T>,
-) where
-    Target<T>: Bundle,
+fn spawn_button<T>(parent: &mut ChildBuilder, text_style: TextStyle, target: Entity)
+where
+    T: Default + std::fmt::Debug + Send + Sync + 'static,
+    Target<T>: TargetUpdate,
 {
     parent.spawn((
         ButtonBundle {
@@ -382,47 +364,27 @@ fn spawn_button<T>(
             background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
             ..Default::default()
         },
-        target,
-        Text::from_section(label, text_style).with_alignment(TextAlignment::Center),
+        Target::<T>::new(target),
+        Text::from_section(
+            format!("{}::{:?}", Target::<T>::NAME, T::default()),
+            text_style,
+        )
+        .with_alignment(TextAlignment::Center),
         CalculatedSize::default(),
     ));
 }
 
-fn display_buttons(
-    mut left_panel_query: Query<&mut Style>,
-    mut display_button_query: Query<
-        (&mut Text, &mut Target<Display>, &Interaction),
-        Changed<Interaction>,
-    >,
-) {
-    for (mut text, target, interaction) in display_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Clicked) {
-            let mut style = left_panel_query.get_mut(target.id).unwrap();
-            style.display = match style.display {
-                Display::Flex => Display::None,
-                Display::None => Display::Flex,
-            };
-            text.sections[0].value = format!(" Display::{:?} ", style.display);
-        }
-    }
-}
-
-fn visibility_buttons(
-    mut left_panel_query: Query<&mut Visibility>,
-    mut visibility_button_query: Query<
-        (&mut Text, &mut Target<Visibility>, &Interaction),
-        Changed<Interaction>,
-    >,
-) {
+fn buttons_handler<T>(
+    mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
+    mut visibility_button_query: Query<(&mut Text, &Target<T>, &Interaction), Changed<Interaction>>,
+) where
+    T: Send + Sync,
+    Target<T>: TargetUpdate + Component,
+{
     for (mut text, target, interaction) in visibility_button_query.iter_mut() {
         if matches!(interaction, Interaction::Clicked) {
-            let mut visibility = left_panel_query.get_mut(target.id).unwrap();
-            *visibility = match *visibility {
-                Visibility::Inherited => Visibility::Visible,
-                Visibility::Visible => Visibility::Hidden,
-                Visibility::Hidden => Visibility::Inherited,
-            };
-            text.sections[0].value = format!(" Visibility::{:?} ", *visibility);
+            let mut target_value = left_panel_query.get_mut(target.id).unwrap();
+            text.sections[0].value = target.update_target(target_value.as_mut());
         }
     }
 }
