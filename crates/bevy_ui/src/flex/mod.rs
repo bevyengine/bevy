@@ -92,13 +92,13 @@ impl FlexSurface {
                     constraints.height.map(|h| (h as f64 / scale_factor) as f32),
                     match available_space.width {
                         AvailableSpace::Definite(w) => {
-                            AvailableSpace::Definite((w as f64 / scale_factor as f64) as f32)
+                            AvailableSpace::Definite((w as f64 / scale_factor) as f32)
                         }
                         s => s,
                     },
                     match available_space.height {
                         AvailableSpace::Definite(h) => {
-                            AvailableSpace::Definite((h as f64 / scale_factor as f64) as f32)
+                            AvailableSpace::Definite((h as f64 / scale_factor) as f32)
                         }
                         s => s,
                     },
