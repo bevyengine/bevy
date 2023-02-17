@@ -223,6 +223,32 @@ mod tests {
         }
 
         #[test]
+        fn systems_with_distributive_condition() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.insert_resource(RunConditionBool(true));
+            world.init_resource::<SystemOrder>();
+
+            fn change_condition(mut condition: ResMut<RunConditionBool>) {
+                condition.0 = false;
+            }
+
+            schedule.add_systems(
+                (
+                    make_function_system(0),
+                    change_condition,
+                    make_function_system(1),
+                )
+                    .chain()
+                    .distributive_run_if(|condition: Res<RunConditionBool>| condition.0),
+            );
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
         fn run_exclusive_system_with_condition() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
