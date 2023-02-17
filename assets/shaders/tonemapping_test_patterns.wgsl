@@ -6,17 +6,11 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
-@group(1) @binding(0)
-var texture: texture_2d<f32>;
-@group(1) @binding(1)
-var texture_sampler: sampler;
-
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 };
-
 
 fn color_sweep(uv: vec2<f32>) -> vec3<f32> {
     let steps = 24.0;
@@ -58,7 +52,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     } else {
         out = continuous_hue(vec2(uv.y * 2.0, uv.x));
     }
-    var color = vec4(out, 0.0);
+    var color = vec4(out, 1.0);
 #ifdef TONEMAP_IN_SHADER
     color = tone_mapping(color);
 #endif

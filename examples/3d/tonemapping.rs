@@ -487,7 +487,7 @@ fn update_ui(
         if scn == 1 { ">" } else { "" }
     ));
     text.push_str(&format!(
-        "(W) {} Color Gradient\n",
+        "(W) {} Color Sweep\n",
         if scn == 2 { ">" } else { "" }
     ));
     text.push_str(&format!(
