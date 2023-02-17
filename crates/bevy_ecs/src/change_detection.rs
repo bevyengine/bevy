@@ -719,7 +719,6 @@ impl<'a> MutUntyped<'a> {
         }
     }
 
-
     /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
     ///
     /// # Safety
@@ -799,11 +798,8 @@ mod tests {
     };
 
     use super::DetectChanges;
-<<<<<<< HEAD
     use super::DetectChangesMut;
-=======
     use super::MutUntyped;
->>>>>>> 181b463bf (add MutUntyped::to_typed)
 
     #[derive(Component, PartialEq)]
     struct C;
