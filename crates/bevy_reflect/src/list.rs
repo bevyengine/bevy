@@ -2,7 +2,7 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use crate::utility::NonGenericTypeInfoCell;
+use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
 use crate::{
     DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
@@ -378,7 +378,7 @@ impl<'a> ExactSizeIterator for ListIter<'a> {}
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
 pub fn list_hash<L: List>(list: &L) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
+    let mut hasher = reflect_hasher();
     std::any::Any::type_id(list).hash(&mut hasher);
     list.len().hash(&mut hasher);
     for value in list.iter() {
