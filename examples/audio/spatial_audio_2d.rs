@@ -9,6 +9,10 @@ fn main() {
         .run();
 }
 
+/// 1 pixel would be one unit of distance for audio and sound attenuation would happen very fast.
+/// Keeping an audio span scale allow this example to have visible movements and shape size while keeping attenuation reasonable.
+const AUDIO_SPAN: f32 = 100.0;
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -17,58 +21,50 @@ fn setup(
     audio: Res<Audio>,
     audio_sinks: Res<Assets<SpatialAudioSink>>,
 ) {
-    let gap = 4.0;
+    let gap = 400.0;
 
     let music = asset_server.load("sounds/Windless Slopes.ogg");
     let handle = audio_sinks.get_handle(audio.play_spatial_with_settings(
         music,
         PlaybackSettings::LOOP,
         Transform::IDENTITY,
-        gap,
+        gap / AUDIO_SPAN,
         Vec3::ZERO,
     ));
     commands.insert_resource(AudioController(handle));
 
-    // Putting the visual presentation in a parent with a big scale as sound attenuation happens quite fast so distance are kept small
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_scale(Vec3::splat(100.0)),
+    // left ear
+    commands.spawn(SpriteBundle {
+        sprite: Sprite {
+            color: Color::RED,
+            custom_size: Some(Vec2::splat(20.0)),
             ..default()
-        })
-        .with_children(|parent| {
-            // left ear
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: Color::RED,
-                    custom_size: Some(Vec2::splat(0.2)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-                ..default()
-            });
+        },
+        transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
+        ..default()
+    });
 
-            // right ear
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: Color::GREEN,
-                    custom_size: Some(Vec2::splat(0.2)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-                ..default()
-            });
+    // right ear
+    commands.spawn(SpriteBundle {
+        sprite: Sprite {
+            color: Color::GREEN,
+            custom_size: Some(Vec2::splat(20.0)),
+            ..default()
+        },
+        transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
+        ..default()
+    });
 
-            // sound emitter
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.add(shape::Circle::new(0.15).into()).into(),
-                    material: materials.add(ColorMaterial::from(Color::BLUE)),
-                    transform: Transform::from_translation(Vec3::new(0.0, 0.5, 0.0)),
-                    ..default()
-                },
-                Emitter,
-            ));
-        });
+    // sound emitter
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
+            material: materials.add(ColorMaterial::from(Color::BLUE)),
+            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+            ..default()
+        },
+        Emitter,
+    ));
 
     // camera
     commands.spawn(Camera2dBundle::default());
@@ -88,7 +84,7 @@ fn update_positions(
 ) {
     if let Some(sink) = audio_sinks.get(&music_controller.0) {
         let mut emitter_transform = emitter.single_mut();
-        emitter_transform.translation.x = time.elapsed_seconds().sin() * 5.0;
-        sink.set_emitter_position(emitter_transform.translation);
+        emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
+        sink.set_emitter_position(emitter_transform.translation / AUDIO_SPAN);
     }
 }
