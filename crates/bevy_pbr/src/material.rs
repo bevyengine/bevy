@@ -423,10 +423,8 @@ pub fn queue_material_meshes<M: Material>(
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }
-            if let Some(dither) = dither {
-                if let Dither::Enabled = dither {
-                    view_key |= MeshPipelineKey::DEBAND_DITHER;
-                }
+            if let Some(Dither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
 

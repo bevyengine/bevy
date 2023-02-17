@@ -578,10 +578,8 @@ pub fn queue_sprites(
                         }
                     };
                 }
-                if let Some(dither) = dither {
-                    if let Dither::Enabled = dither {
-                        view_key |= SpritePipelineKey::DEBAND_DITHER;
-                    }
+                if let Some(Dither::Enabled) = dither {
+                    view_key |= SpritePipelineKey::DEBAND_DITHER;
                 }
             }
 

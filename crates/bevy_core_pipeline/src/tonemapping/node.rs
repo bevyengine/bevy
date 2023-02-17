@@ -94,7 +94,7 @@ impl Node for TonemappingNode {
             true
         };
         if tonemapping_changed {
-            *last_tonemapping = Some(tonemapping.clone());
+            *last_tonemapping = Some(*tonemapping);
         }
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();

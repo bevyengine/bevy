@@ -251,7 +251,7 @@ pub fn ktx2_buffer_to_image(
             ((level_width + block_width_pixels - 1) / block_width_pixels).max(1),
             ((level_height + block_height_pixels - 1) / block_height_pixels).max(1),
         );
-        let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes as usize;
+        let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes;
 
         let mut index = 0;
         for _layer in 0..layer_count {

@@ -146,7 +146,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             Tonemapping::Aces => shader_defs.push("TONEMAP_METHOD_ACES".into()),
             Tonemapping::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
             Tonemapping::SomewhatBoringDisplayTransform => {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into())
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             }
             Tonemapping::TonyMcMapface => shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into()),
             Tonemapping::BlenderFilmic => {
