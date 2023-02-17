@@ -53,6 +53,7 @@ where
 impl<Source> AudioOutput<Source>
 where
     Source: Asset + Decodable,
+    f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
     fn play_source(&self, audio_source: &Source, repeat: bool) -> Option<Sink> {
         self.stream_handle.as_ref().map(|stream_handle| {
@@ -136,7 +137,9 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
     mut spatial_sinks: ResMut<Assets<SpatialAudioSink>>,
-) {
+) where
+    f32: rodio::cpal::FromSample<Source::DecoderItem>,
+{
     if let Some(audio_sources) = audio_sources {
         audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks, &mut spatial_sinks);
     };
