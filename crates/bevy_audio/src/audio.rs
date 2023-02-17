@@ -132,9 +132,6 @@ where
     /// track, and then changing the level of each stereo channel according to the distance between
     /// the emitter and each ear by amplifying the difference between what the two ears hear.
     ///
-    /// The two channels can be randomly reversed when compiling in debug. This is fixed by
-    /// compiling in release: <https://github.com/RustAudio/rodio/issues/444>.
-    ///
     /// ```
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
@@ -209,9 +206,6 @@ where
     /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
     /// track, and then changing the level of each stereo channel according to the distance between
     /// the emitter and each ear by amplifying the difference between what the two ears hear.
-    ///
-    /// The two channels can be randomly reversed when compiling in debug. This is fixed by
-    /// compiling in release: <https://github.com/RustAudio/rodio/issues/444>.
     ///
     /// ```
     /// # use bevy_ecs::system::Res;
