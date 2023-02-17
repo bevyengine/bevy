@@ -9,9 +9,9 @@ fn main() {
         .run();
 }
 
-/// 1 pixel would be one unit of distance for audio and sound attenuation would happen very fast.
-/// Keeping an audio span scale allow this example to have visible movements and shape size while keeping attenuation reasonable.
-const AUDIO_SPAN: f32 = 100.0;
+/// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera, 1 pixel is 1 unit of distance,
+/// so we use a scale so that 100 pixels is 1 unit of distance for audio.
+const AUDIO_SCALE: f32 = 100.0;
 
 fn setup(
     mut commands: Commands,
@@ -21,6 +21,7 @@ fn setup(
     audio: Res<Audio>,
     audio_sinks: Res<Assets<SpatialAudioSink>>,
 ) {
+    // Space between the two ears
     let gap = 400.0;
 
     let music = asset_server.load("sounds/Windless Slopes.ogg");
@@ -28,7 +29,7 @@ fn setup(
         music,
         PlaybackSettings::LOOP,
         Transform::IDENTITY,
-        gap / AUDIO_SPAN,
+        gap / AUDIO_SCALE,
         Vec3::ZERO,
     ));
     commands.insert_resource(AudioController(handle));
@@ -85,6 +86,6 @@ fn update_positions(
     if let Some(sink) = audio_sinks.get(&music_controller.0) {
         let mut emitter_transform = emitter.single_mut();
         emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
-        sink.set_emitter_position(emitter_transform.translation / AUDIO_SPAN);
+        sink.set_emitter_position(emitter_transform.translation / AUDIO_SCALE);
     }
 }

@@ -17,6 +17,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // Space between the two ears
     let gap = 4.0;
 
     let music = asset_server.load("sounds/Windless Slopes.ogg");
