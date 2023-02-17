@@ -149,7 +149,7 @@ pub mod common_conditions {
     ///
     /// Run conditions are evaluated on the main thread, blocking any other systems from running.
     /// This run condition is relatively expensive, as it iterates over every entity with this component.
-    /// As a result, you likely only want to use this run condition when the number of entitities with the component `T` is small.
+    /// As a result, you likely only want to use this run condition when the number of entities with the component `T` is small.
     pub fn any_component_added<T: Component>() -> impl FnMut(Query<(), Added<T>>) -> bool {
         move |query: Query<(), Added<T>>| !query.is_empty()
     }
@@ -159,7 +159,7 @@ pub mod common_conditions {
     ///
     /// Run conditions are evaluated on the main thread, blocking any other systems from running.
     /// This run condition is relatively expensive, as it iterates over every entity with this component.
-    /// As a result, you likely only want to use this run condition when the number of entitities with the component `T` is small.
+    /// As a result, you likely only want to use this run condition when the number of entities with the component `T` is small.
     pub fn any_component_changed<T: Component>() -> impl FnMut(Query<(), Changed<T>>) -> bool {
         move |query: Query<(), Changed<T>>| !query.is_empty()
     }
