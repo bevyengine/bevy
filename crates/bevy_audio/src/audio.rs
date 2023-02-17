@@ -148,7 +148,7 @@ impl Volume {
 }
 
 /// A volume level equivalent to a positive only float.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct VolumeLevel(pub(crate) f32);
 
 impl Default for VolumeLevel {
@@ -237,21 +237,17 @@ where
 /// Sources can be set to ignore this setting by setting the `absolute_volume` field on [`PlaybackSettings`] to `true`.
 ///
 /// Keep in mind that changing this value will not affect already playing audio.
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Default, Clone, Copy)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
-    pub volume: f32,
-}
-
-impl Default for GlobalVolume {
-    fn default() -> Self {
-        Self { volume: 1.0 }
-    }
+    pub volume: VolumeLevel,
 }
 
 impl GlobalVolume {
     /// Create a new [`GlobalVolume`] with the given volume.
-    pub const fn new(volume: f32) -> Self {
-        Self { volume }
+    pub fn new(volume: f32) -> Self {
+        Self {
+            volume: VolumeLevel::new(volume),
+        }
     }
 }
