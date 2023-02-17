@@ -5,19 +5,11 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use rand::Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
     #[default]
     Playing,
     GameOver,
-}
-
-impl States for GameState {
-    type Iter = std::array::IntoIter<GameState, 2>;
-
-    fn variants() -> Self::Iter {
-        [GameState::Playing, GameState::GameOver].into_iter()
-    }
 }
 
 #[derive(Resource)]
@@ -42,11 +34,11 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
-                .on_update(GameState::Playing),
+                .in_set(OnUpdate(GameState::Playing)),
         )
         .add_system_to_schedule(OnExit(GameState::Playing), teardown)
         .add_system_to_schedule(OnEnter(GameState::GameOver), display_score)
-        .add_system(gameover_keyboard.on_update(GameState::GameOver))
+        .add_system(gameover_keyboard.in_set(OnUpdate(GameState::GameOver)))
         .add_system_to_schedule(OnExit(GameState::GameOver), teardown)
         .add_system(bevy::window::close_on_esc)
         .run();

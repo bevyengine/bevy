@@ -124,7 +124,7 @@ impl CoreSet {
     /// Sets up the base structure of [`CoreSchedule::Main`].
     ///
     /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_system_buffers`] is inserted at each `*Flush` label.
+    /// and a copy of [`apply_system_buffers`] is inserted into each `*Flush` set.
     pub fn base_schedule() -> Schedule {
         use CoreSet::*;
         let mut schedule = Schedule::new();
@@ -165,8 +165,6 @@ impl CoreSet {
 /// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
-///
-/// [`apply_system_buffers`]: bevy_ecs::prelude::apply_system_buffers
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum StartupSet {
     /// Runs once before [`StartupSet::Startup`].
@@ -187,7 +185,7 @@ impl StartupSet {
     /// Sets up the base structure of [`CoreSchedule::Startup`].
     ///
     /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_system_buffers`] is inserted at each `*Flush` label.
+    /// and a copy of [`apply_system_buffers`] is inserted into each `*Flush` set.
     pub fn base_schedule() -> Schedule {
         use StartupSet::*;
         let mut schedule = Schedule::new();

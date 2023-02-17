@@ -108,9 +108,9 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let layout = if key.first_downsample {
-            Some(vec![self.extended_bind_group_layout.clone()])
+            vec![self.extended_bind_group_layout.clone()]
         } else {
-            Some(vec![self.bind_group_layout.clone()])
+            vec![self.bind_group_layout.clone()]
         };
 
         let entry_point = if key.first_downsample {
@@ -153,6 +153,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }

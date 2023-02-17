@@ -13,7 +13,11 @@ repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
   "examples/mobile",
@@ -40,10 +44,12 @@ default = [
   "bevy_ui",
   "png",
   "hdr",
+  "ktx2",
+  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
-  "android_shared_stdcxx"
+  "android_shared_stdcxx",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -120,6 +126,10 @@ animation = ["bevy_internal/animation"]
 
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
+
+# Enable detailed trace event logging.
+# These trace events are expensive even when off, thus they require compile time opt-in.
+detailed_trace = ["bevy_internal/detailed_trace"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
@@ -472,7 +482,6 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.skybox]
 name = "Skybox"

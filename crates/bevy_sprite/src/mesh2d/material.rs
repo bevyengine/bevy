@@ -16,7 +16,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetLabel, RenderAssets},
+    render_asset::{PrepareAssetSet, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -161,8 +161,8 @@ where
                 .add_system_to_schedule(ExtractSchedule, extract_materials_2d::<M>)
                 .add_system(
                     prepare_materials_2d::<M>
-                        .after(PrepareAssetLabel::PreAssetPrepare)
-                        .in_set(RenderSet::Prepare),
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepareAssetSet::PreAssetPrepare),
                 )
                 .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
         }
@@ -248,11 +248,11 @@ where
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = Some(vec![
+        descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
             self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
-        ]);
+        ];
 
         M::specialize(&mut descriptor, layout, key)?;
         Ok(descriptor)

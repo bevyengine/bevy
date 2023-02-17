@@ -6,8 +6,8 @@ use crate::{
     storage::{Column, ComponentSparseSet, Table, TableRow},
     world::World,
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyWorldQuery;
@@ -509,7 +509,7 @@ macro_rules! impl_tick_filter {
                             .debug_checked_unwrap()
                             .get(table_row.index())
                             .deref()
-                            .is_older_than(fetch.last_change_tick, fetch.change_tick)
+                            .is_newer_than(fetch.last_change_tick, fetch.change_tick)
                     }
                     StorageType::SparseSet => {
                         let sparse_set = &fetch
@@ -518,7 +518,7 @@ macro_rules! impl_tick_filter {
                         $get_sparse_set(sparse_set, entity)
                             .debug_checked_unwrap()
                             .deref()
-                            .is_older_than(fetch.last_change_tick, fetch.change_tick)
+                            .is_newer_than(fetch.last_change_tick, fetch.change_tick)
                     }
                 }
             }

@@ -1,8 +1,8 @@
 use crate::{
-    FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
-    NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -27,8 +27,8 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
-        ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
+        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, RenderApp, RenderSet,
@@ -412,10 +412,16 @@ impl FromWorld for MeshPipeline {
                     count: None,
                 },
             ];
+
+            // EnvironmentMapLight
+            let environment_map_entries =
+                environment_map::get_bind_group_layout_entries([11, 12, 13]);
+            entries.extend_from_slice(&environment_map_entries);
+
             if cfg!(not(feature = "webgl")) {
                 // Depth texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 11,
+                    binding: 14,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -426,7 +432,7 @@ impl FromWorld for MeshPipeline {
                 });
                 // Normal texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 12,
+                    binding: 15,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -436,6 +442,7 @@ impl FromWorld for MeshPipeline {
                     count: None,
                 });
             }
+
             entries
         }
 
@@ -574,6 +581,7 @@ bitflags::bitflags! {
         const DEPTH_PREPASS               = (1 << 3);
         const NORMAL_PREPASS              = (1 << 4);
         const ALPHA_MASK                  = (1 << 5);
+        const ENVIRONMENT_MAP             = (1 << 6);
         const BLEND_RESERVED_BITS         = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA   = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -741,6 +749,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
+        if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+            shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -764,7 +776,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -905,9 +918,12 @@ pub fn queue_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         Option<&ViewPrepassTextures>,
+        Option<&EnvironmentMapLight>,
     )>,
+    images: Res<RenderAssets<Image>>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,
+    fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
 ) {
@@ -924,7 +940,14 @@ pub fn queue_mesh_view_bind_groups(
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
+        for (
+            entity,
+            view_shadow_bindings,
+            view_cluster_bindings,
+            prepass_textures,
+            environment_map,
+        ) in &views
+        {
             let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
@@ -982,6 +1005,14 @@ pub fn queue_mesh_view_bind_groups(
                 },
             ];
 
+            let env_map = environment_map::get_bindings(
+                environment_map,
+                &images,
+                &fallback_cubemap,
+                [11, 12, 13],
+            );
+            entries.extend_from_slice(&env_map);
+
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
             // When using WebGL, and MSAA is disabled, we can't bind the textures either
             if cfg!(not(feature = "webgl")) {
@@ -994,7 +1025,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 11,
+                    binding: 14,
                     resource: BindingResource::TextureView(depth_view),
                 });
 
@@ -1007,7 +1038,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 12,
+                    binding: 15,
                     resource: BindingResource::TextureView(normal_view),
                 });
             }

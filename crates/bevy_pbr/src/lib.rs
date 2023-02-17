@@ -2,6 +2,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod environment_map;
 mod fog;
 mod light;
 mod material;
@@ -10,9 +11,8 @@ mod prepass;
 mod render;
 
 pub use alpha::*;
-use bevy_transform::TransformSystem;
-use bevy_window::ModifiesWindows;
 pub use bundle::*;
+pub use environment_map::EnvironmentMapLight;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
@@ -28,6 +28,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
+        environment_map::EnvironmentMapLight,
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
@@ -56,6 +57,8 @@ use bevy_render::{
     view::{ViewSet, VisibilitySystems},
     ExtractSchedule, RenderApp, RenderSet,
 };
+use bevy_transform::TransformSystem;
+use environment_map::EnvironmentMapPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
@@ -173,6 +176,7 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..Default::default()
             })
+            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -199,8 +203,7 @@ impl Plugin for PbrPlugin {
                     .in_set(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CheckVisibility)
-                    .after(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .after(CameraUpdateSystem),
             )
             .add_system(
                 update_directional_light_cascades
@@ -281,6 +284,7 @@ impl Plugin for PbrPlugin {
             // because prepare_lights creates new views for shadow mapping
             .add_system(
                 apply_system_buffers
+                    .in_set(RenderSet::Prepare)
                     .after(RenderLightSystems::PrepareLights)
                     .before(ViewSet::PrepareUniforms),
             )

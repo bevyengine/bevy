@@ -11,22 +11,31 @@ pub trait Condition<Params>: sealed::Condition<Params> {}
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
 mod sealed {
-    use crate::system::{IntoSystem, IsFunctionSystem, ReadOnlySystemParam, SystemParamFunction};
+    use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
-
-    impl<Params, Marker, F> Condition<(IsFunctionSystem, Params, Marker)> for F
-    where
-        F: SystemParamFunction<(), bool, Params, Marker> + Send + Sync + 'static,
-        Params: ReadOnlySystemParam + 'static,
-        Marker: 'static,
+    pub trait Condition<Params>:
+        IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
     {
+        // This associated type is necessary to let the compiler
+        // know that `Self::System` is `ReadOnlySystem`.
+        type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
+    }
+
+    impl<Params, F> Condition<Params> for F
+    where
+        F: IntoSystem<(), bool, Params>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
     }
 }
 
 pub mod common_conditions {
-    use crate::schedule::{State, States};
-    use crate::system::{Res, Resource};
+    use super::Condition;
+    use crate::{
+        schedule::{State, States},
+        system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
+    };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the first time the condition is run and false every time after
@@ -90,7 +99,7 @@ pub mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn state_equals<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
@@ -105,5 +114,35 @@ pub mod common_conditions {
             Some(current_state) => current_state.0 == state,
             None => false,
         }
+    }
+
+    /// Generates a  [`Condition`](super::Condition) that inverses the result of passed one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
+    ///         // This system will never run.
+    ///         my_system.run_if(not(always_true))
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A condition that always returns true.
+    /// fn always_true() -> bool {
+    ///    true
+    /// }
+    /// #
+    /// # fn my_system() { unreachable!() }
+    /// ```
+    pub fn not<Params>(
+        condition: impl Condition<Params>,
+    ) -> impl ReadOnlySystem<In = (), Out = bool> {
+        condition.pipe(|In(val): In<bool>| !val)
     }
 }
