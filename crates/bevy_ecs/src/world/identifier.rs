@@ -1,4 +1,7 @@
-use crate::storage::SparseSetIndex;
+use crate::{
+    storage::SparseSetIndex,
+    world::{FromWorld, World},
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -24,6 +27,13 @@ impl WorldId {
             })
             .map(WorldId)
             .ok()
+    }
+}
+
+impl FromWorld for WorldId {
+    #[inline]
+    fn from_world(world: &mut World) -> Self {
+        world.id()
     }
 }
 
