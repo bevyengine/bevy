@@ -163,6 +163,10 @@ impl VolumeLevel {
         debug_assert!(volume >= 0.0);
         Self(volume)
     }
+    /// Get the value of the volume level.
+    pub fn get(&self) -> f32 {
+        self.0
+    }
 }
 
 /// Settings to control playback from the start.
@@ -233,8 +237,7 @@ where
     }
 }
 
-/// Use this [`Resource`] to control the global volume of all non-absolute audio.
-/// Sources can be set to ignore this setting by setting the `absolute_volume` field on [`PlaybackSettings`] to `true`.
+/// Use this [`Resource`] to control the global volume of all audio with a [`Volume::Relative`] volume.
 ///
 /// Keep in mind that changing this value will not affect already playing audio.
 #[derive(Resource, Default, Clone, Copy)]

@@ -49,7 +49,7 @@ use bevy_ecs::prelude::*;
 /// Use the [`Audio`] resource to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
-    /// The global volume for all audio sources with a [`Volume::Relative] volume.
+    /// The global volume for all audio sources with a [`Volume::Relative`] volume.
     global_volume: GlobalVolume,
 }
 
