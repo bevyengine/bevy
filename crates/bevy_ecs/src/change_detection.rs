@@ -1031,7 +1031,7 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = Ticks {
+        let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             last_change_tick,
