@@ -272,8 +272,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
     ///
-    /// For example, in case we have `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances,
-    /// adding `AND With<C>` gets expanded into `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
+    /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
+    /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
         let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
@@ -284,8 +284,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Adds a `Without` filter: corresponds to a conjunction (AND) operation.
     ///
-    /// For example, in case we have `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances,
-    /// adding `AND Without<C>` gets expanded into `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
+    /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
+    /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
         let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
@@ -315,7 +315,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
         // If the access instances are incompatible, we want to check that whether filters can
         // guarantee that queries are disjoint.
-        // Since the `filter_sets` array represents a DNF formula ("ORs of ANDs"),
+        // Since the `filter_sets` array represents a Disjunctive Normal Form formula ("ORs of ANDs"),
         // we need to make sure that each filter set (ANDs) rule out every filter set from the `other` instance.
         //
         // For example, `Query<&mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<&mut C, (With<B>, Without<A>)>`,
