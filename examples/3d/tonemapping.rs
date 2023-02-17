@@ -480,6 +480,7 @@ fn update_ui(
     }
 
     let scn = current_scene.0;
+    text.push_str("(H) Hide UI\n\n");
     text.push_str("Test Scene: \n");
     text.push_str(&format!(
         "(Q) {} Basic Scene\n",
@@ -577,7 +578,6 @@ fn update_ui(
     if current_scene.0 == 1 {
         text.push_str("(Enter) Reset to scene recommendation\n");
     }
-    text.push_str("Press H to hide UI\n");
 }
 
 // ----------------------------------------------------------------------------
