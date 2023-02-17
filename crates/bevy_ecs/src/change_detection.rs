@@ -1038,8 +1038,7 @@ mod tests {
 
         let mut value: i32 = 5;
         let value = MutUntyped {
-            // SAFETY: lifetime does not exceed `value`
-            value: unsafe { PtrMut::new(NonNull::new(&mut value as *mut i32 as *mut u8).unwrap()) },
+            value: PtrMut::from(&mut value),
             ticks,
         };
 
