@@ -218,7 +218,7 @@ impl SpecializedRenderPipeline for CASPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("contrast_adaptive_sharpening".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE.typed(),
@@ -233,6 +233,7 @@ impl SpecializedRenderPipeline for CASPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
