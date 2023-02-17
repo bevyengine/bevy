@@ -564,9 +564,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_hierarchy_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                hierarchy_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             // Add `A`.
             schedule.configure_set(TestSet::A);
@@ -636,9 +637,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_ambiguity_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
