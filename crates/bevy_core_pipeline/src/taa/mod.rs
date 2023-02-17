@@ -414,7 +414,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
-            layout: Some(vec![self.taa_bind_group_layout.clone()]),
+            layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TAA_SHADER_HANDLE.typed::<Shader>(),
@@ -436,6 +436,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
