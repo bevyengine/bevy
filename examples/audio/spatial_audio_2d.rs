@@ -1,5 +1,5 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 fn main() {
     App::new()
@@ -11,6 +11,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
     audio: Res<Audio>,
     audio_sinks: Res<Assets<SpatialAudioSink>>,
@@ -58,13 +60,10 @@ fn setup(
 
             // sound emitter
             parent.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::BLUE,
-                        custom_size: Some(Vec2::new(0.3, 0.3)),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0.0, 0.5, 0.0),
+                MaterialMesh2dBundle {
+                    mesh: meshes.add(shape::Circle::new(0.15).into()).into(),
+                    material: materials.add(ColorMaterial::from(Color::BLUE)),
+                    transform: Transform::from_translation(Vec3::new(0.0, 0.5, 0.0)),
                     ..default()
                 },
                 Emitter,
