@@ -216,6 +216,8 @@ impl Schedule {
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.
+    ///
+    /// Moves all systems and run conditions out of the [`ScheduleGraph`].
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
@@ -772,7 +774,8 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    fn initialize(&mut self, world: &mut World) {
+    /// Initializes any newly-added systems and conditions by calling [`System::initialize`]
+    pub fn initialize(&mut self, world: &mut World) {
         for (id, i) in self.uninit.drain(..) {
             match id {
                 NodeId::System(index) => {
