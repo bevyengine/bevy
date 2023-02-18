@@ -109,13 +109,13 @@ pub enum Tonemapping {
     #[default]
     ReinhardLuminance,
     /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
-    /// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+    /// <https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl>
     /// Not neutral, has a very specific aesthetic, intentional and dramatic hue shifting.
     /// Bright greens and reds turn orange. Bright blues turn magenta.
     /// Significantly increased contrast. Brights desaturate across the spectrum.
     AcesFitted,
     /// By Troy Sobotka
-    /// https://github.com/sobotka/AgX
+    /// <https://github.com/sobotka/AgX>
     /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
     /// Little to no hue shifting. Subtle abney shifting.
     AgX,
@@ -126,7 +126,7 @@ pub enum Tonemapping {
     /// VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
     /// By Tomasz Stachowiak
-    /// https://github.com/h3r2tic/tony-mc-mapface
+    /// <https://github.com/h3r2tic/tony-mc-mapface>
     /// Very neutral. Subtle but intentional hue shifting. Brights desaturate across the spectrum.
     /// Comment from author:
     /// Tony is a display transform intended for real-time applications such as games.
