@@ -231,11 +231,6 @@ fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
     return applyLUT3D(normalized, block_size);
 }
 
-
-fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
-    return pow(color, vec3<f32>(1.0 / 2.2));
-}
-
 // from https://64.github.io/tonemapping/
 // reinhard on RGB oversaturates colors
 fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {
