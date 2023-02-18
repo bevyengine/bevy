@@ -452,10 +452,15 @@ fn update_color_grading_settings(
     }
 
     if keys.just_pressed(KeyCode::Space) {
-        *color_grading = ColorGrading::default();
+        for (_, grading) in per_method_settings.settings.iter_mut() {
+            *grading = ColorGrading::default();
+        }
     }
+
     if keys.just_pressed(KeyCode::Return) && current_scene.0 == 1 {
-        *color_grading = PerMethodSettings::basic_scene_recommendation(*method);
+        for (mapper, grading) in per_method_settings.settings.iter_mut() {
+            *grading = PerMethodSettings::basic_scene_recommendation(*mapper);
+        }
     }
 }
 
@@ -579,10 +584,10 @@ fn update_ui(
         "PostSaturation: {}\n",
         color_grading.post_saturation
     ));
-    text.push_str("(Space) Reset to default\n");
+    text.push_str("(Space) Reset all to default\n");
 
     if current_scene.0 == 1 {
-        text.push_str("(Enter) Reset to scene recommendation\n");
+        text.push_str("(Enter) Reset all to scene recommendation\n");
     }
 }
 
