@@ -1,4 +1,7 @@
-use crate::storage::SparseSetIndex;
+use crate::{
+    storage::SparseSetIndex,
+    system::{ReadOnlySystemParam, SystemParam},
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -24,6 +27,29 @@ impl WorldId {
             })
             .map(WorldId)
             .ok()
+    }
+}
+
+// SAFETY: Has read-only access to shared World metadata
+unsafe impl ReadOnlySystemParam for WorldId {}
+
+// SAFETY: A World's ID is immutable and fetching it from the World does not borrow anything
+unsafe impl SystemParam for WorldId {
+    type State = WorldId;
+
+    type Item<'world, 'state> = WorldId;
+
+    fn init_state(world: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {
+        world.id
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _: &'state mut Self::State,
+        _: &crate::system::SystemMeta,
+        world: &'world super::World,
+        _: u32,
+    ) -> Self::Item<'world, 'state> {
+        world.id
     }
 }
 
