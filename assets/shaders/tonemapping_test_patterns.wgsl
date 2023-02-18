@@ -41,6 +41,7 @@ fn hsv_to_srgb(c: vec3<f32>) -> vec3<f32> {
     return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
 }
 
+// Generates a continuous sRGB sweep.
 fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
     return hsv_to_srgb(vec3(uv.x, 1.0, 1.0)) * max(0.0, exp2(uv.y * 9.0) - 1.0);
 }
