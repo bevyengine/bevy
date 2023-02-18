@@ -12,9 +12,12 @@ struct FragmentInput {
     #import bevy_pbr::mesh_vertex_output
 };
 
+// Sweep across hues on y axis with value from 0.0 to +15EV across x axis 
+// quantized into 24 steps for both axis.
 fn color_sweep(uv: vec2<f32>) -> vec3<f32> {
+    var uv = uv;
     let steps = 24.0;
-    let uv = uv * (1.0 + 1.0 / steps);
+    uv.y = uv.y * (1.0 + 1.0 / steps);
     let ratio = 2.0;
     
     let h = PI * 2.0 * floor(1.0 + steps * uv.y) / steps;
