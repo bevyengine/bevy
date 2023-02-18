@@ -10,14 +10,14 @@ use crate::schedule::set::*;
 
 /// Unique identifier for a system or system set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum NodeId {
+pub enum NodeId {
     System(usize),
     Set(usize),
 }
 
 impl NodeId {
     /// Returns the internal integer value.
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         match self {
             NodeId::System(index) | NodeId::Set(index) => *index,
         }

@@ -10,7 +10,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    storage::{Column, ComponentSparseSet, TableRow},
+    storage::{Column, ComponentSparseSet},
     system::Resource,
 };
 use bevy_ptr::Ptr;
@@ -754,14 +754,10 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         location: EntityLocation,
         component_id: ComponentId,
-    ) -> Option<(&'w Column, TableRow)> {
-        let archetype = &self.archetypes()[location.archetype_id];
+    ) -> Option<&'w Column> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
-        let table = &unsafe { self.unsafe_world() }.storages.tables[archetype.table_id()];
-        let components = table.get_column(component_id)?;
-        let table_row = archetype.entity_table_row(location.archetype_row);
-        Some((components, table_row))
+        unsafe { self.unsafe_world() }.storages.tables[location.table_id].get_column(component_id)
     }
 
     #[inline]
@@ -799,9 +795,9 @@ unsafe fn get_component(
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = world.fetch_table(location, component_id)?;
+            let components = world.fetch_table(location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_data_unchecked(table_row))
+            Some(components.get_data_unchecked(location.table_row))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
     }
@@ -825,14 +821,14 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = world.fetch_table(location, component_id)?;
+            let components = world.fetch_table(location, component_id)?;
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
-                components.get_data_unchecked(table_row),
+                components.get_data_unchecked(location.table_row),
                 TickCells {
-                    added: components.get_added_ticks_unchecked(table_row),
-                    changed: components.get_changed_ticks_unchecked(table_row),
+                    added: components.get_added_ticks_unchecked(location.table_row),
+                    changed: components.get_changed_ticks_unchecked(location.table_row),
                 },
             ))
         }
@@ -859,9 +855,9 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = world.fetch_table(location, component_id)?;
+            let components = world.fetch_table(location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_ticks_unchecked(table_row))
+            Some(components.get_ticks_unchecked(location.table_row))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
     }

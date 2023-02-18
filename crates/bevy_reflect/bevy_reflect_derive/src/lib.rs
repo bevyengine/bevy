@@ -30,11 +30,13 @@ mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
+use crate::type_uuid::gen_impl_type_uuid;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
+use type_uuid::TypeUuidDef;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -184,4 +186,11 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.generics,
         def.traits.unwrap_or_default(),
     ))
+}
+
+/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
+#[proc_macro]
+pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input as TypeUuidDef);
+    gen_impl_type_uuid(def)
 }

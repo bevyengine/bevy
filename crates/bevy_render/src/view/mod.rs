@@ -66,11 +66,9 @@ impl Plugin for ViewPlugin {
 ///
 /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
 /// smoother edges.
-/// Defaults to 4.
+/// Defaults to 4 samples.
 ///
-/// Note that WGPU currently only supports 1 or 4 samples.
-/// Ultimately we plan on supporting whatever is natively supported on a given device.
-/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+/// Note that web currently only supports 1 or 4 samples.
 ///
 /// # Example
 /// ```
@@ -84,8 +82,10 @@ impl Plugin for ViewPlugin {
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,
+    Sample2 = 2,
     #[default]
     Sample4 = 4,
+    Sample8 = 8,
 }
 
 impl Msaa {

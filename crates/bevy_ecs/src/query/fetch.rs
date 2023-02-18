@@ -7,9 +7,9 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{Mut, Ref, World},
 };
-use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].

@@ -313,15 +313,15 @@ impl App {
     /// for each state variant, an instance of [`apply_state_transition::<S>`] in
     /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
-    /// with a [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
     /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which run during [`CoreSet::Update`] after the transitions are applied.
-    /// These systems sets only run if the [`State<S>`] resource matches their label.
+    /// which runs during [`CoreSet::Update`] after the transitions are applied.
+    /// These system sets only run if the [`State<S>`] resource matches the respective state variant.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
+    /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
@@ -342,7 +342,7 @@ impl App {
             main_schedule.configure_set(
                 OnUpdate(variant.clone())
                     .in_base_set(CoreSet::Update)
-                    .run_if(state_equals(variant))
+                    .run_if(in_state(variant))
                     .after(apply_state_transition::<S>),
             );
         }
