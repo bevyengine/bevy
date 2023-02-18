@@ -13,13 +13,20 @@ impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
+    pub trait Condition<Params>:
+        IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
+    {
+        // This associated type is necessary to let the compiler
+        // know that `Self::System` is `ReadOnlySystem`.
+        type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
+    }
 
     impl<Params, F> Condition<Params> for F
     where
         F: IntoSystem<(), bool, Params>,
         F::System: ReadOnlySystem,
     {
+        type ReadOnlySystem = F::System;
     }
 }
 
@@ -92,7 +99,7 @@ pub mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn state_equals<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
@@ -133,12 +140,9 @@ pub mod common_conditions {
     /// #
     /// # fn my_system() { unreachable!() }
     /// ```
-    pub fn not<Params, C: Condition<Params>>(
-        condition: C,
-    ) -> impl ReadOnlySystem<In = (), Out = bool>
-    where
-        C::System: ReadOnlySystem,
-    {
+    pub fn not<Params>(
+        condition: impl Condition<Params>,
+    ) -> impl ReadOnlySystem<In = (), Out = bool> {
         condition.pipe(|In(val): In<bool>| !val)
     }
 }

@@ -125,10 +125,17 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
-    fn set_if_neq<Target>(&mut self, value: Target)
+    #[inline]
+    fn set_if_neq(&mut self, value: Self::Inner)
     where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq;
+        Self::Inner: Sized + PartialEq,
+    {
+        let old = self.bypass_change_detection();
+        if *old != value {
+            *old = value;
+            self.set_changed();
+        }
+    }
 }
 
 macro_rules! change_detection_impl {
@@ -185,28 +192,15 @@ macro_rules! change_detection_mut_impl {
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_change_tick: u32) {
+            fn set_last_changed(&mut self, last_changed: u32) {
                 self.ticks
                     .changed
-                    .set_changed(last_change_tick);
+                    .set_changed(last_changed);
             }
 
             #[inline]
             fn bypass_change_detection(&mut self) -> &mut Self::Inner {
                 self.value
-            }
-
-            #[inline]
-            fn set_if_neq<Target>(&mut self, value: Target)
-            where
-                Self: Deref<Target = Target> + DerefMut<Target = Target>,
-                Target: PartialEq,
-            {
-                // This dereference is immutable, so does not trigger change detection
-                if *<Self as Deref>::deref(self) != value {
-                    // `DerefMut` usage triggers change detection
-                    *<Self as DerefMut>::deref_mut(self) = value;
-                }
             }
         }
 
@@ -242,9 +236,6 @@ macro_rules! impl_methods {
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
-            ///
-            /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-            /// will not affect the original.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
@@ -392,6 +383,9 @@ impl<'w, T: Resource> Res<'w, T> {
         }
     }
 
+    /// Due to lifetime limitations of the `Deref` trait, this method can be used to obtain a
+    /// reference of the [`Resource`] with a lifetime bound to `'w` instead of the lifetime of the
+    /// struct itself.
     pub fn into_inner(self) -> &'w T {
         self.value
     }
@@ -607,9 +601,6 @@ impl<'a> MutUntyped<'a> {
 
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
-    ///
-    /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
-    /// will not affect the original.
     #[inline]
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
@@ -667,7 +658,7 @@ impl<'a> DetectChanges for MutUntyped<'a> {
 
     #[inline]
     fn last_changed(&self) -> u32 {
-        self.ticks.last_change_tick
+        self.ticks.changed.tick
     }
 }
 
@@ -680,26 +671,13 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.last_change_tick = last_change_tick;
+    fn set_last_changed(&mut self, last_changed: u32) {
+        self.ticks.changed.set_changed(last_changed);
     }
 
     #[inline]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
-    }
-
-    #[inline]
-    fn set_if_neq<Target>(&mut self, value: Target)
-    where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq,
-    {
-        // This dereference is immutable, so does not trigger change detection
-        if *<Self as Deref>::deref(self) != value {
-            // `DerefMut` usage triggers change detection
-            *<Self as DerefMut>::deref_mut(self) = value;
-        }
     }
 }
 

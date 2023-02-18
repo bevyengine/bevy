@@ -1538,7 +1538,7 @@ impl World {
     /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
-        self.storages.sparse_sets.clear();
+        self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
     }

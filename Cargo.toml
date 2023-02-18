@@ -13,7 +13,11 @@ repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
   "examples/mobile",
@@ -41,10 +45,12 @@ default = [
   "bevy_widget",
   "png",
   "hdr",
+  "ktx2",
+  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
-  "android_shared_stdcxx"
+  "android_shared_stdcxx",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -122,6 +128,10 @@ animation = ["bevy_internal/animation"]
 
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
+
+# Enable detailed trace event logging.
+# These trace events are expensive even when off, thus they require compile time opt-in.
+detailed_trace = ["bevy_internal/detailed_trace"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
@@ -374,7 +384,6 @@ wasm = false
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
@@ -425,7 +434,6 @@ wasm = true
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
@@ -466,7 +474,6 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -928,6 +935,16 @@ path = "examples/ecs/removal_detection.rs"
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
 description = "Query for entities that had a specific component removed earlier in the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "run_conditions"
+path = "examples/ecs/run_conditions.rs"
+
+[package.metadata.example.run_conditions]
+name = "Run Conditions"
+description = "Run systems only when one or multiple conditions are met"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1434,7 +1451,6 @@ wasm = true
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"

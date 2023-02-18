@@ -6,6 +6,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfig,
     system::{Query, Res},
 };
+use bevy_math::Vec2;
 use bevy_render::{
     texture::Image,
     view::{ComputedVisibility, Visibility},
@@ -25,10 +26,10 @@ pub fn update_image_calculated_size_system(
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
-            let size = Size {
-                width: Val::Px(texture.texture_descriptor.size.width as f32),
-                height: Val::Px(texture.texture_descriptor.size.height as f32),
-            };
+            let size = Vec2::new(
+                texture.texture_descriptor.size.width as f32,
+                texture.texture_descriptor.size.height as f32,
+            );
             // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
                 calculated_size.size = size;

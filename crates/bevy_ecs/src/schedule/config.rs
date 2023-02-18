@@ -1,11 +1,10 @@
-use bevy_ecs_macros::all_tuples;
+use bevy_utils::all_tuples;
 
 use crate::{
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
-        state::{OnUpdate, States},
     },
     system::{BoxedSystem, IntoSystem, System},
 };
@@ -22,7 +21,7 @@ impl SystemSetConfig {
         // system type sets are automatically populated
         // to avoid unintentionally broad changes, they cannot be configured
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "configuring system type sets is not allowed"
         );
 
@@ -102,8 +101,6 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
-    /// Add this set to the [`OnUpdate(state)`](OnUpdate) set.
-    fn on_update(self, state: impl States) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
@@ -146,10 +143,6 @@ where
         self.into_config().run_if(condition)
     }
 
-    fn on_update(self, state: impl States) -> SystemSetConfig {
-        self.into_config().on_update(state)
-    }
-
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
         self.into_config().ambiguous_with(set)
     }
@@ -190,10 +183,6 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         self.into_config().run_if(condition)
     }
 
-    fn on_update(self, state: impl States) -> SystemSetConfig {
-        self.into_config().on_update(state)
-    }
-
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
         self.into_config().ambiguous_with(set)
     }
@@ -211,7 +200,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
         assert!(
@@ -229,7 +218,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "System type sets cannot be base sets."
         );
         assert!(
@@ -270,10 +259,6 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
-    fn on_update(self, state: impl States) -> SystemSetConfig {
-        self.in_set(OnUpdate(state))
-    }
-
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
         self
@@ -310,8 +295,6 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig;
-    /// Add this system to the [`OnUpdate(state)`](OnUpdate) set.
-    fn on_update(self, state: impl States) -> SystemConfig;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
@@ -354,10 +337,6 @@ where
         self.into_config().run_if(condition)
     }
 
-    fn on_update(self, state: impl States) -> SystemConfig {
-        self.into_config().on_update(state)
-    }
-
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
         self.into_config().ambiguous_with(set)
     }
@@ -398,10 +377,6 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         self.into_config().run_if(condition)
     }
 
-    fn on_update(self, state: impl States) -> SystemConfig {
-        self.into_config().on_update(state)
-    }
-
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
         self.into_config().ambiguous_with(set)
     }
@@ -419,7 +394,7 @@ impl IntoSystemConfig<()> for SystemConfig {
     #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
         assert!(
@@ -433,7 +408,7 @@ impl IntoSystemConfig<()> for SystemConfig {
     #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "System type sets cannot be base sets."
         );
         assert!(
@@ -468,10 +443,6 @@ impl IntoSystemConfig<()> for SystemConfig {
     fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
         self.conditions.push(new_condition(condition));
         self
-    }
-
-    fn on_update(self, state: impl States) -> Self {
-        self.in_set(OnUpdate(state))
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
@@ -549,11 +520,6 @@ where
         self.into_configs().after(set)
     }
 
-    /// Add this set to the [`OnUpdate(state)`](OnUpdate) set.
-    fn on_update(self, state: impl States) -> SystemConfigs {
-        self.into_configs().on_update(state)
-    }
-
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
@@ -582,7 +548,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
         assert!(
@@ -599,7 +565,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "System type sets cannot be base sets."
         );
         assert!(
@@ -652,10 +618,6 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         }
 
         self
-    }
-
-    fn on_update(self, state: impl States) -> Self {
-        self.in_set(OnUpdate(state))
     }
 
     fn chain(mut self) -> Self {
@@ -730,7 +692,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
         assert!(
@@ -751,7 +713,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "System type sets cannot be base sets."
         );
         assert!(

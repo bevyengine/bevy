@@ -75,7 +75,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane { size: 50. }.into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
         material: materials.add(Color::SILVER.into()),
         ..default()
     });

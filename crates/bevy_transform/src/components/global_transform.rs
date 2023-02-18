@@ -21,7 +21,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
@@ -113,7 +113,7 @@ impl GlobalTransform {
     ///
     /// This is useful if you want to "reparent" an `Entity`. Say you have an entity
     /// `e1` that you want to turn into a child of `e2`, but you want `e1` to keep the
-    /// same global transform, even after re-partenting. You would use:
+    /// same global transform, even after re-parenting. You would use:
     ///
     /// ```rust
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};

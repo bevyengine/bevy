@@ -11,9 +11,9 @@ fn no() -> bool {
     false
 }
 
-pub fn run_criteria_yes(criterion: &mut Criterion) {
+pub fn run_condition_yes(criterion: &mut Criterion) {
     let mut world = World::new();
-    let mut group = criterion.benchmark_group("run_criteria/yes");
+    let mut group = criterion.benchmark_group("run_condition/yes");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
@@ -39,9 +39,9 @@ pub fn run_criteria_yes(criterion: &mut Criterion) {
     group.finish();
 }
 
-pub fn run_criteria_no(criterion: &mut Criterion) {
+pub fn run_condition_no(criterion: &mut Criterion) {
     let mut world = World::new();
-    let mut group = criterion.benchmark_group("run_criteria/no");
+    let mut group = criterion.benchmark_group("run_condition/no");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
@@ -70,10 +70,10 @@ pub fn run_criteria_no(criterion: &mut Criterion) {
 #[derive(Component, Resource)]
 struct TestBool(pub bool);
 
-pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
+pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     let mut world = World::new();
     world.spawn(TestBool(true));
-    let mut group = criterion.benchmark_group("run_criteria/yes_using_query");
+    let mut group = criterion.benchmark_group("run_condition/yes_using_query");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
@@ -102,10 +102,10 @@ pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     group.finish();
 }
 
-pub fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
+pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     let mut world = World::new();
     world.insert_resource(TestBool(true));
-    let mut group = criterion.benchmark_group("run_criteria/yes_using_resource");
+    let mut group = criterion.benchmark_group("run_condition/yes_using_resource");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}

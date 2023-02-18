@@ -32,6 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
     ));
+
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             shadows_enabled: true,
