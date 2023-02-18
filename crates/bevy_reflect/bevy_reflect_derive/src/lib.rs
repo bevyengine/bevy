@@ -149,7 +149,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// ## `#[reflect(ignore)]`
 ///
 /// The `#[reflect(ignore)]` attribute is shared with the [`#[derive(Reflect)]`](Reflect) macro and has much of the same
-/// functionality in that it marks a field to be ignored by the reflection API.
+/// functionality in that it denotes that a field will be ignored by the reflection API.
 ///
 /// The only major difference is that using it with this derive requires that the field implements [`Default`].
 /// Without this requirement, there would be no way for `FromReflect` to automatically construct missing fields
