@@ -584,7 +584,7 @@ pub fn queue_uinodes(
         }));
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
+            let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey { hdr: view.hdr },
@@ -612,7 +612,7 @@ pub fn queue_uinodes(
                     });
                 transparent_phase.add(TransparentUi {
                     draw_function: draw_ui_function,
-                    pipeline,
+                    pipeline_id,
                     entity,
                     sort_key: FloatOrd(batch.z),
                 });

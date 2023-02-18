@@ -4,7 +4,7 @@
 //! In Bevy each view (camera, or shadow-casting light, etc.) has one or multiple [`RenderPhase`]s
 //! (e.g. opaque, transparent, shadow, etc).
 //! They are used to queue entities for rendering.
-//! Multiple phases might be required due to different sorting/batching behaviours
+//! Multiple phases might be required due to different sorting/batching behaviours.
 //! (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
 //! the rendered texture of the previous phase (e.g. for screen-space reflections).
 //!
@@ -147,6 +147,10 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
 
+    /// The id of the render pipeline, cached in the [`PipelineCache`], that will be used to draw
+    /// this phase item.
+    fn pipeline_id(&self) -> CachedRenderPipelineId;
+
     /// Sorts a slice of phase items into render order. Generally if the same type
     /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
     /// In almost all other cases, this should not be altered from the default,
@@ -162,43 +166,6 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     #[inline]
     fn sort(items: &mut [Self]) {
         items.sort_unstable_by_key(|item| item.sort_key());
-    }
-}
-
-/// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,
-/// cached in the [`PipelineCache`].
-///
-/// You can use the [`SetItemPipeline`] render command to set the pipeline for this item.
-pub trait CachedRenderPipelinePhaseItem: PhaseItem {
-    /// The id of the render pipeline, cached in the [`PipelineCache`], that will be used to draw
-    /// this phase item.
-    fn cached_pipeline(&self) -> CachedRenderPipelineId;
-}
-
-/// A [`RenderCommand`] that sets the pipeline for the [`CachedRenderPipelinePhaseItem`].
-pub struct SetItemPipeline;
-
-impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
-    type Param = SRes<PipelineCache>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
-    #[inline]
-    fn render<'w>(
-        item: &P,
-        _view: (),
-        _entity: (),
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        if let Some(pipeline) = pipeline_cache
-            .into_inner()
-            .get_render_pipeline(item.cached_pipeline())
-        {
-            pass.set_render_pipeline(pipeline);
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
-        }
     }
 }
 
@@ -263,6 +230,34 @@ pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut Ren
     }
 }
 
+/// A [`RenderCommand`] that sets the corresponding pipeline for the [`PhaseItem`] from the
+/// [`PipelineCache`] on the [`TrackedRenderPass`].
+pub struct SetItemPipeline;
+
+impl<P: PhaseItem> RenderCommand<P> for SetItemPipeline {
+    type Param = SRes<PipelineCache>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = ();
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        _view: (),
+        _entity: (),
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        if let Some(pipeline) = pipeline_cache
+            .into_inner()
+            .get_render_pipeline(item.pipeline_id())
+        {
+            pass.set_render_pipeline(pipeline);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,6 +281,10 @@ mod tests {
             fn sort_key(&self) -> Self::SortKey {}
 
             fn draw_function(&self) -> DrawFunctionId {
+                unimplemented!();
+            }
+
+            fn pipeline_id(&self) -> CachedRenderPipelineId {
                 unimplemented!();
             }
         }

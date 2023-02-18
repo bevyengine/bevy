@@ -31,7 +31,7 @@ use std::cmp::Reverse;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
+    render_phase::{DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
@@ -96,16 +96,14 @@ impl PhaseItem for Opaque3dPrepass {
     }
 
     #[inline]
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
     }
 }
 
@@ -141,15 +139,13 @@ impl PhaseItem for AlphaMask3dPrepass {
     }
 
     #[inline]
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
     }
 }
