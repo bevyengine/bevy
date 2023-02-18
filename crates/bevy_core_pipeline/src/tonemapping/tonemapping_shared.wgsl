@@ -291,16 +291,16 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     color = tonemapping_reinhard(color.rgb);
 #else ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
     color = tonemapping_reinhard_luminance(color.rgb);
-#else ifdef  TONEMAP_METHOD_ACES_FITTED
+#else ifdef TONEMAP_METHOD_ACES_FITTED
     color = ACESFitted(color.rgb);
-#else ifdef  TONEMAP_METHOD_AGX
+#else ifdef TONEMAP_METHOD_AGX
     color = applyAgXLog(color);
     color = applyLUT3D(color, 32.0);
-#else ifdef  TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+#else ifdef TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
     color = somewhat_boring_display_transform(color.rgb);
-#else ifdef  TONEMAP_METHOD_TONY_MC_MAPFACE
+#else ifdef TONEMAP_METHOD_TONY_MC_MAPFACE
     color = sample_tony_mc_mapface_lut(color); 
-#else ifdef  TONEMAP_METHOD_BLENDER_FILMIC
+#else ifdef TONEMAP_METHOD_BLENDER_FILMIC
     color = sample_blender_filmic_lut(color.rgb);
 #endif
 
