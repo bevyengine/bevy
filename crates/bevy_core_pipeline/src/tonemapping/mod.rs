@@ -241,7 +241,7 @@ pub fn queue_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
-
+/// Enables a debanding shader that applies dithering to mitigate color banding in the final image.
 #[derive(
     Component,
     Debug,
