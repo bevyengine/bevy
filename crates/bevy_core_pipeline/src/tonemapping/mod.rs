@@ -85,7 +85,7 @@ pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
 }
 
-/// Optionally enables a tonemapping shader that maps the high dynamic range (HDR) image data into a low dynamic range (LDR) image for a given [`Camera`] entity.
+/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
     Component,
     Debug,
