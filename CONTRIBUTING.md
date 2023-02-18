@@ -81,7 +81,7 @@ Our merge strategy relies on the classification of PRs on two axes:
 * How controversial are the design decisions
 * How complex is the implementation
 
-Each issue [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
+Each issue and pull request [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
 
 * A: Area
 * C: Category
