@@ -2,10 +2,10 @@
 //!
 //! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
 //!
-//! **empty entity**: Entity with zero components. Has a valid [`EntityLocation`] which points to [`ArchetypeId::EMPTY`].
+//! **empty entity**: Entity with zero components.
 //! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
 //! **reserved entity**: same as **pending entity**.
-//! **invalid entity**: **pending entity** flushed with invalid location (see [`Entities::flush_as_invalid`] docs for reference).
+//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
 //!
 //! See [`Entity`] to learn more.
 //!
