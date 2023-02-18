@@ -1363,39 +1363,39 @@ impl ScheduleGraph {
     /// returns Err(()) if there are cycles
     fn topsort_graph(&self, graph: &DiGraphMap<NodeId, ()>) -> Result<Vec<NodeId>, ()> {
         // tarjon_scc's run order is reverse topological order
-        let mut rev_top_sorted_nodes = Vec::new();
+        let mut rev_top_sorted_nodes = Vec::<NodeId>::with_capacity(graph.node_count());
         let mut tarjan_scc = bevy_utils::petgraph::algo::TarjanScc::new();
-        let mut cycles = Vec::<Vec<NodeId>>::new();
+        let mut sccs_with_cycle = Vec::<Vec<NodeId>>::new();
 
         tarjan_scc.run(graph, |scc| {
             // by scc's definition, each scc is the cluster of nodes that they can reach each other
             // so scc with size larger than 1, means there is/are cycle(s).
             if scc.len() > 1 {
-                cycles.push(scc.to_vec());
+                sccs_with_cycle.push(scc.to_vec());
             }
             rev_top_sorted_nodes.extend_from_slice(scc);
         });
 
-        if cycles.is_empty() {
+        if sccs_with_cycle.is_empty() {
             // reverse the reverted to get topological order
             let mut top_sorted_nodes = rev_top_sorted_nodes;
             top_sorted_nodes.reverse();
             Ok(top_sorted_nodes)
         } else {
-            self.report_cycles(&cycles);
+            self.report_cycles(&sccs_with_cycle);
             Err(())
         }
     }
 
     /// Print detailed cycle messages
-    fn report_cycles(&self, nodes_with_cycles: &[Vec<NodeId>]) {
+    fn report_cycles(&self, sccs_with_cycles: &[Vec<NodeId>]) {
         let mut message = format!(
             "schedule contains at least {} cycle(s)",
-            nodes_with_cycles.len()
+            sccs_with_cycles.len()
         );
 
         writeln!(message, " -- cycle(s) found within:").unwrap();
-        for (i, scc) in nodes_with_cycles.into_iter().enumerate() {
+        for (i, scc) in sccs_with_cycles.into_iter().enumerate() {
             let names = scc
                 .iter()
                 .map(|id| self.get_node_name(id))
