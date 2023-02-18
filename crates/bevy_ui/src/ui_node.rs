@@ -247,7 +247,9 @@ pub struct Style {
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
     pub flex_shrink: f32,
-    /// The initial size of the item
+    /// The initial length of the main axis, before other properties are applied.
+    ///
+    /// If both are set, `flex_basis` overrides `size` on the main axis but it obeys the bounds defined by `min_size` and `max_size`.
     pub flex_basis: Val,
     /// The ideal size of the flexbox
     ///
@@ -563,15 +565,15 @@ impl Default for FlexWrap {
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CalculatedSize {
-    /// The size of the node
-    pub size: Size,
+    /// The size of the node in logical pixels
+    pub size: Vec2,
     /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
     pub preserve_aspect_ratio: bool,
 }
 
 impl CalculatedSize {
     const DEFAULT: Self = Self {
-        size: Size::DEFAULT,
+        size: Vec2::ZERO,
         preserve_aspect_ratio: false,
     };
 }

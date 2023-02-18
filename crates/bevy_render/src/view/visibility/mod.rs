@@ -91,7 +91,7 @@ impl ComputedVisibility {
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
-    /// This value is updated in [`CoreSet::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label.
+    /// This value is updated in [`CoreSet::PostUpdate`] by the [`VisibilitySystems::CheckVisibility`] system set.
     /// Reading it during [`CoreSet::Update`] will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
@@ -356,7 +356,7 @@ fn propagate_recursive(
 
 /// System updating the visibility of entities each frame.
 ///
-/// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
+/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(

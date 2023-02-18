@@ -372,7 +372,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: None,
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
@@ -400,6 +400,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             }),
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
+            push_constant_ranges: Vec::new(),
         })
     }
 }
