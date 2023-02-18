@@ -381,7 +381,7 @@ fn toggle_tonemapping_method(
     } else if keys.just_pressed(KeyCode::Key3) {
         *method = Tonemapping::ReinhardLuminance;
     } else if keys.just_pressed(KeyCode::Key4) {
-        *method = Tonemapping::Aces;
+        *method = Tonemapping::AcesFitted;
     } else if keys.just_pressed(KeyCode::Key5) {
         *method = Tonemapping::AgX;
     } else if keys.just_pressed(KeyCode::Key6) {
@@ -517,8 +517,12 @@ fn update_ui(
         }
     ));
     text.push_str(&format!(
-        "(4) {} ACES\n",
-        if method == Tonemapping::Aces { ">" } else { "" }
+        "(4) {} ACES Fitted\n",
+        if method == Tonemapping::AcesFitted {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(5) {} AgX\n",
@@ -594,7 +598,7 @@ impl PerMethodSettings {
                 exposure: 0.5,
                 ..default()
             },
-            Tonemapping::Aces => ColorGrading {
+            Tonemapping::AcesFitted => ColorGrading {
                 exposure: 0.35,
                 ..default()
             },
@@ -617,7 +621,7 @@ impl Default for PerMethodSettings {
             Tonemapping::None,
             Tonemapping::Reinhard,
             Tonemapping::ReinhardLuminance,
-            Tonemapping::Aces,
+            Tonemapping::AcesFitted,
             Tonemapping::AgX,
             Tonemapping::SomewhatBoringDisplayTransform,
             Tonemapping::TonyMcMapface,

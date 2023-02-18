@@ -414,7 +414,7 @@ pub fn queue_material_meshes<M: Material>(
                     Tonemapping::ReinhardLuminance => {
                         MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
                     }
-                    Tonemapping::Aces => MeshPipelineKey::TONEMAP_METHOD_ACES,
+                    Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
                     Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
                     Tonemapping::SomewhatBoringDisplayTransform => {
                         MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM

@@ -296,7 +296,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     color = tonemapping_reinhard(color.rgb);
 #else ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
     color = tonemapping_reinhard_luminance(color.rgb);
-#else ifdef  TONEMAP_METHOD_ACES
+#else ifdef  TONEMAP_METHOD_ACES_FITTED
     color = ACESFitted(color.rgb);
 #else ifdef  TONEMAP_METHOD_AGX
     color = applyAgXLog(color);
