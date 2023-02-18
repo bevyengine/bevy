@@ -110,7 +110,7 @@ pub enum Tonemapping {
     ReinhardLuminance,
     /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
     /// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
-    /// Not neutral, has a very specific ascetic, intentional and dramatic hue shifting.
+    /// Not neutral, has a very specific aesthetic, intentional and dramatic hue shifting.
     /// Bright greens and reds turn orange. Bright blues turn magenta.
     /// Significantly increased contrast. Brights desaturate across the spectrum.
     AcesFitted,
@@ -120,17 +120,23 @@ pub enum Tonemapping {
     /// Little to no hue shifting. Subtle abney shifting.
     AgX,
     /// By Tomasz Stachowiak
-    /// Somewhat boring with intentional hue shifting. Brights desaturate across the spectrum.
+    /// Has little hue shifting in the lows and mids, but lots in the highs. Brights desaturate across the spectrum.
+    /// Is sort of between Reinhard and ReinhardLuminance. Conceptually similar to reinhard-jodie.
+    /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
+    /// VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
     /// By Tomasz Stachowiak
     /// https://github.com/h3r2tic/tony-mc-mapface
-    /// Very neutral. Subtle but intentional hue shifting. Little to no abney shifting.
-    /// Brights desaturate across the spectrum. Comment from author:
+    /// Very neutral. Subtle but intentional hue shifting. Brights desaturate across the spectrum.
+    /// Comment from author:
     /// Tony is a display transform intended for real-time applications such as games.
     /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
     /// input stimulus where compression isn't necessary.
+    /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
+    /// Color hues are preserved during compression, except for a deliberate Bezold–Brücke shift.
+    /// To avoid posterization, selective desaturation is employed, with care to avoid the Abney effect.
     TonyMcMapface,
-    /// Default Filmic Display transform from blender.
+    /// Default Filmic Display Transform from blender.
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     BlenderFilmic,
 }
