@@ -16,8 +16,10 @@ fn main() {
                 // The common_conditions module has a few useful run conditions
                 // for checking resources and states. These are included in the prelude.
                 .run_if(resource_exists::<InputCounter>())
-                // This is our custom run condition. Both this and the
-                // above condition must be true for the system to run.
+                // This is a custom run condition, defined using a system that returns
+                // a `bool` and which has read-only `SystemParam`s.
+                // Both run conditions must return `true` in order for the system to run.
+                // Note that this second run condition will be evaluated even if the first returns `false`.
                 .run_if(has_user_input),
         )
         .add_system(
