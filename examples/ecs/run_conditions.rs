@@ -14,18 +14,18 @@ fn main() {
         .add_system(
             increment_input_counter
                 // The common_conditions module has a few useful run conditions
-                // for checking resources and states, these are included in prelude
+                // for checking resources and states. These are included in the prelude.
                 .run_if(resource_exists::<InputCounter>())
-                // This is our custom run condition, both this and the
-                // above condition must be true for the system to run
+                // This is our custom run condition. Both this and the
+                // above condition must be true for the system to run.
                 .run_if(has_user_input),
         )
         .add_system(
             print_input_counter
-                // This is also a custom run condition but this time in the form of a closure,
-                // this is useful for small, simple run conditions you don't need to reuse.
-                // All the normal rules still apply, all parameters must be read only except for local parameters
-                // In this case we will only run if the input counter resource exists and has changed but not just been added
+                // This is also a custom run condition but this time in the form of a closure.
+                // This is useful for small, simple run conditions you don't need to reuse.
+                // All the normal rules still apply: all parameters must be read only except for local parameters.
+                // In this case we will only run if the input counter resource exists and has changed but not just been added.
                 .run_if(|res: Option<Res<InputCounter>>| {
                     if let Some(counter) = res {
                         counter.is_changed() && !counter.is_added()
@@ -36,13 +36,12 @@ fn main() {
         )
         .add_system(
             print_time_message
-                // This is a custom generator function that returns a run
-                // condition, must like the common conditions module.
-                // It will only return true once 2 seconds has passed
+                // This function returns a custom run condition, much like the common conditions module.
+                // It will only return true once 2 seconds have passed.
                 .run_if(time_passed(2.0))
                 // You can use the `not` condition from the common_conditions module
-                // to inverse a run condition, in this case it will return true if
-                // less than 2.5 seconds has elapsed
+                // to inverse a run condition. In this case it will return true if
+                // less than 2.5 seconds have elapsed since the app started.
                 .run_if(not(time_passed(2.5))),
         )
         .run();
@@ -51,10 +50,10 @@ fn main() {
 #[derive(Resource, Default)]
 struct InputCounter(usize);
 
-/// Return true if any of the defined inputs were just pressed
+/// Return true if any of the defined inputs were just pressed.
 /// This is a custom run condition, it can take any normal system parameters as long as
-/// they are read only except for local parameters which can be mutable
-/// It returns a bool which determines if the system should run
+/// they are read only (except for local parameters which can be mutable).
+/// It returns a bool which determines if the system should run.
 fn has_user_input(
     keyboard_input: Res<Input<KeyCode>>,
     mouse_button_input: Res<Input<MouseButton>>,
@@ -67,9 +66,9 @@ fn has_user_input(
         || touch_input.any_just_pressed()
 }
 
-/// This is a generator fuction that returns a closure which meets all the run condition rules
-/// This is useful becuase you can reuse the same run condition but with different variables
-/// This is how the common conditions module works
+/// This is a function that returns a closure which can be used as a run condition.
+/// This is useful because you can reuse the same run condition but with different variables.
+/// This is how the common conditions module works.
 fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
     move |mut timer: Local<f32>, time: Res<Time>| {
         // Tick the timer
