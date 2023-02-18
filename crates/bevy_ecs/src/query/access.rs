@@ -403,6 +403,11 @@ impl<T: SparseSetIndex> Default for AccessFilters<T> {
 
 impl<T: SparseSetIndex> AccessFilters<T> {
     fn is_ruled_out_by(&self, other: &Self) -> bool {
+        // Although not technically complete, we don't consider the case when `AccessFilters`'s
+        // `without` bitset contradicts its own `with` bitset (e.g. `(With<A>, Without<A>)`).
+        // Such query would be considered compatible with any other query, but as it's almost
+        // always an error, we ignore this case instead of treating such query as compatible
+        // with others.
         !self.with.is_disjoint(&other.without) || !self.without.is_disjoint(&other.with)
     }
 }
