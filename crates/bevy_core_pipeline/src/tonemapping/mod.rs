@@ -22,6 +22,7 @@ const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
 const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
 
+/// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource)]
 pub struct TonemappingLuts {
     blender_filmic: Handle<Image>,
