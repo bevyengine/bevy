@@ -119,9 +119,22 @@ impl ExtractedView {
 #[derive(Component, Reflect, Debug, Copy, Clone, ShaderType)]
 #[reflect(Component)]
 pub struct ColorGrading {
+    /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
+
+    /// Non-linear luminance adjustment applied before tonemapping. y = pow(x, gamma)
     pub gamma: f32,
+
+    /// Saturation adjustment applied before tonemapping.
+    /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
+    /// with luminance defined by ITU-R BT.709.
+    /// Values above 1.0 increase saturation.
     pub pre_saturation: f32,
+
+    /// Saturation adjustment applied after tonemapping.
+    /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
+    /// with luminance defined by ITU-R BT.709
+    /// Values above 1.0 increase saturation.
     pub post_saturation: f32,
 }
 
