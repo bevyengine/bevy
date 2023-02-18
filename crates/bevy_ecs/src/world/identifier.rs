@@ -35,12 +35,12 @@ unsafe impl ReadOnlySystemParam for WorldId {}
 
 // SAFETY: A World's ID is immutable and fetching it from the World does not borrow anything
 unsafe impl SystemParam for WorldId {
-    type State = WorldId;
+    type State = ();
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(world: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {
-        world.id
+    fn init_state(_: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {
+        ()
     }
 
     unsafe fn get_param<'world, 'state>(
