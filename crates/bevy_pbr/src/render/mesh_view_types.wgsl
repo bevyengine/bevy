@@ -24,7 +24,7 @@ struct DirectionalCascade {
     texel_size: f32,
     far_bound: f32,
 }
-    
+
 struct DirectionalLight {
     cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
@@ -59,6 +59,9 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
+#ifdef WEBGL
+    environment_map_smallest_specular_mip_level: i32,
+#endif
 };
 
 struct Fog {

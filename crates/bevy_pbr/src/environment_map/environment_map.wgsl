@@ -18,7 +18,11 @@ fn environment_map_light(
 ) -> EnvironmentMapLight {
 
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+#ifndef WEBGL
     let smallest_specular_mip_level = textureNumLevels(environment_map_specular) - 1i;
+#else
+    let smallest_specular_mip_level = lights.environment_map_smallest_specular_mip_level;
+#endif
     let radiance_level = perceptual_roughness * f32(smallest_specular_mip_level);
     let irradiance = textureSample(environment_map_diffuse, environment_map_sampler, N).rgb;
     let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, radiance_level).rgb;

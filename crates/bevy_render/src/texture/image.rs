@@ -494,6 +494,7 @@ pub struct GpuImage {
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Vec2,
+    pub mip_level_count: u32,
 }
 
 impl RenderAsset for Image {
@@ -543,6 +544,7 @@ impl RenderAsset for Image {
             texture_format: image.texture_descriptor.format,
             sampler,
             size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }

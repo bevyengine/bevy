@@ -537,6 +537,7 @@ impl FromWorld for MeshPipeline {
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
+                mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
 
@@ -650,6 +651,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
+
+        #[cfg(feature = "webgl")]
+        shader_defs.push("WEBGL".into());
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());

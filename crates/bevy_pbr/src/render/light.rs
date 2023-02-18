@@ -218,6 +218,9 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
+    // textureNumLevels() is not supported on WebGL2
+    #[cfg(feature = "webgl")]
+    environment_map_smallest_specular_mip_level: i32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -787,12 +790,22 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
+    #[cfg(feature = "webgl")] images: Res<RenderAssets<Image>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<
+    #[cfg(not(feature = "webgl"))] views: Query<
         (Entity, &ExtractedView, &ExtractedClusterConfig),
+        With<RenderPhase<Transparent3d>>,
+    >,
+    #[cfg(feature = "webgl")] views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            Option<&crate::EnvironmentMapLight>,
+        ),
         With<RenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
@@ -1029,7 +1042,12 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters) in &views {
+    for view in &views {
+        #[cfg(not(feature = "webgl"))]
+        let (entity, extracted_view, clusters) = view;
+        #[cfg(feature = "webgl")]
+        let (entity, extracted_view, clusters, environment_map) = view;
+
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -1096,6 +1114,11 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
+            #[cfg(feature = "webgl")]
+            environment_map_smallest_specular_mip_level: environment_map
+                .and_then(|env_map| images.get(&env_map.specular_map))
+                .map(|specular_map| specular_map.mip_level_count as i32 - 1)
+                .unwrap_or(0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
