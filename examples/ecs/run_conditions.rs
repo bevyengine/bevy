@@ -24,17 +24,17 @@ fn main() {
         )
         .add_system(
             print_input_counter
-                // This is also a custom run condition but this time in the form of a closure.
-                // This is useful for small, simple run conditions you don't need to reuse.
-                // All the normal rules still apply: all parameters must be read only except for local parameters.
-                // In this case we will only run if the input counter resource exists and has changed but not just been added.
-                .run_if(|res: Option<Res<InputCounter>>| {
-                    if let Some(counter) = res {
-                        counter.is_changed() && !counter.is_added()
-                    } else {
-                        false
-                    }
-                }),
+                // `.and_then()` is a run condition combinator that only evaluates the second condition
+                // if the first condition returns `true`. This behavior is known as "short-circuiting",
+                // and is how the `&&` operator works in Rust (as well as most C-family languages).
+                // In this case, the short-circuiting behavior prevents the second run condition from
+                // panicking if the `InputCounter` resource has not been initialized.
+                .run_if(resource_exists::<InputCounter>().and_then(
+                    // This is a custom run condition in the form of a closure.
+                    // This is useful for small, simple run conditions you don't need to reuse.
+                    // All the normal rules still apply: all parameters must be read only except for local parameters.
+                    |counter: Res<InputCounter>| counter.is_changed() && !counter.is_added(),
+                )),
         )
         .add_system(
             print_time_message
