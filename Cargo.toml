@@ -396,7 +396,7 @@ path = "examples/3d/tonemapping.rs"
 required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.tonemapping]
-name = "tonemapping"
+name = "Tonemapping"
 description = "Compares tonemapping options"
 category = "3D Rendering"
 wasm = true

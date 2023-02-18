@@ -127,12 +127,12 @@ Example | Description
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
+[Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
-[tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
 
 ## Animation
 
