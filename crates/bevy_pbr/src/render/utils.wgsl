@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::utils
 
-const PI: f32 = 3.14159265358979323846264338327950288;
+const PI: f32 = 3.141592653589793;
 
 fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
     let rgb = clamp(
