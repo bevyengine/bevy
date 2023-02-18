@@ -315,18 +315,8 @@ pub mod generic {
     /// Efficiently compute the binomial coefficient of `n` choose `k`.
     #[inline]
     const fn binomial_coeff(n: usize, k: usize) -> usize {
-        let mut i = 0;
-        let mut result = 1;
-        let k = match k > n - k {
-            true => n - k,
-            false => k,
-        };
-        while i < k {
-            result *= n - i;
-            result /= i + 1;
-            i += 1;
-        }
-        result
+        let k = usize::min(k, n - k);
+        (0..k).fold(1, |val, i| val * (n - i) / (i + 1))
     }
 
     /// Evaluate the Bezier curve B(t) of degree `N-1` at the parametric value `t`.
