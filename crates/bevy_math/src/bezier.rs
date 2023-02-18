@@ -314,7 +314,7 @@ pub mod generic {
 
     /// Efficiently compute the binomial coefficient of `n` choose `k`.
     #[inline]
-    const fn binomial_coeff(n: usize, k: usize) -> usize {
+    fn binomial_coeff(n: usize, k: usize) -> usize {
         let k = usize::min(k, n - k);
         (0..k).fold(1, |val, i| val * (n - i) / (i + 1))
     }
