@@ -102,19 +102,36 @@ pub struct TonemappingPipeline {
 pub enum Tonemapping {
     None,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
+    /// Bright primaries and secondaries don't desaturate at all.
     Reinhard,
-    /// Old bevy default. Suffers from hue shifting, brights don't desaturate much at all.
-    ReinhardLuminance,
-    /// Bad
-    AcesFitted,
-    /// Very Good
-    AgX,
-    /// Also good
-    SomewhatBoringDisplayTransform,
-    /// Very Good
-    TonyMcMapface,
-    /// Also good
+    /// Current bevy default. Likely to change in the future.
+    /// Suffers from hue shifting. Brights don't desaturate much at all across the spectrum.
     #[default]
+    ReinhardLuminance,
+    /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
+    /// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+    /// Not neutral, has a very specific ascetic, intentional and dramatic hue shifting.
+    /// Bright greens and reds turn orange. Bright blues turn magenta.
+    /// Significantly increased contrast. Brights desaturate across the spectrum.
+    AcesFitted,
+    /// By Troy Sobotka
+    /// https://github.com/sobotka/AgX
+    /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
+    /// Little to no hue shifting. Subtle abney shifting.
+    AgX,
+    /// By Tomasz Stachowiak
+    /// Somewhat boring with intentional hue shifting. Brights desaturate across the spectrum.
+    SomewhatBoringDisplayTransform,
+    /// By Tomasz Stachowiak
+    /// https://github.com/h3r2tic/tony-mc-mapface
+    /// Very neutral. Subtle but intentional hue shifting. Little to no abney shifting.
+    /// Brights desaturate across the spectrum. Comment from author:
+    /// Tony is a display transform intended for real-time applications such as games.
+    /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
+    /// input stimulus where compression isn't necessary.
+    TonyMcMapface,
+    /// Default Filmic Display transform from blender.
+    /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     BlenderFilmic,
 }
 
@@ -143,7 +160,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             Tonemapping::ReinhardLuminance => {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
-            Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES".into()),
+            Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
             Tonemapping::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
             Tonemapping::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
