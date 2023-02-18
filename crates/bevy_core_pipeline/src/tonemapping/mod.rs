@@ -5,9 +5,10 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, Image, ImageType};
+use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
@@ -23,7 +24,7 @@ const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
 
 /// 3D LUT (look up table) textures used for tonemapping
-#[derive(Resource)]
+#[derive(Resource, Clone, ExtractResource)]
 pub struct TonemappingLuts {
     blender_filmic: Handle<Image>,
     agx: Handle<Image>,
@@ -47,22 +48,41 @@ impl Plugin for TonemappingPlugin {
             Shader::from_wgsl
         );
 
-        let mut images = app.world.resource_mut::<Assets<Image>>();
+        if !app.world.is_resource_added::<TonemappingLuts>() {
+            let mut images = app.world.resource_mut::<Assets<Image>>();
 
-        let tonemapping_luts = TonemappingLuts {
-            blender_filmic: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/Blender_-11_12.ktx2"),
-                ImageType::Extension("ktx2"),
-            )),
-            agx: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/AgX-default_contrast.ktx2"),
-                ImageType::Extension("ktx2"),
-            )),
-            tony_mc_mapface: images.add(setup_tonemapping_lut_image(
-                include_bytes!("luts/tony_mc_mapface.ktx2"),
-                ImageType::Extension("ktx2"),
-            )),
-        };
+            #[cfg(feature = "tonemapping_luts")]
+            let tonemapping_luts = {
+                TonemappingLuts {
+                    blender_filmic: images.add(setup_tonemapping_lut_image(
+                        include_bytes!("luts/Blender_-11_12.ktx2"),
+                        ImageType::Extension("ktx2"),
+                    )),
+                    agx: images.add(setup_tonemapping_lut_image(
+                        include_bytes!("luts/AgX-default_contrast.ktx2"),
+                        ImageType::Extension("ktx2"),
+                    )),
+                    tony_mc_mapface: images.add(setup_tonemapping_lut_image(
+                        include_bytes!("luts/tony_mc_mapface.ktx2"),
+                        ImageType::Extension("ktx2"),
+                    )),
+                }
+            };
+
+            #[cfg(not(feature = "tonemapping_luts"))]
+            let tonemapping_luts = {
+                let placeholder = images.add(lut_placeholder());
+                TonemappingLuts {
+                    blender_filmic: placeholder.clone(),
+                    agx: placeholder.clone(),
+                    tony_mc_mapface: placeholder,
+                }
+            };
+
+            app.insert_resource(tonemapping_luts);
+        }
+
+        app.add_plugin(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.register_type::<Tonemapping>();
         app.register_type::<DebandDither>();
@@ -72,7 +92,6 @@ impl Plugin for TonemappingPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .insert_resource(tonemapping_luts)
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
@@ -340,6 +359,8 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
     ]
 }
 
+// allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
+#[allow(dead_code)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let mut image =
         Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, false).unwrap();
@@ -356,4 +377,28 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     });
 
     image
+}
+
+pub fn lut_placeholder() -> Image {
+    let format = TextureFormat::Rgba8Unorm;
+    let data = vec![255, 0, 255, 255];
+    Image {
+        data,
+        texture_descriptor: TextureDescriptor {
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            format,
+            dimension: TextureDimension::D3,
+            label: None,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+        sampler_descriptor: ImageSampler::Default,
+        texture_view_descriptor: None,
+    }
 }

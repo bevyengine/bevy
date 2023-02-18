@@ -39,6 +39,9 @@ ktx2 = ["bevy_render/ktx2"]
 zlib = ["bevy_render/zlib"]
 zstd = ["bevy_render/zstd"]
 
+# Include tonemapping LUT KTX2 files.
+tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
+
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
