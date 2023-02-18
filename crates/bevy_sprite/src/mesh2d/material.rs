@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
-    tonemapping::{Dither, Tonemapping},
+    tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -330,7 +330,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
-        Option<&Dither>,
+        Option<&DebandDither>,
         &mut RenderPhase<Transparent2d>,
     )>,
 ) where
@@ -364,7 +364,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }
-            if let Some(Dither::Enabled) = dither {
+            if let Some(DebandDither::Enabled) = dither {
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }

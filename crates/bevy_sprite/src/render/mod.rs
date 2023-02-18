@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
-    tonemapping::{Dither, Tonemapping},
+    tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{
     prelude::*,
@@ -497,7 +497,7 @@ pub fn queue_sprites(
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
-        Option<&Dither>,
+        Option<&DebandDither>,
     )>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -578,7 +578,7 @@ pub fn queue_sprites(
                         }
                     };
                 }
-                if let Some(Dither::Enabled) = dither {
+                if let Some(DebandDither::Enabled) = dither {
                     view_key |= SpritePipelineKey::DEBAND_DITHER;
                 }
             }

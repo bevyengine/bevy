@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
-    tonemapping::{Dither, Tonemapping},
+    tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -370,7 +370,7 @@ pub fn queue_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
-        Option<&Dither>,
+        Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -423,7 +423,7 @@ pub fn queue_material_meshes<M: Material>(
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }
-            if let Some(Dither::Enabled) = dither {
+            if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }

@@ -64,10 +64,10 @@ impl Plugin for TonemappingPlugin {
         };
 
         app.register_type::<Tonemapping>();
-        app.register_type::<Dither>();
+        app.register_type::<DebandDither>();
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
-        app.add_plugin(ExtractComponentPlugin::<Dither>::default());
+        app.add_plugin(ExtractComponentPlugin::<DebandDither>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -125,7 +125,7 @@ impl Tonemapping {
 }
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
-    deband_dither: Dither,
+    deband_dither: DebandDither,
     tonemapping: Tonemapping,
 }
 
@@ -134,7 +134,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
-        if let Dither::Enabled = key.deband_dither {
+        if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }
         match key.tonemapping {
@@ -227,11 +227,11 @@ pub fn queue_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&Dither>), With<ViewTarget>>,
+    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&DebandDither>), With<ViewTarget>>,
 ) {
     for (entity, tonemapping, dither) in view_targets.iter() {
         let key = TonemappingPipelineKey {
-            deband_dither: *dither.unwrap_or(&Dither::Disabled),
+            deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
@@ -257,7 +257,7 @@ pub fn queue_view_tonemapping_pipelines(
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
-pub enum Dither {
+pub enum DebandDither {
     #[default]
     Disabled,
     Enabled,

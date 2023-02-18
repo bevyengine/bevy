@@ -1,6 +1,6 @@
 use crate::{
     clear_color::ClearColorConfig,
-    tonemapping::{Dither, Tonemapping},
+    tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
@@ -30,7 +30,7 @@ pub struct Camera2dBundle {
     pub global_transform: GlobalTransform,
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
-    pub dither: Dither,
+    pub deband_dither: DebandDither,
 }
 
 impl Default for Camera2dBundle {
@@ -72,7 +72,7 @@ impl Camera2dBundle {
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
             tonemapping: Tonemapping::None,
-            dither: Dither::Disabled,
+            deband_dither: DebandDither::Disabled,
         }
     }
 }
