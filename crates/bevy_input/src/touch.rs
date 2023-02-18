@@ -365,10 +365,9 @@ pub fn touch_screen_input_system(
 ) {
     touch_state.update();
 
-    for ended_event in &ended_events {
-        touch_state.process_touch_event(ended_event);
-    }
-    ended_events.clear();
+    ended_events.drain(..).for_each(|ended_event| {
+        touch_state.process_touch_event(&ended_event);
+    });
 
     let mut ids = vec![];
     for event in touch_input_events.iter() {
