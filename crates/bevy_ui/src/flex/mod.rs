@@ -84,7 +84,7 @@ impl FlexSurface {
     ) {
         let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(scale_factor, style);
-        let m = calculated_size.measure.box_clone();
+        let m = calculated_size.measure.dyn_clone();
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, available_space: Size<AvailableSpace>| {
                 let size = m.measure(

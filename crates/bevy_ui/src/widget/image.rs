@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, MeasureNode, UiImage};
+use crate::{CalculatedSize, Measure, UiImage};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
@@ -14,7 +14,7 @@ pub struct ImageMeasure {
     size: Vec2,
 }
 
-impl MeasureNode for ImageMeasure {
+impl Measure for ImageMeasure {
     fn measure(
         &self,
         width: Option<f32>,
@@ -41,7 +41,7 @@ impl MeasureNode for ImageMeasure {
         size
     }
 
-    fn box_clone(&self) -> Box<dyn MeasureNode> {
+    fn dyn_clone(&self) -> Box<dyn Measure> {
         Box::new(self.clone())
     }
 }
