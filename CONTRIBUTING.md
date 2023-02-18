@@ -81,14 +81,14 @@ Our merge strategy relies on the classification of PRs on two axes:
 * How controversial are the design decisions
 * How complex is the implementation
 
-Each issue and pull request [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
+Each [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
 
-* A: Area
-* C: Category
-* D: Difficulty
-* O: Operating system
-* P: Priority
-* S: Status
+* A: Area (e.g. A-Animation, A-ECS, A-Rendering)
+* C: Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs)
+* D: Difficulty (e.g. D-Complex, D-Good-First-Issue)
+* O: Operating system (e.g. O-Linux, O-Web, O-Windows)
+* P: Priority (e.g. e.g. P-Critical, P-High)
+* S: Status (e.g. S-Blocked, S-Controversial, S-Needs-Design)
 
 PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
 the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
