@@ -14,7 +14,7 @@ use bevy_render::{
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_ui::{
-    BackgroundColor, CalculatedSize, FocusPolicy, Node, Size, Style, UiImage, UiSystem, Val, ZIndex,
+    BackgroundColor, CalculatedSize, FocusPolicy, Node, Style, UiImage, UiSystem, ZIndex,
 };
 
 use super::text_system;

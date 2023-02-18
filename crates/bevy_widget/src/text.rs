@@ -19,7 +19,7 @@ use bevy_text::{
     TextPipeline, TextSection, TextSettings, TextStyle, YAxisOrientation,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_ui::{CalculatedSize, FocusPolicy, Node, Size, Style, UiScale, UiSystem, Val, ZIndex};
+use bevy_ui::{CalculatedSize, FocusPolicy, Node, Style, UiScale, UiSystem, Val, ZIndex};
 use bevy_window::{PrimaryWindow, Window};
 
 fn scale_value(value: f32, factor: f64) -> f32 {
