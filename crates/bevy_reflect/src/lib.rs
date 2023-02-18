@@ -15,6 +15,9 @@
 //! * Access type metadata at runtime
 //! * Serialize and deserialize (i.e. save and load) data
 //!
+//! It's important to note that because of missing features in Rust,
+//! there are some [limitations] with this crate.
+//!
 //! # The `Reflect` Trait
 //!
 //! At the core of [`bevy_reflect`] is the [`Reflect`] trait.
@@ -350,6 +353,36 @@
 //! assert_eq!(original_value, converted_value);
 //! ```
 //!
+//! # Limitations
+//!
+//! While this crate offers a lot in terms of adding reflection to Rust,
+//! it does come with some limitations that don't make it as featureful as reflection
+//! in other programming languages.
+//!
+//! ## Non-Static Lifetimes
+//!
+//! One of the most obvious limitations is the `'static` requirement.
+//! Rust requires fields to define a lifetime for referenced data,
+//! but [`Reflect`] requires all types to have a `'static` lifetime.
+//! This makes it impossible to reflect any type with non-static borrowed data.
+//!
+//! ## Function Reflection
+//!
+//! Another limitation is the inability to fully reflect functions and methods.
+//! Most languages offer some way of calling methods dynamically,
+//! but Rust makes this very difficult to do.
+//! For non-generic methods, this can be done by registering custom [type data] that
+//! contains function pointers.
+//! For generic methods, the same can be done but will typically require manual monomorphization
+//! (i.e. manually specifying the types the generic method can take).
+//!
+//! ## Manual Registration
+//!
+//! Since Rust doesn't provide built-in support for running initialization code before `main`,
+//! there is no way for `bevy_reflect` to automatically register types into the [type registry].
+//! This means types must manually be registered, including their desired monomorphized
+//! representations if generic.
+//!
 //! # Features
 //!
 //! ## `bevy`
@@ -378,6 +411,7 @@
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
 //! [Bevy]: https://bevyengine.org/
+//! [limitations]: #limitations
 //! [`bevy_reflect`]: crate
 //! [runtime cost]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html#trait-objects-perform-dynamic-dispatch
 //! [derive macro]: derive@crate::Reflect
@@ -394,6 +428,7 @@
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
 //! [type name]: Reflect::type_name
+//! [type registry]: TypeRegistry
 //! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
 //! [`glam`]: https://docs.rs/glam/latest/glam/
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
