@@ -89,12 +89,12 @@ pub struct BloomSettings {
     /// Controls whether bloom textures
     /// are blended between or added to each other. Useful
     /// if image brightening is desired and a must-change
-    /// if prefilter_settings are used.
+    /// if `prefilter_settings` are used.
     ///
     /// # Recommendation
-    /// Set to Additive if prefilter_settings are
+    /// Set to [`BloomCompositeMode::Additive`] if `prefilter_settings` are
     /// configured in a non-energy-conserving way,
-    /// otherwise set to EnergyConserving.
+    /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
 }
 
