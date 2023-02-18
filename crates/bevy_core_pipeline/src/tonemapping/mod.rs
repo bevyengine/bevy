@@ -84,6 +84,7 @@ pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
 }
 
+/// Optionally enables a tonemapping shader that maps the high dynamic range (HDR) image data into a low dynamic range (LDR) image for a given [`Camera`] entity.
 #[derive(
     Component,
     Debug,
@@ -100,6 +101,7 @@ pub struct TonemappingPipeline {
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub enum Tonemapping {
+    /// Bypass tonemapping.
     None,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     /// Bright primaries and secondaries don't desaturate at all.
@@ -264,7 +266,7 @@ pub fn queue_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
-/// Enables a debanding shader that applies dithering to mitigate color banding in the final image.
+/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
     Component,
     Debug,
