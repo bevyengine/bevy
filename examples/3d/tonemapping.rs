@@ -111,10 +111,12 @@ fn setup_basic_scene(
         base_color_texture: Some(images.add(uv_debug_texture())),
         ..default()
     });
+
+    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
     for i in 0..5 {
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
+                mesh: cube_mesh.clone(),
                 material: cube_material.clone(),
                 transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
                 ..default()
