@@ -32,7 +32,7 @@ fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
 fn ycbcr_to_rgb(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
         1.0, 0.0, 1.5748, 
-        1.0, -0.1873, -.4681, 
+        1.0, -0.1873, -0.4681, 
         1.0, 1.8556, 0.0
     );
     return max(vec3(0.0), col * m);
