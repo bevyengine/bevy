@@ -23,7 +23,7 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
 fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
         0.2126, 0.7152, 0.0722, 
-        -0.1146,-0.3854, 0.5, 
+        -0.1146, -0.3854, 0.5, 
         0.5, -0.4542, -0.0458
     );
     return col * m;
@@ -226,7 +226,6 @@ fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
 
 fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let block_size = 64.0;
-    var c = stimulus;
     let normalized = saturate(convertOpenDomainToNormalizedLog2(stimulus, -11.0, 12.0));
     return applyLUT3D(normalized, block_size);
 }

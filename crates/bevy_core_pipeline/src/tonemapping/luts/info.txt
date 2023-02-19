@@ -20,6 +20,3 @@ Export from Blender as 32bit EXR, override color space to Filmic sRGB.
 Import EXR back into blender set color space to sRGB, then export as 32bit EXR override color space to linear.
 Convert exr to 3D ktx2 with:
 https://gist.github.com/DGriffin91/49401c43378b58bce32059291097d4ca
-
-
-

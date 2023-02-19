@@ -139,7 +139,8 @@ pub enum Tonemapping {
     /// By Troy Sobotka
     /// <https://github.com/sobotka/AgX>
     /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
-    /// Little to no hue shifting. Subtle abney shifting.
+    /// Little to no hue shifting. Subtle [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect).
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
     AgX,
     /// By Tomasz Stachowiak
     /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
@@ -155,8 +156,9 @@ pub enum Tonemapping {
     /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
     /// input stimulus where compression isn't necessary.
     /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
-    /// Color hues are preserved during compression, except for a deliberate Bezold–Brücke shift.
-    /// To avoid posterization, selective desaturation is employed, with care to avoid the Abney effect.
+    /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
+    /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
     TonyMcMapface,
     /// Default Filmic Display Transform from blender.
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
