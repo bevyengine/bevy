@@ -230,7 +230,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                query.for_each(&world, |comp| {
+                query.iter(&world).for_each(|comp| {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -244,7 +244,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                query.for_each(&world, |comp| {
+                query.iter(&world).for_each(|comp| {
                     black_box(comp);
                     count += 1;
                     black_box(count);

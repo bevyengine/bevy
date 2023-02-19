@@ -686,7 +686,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
     #[deprecated(
-        since = "0.10",
+        since = "0.10.0",
         note = "Query::for_each was not idiomatic Rust and has been moved to query.iter().for_each()"
     )]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
@@ -728,7 +728,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
     #[deprecated(
-        since = "0.10",
+        since = "0.10.0",
         note = "Query::for_each_mut was not idiomatic Rust and has been moved to query.iter_mut().for_each()"
     )]
     pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(Q::Item<'a>)) {
