@@ -1359,7 +1359,7 @@ impl ScheduleGraph {
         error!("{}", message);
     }
 
-    /// Get topology sorted [NodeId], also ensures the graph contains no cycle
+    /// Get topology sorted [`NodeId`], also ensures the graph contains no cycle
     /// returns Err(()) if there are cycles
     fn topsort_graph(&self, graph: &DiGraphMap<NodeId, ()>) -> Result<Vec<NodeId>, ()> {
         // tarjon_scc's run order is reverse topological order
@@ -1395,7 +1395,7 @@ impl ScheduleGraph {
         );
 
         writeln!(message, " -- cycle(s) found within:").unwrap();
-        for (i, scc) in sccs_with_cycles.into_iter().enumerate() {
+        for (i, scc) in sccs_with_cycles.iter().enumerate() {
             let names = scc
                 .iter()
                 .map(|id| self.get_node_name(id))
