@@ -652,9 +652,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        #[cfg(feature = "webgl")]
-        shader_defs.push("WEBGL".into());
-
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));

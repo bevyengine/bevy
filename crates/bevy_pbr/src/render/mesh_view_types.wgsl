@@ -59,9 +59,7 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-#ifdef WEBGL
-    environment_map_smallest_specular_mip_level: i32,
-#endif
+    environment_map_smallest_specular_mip_level: u32,
 };
 
 struct Fog {
