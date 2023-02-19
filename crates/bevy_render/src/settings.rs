@@ -47,8 +47,10 @@ impl Default for WgpuSettings {
     fn default() -> Self {
         let default_backends = if cfg!(feature = "webgl") {
             Backends::GL
-        } else {
+        } else if cfg!(windows) {
             Backends::PRIMARY
+        } else {
+            Backends::all()
         };
 
         let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
