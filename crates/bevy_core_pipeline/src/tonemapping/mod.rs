@@ -160,6 +160,7 @@ pub enum Tonemapping {
     TonyMcMapface,
     /// Default Filmic Display Transform from blender.
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
     BlenderFilmic,
 }
 
