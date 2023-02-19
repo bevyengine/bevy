@@ -88,7 +88,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     /// from an archetype.
     ///
     /// # Safety
-    ///  - all `indicies` must be in `[0, archetype.len())`.
+    ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match Q and F
     ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
@@ -165,7 +165,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     /// from an archetype.
     ///
     /// # Safety
-    ///  - all `indicies` must be in `[0, archetype.len())`.
+    ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match Q and F
     ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
@@ -215,7 +215,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
         }
         if Q::IS_DENSE && F::IS_DENSE {
             for table_id in self.cursor.table_id_iter.clone() {
-                // SAFETY: Matched table IDs are guarenteed to still exist.
+                // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(*table_id).debug_checked_unwrap() };
                 accum =
                     // SAFETY: The fetched table matches the query
@@ -224,7 +224,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
         } else {
             for archetype_id in self.cursor.archetype_id_iter.clone() {
                 let archetype =
-                    // SAFETY: Matched archetype IDs are guarenteed to still exist.
+                    // SAFETY: Matched archetype IDs are guaranteed to still exist.
                     unsafe { self.archetypes.get(*archetype_id).debug_checked_unwrap() };
                 accum =
                     // SAFETY: The fetched archetype and table matches the query
