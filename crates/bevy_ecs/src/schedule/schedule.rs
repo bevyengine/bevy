@@ -1141,7 +1141,7 @@ impl ScheduleGraph {
 
         // check for conflicts
         let mut conflicting_systems = Vec::new();
-        for &(a, b) in flat_results.disconnected.iter() {
+        for &(a, b) in &flat_results.disconnected {
             if self.ambiguous_with_flattened.contains_edge(a, b)
                 || self.ambiguous_with_all.contains(&a)
                 || self.ambiguous_with_all.contains(&b)
