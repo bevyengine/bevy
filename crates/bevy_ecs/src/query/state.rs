@@ -767,7 +767,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// Shorthand for `query.iter(world).for_each(..)`.
     #[inline]
-    #[deprecated(since = "0.10", note = "QueryState::for_each was not idiomatic Rust and has been moved to query.iter().for_each()")]
+    #[deprecated(
+        since = "0.10",
+        note = "QueryState::for_each was not idiomatic Rust and has been moved to query.iter().for_each()"
+    )]
     pub fn for_each<'w, FN: FnMut(ROQueryItem<'w, Q>)>(&mut self, world: &'w World, func: FN) {
         // SAFETY: query is read only
         unsafe {
@@ -783,7 +786,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// Shorthand for `query.iter_mut(world).for_each(..)`.
     #[inline]
-    #[deprecated(since = "0.10", note = "QueryState::for_each_mut was not idiomatic Rust and has been moved to query.iter().for_each_mut()")]
+    #[deprecated(
+        since = "0.10",
+        note = "QueryState::for_each_mut was not idiomatic Rust and has been moved to query.iter().for_each_mut()"
+    )]
     pub fn for_each_mut<'w, FN: FnMut(Q::Item<'w>)>(&mut self, world: &'w mut World, func: FN) {
         self.iter_mut(world).for_each(func);
     }
