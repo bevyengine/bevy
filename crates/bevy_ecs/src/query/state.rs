@@ -772,13 +772,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         note = "QueryState::for_each was not idiomatic Rust and has been moved to query.iter().for_each()"
     )]
     pub fn for_each<'w, FN: FnMut(ROQueryItem<'w, Q>)>(&mut self, world: &'w World, func: FN) {
-        // SAFETY: query is read only
-        unsafe {
-            self.update_archetypes(world);
-            self.as_readonly()
-                .iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
-                .for_each(func);
-        }
+        self.iter(world).for_each(func);
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
