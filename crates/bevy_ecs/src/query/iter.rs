@@ -68,7 +68,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         let entities = table.entities();
         for row in rows {
             // SAFETY: set_table was called prior.
-            // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
+            // Caller assures `row` in range of the current archetype.
             let entity = entities.get_unchecked(row);
             let row = TableRow::new(row);
             if !F::filter_fetch(&mut self.cursor.filter, *entity, row) {
@@ -76,7 +76,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
             }
 
             // SAFETY: set_table was called prior.
-            // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
+            // Caller assures `row` in range of the current archetype.
             let item = Q::fetch(&mut self.cursor.fetch, *entity, row);
 
             accum = func(accum, item);
@@ -119,7 +119,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         let entities = archetype.entities();
         for index in indices {
             // SAFETY: set_archetype was called prior.
-            // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+            // Caller assures `index` in range of the current archetype.
             let archetype_entity = entities.get_unchecked(index);
             if !F::filter_fetch(
                 &mut self.cursor.filter,
@@ -129,8 +129,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
                 continue;
             }
 
-            // SAFETY: set_archetype was called prior, `current_row` is an archetype index in range of the current archetype
-            // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+            // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the current archetype
+            // Caller assures `index` in range of the current archetype.
             let item = Q::fetch(
                 &mut self.cursor.fetch,
                 archetype_entity.entity(),
