@@ -2,7 +2,11 @@ use crate::{AudioSink, AudioSource, Decodable};
 use bevy_asset::{Asset, Handle, HandleId};
 use bevy_ecs::system::Resource;
 use parking_lot::RwLock;
-use std::{collections::VecDeque, fmt};
+use std::{
+    collections::VecDeque,
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 /// Use this [`Resource`] to play audio.
 ///
@@ -154,6 +158,20 @@ pub struct VolumeLevel(pub(crate) f32);
 impl Default for VolumeLevel {
     fn default() -> Self {
         Self(1.0)
+    }
+}
+
+impl Deref for VolumeLevel {
+    type Target = f32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for VolumeLevel {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
