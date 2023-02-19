@@ -7,7 +7,7 @@ use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{
-    petgraph::{algo::tarjan_scc, prelude::*},
+    petgraph::prelude::*,
     thiserror::Error,
     tracing::{error, warn},
     HashMap, HashSet,
@@ -941,15 +941,9 @@ impl ScheduleGraph {
         }
 
         // check hierarchy for cycles
-        let hier_scc = tarjan_scc(&self.hierarchy.graph);
-        // PERF: in theory we can skip this contains_cycles because we've already detected cycles
-        // using calculate_base_sets_and_detect_cycles
-        if self.contains_cycles(&hier_scc) {
-            self.report_cycles(&hier_scc);
-            return Err(ScheduleBuildError::HierarchyCycle);
-        }
-
-        self.hierarchy.topsort = hier_scc.into_iter().flatten().rev().collect::<Vec<_>>();
+        self.hierarchy.topsort = self
+            .topsort_graph(&self.hierarchy.graph)
+            .map_err(|_| ScheduleBuildError::HierarchyCycle)?;
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
         if self.settings.hierarchy_detection != LogLevel::Ignore
@@ -965,13 +959,9 @@ impl ScheduleGraph {
         self.hierarchy.graph = hier_results.transitive_reduction;
 
         // check dependencies for cycles
-        let dep_scc = tarjan_scc(&self.dependency.graph);
-        if self.contains_cycles(&dep_scc) {
-            self.report_cycles(&dep_scc);
-            return Err(ScheduleBuildError::DependencyCycle);
-        }
-
-        self.dependency.topsort = dep_scc.into_iter().flatten().rev().collect::<Vec<_>>();
+        self.dependency.topsort = self
+            .topsort_graph(&self.dependency.graph)
+            .map_err(|_| ScheduleBuildError::DependencyCycle)?;
 
         // check for systems or system sets depending on sets they belong to
         let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
@@ -1092,15 +1082,10 @@ impl ScheduleGraph {
         }
 
         // topsort
-        let flat_scc = tarjan_scc(&dependency_flattened);
-        if self.contains_cycles(&flat_scc) {
-            self.report_cycles(&flat_scc);
-            return Err(ScheduleBuildError::DependencyCycle);
-        }
-
+        self.dependency_flattened.topsort = self
+            .topsort_graph(&dependency_flattened)
+            .map_err(|_| ScheduleBuildError::DependencyCycle)?;
         self.dependency_flattened.graph = dependency_flattened;
-        self.dependency_flattened.topsort =
-            flat_scc.into_iter().flatten().rev().collect::<Vec<_>>();
 
         let flat_results = check_graph(
             &self.dependency_flattened.graph,
@@ -1377,31 +1362,43 @@ impl ScheduleGraph {
         error!("{}", message);
     }
 
-    fn contains_cycles(&self, strongly_connected_components: &[Vec<NodeId>]) -> bool {
-        if strongly_connected_components
-            .iter()
-            .all(|scc| scc.len() == 1)
-        {
-            return false;
-        }
+    /// Get topology sorted [`NodeId`], also ensures the graph contains no cycle
+    /// returns Err(()) if there are cycles
+    fn topsort_graph(&self, graph: &DiGraphMap<NodeId, ()>) -> Result<Vec<NodeId>, ()> {
+        // tarjon_scc's run order is reverse topological order
+        let mut rev_top_sorted_nodes = Vec::<NodeId>::with_capacity(graph.node_count());
+        let mut tarjan_scc = bevy_utils::petgraph::algo::TarjanScc::new();
+        let mut sccs_with_cycle = Vec::<Vec<NodeId>>::new();
 
-        true
+        tarjan_scc.run(graph, |scc| {
+            // by scc's definition, each scc is the cluster of nodes that they can reach each other
+            // so scc with size larger than 1, means there is/are cycle(s).
+            if scc.len() > 1 {
+                sccs_with_cycle.push(scc.to_vec());
+            }
+            rev_top_sorted_nodes.extend_from_slice(scc);
+        });
+
+        if sccs_with_cycle.is_empty() {
+            // reverse the reverted to get topological order
+            let mut top_sorted_nodes = rev_top_sorted_nodes;
+            top_sorted_nodes.reverse();
+            Ok(top_sorted_nodes)
+        } else {
+            self.report_cycles(&sccs_with_cycle);
+            Err(())
+        }
     }
 
-    fn report_cycles(&self, strongly_connected_components: &[Vec<NodeId>]) {
-        let components_with_cycles = strongly_connected_components
-            .iter()
-            .filter(|scc| scc.len() > 1)
-            .cloned()
-            .collect::<Vec<_>>();
-
+    /// Print detailed cycle messages
+    fn report_cycles(&self, sccs_with_cycles: &[Vec<NodeId>]) {
         let mut message = format!(
             "schedule contains at least {} cycle(s)",
-            components_with_cycles.len()
+            sccs_with_cycles.len()
         );
 
         writeln!(message, " -- cycle(s) found within:").unwrap();
-        for (i, scc) in components_with_cycles.into_iter().enumerate() {
+        for (i, scc) in sccs_with_cycles.iter().enumerate() {
             let names = scc
                 .iter()
                 .map(|id| self.get_node_name(id))
