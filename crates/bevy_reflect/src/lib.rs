@@ -1100,7 +1100,7 @@ mod tests {
 
         // TypeInfo (instance)
         let value: &dyn Reflect = &123_i32;
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<i32>());
 
         // Struct
@@ -1133,7 +1133,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
@@ -1167,7 +1167,7 @@ mod tests {
             foo: String::from("Hello!"),
             bar: 321,
         };
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyGenericStruct<String>>());
 
         // Tuple Struct
@@ -1203,7 +1203,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyTuple>());
 
         // List
@@ -1220,7 +1220,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &vec![123_usize];
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
@@ -1240,7 +1240,7 @@ mod tests {
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
-            let info = value.get_type_info();
+            let info = value.represented_type_info();
             assert!(info.is::<MySmallVec>());
         }
 
@@ -1259,7 +1259,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyArray>());
 
         // Map
@@ -1278,7 +1278,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &MyMap::new();
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyMap>());
 
         // Value
@@ -1293,7 +1293,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &String::from("Hello!");
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyValue>());
 
         // Dynamic
@@ -1308,7 +1308,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &DynamicList::default();
-        let info = value.get_type_info();
+        let info = value.represented_type_info();
         assert!(info.is::<MyDynamic>());
     }
 

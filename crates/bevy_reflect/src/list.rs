@@ -97,7 +97,7 @@ pub trait List: Reflect {
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
-            represented_type: Some(self.get_type_info()),
+            represented_type: Some(self.represented_type_info()),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -258,7 +258,7 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
+    fn represented_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 

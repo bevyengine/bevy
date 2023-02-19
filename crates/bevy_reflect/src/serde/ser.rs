@@ -187,7 +187,7 @@ impl<'a> Serialize for StructSerializer<'a> {
         S: serde::Serializer,
     {
         let type_info = get_type_info(
-            self.struct_value.get_type_info(),
+            self.struct_value.represented_type_info(),
             self.struct_value.type_name(),
             self.registry,
         )?;
@@ -236,7 +236,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
         S: serde::Serializer,
     {
         let type_info = get_type_info(
-            self.tuple_struct.get_type_info(),
+            self.tuple_struct.represented_type_info(),
             self.tuple_struct.type_name(),
             self.registry,
         )?;
@@ -284,7 +284,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
         S: serde::Serializer,
     {
         let type_info = get_type_info(
-            self.enum_value.get_type_info(),
+            self.enum_value.represented_type_info(),
             self.enum_value.type_name(),
             self.registry,
         )?;

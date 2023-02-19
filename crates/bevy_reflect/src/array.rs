@@ -67,7 +67,7 @@ pub trait Array: Reflect {
     /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            represented_type: Some(self.get_type_info()),
+            represented_type: Some(self.represented_type_info()),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -208,7 +208,7 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
+    fn represented_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 

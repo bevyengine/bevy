@@ -82,7 +82,7 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> &'static TypeInfo {
+    fn represented_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
