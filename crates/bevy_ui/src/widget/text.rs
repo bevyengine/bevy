@@ -3,7 +3,7 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Commands, Local, ParamSet, Query, Res, ResMut},
+    system::{Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
@@ -41,7 +41,6 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut commands: Commands,
     mut queued_text_ids: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
@@ -60,7 +59,7 @@ pub fn text_system(
             &Text,
             &Style,
             &mut CalculatedSize,
-            Option<&mut TextLayoutInfo>,
+            &mut TextLayoutInfo,
         )>,
     )>,
 ) {
@@ -96,7 +95,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text_ids.drain(..) {
-        if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
+        if let Ok((text, style, mut calculated_size, mut text_layout_info)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -139,12 +138,7 @@ pub fn text_system(
                         scale_value(info.size.x, inv_scale_factor),
                         scale_value(info.size.y, inv_scale_factor),
                     );
-                    match text_layout_info {
-                        Some(mut t) => *t = info,
-                        None => {
-                            commands.entity(entity).insert(info);
-                        }
-                    }
+                    *text_layout_info = info;
                 }
             }
         }
