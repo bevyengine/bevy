@@ -864,7 +864,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_for_each_unchecked_manual
         ComputeTaskPool::get().scope(|scope| {
             if Q::IS_DENSE && F::IS_DENSE {
                 let tables = &world.storages().tables;
