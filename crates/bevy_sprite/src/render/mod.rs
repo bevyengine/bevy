@@ -5,7 +5,10 @@ use crate::{
     Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -147,18 +150,30 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
-        const NONE                        = 0;
-        const COLORED                     = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const NONE                              = 0;
+        const COLORED                           = (1 << 0);
+        const HDR                               = (1 << 1);
+        const TONEMAP_IN_SHADER                 = (1 << 2);
+        const DEBAND_DITHER                     = (1 << 3);
+        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
 impl SpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_SHIFT_BITS: u32 =
+        Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     #[inline]
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
@@ -217,6 +232,27 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+
+            let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED {
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(SpritePipelineKey::DEBAND_DITHER) {
@@ -462,6 +498,7 @@ pub fn queue_sprites(
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
+        Option<&DebandDither>,
     )>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -517,17 +554,36 @@ pub fn queue_sprites(
         });
         let image_bind_groups = &mut *image_bind_groups;
 
-        for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
+        for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
-                if !view.hdr {
-                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
 
-                    if *deband_dither {
-                        view_key |= SpritePipelineKey::DEBAND_DITHER;
-                    }
+            if !view.hdr {
+                if let Some(tonemapping) = tonemapping {
+                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+                    view_key |= match tonemapping {
+                        Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                        Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                        Tonemapping::ReinhardLuminance => {
+                            SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                        }
+                        Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                        Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                        Tonemapping::SomewhatBoringDisplayTransform => {
+                            SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                        }
+                        Tonemapping::TonyMcMapface => {
+                            SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
+                        }
+                        Tonemapping::BlenderFilmic => {
+                            SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
+                        }
+                    };
+                }
+                if let Some(DebandDither::Enabled) = dither {
+                    view_key |= SpritePipelineKey::DEBAND_DITHER;
                 }
             }
+
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &sprite_pipeline,
