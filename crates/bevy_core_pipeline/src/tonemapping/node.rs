@@ -30,7 +30,7 @@ pub struct TonemappingNode {
         With<ExtractedView>,
     >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
-    last_tonemapping: Mutex<Option<Tonemapping>>, // TODO Griffin use change detection?
+    last_tonemapping: Mutex<Option<Tonemapping>>,
 }
 
 impl TonemappingNode {
