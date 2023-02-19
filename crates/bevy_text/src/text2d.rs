@@ -158,12 +158,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
-        Ref<Text>,
-        &Text2dBounds,
-        &mut TextLayoutInfo,
-    )>,
+    mut text_query: Query<(Entity, Ref<Text>, &Text2dBounds, &mut TextLayoutInfo)>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();

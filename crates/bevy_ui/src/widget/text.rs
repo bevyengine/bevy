@@ -55,12 +55,7 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Node>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(
-            &Text,
-            &Style,
-            &mut CalculatedSize,
-            &mut TextLayoutInfo,
-        )>,
+        Query<(&Text, &Style, &mut CalculatedSize, &mut TextLayoutInfo)>,
     )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -95,7 +90,8 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text_ids.drain(..) {
-        if let Ok((text, style, mut calculated_size, mut text_layout_info)) = query.get_mut(entity) {
+        if let Ok((text, style, mut calculated_size, mut text_layout_info)) = query.get_mut(entity)
+        {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
