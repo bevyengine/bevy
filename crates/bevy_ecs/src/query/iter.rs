@@ -67,10 +67,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
 
         let entities = table.entities();
         for row in rows {
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
+            // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = entities.get_unchecked(row);
             let row = TableRow::new(row);
+            // SAFETY: set_table was called prior.
+            // Caller assures `row` in range of the current archetype.
             if !F::filter_fetch(&mut self.cursor.filter, *entity, row) {
                 continue;
             }
@@ -118,9 +119,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
 
         let entities = archetype.entities();
         for index in indices {
+            // SAFETY: Caller assures `index` in range of the current archetype.
+            let archetype_entity = entities.get_unchecked(index);
             // SAFETY: set_archetype was called prior.
             // Caller assures `index` in range of the current archetype.
-            let archetype_entity = entities.get_unchecked(index);
             if !F::filter_fetch(
                 &mut self.cursor.filter,
                 archetype_entity.entity(),
