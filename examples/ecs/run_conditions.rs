@@ -82,8 +82,8 @@ fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
 
 /// SYSTEM: Increment the input counter
 /// Notice how we can take just the `ResMut` and not have to wrap
-/// it in an option incase it hasen't been initialized, this is becuase
-/// it has a run codition that checks if the `InputCounter` resource exsists
+/// it in an option in case it hasn't been initialized, this is because
+/// it has a run condition that checks if the `InputCounter` resource exists
 fn increment_input_counter(mut counter: ResMut<InputCounter>) {
     counter.0 += 1;
 }
