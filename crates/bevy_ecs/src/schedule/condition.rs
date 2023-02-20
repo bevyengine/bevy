@@ -167,6 +167,6 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entities with the removed given component type.
     pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
-        move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
+        move |mut removals: RemovedComponents<T>| !removals.is_empty()
     }
 }
