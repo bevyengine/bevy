@@ -166,7 +166,12 @@ impl<'a> Serialize for StructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = self.struct_value.represented_type_info();
+        let type_info = self.struct_value.represented_type_info().ok_or_else(|| {
+            Error::custom(format_args!(
+                "cannot get type info for {}",
+                self.struct_value.type_name()
+            ))
+        })?;
 
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,
@@ -211,7 +216,12 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = self.tuple_struct.represented_type_info();
+        let type_info = self.tuple_struct.represented_type_info().ok_or_else(|| {
+            Error::custom(format_args!(
+                "cannot get type info for {}",
+                self.tuple_struct.type_name()
+            ))
+        })?;
 
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
@@ -255,7 +265,12 @@ impl<'a> Serialize for EnumSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = self.enum_value.represented_type_info();
+        let type_info = self.enum_value.represented_type_info().ok_or_else(|| {
+            Error::custom(format_args!(
+                "cannot get type info for {}",
+                self.enum_value.type_name()
+            ))
+        })?;
 
         let enum_info = match type_info {
             TypeInfo::Enum(enum_info) => enum_info,

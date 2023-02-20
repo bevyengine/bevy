@@ -89,7 +89,7 @@ pub trait Reflect: Any + Send + Sync {
     /// performant for such use cases.
     ///
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn represented_type_info(&self) -> &'static TypeInfo;
+    fn represented_type_info(&self) -> Option<&'static TypeInfo>;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;

@@ -287,8 +287,8 @@ impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn represented_type_info(&self) -> &'static TypeInfo {
-        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
+    fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]

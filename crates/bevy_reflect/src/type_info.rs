@@ -50,7 +50,7 @@ use std::fmt::Debug;
 /// #
 /// # impl Reflect for MyStruct {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn represented_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }

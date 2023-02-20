@@ -82,8 +82,8 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn represented_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {

@@ -304,8 +304,8 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn represented_type_info(&self) -> &'static TypeInfo {
-        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
+    fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
@@ -499,8 +499,8 @@ macro_rules! impl_reflect_tuple {
             fn clone_dynamic(&self) -> DynamicTuple {
                 let info = self.represented_type_info();
                 DynamicTuple {
-                    name: Cow::Borrowed(info.type_name()),
-                    represented_type: Some(info),
+                    name: Cow::Borrowed(::core::any::type_name::<Self>()),
+                    represented_type: info,
                     fields: self
                         .iter_fields()
                         .map(|value| value.clone_value())
@@ -514,8 +514,8 @@ macro_rules! impl_reflect_tuple {
                 std::any::type_name::<Self>()
             }
 
-            fn represented_type_info(&self) -> &'static TypeInfo {
-                <Self as Typed>::type_info()
+            fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+                Some(<Self as Typed>::type_info())
             }
 
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
