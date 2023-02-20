@@ -1789,6 +1789,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::{FromWorld, World};
     use crate::{
+        archetype::ArchetypeId,
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
@@ -2176,6 +2177,14 @@ mod tests {
     #[test]
     fn spawn_empty_bundle() {
         let mut world = World::new();
-        world.spawn(());
+        let entity = world.spawn(());
+        assert!(entity.archetype().id() == ArchetypeId::EMPTY);
+
+        let bundles = world.bundles().iter().collect::<Vec<_>>();
+        assert_eq!(bundles.len(), 1);
+
+        let bundle = bundles[0];
+        assert_eq!(bundle.id().index(), 0);
+        assert!(bundle.components().is_empty());
     }
 }

@@ -42,3 +42,7 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
+
+[[example]]
+name = "world_diagnostic"
+path = "examples/world_diagnostic.rs"

@@ -689,6 +689,16 @@ pub struct Bundles {
 }
 
 impl Bundles {
+    /// The total number of [`Bundle`] stored in [`World`]
+    pub fn len(&self) -> usize {
+        self.bundle_infos.len()
+    }
+
+    /// Iterate over [`BundleInfo`]
+    pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
+        self.bundle_infos.iter()
+    }
+
     #[inline]
     pub fn get(&self, bundle_id: BundleId) -> Option<&BundleInfo> {
         self.bundle_infos.get(bundle_id.index())
