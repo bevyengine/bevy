@@ -169,7 +169,7 @@
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};
 //! let mut value = Some(123_i32);
-//! let patch = DynamicEnum::new(std::any::type_name::<Option<i32>>(), "None", ());
+//! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
 //! assert_eq!(None, value);
 //! ```

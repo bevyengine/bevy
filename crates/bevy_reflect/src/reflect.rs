@@ -88,6 +88,8 @@ pub trait Reflect: Any + Send + Sync {
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn represented_type_info(&self) -> Option<&'static TypeInfo>;
 
