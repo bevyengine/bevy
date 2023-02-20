@@ -1,4 +1,4 @@
-//! This example demonstrates text wrapping and the LineBreakOn enum.
+//! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use bevy::prelude::*;
 use bevy::text::BreakLineOn;
