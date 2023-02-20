@@ -165,9 +165,9 @@ sudo swupd bundle-add devpkg-libgudev
 
 ## Alpine Linux
 
-Run the following command to install: pkgconfig, X11 development libraries, ALSA development libraries, eudev development libraries:
+Run the following command to install: libgcc, pkg-config, X11 development libraries, ALSA development libraries, eudev development libraries:
 ```sh
-sudo apk add pkgconf libx11-dev alsa-lib-dev eudev-dev
+sudo apk add libgcc pkgconf libx11-dev alsa-lib-dev eudev-dev
 ```
 Install a GPU renderer for you graphics card. For Intel integrated GPUs:
 ```sh
