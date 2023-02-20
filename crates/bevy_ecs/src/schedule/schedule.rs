@@ -1327,7 +1327,7 @@ impl ScheduleGraph {
                 if self.settings.report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
-                        format!("{name} (no sets)")
+                        name
                     } else if sets.len() == 1 {
                         format!("{name} (in set {})", sets[0])
                     } else {
