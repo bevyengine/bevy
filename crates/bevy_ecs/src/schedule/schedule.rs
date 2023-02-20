@@ -1151,7 +1151,7 @@ impl ScheduleGraph {
         if self.settings.ambiguity_detection != LogLevel::Ignore
             && self.contains_conflicts(&conflicting_systems)
         {
-            self.report_conflicts(&conflicting_systems, components);
+            self.report_conflicts(&conflicting_systems, components, self.settings.report_sets);
             if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
                 return Err(ScheduleBuildError::Ambiguity);
             }
@@ -1421,6 +1421,7 @@ impl ScheduleGraph {
         &self,
         ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
+        report_sets: bool,
     ) {
         let n_ambiguities = ambiguities.len();
 
@@ -1432,6 +1433,23 @@ impl ScheduleGraph {
         for (system_a, system_b, conflicts) in ambiguities {
             let name_a = self.get_node_name(system_a);
             let name_b = self.get_node_name(system_b);
+
+            let (name_a, name_b) = if report_sets {
+                (
+                    format!(
+                        "{} ({})",
+                        name_a,
+                        self.names_of_sets_containing_node(system_a)
+                    ),
+                    format!(
+                        "{} ({})",
+                        name_b,
+                        self.names_of_sets_containing_node(system_b)
+                    ),
+                )
+            } else {
+                (name_a, name_b)
+            };
 
             debug_assert!(system_a.is_system(), "{name_a} is not a system.");
             debug_assert!(system_b.is_system(), "{name_b} is not a system.");
@@ -1452,6 +1470,27 @@ impl ScheduleGraph {
         }
 
         warn!("{}", string);
+    }
+
+    fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
+        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Direction::Incoming) {
+            if f(set_id) {
+                self.traverse_sets_containing_node(set_id, f);
+            }
+        }
+    }
+
+    fn names_of_sets_containing_node(&self, id: &NodeId) -> String {
+        let mut sets = HashSet::new();
+        self.traverse_sets_containing_node(*id, &mut |set_id| {
+            !self.system_sets[set_id.index()].is_system_type() && sets.insert(set_id)
+        });
+        let mut sets: Vec<_> = sets
+            .into_iter()
+            .map(|set_id| self.get_node_name(&set_id))
+            .collect();
+        sets.sort();
+        sets.join(", ")
     }
 }
 
@@ -1532,6 +1571,9 @@ pub struct ScheduleBuildSettings {
     pub hierarchy_detection: LogLevel,
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     pub use_shortnames: bool,
+    /// If set to true, report all system sets the conflicting systems are part of.
+    /// Only used when reporting ambiguities.
+    pub report_sets: bool,
 }
 
 impl Default for ScheduleBuildSettings {
@@ -1546,6 +1588,7 @@ impl ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
             use_shortnames: false,
+            report_sets: false,
         }
     }
 }
