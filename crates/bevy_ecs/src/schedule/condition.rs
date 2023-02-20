@@ -145,7 +145,7 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if there are any entities with the added given component type.
+    /// if the given component type was added to any entities.
     ///
     /// Run conditions are evaluated on the main thread, blocking any other systems from running.
     /// This run condition is relatively expensive, as it iterates over every entity with this component.
