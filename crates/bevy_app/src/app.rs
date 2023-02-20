@@ -342,8 +342,7 @@ impl App {
             main_schedule.configure_set(
                 OnUpdate(variant.clone())
                     .in_base_set(CoreSet::Update)
-                    .run_if(in_state(variant))
-                    .after(apply_state_transition::<S>),
+                    .run_if(in_state(variant)),
             );
         }
 
