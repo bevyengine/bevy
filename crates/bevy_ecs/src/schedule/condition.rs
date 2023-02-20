@@ -155,7 +155,7 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if there are any entities with the changed given component type.
+    /// if the value of the given component type has been changed on any entities.
     ///
     /// Run conditions are evaluated on the main thread, blocking any other systems from running.
     /// This run condition is relatively expensive, as it iterates over every entity with this component.
@@ -165,7 +165,7 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if there are any entities with the removed given component type.
+    /// if there are any entities with the given component type removed.
     pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
         move |mut removals: RemovedComponents<T>| !removals.is_empty()
     }
