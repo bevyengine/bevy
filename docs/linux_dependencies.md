@@ -170,7 +170,9 @@ Run the following command to install `GNU C compiler, standard C development lib
 ```sh
 sudo apk add gcc libc-dev pkgconf libx11-dev alsa-lib-dev eudev-dev
 ```
+
 Install a GPU renderer for you graphics card. For Intel integrated GPUs:
+
 ```sh
 sudo apk add mesa-vulkan-intel
 ```
