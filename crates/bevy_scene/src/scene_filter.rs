@@ -44,22 +44,28 @@ pub enum SceneFilter {
 impl SceneFilter {
     /// Allow the given type, `T`.
     ///
-    /// If this filter is already set as a [`SceneFilter::Denylist`],
+    /// If this filter is already set as a [`Denylist`],
     /// then the given type will be removed from the denied set.
     ///
-    /// If this filter is already set as [`SceneFilter::Unset`],
-    /// then it will be completely replaced by a new [`SceneFilter::Allowlist`].
+    /// If this filter is [`Unset`], then it will be completely replaced by a new [`Allowlist`].
+    ///
+    /// [`Denylist`]: SceneFilter::Denylist
+    /// [`Unset`]: SceneFilter::Unset
+    /// [`Allowlist`]: SceneFilter::Allowlist
     pub fn allow<T: Any>(&mut self) -> &mut Self {
         self.allow_by_id(TypeId::of::<T>())
     }
 
     /// Allow the given type.
     ///
-    /// If this filter is already set as a [`SceneFilter::Denylist`],
+    /// If this filter is already set as a [`Denylist`],
     /// then the given type will be removed from the denied set.
     ///
-    /// If this filter is already set as [`SceneFilter::Unset`],
-    /// then it will be completely replaced by a new [`SceneFilter::Allowlist`].
+    /// If this filter is [`Unset`], then it will be completely replaced by a new [`Allowlist`].
+    ///
+    /// [`Denylist`]: SceneFilter::Denylist
+    /// [`Unset`]: SceneFilter::Unset
+    /// [`Allowlist`]: SceneFilter::Allowlist
     pub fn allow_by_id(&mut self, type_id: TypeId) -> &mut Self {
         match self {
             Self::Unset => {
@@ -77,22 +83,28 @@ impl SceneFilter {
 
     /// Deny the given type, `T`.
     ///
-    /// If this filter is already set as an [`SceneFilter::Allowlist`],
+    /// If this filter is already set as an [`Allowlist`],
     /// then the given type will be removed from the allowed set.
     ///
-    /// If this filter is already set as [`SceneFilter::Unset`],
-    /// then it will be completely replaced by a new [`SceneFilter::Denylist`].
+    /// If this filter is [`Unset`], then it will be completely replaced by a new [`Denylist`].
+    ///
+    /// [`Allowlist`]: SceneFilter::Allowlist
+    /// [`Unset`]: SceneFilter::Unset
+    /// [`Denylist`]: SceneFilter::Denylist
     pub fn deny<T: Any>(&mut self) -> &mut Self {
         self.deny_by_id(TypeId::of::<T>())
     }
 
     /// Deny the given type.
     ///
-    /// If this filter is already set as an [`SceneFilter::Allowlist`],
+    /// If this filter is already set as an [`Allowlist`],
     /// then the given type will be removed from the allowed set.
     ///
-    /// If this filter is already set as [`SceneFilter::Unset`],
-    /// then it will be completely replaced by a new [`SceneFilter::Denylist`].
+    /// If this filter is [`Unset`], then it will be completely replaced by a new [`Denylist`].
+    ///
+    /// [`Allowlist`]: SceneFilter::Allowlist
+    /// [`Unset`]: SceneFilter::Unset
+    /// [`Denylist`]: SceneFilter::Denylist
     pub fn deny_by_id(&mut self, type_id: TypeId) -> &mut Self {
         match self {
             Self::Unset => *self = Self::Denylist(HashSet::from([type_id])),
@@ -108,14 +120,18 @@ impl SceneFilter {
 
     /// Returns true if the given type, `T`, is allowed by the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will always return `true`.
+    /// If the filter is [`Unset`], this will always return `true`.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn is_allowed<T: Any>(&self) -> bool {
         self.is_allowed_by_id(TypeId::of::<T>())
     }
 
     /// Returns true if the given type is allowed by the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will always return `true`.
+    /// If the filter is [`Unset`], this will always return `true`.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn is_allowed_by_id(&self, type_id: TypeId) -> bool {
         match self {
             Self::Unset => true,
@@ -126,21 +142,27 @@ impl SceneFilter {
 
     /// Returns true if the given type, `T`, is denied by the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will always return `false`.
+    /// If the filter is [`Unset`], this will always return `false`.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn is_denied<T: Any>(&self) -> bool {
         self.is_denied_by_id(TypeId::of::<T>())
     }
 
     /// Returns true if the given type is denied by the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will always return `false`.
+    /// If the filter is [`Unset`], this will always return `false`.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn is_denied_by_id(&self, type_id: TypeId) -> bool {
         !self.is_allowed_by_id(type_id)
     }
 
     /// Returns an iterator over the items in the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will return an empty iterator.
+    /// If the filter is [`Unset`], this will return an empty iterator.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn iter(&self) -> Box<dyn ExactSizeIterator<Item = &TypeId> + '_> {
         match self {
             Self::Unset => Box::new(core::iter::empty()),
@@ -150,7 +172,9 @@ impl SceneFilter {
 
     /// Returns the number of items in the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will always return a length of zero.
+    /// If the filter is [`Unset`], this will always return a length of zero.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn len(&self) -> usize {
         match self {
             Self::Unset => 0,
@@ -160,7 +184,9 @@ impl SceneFilter {
 
     /// Returns true if there are zero items in the filter.
     ///
-    /// If the filter is set to [`SceneFilter::Unset`], this will always return `true`.
+    /// If the filter is [`Unset`], this will always return `true`.
+    ///
+    /// [`Unset`]: SceneFilter::Unset
     pub fn is_empty(&self) -> bool {
         match self {
             Self::Unset => true,
