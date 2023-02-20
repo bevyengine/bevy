@@ -14,72 +14,102 @@ fn easing(c: &mut Criterion) {
 }
 
 fn fifteen_degree(c: &mut Criterion) {
-    let bezier = Bezier::new([
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 0.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 0.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 0.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 0.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
+    let bezier = Bezier::<Vec3A, 16>::new([
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
     ]);
     c.bench_function("fifteen_degree_position", |b| {
         b.iter(|| bezier.position(black_box(0.5)));
     });
 }
 
+fn quadratic_2d(c: &mut Criterion) {
+    let bezier = QuadraticBezier2d::new([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0]]);
+    c.bench_function("quadratic_position_Vec2", |b| {
+        b.iter(|| bezier.position(black_box(0.5)));
+    });
+}
+
 fn quadratic(c: &mut Criterion) {
-    let bezier = QuadraticBezier3d::new([
-        vec3a(0.0, 0.0, 0.0),
-        vec3a(0.0, 1.0, 0.0),
-        vec3a(1.0, 1.0, 1.0),
-    ]);
-    c.bench_function("quadratic_position", |b| {
+    let bezier = QuadraticBezier3d::new([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 1.0]]);
+    c.bench_function("quadratic_position_Vec3A", |b| {
         b.iter(|| bezier.position(black_box(0.5)));
     });
 }
 
 fn quadratic_vec3(c: &mut Criterion) {
-    let bezier = Bezier::new([
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
-    ]);
+    let bezier = Bezier::<Vec3, 3>::new([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 1.0]]);
     c.bench_function("quadratic_position_Vec3", |b| {
+        b.iter(|| bezier.position(black_box(0.5)));
+    });
+}
+
+fn cubic_2d(c: &mut Criterion) {
+    let bezier = CubicBezier2d::new([[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]);
+    c.bench_function("cubic_position_Vec2", |b| {
         b.iter(|| bezier.position(black_box(0.5)));
     });
 }
 
 fn cubic(c: &mut Criterion) {
     let bezier = CubicBezier3d::new([
-        vec3a(0.0, 0.0, 0.0),
-        vec3a(0.0, 1.0, 0.0),
-        vec3a(1.0, 0.0, 0.0),
-        vec3a(1.0, 1.0, 1.0),
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
     ]);
-    c.bench_function("cubic_position", |b| {
+    c.bench_function("cubic_position_Vec3A", |b| {
         b.iter(|| bezier.position(black_box(0.5)));
     });
 }
 
 fn cubic_vec3(c: &mut Criterion) {
-    let bezier = Bezier::new([
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 0.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
+    let bezier = Bezier::<Vec3, 4>::new([
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
     ]);
     c.bench_function("cubic_position_Vec3", |b| {
         b.iter(|| bezier.position(black_box(0.5)));
+    });
+}
+
+fn build_pos_cubic(c: &mut Criterion) {
+    let bezier = CubicBezier3d::new([
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
+    ]);
+    c.bench_function("build_pos_cubic_100_points", |b| {
+        b.iter(|| bezier.iter_positions(black_box(100)).collect::<Vec<_>>());
+    });
+}
+
+fn build_accel_cubic(c: &mut Criterion) {
+    let bezier = CubicBezier3d::new([
+        [0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
+    ]);
+    c.bench_function("build_accel_cubic_100_points", |b| {
+        b.iter(|| bezier.iter_positions(black_box(100)).collect::<Vec<_>>());
     });
 }
 
@@ -87,9 +117,13 @@ criterion_group!(
     benches,
     easing,
     fifteen_degree,
+    quadratic_2d,
     quadratic,
     quadratic_vec3,
+    cubic_2d,
     cubic,
-    cubic_vec3
+    cubic_vec3,
+    build_pos_cubic,
+    build_accel_cubic,
 );
 criterion_main!(benches);

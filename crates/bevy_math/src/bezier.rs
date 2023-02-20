@@ -6,7 +6,7 @@ use std::{
     ops::{Add, Mul, Sub},
 };
 
-/// A point in space of any dimension that supports addition and multiplication.
+/// A point in space of any dimension that supports the mathematical operations needed by [`Bezier].
 pub trait Point:
     Mul<f32, Output = Self>
     + Add<Self, Output = Self>
@@ -58,29 +58,28 @@ pub type QuadraticBezier3d = Bezier<Vec3A, 3>;
 /// control point) and 1 at the end (last control point).
 ///
 /// ```
-/// # use bevy_math::{Bezier, vec2};
+/// # use bevy_math::{Bezier, Vec2, vec2};
 /// let p0 = vec2(0.25, 0.1);
 /// let p1 = vec2(0.25, 1.0);
-/// let cubic_bezier = Bezier::new([p0, p1]);
-/// assert_eq!(cubic_bezier.position(0.0), p0);
-/// assert_eq!(cubic_bezier.position(1.0), p1);
+/// let bezier = Bezier::<Vec2, 2>::new([p0, p1]);
+/// assert_eq!(bezier.position(0.0), p0);
+/// assert_eq!(bezier.position(1.0), p1);
 /// ```
 ///
 /// ### Plotting
 ///
-/// To plot a Bezier curve then, all you need to do is plug in a series of values of `t` in `0..=1`,
-/// like \[0.0, 0.2, 0.4, 0.6, 0.8, 1.0\], which will trace out the curve with 6 points. The
-/// functions to do this are [`Bezier::position`] to sample the curve at a value of `t`, and
-/// [`Bezier::to_positions`] to generate a list of positions given a number of desired subdivisions.
+/// To plot a Bezier curve, simply plug in a series of values of `t` from zero to one. The functions
+/// to do this are [`Bezier::position`] to sample the curve at a value of `t`, and
+/// [`Bezier::iter_positions`] to iterate over the curve with a number of subdivisions.
 ///
 /// ### Velocity and Acceleration
 ///
 /// In addition to the position of a point on the Bezier curve, it is also useful to get information
-/// about the curvature of the curve. Methods are provided to help with this:
+/// about the curvature. Methods are provided to help with this:
 ///
 /// - [`Bezier::velocity`]: the instantaneous velocity vector with respect to `t`. This is a vector
 ///       that points in the direction a point is traveling when it is at point `t`. This vector is
-///       then tangent to the curve.
+///       tangent to the curve.
 /// - [`Bezier::acceleration`]: the instantaneous acceleration vector with respect to `t`. This is a
 ///       vector that points in the direction a point is accelerating towards when it is at point
 ///       `t`. This vector will point to the inside of turns, the direction the point is being
@@ -95,56 +94,68 @@ impl<P: Point, const N: usize> Default for Bezier<P, N> {
 }
 
 impl<P: Point, const N: usize> Bezier<P, N> {
-    /// Construct a new Bezier curve
-    pub fn new(control_points: [P; N]) -> Self {
+    /// Construct a new Bezier curve.
+    pub fn new(control_points: [impl Into<P>; N]) -> Self {
+        let control_points = control_points.map(|v| v.into());
         Self(control_points)
     }
 
-    /// Compute the position along the Bezier curve at the supplied parametric value `t`.
+    /// Compute the position of a point along the Bezier curve at the supplied parametric value `t`.
     pub fn position(&self, t: f32) -> P {
         generic::position(self.0, t)
     }
 
-    /// Compute the first derivative B'(t) of this bezier at `t` with respect to t. This is the
-    /// instantaneous velocity of a point tracing the Bezier curve from t = 0 to 1.
+    /// Compute the first derivative B'(t) of this Bezier at `t` with respect to t. This is the
+    /// instantaneous velocity of a point on the Bezier curve at `t`.
     pub fn velocity(&self, t: f32) -> P {
         generic::velocity(self.0, t)
     }
 
-    /// Compute the second derivative B''(t) of this bezier at `t` with respect to t.This is the
-    /// instantaneous acceleration of a point tracing the Bezier curve from t = 0 to 1.
+    /// Compute the second derivative B''(t) of this Bezier at `t` with respect to t. This is the
+    /// instantaneous acceleration of a point on the Bezier curve at `t`.
     pub fn acceleration(&self, t: f32) -> P {
         generic::acceleration(self.0, t)
     }
 
-    /// Split the Bezier curve of degree `N-1` into `subdivisions` evenly spaced `t` values across
-    /// the length of the curve from t = `0..=1`, and sample with the supplied `sample_function`.
+    /// A flexible iterator used to sample [`Bezier`] curves with arbitrary functions.
+    ///
+    /// This splits the Bezier into `subdivisions` of evenly spaced `t` values across the length of
+    /// the curve from start (t = 0) to end (t = 1), returning an iterator that evaluates the curve
+    /// with the supplied `sample_function` at each `t`.
+    ///
+    /// Given `subdivisions = 2`, this will split the curve into two lines, or three points, and
+    /// return an iterator over those three points, one at the start, middle, and end.
     #[inline]
-    pub fn sample(&self, subdivisions: i32, sample_function: fn(&Self, f32) -> P) -> Vec<P> {
-        (0..=subdivisions)
-            .map(|i| {
-                let t = i as f32 / subdivisions as f32;
-                sample_function(self, t)
-            })
-            .collect()
+    pub fn iter_samples(
+        &self,
+        subdivisions: usize,
+        sample_function: fn(&Self, f32) -> P,
+    ) -> impl Iterator<Item = P> + '_ {
+        (0..=subdivisions).map(move |i| {
+            let t = i as f32 / subdivisions as f32;
+            sample_function(self, t)
+        })
     }
 
-    /// Split the Bezier curve into `subdivisions` evenly spaced `t` values across the length of the
-    /// curve from t = `0..=1`. sampling the position at each step.
-    pub fn to_positions(&self, subdivisions: i32) -> Vec<P> {
-        self.sample(subdivisions, Self::position)
+    /// Iterate over the curve split into `subdivisions`, sampling the position at each step.
+    pub fn iter_positions(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::position)
     }
 
-    /// Split the Bezier curve into `subdivisions` evenly spaced `t` values across the length of the
-    /// curve from t = `0..=1`. sampling the velocity at each step.
-    pub fn to_velocities(&self, subdivisions: i32) -> Vec<P> {
-        self.sample(subdivisions, Self::velocity)
+    /// Iterate over the curve split into `subdivisions`, sampling the velocity at each step.
+    pub fn iter_velocities(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::velocity)
     }
 
-    /// Split the Bezier curve into `subdivisions` evenly spaced `t` values across the length of the
-    /// curve from t = `0..=1` . sampling the acceleration at each step.
-    pub fn to_accelerations(&self, subdivisions: i32) -> Vec<P> {
-        self.sample(subdivisions, Self::acceleration)
+    /// Iterate over the curve split into `subdivisions`, sampling the acceleration at each step.
+    pub fn iter_accelerations(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::acceleration)
+    }
+}
+
+impl<T: Into<P>, P: Point, const N: usize> From<[T; N]> for Bezier<P, N> {
+    fn from(control_points: [T; N]) -> Self {
+        Bezier::new(control_points)
     }
 }
 
@@ -162,8 +173,8 @@ pub struct CubicBezierEasing {
 }
 
 impl CubicBezierEasing {
-    /// Construct a cubic bezier curve for animation easing, with control points `p1` and `p2`.
-    /// These correspond to the two free "handles" of the bezier curve.
+    /// Construct a cubic Bezier curve for animation easing, with control points `p1` and `p2`.
+    /// These correspond to the two free "handles" of the Bezier curve.
     ///
     /// This is a very common tool for animations that accelerate and decelerate smoothly. For
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
@@ -174,16 +185,15 @@ impl CubicBezierEasing {
         }
     }
 
-    /// Maximum allowable error for iterative bezier solve
-    const MAX_ERROR: f32 = 1e-7;
+    /// Maximum allowable error for iterative Bezier solve
+    const MAX_ERROR: f32 = 1e-5;
 
-    /// Maximum number of iterations during bezier solve
+    /// Maximum number of iterations during Bezier solve
     const MAX_ITERS: u8 = 8;
 
-    /// Given a `time` within `0..=1`, returns an eased value within `0..=1` that follows the cubic
-    /// Bezier curve instead of a straight line.
-    ///
-    /// The start and endpoints will match: `ease(0) = 0` and `ease(1) = 1`.
+    /// Given a `time` within `0..=1`, returns an eased value that follows the cubic Bezier curve
+    /// instead of a straight line. This eased result may be outside the range `0..=1`, however it
+    /// will always start at 0 and end at 1: `ease(0) = 0` and `ease(1) = 1`.
     ///
     /// ```
     /// # use bevy_math::CubicBezierEasing;
@@ -214,17 +224,17 @@ impl CubicBezierEasing {
     ///
     /// Using cubic Beziers, we have a curve that starts at (0,0), ends at (1,1), and follows a path
     /// determined by the two remaining control points (handles). These handles allow us to define a
-    /// smooth curve. As `time` (x-axis) progresses, we now follow the curved curve, and use the `y`
-    /// value to determine how far along the animation is.
+    /// smooth curve. As `time` (x-axis) progresses, we now follow the curve, and use the `y` value
+    /// to determine how far along the animation is.
     ///
     /// ```text
     /// y
-    /// │         ⬈➔➔●
-    /// │       ⬈   
-    /// │      ↑      
-    /// │      ↑
-    /// │     ⬈
-    /// ●➔➔⬈───────── x (time)
+    ///          ⬈➔●
+    /// │      ⬈   
+    /// │     ↑      
+    /// │     ↑
+    /// │    ⬈
+    /// ●➔⬈───────── x (time)
     /// ```
     ///
     /// To accomplish this, we need to be able to find the position `y` on a Bezier curve, given the
@@ -275,40 +285,44 @@ impl CubicBezierEasing {
     fn find_t_given_x(&self, x: f32) -> f32 {
         // PERFORMANCE NOTE:
         //
-        // I tried pre-solving and caching 11 values along the curve at struct instantiation in an
-        // attempt to give the solver a better starting guess. This ended up being slightly slower,
-        // possibly due to the increased size of the type. Another option would be to store the last
-        // `t`, and use that, however it's possible this could end up in a bad state where t is very
-        // far from the naive but generally safe guess of x, e.g. after an animation resets.
+        // I tried pre-solving and caching values along the curve at struct instantiation to give
+        // the solver a better starting guess. This ended up being slightly slower, possibly due to
+        // the increased size of the type. Another option would be to store the last `t`, and use
+        // that, however it's possible this could end up in a bad state where t is very far from the
+        // naive but generally safe guess of x, e.g. after an animation resets.
         //
         // Further optimization might not be needed however - benchmarks are showing it takes about
         // 50 nanoseconds for an ease operation on my modern laptop, which seems sufficiently fast.
         let mut t_guess = x;
-        (0..Self::MAX_ITERS).any(|_| {
+        for _ in 0..Self::MAX_ITERS {
             let x_guess = self.evaluate_x_at(t_guess);
             let error = x_guess - x;
             if error.abs() <= Self::MAX_ERROR {
-                true
-            } else {
-                // Using Newton's method, use the tangent line to estimate a better guess value.
-                let slope = self.dx_dt(t_guess);
-                t_guess -= error / slope;
-                false
+                break;
             }
-        });
+            // Using Newton's method, use the tangent line to estimate a better guess value.
+            let slope = self.dx_dt(t_guess);
+            t_guess -= error / slope;
+        }
         t_guess.clamp(0.0, 1.0)
     }
 }
 
-/// Generic implementations for sampling Bezier curves. Consider using the methods on [`Bezier`] for
-/// more ergonomic use.
+impl<P: Into<Vec2>> From<[P; 2]> for CubicBezierEasing {
+    fn from(points: [P; 2]) -> Self {
+        let [p0, p1] = points;
+        CubicBezierEasing::new(p0, p1)
+    }
+}
+
+/// Generic implementations for sampling Bezier curves. Consider using the methods on
+/// [`Bezier`](crate::Bezier) for more ergonomic use.
 pub mod generic {
     use super::Point;
 
-    /// Compute the Bernstein basis polynomial for iteration `i`, for a Bezier curve with
-    /// degree `n`, at `t`.
+    /// Compute the Bernstein basis polynomial `i` of degree `n`, at `t`.
     ///
-    /// For more information, see https://en.wikipedia.org/wiki/Bernstein_polynomial.
+    /// For more information, see [https://en.wikipedia.org/wiki/Bernstein_polynomial].
     #[inline]
     pub fn bernstein_basis(n: usize, i: usize, t: f32) -> f32 {
         (1. - t).powi((n - i) as i32) * t.powi(i as i32)
@@ -339,7 +353,6 @@ pub mod generic {
         if N <= 1 {
             return P::default(); // Zero for numeric types
         }
-
         let p = control_points;
         let degree = N - 1;
         let degree_vel = N - 2; // the velocity Bezier is one degree lower than the position Bezier
@@ -374,5 +387,70 @@ pub mod generic {
                 p * binomial_coeff(degree_accel, i) as f32 * bernstein_basis(degree_accel, i, t)
             })
             .sum()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec2;
+
+    use crate::{CubicBezier2d, CubicBezierEasing};
+
+    /// How close two floats can be and still be considered equal
+    const FLOAT_EQ: f32 = 1e-5;
+
+    /// Basic cubic Bezier easing test to verify the shape of the curve.
+    #[test]
+    fn easing_simple() {
+        // A curve similar to ease-in-out, but symmetric
+        let bezier = CubicBezierEasing::new([1.0, 0.0], [0.0, 1.0]);
+        assert_eq!(bezier.ease(0.0), 0.0);
+        assert!(bezier.ease(0.2) < 0.2); // tests curve
+        assert_eq!(bezier.ease(0.5), 0.5); // true due to symmetry
+        assert!(bezier.ease(0.8) > 0.8); // tests curve
+        assert_eq!(bezier.ease(1.0), 1.0);
+    }
+
+    /// A curve that forms an upside-down "U", that should extend below 0.0. Useful for animations
+    /// that go beyond the start and end positions, e.g. bouncing.
+    #[test]
+    fn easing_overshoot() {
+        // A curve that forms an upside-down "U", that should extend above 1.0
+        let bezier = CubicBezierEasing::new([0.0, 2.0], [1.0, 2.0]);
+        assert_eq!(bezier.ease(0.0), 0.0);
+        assert!(bezier.ease(0.5) > 1.5);
+        assert_eq!(bezier.ease(1.0), 1.0);
+    }
+
+    /// A curve that forms a "U", that should extend below 0.0. Useful for animations that go beyond
+    /// the start and end positions, e.g. bouncing.
+    #[test]
+    fn easing_undershoot() {
+        let bezier = CubicBezierEasing::new([0.0, -2.0], [1.0, -2.0]);
+        assert_eq!(bezier.ease(0.0), 0.0);
+        assert!(bezier.ease(0.5) < -0.5);
+        assert_eq!(bezier.ease(1.0), 1.0);
+    }
+
+    /// Sweep along the full length of a 3D cubic Bezier, and manually check the position.
+    #[test]
+    fn cubic() {
+        const N_SAMPLES: usize = 1000;
+        let bezier = CubicBezier2d::new([[-1.0, -20.0], [3.0, 2.0], [5.0, 3.0], [9.0, 8.0]]);
+        assert_eq!(bezier.position(0.0), bezier.0[0]); // 0 == Start
+        assert_eq!(bezier.position(1.0), bezier.0[3]); // 1 == End
+        for i in 0..=N_SAMPLES {
+            let t = i as f32 / N_SAMPLES as f32; // Check along entire length
+            assert!(bezier.position(t).distance(cubic_manual(t, bezier)) <= FLOAT_EQ);
+        }
+    }
+
+    /// Manual, hardcoded function for computing the position along a cubic bezier.
+    fn cubic_manual(t: f32, bezier: CubicBezier2d) -> Vec2 {
+        let [p0, p1, p2, p3] = bezier.0;
+        p0 * (1.0 - t).powi(3)
+            + 3.0 * p1 * t * (1.0 - t).powi(2)
+            + 3.0 * p2 * t.powi(2) * (1.0 - t)
+            + p3 * t.powi(3)
     }
 }
