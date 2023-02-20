@@ -1591,8 +1591,8 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
-            use_shortnames: false,
-            report_sets: false,
+            use_shortnames: true,
+            report_sets: true,
         }
     }
 }
