@@ -433,7 +433,7 @@ impl FromWorld for MeshPipeline {
 
             if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [11, 12],
+                    [16, 17],
                     multisampled,
                 ));
             }
@@ -1047,6 +1047,7 @@ pub fn queue_mesh_view_bind_groups(
             let tonemapping_luts =
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
+
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
                 entries.extend_from_slice(&prepass::get_bindings(
@@ -1054,7 +1055,7 @@ pub fn queue_mesh_view_bind_groups(
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
-                    [11, 12],
+                    [16, 17],
                 ));
             }
 
