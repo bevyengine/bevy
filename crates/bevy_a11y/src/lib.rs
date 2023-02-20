@@ -1,6 +1,7 @@
 //! Accessibility for Bevy
 
 #![warn(missing_docs)]
+#![forbid(unsafe_code)]
 
 use std::{
     num::NonZeroU128,
