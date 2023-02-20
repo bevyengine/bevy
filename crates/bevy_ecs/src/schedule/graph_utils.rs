@@ -10,14 +10,14 @@ use crate::schedule::set::*;
 
 /// Unique identifier for a system or system set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum NodeId {
+pub enum NodeId {
     System(usize),
     Set(usize),
 }
 
 impl NodeId {
     /// Returns the internal integer value.
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         match self {
             NodeId::System(index) | NodeId::Set(index) => *index,
         }
@@ -135,7 +135,7 @@ pub(crate) struct CheckGraphResults<V> {
     /// Pairs of nodes that have a path connecting them.
     pub(crate) connected: HashSet<(V, V)>,
     /// Pairs of nodes that don't have a path connecting them.
-    pub(crate) disconnected: HashSet<(V, V)>,
+    pub(crate) disconnected: Vec<(V, V)>,
     /// Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(V, V)>,
     /// Variant of the graph with no transitive edges.
@@ -151,7 +151,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
         Self {
             reachable: FixedBitSet::new(),
             connected: HashSet::new(),
-            disconnected: HashSet::new(),
+            disconnected: Vec::new(),
             transitive_edges: Vec::new(),
             transitive_reduction: DiGraphMap::new(),
             transitive_closure: DiGraphMap::new(),
@@ -198,7 +198,7 @@ where
 
     let mut reachable = FixedBitSet::with_capacity(n * n);
     let mut connected = HashSet::new();
-    let mut disconnected = HashSet::new();
+    let mut disconnected = Vec::new();
 
     let mut transitive_edges = Vec::new();
     let mut transitive_reduction = DiGraphMap::<V, ()>::new();
@@ -255,7 +255,7 @@ where
             if reachable[index] {
                 connected.insert(pair);
             } else {
-                disconnected.insert(pair);
+                disconnected.push(pair);
             }
         }
     }

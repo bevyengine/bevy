@@ -67,10 +67,6 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
 
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn is_system_type(&self) -> bool {
-                false
-            }
-
             fn is_base(&self) -> bool {
                 #is_base
             }

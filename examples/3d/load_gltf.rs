@@ -27,17 +27,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        #[cfg(all(feature = "ktx2", feature = "zstd"))]
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
     ));
-    #[cfg(not(all(feature = "ktx2", feature = "zstd")))]
-    {
-        warn!("feature ktx2 or zstd wasn't enabled.");
-        warn!("rerun this example with `--features=\"ktx2 zstd\" to get environment maps for ambient light");
-    }
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {

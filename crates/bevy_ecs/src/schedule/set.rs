@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -17,9 +18,9 @@ pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
-    /// Returns `true` if this system set is a [`SystemTypeSet`].
-    fn is_system_type(&self) -> bool {
-        false
+    /// Returns `Some` if this system set is a [`SystemTypeSet`].
+    fn system_type(&self) -> Option<TypeId> {
+        None
     }
 
     /// Returns `true` if this set is a "base system set". Systems
@@ -102,8 +103,8 @@ impl<T> PartialEq for SystemTypeSet<T> {
 impl<T> Eq for SystemTypeSet<T> {}
 
 impl<T> SystemSet for SystemTypeSet<T> {
-    fn is_system_type(&self) -> bool {
-        true
+    fn system_type(&self) -> Option<TypeId> {
+        Some(TypeId::of::<T>())
     }
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {

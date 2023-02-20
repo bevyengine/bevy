@@ -277,6 +277,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         physical_size.x,
                         physical_size.y,
                     ),
+                    color_grading: Default::default(),
                 })
                 .id();
             commands.get_or_spawn(entity).insert((
