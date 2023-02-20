@@ -1603,6 +1603,15 @@ description = "Demonstrates how the AlignItems and JustifyContent properties can
 category = "UI (User Interface)"
 wasm = false
 
+[[example]]
+name = "text_wrap"
+path = "examples/ui/text_wrap.rs"
+
+[package.metadata.example.text_wraap]
+name = "Text Wrap"
+description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "transparency_ui"
