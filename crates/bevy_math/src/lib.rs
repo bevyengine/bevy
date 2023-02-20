@@ -6,9 +6,11 @@
 
 #![warn(missing_docs)]
 
+mod aabb;
 mod ray;
 mod rect;
 
+pub use aabb::Aabb;
 pub use ray::Ray;
 pub use rect::Rect;
 

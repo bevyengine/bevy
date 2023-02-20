@@ -1,61 +1,30 @@
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
-use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{Aabb, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::HashMap;
 
-/// An axis-aligned bounding box.
-#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
+/// Axis-aligned bounding box of an object for visibility culling.
+///
+/// The bounds are based on the [`Aabb`] of the object, wrapped into a component attached to
+/// any [`Entity`] requiring visibility culling.
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, FromReflect)]
 #[reflect(Component)]
-pub struct Aabb {
-    pub center: Vec3A,
-    pub half_extents: Vec3A,
-}
+pub struct CullingAabb(pub Aabb);
 
-impl Aabb {
+impl From<Aabb> for CullingAabb {
     #[inline]
-    pub fn from_min_max(minimum: Vec3, maximum: Vec3) -> Self {
-        let minimum = Vec3A::from(minimum);
-        let maximum = Vec3A::from(maximum);
-        let center = 0.5 * (maximum + minimum);
-        let half_extents = 0.5 * (maximum - minimum);
-        Self {
-            center,
-            half_extents,
-        }
-    }
-
-    /// Calculate the relative radius of the AABB with respect to a plane
-    #[inline]
-    pub fn relative_radius(&self, p_normal: &Vec3A, axes: &[Vec3A]) -> f32 {
-        // NOTE: dot products on Vec3A use SIMD and even with the overhead of conversion are net faster than Vec3
-        let half_extents = self.half_extents;
-        Vec3A::new(
-            p_normal.dot(axes[0]),
-            p_normal.dot(axes[1]),
-            p_normal.dot(axes[2]),
-        )
-        .abs()
-        .dot(half_extents)
-    }
-
-    #[inline]
-    pub fn min(&self) -> Vec3A {
-        self.center - self.half_extents
-    }
-
-    #[inline]
-    pub fn max(&self) -> Vec3A {
-        self.center + self.half_extents
+    fn from(aabb: Aabb) -> Self {
+        Self(aabb)
     }
 }
 
-impl From<Sphere> for Aabb {
+impl From<Sphere> for CullingAabb {
     #[inline]
     fn from(sphere: Sphere) -> Self {
-        Self {
+        Self(Aabb {
             center: sphere.center,
             half_extents: Vec3A::splat(sphere.radius),
-        }
+        })
     }
 }
 
