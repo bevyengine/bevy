@@ -104,6 +104,26 @@ impl<'w> DynamicSceneBuilder<'w> {
         self
     }
 
+    /// Updates the filter to allow all component types.
+    ///
+    /// This is useful for resetting the filter so that types may be selectively [denied].
+    ///
+    /// [denied]: Self::deny
+    pub fn allow_all(&mut self) -> &mut Self {
+        self.component_filter = SceneFilter::allow_all();
+        self
+    }
+
+    /// Updates the filter to deny all component types.
+    ///
+    /// This is useful for resetting the filter so that types may be selectively [allowed].
+    ///
+    /// [allowed]: Self::allow
+    pub fn deny_all(&mut self) -> &mut Self {
+        self.component_filter = SceneFilter::deny_all();
+        self
+    }
+
     /// Allows the given resource type, `T`, to be included in the generated scene.
     ///
     /// This method may be called multiple times for any number of resources.
@@ -123,6 +143,26 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     pub fn deny_resource<T: Resource>(&mut self) -> &mut Self {
         self.resource_filter.deny::<T>();
+        self
+    }
+
+    /// Updates the filter to allow all resource types.
+    ///
+    /// This is useful for resetting the filter so that types may be selectively [denied].
+    ///
+    /// [denied]: Self::deny_resource
+    pub fn allow_all_resources(&mut self) -> &mut Self {
+        self.resource_filter = SceneFilter::allow_all();
+        self
+    }
+
+    /// Updates the filter to deny all resource types.
+    ///
+    /// This is useful for resetting the filter so that types may be selectively [allowed].
+    ///
+    /// [allowed]: Self::allow_resource
+    pub fn deny_all_resources(&mut self) -> &mut Self {
+        self.resource_filter = SceneFilter::deny_all();
         self
     }
 

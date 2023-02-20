@@ -42,6 +42,24 @@ pub enum SceneFilter {
 }
 
 impl SceneFilter {
+    /// Creates a filter where all types are allowed.
+    ///
+    /// This is the equivalent of creating an empty [`Denylist`].
+    ///
+    /// [`Denylist`]: SceneFilter::Denylist
+    pub fn allow_all() -> Self {
+        Self::Denylist(HashSet::new())
+    }
+
+    /// Creates a filter where all types are denied.
+    ///
+    /// This is the equivalent of creating an empty [`Allowlist`].
+    ///
+    /// [`Allowlist`]: SceneFilter::Allowlist
+    pub fn deny_all() -> Self {
+        Self::Allowlist(HashSet::new())
+    }
+
     /// Allow the given type, `T`.
     ///
     /// If this filter is already set as a [`Denylist`],
