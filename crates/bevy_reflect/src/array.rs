@@ -1,7 +1,4 @@
-use crate::{
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
-};
+use crate::{utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -209,7 +206,7 @@ impl Reflect for DynamicArray {
 
     #[inline]
     fn represented_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
     }
 
     #[inline]
@@ -323,13 +320,6 @@ impl Array for DynamicArray {
                 .map(|value| value.clone_value())
                 .collect(),
         }
-    }
-}
-
-impl Typed for DynamicArray {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

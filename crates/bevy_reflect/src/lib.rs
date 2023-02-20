@@ -1295,21 +1295,6 @@ mod tests {
         let value: &dyn Reflect = &String::from("Hello!");
         let info = value.represented_type_info();
         assert!(info.is::<MyValue>());
-
-        // Dynamic
-        type MyDynamic = DynamicList;
-
-        let info = MyDynamic::type_info();
-        if let TypeInfo::Dynamic(info) = info {
-            assert!(info.is::<MyDynamic>());
-            assert_eq!(std::any::type_name::<MyDynamic>(), info.type_name());
-        } else {
-            panic!("Expected `TypeInfo::Dynamic`");
-        }
-
-        let value: &dyn Reflect = &DynamicList::default();
-        let info = value.represented_type_info();
-        assert!(info.is::<MyDynamic>());
     }
 
     #[cfg(feature = "documentation")]

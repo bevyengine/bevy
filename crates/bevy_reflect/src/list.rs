@@ -2,10 +2,8 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
-use crate::{
-    DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
-};
+use crate::utility::reflect_hasher;
+use crate::{FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [list-like] operations via [reflection].
 ///
@@ -259,7 +257,7 @@ impl Reflect for DynamicList {
 
     #[inline]
     fn represented_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
     }
 
     #[inline]
@@ -346,13 +344,6 @@ impl Reflect for DynamicList {
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
-    }
-}
-
-impl Typed for DynamicList {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

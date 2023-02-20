@@ -4,8 +4,7 @@ use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -287,7 +286,7 @@ impl Reflect for DynamicMap {
 
     #[inline]
     fn represented_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -361,13 +360,6 @@ impl Reflect for DynamicMap {
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
-    }
-}
-
-impl Typed for DynamicMap {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

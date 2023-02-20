@@ -470,13 +470,6 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     "the TypeRegistration for {type_name} doesn't have ReflectDeserialize",
                 )))
             }
-            TypeInfo::Dynamic(_) => {
-                // We could potentially allow this but we'd have no idea what the actual types of the
-                // fields are and would rely on the deserializer to determine them (e.g. `i32` vs `i64`)
-                Err(de::Error::custom(format_args!(
-                    "cannot deserialize arbitrary dynamic type {type_name}",
-                )))
-            }
         }
     }
 }

@@ -1,7 +1,6 @@
-use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
@@ -306,7 +305,7 @@ impl Reflect for DynamicTuple {
 
     #[inline]
     fn represented_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
     }
 
     #[inline]
@@ -381,13 +380,6 @@ impl Reflect for DynamicTuple {
     #[inline]
     fn is_dynamic(&self) -> bool {
         true
-    }
-}
-
-impl Typed for DynamicTuple {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

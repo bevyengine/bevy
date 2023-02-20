@@ -1,8 +1,6 @@
-use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
-    Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, Typed,
-    VariantFieldIter, VariantType,
+    enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple, Enum, Reflect, ReflectMut,
+    ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -284,7 +282,7 @@ impl Reflect for DynamicEnum {
 
     #[inline]
     fn represented_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+        todo!("make this method return Option<&'static TypeInfo> to support dynamic types")
     }
 
     #[inline]
@@ -408,12 +406,5 @@ impl Reflect for DynamicEnum {
         write!(f, "DynamicEnum(")?;
         enum_debug(self, f)?;
         write!(f, ")")
-    }
-}
-
-impl Typed for DynamicEnum {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
