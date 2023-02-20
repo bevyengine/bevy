@@ -1,3 +1,5 @@
+//! This example demonstrates text wrapping and the LineBreakOn enum.
+
 use bevy::prelude::*;
 use bevy::text::BreakLineOn;
 use bevy::winit::WinitSettings;
