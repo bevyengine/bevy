@@ -43,7 +43,7 @@ pub fn get_short_name(full_name: &str) -> String {
                 {
                     parsed_name.push_str("::");
                     // Move the index past the "::"
-                    index += special_character_index + 3
+                    index += special_character_index + 3;
                 }
                 // Move the index just past the special character
                 _ => index += special_character_index + 1,
