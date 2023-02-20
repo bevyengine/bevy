@@ -5,7 +5,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 macro_rules! frame_impl {
     ($t:ty, $v:ty, $e:expr) => {
         impl $t {
-            /// Default value for the fields of the frame type.
+            /// Default value for the fields of the field type.
             pub const FIELD_DEFAULT: $v = $e;
 
             pub const DEFAULT: Self = {
@@ -16,7 +16,7 @@ macro_rules! frame_impl {
                     bottom: Self::FIELD_DEFAULT,
                 }
             };
-      
+
             /// Creates a new frame type from the values specified.
             pub fn new(left: $v, right: $v, top: $v, bottom: $v) -> Self {
                 Self {
@@ -26,25 +26,45 @@ macro_rules! frame_impl {
                     bottom,
                 }
             }
-            
+
             /// Creates a new frame type where `left` takes the given value.
             pub fn left(left: $v) -> Self {
-                Self::new(left, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+                Self::new(
+                    left,
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                )
             }
 
             /// Creates a new frame type where `right` takes the given value.
             pub fn right(right: $v) -> Self {
-                Self::new(Self::FIELD_DEFAULT, right, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+                Self::new(
+                    Self::FIELD_DEFAULT,
+                    right,
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                )
             }
 
             /// Creates a new frame type where `top` takes the given value.
             pub fn top(top: $v) -> Self {
-                Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, top, Self::FIELD_DEFAULT)
+                Self::new(
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    top,
+                    Self::FIELD_DEFAULT,
+                )
             }
 
             /// Creates a new frame type where `bottom` takes the given value.
             pub fn bottom(bottom: $v) -> Self {
-                Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, bottom)
+                Self::new(
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    bottom,
+                )
             }
 
             /// Creates a new frame type where `left` and `right` take the given value.
@@ -56,7 +76,7 @@ macro_rules! frame_impl {
             pub fn vertical(value: $v) -> Self {
                 Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
             }
-            
+
             /// Creates a new frame type where all sides have the same value.
             pub fn axes(horizontal: $v, vertical: $v) -> Self {
                 Self::new(horizontal, horizontal, vertical, vertical)
