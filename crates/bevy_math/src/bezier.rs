@@ -6,7 +6,8 @@ use std::{
     ops::{Add, Mul, Sub},
 };
 
-/// A point in space of any dimension that supports the mathematical operations needed by [`Bezier].
+/// A point in space of any dimension that supports the mathematical operations needed by
+/// [`Bezier`].
 pub trait Point:
     Mul<f32, Output = Self>
     + Add<Self, Output = Self>
@@ -322,7 +323,7 @@ pub mod generic {
 
     /// Compute the Bernstein basis polynomial `i` of degree `n`, at `t`.
     ///
-    /// For more information, see [https://en.wikipedia.org/wiki/Bernstein_polynomial].
+    /// For more information, see <https://en.wikipedia.org/wiki/Bernstein_polynomial>.
     #[inline]
     pub fn bernstein_basis(n: usize, i: usize, t: f32) -> f32 {
         (1. - t).powi((n - i) as i32) * t.powi(i as i32)
