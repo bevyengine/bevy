@@ -64,8 +64,8 @@ impl<'w> DynamicSceneBuilder<'w> {
         Self {
             extracted_resources: default(),
             extracted_scene: default(),
-            component_filter: SceneFilter::None,
-            resource_filter: SceneFilter::None,
+            component_filter: SceneFilter::default(),
+            resource_filter: SceneFilter::default(),
             original_world: world,
         }
     }
