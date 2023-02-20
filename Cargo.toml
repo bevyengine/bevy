@@ -50,7 +50,7 @@ default = [
   "x11",
   "filesystem_watcher",
   "android_shared_stdcxx",
-  "tonemapping_luts"
+  "tonemapping_luts",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -166,6 +166,7 @@ hidden = true
 [[example]]
 name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"
+required-features = ["tonemapping_luts"]
 
 [package.metadata.example.bloom_2d]
 name = "2D Bloom"
@@ -387,6 +388,7 @@ wasm = true
 [[example]]
 name = "bloom_3d"
 path = "examples/3d/bloom_3d.rs"
+required-features = ["tonemapping_luts"]
 
 [package.metadata.example.bloom_3d]
 name = "3D Bloom"

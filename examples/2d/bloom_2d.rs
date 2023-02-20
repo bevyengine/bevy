@@ -1,7 +1,10 @@
 //! Illustrates bloom post-processing in 2d.
 
 use bevy::{
-    core_pipeline::bloom::{BloomCompositeMode, BloomSettings},
+    core_pipeline::{
+        bloom::{BloomCompositeMode, BloomSettings},
+        tonemapping::Tonemapping,
+    },
     prelude::*,
     sprite::MaterialMesh2dBundle,
 };
@@ -27,16 +30,17 @@ fn setup(
                 hdr: true, // 1. HDR is required for bloom
                 ..default()
             },
+            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that saturates to white is recommended
             ..default()
         },
-        BloomSettings::default(), // 2. Enable bloom for the camera
+        BloomSettings::default(), // 3. Enable bloom for the camera
     ));
 
     // Sprite
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         sprite: Sprite {
-            color: Color::hsl(0.0, 0.0, 2.5), // 3. Put something bright in a dark environment to see the effect
+            color: Color::hsl(0.0, 0.0, 2.5), // 4. Put something bright in a dark environment to see the effect
             custom_size: Some(Vec2::splat(160.0)),
             ..default()
         },

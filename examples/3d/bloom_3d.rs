@@ -1,7 +1,10 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
-    core_pipeline::bloom::{BloomCompositeMode, BloomSettings},
+    core_pipeline::{
+        bloom::{BloomCompositeMode, BloomSettings},
+        tonemapping::Tonemapping,
+    },
     prelude::*,
 };
 use std::{
@@ -31,14 +34,15 @@ fn setup_scene(
                 hdr: true, // 1. HDR is required for bloom
                 ..default()
             },
+            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that saturates to white is recommended
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        BloomSettings::default(), // 2. Enable bloom for the camera
+        BloomSettings::default(), // 3. Enable bloom for the camera
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(500.0, 50.0, 5.0), // 3. Put something bright in a dark environment to see the effect
+        emissive: Color::rgb_linear(500.0, 50.0, 5.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
