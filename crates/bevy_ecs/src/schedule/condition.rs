@@ -96,14 +96,71 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the resource of the given type has had its value changed since the condition was last checked.
-    pub fn resource_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Res<T>| res.is_changed()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// This run condition does not detect when the resource is removed.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
         move |res: Option<Res<T>>| match res {
             Some(res) => res.is_changed(),
             None => false,
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// This run condition also detects removal. It will return `true` if the resource
+    /// has been removed since the run condition was last checked.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        let mut existed = false;
+        move |res: Option<Res<T>>| {
+            if let Some(value) = res {
+                existed = true;
+                value.is_changed()
+            } else if existed {
+                existed = false;
+                true
+            } else {
+                false
+            }
         }
     }
 
