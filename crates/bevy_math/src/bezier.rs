@@ -305,8 +305,10 @@ impl CubicBezierEasing {
 pub mod generic {
     use super::Point;
 
-    /// Compute the Bernstein basis polynomial for iteration `i`, for a Bezier curve with with
+    /// Compute the Bernstein basis polynomial for iteration `i`, for a Bezier curve with
     /// degree `n`, at `t`.
+    ///
+    /// For more information, see https://en.wikipedia.org/wiki/Bernstein_polynomial.
     #[inline]
     pub fn bernstein_basis(n: usize, i: usize, t: f32) -> f32 {
         (1. - t).powi((n - i) as i32) * t.powi(i as i32)
