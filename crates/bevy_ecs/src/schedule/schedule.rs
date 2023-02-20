@@ -1151,7 +1151,7 @@ impl ScheduleGraph {
         if self.settings.ambiguity_detection != LogLevel::Ignore
             && self.contains_conflicts(&conflicting_systems)
         {
-            self.report_conflicts(&conflicting_systems, components, self.settings.report_sets);
+            self.report_conflicts(&conflicting_systems, components);
             if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
                 return Err(ScheduleBuildError::Ambiguity);
             }
@@ -1322,7 +1322,21 @@ impl ScheduleGraph {
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
         let mut name = match id {
-            NodeId::System(_) => self.systems[id.index()].get().unwrap().name().to_string(),
+            NodeId::System(_) => {
+                let name = self.systems[id.index()].get().unwrap().name().to_string();
+                if self.settings.report_sets {
+                    let sets = self.names_of_sets_containing_node(id);
+                    if sets.is_empty() {
+                        format!("{name} (no sets)")
+                    } else if sets.len() == 1 {
+                        format!("{name} (in set {})", sets[0])
+                    } else {
+                        format!("{name} (in sets {})", sets.join(", "))
+                    }
+                } else {
+                    name
+                }
+            }
             NodeId::Set(_) => self.system_sets[id.index()].name(),
         };
         if self.settings.use_shortnames {
@@ -1421,7 +1435,6 @@ impl ScheduleGraph {
         &self,
         ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
-        report_sets: bool,
     ) {
         let n_ambiguities = ambiguities.len();
 
@@ -1433,23 +1446,6 @@ impl ScheduleGraph {
         for (system_a, system_b, conflicts) in ambiguities {
             let name_a = self.get_node_name(system_a);
             let name_b = self.get_node_name(system_b);
-
-            let (name_a, name_b) = if report_sets {
-                (
-                    format!(
-                        "{} ({})",
-                        name_a,
-                        self.names_of_sets_containing_node(system_a)
-                    ),
-                    format!(
-                        "{} ({})",
-                        name_b,
-                        self.names_of_sets_containing_node(system_b)
-                    ),
-                )
-            } else {
-                (name_a, name_b)
-            };
 
             debug_assert!(system_a.is_system(), "{name_a} is not a system.");
             debug_assert!(system_b.is_system(), "{name_b} is not a system.");
@@ -1480,7 +1476,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn names_of_sets_containing_node(&self, id: &NodeId) -> String {
+    fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
         let mut sets = HashSet::new();
         self.traverse_sets_containing_node(*id, &mut |set_id| {
             !self.system_sets[set_id.index()].is_system_type() && sets.insert(set_id)
@@ -1489,12 +1485,8 @@ impl ScheduleGraph {
             .into_iter()
             .map(|set_id| self.get_node_name(&set_id))
             .collect();
-        if sets.is_empty() {
-            "no sets".to_owned()
-        } else {
-            sets.sort();
-            sets.join(", ")
-        }
+        sets.sort();
+        sets
     }
 }
 
