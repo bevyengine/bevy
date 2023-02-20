@@ -40,7 +40,7 @@ fn setup(
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         sprite: Sprite {
-            color: Color::hsl(0.0, 0.0, 2.5), // 4. Put something bright in a dark environment to see the effect
+            color: Color::rgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
             custom_size: Some(Vec2::splat(160.0)),
             ..default()
         },
@@ -50,8 +50,8 @@ fn setup(
     // Circle mesh
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(shape::Circle::new(100.).into()).into(),
-        // 3. Put something bright in a dark environment to see the effect
-        material: materials.add(ColorMaterial::from(Color::rgb(1.5, 0.0, 1.5))),
+        // 4. Put something bright in a dark environment to see the effect
+        material: materials.add(ColorMaterial::from(Color::rgb(7.5, 0.0, 7.5))),
         transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
         ..default()
     });
@@ -61,8 +61,8 @@ fn setup(
         mesh: meshes
             .add(shape::RegularPolygon::new(100., 6).into())
             .into(),
-        // 3. Put something bright in a dark environment to see the effect
-        material: materials.add(ColorMaterial::from(Color::rgb(1.25, 1.88, 1.82))),
+        // 4. Put something bright in a dark environment to see the effect
+        material: materials.add(ColorMaterial::from(Color::rgb(6.25, 9.4, 9.1))),
         transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
         ..default()
     });

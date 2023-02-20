@@ -28,7 +28,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 #[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
-    /// Controls the baseline of how much the image is scattered (default: 0.3).
+    /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
     /// # In energy-conserving mode
     /// The value represents how likely the light is to scatter.

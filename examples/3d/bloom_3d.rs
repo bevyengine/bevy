@@ -42,15 +42,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(500.0, 50.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: Color::rgb_linear(5000.0, 500.0, 50.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5.0, 500.0, 50.0),
+        emissive: Color::rgb_linear(50.0, 5000.0, 500.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(50.0, 5.0, 500.0),
+        emissive: Color::rgb_linear(500.0, 50.0, 5000.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {

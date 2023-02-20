@@ -7,7 +7,6 @@
 // * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
-#import bevy_core_pipeline::tonemapping
 
 struct BloomDownsamplingUniforms {
     threshold_precomputations: vec4<f32>,
@@ -34,6 +33,16 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     return color * contribution;
 }
 #endif
+
+// luminance coefficients from Rec. 709.
+// https://en.wikipedia.org/wiki/Rec._709
+fn tonemapping_luminance(v: vec3<f32>) -> f32 {
+    return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
+}
+
+fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
+    return pow(color, vec3<f32>(1.0 / 2.2));
+}
 
 // http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
