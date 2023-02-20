@@ -424,6 +424,12 @@ impl ReflectMapEntities {
         (self.map_entities)(world, entity_map, entity_map.values().collect())
     }
 
+    /// This is like map_entities, but only applied to specific entities, not all values in the EntityMap.
+    ///
+    /// This is useful for when you only want to apply the MapEntity logic to specific entities. For example,
+    /// a scene can be loaded with Parent components, but then a Parent component can be added to these entities
+    /// after they have been loaded. If you reload the scene and used plain `map_entities`, those Parent components
+    /// with already valid entity references could be updated to point at something else entirely.
     pub fn map_specific_entities(
         &self,
         world: &mut World,
