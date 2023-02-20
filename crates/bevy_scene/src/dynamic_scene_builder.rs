@@ -19,12 +19,16 @@ use std::collections::BTreeMap;
 /// This can be changed by [specifying a filter](DynamicSceneBuilder::with_filter) or by explicitly
 /// [allowing](DynamicSceneBuilder::allow)/[denying](DynamicSceneBuilder::deny) certain components.
 ///
+/// Extraction happens immediately and uses the filter as it exists during the time of extraction.
+///
 /// # Resource Extraction
 ///
 /// By default, all resources registered with [`ReflectResource`] type data in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Resource)]` attribute).
 /// This can be changed by [specifying a filter](DynamicSceneBuilder::with_resource_filter) or by explicitly
 /// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource) certain resources.
+///
+/// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
 /// # Entity Order
 ///
