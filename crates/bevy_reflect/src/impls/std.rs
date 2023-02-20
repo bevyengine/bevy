@@ -8,7 +8,7 @@ use crate::{
     VariantInfo, VariantType,
 };
 
-use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
+use crate::utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
@@ -993,7 +993,7 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
@@ -1101,7 +1101,7 @@ impl Reflect for &'static Path {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())

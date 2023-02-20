@@ -15,8 +15,8 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     TypeIdMap,
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
+use bevy_utils::all_tuples;
 use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.

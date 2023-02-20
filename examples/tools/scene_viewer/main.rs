@@ -128,7 +128,6 @@ fn setup_scene_after_load(
                 },
                 ..default()
             },
-            #[cfg(all(feature = "ktx2", feature = "zstd"))]
             EnvironmentMapLight {
                 diffuse_map: asset_server
                     .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
@@ -137,11 +136,6 @@ fn setup_scene_after_load(
             },
             camera_controller,
         ));
-        #[cfg(not(all(feature = "ktx2", feature = "zstd")))]
-        {
-            warn!("feature ktx2 or zstd wasn't enabled.");
-            warn!("rerun this example with `--features=\"ktx2 zstd\" to get environment maps for ambient light");
-        }
 
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {

@@ -176,7 +176,7 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 
 /// This system prepares all assets of the corresponding [`RenderAsset`] type
 /// which where extracted this frame for the GPU.
-fn prepare_assets<R: RenderAsset>(
+pub fn prepare_assets<R: RenderAsset>(
     mut extracted_assets: ResMut<ExtractedAssets<R>>,
     mut render_assets: ResMut<RenderAssets<R>>,
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,
