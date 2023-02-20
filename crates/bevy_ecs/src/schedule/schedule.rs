@@ -1568,15 +1568,22 @@ pub enum LogLevel {
 pub struct ScheduleBuildSettings {
     /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
     /// is only logged or also results in an [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
+    ///
+    /// Defaults to [`LogLevel::Ignore`].
     pub ambiguity_detection: LogLevel,
     /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
     /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy)
     /// error.
+    ///
+    /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
     /// If set to true, node names will be shortened instead of the fully qualified type path.
+    ///
+    /// Defaults to `true`.
     pub use_shortnames: bool,
     /// If set to true, report all system sets the conflicting systems are part of.
-    /// Only used when reporting ambiguities.
+    ///
+    /// Defaults to `true`.
     pub report_sets: bool,
 }
 
