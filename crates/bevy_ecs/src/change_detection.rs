@@ -696,10 +696,9 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         change_detection::{
-            Mut, NonSendMut, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+            Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        query::ChangeTrackers,
         system::{IntoSystem, Query, System},
         world::World,
     };
@@ -718,11 +717,11 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+        fn change_detected(query: Query<Ref<C>>) -> bool {
             query.single().is_changed()
         }
 
-        fn change_expired(query: Query<ChangeTrackers<C>>) -> bool {
+        fn change_expired(query: Query<Ref<C>>) -> bool {
             query.single().is_changed()
         }
 
@@ -753,7 +752,7 @@ mod tests {
 
     #[test]
     fn change_tick_wraparound() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+        fn change_detected(query: Query<Ref<C>>) -> bool {
             query.single().is_changed()
         }
 
@@ -784,10 +783,10 @@ mod tests {
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
         let change_tick = world.change_tick();
 
-        let mut query = world.query::<ChangeTrackers<C>>();
+        let mut query = world.query::<Ref<C>>();
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.ticks.added.tick);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.ticks.changed.tick);
             assert!(ticks_since_insert > MAX_CHANGE_AGE);
             assert!(ticks_since_change > MAX_CHANGE_AGE);
         }
@@ -796,8 +795,8 @@ mod tests {
         world.check_change_ticks();
 
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.ticks.added.tick);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.ticks.changed.tick);
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }

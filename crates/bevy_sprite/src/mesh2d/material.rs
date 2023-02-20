@@ -1,6 +1,9 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
-use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
@@ -327,6 +330,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
+        Option<&DebandDither>,
         &mut RenderPhase<Transparent2d>,
     )>,
 ) where
@@ -336,19 +340,32 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
+    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
-            if !view.hdr {
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-
-                if *deband_dither {
-                    view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
-                }
+                view_key |= match tonemapping {
+                    Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+                    Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
+                    Tonemapping::ReinhardLuminance => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                    }
+                    Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
+                    Tonemapping::SomewhatBoringDisplayTransform => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                    }
+                    Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                };
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
 

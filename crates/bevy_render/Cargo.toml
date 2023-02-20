@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 png = ["image/png"]
+exr = ["image/exr"]
 hdr = ["image/hdr"]
 tga = ["image/tga"]
 jpeg = ["image/jpeg"]
