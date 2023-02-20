@@ -640,6 +640,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
     where
         I: IntoIterator<Item = E>,
     {
+        let old_count = self.event_count;
         let mut event_count = self.event_count;
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
@@ -652,11 +653,14 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
         self.events_b.extend(events);
 
-        trace!(
-            "Events::extend() -> ids: ({}..{})",
-            self.event_count,
-            event_count
-        );
+        if old_count != event_count {
+            trace!(
+                "Events::extend() -> ids: ({}..{})",
+                self.event_count,
+                event_count
+            );
+        }
+
         self.event_count = event_count;
     }
 }
