@@ -1,4 +1,6 @@
-use crate::system::BoxedSystem;
+use std::borrow::Cow;
+
+use crate::system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System};
 
 pub type BoxedCondition = BoxedSystem<(), bool>;
 
@@ -6,7 +8,105 @@ pub type BoxedCondition = BoxedSystem<(), bool>;
 ///
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
-pub trait Condition<Params>: sealed::Condition<Params> {}
+pub trait Condition<Params>: sealed::Condition<Params> {
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `and_then` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `and_then` will only be invoked if `self` returns `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```should_panic
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct R(u32);
+    ///
+    /// # let mut app = Schedule::new();
+    /// # let mut world = World::new();
+    /// # fn my_system() {}
+    /// app.add_system(
+    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
+    ///     // just like if we used `Res<R>` in a system.
+    ///     my_system.run_if(resource_equals(R(0))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Use `.and_then()` to avoid checking the condition.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, PartialEq)]
+    /// # struct R(u32);
+    /// # let mut app = Schedule::new();
+    /// # let mut world = World::new();
+    /// # fn my_system() {}
+    /// app.add_system(
+    ///     // `resource_equals` will only get run if the resource `R` exists.
+    ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    ///
+    /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
+    fn and_then<P, C: Condition<P>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(and_then);
+        let name = format!("{} && {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or_else` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `or_else` will only be invoked if `self` returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct A(u32);
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct B(u32);
+    ///
+    /// # let mut app = Schedule::new();
+    /// # let mut world = World::new();
+    /// # #[derive(Resource)] struct C(bool);
+    /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
+    /// app.add_system(
+    ///     // Only run the system if either `A` or `B` exist.
+    ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+    /// );
+    /// #
+    /// # world.insert_resource(C(false));
+    /// # app.run(&mut world);
+    /// # assert!(!world.resource::<C>().0);
+    /// #
+    /// # world.insert_resource(A(0));
+    /// # app.run(&mut world);
+    /// # assert!(world.resource::<C>().0);
+    /// #
+    /// # world.remove_resource::<A>();
+    /// # world.insert_resource(B(0));
+    /// # world.insert_resource(C(false));
+    /// # app.run(&mut world);
+    /// # assert!(world.resource::<C>().0);
+    /// ```
+    fn or_else<P, C: Condition<P>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(or_else);
+        let name = format!("{} || {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+}
 
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
@@ -144,5 +244,53 @@ pub mod common_conditions {
         condition: impl Condition<Params>,
     ) -> impl ReadOnlySystem<In = (), Out = bool> {
         condition.pipe(|In(val): In<bool>| !val)
+    }
+}
+
+/// Combines the outputs of two systems using the `&&` operator.
+pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
+
+/// Combines the outputs of two systems using the `||` operator.
+pub type OrElse<A, B> = CombinatorSystem<OrElseMarker, A, B>;
+
+#[doc(hidden)]
+pub struct AndThenMarker;
+
+impl<In, A, B> Combine<A, B> for AndThenMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input) && b(input)
+    }
+}
+
+#[doc(hidden)]
+pub struct OrElseMarker;
+
+impl<In, A, B> Combine<A, B> for OrElseMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input) || b(input)
     }
 }

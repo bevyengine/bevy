@@ -1322,7 +1322,21 @@ impl ScheduleGraph {
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
         let mut name = match id {
-            NodeId::System(_) => self.systems[id.index()].get().unwrap().name().to_string(),
+            NodeId::System(_) => {
+                let name = self.systems[id.index()].get().unwrap().name().to_string();
+                if self.settings.report_sets {
+                    let sets = self.names_of_sets_containing_node(id);
+                    if sets.is_empty() {
+                        name
+                    } else if sets.len() == 1 {
+                        format!("{name} (in set {})", sets[0])
+                    } else {
+                        format!("{name} (in sets {})", sets.join(", "))
+                    }
+                } else {
+                    name
+                }
+            }
             NodeId::Set(_) => self.system_sets[id.index()].name(),
         };
         if self.settings.use_shortnames {
@@ -1453,6 +1467,27 @@ impl ScheduleGraph {
 
         warn!("{}", string);
     }
+
+    fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
+        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Direction::Incoming) {
+            if f(set_id) {
+                self.traverse_sets_containing_node(set_id, f);
+            }
+        }
+    }
+
+    fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
+        let mut sets = HashSet::new();
+        self.traverse_sets_containing_node(*id, &mut |set_id| {
+            !self.system_sets[set_id.index()].is_system_type() && sets.insert(set_id)
+        });
+        let mut sets: Vec<_> = sets
+            .into_iter()
+            .map(|set_id| self.get_node_name(&set_id))
+            .collect();
+        sets.sort();
+        sets
+    }
 }
 
 /// Category of errors encountered during schedule construction.
@@ -1525,13 +1560,23 @@ pub enum LogLevel {
 pub struct ScheduleBuildSettings {
     /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
     /// is only logged or also results in an [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
+    ///
+    /// Defaults to [`LogLevel::Ignore`].
     pub ambiguity_detection: LogLevel,
     /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
     /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy)
     /// error.
+    ///
+    /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
     /// If set to true, node names will be shortened instead of the fully qualified type path.
+    ///
+    /// Defaults to `true`.
     pub use_shortnames: bool,
+    /// If set to true, report all system sets the conflicting systems are part of.
+    ///
+    /// Defaults to `true`.
+    pub report_sets: bool,
 }
 
 impl Default for ScheduleBuildSettings {
@@ -1545,7 +1590,8 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
-            use_shortnames: false,
+            use_shortnames: true,
+            report_sets: true,
         }
     }
 }
