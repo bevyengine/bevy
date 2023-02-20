@@ -166,6 +166,7 @@ sudo swupd bundle-add devpkg-libgudev
 ## [Alpine Linux](https://alpinelinux.org/)
 
 Run the following command to install `GNU C compiler, standard C development libraries, pkg-config, X11 development libraries, ALSA development libraries, eudev development libraries`:
+
 ```sh
 sudo apk add gcc libc-dev pkgconf libx11-dev alsa-lib-dev eudev-dev
 ```
