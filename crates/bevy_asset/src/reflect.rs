@@ -19,7 +19,7 @@ pub struct ReflectAsset {
 
     get: fn(&World, HandleUntyped) -> Option<&dyn Reflect>,
     // SAFETY:
-    // - may only be called with a [`IteriorMutableWorld`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
