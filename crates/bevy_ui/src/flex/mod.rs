@@ -35,8 +35,7 @@ unsafe impl Sync for FlexSurface {}
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
-    // FIXME https://github.com/DioxusLabs/taffy/issues/146
-    // _assert_send_sync::<Taffy>();
+    _assert_send_sync::<Taffy>();
 }
 
 impl fmt::Debug for FlexSurface {
