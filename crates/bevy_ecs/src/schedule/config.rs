@@ -520,6 +520,40 @@ where
         self.into_configs().after(set)
     }
 
+    /// Add a run condition to each contained system.
+    ///
+    /// Each system will receive its own clone of the [`Condition`] and will only run
+    /// if the `Condition` is true.
+    ///
+    /// Each individual condition will be evaluated at most once (per schedule run),
+    /// right before the corresponding system prepares to run.
+    ///
+    /// This is equivalent to calling [`run_if`](IntoSystemConfig::run_if) on each individual
+    /// system, as shown below:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = Schedule::new();
+    /// # fn a() {}
+    /// # fn b() {}
+    /// # fn condition() -> bool { true }
+    /// app.add_systems((a, b).distributive_run_if(condition));
+    /// app.add_systems((a.run_if(condition), b.run_if(condition)));
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// Because the conditions are evaluated separately for each system, there is no guarantee
+    /// that all evaluations in a single schedule run will yield the same result. If another
+    /// system is run inbetween two evaluations it could cause the result of the condition to change.
+    ///
+    /// Use [`run_if`](IntoSystemSetConfig::run_if) on a [`SystemSet`] if you want to make sure
+    /// that either all or none of the systems are run, or you don't want to evaluate the run
+    /// condition for each contained system separately.
+    fn distributive_run_if<P>(self, condition: impl Condition<P> + Clone) -> SystemConfigs {
+        self.into_configs().distributive_run_if(condition)
+    }
+
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
@@ -598,6 +632,14 @@ impl IntoSystemConfigs<()> for SystemConfigs {
                 .graph_info
                 .dependencies
                 .push(Dependency::new(DependencyKind::After, set.dyn_clone()));
+        }
+
+        self
+    }
+
+    fn distributive_run_if<P>(mut self, condition: impl Condition<P> + Clone) -> SystemConfigs {
+        for config in &mut self.systems {
+            config.conditions.push(new_condition(condition.clone()));
         }
 
         self

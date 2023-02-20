@@ -78,6 +78,7 @@ fn fallback_image_new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         ),
+        mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }
 
