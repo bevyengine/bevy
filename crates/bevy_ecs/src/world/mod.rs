@@ -1763,8 +1763,6 @@ impl fmt::Debug for World {
     }
 }
 
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
 unsafe impl Send for World {}
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread

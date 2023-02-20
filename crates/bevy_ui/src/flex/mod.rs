@@ -29,8 +29,6 @@ pub struct FlexSurface {
 }
 
 // SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
