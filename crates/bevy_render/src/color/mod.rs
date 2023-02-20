@@ -331,6 +331,8 @@ impl Color {
         )
     }
 
+    // sRGB
+
     /// Get red in sRGB colorspace.
     pub fn r(&self) -> f32 {
         match self.as_rgba() {
@@ -403,6 +405,234 @@ impl Color {
     #[must_use]
     pub fn with_b(mut self, b: f32) -> Self {
         self.set_b(b);
+        self
+    }
+
+    // Linear RGB
+
+    /// Get the red in linear rgb colorspace.
+    pub fn linear_rgb_r(&self) -> f32 {
+        match self.as_rgba_linear() {
+            Color::RgbaLinear { red, .. } => red,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get the green in linear rgb colorspace.
+    pub fn linear_rgb_g(&self) -> f32 {
+        match self.as_rgba_linear() {
+            Color::RgbaLinear { green, .. } => green,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get the blue in linear rgb colorspace.
+    pub fn linear_rgb_b(&self) -> f32 {
+        match self.as_rgba_linear() {
+            Color::RgbaLinear { blue, .. } => blue,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Set the red in linear rgb colorspace.
+    pub fn set_linear_rgb_r(&mut self, r: f32) -> &mut Self {
+        *self = self.as_rgba_linear();
+        match self {
+            Color::RgbaLinear { red, .. } => *red = r,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with red set to a new value in linear rgb colorspace.
+    #[must_use]
+    pub fn with_linear_rgb_r(mut self, r: f32) -> Self {
+        self.set_linear_rgb_r(r);
+        self
+    }
+
+    /// Set the green in linear rgb colorspace.
+    pub fn set_linear_rgb_g(&mut self, g: f32) -> &mut Self {
+        *self = self.as_rgba_linear();
+        match self {
+            Color::RgbaLinear { green, .. } => *green = g,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with green set to a new value in linear rgb colorspace.
+    #[must_use]
+    pub fn with_linear_rgb_g(mut self, g: f32) -> Self {
+        self.set_linear_rgb_g(g);
+        self
+    }
+
+    /// Set the blue in linear rgb colorspace.
+    pub fn set_linear_rgb_b(&mut self, b: f32) -> &mut Self {
+        *self = self.as_rgba_linear();
+        match self {
+            Color::RgbaLinear { blue, .. } => *blue = b,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with blue set to a new value in linear rgb colorspace.
+    #[must_use]
+    pub fn with_linear_rgb_b(mut self, b: f32) -> Self {
+        self.set_linear_rgb_b(b);
+        self
+    }
+
+    // Hsl
+
+    /// Get the hue in hsl colorspace.
+    pub fn hsl_hue(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { hue, .. } => hue,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get the lightness in hsl colorspace.
+    pub fn hsl_lightness(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { lightness, .. } => lightness,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get the saturation in hsl colorspace.
+    pub fn hsl_saturation(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { saturation, .. } => saturation,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Set the hue in hsl colorspace.
+    pub fn set_hsl_hue(&mut self, hue: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { hue: h, .. } => *h = hue,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with hue set to a new value in hsl colorspace.
+    #[must_use]
+    pub fn with_hsl_hue(mut self, hue: f32) -> Self {
+        self.set_hsl_hue(hue);
+        self
+    }
+
+    /// Set the saturation in hsl colorspace.
+    pub fn set_hsl_saturation(&mut self, saturation: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { saturation: s, .. } => *s = saturation,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with saturation set to a new value in hsl colorspace.
+    #[must_use]
+    pub fn with_hsl_saturation(mut self, saturation: f32) -> Self {
+        self.set_hsl_saturation(saturation);
+        self
+    }
+
+    /// Set the lightness in hsl colorspace.
+    pub fn set_hsl_lightness(&mut self, lightness: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { lightness: l, .. } => *l = lightness,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with lightness set to a new value in hsl colorspace.
+    #[must_use]
+    pub fn with_hsl_lightness(mut self, lightness: f32) -> Self {
+        self.set_hsl_lightness(lightness);
+        self
+    }
+
+    // Lch
+
+    /// Get the lightness in lch colorspace.
+    pub fn lch_lightness(&self) -> f32 {
+        self.as_lch_f32()[0]
+    }
+
+    /// Get the chroma in hsl colorspace.
+    pub fn lch_chroma(&self) -> f32 {
+        self.as_lch_f32()[1]
+    }
+
+    /// Get the hue in lch colorspace.
+    pub fn lch_hue(&self) -> f32 {
+        self.as_lch_f32()[2]
+    }
+
+    /// Set the lightness in lch colorspace.
+    pub fn set_lch_lightness(&mut self, lightness: f32) -> &mut Self {
+        let [_, chroma, hue, alpha] = self.as_lch_f32();
+        *self = Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        };
+        self
+    }
+
+    /// Returns this color with lightness set to a new value in lch colorspace.
+    #[must_use]
+    pub fn with_lch_lightness(mut self, lightness: f32) -> Self {
+        self.set_lch_lightness(lightness);
+        self
+    }
+
+    /// Set the chroma in lch colorspace.
+    pub fn set_lch_chroma(&mut self, chroma: f32) -> &mut Self {
+        let [lightness, _, hue, alpha] = self.as_lch_f32();
+        *self = Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        };
+        self
+    }
+
+    /// Returns this color with chroma set to a new value in lch colorspace.
+    #[must_use]
+    pub fn with_lch_chroma(mut self, chroma: f32) -> Self {
+        self.set_lch_chroma(chroma);
+        self
+    }
+
+    /// Set the hue in hsl colorspace.
+    pub fn set_lch_hue(&mut self, hue: f32) -> &mut Self {
+        let [lightness, chroma, _, alpha] = self.as_lch_f32();
+        *self = Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        };
+        self
+    }
+
+    /// Returns this color with hue set to a new value in hsl colorspace.
+    #[must_use]
+    pub fn with_lch_hue(mut self, hue: f32) -> Self {
+        self.set_lch_hue(hue);
         self
     }
 
