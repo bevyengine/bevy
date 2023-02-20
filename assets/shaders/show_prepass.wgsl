@@ -10,8 +10,6 @@ struct ShowPrepassSettings {
 }
 @group(1) @binding(0)
 var<uniform> settings: ShowPrepassSettings;
-@group(1) @binding(1)
-var show_prepass_sampler: sampler;
 
 @fragment
 fn fragment(
