@@ -252,7 +252,7 @@ impl Reflect for DynamicList {
     fn type_name(&self) -> &str {
         self.represented_type
             .map(|info| info.type_name())
-            .unwrap_or_default()
+            .unwrap_or_else(|| std::any::type_name::<Self>())
     }
 
     #[inline]
