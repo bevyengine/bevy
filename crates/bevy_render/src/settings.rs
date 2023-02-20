@@ -47,6 +47,7 @@ impl Default for WgpuSettings {
     fn default() -> Self {
         let default_backends = if cfg!(feature = "webgl") {
             Backends::GL
+        // TODO: When https://github.com/gfx-rs/wgpu/issues/2540 is fixed, Windows can also use all()
         } else if cfg!(windows) {
             Backends::PRIMARY
         } else {
