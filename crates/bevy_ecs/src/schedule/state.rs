@@ -75,7 +75,7 @@ pub struct State<S: States>(pub S);
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
-/// Note that these transitions can be overriden by other systems:
+/// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Default, Debug)]
 pub struct NextState<S: States>(pub Option<S>);

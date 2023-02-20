@@ -127,7 +127,7 @@ pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 /// A Cache of fallback depth textures that uses the sample count as a key
 ///
 /// # WARNING
-/// Detph images are never initialized with data, therefore,
+/// Depth images are never initialized with data, therefore,
 /// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);

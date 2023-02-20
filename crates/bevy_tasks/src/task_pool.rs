@@ -286,7 +286,7 @@ impl TaskPool {
     ///
     /// When `tick_task_pool_executor` is set to `true`, the multithreaded task stealing executor is ticked on the scope
     /// thread. Disabling this can be useful when finishing the scope is latency sensitive. Pulling tasks from
-    /// global excutor can run tasks unrelated to the scope and delay when the scope returns.
+    /// global executor can run tasks unrelated to the scope and delay when the scope returns.
     ///
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(

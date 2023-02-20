@@ -220,7 +220,7 @@ impl Plane {
 
 impl From<Plane> for Mesh {
     fn from(plane: Plane) -> Self {
-        // here this is split in the z and x directions if one ever needs asymetrical subdivision
+        // here this is split in the z and x directions if one ever needs asymmetrical subdivision
         // two Plane struct fields would need to be added instead of the single subdivisions field
         let z_vertex_count = plane.subdivisions + 2;
         let x_vertex_count = plane.subdivisions + 2;

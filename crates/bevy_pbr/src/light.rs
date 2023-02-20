@@ -277,7 +277,7 @@ fn calculate_cascade_bounds(
 /// Builder for [`CascadeShadowConfig`].
 pub struct CascadeShadowConfigBuilder {
     /// The number of shadow cascades.
-    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenom where areas
+    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas
     /// nearer the camera are covered by fewer shadow map texels than areas further from the camera, causing
     /// blocky looking shadows.
     ///
@@ -393,7 +393,7 @@ pub struct Cascade {
     pub(crate) view_transform: Mat4,
     /// The orthographic projection for this cascade.
     pub(crate) projection: Mat4,
-    /// The view-projection matrix for this cacade, converting world space into light clip space.
+    /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
     pub(crate) view_projection: Mat4,

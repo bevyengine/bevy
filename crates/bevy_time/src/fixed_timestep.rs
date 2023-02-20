@@ -27,7 +27,7 @@ use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::Duration;
 use thiserror::Error;
 
-/// The amount of time that must pass before the fixed timstep schedule is run again.
+/// The amount of time that must pass before the fixed timestep schedule is run again.
 #[derive(Resource, Debug)]
 pub struct FixedTime {
     accumulated: Duration,
