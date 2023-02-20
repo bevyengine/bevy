@@ -229,6 +229,10 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any new events of the given type since it was last called.
     pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool {
+        // The events need to be consumed, so that there are no false positives on subsequent
+        // calls of the run condition. Simply checking `is_empty` would not be enough.
+        // PERF: note that `count` is efficient (not actually looping/iterating),
+        // due to Bevy having a specialized implementation for events.
         move |mut reader: EventReader<T>| reader.iter().count() > 0
     }
 
