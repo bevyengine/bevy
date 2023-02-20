@@ -1489,8 +1489,12 @@ impl ScheduleGraph {
             .into_iter()
             .map(|set_id| self.get_node_name(&set_id))
             .collect();
-        sets.sort();
-        sets.join(", ")
+        if sets.is_empty() {
+            "no sets".to_owned()
+        } else {
+            sets.sort();
+            sets.join(", ")
+        }
     }
 }
 
