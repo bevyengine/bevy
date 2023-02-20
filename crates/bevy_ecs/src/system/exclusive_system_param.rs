@@ -4,7 +4,7 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_ecs_macros::all_tuples;
+use bevy_utils::all_tuples;
 use bevy_utils::synccell::SyncCell;
 
 pub trait ExclusiveSystemParam: Sized {

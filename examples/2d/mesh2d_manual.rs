@@ -172,12 +172,13 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 })],
             }),
             // Use the two standard uniforms for 2d meshes
-            layout: Some(vec![
+            layout: vec![
                 // Bind group 0 is the view uniform
                 self.mesh2d_pipeline.view_layout.clone(),
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
-            ]),
+            ],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),

@@ -125,10 +125,17 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
-    fn set_if_neq<Target>(&mut self, value: Target)
+    #[inline]
+    fn set_if_neq(&mut self, value: Self::Inner)
     where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq;
+        Self::Inner: Sized + PartialEq,
+    {
+        let old = self.bypass_change_detection();
+        if *old != value {
+            *old = value;
+            self.set_changed();
+        }
+    }
 }
 
 macro_rules! change_detection_impl {
@@ -194,19 +201,6 @@ macro_rules! change_detection_mut_impl {
             #[inline]
             fn bypass_change_detection(&mut self) -> &mut Self::Inner {
                 self.value
-            }
-
-            #[inline]
-            fn set_if_neq<Target>(&mut self, value: Target)
-            where
-                Self: Deref<Target = Target> + DerefMut<Target = Target>,
-                Target: PartialEq,
-            {
-                // This dereference is immutable, so does not trigger change detection
-                if *<Self as Deref>::deref(self) != value {
-                    // `DerefMut` usage triggers change detection
-                    *<Self as DerefMut>::deref_mut(self) = value;
-                }
             }
         }
 
@@ -685,19 +679,6 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
     }
-
-    #[inline]
-    fn set_if_neq<Target>(&mut self, value: Target)
-    where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq,
-    {
-        // This dereference is immutable, so does not trigger change detection
-        if *<Self as Deref>::deref(self) != value {
-            // `DerefMut` usage triggers change detection
-            *<Self as DerefMut>::deref_mut(self) = value;
-        }
-    }
 }
 
 impl std::fmt::Debug for MutUntyped<'_> {
@@ -715,10 +696,9 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         change_detection::{
-            Mut, NonSendMut, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+            Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        query::ChangeTrackers,
         system::{IntoSystem, Query, System},
         world::World,
     };
@@ -737,11 +717,11 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+        fn change_detected(query: Query<Ref<C>>) -> bool {
             query.single().is_changed()
         }
 
-        fn change_expired(query: Query<ChangeTrackers<C>>) -> bool {
+        fn change_expired(query: Query<Ref<C>>) -> bool {
             query.single().is_changed()
         }
 
@@ -772,7 +752,7 @@ mod tests {
 
     #[test]
     fn change_tick_wraparound() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+        fn change_detected(query: Query<Ref<C>>) -> bool {
             query.single().is_changed()
         }
 
@@ -803,10 +783,10 @@ mod tests {
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
         let change_tick = world.change_tick();
 
-        let mut query = world.query::<ChangeTrackers<C>>();
+        let mut query = world.query::<Ref<C>>();
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.ticks.added.tick);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.ticks.changed.tick);
             assert!(ticks_since_insert > MAX_CHANGE_AGE);
             assert!(ticks_since_change > MAX_CHANGE_AGE);
         }
@@ -815,8 +795,8 @@ mod tests {
         world.check_change_ticks();
 
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.ticks.added.tick);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.ticks.changed.tick);
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }

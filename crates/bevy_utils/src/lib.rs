@@ -21,6 +21,7 @@ mod default;
 mod float_ord;
 
 pub use ahash::AHasher;
+pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
