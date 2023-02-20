@@ -281,7 +281,7 @@ impl Schedule {
     }
 }
 
-/// A directed acylic graph structure.
+/// A directed acyclic graph structure.
 #[derive(Default)]
 pub struct Dag {
     /// A directed graph.
@@ -1379,7 +1379,7 @@ impl ScheduleGraph {
     /// Get topology sorted [`NodeId`], also ensures the graph contains no cycle
     /// returns Err(()) if there are cycles
     fn topsort_graph(&self, graph: &DiGraphMap<NodeId, ()>) -> Result<Vec<NodeId>, ()> {
-        // tarjon_scc's run order is reverse topological order
+        // tarjan_scc's run order is reverse topological order
         let mut rev_top_sorted_nodes = Vec::<NodeId>::with_capacity(graph.node_count());
         let mut tarjan_scc = bevy_utils::petgraph::algo::TarjanScc::new();
         let mut sccs_with_cycle = Vec::<Vec<NodeId>>::new();
@@ -1547,7 +1547,7 @@ pub enum ScheduleBuildError {
 /// Specifies how schedule construction should respond to detecting a certain kind of issue.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogLevel {
-    /// Occurences are completely ignored.
+    /// Occurrences are completely ignored.
     Ignore,
     /// Occurrences are logged only.
     Warn,

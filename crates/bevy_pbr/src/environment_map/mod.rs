@@ -53,7 +53,7 @@ pub struct EnvironmentMapLight {
 }
 
 impl EnvironmentMapLight {
-    /// Whether or not all textures neccesary to use the environment map
+    /// Whether or not all textures necessary to use the environment map
     /// have been loaded by the asset server.
     pub fn is_loaded(&self, images: &RenderAssets<Image>) -> bool {
         images.get(&self.diffuse_map).is_some() && images.get(&self.specular_map).is_some()

@@ -779,17 +779,17 @@ mod tests {
         assert_eq!(
             world.removed::<A>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
         assert_eq!(
             world.removed::<SparseStored>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
         assert_eq!(
             world.removed::<B>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
 
         // TODO: uncomment when world.clear() is implemented

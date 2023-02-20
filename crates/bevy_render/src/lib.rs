@@ -72,7 +72,7 @@ pub struct RenderPlugin {
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// The copy of [`apply_system_buffers`] that runs at the begining of this schedule.
+    /// The copy of [`apply_system_buffers`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare render resources from the extracted data for the GPU.
