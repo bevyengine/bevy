@@ -2,73 +2,78 @@ use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// Common constructor functions for Bevy UI's geometric types.
-pub trait Frame<T: Copy>: Sized {
-    /// Default value for the fields of the frame type.
-    const FIELD_DEFAULT: T;
+macro_rules! frame_impl {
+    ($t:ty, $v:ty, $e:expr) => {
+        impl $t {
+            /// Default value for the fields of the frame type.
+            pub const FIELD_DEFAULT: $v = $e;
 
-    /// Creates a new frame type from the values specified.
-    fn new(left: T, right: T, top: T, bottom: T) -> Self;
+            pub const DEFAULT: Self = {
+                Self {
+                    left: Self::FIELD_DEFAULT,
+                    right: Self::FIELD_DEFAULT,
+                    top: Self::FIELD_DEFAULT,
+                    bottom: Self::FIELD_DEFAULT,
+                }
+            };
+      
+            /// Creates a new frame type from the values specified.
+            pub fn new(left: $v, right: $v, top: $v, bottom: $v) -> Self {
+                Self {
+                    left,
+                    right,
+                    top,
+                    bottom,
+                }
+            }
+            
+            /// Creates a new frame type where `left` takes the given value.
+            pub fn left(left: $v) -> Self {
+                Self::new(left, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+            }
 
-    /// Creates a new frame type where `left` takes the given value.
-    fn left(left: T) -> Self {
-        Self::new(
-            left,
-            Self::FIELD_DEFAULT,
-            Self::FIELD_DEFAULT,
-            Self::FIELD_DEFAULT,
-        )
-    }
+            /// Creates a new frame type where `right` takes the given value.
+            pub fn right(right: $v) -> Self {
+                Self::new(Self::FIELD_DEFAULT, right, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+            }
 
-    /// Creates a new frame type where `right` takes the given value.
-    fn right(right: T) -> Self {
-        Self::new(
-            Self::FIELD_DEFAULT,
-            right,
-            Self::FIELD_DEFAULT,
-            Self::FIELD_DEFAULT,
-        )
-    }
+            /// Creates a new frame type where `top` takes the given value.
+            pub fn top(top: $v) -> Self {
+                Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, top, Self::FIELD_DEFAULT)
+            }
 
-    /// Creates a new frame type where `top` takes the given value.
-    fn top(top: T) -> Self {
-        Self::new(
-            Self::FIELD_DEFAULT,
-            Self::FIELD_DEFAULT,
-            top,
-            Self::FIELD_DEFAULT,
-        )
-    }
+            /// Creates a new frame type where `bottom` takes the given value.
+            pub fn bottom(bottom: $v) -> Self {
+                Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, bottom)
+            }
 
-    /// Creates a new frame type where `bottom` takes the given value.
-    fn bottom(bottom: T) -> Self {
-        Self::new(
-            Self::FIELD_DEFAULT,
-            Self::FIELD_DEFAULT,
-            Self::FIELD_DEFAULT,
-            bottom,
-        )
-    }
+            /// Creates a new frame type where `left` and `right` take the given value.
+            pub fn horizontal(value: $v) -> Self {
+                Self::new(value, value, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+            }
 
-    /// Creates a new frame type where `left` and `right` take the given value.
-    fn horizontal(value: T) -> Self {
-        Self::new(value, value, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
-    }
+            /// Creates a new frame type where `top` and `bottom` take the given value.
+            pub fn vertical(value: $v) -> Self {
+                Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
+            }
+            
+            /// Creates a new frame type where all sides have the same value.
+            pub fn axes(horizontal: $v, vertical: $v) -> Self {
+                Self::new(horizontal, horizontal, vertical, vertical)
+            }
 
-    /// Creates a new frame type where `top` and `bottom` take the given value.
-    fn vertical(value: T) -> Self {
-        Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
-    }
+            /// Creates a new frame type where all sides have the same value.
+            pub fn all(value: $v) -> Self {
+                Self::new(value, value, value, value)
+            }
+        }
 
-    /// Creates a new frame type where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
-    fn axes(horizontal: T, vertical: T) -> Self {
-        Self::new(horizontal, horizontal, vertical, vertical)
-    }
-
-    /// Creates a new frame type where all sides have the same value.
-    fn all(value: T) -> Self {
-        Self::new(value, value, value, value)
-    }
+        impl Default for $t {
+            fn default() -> Self {
+                Self::DEFAULT
+            }
+        }
+    };
 }
 
 /// A margin is used to create space around UI elements, outside of any defined borders.
@@ -87,36 +92,7 @@ pub struct Margin {
     pub bottom: Val,
 }
 
-impl Frame<Val> for Margin {
-    const FIELD_DEFAULT: Val = Val::Px(0.);
-
-    #[inline]
-    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        Self {
-            left,
-            right,
-            top,
-            bottom,
-        }
-    }
-}
-
-impl Padding {
-    pub const DEFAULT: Self = {
-        Self {
-            left: Self::FIELD_DEFAULT,
-            right: Self::FIELD_DEFAULT,
-            top: Self::FIELD_DEFAULT,
-            bottom: Self::FIELD_DEFAULT,
-        }
-    };
-}
-
-impl Default for Margin {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
+frame_impl!(Margin, Val, Val::Px(0.));
 
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
@@ -139,36 +115,7 @@ pub struct Padding {
     pub bottom: Val,
 }
 
-impl Frame<Val> for Padding {
-    const FIELD_DEFAULT: Val = Val::Px(0.);
-
-    #[inline]
-    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        Self {
-            left,
-            right,
-            top,
-            bottom,
-        }
-    }
-}
-
-impl Margin {
-    pub const DEFAULT: Self = {
-        Self {
-            left: Self::FIELD_DEFAULT,
-            right: Self::FIELD_DEFAULT,
-            top: Self::FIELD_DEFAULT,
-            bottom: Self::FIELD_DEFAULT,
-        }
-    };
-}
-
-impl Default for Padding {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
+frame_impl!(Padding, Val, Val::Px(0.));
 
 /// ## Borders
 ///
@@ -193,36 +140,7 @@ pub struct Border {
     pub bottom: Val,
 }
 
-impl Frame<Val> for Border {
-    const FIELD_DEFAULT: Val = Val::Px(0.);
-
-    #[inline]
-    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        Self {
-            left,
-            right,
-            top,
-            bottom,
-        }
-    }
-}
-
-impl Border {
-    pub const DEFAULT: Self = {
-        Self {
-            left: Self::FIELD_DEFAULT,
-            right: Self::FIELD_DEFAULT,
-            top: Self::FIELD_DEFAULT,
-            bottom: Self::FIELD_DEFAULT,
-        }
-    };
-}
-
-impl Default for Border {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
+frame_impl!(Border, Val, Val::Px(0.));
 
 /// A position is used to determine where to place a UI element.
 ///
@@ -305,36 +223,7 @@ pub struct Position {
     pub bottom: Val,
 }
 
-impl Frame<Val> for Position {
-    const FIELD_DEFAULT: Val = Val::Auto;
-
-    #[inline]
-    fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        Self {
-            left,
-            right,
-            top,
-            bottom,
-        }
-    }
-}
-
-impl Position {
-    pub const DEFAULT: Self = {
-        Self {
-            left: Self::FIELD_DEFAULT,
-            right: Self::FIELD_DEFAULT,
-            top: Self::FIELD_DEFAULT,
-            bottom: Self::FIELD_DEFAULT,
-        }
-    };
-}
-
-impl Default for Position {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
+frame_impl!(Position, Val, Val::Auto);
 
 /// A 2-dimensional area defined by a width and height.
 ///
