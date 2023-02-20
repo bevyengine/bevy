@@ -72,7 +72,7 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            position: Position {
                 top: Val::Px(10.0),
                 left: Val::Px(10.0),
                 ..default()
@@ -274,7 +274,7 @@ fn setup_image_viewer_scene(
             .with_text_alignment(TextAlignment::Center)
             .with_style(Style {
                 align_self: AlignSelf::Center,
-                margin: UiRect::all(Val::Auto),
+                margin: Margin::all(Val::Auto),
                 ..default()
             }),
             SceneNumber(3),
