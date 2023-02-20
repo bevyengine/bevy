@@ -176,7 +176,9 @@ Install a GPU renderer for you graphics card. For Intel integrated GPUs:
 ```sh
 sudo apk add mesa-vulkan-intel
 ```
+
 If you have issues with `winit` such as `Failed to initialize backend!` or similar, try adding the following to your `~/.cargo/config.toml` (more information at the [issue #1818](https://github.com/rust-windowing/winit/issues/1818) of the [winit repository](https://github.com/rust-windowing/winit):
+
 ```toml
 [build]
 rustflags = ["-C", "target-feature=-crt-static"]
