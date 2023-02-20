@@ -118,7 +118,11 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 4] = [
+    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
+        (
+            Box::new(Struct1::default()),
+            Box::new(GenericStruct1::<u32>::default()),
+        ),
         (
             Box::new(Struct16::default()),
             Box::new(GenericStruct16::<u32>::default()),
@@ -162,7 +166,11 @@ fn concrete_struct_clone(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 4] = [
+    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
+        (
+            Box::new(Struct1::default()),
+            Box::new(GenericStruct1::<u32>::default()),
+        ),
         (
             Box::new(Struct16::default()),
             Box::new(GenericStruct16::<u32>::default()),
@@ -206,7 +214,8 @@ fn dynamic_struct_clone(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let structs: [Box<dyn Struct>; 4] = [
+    let structs: [Box<dyn Struct>; 5] = [
+        Box::new(Struct1::default().clone_dynamic()),
         Box::new(Struct16::default().clone_dynamic()),
         Box::new(Struct32::default().clone_dynamic()),
         Box::new(Struct64::default().clone_dynamic()),
@@ -342,6 +351,11 @@ fn dynamic_struct_get_field(criterion: &mut Criterion) {
             },
         );
     }
+}
+
+#[derive(Clone, Default, Reflect)]
+struct Struct1 {
+    field_0: u32,
 }
 
 #[derive(Clone, Default, Reflect)]
@@ -599,6 +613,12 @@ struct Struct128 {
     field_126: u32,
     field_127: u32,
 }
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct1<T: Reflect + Default> {
+    field_0: T,
+}
+
 #[derive(Clone, Default, Reflect)]
 struct GenericStruct16<T: Reflect + Default> {
     field_0: T,
