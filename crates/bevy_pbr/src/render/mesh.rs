@@ -1,5 +1,6 @@
 use crate::{
-    FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
+    environment_map, prepass, queue_shadow_view_bind_group, EnvironmentMapLight, FogMeta,
+    GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
     NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
     ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
