@@ -1590,6 +1590,8 @@ path = "examples/ui/ui_image_symmetries.rs"
 [package.metadata.example.ui_image_symmetries]
 name = "Ui Image Symmetries"
 description = "Demonstrates rotating and flipping an image"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "relative_cursor_position"
@@ -1598,7 +1600,6 @@ path = "examples/ui/relative_cursor_position.rs"
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
 description = "Showcases the RelativeCursorPosition component"
-
 category = "UI (User Interface)"
 wasm = true
 
