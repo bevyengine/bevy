@@ -296,8 +296,6 @@ pub enum ProcessShaderError {
         "Not enough '# endif' lines. Each if statement should be followed by an endif statement."
     )]
     NotEnoughEndIfs,
-    #[error("This Shader's format does not support processing shader defs.")]
-    ShaderFormatDoesNotSupportShaderDefs,
     #[error("This Shader's format does not support imports.")]
     ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
