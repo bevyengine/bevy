@@ -2,7 +2,8 @@
 
 use bevy::{
     diagnostic::{
-        Diagnostics, FpsDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, BasicPerformanceDiagnosticsPlugins,
+        BasicPerformanceDiagnosticsPlugins, Diagnostics, FpsDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin,
     },
     prelude::*,
     window::{PresentMode, WindowPlugin},

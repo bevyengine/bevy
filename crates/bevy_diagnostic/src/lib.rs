@@ -1,16 +1,16 @@
+mod basic_performance_diagnostics_plugin;
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
-mod basic_performance_diagnostics_plugin;
 mod log_diagnostics_plugin;
 mod system_information_diagnostics_plugin;
 
+pub use basic_performance_diagnostics_plugin::{
+    BasicPerformanceDiagnosticsPlugins, FpsDiagnosticsPlugin, FrameCountDiagnosticsPlugin,
+    FrameTimeDiagnosticsPlugin,
+};
 use bevy_app::prelude::*;
 pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
-pub use basic_performance_diagnostics_plugin::{
-    FpsDiagnosticsPlugin, FrameCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
-    BasicPerformanceDiagnosticsPlugins,
-};
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 pub use system_information_diagnostics_plugin::SystemInformationDiagnosticsPlugin;
 
