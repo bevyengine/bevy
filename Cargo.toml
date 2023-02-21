@@ -1339,6 +1339,10 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "instanced_mesh_material_pipeline"
+path = "examples/shader/instanced_mesh_material_pipeline.rs"
+
+[[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
 
