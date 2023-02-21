@@ -134,6 +134,7 @@ impl Default for TextBundle {
     fn default() -> Self {
         Self {
             text: Default::default(),
+            text_layout_info: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
