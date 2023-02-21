@@ -35,6 +35,8 @@ impl TableId {
 
     /// Creates a new [`TableId`]. `index` *must* be retrieved from [`TableId::index`]
     /// from a table of a given [`World`] or the created ID may be invalid.
+    ///
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn new(index: usize) -> Self {
         TableId(index as u32)
@@ -92,10 +94,10 @@ impl TableRow {
 
 /// A type-erased contiguous container for data of a homogenous type.
 ///
-/// Conceptually, a [`Column`] is very similar to a `Vec<T>` with it's generic type erased.
-/// It also store the change detection ticks for the stored components, kept in two separate
-/// contiugous buffers internally. An element shares it's data across these buffers by using the
-/// saame index (i.e. the entity at row 3 has it's data at index 3 and it's change detection ticks at
+/// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
+/// It also stores the change detection ticks for its components, kept in two separate
+/// contiguous buffers internally. An element shares it's data across these buffers by using the
+/// same index (i.e. the entity at row 3 has it's data at index 3 and it's change detection ticks at
 /// index 3). A slice to these contiguous blocks of memory can be fetched
 /// via [`Column::get_data_slice`], [`Column::get_added_ticks_slice`], and
 /// [`Column::get_changed_ticks_slice`].
@@ -111,7 +113,7 @@ pub struct Column {
 }
 
 impl Column {
-    /// Constructs a new [`Column`], configured with a component's layout and a initial `capacity`.
+    /// Constructs a new [`Column`], configured with a component's layout and an initial `capacity`.
     #[inline]
     pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
@@ -175,7 +177,7 @@ impl Column {
         self.data.len()
     }
 
-    /// Checks if the column is empty. Returns `true` if there are no elements, false otherwise.
+    /// Checks if the column is empty. Returns `true` if there are no elements, `false` otherwise.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
@@ -185,8 +187,8 @@ impl Column {
     ///
     /// - The value will be dropped if it implements [`Drop`].
     /// - This does not preserve ordering, but is O(1).
-    /// - This does do any bounds checking.
-    /// - The element is replaced last element in the [`Column`].
+    /// - This does not do any bounds checking.
+    /// - The element is replaced with the last element in the [`Column`].
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -199,12 +201,12 @@ impl Column {
         self.changed_ticks.swap_remove(row.index());
     }
 
-    /// Removes an element from the [`Column`] and returns it and it's change detection ticks.
+    /// Removes an element from the [`Column`] and returns it and its change detection ticks.
     /// This does not preserve ordering, but is O(1).
     ///
-    /// The element is replaced last element in the [`Column`].
+    /// The element is replaced with the last element in the [`Column`].
     ///
-    /// It's the caller's responsibility to ensure that the removed value is dropped or used.
+    /// It is the caller's responsibility to ensure that the removed value is dropped or used.
     ///
     /// Returns `None` if `row` is out of bounds.
     #[inline]
@@ -552,7 +554,7 @@ pub struct Table {
 }
 
 impl Table {
-    /// Fetches a read-only slice of the entiities stored within the [`Table`].
+    /// Fetches a read-only slice of the entities stored within the [`Table`].
     #[inline]
     pub fn entities(&self) -> &[Entity] {
         &self.entities
@@ -674,6 +676,8 @@ impl Table {
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(component_id)
@@ -683,12 +687,14 @@ impl Table {
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
-    /// Checks if the table contains a[`Column`] for a given [`Component`].
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
     #[inline]
@@ -808,7 +814,7 @@ impl Tables {
         self.tables.is_empty()
     }
 
-    /// Fetches a [`Table`] by it's [`TableId`].
+    /// Fetches a [`Table`] by its [`TableId`].
     ///
     /// Returns `None` if `id` is invalid.
     #[inline]
@@ -828,8 +834,8 @@ impl Tables {
         }
     }
 
-    /// Attempts to fetch a table based on the provided components. If none is found,
-    /// a new [`Table`] is created and returned.
+    /// Attempts to fetch a table based on the provided components,
+    /// creating and returning a new [`Table`] if one did not already exist.
     ///
     /// # Safety
     /// `component_ids` must contain components that exist in `components`

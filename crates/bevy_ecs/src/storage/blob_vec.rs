@@ -85,7 +85,7 @@ impl BlobVec {
     }
 
     /// Gets the maximum possible number of elements the [`BlobVec`] can store without
-    /// reallocating it's underlying buffer.
+    /// reallocating its underlying buffer.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
@@ -97,8 +97,8 @@ impl BlobVec {
         self.item_layout
     }
 
-    /// Reserves the minimum capacity for at least additional more elements to be inserted in the given `BlobVec`.
-    /// After calling `reserve_exact`, capacity will be greater than or equal to self.len() + additional. Does nothing if
+    /// Reserves the minimum capacity for at least `additional` more elements to be inserted in the given `BlobVec`.
+    /// After calling `reserve_exact`, capacity will be greater than or equal to `self.len() + additional`. Does nothing if
     /// the capacity is already sufficient.
     ///
     /// Note that the allocator may give the collection more space than it requests. Therefore, capacity can not be relied upon
@@ -367,7 +367,7 @@ impl BlobVec {
         std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
-    /// Clears the [`BlobVec`] by removing and dropping all of it's elements.
+    /// Clears the [`BlobVec`] by removing and dropping all of its elements.
     pub fn clear(&mut self) {
         let len = self.len;
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't

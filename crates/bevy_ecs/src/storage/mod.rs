@@ -1,6 +1,6 @@
 //! Storage layouts for ECS data.
 //!
-//! This module contains the low level backing data stores for ECS. These all offer minimal and often
+//! This module contains the low-level backing data stores for ECS. These all offer minimal and often
 //! unsafe APIs, exposed primarily for debugging and monitoring purposes.
 //!
 //! # Fetching Storages
@@ -14,7 +14,7 @@
 //!  - [`Resources`] - singleton storage for the resources in the world
 //!
 //! # Safety
-//! To avoid trivially unsound use of the APIs in this module, it is explicitly impoosible to get a mutable
+//! To avoid trivially unsound use of the APIs in this module, it is explicitly impossible to get a mutable
 //! reference to [`Storages`] from [`World`], and none of the types publicly expose a mutable interface.
 //!
 //! [`World`]: crate::world::World

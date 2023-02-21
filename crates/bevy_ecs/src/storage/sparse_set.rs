@@ -68,7 +68,7 @@ impl_sparse_array!(ImmutableSparseArray);
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// Inserts `value` at `index` in the array.
     ///
-    /// If `index` is out-of-bounds, this will grow the buffer until it can accomodate it.
+    /// If `index` is out-of-bounds, this will enlarge the buffer to accommodate it.
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
         let index = index.sparse_set_index();
@@ -215,7 +215,7 @@ impl ComponentSparseSet {
         })
     }
 
-    /// Fetches a read-only reference to the component for `entity` and it's change detection ticks,
+    /// Fetches a read-only reference to the component for `entity` and its change detection ticks,
     /// if present.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
@@ -397,7 +397,7 @@ macro_rules! impl_sparse_set {
                 })
             }
 
-            /// Iterates over the indicies (keys) of the sparse set.
+            /// Iterates over the indices (keys) of the sparse set.
             pub fn indices(&self) -> impl Iterator<Item = I> + '_ {
                 self.indices.iter().cloned()
             }
@@ -412,12 +412,12 @@ macro_rules! impl_sparse_set {
                 self.dense.iter_mut()
             }
 
-            /// Iterates over key-value pairs the sparse set.
+            /// Iterates over key-value pairs the of the sparse set.
             pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
                 self.indices.iter().zip(self.dense.iter())
             }
 
-            /// Iterates over key-value pairs of the sparse set.
+            /// Iterates over pairs of keys and mutable values of the sparse set.
             pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
                 self.indices.iter().zip(self.dense.iter_mut())
             }
@@ -464,7 +464,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 
     /// Inserts `value` at `index`.
     ///
-    /// If a value was already present at `index`, it will overwrite it.
+    /// If a value was already present at `index`, it will be overwritten.
     pub fn insert(&mut self, index: I, value: V) {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFETY: dense indices stored in self.sparse always exist
@@ -526,7 +526,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.sparse.clear();
     }
 
-    /// Converts the sparse set into it's immutable variant.
+    /// Converts the sparse set into its immutable variant.
     pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),
