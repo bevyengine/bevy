@@ -16,7 +16,7 @@ fn main() {
         .run();
 }
 
-/// Marker component for the text that displays the current reslution.
+/// Marker component for the text that displays the current resolution.
 #[derive(Component)]
 struct ResolutionText;
 

@@ -68,7 +68,7 @@ pub struct Text2dBundle {
     pub transform: Transform,
     /// The global transform of the text.
     pub global_transform: GlobalTransform,
-    /// The visbility properties of the text.
+    /// The visibility properties of the text.
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,

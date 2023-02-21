@@ -41,9 +41,10 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, IntoSystemConfig,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
-            OnEnter, OnExit, OnUpdate, Schedule, Schedules, State, States, SystemSet,
+            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
+            IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig,
+            IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnUpdate, Schedule, Schedules, State,
+            States, SystemSet,
         },
         system::{
             adapter as system_adapter,
@@ -778,17 +779,17 @@ mod tests {
         assert_eq!(
             world.removed::<A>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
         assert_eq!(
             world.removed::<SparseStored>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
         assert_eq!(
             world.removed::<B>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
 
         // TODO: uncomment when world.clear() is implemented
