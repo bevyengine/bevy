@@ -96,7 +96,7 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -124,6 +124,27 @@ pub struct TextBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
+}
+
+impl Default for TextBundle {
+    fn default() -> Self {
+        Self {
+            text: Default::default(),
+            calculated_size: Default::default(),
+            // Transparent background
+            background_color: BackgroundColor(Color::NONE),
+            node: Default::default(),
+            style: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }
 
 impl TextBundle {
@@ -156,6 +177,12 @@ impl TextBundle {
     /// Returns this [`TextBundle`] with a new [`Style`].
     pub const fn with_style(mut self, style: Style) -> Self {
         self.style = style;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
+    pub const fn with_background_color(mut self, color: Color) -> Self {
+        self.background_color = BackgroundColor(color);
         self
     }
 }
