@@ -689,12 +689,12 @@ pub struct Bundles {
 }
 
 impl Bundles {
-    /// The total number of [`Bundle`] stored in [`World`]
+    /// The total number of [`Bundle`] registered in [`Storages`](crate::storage::Storages)
     pub fn len(&self) -> usize {
         self.bundle_infos.len()
     }
 
-    /// Returns true if no [`Bundle`] registered in [`World`]
+    /// Returns true if no [`Bundle`] registered in [`Storages`](crate::storage::Storages)
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
