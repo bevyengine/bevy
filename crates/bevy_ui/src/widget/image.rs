@@ -17,14 +17,14 @@ pub fn update_image_calculated_size_system(
             let width = Val::Px(texture.texture_descriptor.size.width as f32);
             let height = Val::Px(texture.texture_descriptor.size.height as f32);
             let size = match image.orientation {
-                Orientation::Identity
-                | Orientation::Rotated180
-                | Orientation::FlippedX
-                | Orientation::FlippedXRotated180 => (width, height),
-                Orientation::RotatedLeft
-                | Orientation::RotatedRight
-                | Orientation::FlippedXRotatedLeft
-                | Orientation::FlippedXRotatedRight => (height, width),
+                Orientation::North
+                | Orientation::South
+                | Orientation::FlippedNorth
+                | Orientation::FlippedSouth => (width, height),
+                Orientation::East
+                | Orientation::West
+                | Orientation::FlippedEast
+                | Orientation::FlippedWest => (height, width),
             }
             .into();
 

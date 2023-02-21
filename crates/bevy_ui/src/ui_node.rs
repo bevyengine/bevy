@@ -457,21 +457,21 @@ impl From<Color> for BackgroundColor {
 pub enum Orientation {
     #[default]
     /// Not flipped or rotated
-    Identity,
+    North,
     /// The image is rotated left by 90 degrees
-    RotatedLeft,
+    East,
     /// The image is rotated by 180 degrees
-    Rotated180,
+    South,
     /// The image is rotated right by 90 degrees
-    RotatedRight,
+    West,
     /// The image is flipped along its x-axis
-    FlippedX,
+    FlippedNorth,
     /// The image is flipped along its x-axis and then rotated left by 90 degrees
-    FlippedXRotatedLeft,
+    FlippedEast,
     /// The image is flipped along its x-axis and then rotated 180 degrees
-    FlippedXRotated180,
+    FlippedSouth,
     /// The image is flipped along its x-axis and then rotated right by 90 degrees
-    FlippedXRotatedRight,
+    FlippedWest,
 }
 
 impl Orientation {
@@ -480,14 +480,14 @@ impl Orientation {
     pub const fn rotate_left(self) -> Self {
         use Orientation::*;
         match self {
-            Identity => RotatedLeft,
-            RotatedLeft => Rotated180,
-            Rotated180 => RotatedRight,
-            RotatedRight => Identity,
-            FlippedX => FlippedXRotatedLeft,
-            FlippedXRotatedLeft => FlippedXRotated180,
-            FlippedXRotated180 => FlippedXRotatedRight,
-            FlippedXRotatedRight => FlippedX,
+            North => East,
+            East => South,
+            South => West,
+            West => North,
+            FlippedNorth => FlippedEast,
+            FlippedEast => FlippedSouth,
+            FlippedSouth => FlippedWest,
+            FlippedWest => FlippedNorth,
         }
     }
 
@@ -496,14 +496,14 @@ impl Orientation {
     pub const fn rotate_right(self) -> Self {
         use Orientation::*;
         match self {
-            Identity => RotatedRight,
-            RotatedLeft => Identity,
-            Rotated180 => RotatedLeft,
-            RotatedRight => Rotated180,
-            FlippedX => FlippedXRotatedRight,
-            FlippedXRotatedLeft => FlippedX,
-            FlippedXRotated180 => FlippedXRotatedLeft,
-            FlippedXRotatedRight => FlippedXRotated180,
+            North => West,
+            East => North,
+            South => East,
+            West => South,
+            FlippedNorth => FlippedWest,
+            FlippedEast => FlippedNorth,
+            FlippedSouth => FlippedEast,
+            FlippedWest => FlippedSouth,
         }
     }
 
@@ -518,14 +518,14 @@ impl Orientation {
     pub const fn flip_x(self) -> Self {
         use Orientation::*;
         match self {
-            Identity => FlippedX,
-            RotatedLeft => FlippedXRotatedRight,
-            Rotated180 => FlippedXRotated180,
-            RotatedRight => FlippedXRotatedLeft,
-            FlippedX => Identity,
-            FlippedXRotatedLeft => RotatedRight,
-            FlippedXRotated180 => Rotated180,
-            FlippedXRotatedRight => RotatedLeft,
+            North => FlippedNorth,
+            East => FlippedWest,
+            South => FlippedSouth,
+            West => FlippedEast,
+            FlippedNorth => North,
+            FlippedEast => West,
+            FlippedSouth => South,
+            FlippedWest => East,
         }
     }
 
@@ -534,14 +534,14 @@ impl Orientation {
     pub const fn flip_y(self) -> Self {
         use Orientation::*;
         match self {
-            Identity => FlippedXRotated180,
-            RotatedLeft => FlippedXRotatedLeft,
-            Rotated180 => FlippedX,
-            RotatedRight => FlippedXRotatedRight,
-            FlippedX => Rotated180,
-            FlippedXRotatedLeft => RotatedLeft,
-            FlippedXRotated180 => Identity,
-            FlippedXRotatedRight => RotatedRight,
+            North => FlippedSouth,
+            East => FlippedEast,
+            South => FlippedNorth,
+            West => FlippedWest,
+            FlippedNorth => South,
+            FlippedEast => East,
+            FlippedSouth => North,
+            FlippedWest => West,
         }
     }
 }
@@ -560,7 +560,7 @@ impl Default for UiImage {
     fn default() -> UiImage {
         UiImage {
             texture: DEFAULT_IMAGE_HANDLE.typed(),
-            orientation: Orientation::Identity,
+            orientation: Orientation::North,
         }
     }
 }
@@ -784,63 +784,63 @@ mod tests {
     #[test]
     fn orientation_operations_compose_correctly() {
         assert_eq!(
-            Orientation::Identity.rotate_left().rotate_left(),
-            Orientation::Rotated180
+            Orientation::North.rotate_left().rotate_left(),
+            Orientation::South
         );
         assert_eq!(
-            Orientation::Identity
+            Orientation::North
                 .rotate_left()
                 .rotate_left()
                 .rotate_left(),
-            Orientation::RotatedRight
+            Orientation::West
         );
         assert_eq!(
-            Orientation::Identity
+            Orientation::North
                 .rotate_left()
                 .rotate_left()
                 .rotate_left()
                 .rotate_left(),
-            Orientation::Identity
+            Orientation::North
         );
         assert_eq!(
-            Orientation::Identity
+            Orientation::North
                 .rotate_right()
                 .rotate_right()
                 .rotate_right()
                 .rotate_right(),
-            Orientation::Identity
+            Orientation::North
         );
         assert_eq!(
-            Orientation::Identity.rotate_left().rotate_right(),
-            Orientation::Identity
+            Orientation::North.rotate_left().rotate_right(),
+            Orientation::North
         );
         assert_eq!(
-            Orientation::Identity.rotate_right().rotate_left(),
-            Orientation::Identity
+            Orientation::North.rotate_right().rotate_left(),
+            Orientation::North
         );
         assert_eq!(
-            Orientation::Identity.flip_x().flip_x(),
-            Orientation::Identity
+            Orientation::North.flip_x().flip_x(),
+            Orientation::North
         );
         assert_eq!(
-            Orientation::Identity.flip_y().flip_y(),
-            Orientation::Identity
+            Orientation::North.flip_y().flip_y(),
+            Orientation::North
         );
         assert_eq!(
-            Orientation::Identity.flip_x().flip_y(),
-            Orientation::Rotated180
+            Orientation::North.flip_x().flip_y(),
+            Orientation::South
         );
         assert_eq!(
-            Orientation::Identity.flip_y().flip_x(),
-            Orientation::Rotated180
+            Orientation::North.flip_y().flip_x(),
+            Orientation::South
         );
         assert_eq!(
-            Orientation::Identity.flip_x().rotate_left(),
-            Orientation::FlippedXRotatedLeft
+            Orientation::North.flip_x().rotate_left(),
+            Orientation::FlippedEast
         );
         assert_eq!(
-            Orientation::Identity.rotate_left().flip_x(),
-            Orientation::FlippedXRotatedRight
+            Orientation::North.rotate_left().flip_x(),
+            Orientation::FlippedWest
         );
     }
 }

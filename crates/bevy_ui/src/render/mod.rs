@@ -214,7 +214,7 @@ pub fn extract_uinodes(
             } else {
                 (
                     DEFAULT_IMAGE_HANDLE.typed().clone_weak(),
-                    Orientation::Identity,
+                    Orientation::North,
                 )
             };
             // Skip loading images
@@ -364,7 +364,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
-                    orientation: Orientation::Identity,
+                    orientation: Orientation::North,
                     scale_factor,
                 });
             }
@@ -520,14 +520,14 @@ pub fn prepare_uinodes(
         .map(|pos| pos / atlas_extent);
 
         uvs = match extracted_uinode.orientation {
-            Orientation::Identity => uvs,
-            Orientation::RotatedLeft => [uvs[1], uvs[2], uvs[3], uvs[0]],
-            Orientation::Rotated180 => [uvs[2], uvs[3], uvs[0], uvs[1]],
-            Orientation::RotatedRight => [uvs[3], uvs[0], uvs[1], uvs[2]],
-            Orientation::FlippedX => [uvs[1], uvs[0], uvs[3], uvs[2]],
-            Orientation::FlippedXRotatedLeft => [uvs[0], uvs[3], uvs[2], uvs[1]],
-            Orientation::FlippedXRotated180 => [uvs[3], uvs[2], uvs[1], uvs[0]],
-            Orientation::FlippedXRotatedRight => [uvs[2], uvs[1], uvs[0], uvs[3]],
+            Orientation::North => uvs,
+            Orientation::East => [uvs[1], uvs[2], uvs[3], uvs[0]],
+            Orientation::South => [uvs[2], uvs[3], uvs[0], uvs[1]],
+            Orientation::West => [uvs[3], uvs[0], uvs[1], uvs[2]],
+            Orientation::FlippedNorth => [uvs[1], uvs[0], uvs[3], uvs[2]],
+            Orientation::FlippedEast => [uvs[0], uvs[3], uvs[2], uvs[1]],
+            Orientation::FlippedSouth => [uvs[3], uvs[2], uvs[1], uvs[0]],
+            Orientation::FlippedWest => [uvs[2], uvs[1], uvs[0], uvs[3]],
         };
 
         for i in QUAD_INDICES {
