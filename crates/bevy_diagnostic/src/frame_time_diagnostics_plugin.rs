@@ -20,14 +20,15 @@ impl PluginGroup for FrameTimeDiagnosticsPlugins {
 /// Adds "frame time" diagnostic to an App
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
-impl Plugin for FrameTimeDiagnosticsPlugin{
+
+impl Plugin for FrameTimeDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
             .add_system(Self::frame_time_diagnostic_system);
     }
 }
 
-impl FrameTimeDiagnosticsPlugin  {
+impl FrameTimeDiagnosticsPlugin {
     pub const FRAME_TIME: DiagnosticId =
         DiagnosticId::from_u128(73441630925388532774622109383099159699);
 
@@ -35,10 +36,7 @@ impl FrameTimeDiagnosticsPlugin  {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"));
     }
 
-    pub fn frame_time_diagnostic_system(
-        mut diagnostics: ResMut<Diagnostics>,
-        time: Res<Time>,
-    ) {
+    pub fn frame_time_diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
         let delta_seconds = time.raw_delta_seconds_f64();
         if delta_seconds == 0.0 {
             return;
@@ -49,6 +47,7 @@ impl FrameTimeDiagnosticsPlugin  {
 /// Adds "frame per second" diagnostic to an App
 #[derive(Default)]
 pub struct FpsDiagnosticsPlugin;
+
 impl Plugin for FpsDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
@@ -62,10 +61,7 @@ impl FpsDiagnosticsPlugin {
         diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
     }
 
-    pub fn fps_diagnostic_system(
-        mut diagnostics: ResMut<Diagnostics>,
-        time: Res<Time>,
-    ) {
+    pub fn fps_diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
         let delta_seconds = time.raw_delta_seconds_f64();
         if delta_seconds == 0.0 {
             return;
