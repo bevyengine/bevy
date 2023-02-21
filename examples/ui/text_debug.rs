@@ -2,7 +2,7 @@
 
 use bevy::{
     diagnostic::{
-        Diagnostics, FpsDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, FrameTimeDiagnosticsPlugins,
+        Diagnostics, FpsDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, BasicPerformanceDiagnosticsPlugins,
     },
     prelude::*,
     window::{PresentMode, WindowPlugin},
@@ -17,7 +17,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(FrameTimeDiagnosticsPlugins)
+        .add_plugins(BasicPerformanceDiagnosticsPlugins)
         .add_startup_system(infotext_system)
         .add_system(change_text_system)
         .run();

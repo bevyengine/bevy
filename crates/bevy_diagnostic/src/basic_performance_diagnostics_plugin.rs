@@ -10,9 +10,9 @@ use bevy_time::Time;
 /// * [`FrameCountDiagnosticsPlugin`](crate::FrameCountDiagnosticsPlugin)
 ///
 #[derive(Default)]
-pub struct FrameTimeDiagnosticsPlugins;
+pub struct BasicPerformanceDiagnosticsPlugins;
 
-impl PluginGroup for FrameTimeDiagnosticsPlugins {
+impl PluginGroup for BasicPerformanceDiagnosticsPlugins {
     fn build(self) -> bevy_app::PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(FpsDiagnosticsPlugin)
