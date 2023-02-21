@@ -946,10 +946,7 @@ mod tests {
             Orientation::South
         );
         assert_eq!(
-            Orientation::North
-                .rotate_left()
-                .rotate_left()
-                .rotate_left(),
+            Orientation::North.rotate_left().rotate_left().rotate_left(),
             Orientation::West
         );
         assert_eq!(
@@ -976,22 +973,10 @@ mod tests {
             Orientation::North.rotate_right().rotate_left(),
             Orientation::North
         );
-        assert_eq!(
-            Orientation::North.flip_x().flip_x(),
-            Orientation::North
-        );
-        assert_eq!(
-            Orientation::North.flip_y().flip_y(),
-            Orientation::North
-        );
-        assert_eq!(
-            Orientation::North.flip_x().flip_y(),
-            Orientation::South
-        );
-        assert_eq!(
-            Orientation::North.flip_y().flip_x(),
-            Orientation::South
-        );
+        assert_eq!(Orientation::North.flip_x().flip_x(), Orientation::North);
+        assert_eq!(Orientation::North.flip_y().flip_y(), Orientation::North);
+        assert_eq!(Orientation::North.flip_x().flip_y(), Orientation::South);
+        assert_eq!(Orientation::North.flip_y().flip_x(), Orientation::South);
         assert_eq!(
             Orientation::North.flip_x().rotate_left(),
             Orientation::FlippedEast

@@ -170,7 +170,6 @@ pub struct ExtractedUiNode {
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
     pub orientation: Orientation,
-    pub scale_factor: f32,
 }
 
 #[derive(Resource, Default)]
@@ -204,7 +203,7 @@ pub fn extract_uinodes(
             }
 
             let (image, orientation) = if let Some(image) = maybe_image {
-            // Skip loading images
+                // Skip loading images
                 if !images.contains(&image.texture) {
                     continue;
                 }
@@ -228,7 +227,6 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
                 orientation,
-                scale_factor,
             });
         }
     }
@@ -361,9 +359,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
-
                     orientation: Orientation::North,
-                    scale_factor,
                 });
             }
         }

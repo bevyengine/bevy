@@ -4,7 +4,6 @@ use bevy_ecs::{
     query::Without,
     system::{Query, Res},
 };
-use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_text::Text;
 
