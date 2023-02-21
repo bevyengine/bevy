@@ -96,8 +96,8 @@ impl TableRow {
 ///
 /// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
 /// It also stores the change detection ticks for its components, kept in two separate
-/// contiguous buffers internally. An element shares it's data across these buffers by using the
-/// same index (i.e. the entity at row 3 has it's data at index 3 and it's change detection ticks at
+/// contiguous buffers internally. An element shares its data across these buffers by using the
+/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at
 /// index 3). A slice to these contiguous blocks of memory can be fetched
 /// via [`Column::get_data_slice`], [`Column::get_added_ticks_slice`], and
 /// [`Column::get_changed_ticks_slice`].
@@ -224,11 +224,11 @@ impl Column {
         })
     }
 
-    /// Removes an element from the [`Column`] and returns it and it's change detection ticks.
+    /// Removes an element from the [`Column`] and returns it and its change detection ticks.
     /// This does not preserve ordering, but is O(1). Unlike [`Column::swap_remove_and_forget`]
-    /// this does do any bounds checking.
+    /// this does not do any bounds checking.
     ///
-    /// The element is replaced last element in the [`Column`].
+    /// The element is replaced with the last element in the [`Column`].
     ///
     /// It's the caller's responsibility to ensure that the removed value is dropped or used.
     ///
@@ -387,7 +387,7 @@ impl Column {
         (row.index() < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row.index()) })
     }
 
-    /// Fetches a mutable reference to the data at `row`. Unlike [`Column::get_mut`] this does not
+    /// Fetches a mutable reference to the data at `row`. Unlike [`Column::get_data_mut`] this does not
     /// do any bounds checking.
     ///
     /// # Safety
@@ -697,6 +697,8 @@ impl Table {
     /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
+    ///
+    /// [`Component`]: crate::component::Component
     #[inline]
     pub fn has_column(&self, component_id: ComponentId) -> bool {
         self.columns.contains(component_id)
