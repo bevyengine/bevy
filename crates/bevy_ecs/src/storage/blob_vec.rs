@@ -37,6 +37,11 @@ impl std::fmt::Debug for BlobVec {
 impl BlobVec {
     /// Creates a new [`BlobVec`] with the specified `capacity`.
     ///
+    /// `drop` is an optional function pointer that is meant to be invoked when any element in the [`BlobVec`]
+    /// should be dropped. For all Rust-based types, this should match 1:1 with the implementation of [`Drop`]
+    /// if present, and should be `None` if `T: !Drop`. For non-Rust based types, this should match any cleanup
+    /// processes typically associated with the stored
+    ///
     /// # Safety
     ///
     /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
@@ -44,6 +49,7 @@ impl BlobVec {
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
     /// [`needs_drop`]: core::mem::needs_drop
+    /// [`Drop`]: core::mem::Drop
     pub unsafe fn new(
         item_layout: Layout,
         drop: Option<unsafe fn(OwningPtr<'_>)>,

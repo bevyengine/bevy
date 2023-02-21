@@ -296,7 +296,9 @@ impl Column {
 
     /// Fetches the data pointer to the first element of the [`Column`].
     ///
-    /// The pointer is type erased, so using this function to fetch
+    /// The pointer is type erased, so using this function to fetch anything
+    /// other than the first element will require computing the offset using
+    /// via [`Column::layout`].
     #[inline]
     pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
@@ -585,7 +587,7 @@ impl Table {
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
-    /// the caller's responsibility to drop them.  Failure to do so may result in resources not 
+    /// the caller's responsibility to drop them.  Failure to do so may result in resources not
     /// being released (i.e. files handles not being released, memory leaks, etc.)
     ///
     /// # Safety
@@ -751,7 +753,8 @@ impl Table {
         self.columns.len()
     }
 
-    /// Gets the number of components the table can currently store.
+    /// Gets the maximum number of entities the table can currently store
+    /// without reallocating the underlying memory.
     #[inline]
     pub fn entity_capacity(&self) -> usize {
         self.entities.capacity()
