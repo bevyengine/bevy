@@ -1,8 +1,9 @@
 use crate::{
-    environment_map, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, queue_shadow_view_bind_group, EnvironmentMapLight, FogMeta, GlobalLightMeta,
+    GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
+    ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -110,7 +111,11 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems_to_schedule(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
                 .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
-                .add_system(queue_mesh_view_bind_groups.in_set(RenderSet::Queue));
+                .add_system(
+                    queue_mesh_view_bind_groups
+                        .in_set(RenderSet::Queue)
+                        .ambiguous_with(queue_shadow_view_bind_group), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`
+                );
         }
     }
 }
@@ -546,6 +551,7 @@ impl FromWorld for MeshPipeline {
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
+                mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
 

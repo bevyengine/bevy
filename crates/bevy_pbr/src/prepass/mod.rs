@@ -98,7 +98,11 @@ where
 
         render_app
             .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
-            .add_system(prepare_prepass_textures.in_set(RenderSet::Prepare))
+            .add_system(
+                prepare_prepass_textures
+                    .in_set(RenderSet::Prepare)
+                    .after(bevy_render::view::prepare_windows),
+            )
             .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))

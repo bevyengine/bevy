@@ -92,6 +92,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
         pbr_input.occlusion = occlusion;
 
+        pbr_input.flags = mesh.flags;
+
         output_color = pbr(pbr_input);
     } else {
         output_color = alpha_discard(material, output_color);
