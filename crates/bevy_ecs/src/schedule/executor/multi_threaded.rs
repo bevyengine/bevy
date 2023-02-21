@@ -291,6 +291,8 @@ impl MultiThreadedExecutor {
 
             self.ready_systems.set(system_index, false);
 
+            // SAFETY: If `self.can_run` returns true, then it must have called
+            // `update_archetype_component_access` for each run condition.
             if !self.should_run(system_index, system, conditions, world) {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
@@ -381,7 +383,11 @@ impl MultiThreadedExecutor {
         true
     }
 
-    fn should_run(
+    /// # Safety
+    ///
+    /// `update_archetype_component` must have been called with `world`
+    /// for each run condition in `conditions`.
+    unsafe fn should_run(
         &mut self,
         system_index: usize,
         _system: &BoxedSystem,
@@ -394,7 +400,8 @@ impl MultiThreadedExecutor {
                 continue;
             }
 
-            // evaluate system set's conditions
+            // Evaluate the system set's conditions.
+            // SAFETY: `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met =
                 evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
 
@@ -407,7 +414,8 @@ impl MultiThreadedExecutor {
             self.evaluated_sets.insert(set_idx);
         }
 
-        // evaluate system's conditions
+        // Evaluate the system's conditions.
+        // SAFETY: `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met =
             evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
 
@@ -610,7 +618,11 @@ fn apply_system_buffers(
     }
 }
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
+/// # Safety
+///
+/// `update_archetype_component_access` must have been called
+/// with `world` for each condition in `conditions`.
+unsafe fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions
