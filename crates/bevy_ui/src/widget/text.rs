@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Node, UiScale};
+use crate::{IntrinsicSize, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -41,12 +41,7 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
         Query<Entity, (With<Text>, With<Node>)>,
-        Query<(
-            &Node,
-            &Text,
-            &mut CalculatedSize,
-            &mut TextLayoutInfo,
-        )>,
+        Query<(&Node, &Text, &mut IntrinsicSize, &mut TextLayoutInfo)>,
     )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -81,8 +76,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text_ids.drain(..) {
-        if let Ok((node, text, mut calculated_size, mut text_layout_info)) = query.get_mut(entity)
-        {
+        if let Ok((node, text, mut calculated_size, mut text_layout_info)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
