@@ -4,14 +4,14 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostics, FpsDiagnosticsPlugin},
     prelude::*,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FpsDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(text_update_system)
         .add_system(text_color_system)
@@ -92,7 +92,7 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
 
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
     for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(FpsDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
                 text.sections[1].value = format!("{value:.2}");

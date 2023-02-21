@@ -1,7 +1,7 @@
 //! Shows various text layout options.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugins, FrameTimeDiagnosticsPlugin, FpsDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
@@ -15,7 +15,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugins)
         .add_startup_system(infotext_system)
         .add_system(change_text_system)
         .run();
@@ -158,7 +158,7 @@ fn change_text_system(
 ) {
     for mut text in &mut query {
         let mut fps = 0.0;
-        if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps_diagnostic) = diagnostics.get(FpsDiagnosticsPlugin::FPS) {
             if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
                 fps = fps_smoothed;
             }
