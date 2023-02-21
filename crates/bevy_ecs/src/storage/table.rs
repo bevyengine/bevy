@@ -207,6 +207,8 @@ impl Column {
     /// The element is replaced with the last element in the [`Column`].
     ///
     /// It is the caller's responsibility to ensure that the removed value is dropped or used.
+    /// Failure to do so may result in resources not being released (i.e. files handles not being
+    /// released, memory leaks, etc.)
     ///
     /// Returns `None` if `row` is out of bounds.
     #[inline]
@@ -231,6 +233,8 @@ impl Column {
     /// The element is replaced with the last element in the [`Column`].
     ///
     /// It's the caller's responsibility to ensure that the removed value is dropped or used.
+    /// Failure to do so may result in resources not being released (i.e. files handles not being
+    /// released, memory leaks, etc.)
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -581,7 +585,8 @@ impl Table {
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
-    /// the caller's responsibility to drop them
+    /// the caller's responsibility to drop them.  Failure to do so may result in resources not 
+    /// being released (i.e. files handles not being released, memory leaks, etc.)
     ///
     /// # Safety
     /// Row must be in-bounds
