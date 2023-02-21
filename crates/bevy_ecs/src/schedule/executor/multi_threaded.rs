@@ -309,7 +309,9 @@ impl MultiThreadedExecutor {
                 break;
             }
 
-            // SAFETY: No other reference to this system exists.
+            // SAFETY:
+            // - No other reference to this system exists.
+            // - `self.can_run` has been called, which calls `update_archetype_component_access` with this system.
             unsafe {
                 self.spawn_system_task(scope, system_index, systems, world);
             }
@@ -419,7 +421,9 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    /// Caller must not alias systems that are running.
+    /// - Caller must not alias systems that are running.
+    /// - `update_archetype_component_access` must have been called with `world`
+    ///   on the system assocaited with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -440,7 +444,9 @@ impl MultiThreadedExecutor {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // SAFETY: access is compatible
+                // SAFETY:
+                // - Access is compatible.
+                // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
             #[cfg(feature = "trace")]
