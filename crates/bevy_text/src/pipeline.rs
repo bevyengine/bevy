@@ -115,15 +115,20 @@ impl TextPipeline {
         Ok(TextLayoutInfo { glyphs, size })
     }
 
-
-    // Past here is just terrible hacks to get what I want
+    //  Some hacks to find the size constraints for the text, needs a better solution
 
     pub fn compute_sections<'a>(
         &mut self,
         fonts: &Assets<Font>,
         sections: &'a [TextSection],
         scale_factor: f64,
-    ) -> Result<(Vec<SectionText<'a>>, Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>), TextError> {
+    ) -> Result<
+        (
+            Vec<SectionText<'a>>,
+            Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
+        ),
+        TextError,
+    > {
         let mut scaled_fonts = Vec::new();
         let sections = sections
             .iter()
@@ -147,17 +152,6 @@ impl TextPipeline {
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok((sections, scaled_fonts))
-    }
-
-    pub fn compute_section_glyphs(
-        &self,
-        sections: &Vec<SectionText>,
-        text_alignment: TextAlignment,
-        linebreak_behaviour: BreakLineOn,
-        bounds: Vec2,
-    ) -> Result<Vec<glyph_brush_layout::SectionGlyph>, TextError> {
-        self.brush
-            .compute_glyphs(&sections, bounds, text_alignment, linebreak_behaviour)
     }
 
     pub fn compute_size(

@@ -32,6 +32,7 @@ pub mod prelude {
     };
 }
 
+use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
@@ -39,9 +40,6 @@ use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-use widget::TextQueue;
-
-use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -80,7 +78,6 @@ impl Plugin for UiPlugin {
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .init_resource::<TextQueue>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()

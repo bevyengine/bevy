@@ -57,6 +57,9 @@ impl Measure for FixedMeasure {
 pub struct IntrinsicSize {
     /// Used to track changes
     pub size: Vec2,
+    pub min_content: Vec2,
+    pub max_content: Vec2,
+    pub ideal: Vec2,
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub measure: Box<dyn Measure>,
@@ -66,6 +69,9 @@ impl Default for IntrinsicSize {
     fn default() -> Self {
         Self {
             size: Default::default(),
+            min_content: Default::default(),
+            max_content: Default::default(),
+            ideal: Default::default(),
             // Default `FixedMeasure` always returns zero size.
             measure: Box::<FixedMeasure>::default(),
         }
@@ -76,6 +82,9 @@ impl Clone for IntrinsicSize {
     fn clone(&self) -> Self {
         Self {
             size: self.size,
+            min_content: Default::default(),
+            max_content: Default::default(),
+            ideal: Default::default(),
             measure: self.measure.dyn_clone(),
         }
     }
