@@ -10,14 +10,14 @@ use crate::{
 
 use crate::utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
+use bevy_utils::{hashbrown::HashMap, HashSet};
 use bevy_utils::{Duration, Instant};
-use bevy_utils::{HashMap, HashSet};
 use std::{
     any::Any,
     borrow::Cow,
     collections::VecDeque,
     ffi::OsString,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
@@ -347,7 +347,9 @@ impl_reflect_for_veclike!(
     VecDeque::<T>
 );
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
+impl<K: FromReflect + Eq + Hash, V: FromReflect, S: BuildHasher + Send + Sync + 'static> Map
+    for HashMap<K, V, S>
+{
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
             .and_then(|key| HashMap::get(self, key))
@@ -430,7 +432,9 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
     }
 }
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
+impl<K: FromReflect + Eq + Hash, V: FromReflect, S: BuildHasher + Send + Sync + 'static> Reflect
+    for HashMap<K, V, S>
+{
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -494,29 +498,37 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
     }
 }
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
+impl<K: FromReflect + Eq + Hash, V: FromReflect, S: BuildHasher + Send + Sync + 'static> Typed
+    for HashMap<K, V, S>
+{
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
     }
 }
 
-impl<K, V> GetTypeRegistration for HashMap<K, V>
+impl<K, V, S> GetTypeRegistration for HashMap<K, V, S>
 where
     K: FromReflect + Eq + Hash,
     V: FromReflect,
+    S: BuildHasher + Send + Sync + 'static,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectFromPtr>(FromType::<HashMap<K, V>>::from_type());
+        let mut registration = TypeRegistration::of::<HashMap<K, V, S>>();
+        registration.insert::<ReflectFromPtr>(FromType::<HashMap<K, V, S>>::from_type());
         registration
     }
 }
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
+impl<K, V, S> FromReflect for HashMap<K, V, S>
+where
+    K: FromReflect + Eq + Hash,
+    V: FromReflect,
+    S: BuildHasher + Default + Send + Sync + 'static,
+{
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
-            let mut new_map = Self::with_capacity(ref_map.len());
+            let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), S::default());
             for (key, value) in ref_map.iter() {
                 let new_key = K::from_reflect(key)?;
                 let new_value = V::from_reflect(value)?;
