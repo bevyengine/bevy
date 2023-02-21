@@ -8,7 +8,6 @@ use bevy_time::Time;
 /// * [`FrameTimeDiagnosticsPlugin`](crate::FrameTimeDiagnosticsPlugin)
 /// * [`FpsDiagnosticsPlugin`](crate::FpsDiagnosticsPlugin)
 /// * [`FrameCountDiagnosticsPlugin`](crate::FrameCountDiagnosticsPlugin)
-///
 #[derive(Default)]
 pub struct BasicPerformanceDiagnosticsPlugins;
 
@@ -33,13 +32,15 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
 }
 
 impl FrameTimeDiagnosticsPlugin {
+    /// Used as a key to retrieve the frame time diagnostic from [Diagnostics]
     pub const FRAME_TIME: DiagnosticId =
         DiagnosticId::from_u128(73441630925388532774622109383099159699);
 
+    /// Adds the frame time diagnostic to the [Diagnostics] resource
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"));
     }
-
+    /// Updates the frame time diagnostic
     pub fn frame_time_diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
         let delta_seconds = time.raw_delta_seconds_f64();
         if delta_seconds == 0.0 {
@@ -59,12 +60,14 @@ impl Plugin for FpsDiagnosticsPlugin {
     }
 }
 impl FpsDiagnosticsPlugin {
+    /// Used as a key to retrieve the fps diagnostic from [Diagnostics]
     pub const FPS: DiagnosticId = DiagnosticId::from_u128(288146834822086093791974408528866909483);
 
+    /// Adds the fps diagnostic to the [Diagnostics] resource
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
     }
-
+    /// Updates the fps diagnostic
     pub fn fps_diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
         let delta_seconds = time.raw_delta_seconds_f64();
         if delta_seconds == 0.0 {
@@ -83,13 +86,15 @@ impl Plugin for FrameCountDiagnosticsPlugin {
     }
 }
 impl FrameCountDiagnosticsPlugin {
+    /// Used as a key to retrieve the frame count diagnostic from [Diagnostics]
     pub const FRAME_COUNT: DiagnosticId =
         DiagnosticId::from_u128(54021991829115352065418785002088010277);
 
+    /// Adds the frame count diagnostic to the [Diagnostics] resource
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 20).with_suffix("ms"));
     }
-
+    /// Updates the frame count diagnostic
     pub fn frame_count_diagnostic_system(
         mut diagnostics: ResMut<Diagnostics>,
         frame_count: Res<FrameCount>,
