@@ -263,7 +263,7 @@ fn diagnose_dag(
     writeln!(result, "{prefix}{name}:")?;
 
     writeln!(result, "{prefix}  nodes:")?;
-    for node_id in dag.graph().nodes().into_iter() {
+    for node_id in dag.graph().nodes() {
         let name = id_to_names.get(&node_id).unwrap();
         writeln!(result, "{prefix}    {node_id:?}({name})")?;
     }
