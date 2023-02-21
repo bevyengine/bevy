@@ -140,7 +140,7 @@ impl DynamicScene {
             let registration = type_registry.get(type_id).unwrap();
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
-                    .map_specific_entities(world, entity_map, entities)
+                    .map_entities(world, entity_map, &entities)
                     .unwrap();
             }
         }

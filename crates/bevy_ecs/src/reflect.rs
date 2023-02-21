@@ -412,7 +412,7 @@ impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut World, &EntityMap, Vec<Entity>) -> Result<(), MapEntitiesError>,
+    map_entities: fn(&mut World, &EntityMap, &Vec<Entity>) -> Result<(), MapEntitiesError>,
 }
 
 impl ReflectMapEntities {
@@ -420,21 +420,7 @@ impl ReflectMapEntities {
         &self,
         world: &mut World,
         entity_map: &EntityMap,
-    ) -> Result<(), MapEntitiesError> {
-        (self.map_entities)(world, entity_map, entity_map.values().collect())
-    }
-
-    /// This is like `map_entities`, but only applied to specific entities, not all values in the `EntityMap`.
-    ///
-    /// This is useful for when you only want to apply the `MapEntity` logic to specific entities. For example,
-    /// a scene can be loaded with `Parent` components, but then a `Parent` component can be added to these entities
-    /// after they have been loaded. If you reload the scene and used plain `map_entities`, those `Parent` components
-    /// with already valid entity references could be updated to point at something else entirely.
-    pub fn map_specific_entities(
-        &self,
-        world: &mut World,
-        entity_map: &EntityMap,
-        entities: Vec<Entity>,
+        entities: &Vec<Entity>,
     ) -> Result<(), MapEntitiesError> {
         (self.map_entities)(world, entity_map, entities)
     }
@@ -444,7 +430,7 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_entities: |world, entity_map, entities| {
-                for entity in entities {
+                for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
                         component.map_entities(entity_map)?;
                     }
