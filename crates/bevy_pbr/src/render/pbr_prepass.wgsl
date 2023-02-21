@@ -1,6 +1,8 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
+#ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
+#endif // NORMAL_PREPASS
 
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
