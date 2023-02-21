@@ -34,7 +34,10 @@ pub enum ScheduleLabel {
     Bar,
 }
 
-/// A special schedule label for
+/// A special label for diagnostic.
+/// If the diagnostic system running in same label as CoreSet,
+/// then it is not able to get the [`Schedule`] instance from that label.
+/// ([`World::run_schedule_ref`] for reference)
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DiagnosticLabel;
 
