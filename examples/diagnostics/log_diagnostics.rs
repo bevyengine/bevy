@@ -1,7 +1,7 @@
 //! Shows different built-in plugins that logs diagnostics, like frames per second (FPS), to the console.
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimeDiagnosticsPlugins, LogDiagnosticsPlugin},
     prelude::*,
 };
 
@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Adds frame time diagnostics
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugins::default())
         // Adds a system that prints diagnostics to the console
         .add_plugin(LogDiagnosticsPlugin::default())
         // Any plugin can register diagnostics
