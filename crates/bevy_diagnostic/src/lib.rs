@@ -7,7 +7,7 @@ mod system_information_diagnostics_plugin;
 use bevy_app::prelude::*;
 pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
-pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
+pub use frame_time_diagnostics_plugin::{FrameTimeDiagnosticsPlugins,FrameTimeDiagnosticsPlugin,FpsDiagnosticsPlugin,FrameCountDiagnosticsPlugin};
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 pub use system_information_diagnostics_plugin::SystemInformationDiagnosticsPlugin;
 
