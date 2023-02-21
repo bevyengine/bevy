@@ -694,6 +694,11 @@ impl Bundles {
         self.bundle_infos.len()
     }
 
+    /// Returns true if no [`Bundle`] registered in [`World`]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Iterate over [`BundleInfo`]
     pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
         self.bundle_infos.iter()

@@ -166,6 +166,19 @@ impl Schedule {
         self
     }
 
+    /// Returns a reference to system
+    pub fn get_system_at(&self, system_id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
+        // if executor intialized, System is moved from graph to executable
+        if self.executor_initialized {
+            self.executable
+                .systems
+                .get(system_id.index())
+                .map(|s| s.as_ref())
+        } else {
+            self.graph().get_system_at(system_id)
+        }
+    }
+
     /// Configures a system set in this schedule, adding it if it does not exist.
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.graph.configure_set(set);
@@ -418,13 +431,18 @@ impl ScheduleGraph {
     }
 
     /// Returns the system at the given [`NodeId`], if it exists.
+    /// NOTE: systems will be moved to [`SystemSchedule`] while running, so
+    ///   should use [`Schedule::get_system_at`] whenever possible.
     pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
         if !id.is_system() {
             return None;
         }
-        self.systems
+        let result = self
+            .systems
             .get(id.index())
-            .and_then(|system| system.inner.as_deref())
+            .and_then(|system| system.inner.as_deref());
+
+        result
     }
 
     /// Returns the system at the given [`NodeId`].

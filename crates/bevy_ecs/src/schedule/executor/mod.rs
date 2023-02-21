@@ -27,7 +27,7 @@ pub(super) trait SystemExecutor: Send + Sync {
 /// The default depends on the target platform:
 ///  - [`SingleThreaded`](ExecutorKind::SingleThreaded) on WASM.
 ///  - [`MultiThreaded`](ExecutorKind::MultiThreaded) everywhere else.
-#[derive(PartialEq, Eq, Default)]
+#[derive(PartialEq, Eq, Default, Debug, Copy, Clone)]
 pub enum ExecutorKind {
     /// Runs the schedule using a single thread.
     ///
