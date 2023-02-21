@@ -403,6 +403,11 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entities with the given component type removed.
     pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
+        // `RemovedComponents` based on events and therefore events need to be consumed,
+        // so that there are no false positives on subsequent calls of the run condition.
+        // Simply checking `is_empty` would not be enough.
+        // PERF: note that `count` is efficient (not actually looping/iterating),
+        // due to Bevy having a specialized implementation for events.
         move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
     }
 }
