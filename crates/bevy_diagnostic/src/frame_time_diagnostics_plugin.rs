@@ -5,9 +5,9 @@ use bevy_ecs::prelude::*;
 use bevy_time::Time;
 
 /// This plugin group will add "frame time" diagnostics to an App, namely:
-/// * [`FrameTimeDiagnosticsPlugin`](crate::diagnostic::frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin)
-/// * [`FpsDiagnosticsPlugin`](crate::diagnostic::frame_time_diagnostics_plugin::FpsDiagnosticsPlugin)
-/// * [`FrameCountDiagnosticsPlugin`](crate::diagnostic::frame_time_diagnostics_plugin::FrameCountDiagnosticsPlugin)
+/// * [`FrameTimeDiagnosticsPlugin`](crate::FrameTimeDiagnosticsPlugin)
+/// * [`FpsDiagnosticsPlugin`](crate::FpsDiagnosticsPlugin)
+/// * [`FrameCountDiagnosticsPlugin`](crate::FrameCountDiagnosticsPlugin)
 ///
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugins;
