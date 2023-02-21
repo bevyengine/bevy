@@ -1,7 +1,9 @@
 use std::borrow::Cow;
+use std::fmt::Write;
 
 use bevy_ecs::{prelude::*, schedule::NodeId};
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
+use bevy_utils::HashMap;
 
 fn empty_system() {}
 
@@ -43,90 +45,126 @@ pub struct DiagnosticLabel;
 
 /// World diagnostic example.
 /// can be called directly on World or run as a system.
-fn diagnostic_world(world: &World) {
+fn diagnostic_world_system(world: &World) {
+    println!("{}", diagnostic_world(world).unwrap());
+}
+
+fn diagnostic_world(world: &World) -> Result<String, std::fmt::Error> {
+    let mut result = "".to_string();
+
     let bundle_size = world.bundles().len();
     let component_size = world.components().len();
     let archetype_size = world.archetypes().len();
     let entity_size = world.entities().len();
 
-    println!("***************");
-    println!("World shape:");
-    println!("  component: {bundle_size}");
-    println!("  bundle: {component_size}");
-    println!("  archetype: {archetype_size}");
-    println!("  entity: {entity_size}");
+    writeln!(result, "World shape:")?;
+    writeln!(result, "  component: {bundle_size}")?;
+    writeln!(result, "  bundle: {component_size}")?;
+    writeln!(result, "  archetype: {archetype_size}")?;
+    writeln!(result, "  entity: {entity_size}")?;
 
-    let schedules = world.get_resource::<Schedules>().unwrap();
-    diagnostic_schedules(schedules);
+    if let Some(schedules) = world.get_resource::<Schedules>() {
+        result.push_str(&diagnostic_schedules(schedules)?);
+    }
 
-    println!("World detail:");
+    writeln!(result, "World detail:")?;
     let bundles = world.bundles().iter().collect::<Vec<_>>();
     if bundle_size > 0 {
-        println!("  bundles:");
+        writeln!(result, "  bundles:")?;
         for bundle in bundles {
-            println!("    {:?}: {:?}", bundle.id(), bundle.components());
+            writeln!(result, "    {:?}: {:?}", bundle.id(), bundle.components())?;
         }
     }
 
     if archetype_size > 0 {
-        println!("  archetypes:");
+        writeln!(result, "  archetypes:")?;
         for archetype in world.archetypes().iter() {
-            println!(
+            writeln!(
+                result,
                 "    {:?}: components:{:?} entity count: {}",
                 archetype.id(),
                 archetype.components().collect::<Vec<_>>(),
                 archetype.len()
-            );
+            )?;
         }
     }
+
+    Ok(result)
 }
 
-fn diagnostic_schedules(schedules: &Schedules) {
+fn diagnostic_schedules(schedules: &Schedules) -> Result<String, std::fmt::Error> {
+    let mut result = "".to_string();
+
     let label_with_schedules = schedules.iter().collect::<Vec<_>>();
-    println!("  schedules: {}", label_with_schedules.len());
+    writeln!(result, "  schedules: {}", label_with_schedules.len())?;
 
     for (label, schedule) in label_with_schedules {
-        println!(
+        let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::new();
+        schedule.systems_for_each(|node_id, system| {
+            id_to_names.insert(node_id, system.name());
+        });
+        for (node_id, set, _, _) in schedule.graph().system_sets() {
+            id_to_names.insert(node_id, format!("{:?}", set).into());
+        }
+
+        writeln!(
+            result,
             "    label: {:?} kind:{:?}",
             label,
             schedule.get_executor_kind(),
-        );
+        )?;
 
         let schedule_graph = schedule.graph();
         {
             let hierarchy_dag = schedule_graph.hierarchy();
-            println!("    hierachy:");
+            writeln!(result, "    hierachy:")?;
             for (l, r, _) in hierarchy_dag.graph().all_edges() {
-                let l_name = name_for_node_id(l, schedule);
-                let r_name = name_for_node_id(r, schedule);
-                println!("      {l:?}({l_name:?}) -> {r:?}({r_name:?})");
+                let l_name = id_to_names.get(&l).unwrap();
+                let r_name = id_to_names.get(&r).unwrap();
+                writeln!(result, "      {l:?}({l_name:?}) -> {r:?}({r_name:?})")?;
             }
         }
 
         {
-            let dependency_dag = schedule_graph.dependency();
-            println!("    dependency:");
-            for (l, r, _) in dependency_dag.graph().all_edges() {
-                let l_name = name_for_node_id(l, schedule);
-                let r_name = name_for_node_id(r, schedule);
-                println!("      {l:?}({l_name:?}) -> {r:?}({r_name:?})");
+            let dag = schedule_graph.dependency();
+            writeln!(result, "    dependency:")?;
+            for (l, r, _) in dag.graph().all_edges() {
+                let l_name = id_to_names.get(&l).unwrap();
+                let r_name = id_to_names.get(&r).unwrap();
+                writeln!(result, "      {l:?}({l_name:?}) -> {r:?}({r_name:?})")?;
+            }
+
+            writeln!(result, "    topsorted:")?;
+            for node_name in dag
+                .cached_topsort()
+                .iter()
+                .map(|node_id| id_to_names.get(node_id).unwrap())
+            {
+                writeln!(result, "      {node_name}")?;
+            }
+        }
+
+        {
+            let dag = schedule_graph.dependency_flatten();
+            writeln!(result, "    dependency flatten:")?;
+            for (l, r, _) in dag.graph().all_edges() {
+                let l_name = id_to_names.get(&l).unwrap();
+                let r_name = id_to_names.get(&r).unwrap();
+                writeln!(result, "      {l:?}({l_name:?}) -> {r:?}({r_name:?})")?;
+            }
+
+            writeln!(result, "    topsorted:")?;
+            for node_name in dag
+                .cached_topsort()
+                .iter()
+                .map(|node_id| id_to_names.get(node_id).unwrap())
+            {
+                writeln!(result, "      {node_name}")?;
             }
         }
     }
-}
 
-fn name_for_node_id(node_id: NodeId, schedule: &Schedule) -> Option<Cow<'static, str>> {
-    match node_id {
-        bevy_ecs::schedule::NodeId::System(_) => {
-            let system = schedule.get_system_at(node_id)?;
-            system.name()
-        }
-        bevy_ecs::schedule::NodeId::Set(_) => {
-            let set = schedule.graph().get_set_at(node_id)?;
-            format!("{set:?}").into()
-        }
-    }
-    .into()
+    Ok(result)
 }
 
 // In this example we add a counter resource and increase it's value in one system,
@@ -137,7 +175,7 @@ fn main() {
 
     {
         let mut diagnostic_shedule = Schedule::default();
-        diagnostic_shedule.add_system(diagnostic_world);
+        diagnostic_shedule.add_system(diagnostic_world_system);
         world.add_schedule(diagnostic_shedule, DiagnosticLabel);
     }
 
@@ -152,17 +190,23 @@ fn main() {
             .in_set(MySet::Set1)
             .in_base_set(MyBaseSet::BaseSet1),
     );
-    schedule.add_system(
-        first_system
-            .before(second_system)
-            .in_set(MySet::Set2)
-            .in_base_set(MyBaseSet::BaseSet2),
-    );
-    schedule.add_system(
-        second_system
-            .in_set(MySet::Set2)
-            .in_base_set(MyBaseSet::BaseSet2),
-    );
+    {
+        println!("adding first_system");
+        schedule.add_system(
+            first_system
+                .before(second_system)
+                .in_set(MySet::Set2)
+                .in_base_set(MyBaseSet::BaseSet2),
+        );
+    }
+    {
+        println!("adding second_system");
+        schedule.add_system(
+            second_system
+                .in_set(MySet::Set2)
+                .in_base_set(MyBaseSet::BaseSet2),
+        );
+    }
     world.add_schedule(schedule, ScheduleLabel::Bar);
 
     world.run_schedule(ScheduleLabel::Bar);

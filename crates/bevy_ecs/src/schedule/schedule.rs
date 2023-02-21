@@ -166,16 +166,24 @@ impl Schedule {
         self
     }
 
-    /// Returns a reference to system
-    pub fn get_system_at(&self, system_id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
-        // if executor intialized, System is moved from graph to executable
-        if self.executor_initialized {
-            self.executable
-                .systems
-                .get(system_id.index())
-                .map(|s| s.as_ref())
-        } else {
-            self.graph().get_system_at(system_id)
+    /// call function `f` on each pair of (`NodeId`, `System info`)
+    pub fn systems_for_each(&self, mut f: impl FnMut(NodeId, &dyn System<In = (), Out = ()>)) {
+        match self.executor_initialized {
+            true => {
+                for (id, system) in self
+                    .executable
+                    .system_ids
+                    .iter()
+                    .zip(self.executable.systems.iter())
+                {
+                    f(*id, system.as_ref());
+                }
+            }
+            false => {
+                for (node_id, system, _, _) in self.graph.systems() {
+                    f(node_id, system);
+                }
+            }
         }
     }
 
@@ -431,8 +439,8 @@ impl ScheduleGraph {
     }
 
     /// Returns the system at the given [`NodeId`], if it exists.
-    /// NOTE: systems will be moved from [`ScheduleGraph`] to [`SystemSchedule`] while running,
-    ///     use [`Schedule::get_system_at`] instead whenever possible.
+    /// NOTE: when `Schedule` is running, the systems will be taken out from graph to executor,
+    ///       in that case, this method returns `None`.
     pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
         if !id.is_system() {
             return None;
@@ -526,6 +534,14 @@ impl ScheduleGraph {
     /// a system or set has to run before another system or set.
     pub fn dependency(&self) -> &Dag {
         &self.dependency
+    }
+
+    /// Returns the [`Dag`] of the flatten dependencies in the schedule.
+    ///
+    /// Nodes in this graph are systems and sets, and edges denote that
+    /// a system or set has to run before another system or set.
+    pub fn dependency_flatten(&self) -> &Dag {
+        &self.dependency_flattened
     }
 
     /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
