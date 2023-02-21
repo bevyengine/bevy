@@ -110,26 +110,14 @@ pub fn measure_text_system(
     let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
         if let Ok((text, mut intrinsic_size)) = query.get_mut(entity) {
-            match text_pipeline.compute_sections(&fonts, &text.sections, scale_factor) {
-                Ok((sections, scaled_fonts)) => {
-                    // computes the size of the text with the text wrapped after every word
-                    let min = text_pipeline.compute_size(
-                        &sections,
-                        &scaled_fonts,
-                        text.alignment,
-                        text.linebreak_behaviour,
-                        Vec2::new(0., f32::INFINITY),
-                    );
-
-                    // computes the size of the text with no width constraint
-                    let max = text_pipeline.compute_size(
-                        &sections,
-                        &scaled_fonts,
-                        text.alignment,
-                        text.linebreak_behaviour,
-                        Vec2::splat(f32::INFINITY),
-                    );
-
+            match text_pipeline.compute_size_constraints(
+                &fonts,
+                &text.sections,
+                scale_factor,
+                text.alignment,
+                text.linebreak_behaviour,
+            ) {
+                Ok([min, max]) => {
                     let measure = TextMeasure {
                         min_content: min,
                         max_content: max,

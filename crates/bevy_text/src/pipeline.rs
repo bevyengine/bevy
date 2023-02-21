@@ -115,20 +115,15 @@ impl TextPipeline {
         Ok(TextLayoutInfo { glyphs, size })
     }
 
-    //  Some hacks to find the size constraints for the text, needs a better solution
-
-    pub fn compute_sections<'a>(
+    // hacked up `queue_text` that returns the text size constraints, there should be a better solution
+    pub fn compute_size_constraints(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &'a [TextSection],
+        sections: &[TextSection],
         scale_factor: f64,
-    ) -> Result<
-        (
-            Vec<SectionText<'a>>,
-            Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
-        ),
-        TextError,
-    > {
+        text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
+    ) -> Result<[Vec2; 2], TextError> {
         let mut scaled_fonts = Vec::new();
         let sections = sections
             .iter()
@@ -151,38 +146,35 @@ impl TextPipeline {
                 Ok(section)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok((sections, scaled_fonts))
-    }
 
-    pub fn compute_size(
-        &self,
-        sections: &Vec<SectionText>,
-        scaled_fonts: &Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
-        text_alignment: TextAlignment,
-        linebreak_behaviour: BreakLineOn,
-        bounds: Vec2,
-    ) -> Vec2 {
-        if let Ok(section_glyphs) =
-            self.brush
-                .compute_glyphs(sections, bounds, text_alignment, linebreak_behaviour)
-        {
-            let mut min_x: f32 = std::f32::MAX;
-            let mut min_y: f32 = std::f32::MAX;
-            let mut max_x: f32 = std::f32::MIN;
-            let mut max_y: f32 = std::f32::MIN;
+        let result = [
+            Vec2::new(0.0, f32::INFINITY),
+            Vec2::new(f32::INFINITY, f32::INFINITY),
+        ]
+        .map(|bounds| {
+            if let Ok(section_glyphs) =
+                self.brush
+                    .compute_glyphs(&sections, bounds, text_alignment, linebreak_behaviour)
+            {
+                let mut min_x: f32 = std::f32::MAX;
+                let mut min_y: f32 = std::f32::MAX;
+                let mut max_x: f32 = std::f32::MIN;
+                let mut max_y: f32 = std::f32::MIN;
 
-            for sg in section_glyphs {
-                let scaled_font = &scaled_fonts[sg.section_index];
-                let glyph = &sg.glyph;
-                min_x = min_x.min(glyph.position.x);
-                min_y = min_y.min(glyph.position.y - scaled_font.ascent());
-                max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
-                max_y = max_y.max(glyph.position.y - scaled_font.descent());
+                for sg in section_glyphs {
+                    let scaled_font = &scaled_fonts[sg.section_index];
+                    let glyph = &sg.glyph;
+                    min_x = min_x.min(glyph.position.x);
+                    min_y = min_y.min(glyph.position.y - scaled_font.ascent());
+                    max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
+                    max_y = max_y.max(glyph.position.y - scaled_font.descent());
+                }
+
+                Vec2::new(max_x - min_x, max_y - min_y)
+            } else {
+                Vec2::ZERO
             }
-
-            Vec2::new(max_x - min_x, max_y - min_y)
-        } else {
-            Vec2::ZERO
-        }
+        });
+        Ok(result)
     }
 }
