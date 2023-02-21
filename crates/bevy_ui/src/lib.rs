@@ -108,7 +108,7 @@ impl Plugin for UiPlugin {
             .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem))
             // add these systems to front because these must run before transform update systems
             .add_system(
-                widget::text_system
+                widget::measure_text_system
                     .in_base_set(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     // Potential conflict: `Assets<Image>`
@@ -142,8 +142,12 @@ impl Plugin for UiPlugin {
                 update_clipping_system
                     .after(TransformSystem::TransformPropagate)
                     .in_base_set(CoreSet::PostUpdate),
+            )
+            .add_system(
+                widget::text_system
+                    .in_base_set(CoreSet::PostUpdate)
+                    .after(UiSystem::Flex),
             );
-
         crate::render::build_ui_render(app);
     }
 }

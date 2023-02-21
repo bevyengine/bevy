@@ -18,6 +18,11 @@ fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }
 
+/// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space 
+/// to provide for the text given the fonts, the text itself and the constraints of the layout.
+pub fn measure_text_system() {
+}
+
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 ///
