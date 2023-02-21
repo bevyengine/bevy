@@ -114,4 +114,81 @@ impl TextPipeline {
 
         Ok(TextLayoutInfo { glyphs, size })
     }
+
+
+    // Past here is just terrible hacks to get what I want
+
+    pub fn compute_sections<'a>(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &'a [TextSection],
+        scale_factor: f64,
+    ) -> Result<(Vec<SectionText<'a>>, Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>), TextError> {
+        let mut scaled_fonts = Vec::new();
+        let sections = sections
+            .iter()
+            .map(|section| {
+                let font = fonts
+                    .get(&section.style.font)
+                    .ok_or(TextError::NoSuchFont)?;
+                let font_id = self.get_or_insert_font_id(&section.style.font, font);
+                let font_size = scale_value(section.style.font_size, scale_factor);
+
+                let px_scale_font = ab_glyph::Font::into_scaled(font.font.clone(), font_size);
+                scaled_fonts.push(px_scale_font);
+
+                let section = SectionText {
+                    font_id,
+                    scale: PxScale::from(font_size),
+                    text: &section.value,
+                };
+
+                Ok(section)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((sections, scaled_fonts))
+    }
+
+    pub fn compute_section_glyphs(
+        &self,
+        sections: &Vec<SectionText>,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
+        bounds: Vec2,
+    ) -> Result<Vec<glyph_brush_layout::SectionGlyph>, TextError> {
+        self.brush
+            .compute_glyphs(&sections, bounds, text_alignment, linebreak_behaviour)
+    }
+
+    pub fn compute_size(
+        &self,
+        sections: &Vec<SectionText>,
+        scaled_fonts: &Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
+        bounds: Vec2,
+    ) -> Vec2 {
+        if let Ok(section_glyphs) =
+            self.brush
+                .compute_glyphs(sections, bounds, text_alignment, linebreak_behaviour)
+        {
+            let mut min_x: f32 = std::f32::MAX;
+            let mut min_y: f32 = std::f32::MAX;
+            let mut max_x: f32 = std::f32::MIN;
+            let mut max_y: f32 = std::f32::MIN;
+
+            for sg in section_glyphs {
+                let scaled_font = &scaled_fonts[sg.section_index];
+                let glyph = &sg.glyph;
+                min_x = min_x.min(glyph.position.x);
+                min_y = min_y.min(glyph.position.y - scaled_font.ascent());
+                max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
+                max_y = max_y.max(glyph.position.y - scaled_font.descent());
+            }
+
+            Vec2::new(max_x - min_x, max_y - min_y)
+        } else {
+            Vec2::ZERO
+        }
+    }
 }

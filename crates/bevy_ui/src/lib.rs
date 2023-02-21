@@ -39,6 +39,7 @@ use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
+use widget::TextQueue;
 
 use crate::prelude::UiCameraConfig;
 
@@ -79,6 +80,7 @@ impl Plugin for UiPlugin {
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<TextQueue>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
