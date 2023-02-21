@@ -1607,7 +1607,7 @@ wasm = false
 name = "text_wrap"
 path = "examples/ui/text_wrap.rs"
 
-[package.metadata.example.text_wraap]
+[package.metadata.example.text_wrap]
 name = "Text Wrap"
 description = "Demonstrates text wrapping"
 category = "UI (User Interface)"
