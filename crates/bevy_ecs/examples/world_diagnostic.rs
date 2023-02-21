@@ -35,9 +35,9 @@ pub enum ScheduleLabel {
 }
 
 /// A special label for diagnostic.
-/// If the diagnostic system running in same label as CoreSet,
-/// then it is not able to get the [`Schedule`] instance from that label.
-/// ([`World::run_schedule_ref`] for reference)
+/// If the diagnostic system running in a common used label, like the ones
+/// defined as `bevy_app::CoreSchedule`, it is not able to get the corresponding
+/// [`Schedule`] instance. ([`World::run_schedule_ref`] for reference)
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DiagnosticLabel;
 
