@@ -54,13 +54,13 @@ fn diagnostic_world(world: &World) {
     println!("  entity: {entity_size}");
 
     let schedules = world.get_resource::<Schedules>().unwrap();
-    diagnostic_schedules(&schedules);
+    diagnostic_schedules(schedules);
 
     println!("World detail:");
     let bundles = world.bundles().iter().collect::<Vec<_>>();
     if bundle_size > 0 {
         println!("  bundles:");
-        for bundle in bundles.iter() {
+        for bundle in bundles {
             println!("    {:?}: {:?}", bundle.id(), bundle.components());
         }
     }
@@ -96,7 +96,7 @@ fn diagnostic_schedules(schedules: &Schedules) {
             for (l, r, _) in hierarchy_dag.graph().all_edges() {
                 let l_name = name_for_node_id(l, schedule);
                 let r_name = name_for_node_id(r, schedule);
-                println!("    {l:?}({l_name:?}) -> {r:?}({r_name:?})");
+                println!("      {l:?}({l_name:?}) -> {r:?}({r_name:?})");
             }
         }
 
@@ -106,7 +106,7 @@ fn diagnostic_schedules(schedules: &Schedules) {
             for (l, r, _) in dependency_dag.graph().all_edges() {
                 let l_name = name_for_node_id(l, schedule);
                 let r_name = name_for_node_id(r, schedule);
-                println!("    {l:?}({l_name:?}) -> {r:?}({r_name:?})");
+                println!("      {l:?}({l_name:?}) -> {r:?}({r_name:?})");
             }
         }
     }

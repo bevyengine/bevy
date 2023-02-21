@@ -431,18 +431,15 @@ impl ScheduleGraph {
     }
 
     /// Returns the system at the given [`NodeId`], if it exists.
-    /// NOTE: systems will be moved to [`SystemSchedule`] while running, so
-    ///   should use [`Schedule::get_system_at`] whenever possible.
+    /// NOTE: systems will be moved from [`ScheduleGraph`] to [`SystemSchedule`] while running,
+    ///     use [`Schedule::get_system_at`] instead whenever possible.
     pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
         if !id.is_system() {
             return None;
         }
-        let result = self
-            .systems
+        self.systems
             .get(id.index())
-            .and_then(|system| system.inner.as_deref());
-
-        result
+            .and_then(|system| system.inner.as_deref())
     }
 
     /// Returns the system at the given [`NodeId`].
