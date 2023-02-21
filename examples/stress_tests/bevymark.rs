@@ -3,7 +3,7 @@
 //! Usage: spawn more entities by clicking on the screen.
 
 use bevy::{
-    diagnostic::{Diagnostics, LogDiagnosticsPlugin, FpsDiagnosticsPlugin},
+    diagnostic::{Diagnostics, FpsDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
 };

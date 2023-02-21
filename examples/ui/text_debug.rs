@@ -1,7 +1,9 @@
 //! Shows various text layout options.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugins, FrameTimeDiagnosticsPlugin, FpsDiagnosticsPlugin},
+    diagnostic::{
+        Diagnostics, FpsDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, FrameTimeDiagnosticsPlugins,
+    },
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
