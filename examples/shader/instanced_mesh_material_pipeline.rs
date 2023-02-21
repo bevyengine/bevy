@@ -1,4 +1,4 @@
-//! A shader that renders a mesh with material multiple times in one draw call. It does not solve instancing materials.
+//! A shader that renders a mesh with material multiple times in one draw call. It does not solve instancing materials. Instances are not sorted by distance.
 
 use std::{hash::Hash, marker::PhantomData};
 
@@ -126,7 +126,7 @@ fn setup(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0),
         point_light: PointLight {
-            intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+            intensity: 1600.0,
             color: Color::RED,
             shadows_enabled: true,
             ..default()
@@ -188,7 +188,10 @@ fn queue_instanced_meshes_with_material<M>(
     pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>, &Handle<M>), With<Instances>>,
+    instanced_meshes_with_material: Query<
+        (Entity, &MeshUniform, &Handle<Mesh>, &Handle<M>),
+        With<Instances>,
+    >,
     mut views: Query<(
         &ExtractedView,
         &mut RenderPhase<Opaque3d>,
@@ -214,13 +217,21 @@ fn queue_instanced_meshes_with_material<M>(
     for (view, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in &mut views {
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
-        for (entity, mesh_uniform, mesh_handle, material_handle) in &material_meshes {
+        for (entity, mesh_uniform, mesh_handle, material_handle) in &instanced_meshes_with_material
+        {
             if let (Some(mesh), Some(material)) = (
                 render_meshes.get(mesh_handle),
                 render_materials.get(material_handle),
             ) {
-                let mesh_key =
-                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let mut mesh_key =
+                    MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+                let alpha_mode = material.properties.alpha_mode;
+                if let AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add = alpha_mode {
+                    mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                } else if let AlphaMode::Multiply = alpha_mode {
+                    mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
+                }
+
                 let pipeline = pipelines
                     .specialize(
                         &pipeline_cache,
