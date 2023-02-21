@@ -5,8 +5,12 @@
 #import bevy_pbr::mesh_functions
 
 struct Vertex {
+#ifdef VERTEX_POSITIONS
     @location(0) position: vec3<f32>,
+#endif
+#ifdef VERTEX_NORMALS
     @location(1) normal: vec3<f32>,
+#endif
 #ifdef VERTEX_UVS
     @location(2) uv: vec2<f32>,
 #endif
@@ -20,7 +24,7 @@ struct Vertex {
     @location(5) joint_indices: vec4<u32>,
     @location(6) joint_weights: vec4<f32>,
 #endif
-    @location(10) placement: vec3<f32>,
+    @location(10) instance_position: vec3<f32>,
 };
 
 struct VertexOutput {
@@ -31,32 +35,45 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
+    var position = vertex.instance_position;
 
-    let position = vertex.position + vertex.placement;
 #ifdef SKINNED
     var model = skin_model(vertex.joint_indices, vertex.joint_weights);
-    out.world_normal = skin_normals(model, vertex.normal);
 #else
     var model = mesh.model;
+#endif
+
+#ifdef VERTEX_NORMALS
+#ifdef SKINNED
+    out.world_normal = skin_normals(model, vertex.normal);
+#else
     out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif
+#endif
+
+#ifdef VERTEX_POSITIONS
+    position += vertex.position;
+#endif
+
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(position, 1.0));
+    out.clip_position = mesh_position_world_to_clip(out.world_position);
+
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif
+
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif
+
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
 #endif
 
-    out.clip_position = mesh_position_world_to_clip(out.world_position);
     return out;
 }
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     #import bevy_pbr::mesh_vertex_output
 };
 
