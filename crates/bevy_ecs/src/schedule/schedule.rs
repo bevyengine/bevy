@@ -1320,7 +1320,6 @@ impl ScheduleGraph {
 
 /// Used to select the appropriate reporting function.
 enum ReportCycles {
-    None,
     Hierarchy,
     Dependency,
 }
@@ -1425,7 +1424,6 @@ impl ScheduleGraph {
             match report {
                 ReportCycles::Hierarchy => self.report_hierarchy_cycles(&cycles),
                 ReportCycles::Dependency => self.report_dependency_cycles(&cycles),
-                ReportCycles::None => (),
             }
 
             Err(sccs_with_cycles)
@@ -1434,13 +1432,13 @@ impl ScheduleGraph {
 
     /// Logs details of cycles in the hierarchy graph.
     fn report_hierarchy_cycles(&self, cycles: &[Vec<NodeId>]) {
-        let mut message = format!("{} `in_set` cycles found in schedule:\n", cycles.len());
+        let mut message = format!("schedule has {} in_set cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
             let mut names = cycle.iter().map(|id| self.get_node_name(id));
             let first_name = names.next().unwrap();
             writeln!(
                 message,
-                "cycle {}: set '{first_name}' contains itself. Cycle:",
+                "cycle {}: set '{first_name}' contains itself",
                 i + 1,
             )
             .unwrap();
@@ -1456,10 +1454,7 @@ impl ScheduleGraph {
 
     /// Logs details of cycles in the dependency graph.
     fn report_dependency_cycles(&self, cycles: &[Vec<NodeId>]) {
-        let mut message = format!(
-            "{} `before`/`after` cycles found in schedule:\n",
-            cycles.len()
-        );
+        let mut message = format!("schedule has {} before/after cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
             let mut names = cycle
                 .iter()
@@ -1467,7 +1462,7 @@ impl ScheduleGraph {
             let (first_kind, first_name) = names.next().unwrap();
             writeln!(
                 message,
-                "cycle {}: {first_kind} '{first_name}' must run before itself. Cycle:",
+                "cycle {}: {first_kind} '{first_name}' must run before itself",
                 i + 1,
             )
             .unwrap();
