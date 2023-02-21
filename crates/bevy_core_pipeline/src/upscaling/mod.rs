@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
 
@@ -29,7 +29,7 @@ impl Plugin for UpscalingPlugin {
             render_app
                 .init_resource::<UpscalingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_view_upscaling_pipelines);
+                .add_system(queue_view_upscaling_pipelines.in_set(RenderSet::Queue));
         }
     }
 }
@@ -88,7 +88,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("upscaling pipeline".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: UPSCALING_SHADER_HANDLE.typed(),
@@ -103,6 +103,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
@@ -112,7 +113,7 @@ pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
 fn queue_view_upscaling_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
     view_targets: Query<(Entity, &ViewTarget)>,
@@ -122,7 +123,7 @@ fn queue_view_upscaling_pipelines(
             upscaling_mode: UpscalingMode::Filtering,
             texture_format: view_target.out_texture_format(),
         };
-        let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
+        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
         commands
             .entity(entity)

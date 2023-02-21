@@ -9,7 +9,6 @@ use std::{
 };
 
 use crate::utility::NonGenericTypeInfoCell;
-pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///
@@ -62,13 +61,17 @@ pub enum ReflectOwned {
     Value(Box<dyn Reflect>),
 }
 
-/// A reflected Rust type.
+/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
-/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
-/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
-/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
+/// See the [crate-level documentation] to see how this trait and its subtraits can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
@@ -215,21 +218,6 @@ pub trait Reflect: Any + Send + Sync {
     }
 }
 
-/// A trait for types which can be constructed from a reflected type.
-///
-/// This trait can be derived on types which implement [`Reflect`]. Some complex
-/// types (such as `Vec<T>`) may only be reflected if their element types
-/// implement this trait.
-///
-/// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
-/// attribute will be constructed using the `Default` implementation of the
-/// field type, rather than the corresponding field value (if any) of the
-/// reflected value.
-pub trait FromReflect: Reflect + Sized {
-    /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
-}
-
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
@@ -280,6 +268,8 @@ impl dyn Reflect {
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()

@@ -5,7 +5,10 @@ use crate::{
     Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -16,7 +19,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{
-        BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
+        BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
@@ -131,6 +134,7 @@ impl FromWorld for SpritePipeline {
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
+                mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
 
@@ -147,30 +151,45 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
-        const NONE                        = 0;
-        const COLORED                     = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const NONE                              = 0;
+        const COLORED                           = (1 << 0);
+        const HDR                               = (1 << 1);
+        const TONEMAP_IN_SHADER                 = (1 << 2);
+        const DEBAND_DITHER                     = (1 << 3);
+        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
 impl SpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_SHIFT_BITS: u32 =
+        Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
-    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+    #[inline]
+    pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits(msaa_bits).unwrap()
+        Self::from_bits_truncate(msaa_bits)
     }
 
-    pub fn msaa_samples(&self) -> u32 {
+    #[inline]
+    pub const fn msaa_samples(&self) -> u32 {
         1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_colored(colored: bool) -> Self {
+    #[inline]
+    pub const fn from_colored(colored: bool) -> Self {
         if colored {
             SpritePipelineKey::COLORED
         } else {
@@ -178,7 +197,8 @@ impl SpritePipelineKey {
         }
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
+    #[inline]
+    pub const fn from_hdr(hdr: bool) -> Self {
         if hdr {
             SpritePipelineKey::HDR
         } else {
@@ -214,6 +234,27 @@ impl SpecializedRenderPipeline for SpritePipeline {
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
+            let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED {
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
+
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(SpritePipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
@@ -242,7 +283,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.material_layout.clone()]),
+            layout: vec![self.view_layout.clone(), self.material_layout.clone()],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -259,6 +300,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("sprite_pipeline".into()),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
@@ -447,7 +489,7 @@ pub fn queue_sprites(
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
@@ -457,6 +499,7 @@ pub fn queue_sprites(
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
+        Option<&DebandDither>,
     )>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -470,7 +513,7 @@ pub fn queue_sprites(
         };
     }
 
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let sprite_meta = &mut sprite_meta;
@@ -488,7 +531,7 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
+        let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
         // Vertex buffer indices
         let mut index = 0;
@@ -512,24 +555,43 @@ pub fn queue_sprites(
         });
         let image_bind_groups = &mut *image_bind_groups;
 
-        for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
+        for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
-                if !view.hdr {
-                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
 
-                    if *deband_dither {
-                        view_key |= SpritePipelineKey::DEBAND_DITHER;
-                    }
+            if !view.hdr {
+                if let Some(tonemapping) = tonemapping {
+                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+                    view_key |= match tonemapping {
+                        Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                        Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                        Tonemapping::ReinhardLuminance => {
+                            SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                        }
+                        Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                        Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                        Tonemapping::SomewhatBoringDisplayTransform => {
+                            SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                        }
+                        Tonemapping::TonyMcMapface => {
+                            SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
+                        }
+                        Tonemapping::BlenderFilmic => {
+                            SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
+                        }
+                    };
+                }
+                if let Some(DebandDither::Enabled) = dither {
+                    view_key |= SpritePipelineKey::DEBAND_DITHER;
                 }
             }
+
             let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(false),
             );
             let colored_pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(true),
             );
@@ -543,9 +605,9 @@ pub fn queue_sprites(
                 image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
                 colored: false,
             };
-            let mut current_batch_entity = Entity::from_raw(u32::MAX);
+            let mut current_batch_entity = Entity::PLACEHOLDER;
             let mut current_image_size = Vec2::ZERO;
-            // Add a phase item for each sprite, and detect when succesive items can be batched.
+            // Add a phase item for each sprite, and detect when successive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
@@ -636,11 +698,12 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
+                    let vertex_color = extracted_sprite.color.as_linear_rgba_f32();
                     for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                             position: positions[i],
                             uv: uvs[i].into(),
-                            color: extracted_sprite.color.as_linear_rgba_f32(),
+                            color: vertex_color,
                         });
                     }
                     let item_start = colored_index;
@@ -692,16 +755,18 @@ pub type DrawSprite = (
 );
 
 pub struct SetSpriteViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
-    type Param = (SRes<SpriteMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
 
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (sprite_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        view_uniform: &'_ ViewUniformOffset,
+        _entity: (),
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             sprite_meta.into_inner().view_bind_group.as_ref().unwrap(),
@@ -711,16 +776,18 @@ impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
     }
 }
 pub struct SetSpriteTextureBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
-    type Param = (SRes<ImageBindGroups>, SQuery<Read<SpriteBatch>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
+    type Param = SRes<ImageBindGroups>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
         pass.set_bind_group(
@@ -737,15 +804,17 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
 
 pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
-    type Param = (SRes<SpriteMeta>, SQuery<Read<SpriteBatch>>);
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        _view: Entity,
         item: &P,
-        (sprite_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item.entity()).unwrap();
         let sprite_meta = sprite_meta.into_inner();
         if sprite_batch.colored {
             pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));

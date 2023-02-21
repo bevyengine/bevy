@@ -3,7 +3,9 @@
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::Resource,
+    system::{Local, Resource},
+    world::{FromWorld, World},
+    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -12,6 +14,7 @@ use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
+    marker::PhantomData,
     mem::needs_drop,
 };
 
@@ -110,6 +113,38 @@ use std::{
 ///
 /// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
 /// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
+///
+/// # `!Sync` Components
+/// A `!Sync` type cannot implement `Component`. However, it is possible to wrap a `Send` but not `Sync`
+/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
+/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
+/// threads.
+///
+/// This will fail to compile since `RefCell` is `!Sync`.
+/// ```compile_fail
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::component::Component;
+/// #[derive(Component)]
+/// struct NotSync {
+///    counter: RefCell<usize>,
+/// }
+/// ```
+///
+/// This will compile since the `RefCell` is wrapped with `SyncCell`.
+/// ```
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::component::Component;
+/// use bevy_utils::synccell::SyncCell;
+///
+/// // This will compile.
+/// #[derive(Component)]
+/// struct ActuallySync {
+///    counter: SyncCell<RefCell<usize>>,
+/// }
+/// ```
+///
+/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
@@ -204,7 +239,8 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
-    fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    /// Create a new [`ComponentInfo`].
+    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo { id, descriptor }
     }
 }
@@ -366,8 +402,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: TypeIdMap<usize>,
+    resource_indices: TypeIdMap<usize>,
 }
 
 impl Components {
@@ -425,6 +461,11 @@ impl Components {
         self.components.get(id.0)
     }
 
+    #[inline]
+    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
+        self.get_info(id).map(|descriptor| descriptor.name())
+    }
+
     /// # Safety
     ///
     /// `id` must be a valid [`ComponentId`]
@@ -466,11 +507,38 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
+    /// Type-erased equivalent of [`Components::resource_id`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices
             .get(&type_id)
             .map(|index| ComponentId(*index))
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Resource` type has not
+    /// yet been initialized using [`Components::init_resource`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ResourceA;
+    ///
+    /// let resource_a_id = world.init_resource::<ResourceA>();
+    ///
+    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.get_resource_id(TypeId::of::<T>())
     }
 
     #[inline]
@@ -530,8 +598,10 @@ impl Tick {
     }
 
     #[inline]
-    /// Returns `true` if the tick is older than the system last's run.
-    pub fn is_older_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
+    /// Returns `true` if this `Tick` occurred since the system's `last_change_tick`.
+    ///
+    /// `change_tick` is the current tick of the system, used as a reference to help deal with wraparound.
+    pub fn is_newer_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
         // `last_change_tick` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
@@ -604,13 +674,13 @@ impl ComponentTicks {
     #[inline]
     /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.added.is_older_than(last_change_tick, change_tick)
+        self.added.is_newer_than(last_change_tick, change_tick)
     }
 
     #[inline]
     /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.changed.is_older_than(last_change_tick, change_tick)
+        self.changed.is_newer_than(last_change_tick, change_tick)
     }
 
     pub(crate) fn new(change_tick: u32) -> Self {
@@ -637,5 +707,50 @@ impl ComponentTicks {
     #[inline]
     pub fn set_changed(&mut self, change_tick: u32) {
         self.changed.set_changed(change_tick);
+    }
+}
+
+/// Initialize and fetch a [`ComponentId`] for a specific type.
+///
+/// # Example
+/// ```rust
+/// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
+/// #[derive(Component)]
+/// struct Player;
+/// fn my_system(component_id: Local<ComponentIdFor<Player>>) {
+///     let component_id: ComponentId = component_id.into();
+///     // ...
+/// }
+/// ```
+pub struct ComponentIdFor<T: Component> {
+    component_id: ComponentId,
+    phantom: PhantomData<T>,
+}
+
+impl<T: Component> FromWorld for ComponentIdFor<T> {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            component_id: world.init_component::<T>(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T: Component> std::ops::Deref for ComponentIdFor<T> {
+    type Target = ComponentId;
+    fn deref(&self) -> &Self::Target {
+        &self.component_id
+    }
+}
+
+impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
+    fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
+        *to_component_id
+    }
+}
+
+impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
+    fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
+        **to_component_id
     }
 }

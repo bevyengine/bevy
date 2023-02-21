@@ -119,7 +119,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
@@ -133,6 +133,13 @@ pub struct UiRect {
 }
 
 impl UiRect {
+    pub const DEFAULT: Self = Self {
+        left: Val::DEFAULT,
+        right: Val::DEFAULT,
+        top: Val::DEFAULT,
+        bottom: Val::DEFAULT,
+    };
+
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -152,7 +159,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -175,7 +182,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn all(value: Val) -> Self {
+    pub const fn all(value: Val) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -313,10 +320,16 @@ impl UiRect {
     }
 }
 
+impl Default for UiRect {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
@@ -326,6 +339,8 @@ pub struct Size {
 }
 
 impl Size {
+    pub const DEFAULT: Self = Self::AUTO;
+
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -342,17 +357,74 @@ impl Size {
         Size { width, height }
     }
 
+    /// Creates a new [`Size`] where both sides take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::all(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Px(10.0));
+    /// ```
+    pub const fn all(value: Val) -> Self {
+        Self {
+            width: value,
+            height: value,
+        }
+    }
+
+    /// Creates a new [`Size`] where `width` takes the given value and its `height` is `Val::Auto`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::width(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Auto);
+    /// ```
+    pub const fn width(width: Val) -> Self {
+        Self {
+            width,
+            height: Val::Auto,
+        }
+    }
+
+    /// Creates a new [`Size`] where `height` takes the given value and its `width` is `Val::Auto`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::height(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Auto);
+    /// assert_eq!(size.height, Val::Px(10.));
+    /// ```
+    pub const fn height(height: Val) -> Self {
+        Self {
+            width: Val::Auto,
+            height,
+        }
+    }
+
     /// Creates a Size where both values are [`Val::Auto`].
-    pub const AUTO: Size = Size {
-        width: Val::Auto,
-        height: Val::Auto,
-    };
+    pub const AUTO: Self = Self::all(Val::Auto);
 
     /// Creates a Size where both values are [`Val::Undefined`].
-    pub const UNDEFINED: Size = Size {
-        width: Val::Undefined,
-        height: Val::Undefined,
-    };
+    pub const UNDEFINED: Self = Self::all(Val::Undefined);
+}
+
+impl Default for Size {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 impl From<(Val, Val)> for Size {
@@ -405,6 +477,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn uirect_default_equals_const_default() {
+        assert_eq!(
+            UiRect::default(),
+            UiRect {
+                left: Val::Undefined,
+                right: Val::Undefined,
+                top: Val::Undefined,
+                bottom: Val::Undefined
+            }
+        );
+        assert_eq!(UiRect::default(), UiRect::DEFAULT);
+    }
+
+    #[test]
     fn test_size_from() {
         let size: Size = (Val::Px(20.), Val::Px(30.)).into();
 
@@ -419,14 +505,11 @@ mod tests {
 
     #[test]
     fn test_size_mul() {
-        assert_eq!(
-            Size::new(Val::Px(10.), Val::Px(10.)) * 2.,
-            Size::new(Val::Px(20.), Val::Px(20.))
-        );
+        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
 
-        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
+        let mut size = Size::all(Val::Px(10.));
         size *= 2.;
-        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
+        assert_eq!(size, Size::all(Val::Px(20.)));
     }
 
     #[test]
@@ -439,5 +522,56 @@ mod tests {
         let mut size = Size::new(Val::Px(20.), Val::Px(20.));
         size /= 2.;
         assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
+    }
+
+    #[test]
+    fn test_size_all() {
+        let length = Val::Px(10.);
+
+        assert_eq!(
+            Size::all(length),
+            Size {
+                width: length,
+                height: length
+            }
+        );
+    }
+
+    #[test]
+    fn test_size_width() {
+        let width = Val::Px(10.);
+
+        assert_eq!(
+            Size::width(width),
+            Size {
+                width,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_size_height() {
+        let height = Val::Px(7.);
+
+        assert_eq!(
+            Size::height(height),
+            Size {
+                height,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn size_default_equals_const_default() {
+        assert_eq!(
+            Size::default(),
+            Size {
+                width: Val::Auto,
+                height: Val::Auto
+            }
+        );
+        assert_eq!(Size::default(), Size::DEFAULT);
     }
 }

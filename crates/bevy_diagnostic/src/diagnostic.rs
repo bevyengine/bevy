@@ -111,7 +111,7 @@ impl Diagnostic {
     /// The smoothing factor used for the exponential smoothing used for
     /// [`smoothed`](Self::smoothed).
     ///
-    /// If measurements come in less fequently than `smoothing_factor` seconds
+    /// If measurements come in less frequently than `smoothing_factor` seconds
     /// apart, no smoothing will be applied. As measurements come in more
     /// frequently, the smoothing takes a greater effect such that it takes
     /// approximately `smoothing_factor` seconds for 83% of an instantaneous

@@ -3,16 +3,17 @@
 use bevy::{
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::{render_resource::WgpuFeatures, settings::WgpuSettings},
+    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
 };
 
 fn main() {
     App::new()
-        .insert_resource(WgpuSettings {
-            features: WgpuFeatures::POLYGON_MODE_LINE,
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(RenderPlugin {
+            wgpu_settings: WgpuSettings {
+                features: WgpuFeatures::POLYGON_MODE_LINE,
+                ..default()
+            },
+        }))
         .add_plugin(WireframePlugin)
         .add_startup_system(setup)
         .run();
@@ -29,7 +30,7 @@ fn setup(
     wireframe_config.global = false;
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

@@ -33,7 +33,7 @@ impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
 impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
     ) -> CachedRenderPipelineId {
@@ -63,7 +63,7 @@ impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
 impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
     ) -> CachedComputePipelineId {
@@ -103,7 +103,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
     #[inline]
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
         layout: &MeshVertexBufferLayout,

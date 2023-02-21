@@ -1,9 +1,10 @@
-use crate::{CalculatedSize, Orientation, UiImage, Val};
+use crate::{CalculatedSize, Orientation, UiImage};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
     system::{Query, Res},
 };
+use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_text::Text;
 
@@ -14,8 +15,8 @@ pub fn update_image_calculated_size_system(
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
-            let width = Val::Px(texture.texture_descriptor.size.width as f32);
-            let height = Val::Px(texture.texture_descriptor.size.height as f32);
+            let width = texture.texture_descriptor.size.width as f32;
+            let height = texture.texture_descriptor.size.height as f32;
             let size = match image.orientation {
                 Orientation::North
                 | Orientation::South
@@ -31,6 +32,7 @@ pub fn update_image_calculated_size_system(
             // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
                 calculated_size.size = size;
+                calculated_size.preserve_aspect_ratio = true;
             }
         }
     }

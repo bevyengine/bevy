@@ -1,8 +1,11 @@
 //! Renders a lot of sprites to allow performance testing.
 //! See <https://github.com/bevyengine/bevy/pull/1492>
 //!
-//! It sets up many sprites in different sizes and rotations, and at different scales in the world,
-//! and moves the camera over them to see how well frustum culling works.
+//! It sets up many animated sprites in different sizes and rotations,
+//! and at different scales in the world, and moves the camera over them.
+//!
+//! Having sprites out of the camera's field of view should also help stress
+//! test any future potential 2d frustum culling implementation.
 //!
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
@@ -10,7 +13,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 use rand::Rng;
@@ -31,10 +34,10 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_startup_system(setup)

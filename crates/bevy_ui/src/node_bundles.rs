@@ -71,7 +71,7 @@ pub struct ImageBundle {
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node
     ///
-    /// When combined with `UiImage`, tints the provided image.
+    /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
@@ -124,6 +124,27 @@ pub struct TextBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
+}
+
+impl Default for TextBundle {
+    fn default() -> Self {
+        Self {
+            text: Default::default(),
+            calculated_size: Default::default(),
+            // Transparent background
+            background_color: BackgroundColor(Color::NONE),
+            node: Default::default(),
+            style: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }
 
 impl TextBundle {
@@ -158,22 +179,11 @@ impl TextBundle {
         self.style = style;
         self
     }
-}
 
-impl Default for TextBundle {
-    fn default() -> Self {
-        TextBundle {
-            focus_policy: FocusPolicy::Pass,
-            text: Default::default(),
-            node: Default::default(),
-            calculated_size: Default::default(),
-            style: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-            z_index: Default::default(),
-        }
+    /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
+    pub const fn with_background_color(mut self, color: Color) -> Self {
+        self.background_color = BackgroundColor(color);
+        self
     }
 }
 
@@ -216,12 +226,12 @@ pub struct ButtonBundle {
 
 impl Default for ButtonBundle {
     fn default() -> Self {
-        ButtonBundle {
-            button: Button,
-            interaction: Default::default(),
-            focus_policy: Default::default(),
+        Self {
+            focus_policy: FocusPolicy::Block,
             node: Default::default(),
+            button: Default::default(),
             style: Default::default(),
+            interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),

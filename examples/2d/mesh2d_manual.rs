@@ -21,7 +21,7 @@ use bevy::{
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
-        Extract, RenderApp, RenderStage,
+        Extract, RenderApp, RenderSet,
     },
     sprite::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
@@ -103,7 +103,7 @@ fn star(
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
-        SpatialBundle::VISIBLE_IDENTITY,
+        SpatialBundle::INHERITED_IDENTITY,
     ));
 
     // Spawn the camera
@@ -172,12 +172,13 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 })],
             }),
             // Use the two standard uniforms for 2d meshes
-            layout: Some(vec![
+            layout: vec![
                 // Bind group 0 is the view uniform
                 self.mesh2d_pipeline.view_layout.clone(),
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
-            ]),
+            ],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -282,8 +283,8 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_colored_mesh2d)
-            .add_system_to_stage(RenderStage::Queue, queue_colored_mesh2d);
+            .add_system_to_schedule(ExtractSchedule, extract_colored_mesh2d)
+            .add_system(queue_colored_mesh2d.in_set(RenderSet::Queue));
     }
 }
 
@@ -312,7 +313,7 @@ pub fn queue_colored_mesh2d(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,
@@ -327,12 +328,9 @@ pub fn queue_colored_mesh2d(
     }
     // Iterate each view (a camera is a view)
     for (visible_entities, mut transparent_phase, view) in &mut views {
-        let draw_colored_mesh2d = transparent_draw_functions
-            .read()
-            .get_id::<DrawColoredMesh2d>()
-            .unwrap();
+        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
@@ -346,7 +344,7 @@ pub fn queue_colored_mesh2d(
                 }
 
                 let pipeline_id =
-                    pipelines.specialize(&mut pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
+                    pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
                 let mesh_z = mesh2d_uniform.transform.w_axis.z;
                 transparent_phase.add(Transparent2d {

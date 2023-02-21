@@ -1,27 +1,40 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
-/// This plugin group will add all the default plugins:
+/// This plugin group will add all the default plugins for a *Bevy* application:
 /// * [`LogPlugin`](crate::log::LogPlugin)
-/// * [`CorePlugin`](crate::core::CorePlugin)
+/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
+/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
+/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`TransformPlugin`](crate::transform::TransformPlugin)
 /// * [`HierarchyPlugin`](crate::hierarchy::HierarchyPlugin)
 /// * [`DiagnosticsPlugin`](crate::diagnostic::DiagnosticsPlugin)
 /// * [`InputPlugin`](crate::input::InputPlugin)
 /// * [`WindowPlugin`](crate::window::WindowPlugin)
-/// * [`AssetPlugin`](crate::asset::AssetPlugin)
-/// * [`ScenePlugin`](crate::scene::ScenePlugin)
+/// * [`AssetPlugin`](crate::asset::AssetPlugin) - with feature `bevy_asset`
+/// * [`DebugAssetPlugin`](crate::asset::debug_asset_server::DebugAssetServerPlugin) - with feature `debug_asset_server`
+/// * [`ScenePlugin`](crate::scene::ScenePlugin) - with feature `bevy_scene`
+/// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
 /// * [`RenderPlugin`](crate::render::RenderPlugin) - with feature `bevy_render`
+/// * [`ImagePlugin`](crate::render::texture::ImagePlugin) - with feature `bevy_render`
+/// * [`PipelinedRenderingPlugin`](crate::render::pipelined_rendering::PipelinedRenderingPlugin) - with feature `bevy_render` when not targeting `wasm32`
+/// * [`CorePipelinePlugin`](crate::core_pipeline::CorePipelinePlugin) - with feature `bevy_core_pipeline`
 /// * [`SpritePlugin`](crate::sprite::SpritePlugin) - with feature `bevy_sprite`
-/// * [`PbrPlugin`](crate::pbr::PbrPlugin) - with feature `bevy_pbr`
-/// * [`UiPlugin`](crate::ui::UiPlugin) - with feature `bevy_ui`
 /// * [`TextPlugin`](crate::text::TextPlugin) - with feature `bevy_text`
+/// * [`UiPlugin`](crate::ui::UiPlugin) - with feature `bevy_ui`
+/// * [`PbrPlugin`](crate::pbr::PbrPlugin) - with feature `bevy_pbr`
+/// * [`GltfPlugin`](crate::gltf::GltfPlugin) - with feature `bevy_gltf`
 /// * [`AudioPlugin`](crate::audio::AudioPlugin) - with feature `bevy_audio`
 /// * [`GilrsPlugin`](crate::gilrs::GilrsPlugin) - with feature `bevy_gilrs`
-/// * [`GltfPlugin`](crate::gltf::GltfPlugin) - with feature `bevy_gltf`
-/// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
+/// * [`AnimationPlugin`](crate::animation::AnimationPlugin) - with feature `bevy_animation`
 ///
-/// See also [`MinimalPlugins`] for a slimmed down option
+/// [`DefaultPlugins`] obeys *Cargo* *feature* flags. Users may exert control over this plugin group
+/// by disabling `default-features` in their `Cargo.toml` and enabling only those features
+/// that they wish to use.
+///
+/// [`DefaultPlugins`] contains all the plugins typically required to build
+/// a *Bevy* application which includes a *window* and presentation components.
+/// For *headless* cases – without a *window* or presentation, see [`MinimalPlugins`].
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
@@ -29,7 +42,9 @@ impl PluginGroup for DefaultPlugins {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
             .add(bevy_log::LogPlugin::default())
-            .add(bevy_core::CorePlugin::default())
+            .add(bevy_core::TaskPoolPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin::default())
+            .add(bevy_core::FrameCountPlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_transform::TransformPlugin::default())
             .add(bevy_hierarchy::HierarchyPlugin::default())
@@ -64,6 +79,12 @@ impl PluginGroup for DefaultPlugins {
                 // NOTE: Load this after renderer initialization so that it knows about the supported
                 // compressed texture formats
                 .add(bevy_render::texture::ImagePlugin::default());
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                group = group
+                    .add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin::default());
+            }
         }
 
         #[cfg(feature = "bevy_core_pipeline")]
@@ -117,18 +138,29 @@ impl PluginGroup for DefaultPlugins {
     }
 }
 
-/// Minimal plugin group that will add the following plugins:
-/// * [`CorePlugin`](crate::core::CorePlugin)
+/// This plugin group will add the minimal plugins for a *Bevy* application:
+/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
+/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
+/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
 ///
-/// See also [`DefaultPlugins`] for a more complete set of plugins
+/// This group of plugins is intended for use for minimal, *headless* programs –
+/// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
+/// – and includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
+/// to provide functionality that would otherwise be driven by a windowed application's
+/// *event loop* or *message loop*.
+///
+/// Windowed applications that wish to use a reduced set of plugins should consider the
+/// [`DefaultPlugins`] plugin group which can be controlled with *Cargo* *feature* flags.
 pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(bevy_core::CorePlugin::default())
+            .add(bevy_core::TaskPoolPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin::default())
+            .add(bevy_core::FrameCountPlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_app::ScheduleRunnerPlugin::default())
     }

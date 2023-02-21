@@ -1,11 +1,7 @@
-use crate::{
-    archetype::ArchetypeComponentId,
-    component::ComponentId,
-    query::Access,
-    system::{IntoSystem, System},
-    world::World,
-};
+use crate::system::{IntoSystem, System};
 use std::borrow::Cow;
+
+use super::{CombinatorSystem, Combine};
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
@@ -46,85 +42,26 @@ use std::borrow::Cow;
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-pub struct PipeSystem<SystemA, SystemB> {
-    system_a: SystemA,
-    system_b: SystemB,
-    name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
-    archetype_component_access: Access<ArchetypeComponentId>,
-}
+pub type PipeSystem<SystemA, SystemB> = CombinatorSystem<Pipe, SystemA, SystemB>;
 
-impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<SystemA, SystemB> {
-    type In = SystemA::In;
-    type Out = SystemB::Out;
+#[doc(hidden)]
+pub struct Pipe;
 
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
-    }
+impl<A, B> Combine<A, B> for Pipe
+where
+    A: System,
+    B: System<In = A::Out>,
+{
+    type In = A::In;
+    type Out = B::Out;
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
-    }
-
-    fn is_send(&self) -> bool {
-        self.system_a.is_send() && self.system_b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system_a.is_exclusive() || self.system_b.is_exclusive()
-    }
-
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
-        let out = self.system_a.run_unsafe(input, world);
-        self.system_b.run_unsafe(out, world)
-    }
-
-    // needed to make exclusive systems work
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let out = self.system_a.run(input, world);
-        self.system_b.run(out, world)
-    }
-
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.system_a.apply_buffers(world);
-        self.system_b.apply_buffers(world);
-    }
-
-    fn initialize(&mut self, world: &mut World) {
-        self.system_a.initialize(world);
-        self.system_b.initialize(world);
-        self.component_access
-            .extend(self.system_a.component_access());
-        self.component_access
-            .extend(self.system_b.component_access());
-    }
-
-    fn update_archetype_component_access(&mut self, world: &World) {
-        self.system_a.update_archetype_component_access(world);
-        self.system_b.update_archetype_component_access(world);
-
-        self.archetype_component_access
-            .extend(self.system_a.archetype_component_access());
-        self.archetype_component_access
-            .extend(self.system_b.archetype_component_access());
-    }
-
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.system_a.check_change_tick(change_tick);
-        self.system_b.check_change_tick(change_tick);
-    }
-
-    fn get_last_change_tick(&self) -> u32 {
-        self.system_a.get_last_change_tick()
-    }
-
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.system_a.set_last_change_tick(last_change_tick);
-        self.system_b.set_last_change_tick(last_change_tick);
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        let value = a(input);
+        b(value)
     }
 }
 
@@ -154,19 +91,15 @@ where
     fn pipe(self, system: SystemB) -> PipeSystem<SystemA::System, SystemB::System> {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
-        PipeSystem {
-            name: Cow::Owned(format!("Pipe({}, {})", system_a.name(), system_b.name())),
-            system_a,
-            system_b,
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-        }
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
+    use bevy_utils::tracing;
     use std::fmt::Debug;
 
     /// Converts a regular function into a system adapter.
@@ -175,12 +108,13 @@ pub mod adapter {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// fn return1() -> u64 { 1 }
+    ///
     /// return1
     ///     .pipe(system_adapter::new(u32::try_from))
     ///     .pipe(system_adapter::unwrap)
     ///     .pipe(print);
     ///
-    /// fn return1() -> u64 { 1 }
     /// fn print(In(x): In<impl std::fmt::Debug>) {
     ///     println!("{x:?}");
     /// }
@@ -201,16 +135,10 @@ pub mod adapter {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
     ///         // Panic if the load system returns an error.
     ///         load_save_system.pipe(system_adapter::unwrap)
     ///     )
@@ -232,6 +160,117 @@ pub mod adapter {
         res.unwrap()
     }
 
+    /// System adapter that utilizes the [`bevy_utils::tracing::info!`] macro to print system information.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
+    ///         // Prints system information.
+    ///         data_pipe_system.pipe(system_adapter::info)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a String output.
+    /// fn data_pipe_system() -> String {
+    ///     "42".to_string()
+    /// }
+    /// ```
+    pub fn info<T: Debug>(In(data): In<T>) {
+        tracing::info!("{:?}", data);
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::debug!`] macro to print the output of a system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
+    ///         // Prints debug data from system.
+    ///         parse_message_system.pipe(system_adapter::dbg)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a Result<usize, String> output.
+    /// fn parse_message_system() -> Result<usize, std::num::ParseIntError> {
+    ///     Ok("42".parse()?)
+    /// }
+    /// ```
+    pub fn dbg<T: Debug>(In(data): In<T>) {
+        tracing::debug!("{:?}", data);
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::warn!`] macro to print the output of a system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// # let mut sched = Schedule::default();
+    /// sched.add_system(
+    ///         // Prints system warning if system returns an error.
+    ///         warning_pipe_system.pipe(system_adapter::warn)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a Result<(), String> output.
+    /// fn warning_pipe_system() -> Result<(), String> {
+    ///     Err("Got to rusty?".to_string())
+    /// }
+    /// ```
+    pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
+        if let Err(warn) = res {
+            tracing::warn!("{:?}", warn);
+        }
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::error!`] macro to print the output of a system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_system(
+    ///         // Prints system error if system fails.
+    ///         parse_error_message_system.pipe(system_adapter::error)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a Result<())> output.
+    /// fn parse_error_message_system() -> Result<(), String> {
+    ///    Err("Some error".to_owned())
+    /// }
+    /// ```
+    pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
+        if let Err(error) = res {
+            tracing::error!("{:?}", error);
+        }
+    }
+
     /// System adapter that ignores the output of the previous system in a pipe.
     /// This is useful for fallible systems that should simply return early in case of an `Err`/`None`.
     ///
@@ -245,16 +284,10 @@ pub mod adapter {
     /// // Marker component for an enemy entity.
     /// #[derive(Component)]
     /// struct Monster;
-    /// #
-    /// # #[derive(StageLabel)]
-    /// # enum CoreStage { Update };
     ///
     /// // Building a new schedule/app...
-    /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .add_system_to_stage(
-    ///         CoreStage::Update,
+    ///     .add_system(
     ///         // If the system fails, just move on and try again next frame.
     ///         fallible_system.pipe(system_adapter::ignore)
     ///     )
@@ -286,8 +319,21 @@ pub mod adapter {
             unimplemented!()
         }
 
+        /// Mocks an exclusive system that takes an input and returns an output.
+        fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
+            unimplemented!()
+        }
+
+        fn not(In(val): In<bool>) -> bool {
+            !val
+        }
+
         assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
         assert_is_system(returning::<Option<()>>.pipe(ignore));
         assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
+
+        returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 }

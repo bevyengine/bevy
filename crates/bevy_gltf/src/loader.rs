@@ -43,7 +43,7 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::{Gltf, GltfNode};
+use crate::{Gltf, GltfExtras, GltfNode};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -329,12 +329,17 @@ async fn load_gltf<'a, 'b>(
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
+                extras: get_gltf_extras(primitive.extras()),
+                material_extras: get_gltf_extras(primitive.material().extras()),
             });
         }
 
         let handle = load_context.set_labeled_asset(
             &mesh_label(&mesh),
-            LoadedAsset::new(super::GltfMesh { primitives }),
+            LoadedAsset::new(super::GltfMesh {
+                primitives,
+                extras: get_gltf_extras(mesh.extras()),
+            }),
         );
         if let Some(name) = mesh.name() {
             named_meshes.insert(name.to_string(), handle.clone());
@@ -368,6 +373,7 @@ async fn load_gltf<'a, 'b>(
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
+                extras: get_gltf_extras(node.extras()),
             },
             node.children()
                 .map(|child| child.index())
@@ -465,7 +471,7 @@ async fn load_gltf<'a, 'b>(
         let mut entity_to_skin_index_map = HashMap::new();
 
         world
-            .spawn(SpatialBundle::VISIBLE_IDENTITY)
+            .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -542,6 +548,12 @@ async fn load_gltf<'a, 'b>(
     }));
 
     Ok(())
+}
+
+fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
+    extras.as_ref().map(|extras| super::GltfExtras {
+        value: extras.get().to_string(),
+    })
 }
 
 fn node_name(node: &Node) -> Name {
@@ -669,7 +681,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            base_color: Color::rgba(color[0], color[1], color[2], color[3]),
+            base_color: Color::rgba_linear(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -682,7 +694,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
+            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
@@ -719,9 +731,9 @@ fn load_node(
         let projection = match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
-                let orthographic_projection: OrthographicProjection = OrthographicProjection {
-                    far: orthographic.zfar(),
+                let orthographic_projection = OrthographicProjection {
                     near: orthographic.znear(),
+                    far: orthographic.zfar(),
                     scaling_mode: ScalingMode::FixedHorizontal(1.0),
                     scale: xmag,
                     ..Default::default()
@@ -1166,6 +1178,7 @@ mod test {
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
+                extras: None,
             }
         }
     }

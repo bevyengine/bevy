@@ -7,10 +7,10 @@ fn main() {
     // it is currently.
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "Minimising".into(),
-                ..Default::default()
-            },
+                ..default()
+            }),
             ..default()
         }))
         .add_system(minimise_automatically)
@@ -19,9 +19,10 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
+fn minimise_automatically(mut windows: Query<&mut Window>, mut frames: Local<u32>) {
     if *frames == 60 {
-        windows.primary_mut().set_minimized(true);
+        let mut window = windows.single_mut();
+        window.set_minimized(true);
     } else {
         *frames += 1;
     }
@@ -35,7 +36,10 @@ fn setup_3d(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane {
+            size: 5.0,
+            subdivisions: 0,
+        })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -68,7 +72,7 @@ fn setup_2d(mut commands: Commands) {
     commands.spawn(Camera2dBundle {
         camera: Camera {
             // render the 2d camera after the 3d camera
-            priority: 1,
+            order: 1,
             ..default()
         },
         camera_2d: Camera2d {

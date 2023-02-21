@@ -2,17 +2,19 @@ mod access;
 mod fetch;
 mod filter;
 mod iter;
+mod par_iter;
 mod state;
 
 pub use access::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
+pub use par_iter::*;
 pub use state::*;
 
 /// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
-/// equivalent to `Option::unwrap_uncheched` or `Result::unwrap_unchecked`
+/// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
 pub(crate) trait DebugCheckedUnwrap {
     type Item;
@@ -25,7 +27,7 @@ pub(crate) trait DebugCheckedUnwrap {
     unsafe fn debug_checked_unwrap(self) -> Self::Item;
 }
 
-// Thes two impls are explicitly split to ensure that the unreachable! macro
+// These two impls are explicitly split to ensure that the unreachable! macro
 // does not cause inlining to fail when compiling in release mode.
 #[cfg(debug_assertions)]
 impl<T> DebugCheckedUnwrap for Option<T> {

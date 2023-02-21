@@ -1,7 +1,9 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+
 use bevy_ecs::{
     prelude::*,
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
@@ -11,7 +13,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -20,7 +22,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 
@@ -101,9 +103,9 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
+                .add_system_to_schedule(ExtractSchedule, extract_mesh2d)
+                .add_system(queue_mesh2d_bind_group.in_set(RenderSet::Queue))
+                .add_system(queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue));
         }
     }
 }
@@ -251,6 +253,7 @@ impl FromWorld for Mesh2dPipeline {
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
+                mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
         Mesh2dPipeline {
@@ -285,12 +288,21 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
-        const NONE                        = 0;
-        const HDR                         = (1 << 0);
-        const TONEMAP_IN_SHADER           = (1 << 1);
-        const DEBAND_DITHER               = (1 << 2);
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const NONE                              = 0;
+        const HDR                               = (1 << 0);
+        const TONEMAP_IN_SHADER                 = (1 << 1);
+        const DEBAND_DITHER                     = (1 << 2);
+        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -299,6 +311,9 @@ impl Mesh2dPipelineKey {
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_SHIFT_BITS: u32 =
+        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -378,6 +393,27 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
+            let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == Mesh2dPipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED {
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
+
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
@@ -408,10 +444,11 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
+                cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
@@ -495,16 +532,19 @@ pub fn queue_mesh2d_view_bind_groups(
 }
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
-    type Param = SQuery<(Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>)>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
+    type Param = ();
+    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        _view: (),
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
@@ -512,19 +552,19 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
 }
 
 pub struct SetMesh2dBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {
-    type Param = (
-        SRes<Mesh2dBindGroup>,
-        SQuery<Read<DynamicUniformIndex<Mesh2dUniform>>>,
-    );
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
+    type Param = SRes<Mesh2dBindGroup>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<Mesh2dUniform>>;
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (mesh2d_bind_group, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        mesh2d_index: &'_ DynamicUniformIndex<Mesh2dUniform>,
+        mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh2d_index = mesh2d_query.get(item).unwrap();
         pass.set_bind_group(
             I,
             &mesh2d_bind_group.into_inner().value,
@@ -535,17 +575,20 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {
 }
 
 pub struct DrawMesh2d;
-impl EntityRenderCommand for DrawMesh2d {
-    type Param = (SRes<RenderAssets<Mesh>>, SQuery<Read<Mesh2dHandle>>);
+impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
+    type Param = SRes<RenderAssets<Mesh>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Mesh2dHandle>;
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (meshes, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        mesh_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = &mesh2d_query.get(item).unwrap().0;
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
+        if let Some(gpu_mesh) = meshes.into_inner().get(&mesh_handle.0) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed {
