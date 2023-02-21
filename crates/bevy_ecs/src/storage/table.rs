@@ -543,7 +543,7 @@ impl TableBuilder {
 /// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
-/// component type (via it's [`ComponentId`]), then fetching the entity's row within that column.
+/// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
 ///
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
 /// [`Component`]: crate::component::Component
