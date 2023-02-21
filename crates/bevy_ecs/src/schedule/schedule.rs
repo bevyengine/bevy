@@ -7,7 +7,7 @@ use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{
-    petgraph::prelude::*,
+    petgraph::{algo::TarjanScc, prelude::*},
     thiserror::Error,
     tracing::{error, warn},
     HashMap, HashSet,
@@ -942,7 +942,7 @@ impl ScheduleGraph {
 
         // check hierarchy for cycles
         self.hierarchy.topsort = self
-            .topsort_graph(&self.hierarchy.graph)
+            .topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)
             .map_err(|_| ScheduleBuildError::HierarchyCycle)?;
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
@@ -960,7 +960,7 @@ impl ScheduleGraph {
 
         // check dependencies for cycles
         self.dependency.topsort = self
-            .topsort_graph(&self.dependency.graph)
+            .topsort_graph(&self.dependency.graph, ReportCycles::Dependency)
             .map_err(|_| ScheduleBuildError::DependencyCycle)?;
 
         // check for systems or system sets depending on sets they belong to
@@ -1083,7 +1083,7 @@ impl ScheduleGraph {
 
         // topsort
         self.dependency_flattened.topsort = self
-            .topsort_graph(&dependency_flattened)
+            .topsort_graph(&dependency_flattened, ReportCycles::Dependency)
             .map_err(|_| ScheduleBuildError::DependencyCycle)?;
         self.dependency_flattened.graph = dependency_flattened;
 
@@ -1318,6 +1318,12 @@ impl ScheduleGraph {
     }
 }
 
+/// Used to select the appropriate reporting function.
+enum ReportCycles {
+    Hierarchy,
+    Dependency,
+}
+
 // methods for reporting errors
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
@@ -1345,7 +1351,7 @@ impl ScheduleGraph {
         name
     }
 
-    fn get_node_kind(id: &NodeId) -> &'static str {
+    fn get_node_kind(&self, id: &NodeId) -> &'static str {
         match id {
             NodeId::System(_) => "system",
             NodeId::Set(_) => "system set",
@@ -1366,7 +1372,7 @@ impl ScheduleGraph {
             writeln!(
                 message,
                 " -- {:?} '{:?}' cannot be child of set '{:?}', longer path exists",
-                Self::get_node_kind(child),
+                self.get_node_kind(child),
                 self.get_node_name(child),
                 self.get_node_name(parent),
             )
@@ -1376,48 +1382,95 @@ impl ScheduleGraph {
         error!("{}", message);
     }
 
-    /// Get topology sorted [`NodeId`], also ensures the graph contains no cycle
-    /// returns Err(()) if there are cycles
-    fn topsort_graph(&self, graph: &DiGraphMap<NodeId, ()>) -> Result<Vec<NodeId>, ()> {
-        // tarjan_scc's run order is reverse topological order
-        let mut rev_top_sorted_nodes = Vec::<NodeId>::with_capacity(graph.node_count());
-        let mut tarjan_scc = bevy_utils::petgraph::algo::TarjanScc::new();
-        let mut sccs_with_cycle = Vec::<Vec<NodeId>>::new();
+    /// Tries to topologically sort `graph`.
+    ///
+    /// If the graph is acyclic, returns [`Ok`] with the list of [`NodeId`] in a valid
+    /// topological order. If the graph contains cycles, returns [`Err`] with the list of
+    /// strongly-connected components that contain cycles (also in a valid topological order).
+    ///
+    /// # Errors
+    ///
+    /// If the graph contain cycles, then an error is returned.
+    fn topsort_graph(
+        &self,
+        graph: &DiGraphMap<NodeId, ()>,
+        report: ReportCycles,
+    ) -> Result<Vec<NodeId>, Vec<Vec<NodeId>>> {
+        // Tarjan's SCC algorithm returns elements in *reverse* topological order.
+        let mut tarjan_scc = TarjanScc::new();
+        let mut top_sorted_nodes = Vec::with_capacity(graph.node_count());
+        let mut sccs_with_cycles = Vec::new();
 
         tarjan_scc.run(graph, |scc| {
-            // by scc's definition, each scc is the cluster of nodes that they can reach each other
-            // so scc with size larger than 1, means there is/are cycle(s).
+            // A strongly-connected component is a group of nodes who can all reach each other
+            // through one or more paths. If an SCC contains more than one node, there must be
+            // at least one cycle within them.
             if scc.len() > 1 {
-                sccs_with_cycle.push(scc.to_vec());
+                sccs_with_cycles.push(scc.to_vec());
             }
-            rev_top_sorted_nodes.extend_from_slice(scc);
+            top_sorted_nodes.extend_from_slice(scc);
         });
 
-        if sccs_with_cycle.is_empty() {
-            // reverse the reverted to get topological order
-            let mut top_sorted_nodes = rev_top_sorted_nodes;
+        if sccs_with_cycles.is_empty() {
+            // reverse to get topological order
             top_sorted_nodes.reverse();
             Ok(top_sorted_nodes)
         } else {
-            self.report_cycles(&sccs_with_cycle);
-            Err(())
+            let mut cycles = Vec::new();
+            for scc in &sccs_with_cycles {
+                cycles.append(&mut simple_cycles_in_component(graph, scc));
+            }
+
+            match report {
+                ReportCycles::Hierarchy => self.report_hierarchy_cycles(&cycles),
+                ReportCycles::Dependency => self.report_dependency_cycles(&cycles),
+            }
+
+            Err(sccs_with_cycles)
         }
     }
 
-    /// Print detailed cycle messages
-    fn report_cycles(&self, sccs_with_cycles: &[Vec<NodeId>]) {
-        let mut message = format!(
-            "schedule contains at least {} cycle(s)",
-            sccs_with_cycles.len()
-        );
+    /// Logs details of cycles in the hierarchy graph.
+    fn report_hierarchy_cycles(&self, cycles: &[Vec<NodeId>]) {
+        let mut message = format!("schedule has {} in_set cycle(s):\n", cycles.len());
+        for (i, cycle) in cycles.iter().enumerate() {
+            let mut names = cycle.iter().map(|id| self.get_node_name(id));
+            let first_name = names.next().unwrap();
+            writeln!(
+                message,
+                "cycle {}: set '{first_name}' contains itself",
+                i + 1,
+            )
+            .unwrap();
+            writeln!(message, "set '{first_name}'").unwrap();
+            for name in names.chain(std::iter::once(first_name)) {
+                writeln!(message, " ... which contains set '{name}'").unwrap();
+            }
+            writeln!(message).unwrap();
+        }
 
-        writeln!(message, " -- cycle(s) found within:").unwrap();
-        for (i, scc) in sccs_with_cycles.iter().enumerate() {
-            let names = scc
+        error!("{}", message);
+    }
+
+    /// Logs details of cycles in the dependency graph.
+    fn report_dependency_cycles(&self, cycles: &[Vec<NodeId>]) {
+        let mut message = format!("schedule has {} before/after cycle(s):\n", cycles.len());
+        for (i, cycle) in cycles.iter().enumerate() {
+            let mut names = cycle
                 .iter()
-                .map(|id| self.get_node_name(id))
-                .collect::<Vec<_>>();
-            writeln!(message, " ---- {i}: {names:?}").unwrap();
+                .map(|id| (self.get_node_kind(id), self.get_node_name(id)));
+            let (first_kind, first_name) = names.next().unwrap();
+            writeln!(
+                message,
+                "cycle {}: {first_kind} '{first_name}' must run before itself",
+                i + 1,
+            )
+            .unwrap();
+            writeln!(message, "{first_kind} '{first_name}'").unwrap();
+            for (kind, name) in names.chain(std::iter::once((first_kind, first_name))) {
+                writeln!(message, " ... which must run before {kind} '{name}'").unwrap();
+            }
+            writeln!(message).unwrap();
         }
 
         error!("{}", message);
