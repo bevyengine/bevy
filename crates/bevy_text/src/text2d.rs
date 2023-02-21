@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -72,6 +72,7 @@ pub struct Text2dBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
+    pub text_layout_info: TextLayoutInfo,
 }
 
 pub fn extract_text2d_sprite(
@@ -153,7 +154,6 @@ pub fn extract_text2d_sprite(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
-    mut commands: Commands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
@@ -165,12 +165,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
-        Ref<Text>,
-        &Text2dBounds,
-        Option<&mut TextLayoutInfo>,
-    )>,
+    mut text_query: Query<(Entity, Ref<Text>, &Text2dBounds, &mut TextLayoutInfo)>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
@@ -181,7 +176,7 @@ pub fn update_text2d_layout(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
-    for (entity, text, bounds, text_layout_info) in &mut text_query {
+    for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
@@ -210,12 +205,7 @@ pub fn update_text2d_layout(
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(info) => match text_layout_info {
-                    Some(mut t) => *t = info,
-                    None => {
-                        commands.entity(entity).insert(info);
-                    }
-                },
+                Ok(info) => *text_layout_info = info,
             }
         }
     }

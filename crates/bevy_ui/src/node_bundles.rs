@@ -9,7 +9,7 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
-use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
+use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -104,6 +104,8 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// Text layout information
+    pub text_layout_info: TextLayoutInfo,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// Whether this node should block interaction with lower nodes

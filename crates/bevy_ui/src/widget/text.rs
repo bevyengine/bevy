@@ -1,9 +1,9 @@
-use crate::{CalculatedSize, Node, Style, UiScale, Val};
+use crate::{CalculatedSize, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Commands, Local, ParamSet, Query, Res, ResMut},
+    system::{Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
@@ -18,8 +18,6 @@ fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }
 
-
-
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 ///
@@ -29,7 +27,6 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut commands: Commands,
     mut queued_text_ids: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
@@ -47,9 +44,8 @@ pub fn text_system(
         Query<(
             &Node,
             &Text,
-            &Style,
             &mut CalculatedSize,
-            Option<&mut TextLayoutInfo>,
+            &mut TextLayoutInfo,
         )>,
     )>,
 ) {
@@ -85,7 +81,8 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text_ids.drain(..) {
-        if let Ok((node, text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
+        if let Ok((node, text, mut calculated_size, mut text_layout_info)) = query.get_mut(entity)
+        {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
@@ -117,12 +114,7 @@ pub fn text_system(
                         scale_value(info.size.x, inv_scale_factor),
                         scale_value(info.size.y, inv_scale_factor),
                     );
-                    match text_layout_info {
-                        Some(mut t) => *t = info,
-                        None => {
-                            commands.entity(entity).insert(info);
-                        }
-                    }
+                    *text_layout_info = info;
                 }
             }
         }
