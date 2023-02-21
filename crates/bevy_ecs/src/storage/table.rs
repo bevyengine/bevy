@@ -33,7 +33,9 @@ pub struct TableId(u32);
 impl TableId {
     pub(crate) const INVALID: TableId = TableId(u32::MAX);
 
-    /// Creates a new [`TableId`]. `index` *must* be retrieved from [`TableId::index`]
+    /// Creates a new [`TableId`]. 
+    ///
+    /// `index` *must* be retrieved from calling [`TableId::index`] on a `TableId` you got
     /// from a table of a given [`World`] or the created ID may be invalid.
     ///
     /// [`World`]: crate::world::World
@@ -298,7 +300,7 @@ impl Column {
     ///
     /// The pointer is type erased, so using this function to fetch anything
     /// other than the first element will require computing the offset using
-    /// via [`Column::layout`].
+    /// [`Column::layout`].
     #[inline]
     pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()

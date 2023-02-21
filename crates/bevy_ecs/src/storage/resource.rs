@@ -74,7 +74,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.id
     }
 
-    /// Gets a read-only pointer to the underlying resource, if present.
+    /// Returns a reference to the resource, if it exists.
     ///
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
@@ -87,13 +87,13 @@ impl<const SEND: bool> ResourceData<SEND> {
         })
     }
 
-    /// Gets a read-only reference to the change ticks of the underlying resource, if present.
+    /// Returns a reference to the resource's change ticks, if it exists.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
         self.column.get_ticks(Self::ROW)
     }
 
-    /// Gets a read-only reference and the change detection ticks for the resource, if present.
+    /// Returns references to the resource and its change ticks, if it exists.
     ///
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
@@ -106,7 +106,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         })
     }
 
-    /// Gets a mutable reference for the resource, if present.
+    /// Returns a mutable reference to the resource, if it exists.
     ///
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the

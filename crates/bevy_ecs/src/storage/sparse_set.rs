@@ -41,18 +41,16 @@ impl<I, V> SparseArray<I, V> {
 macro_rules! impl_sparse_array {
     ($ty:ident) => {
         impl<I: SparseSetIndex, V> $ty<I, V> {
-            /// Checks if a value is present at `index`.
-            ///
-            /// Returns `true` if there's a value present.
+            /// Returns `true` if the collection contains a value for the specified `index`.
             #[inline]
             pub fn contains(&self, index: I) -> bool {
                 let index = index.sparse_set_index();
                 self.values.get(index).map(|v| v.is_some()).unwrap_or(false)
             }
 
-            /// Fetches a read-only reference to the value at `index`.
+            /// Returns a reference to the value at `index`.
             ///
-            /// Returns `None` if it's not populated or if `index` is out of bounds.
+            /// Returns `None` if `index` does not have a value or if `index` is out of bounds.
             #[inline]
             pub fn get(&self, index: I) -> Option<&V> {
                 let index = index.sparse_set_index();
@@ -78,9 +76,9 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values[index] = Some(value);
     }
 
-    /// Fetches a mutable reference to the value at `index`.
+    /// Returns a mutable reference to the value at `index`.
     ///
-    /// Returns `None` if it's not populated or if `index` is out of bounds.
+    /// Returns `None` if `index` does not have a value or if `index` is out of bounds.
     #[inline]
     pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
         let index = index.sparse_set_index();
@@ -90,9 +88,9 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
             .unwrap_or(None)
     }
 
-    /// Removes the value stored at `index`, if present.
+    /// Removes and returns the value stored at `index`.
     ///
-    /// Returns `None` if it's not populated or if `index` is out of bounds.
+    /// Returns `None` if `index` did not have a value or if `index` is out of bounds.
     #[inline]
     pub fn remove(&mut self, index: I) -> Option<V> {
         let index = index.sparse_set_index();
@@ -147,13 +145,13 @@ impl ComponentSparseSet {
         self.sparse.clear();
     }
 
-    /// Gets the number of components currently stored in the sparse set.
+    /// Returns the number of component values in the sparse set.
     #[inline]
     pub fn len(&self) -> usize {
         self.dense.len()
     }
 
-    /// Checks if the sparse set is empty. Returns `true` if it contains no elements, false otherwise.
+    /// Returns `true` if the sparse set contains no component values.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.dense.len() == 0
@@ -184,7 +182,7 @@ impl ComponentSparseSet {
         }
     }
 
-    /// Checks if the [`ComponentSparseSet`] contains a component for `entity`.
+    /// Returns `true` if the sparse set has a component value for the provided `entity`.
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
         #[cfg(debug_assertions)]
@@ -201,7 +199,7 @@ impl ComponentSparseSet {
         self.sparse.contains(entity.index())
     }
 
-    /// Fetches a read-only reference to the component for `entity`, if present.
+    /// Returns a reference to the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
@@ -215,8 +213,7 @@ impl ComponentSparseSet {
         })
     }
 
-    /// Fetches a read-only reference to the component for `entity` and its change detection ticks,
-    /// if present.
+     /// Returns references to the entity's component value and its added and changed ticks.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
@@ -236,7 +233,7 @@ impl ComponentSparseSet {
         }
     }
 
-    /// Fetches a reference to `entity`'s "added" change detection ticks, if present.
+    /// Returns a reference to the "added" tick of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
@@ -253,7 +250,7 @@ impl ComponentSparseSet {
         }
     }
 
-    /// Fetches a reference to `entity`'s "changed" change detection ticks, if present.
+    /// Returns a reference to the "changed" tick of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
@@ -270,7 +267,7 @@ impl ComponentSparseSet {
         }
     }
 
-    /// Fetches `entity`'s change detection ticks, if present.
+    /// Returns a reference to the "added" and "changed" ticks of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
@@ -309,11 +306,9 @@ impl ComponentSparseSet {
         })
     }
 
-    /// Removes `entity`'s component from the sparse set, if present.
+    /// Removes (and drops) the entity's component value from the sparse set.
     ///
-    /// If `entity` has a component stored in the sparse set, it will be dropped.
-    ///
-    /// Returns `true` if `entity` had a component in the sparse set.
+    /// Returns `true` if `entity` had a component value in the sparse set.
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity.index()) {
             let dense_index = dense_index as usize;
@@ -364,21 +359,21 @@ pub(crate) struct ImmutableSparseSet<I, V: 'static> {
 macro_rules! impl_sparse_set {
     ($ty:ident) => {
         impl<I: SparseSetIndex, V> $ty<I, V> {
-            /// Gets the number of elements currently stored in the sparse set.
+            /// Returns the number of elements in the sparse set.
             #[inline]
             pub fn len(&self) -> usize {
                 self.dense.len()
             }
 
-            /// Checks if there's a value stored at `index`.
+            /// Returns `true` if the sparse set contains a value for `index`.
             #[inline]
             pub fn contains(&self, index: I) -> bool {
                 self.sparse.contains(index)
             }
 
-            /// Fetches a read-only reference to the value at `index`, if present.
+            /// Returns a reference to the value for `index`.
             ///
-            /// Returns `None` if `index` is not present in the sparse set.
+            /// Returns `None` if `index` does not have a value in the sparse set.
             pub fn get(&self, index: I) -> Option<&V> {
                 self.sparse.get(index).map(|dense_index| {
                     // SAFETY: if the sparse index points to something in the dense vec, it exists
@@ -386,9 +381,9 @@ macro_rules! impl_sparse_set {
                 })
             }
 
-            /// Fetches a mutable reference to the value at `index`, if present.
+            /// Returns a mutable reference to the value for `index`.
             ///
-            /// Returns `None` if `index` is not present in the sparse set.
+            /// Returns `None` if `index` does not have a value in the sparse set.
             pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
                 let dense = &mut self.dense;
                 self.sparse.get(index).map(move |dense_index| {
@@ -397,27 +392,27 @@ macro_rules! impl_sparse_set {
                 })
             }
 
-            /// Iterates over the indices (keys) of the sparse set.
+            /// Returns an iterator visiting all keys (indices) in arbitrary order.
             pub fn indices(&self) -> impl Iterator<Item = I> + '_ {
                 self.indices.iter().cloned()
             }
 
-            /// Iterates over read-only references to the values of the sparse set.
+            /// Returns an iterator visiting all values in arbitrary order.
             pub fn values(&self) -> impl Iterator<Item = &V> {
                 self.dense.iter()
             }
 
-            /// Iterates over mutable references to the values of the sparse set.
+            /// Returns an iterator visiting all values mutably in arbitrary order.
             pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
                 self.dense.iter_mut()
             }
 
-            /// Iterates over key-value pairs the of the sparse set.
+            /// Returns an iterator visiting all key-value pairs in arbitrary order, with references to the values.
             pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
                 self.indices.iter().zip(self.dense.iter())
             }
 
-            /// Iterates over pairs of keys and mutable values of the sparse set.
+            /// Returns an iterator visiting all key-value pairs in arbitrary order, with mutable references to the values.
             pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
                 self.indices.iter().zip(self.dense.iter_mut())
             }
@@ -455,8 +450,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         }
     }
 
-    /// The total number of elements the [`SparseSet`] can hold without needing to
-    /// allocate a larger buffer.
+    /// Returns the total number of elements the [`SparseSet`] can hold without needing to reallocate.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.dense.capacity()
@@ -478,8 +472,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         }
     }
 
-    /// Attempts to fetch the value at `index`. If not present, `func` will be called to
-    /// initialize a value.
+    /// Returns a reference to the value for `index`, inserting one computed from `func` 
+    /// if not already present.
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFETY: dense indices stored in self.sparse always exist
@@ -495,17 +489,15 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         }
     }
 
-    /// Checks if the [`SparseSet`] is currently empty or not.
-    ///
-    /// Returns `true` if it currently contains zero elements, `false` otherwise.
+    /// Returns `true` if the sparse set contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.dense.len() == 0
     }
 
-    /// Removes and returns the value stored at `index`, if present.
+    /// Removes and returns the value for `index`.
     ///
-    /// Returns `None` the value at `index` is not populated.
+    /// Returns `None` if `index` does not have a value in the sparse set.
     pub fn remove(&mut self, index: I) -> Option<V> {
         self.sparse.remove(index).map(|dense_index| {
             let is_last = dense_index == self.dense.len() - 1;

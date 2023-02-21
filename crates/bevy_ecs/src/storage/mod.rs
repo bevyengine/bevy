@@ -1,7 +1,7 @@
 //! Storage layouts for ECS data.
 //!
-//! This module contains the low-level backing data stores for ECS. These all offer minimal and often
-//! unsafe APIs, exposed primarily for debugging and monitoring purposes.
+//! This module implements the low-level collections that store data in a [`World`]. These all offer minimal and often
+//! unsafe APIs, and have been made `pub` primarily for debugging and monitoring purposes.
 //!
 //! # Fetching Storages
 //! Each of the primary backing data stores can be fetched via [`Storages`], which can be fetched from a
