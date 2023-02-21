@@ -65,6 +65,7 @@ pub struct IntrinsicSize {
     pub measure: Box<dyn Measure>,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for IntrinsicSize {
     fn default() -> Self {
         Self {
