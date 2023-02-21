@@ -11,7 +11,7 @@
 //! in multiple batches, reducing performance but useful for testing.
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimeMeasurePlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
@@ -32,7 +32,7 @@ fn main() {
         ))
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeMeasurePlugin::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,

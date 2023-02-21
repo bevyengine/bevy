@@ -2,7 +2,7 @@
 //! the mouse pointer in various ways.
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimeMeasurePlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{CursorGrabMode, PresentMode, WindowLevel},
 };
@@ -23,7 +23,7 @@ fn main() {
             ..default()
         }))
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugin(FrameTimeMeasurePlugin)
         .add_system(change_title)
         .add_system(toggle_cursor)
         .add_system(toggle_vsync)

@@ -1,5 +1,5 @@
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimeMeasurePlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
@@ -18,7 +18,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeMeasurePlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .init_resource::<UiFont>()
         .add_startup_system(setup)
