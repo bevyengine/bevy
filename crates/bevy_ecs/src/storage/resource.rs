@@ -42,6 +42,10 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// The only row in the underlying column.
     const ROW: TableRow = TableRow::new(0);
 
+    /// Validates the access to `!Send` resources is only done on the thread they were created from.
+    ///
+    /// # Panics
+    /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
     #[inline]
     fn validate_access(&self) {
         if SEND {
@@ -89,6 +93,8 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.column.get_ticks(Self::ROW)
     }
 
+    /// Gets a read-only reference and the change detection ticks for the resource.
+    ///
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.

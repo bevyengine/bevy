@@ -35,6 +35,8 @@ impl std::fmt::Debug for BlobVec {
 }
 
 impl BlobVec {
+    /// Creates a new [`BlobVec`] with the specified `capacity`.
+    ///
     /// # Safety
     ///
     /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
@@ -70,26 +72,37 @@ impl BlobVec {
         }
     }
 
+    /// Gets the number of elements currently stored in the [`BlobVec`].
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Checks if the [`BlobVec`] is currently empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Gets the maximum possible number of elements the [`BlobVec`] can store without
+    /// reallocating it's underlying buffer.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
+    /// Fetches the [`Layout`] of the underlying type stored within the [`BlobVec`].
     #[inline]
     pub fn layout(&self) -> Layout {
         self.item_layout
     }
 
+    /// Reserves the minimum capacity for at least additional more elements to be inserted in the given `BlobVec`.
+    /// After calling `reserve_exact`, capacity will be greater than or equal to self.len() + additional. Does nothing if
+    /// the capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests. Therefore, capacity can not be relied upon
+    /// to be precisely minimal.
     pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
         if available_space < additional && self.item_layout.size() > 0 {
@@ -134,6 +147,8 @@ impl BlobVec {
         self.capacity = new_capacity;
     }
 
+    /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
+    ///
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
@@ -145,6 +160,8 @@ impl BlobVec {
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
+    /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
+    ///
     /// # Safety
     /// - index must be in-bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
@@ -201,7 +218,7 @@ impl BlobVec {
         std::ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
     }
 
-    /// Pushes a value to the [`BlobVec`].
+    /// Appends a value to the back of the [`BlobVec`].
     ///
     /// # Safety
     /// `value` must be valid to add to this [`BlobVec`]
@@ -213,6 +230,8 @@ impl BlobVec {
         self.initialize_unchecked(index, value);
     }
 
+    /// Forces the length of the vector to `len`.
+    ///
     /// # Safety
     /// `len` must be <= `capacity`. if length is decreased, "out of bounds" items must be dropped.
     /// Newly added items must be immediately populated with valid values and length must be
@@ -255,6 +274,7 @@ impl BlobVec {
 
     /// Removes the value at `index` and copies the value stored into `ptr`.
     /// Does not do any bounds checking on `index`.
+    /// The removed element is replaced by the last element of the `BlobVec`.
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < `self.len()`
@@ -274,6 +294,10 @@ impl BlobVec {
         self.len -= 1;
     }
 
+    /// Removes the value at `index` and drops it.
+    /// Does not do any bounds checking on `index`.
+    /// The removed element is replaced by the last element of the `BlobVec`.
+    ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
@@ -286,6 +310,9 @@ impl BlobVec {
         }
     }
 
+    /// Fetches a read-only reference to the value at `index`.
+    /// Does not do any bounds checking on `index`.
+    ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
@@ -300,6 +327,9 @@ impl BlobVec {
         self.get_ptr().byte_add(index * size)
     }
 
+    /// Fetches a mutable reference to the value at `index`.
+    /// Does not do any bounds checking on `index`.
+    ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
@@ -337,6 +367,7 @@ impl BlobVec {
         std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
+    /// Clears the [`BlobVec`] by removing and dropping all of it's elements.
     pub fn clear(&mut self) {
         let len = self.len;
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
