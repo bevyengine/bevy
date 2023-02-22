@@ -1,18 +1,12 @@
-use std::borrow::Cow;
-
 use bevy_utils::all_tuples;
 
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::ComponentId,
-    query::Access,
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
     },
-    system::{BoxedSystem, IntoSystem, ReadOnlySystem, System},
-    world::World,
+    system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System},
 };
 
 /// A [`SystemSet`] with scheduling metadata.
@@ -393,7 +387,7 @@ where
             set: self.set,
             graph_info: self.graph_info,
             prev_conditions: self.prev_conditions,
-            condition: And::new(self.condition, new_condition(condition)),
+            condition: and(self.condition, new_condition(condition)),
         }
     }
 
@@ -680,7 +674,7 @@ where
         SystemConfigWithCondition {
             system: self.system,
             graph_info: self.graph_info,
-            condition: And::new(self.condition, new_condition(condition)),
+            condition: and(self.condition, new_condition(condition)),
             prev_conditions: self.prev_conditions,
         }
     }
@@ -696,120 +690,35 @@ where
     }
 }
 
-/// A system which combines the output of two systems with
-/// a non-short-circuiting AND operation.
-// FIXME: Replace this with an abstraction based on `SystemParamFunction`.
-// For that to be viable, we'd also need `PipeSystem` to also be based on
-// `SystemParamFunction`, which is blocked by the rust feature `type_alias_impl_trait`.
-pub struct And<A, B> {
-    a: A,
-    b: B,
-    name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
-    archetype_component_access: Access<ArchetypeComponentId>,
+fn and<A: System, B: System>(a: A, b: B) -> And<A, B> {
+    let name = format!("{} & {}", a.name(), b.name());
+    And::new(a, b, name.into())
 }
 
-impl<A: System, B: System> And<A, B> {
-    fn new(a: A, b: B) -> Self {
-        Self {
-            name: Cow::Owned(format!("{} & {}", a.name(), b.name())),
-            a,
-            b,
-            component_access: Access::new(),
-            archetype_component_access: Access::new(),
-        }
-    }
-}
+/// [Combines] the output of two systems with a non-short-circuiting AND operation.
+///
+/// [Combines]: CombinatorSystem
+#[doc(hidden)]
+pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
 
-impl<A, B> System for And<A, B>
+#[doc(hidden)]
+pub struct AndMarker;
+
+impl<A, B> Combine<A, B> for AndMarker
 where
     A: System<In = (), Out = bool>,
     B: System<In = (), Out = bool>,
 {
     type In = ();
-
     type Out = bool;
 
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        self.name.clone()
+    fn combine(
+        _input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(()) & b(())
     }
-
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        &self.component_access
-    }
-
-    fn archetype_component_access(
-        &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
-        self.a.run_unsafe((), world) & self.b.run_unsafe((), world)
-    }
-
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.a.apply_buffers(world);
-        self.b.apply_buffers(world);
-    }
-
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
-    }
-
-    fn update_archetype_component_access(&mut self, world: &World) {
-        self.a.update_archetype_component_access(world);
-        self.b.update_archetype_component_access(world);
-
-        self.archetype_component_access
-            .extend(self.a.archetype_component_access());
-        self.archetype_component_access
-            .extend(self.b.archetype_component_access());
-    }
-
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
-    }
-
-    fn get_last_change_tick(&self) -> u32 {
-        self.a.get_last_change_tick()
-    }
-
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.a.set_last_change_tick(last_change_tick);
-        self.b.set_last_change_tick(last_change_tick);
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        let mut system_sets = self.a.default_system_sets();
-        system_sets.extend_from_slice(&self.a.default_system_sets());
-        system_sets
-    }
-}
-
-// SAFETY: Both systems are read-only, so combining them will also be read-only.
-unsafe impl<A, B> ReadOnlySystem for And<A, B>
-where
-    A: ReadOnlySystem<In = (), Out = bool>,
-    B: ReadOnlySystem<In = (), Out = bool>,
-{
 }
 
 // only `System<In=(), Out=()>` system objects can be scheduled
