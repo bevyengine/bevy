@@ -118,11 +118,10 @@ impl Scene {
             }
         }
 
-        let entities_from_scene: Vec<_> = instance_info.entity_map.values().collect();
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
-                    .map_entities(world, &instance_info.entity_map, &entities_from_scene)
+                    .map_all_entities(world, &instance_info.entity_map)
                     .unwrap();
             }
         }
