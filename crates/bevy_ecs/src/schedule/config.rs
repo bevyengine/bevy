@@ -274,7 +274,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
 ///
 /// This has been implemented for boxed [`System<In=(), Out=()>`](crate::system::System)
 /// trait objects and all functions that turn into such.
-pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
+pub trait IntoSystemConfig<Marker>: sealed::IntoSystemConfig<Marker> {
     /// Convert into a [`SystemConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemConfig;
@@ -303,9 +303,9 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     fn ambiguous_with_all(self) -> SystemConfig;
 }
 
-impl<Params, F> IntoSystemConfig<Params> for F
+impl<Marker, F> IntoSystemConfig<Marker> for F
 where
-    F: IntoSystem<(), (), Params> + sealed::IntoSystemConfig<Params>,
+    F: IntoSystem<(), (), Marker> + sealed::IntoSystemConfig<Marker>,
 {
     fn into_config(self) -> SystemConfig {
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
@@ -465,9 +465,9 @@ mod sealed {
 
     use super::{SystemConfig, SystemSetConfig};
 
-    pub trait IntoSystemConfig<Params> {}
+    pub trait IntoSystemConfig<Marker> {}
 
-    impl<Params, F: IntoSystem<(), (), Params>> IntoSystemConfig<Params> for F {}
+    impl<Marker, F: IntoSystem<(), (), Marker>> IntoSystemConfig<Marker> for F {}
 
     impl IntoSystemConfig<()> for BoxedSystem<(), ()> {}
 
@@ -490,7 +490,7 @@ pub struct SystemConfigs {
 }
 
 /// Types that can convert into a [`SystemConfigs`].
-pub trait IntoSystemConfigs<Params>
+pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {

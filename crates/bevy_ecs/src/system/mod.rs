@@ -124,7 +124,7 @@ pub use system_piping::*;
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S) {
     if false {
         // Check it can be converted into a system
         // TODO: This should ensure that the system has no conflicting system params
@@ -137,7 +137,7 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_read_only_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
+pub fn assert_is_read_only_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
 where
     S::System: ReadOnlySystem,
 {
