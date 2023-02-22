@@ -237,10 +237,12 @@ pub struct Style {
     pub justify_content: JustifyContent,
     /// The position of the node as described by its Rect
     pub position: UiRect,
-    /// The margin of the node
+    /// The amount of space around the node outside its border
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     pub margin: UiRect,
     /// The space between the edges of the node and its contents
-    /// 
+    ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     pub padding: UiRect,
     /// The border of the node
