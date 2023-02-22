@@ -360,8 +360,6 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
 /// }
 /// ```
 pub struct In<In>(pub In);
-#[doc(hidden)]
-pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -636,7 +634,7 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(In<Input>, Out, $($param,)*)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
