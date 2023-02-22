@@ -33,7 +33,7 @@ use std::path::PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-/// Registration of default types to the `TypeRegistry` reesource.
+/// Registration of default types to the `TypeRegistry` resource.
 #[derive(Default)]
 pub struct TypeRegistrationPlugin;
 

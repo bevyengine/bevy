@@ -19,10 +19,15 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+use std::any::TypeId;
+
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
+    #[doc(hidden)]
+    #[allow(deprecated)]
+    pub use crate::query::ChangeTrackers;
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{ReflectComponent, ReflectResource};
@@ -33,12 +38,13 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, IntoSystemConfig,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
-            OnEnter, OnExit, OnUpdate, Schedule, Schedules, State, States, SystemSet,
+            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
+            IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig,
+            IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnUpdate, Schedule, Schedules, State,
+            States, SystemSet,
         },
         system::{
             adapter as system_adapter,
@@ -50,7 +56,10 @@ pub mod prelude {
     };
 }
 
-pub use bevy_ecs_macros::all_tuples;
+pub use bevy_utils::all_tuples;
+
+/// A specialized hashmap type with Key of `TypeId`
+type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]
 mod tests {
@@ -58,11 +67,10 @@ mod tests {
     use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
+        change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Added, ChangeTrackers, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without,
-        },
+        query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
         system::Resource,
         world::{Mut, World},
     };
@@ -771,17 +779,17 @@ mod tests {
         assert_eq!(
             world.removed::<A>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
         assert_eq!(
             world.removed::<SparseStored>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
         assert_eq!(
             world.removed::<B>().collect::<Vec<_>>(),
             &[],
-            "clearning trackers clears removals"
+            "clearing trackers clears removals"
         );
 
         // TODO: uncomment when world.clear() is implemented
@@ -1292,7 +1300,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn trackers_query() {
+        use crate::prelude::ChangeTrackers;
+
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
         world.spawn(B(0));
@@ -1536,7 +1547,7 @@ mod tests {
         assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
         assert_eq!(1, query_min_size![(&A, &B), With<C>],);
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
-        assert_eq!(4, query_min_size![ChangeTrackers<A>, ()],);
+        assert_eq!(4, query_min_size![Ref<A>, ()],);
         // All the following should set minimum size to 0, as it's impossible to predict
         // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");

@@ -77,7 +77,11 @@ impl Plugin for SpritePlugin {
                         extract_sprite_events,
                     ),
                 )
-                .add_system(queue_sprites.in_set(RenderSet::Queue));
+                .add_system(
+                    queue_sprites
+                        .in_set(RenderSet::Queue)
+                        .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                );
         };
     }
 }

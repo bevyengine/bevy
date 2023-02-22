@@ -12,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::unsafe_world_cell::UnsafeWorldCellEntityRef;
+use super::unsafe_world_cell::UnsafeEntityCell;
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -41,8 +41,8 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCellEntityRef<'w> {
-        UnsafeWorldCellEntityRef::new(
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'w> {
+        UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
@@ -149,15 +149,15 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCellEntityRef<'_> {
-        UnsafeWorldCellEntityRef::new(
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'_> {
+        UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
     }
-    fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCellEntityRef<'_> {
-        UnsafeWorldCellEntityRef::new(
+    fn as_unsafe_world_cell(&mut self) -> UnsafeEntityCell<'_> {
+        UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
             self.location,

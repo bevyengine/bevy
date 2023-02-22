@@ -24,19 +24,22 @@ pub(super) trait SystemExecutor: Send + Sync {
 
 /// Specifies how a [`Schedule`](super::Schedule) will be run.
 ///
-/// [`MultiThreaded`](ExecutorKind::MultiThreaded) is the default.
+/// The default depends on the target platform:
+///  - [`SingleThreaded`](ExecutorKind::SingleThreaded) on WASM.
+///  - [`MultiThreaded`](ExecutorKind::MultiThreaded) everywhere else.
 #[derive(PartialEq, Eq, Default)]
 pub enum ExecutorKind {
     /// Runs the schedule using a single thread.
     ///
     /// Useful if you're dealing with a single-threaded environment, saving your threads for
     /// other things, or just trying minimize overhead.
+    #[cfg_attr(target_arch = "wasm32", default)]
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_buffers`](crate::system::System::apply_buffers)
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
-    #[default]
+    #[cfg_attr(not(target_arch = "wasm32"), default)]
     MultiThreaded,
 }
 
@@ -46,7 +49,7 @@ pub enum ExecutorKind {
 /// Since the arrays are sorted in the same order, elements are referenced by their index.
 /// `FixedBitSet` is used as a smaller, more efficient substitute of `HashSet<usize>`.
 #[derive(Default)]
-pub(super) struct SystemSchedule {
+pub struct SystemSchedule {
     pub(super) systems: Vec<BoxedSystem>,
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     pub(super) set_conditions: Vec<Vec<BoxedCondition>>,

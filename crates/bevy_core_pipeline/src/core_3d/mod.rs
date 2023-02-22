@@ -68,7 +68,11 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_schedule(ExtractSchedule, extract_core_3d_camera_phases)
-            .add_system(prepare_core_3d_depth_textures.in_set(RenderSet::Prepare))
+            .add_system(
+                prepare_core_3d_depth_textures
+                    .in_set(RenderSet::Prepare)
+                    .after(bevy_render::view::prepare_windows),
+            )
             .add_system(sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort));

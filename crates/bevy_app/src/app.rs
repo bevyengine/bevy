@@ -292,37 +292,51 @@ impl App {
             panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
         }
 
-        // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
-        for plugin in &plugin_registry {
-            plugin.setup(&mut app);
-        }
-        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+        Self::setup(&mut app);
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
+    }
+
+    /// Run [`Plugin::setup`] for each plugin. This is usually called by [`App::run`], but can
+    /// be useful for situations where you want to use [`App::update`].
+    pub fn setup(&mut self) {
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let plugin_registry = std::mem::take(&mut self.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(self);
+        }
+        self.plugin_registry = plugin_registry;
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant, an instance of [`apply_state_transition::<S>`] in
     /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
-    /// with a [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
     /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which run during [`CoreSet::StateTransitions`] after the transitions are applied.
-    /// These systems sets only run if the [`State<S>`] resource matches their label.
+    /// which runs during [`CoreSet::Update`] after the transitions are applied.
+    /// These system sets only run if the [`State<S>`] resource matches the respective state variant.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
+    /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
         self.init_resource::<State<S>>();
         self.init_resource::<NextState<S>>();
-        self.add_systems(
+
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) else {
+            let schedule_label = &self.default_schedule_label;
+            panic!("Default schedule {schedule_label:?} does not exist.")
+        };
+
+        default_schedule.add_systems(
             (
                 run_enter_schedule::<S>.run_if(run_once_condition()),
                 apply_state_transition::<S>,
@@ -331,13 +345,11 @@ impl App {
                 .in_base_set(CoreSet::StateTransitions),
         );
 
-        let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
-            main_schedule.configure_set(
+            default_schedule.configure_set(
                 OnUpdate(variant.clone())
-                    .in_base_set(CoreSet::StateTransitions)
-                    .run_if(state_equals(variant))
-                    .after(apply_state_transition::<S>),
+                    .in_base_set(CoreSet::Update)
+                    .run_if(in_state(variant)),
             );
         }
 
