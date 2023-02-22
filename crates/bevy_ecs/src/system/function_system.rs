@@ -607,7 +607,7 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<((), Out, $($param,)*)> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn((), $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
@@ -634,7 +634,7 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(In<Input>, Out, $($param,)*)> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
