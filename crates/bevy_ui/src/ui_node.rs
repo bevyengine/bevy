@@ -239,7 +239,9 @@ pub struct Style {
     pub position: UiRect,
     /// The margin of the node
     pub margin: UiRect,
-    /// The padding of the node
+    /// The space between the edges of the node and its contents
+    /// 
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     pub padding: UiRect,
     /// The border of the node
     pub border: UiRect,
