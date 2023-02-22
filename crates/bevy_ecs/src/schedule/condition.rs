@@ -137,7 +137,7 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         schedule::{State, States},
-        system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
+        system::{In, IntoPipeSystem, Res, Resource},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -373,9 +373,7 @@ pub mod common_conditions {
     /// #
     /// # fn my_system() { unreachable!() }
     /// ```
-    pub fn not<Params>(
-        condition: impl Condition<Params>,
-    ) -> impl ReadOnlySystem<In = (), Out = bool> {
+    pub fn not<Marker>(condition: impl Condition<Marker>) -> impl Condition<()> {
         condition.pipe(|In(val): In<bool>| !val)
     }
 }
