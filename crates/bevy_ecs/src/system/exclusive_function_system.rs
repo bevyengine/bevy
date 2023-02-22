@@ -181,7 +181,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<((), Out, $($param,)*)> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
@@ -209,7 +209,7 @@ macro_rules! impl_exclusive_system_function {
             }
         }
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(In<Input>, Out, $($param,)*)> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, &mut World, $($param),*) -> Out +
