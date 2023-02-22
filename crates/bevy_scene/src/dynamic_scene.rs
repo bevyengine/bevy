@@ -137,7 +137,8 @@ impl DynamicScene {
 
         // Updates references to entities in the scene to entities in the world
         for (type_id, entities) in scene_mappings.into_iter() {
-            let registration = type_registry.get(type_id).unwrap();
+            let registration = type_registry.get(type_id)
+                .expect("This TypeRegistration was where we got the TypeId initially, should be safe to unwrap");
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
                     .map_entities(world, entity_map, &entities)

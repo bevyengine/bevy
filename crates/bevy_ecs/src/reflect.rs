@@ -412,7 +412,8 @@ impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut World, &EntityMap, Option<&[Entity]>) -> Result<(), MapEntitiesError>,
+    map_all_entities: fn(&mut World, &EntityMap) -> Result<(), MapEntitiesError>,
+    map_entities: fn(&mut World, &EntityMap, &[Entity]) -> Result<(), MapEntitiesError>,
 }
 
 impl ReflectMapEntities {
@@ -430,7 +431,7 @@ impl ReflectMapEntities {
         world: &mut World,
         entity_map: &EntityMap,
     ) -> Result<(), MapEntitiesError> {
-        (self.map_entities)(world, entity_map, None)
+        (self.map_all_entities)(world, entity_map)
     }
 
     /// This is like [`map_all_entities`](Self::map_all_entities), but only applied to specific entities, not all values
@@ -444,25 +445,25 @@ impl ReflectMapEntities {
         entity_map: &EntityMap,
         entities: &[Entity],
     ) -> Result<(), MapEntitiesError> {
-        (self.map_entities)(world, entity_map, Some(entities))
+        (self.map_entities)(world, entity_map, entities)
     }
 }
 
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
-            map_entities: |world, entity_map, entities_opt| {
-                if let Some(entities) = entities_opt {
-                    for &entity in entities {
-                        if let Some(mut component) = world.get_mut::<C>(entity) {
-                            component.map_entities(entity_map)?;
-                        }
+            map_entities: |world, entity_map, entities| {
+                for &entity in entities {
+                    if let Some(mut component) = world.get_mut::<C>(entity) {
+                        component.map_entities(entity_map)?;
                     }
-                } else {
-                    for entity in entity_map.values() {
-                        if let Some(mut component) = world.get_mut::<C>(entity) {
-                            component.map_entities(entity_map)?;
-                        }
+                }
+                Ok(())
+            },
+            map_all_entities: |world, entity_map| {
+                for entity in entity_map.values() {
+                    if let Some(mut component) = world.get_mut::<C>(entity) {
+                        component.map_entities(entity_map)?;
                     }
                 }
                 Ok(())
