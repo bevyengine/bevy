@@ -214,6 +214,9 @@ where
             "MAX_CASCADES_PER_LIGHT".to_string(),
             MAX_CASCADES_PER_LIGHT as i32,
         ));
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
+            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
