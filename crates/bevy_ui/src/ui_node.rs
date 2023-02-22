@@ -666,7 +666,6 @@ impl Orientation {
     }
 
     /// Rotate the image to the right by 90 degrees
-    #[inline]
     pub const fn rotate_180(self) -> Self {
         self.rotate_left().rotate_left()
     }
@@ -701,6 +700,11 @@ impl Orientation {
             FlippedSouth => North,
             FlippedWest => West,
         }
+    }
+
+    /// The original orientation of the image, not flipped or rotated.
+    pub const fn identity() -> Self {
+        Self::North
     }
 }
 
