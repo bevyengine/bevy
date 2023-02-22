@@ -416,14 +416,14 @@ pub struct ReflectMapEntities {
 }
 
 impl ReflectMapEntities {
-    /// A general method for applying [`MapEntity`] behavior to all elements in an [`EntityMap`].
+    /// A general method for applying [`MapEntities`] behavior to all elements in an [`EntityMap`].
     ///
     /// Be mindful in its usage: Works best in situations where the entities in the [`EntityMap`] are newly
     /// created, before systems have a chance to add new components. If some of the entities referred to
     /// by the [`EntityMap`] might already contain valid entity references, you should use [`map_entities`](Self::map_entities).
     ///
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
-    /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`], those `Parent`
+    /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
     pub fn map_all_entities(
         &self,
