@@ -416,7 +416,7 @@ pub struct ReflectMapEntities {
 }
 
 impl ReflectMapEntities {
-    /// A general method for applying MapEntity behavior to all elements in an [`EntityMap`].
+    /// A general method for applying [`MapEntity`] behavior to all elements in an [`EntityMap`].
     ///
     /// Be mindful in its usage: Works best in situations where the entities in the [`EntityMap`] are newly
     /// created, before systems have a chance to add new components. If some of the entities referred to
