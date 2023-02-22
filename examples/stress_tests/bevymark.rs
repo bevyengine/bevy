@@ -3,7 +3,7 @@
 //! Usage: spawn more entities by clicking on the screen.
 
 use bevy::{
-    diagnostic::{Diagnostics, FpsMeasurePlugin, LogDiagnosticsPlugin},
+    diagnostic::{Diagnostics, FpsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
 };
@@ -37,7 +37,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FpsMeasurePlugin::default())
+        .add_plugin(FpsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {
             count: 0,
@@ -252,7 +252,7 @@ fn counter_system(
         text.sections[1].value = counter.count.to_string();
     }
 
-    if let Some(fps) = diagnostics.get(FpsMeasurePlugin::FPS) {
+    if let Some(fps) = diagnostics.get(FpsPlugin::FPS) {
         if let Some(raw) = fps.value() {
             text.sections[3].value = format!("{raw:.2}");
         }

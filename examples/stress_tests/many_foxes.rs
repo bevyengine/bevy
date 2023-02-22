@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 use bevy::{
-    diagnostic::{FrameTimeMeasurePlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimePlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin},
@@ -28,7 +28,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeMeasurePlugin)
+        .add_plugin(FrameTimePlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(Foxes {
             count: std::env::args()

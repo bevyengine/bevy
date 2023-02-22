@@ -5,33 +5,33 @@ use bevy_ecs::prelude::*;
 use bevy_time::Time;
 
 /// This plugin group will add "frame time" diagnostics to an App, namely:
-/// * [`FrameTimeMeasurePlugin`](crate::FrameTimeMeasurePlugin)
-/// * [`FpsMeasurePlugin`](crate::FpsMeasurePlugin)
-/// * [`FrameCountMeasurePlugin`](crate::FrameCountMeasurePlugin)
+/// * [`FrameTimePlugin`](crate::FrameTimePlugin)
+/// * [`FpsPlugin`](crate::FpsPlugin)
+/// * [`FrameCountPlugin`](crate::FrameCountPlugin)
 #[derive(Default)]
 pub struct BasicPerformanceDiagnosticsPlugins;
 
 impl PluginGroup for BasicPerformanceDiagnosticsPlugins {
     fn build(self) -> bevy_app::PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(FpsMeasurePlugin)
-            .add(FrameTimeMeasurePlugin)
-            .add(FrameCountMeasurePlugin)
+            .add(FpsPlugin)
+            .add(FrameTimePlugin)
+            .add(FrameCountPlugin)
     }
 }
 
 /// Adds "frame time" diagnostic to an App
 #[derive(Default)]
-pub struct FrameTimeMeasurePlugin;
+pub struct FrameTimePlugin;
 
-impl Plugin for FrameTimeMeasurePlugin {
+impl Plugin for FrameTimePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
             .add_system(Self::frame_time_diagnostic_system);
     }
 }
 
-impl FrameTimeMeasurePlugin {
+impl FrameTimePlugin {
     /// Used as a key to retrieve the frame time diagnostic from [Diagnostics]
     pub const FRAME_TIME: DiagnosticId =
         DiagnosticId::from_u128(73441630925388532774622109383099159699);
@@ -51,15 +51,15 @@ impl FrameTimeMeasurePlugin {
 }
 /// Adds "frame per second" diagnostic to an App
 #[derive(Default)]
-pub struct FpsMeasurePlugin;
+pub struct FpsPlugin;
 
-impl Plugin for FpsMeasurePlugin {
+impl Plugin for FpsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
             .add_system(Self::fps_diagnostic_system);
     }
 }
-impl FpsMeasurePlugin {
+impl FpsPlugin {
     /// Used as a key to retrieve the fps diagnostic from [Diagnostics]
     pub const FPS: DiagnosticId = DiagnosticId::from_u128(288146834822086093791974408528866909483);
 
@@ -78,14 +78,14 @@ impl FpsMeasurePlugin {
 }
 /// Adds "frame count" diagnostic to an App
 #[derive(Default)]
-pub struct FrameCountMeasurePlugin;
-impl Plugin for FrameCountMeasurePlugin {
+pub struct FrameCountPlugin;
+impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
             .add_system(Self::frame_count_diagnostic_system);
     }
 }
-impl FrameCountMeasurePlugin {
+impl FrameCountPlugin {
     /// Used as a key to retrieve the frame count diagnostic from [Diagnostics]
     pub const FRAME_COUNT: DiagnosticId =
         DiagnosticId::from_u128(54021991829115352065418785002088010277);

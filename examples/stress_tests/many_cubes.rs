@@ -13,7 +13,7 @@
 use std::f64::consts::PI;
 
 use bevy::{
-    diagnostic::{FrameTimeMeasurePlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimePlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
     window::{PresentMode, WindowPlugin},
@@ -28,7 +28,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeMeasurePlugin::default())
+        .add_plugin(FrameTimePlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(move_camera)

@@ -1,7 +1,7 @@
 use std::f32::consts::*;
 
 use bevy::{
-    diagnostic::{FrameTimeMeasurePlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimePlugin, LogDiagnosticsPlugin},
     pbr::NotShadowCaster,
     prelude::*,
 };
@@ -10,7 +10,7 @@ use rand::{thread_rng, Rng};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeMeasurePlugin::default())
+        .add_plugin(FrameTimePlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(light_sway)

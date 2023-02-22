@@ -5,8 +5,7 @@ mod log_diagnostics_plugin;
 mod system_information_diagnostics_plugin;
 
 pub use basic_performance_diagnostics_plugin::{
-    BasicPerformanceDiagnosticsPlugins, FpsMeasurePlugin, FrameCountMeasurePlugin,
-    FrameTimeMeasurePlugin,
+    BasicPerformanceDiagnosticsPlugins, FpsPlugin, FrameCountPlugin, FrameTimePlugin,
 };
 use bevy_app::prelude::*;
 pub use diagnostic::*;
