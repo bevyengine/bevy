@@ -46,7 +46,7 @@ mod draw_3d_graph {
 const TAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
 
-/// Plugin for temporal antialiasing. Disables multisample antialiasing (MSAA).
+/// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
 pub struct TemporalAntialiasPlugin;
 
 impl Plugin for TemporalAntialiasPlugin {
@@ -95,7 +95,7 @@ impl Plugin for TemporalAntialiasPlugin {
     }
 }
 
-/// Bundle to apply temporal antialiasing.
+/// Bundle to apply temporal anti-aliasing.
 #[derive(Bundle, Default)]
 pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
@@ -104,10 +104,10 @@ pub struct TemporalAntialiasBundle {
     pub velocity_prepass: VelocityPrepass,
 }
 
-/// Component to apply temporal antialiasing to a 3D perspective camera.
+/// Component to apply temporal anti-aliasing to a 3D perspective camera.
 ///
-/// Temporal antialiasing (TAA) is a form of image smoothing/filtering, like
-/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA).
+/// Temporal anti-aliasing (TAA) is a form of image smoothing/filtering, like
+/// multisample anti-aliasing (MSAA), or fast approximate anti-aliasing (FXAA).
 /// TAA works by blending (averaging) each frame with the past few frames.
 ///
 /// # Tradeoffs
