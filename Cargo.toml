@@ -319,8 +319,8 @@ name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
 [package.metadata.example.anti_aliasing]
-name = "Anti Aliasing"
-description = "Compares different anti aliasing methods"
+name = "Anti-aliasing"
+description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
 wasm = false
 
