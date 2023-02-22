@@ -208,7 +208,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         schedule.add_system(system);
         schedule.run(world);
@@ -475,7 +475,7 @@ mod tests {
         _buffer: Vec<u8>,
     }
 
-    fn test_for_conflicting_resources<Param, S: IntoSystem<(), (), Param>>(sys: S) {
+    fn test_for_conflicting_resources<Marker, S: IntoSystem<(), (), Marker>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
         world.insert_resource(A);
