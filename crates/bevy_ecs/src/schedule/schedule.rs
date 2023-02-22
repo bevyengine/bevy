@@ -126,7 +126,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// in a certain order under certain conditions.
 ///
 /// # Example
-/// Here is an example of a Schedule running a "Hello world" system:
+/// Here is an example of a `Schedule` running a "Hello world" system:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn hello_world() { println!("Hello world!") }
