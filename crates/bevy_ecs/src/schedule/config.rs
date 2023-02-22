@@ -397,10 +397,6 @@ where
         }
     }
 
-    fn on_update(self, state: impl States) -> Self {
-        self.in_set(OnUpdate(state))
-    }
-
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
         self
@@ -687,10 +683,6 @@ where
             condition: And::new(self.condition, new_condition(condition)),
             prev_conditions: self.prev_conditions,
         }
-    }
-
-    fn on_update(self, state: impl States) -> Self {
-        self.in_set(OnUpdate(state))
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
