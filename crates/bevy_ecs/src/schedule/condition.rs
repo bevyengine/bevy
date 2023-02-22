@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use crate::system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System};
+use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
 
-pub type BoxedCondition = BoxedSystem<(), bool>;
+pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
