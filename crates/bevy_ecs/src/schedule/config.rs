@@ -1001,7 +1001,9 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn distributive_run_if<P>(mut self, condition: impl Condition<P> + Clone) -> SystemConfigs {
         for config in &mut self.systems {
-            config.conditions.push(new_condition(condition.clone()));
+            config
+                .conditions
+                .push(Box::new(new_condition(condition.clone())));
         }
 
         self
