@@ -334,7 +334,7 @@ where
     #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
         assert!(
@@ -352,7 +352,7 @@ where
     #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "System type sets cannot be base sets."
         );
         assert!(
@@ -630,7 +630,7 @@ where
     #[track_caller]
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
         assert!(
@@ -644,7 +644,7 @@ where
     #[track_caller]
     fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
-            !set.is_system_type(),
+            set.system_type().is_none(),
             "System type sets cannot be base sets."
         );
         assert!(
