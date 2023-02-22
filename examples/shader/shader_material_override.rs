@@ -108,16 +108,30 @@ impl Material for CustomMaterial {
         layout: &bevy::render::mesh::MeshVertexBufferLayout,
         key: bevy::pbr::MaterialPipelineKey<Self>,
     ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
-        // safety - because CustomMaterial::Data == StanadardMaterial::Data, the only difference is the phantom marker. but even though PhantomData is a ZST
-        // we still can't *guarantee* the same struct layout. so this is not actually safe without #[repr(C)] or #[repr(Transparent)] on Material...
-        let pipeline = unsafe { std::mem::transmute(pipeline) };
+        // build a MaterialPipeline<StandardMaterial> out of the MaterialPipeline<Self> we've been given
+        let bevy::pbr::MaterialPipeline::<Self> {
+            mesh_pipeline,
+            material_layout,
+            vertex_shader,
+            fragment_shader,
+            ..
+        } = pipeline.clone();
+
+        let standard_pipeline = bevy::pbr::MaterialPipeline::<StandardMaterial> {
+            mesh_pipeline,
+            material_layout,
+            vertex_shader,
+            fragment_shader,
+            marker: Default::default(),
+        };
 
         let key = MaterialPipelineKey {
             mesh_key: key.mesh_key,
             bind_group_data: key.bind_group_data,
         };
 
-        StandardMaterial::specialize(pipeline, descriptor, layout, key)
+        // defer to StandardMaterial's specialize function
+        StandardMaterial::specialize(&standard_pipeline, descriptor, layout, key)
     }
 
     fn depth_bias(&self) -> f32 {
