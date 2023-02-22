@@ -124,6 +124,41 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
+///
+/// # Example
+/// Here is an example of a `Schedule` running a "Hello world" system:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn hello_world() { println!("Hello world!") }
+///
+/// fn main() {
+///     let mut world = World::new();
+///     let mut schedule = Schedule::default();
+///     schedule.add_system(hello_world);
+///
+///     schedule.run(&mut world);
+/// }
+/// ```
+///
+/// A schedule can also run several systems in an ordered way:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn system_one() { println!("System 1 works!") }
+/// fn system_two() { println!("System 2 works!") }
+/// fn system_three() { println!("System 3 works!") }
+///    
+/// fn main() {
+///     let mut world = World::new();
+///     let mut schedule = Schedule::default();
+///     schedule.add_systems((
+///         system_two,
+///         system_one.before(system_two),
+///         system_three.after(system_two),
+///     ));
+///
+///     schedule.run(&mut world);
+/// }
+/// ```
 pub struct Schedule {
     graph: ScheduleGraph,
     executable: SystemSchedule,
