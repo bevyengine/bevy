@@ -80,39 +80,40 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
 /// Types that can be converted into a [`SystemSetConfig`].
 ///
 /// This has been implemented for all types that implement [`SystemSet`] and boxed trait objects.
-pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
+pub trait IntoSystemSetConfig {
+    type Config;
+
     /// Convert into a [`SystemSetConfig`].
     #[doc(hidden)]
-    fn into_config(self) -> SystemSetConfig;
+    fn into_config(self) -> Self::Config;
     /// Add to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
+    fn in_set(self, set: impl SystemSet) -> Self::Config;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
+    fn in_base_set(self, set: impl SystemSet) -> Self::Config;
     /// Add this set to the schedules's default base set.
-    fn in_default_base_set(self) -> SystemSetConfig;
+    fn in_default_base_set(self) -> Self::Config;
     /// Run before all systems in `set`.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Run after all systems in `set`.
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
+    fn run_if<P>(self, condition: impl Condition<P>) -> Self::Config;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Self::Config;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> SystemSetConfig;
+    fn ambiguous_with_all(self) -> Self::Config;
 }
 
-impl<S> IntoSystemSetConfig for S
-where
-    S: SystemSet + sealed::IntoSystemSetConfig,
-{
+impl<S: SystemSet> IntoSystemSetConfig for S {
+    type Config = SystemSetConfig;
+
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(Box::new(self))
     }
@@ -153,6 +154,8 @@ where
 }
 
 impl IntoSystemSetConfig for BoxedSystemSet {
+    type Config = SystemSetConfig;
+
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(self)
     }
@@ -193,6 +196,8 @@ impl IntoSystemSetConfig for BoxedSystemSet {
 }
 
 impl IntoSystemSetConfig for SystemSetConfig {
+    type Config = SystemSetConfig;
+
     fn into_config(self) -> Self {
         self
     }
@@ -462,21 +467,6 @@ impl IntoSystemConfig<()> for SystemConfig {
         self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
         self
     }
-}
-
-// only `System<In=(), Out=()>` system objects can be scheduled
-mod sealed {
-    use crate::schedule::{BoxedSystemSet, SystemSet};
-
-    use super::SystemSetConfig;
-
-    pub trait IntoSystemSetConfig {}
-
-    impl<S: SystemSet> IntoSystemSetConfig for S {}
-
-    impl IntoSystemSetConfig for BoxedSystemSet {}
-
-    impl IntoSystemSetConfig for SystemSetConfig {}
 }
 
 /// A collection of [`SystemConfig`].
@@ -837,7 +827,7 @@ macro_rules! impl_system_collection {
 
 macro_rules! impl_system_set_collection {
     ($($set: ident),*) => {
-        impl<$($set: IntoSystemSetConfig),*> IntoSystemSetConfigs for ($($set,)*)
+        impl<$($set: IntoSystemSetConfig<Config = SystemSetConfig>),*> IntoSystemSetConfigs for ($($set,)*)
         {
             #[allow(non_snake_case)]
             fn into_configs(self) -> SystemSetConfigs {
