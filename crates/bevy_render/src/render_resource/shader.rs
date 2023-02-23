@@ -561,26 +561,6 @@ impl ShaderProcessor {
                 let current_valid = scopes.last().unwrap().is_accepting_lines();
 
                 scopes.push(Scope::new(current_valid && new_scope));
-            } else if let Some(cap) = self.define_regex.captures(line) {
-                let def = cap.get(1).unwrap();
-                let name = def.as_str().to_string();
-
-                if let Some(val) = cap.get(2) {
-                    if let Ok(val) = val.as_str().parse::<u32>() {
-                        shader_defs_unique.insert(name.clone(), ShaderDefVal::UInt(name, val));
-                    } else if let Ok(val) = val.as_str().parse::<i32>() {
-                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Int(name, val));
-                    } else if let Ok(val) = val.as_str().parse::<bool>() {
-                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
-                    } else {
-                        return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
-                            shader_def_name: name,
-                            value: val.as_str().to_string(),
-                        });
-                    }
-                } else {
-                    shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, true));
-                }
             } else if let Some(cap) = self.else_ifdef_regex.captures(line) {
                 // When should we accept the code in an
                 //
@@ -685,6 +665,26 @@ impl ShaderProcessor {
                     .is_match(line)
                 {
                     // ignore import path lines
+                } else if let Some(cap) = self.define_regex.captures(line) {
+                    let def = cap.get(1).unwrap();
+                    let name = def.as_str().to_string();
+
+                    if let Some(val) = cap.get(2) {
+                        if let Ok(val) = val.as_str().parse::<u32>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::UInt(name, val));
+                        } else if let Ok(val) = val.as_str().parse::<i32>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::Int(name, val));
+                        } else if let Ok(val) = val.as_str().parse::<bool>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
+                        } else {
+                            return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
+                                shader_def_name: name,
+                                value: val.as_str().to_string(),
+                            });
+                        }
+                    } else {
+                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, true));
+                    }
                 } else {
                     let mut line_with_defs = line.to_string();
                     for capture in self.def_regex.captures_iter(line) {
