@@ -414,7 +414,6 @@ pub fn update_directional_light_cascades(
     let views = views
         .iter()
         .filter_map(|view| match view {
-            // TODO: orthographic camera projection support.
             (entity, transform, Projection::Perspective(projection), camera)
                 if camera.is_active =>
             {
