@@ -2509,6 +2509,35 @@ defined at end
     }
 
     #[test]
+    fn process_shader_define_only_in_accepting_scopes() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+#define GUARD
+#ifndef GUARD
+#define GUARDED
+#endif
+#ifdef GUARDED
+This should not be part of the result
+#endif
+";
+
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+
+    #[test]
     fn process_shader_define_in_shader_with_value() {
         #[rustfmt::skip]
         const WGSL: &str = r"
