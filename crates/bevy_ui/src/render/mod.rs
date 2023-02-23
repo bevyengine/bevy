@@ -7,6 +7,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
+use crate::{borders::CalculatedBorder, BorderStyle};
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -78,6 +79,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
         )
@@ -177,6 +179,52 @@ pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
 
+pub fn extract_uinode_borders(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<(
+            &GlobalTransform,
+            &CalculatedBorder,
+            &BorderStyle,
+            &ComputedVisibility,
+            Option<&CalculatedClip>,
+        )>,
+    >,
+) {
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((transform, border, border_style, visibility, clip)) = uinode_query.get(*entity) {
+            // Skip invisible nodes
+            if !visibility.is_visible() || border_style.color.a() == 0.0 {
+                continue;
+            }
+
+            let image = DEFAULT_IMAGE_HANDLE.typed();
+
+            for &border_rect in border.edges.iter().flatten() {
+                let center = border_rect.center();
+                let transform = Mat4::from_translation(Vec3::new(center.x, center.y, 0.0))
+                    * transform.compute_matrix();
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    stack_index,
+                    transform,
+                    color: border_style.color,
+                    rect: Rect {
+                        max: border_rect.size(),
+                        ..Default::default()
+                    },
+                    image: image.clone_weak(),
+                    atlas_size: None,
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
+                });
+            }
+        }
+    }
+}
+
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
@@ -193,6 +241,7 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)

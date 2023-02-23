@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex,
+    borders::CalculatedBorder, widget::Button, BackgroundColor, BorderStyle, CalculatedSize,
+    FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -23,6 +23,10 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
+    /// How to draw the node's border
+    pub border_style: BorderStyle,
+    /// Stores the border's calculated geometry
+    pub calculated_border: CalculatedBorder,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -48,6 +52,8 @@ impl Default for NodeBundle {
         NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
+            border_style: Color::NONE.into(),
+            calculated_border: Default::default(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -192,6 +198,10 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
+    /// How to draw the node's border
+    pub border_style: BorderStyle,
+    /// Stores the border's calculated geometry
+    pub calculated_border: CalculatedBorder,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Describes the style including flexbox settings
@@ -231,6 +241,8 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
+            border_style: Default::default(),
+            calculated_border: Default::default(),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
