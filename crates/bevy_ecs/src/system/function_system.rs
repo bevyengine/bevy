@@ -319,7 +319,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params>: Sized {
+pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
