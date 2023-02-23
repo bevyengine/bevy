@@ -198,7 +198,6 @@ pub struct SystemAppConfigs {
     pub(crate) schedule: ScheduleMode,
 }
 
-
 /// Stores the schedule/s associated with a set of [`SystemConfigs`].
 pub(crate) enum ScheduleMode {
     None,
