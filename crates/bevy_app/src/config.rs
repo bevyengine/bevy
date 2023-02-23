@@ -175,7 +175,9 @@ pub struct SystemAppConfigs {
 
 pub(crate) enum ScheduleMode {
     None,
+    // All systems in the same schedule.
     Blanket(BoxedScheduleLabel),
+    // Each system gets its own schedule.
     Granular(Vec<Option<BoxedScheduleLabel>>),
 }
 
