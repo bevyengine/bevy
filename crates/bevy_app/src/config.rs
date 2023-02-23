@@ -3,6 +3,8 @@ use bevy_ecs::schedule::{
     ScheduleLabel, SystemConfig, SystemSet, SystemSetConfig,
 };
 
+use crate::CoreSchedule;
+
 /// A [`SystemSet`] with [`App`]-aware scheduling metadata.
 ///
 /// [`App`]: crate::App
@@ -145,6 +147,37 @@ pub trait IntoSystemAppConfig<Marker>: Sized + IntoSystemConfig<Marker> {
             );
         }
         config.schedule = Some(Box::new(schedule));
+
+        config
+    }
+
+    /// Add to [`CoreSchedule::Startup`].
+    ///
+    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
+    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// fn my_startup_system(_commands: Commands) {
+    ///     println!("My startup system");
+    /// }
+    ///
+    /// App::new()
+    ///     .add_system(my_startup_system.on_startup())
+    ///     .run();
+    /// ```
+    fn on_startup(self) -> SystemAppConfig {
+        let mut config = self.into_app_config();
+        if let Some(old_schedule) = &config.schedule {
+            panic!(
+                "Cannot add system to the startup schedule: it is already in '{old_schedule:?}'."
+            );
+        }
+        config.schedule = Some(Box::new(CoreSchedule::Startup));
 
         config
     }
