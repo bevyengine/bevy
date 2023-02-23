@@ -460,12 +460,6 @@ pub struct SystemConfigs {
     pub(super) chained: bool,
 }
 
-impl SystemConfigs {
-    pub fn is_chained(&self) -> bool {
-        self.chained
-    }
-}
-
 impl IntoIterator for SystemConfigs {
     type Item = SystemConfig;
     type IntoIter = std::vec::IntoIter<SystemConfig>;
