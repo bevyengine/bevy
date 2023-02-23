@@ -59,8 +59,11 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(3.0, 8.0, 5.0),
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            ..default()
+        },
         ..default()
     });
 }

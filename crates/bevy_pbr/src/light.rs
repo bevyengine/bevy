@@ -429,7 +429,7 @@ pub fn update_directional_light_cascades(
             {
                 Some((
                     entity,
-                    projection.area.height() / projection.area.width(),
+                    projection.area.width() / projection.area.height(),
                     std::f32::consts::FRAC_PI_4,
                     transform.compute_matrix(),
                 ))
