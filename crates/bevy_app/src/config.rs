@@ -14,7 +14,10 @@ pub struct SystemSetAppConfig {
 }
 
 /// Types that can be converted into a [`SystemSetAppConfig`].
-pub trait IntoSystemSetAppConfig: Sized + IntoSystemSetConfig {
+pub trait IntoSystemSetAppConfig: Sized + IntoSystemSetConfig<Self::InnerConfig> {
+    #[doc(hidden)]
+    type InnerConfig;
+
     /// Converts into a [`SystemSetAppConfig`].
     #[doc(hidden)]
     fn into_app_config(self) -> SystemSetAppConfig;
@@ -106,10 +109,19 @@ impl IntoSystemSetConfig<Self> for SystemSetAppConfig {
     }
 }
 
+impl IntoSystemSetAppConfig for SystemSetAppConfig {
+    type InnerConfig = Self;
+
+    fn into_app_config(self) -> SystemSetAppConfig {
+        self
+    }
+}
+
 impl<T> IntoSystemSetAppConfig for T
 where
     T: IntoSystemSetConfig,
 {
+    type InnerConfig = SystemSetConfig;
     fn into_app_config(self) -> SystemSetAppConfig {
         SystemSetAppConfig {
             config: self.into_config(),
