@@ -110,7 +110,6 @@ fn setup(mut commands: Commands) {
             })
             .add_child(inner_spot)
             .id();
-        commands.entity(bordered_node).add_child(inner_spot);
         commands.entity(root).add_child(bordered_node);
     }
 }
