@@ -8,7 +8,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
-        ScheduleLabel, SystemConfig,
+        ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -434,7 +434,7 @@ impl App {
     pub fn add_system_to_schedule<P>(
         &mut self,
         schedule_label: impl ScheduleLabel,
-        system: impl IntoSystemConfig<P, Config = SystemConfig>,
+        system: impl IntoSystemConfig<P>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -482,10 +482,7 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<P>(
-        &mut self,
-        system: impl IntoSystemConfig<P, Config = SystemConfig>,
-    ) -> &mut Self {
+    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
         self.add_system_to_schedule(CoreSchedule::Startup, system)
     }
 

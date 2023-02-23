@@ -133,7 +133,12 @@ pub struct SystemAppConfig {
 ///
 /// This has been implemented for all `System<In = (), Out = ()>` trait objects
 /// and all functions that convert into such.
-pub trait IntoSystemAppConfig<Marker>: Sized + IntoSystemConfig<Marker> {
+pub trait IntoSystemAppConfig<Marker, Config = SystemAppConfig>:
+    Sized + IntoSystemConfig<Marker, Self::InnerConfig>
+{
+    #[doc(hidden)]
+    type InnerConfig;
+
     /// Converts into a [`SystemAppConfig`].
     fn into_app_config(self) -> SystemAppConfig;
 
@@ -183,9 +188,7 @@ pub trait IntoSystemAppConfig<Marker>: Sized + IntoSystemConfig<Marker> {
     }
 }
 
-impl IntoSystemConfig<()> for SystemAppConfig {
-    type Config = Self;
-
+impl IntoSystemConfig<(), Self> for SystemAppConfig {
     fn into_config(self) -> Self {
         self
     }
@@ -258,6 +261,8 @@ impl IntoSystemConfig<()> for SystemAppConfig {
 }
 
 impl IntoSystemAppConfig<()> for SystemAppConfig {
+    type InnerConfig = Self;
+
     fn into_app_config(self) -> SystemAppConfig {
         self
     }
@@ -265,8 +270,10 @@ impl IntoSystemAppConfig<()> for SystemAppConfig {
 
 impl<Marker, T> IntoSystemAppConfig<Marker> for T
 where
-    T: IntoSystemConfig<Marker, Config = SystemConfig>,
+    T: IntoSystemConfig<Marker>,
 {
+    type InnerConfig = SystemConfig;
+
     fn into_app_config(self) -> SystemAppConfig {
         SystemAppConfig {
             system: self.into_config(),
