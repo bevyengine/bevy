@@ -60,16 +60,9 @@ pub trait IntoSystemAppConfig<Marker, Config = SystemAppConfig>:
     ///     .add_system(my_startup_system.on_startup())
     ///     .run();
     /// ```
+    #[inline]
     fn on_startup(self) -> SystemAppConfig {
-        let mut config = self.into_app_config();
-        if let Some(old_schedule) = &config.schedule {
-            panic!(
-                "Cannot add system to the startup schedule: it is already in '{old_schedule:?}'."
-            );
-        }
-        config.schedule = Some(Box::new(CoreSchedule::Startup));
-
-        config
+        self.in_schedule(CoreSchedule::Startup)
     }
 }
 
