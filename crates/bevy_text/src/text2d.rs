@@ -107,6 +107,9 @@ pub fn extract_text2d_sprite(
         let alignment_offset = text_layout_info.size * text_anchor;
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
+        let text_transform = *text_transform
+            * Transform::from_translation((alignment_offset).extend(0.))
+            * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
         for text_glyph in text_glyphs {
             if text_glyph.section_index != current_section {
                 color = text.sections[text_glyph.section_index]
@@ -121,13 +124,7 @@ pub fn extract_text2d_sprite(
             let handle = atlas.texture.clone_weak();
             let index = text_glyph.atlas_info.glyph_index;
             let rect = Some(atlas.textures[index]);
-
-            let glyph_transform =
-                Transform::from_translation((alignment_offset + text_glyph.position).extend(0.));
-
-            let transform = *text_transform
-                * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
-                * glyph_transform;
+            let transform = text_transform * Transform::from_translation((text_glyph.position).extend(0.));
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
@@ -187,7 +184,6 @@ pub fn update_text2d_layout(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),
             );
-
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
@@ -210,10 +206,16 @@ pub fn update_text2d_layout(
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(info) => match text_layout_info {
-                    Some(mut t) => *t = info,
-                    None => {
-                        commands.entity(entity).insert(info);
+                Ok(mut info) => {
+                    info.size = Vec2::new(
+                        scale_value(info.size.x, scale_factor.recip()),
+                        scale_value(info.size.y, scale_factor.recip()),
+                    );
+                    match text_layout_info {
+                        Some(mut t) => *t = info,
+                        None => {
+                            commands.entity(entity).insert(info);
+                        }
                     }
                 },
             }
