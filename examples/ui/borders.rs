@@ -5,11 +5,11 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_many)
+        .add_startup_system(setup)
         .run();
 }
 
-fn setup_many(mut commands: Commands) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     let root = commands
         .spawn(NodeBundle {
@@ -27,6 +27,7 @@ fn setup_many(mut commands: Commands) {
         })
         .id();
 
+    // all the different combinations of border edges
     let borders = [
         UiRect::default(),
         UiRect::all(Val::Px(10.)),
@@ -92,41 +93,10 @@ fn setup_many(mut commands: Commands) {
                     ..Default::default()
                 },
                 background_color: Color::BLUE.into(),
-                border_style: Color::WHITE.into(),
+                border_style: Color::WHITE.with_a(0.5).into(),
                 ..Default::default()
             })
             .id();
         commands.entity(root).add_child(b);
     }
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-    let root = commands
-        .spawn(NodeBundle {
-            style: Style {
-                flex_basis: Val::Percent(100.0),
-                justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::FlexStart,
-                align_content: AlignContent::FlexStart,
-                ..Default::default()
-            },
-            background_color: BackgroundColor(Color::BLACK),
-            ..Default::default()
-        })
-        .id();
-
-    let b = commands
-        .spawn(NodeBundle {
-            style: Style {
-                size: Size::all(Val::Px(100.)),
-                border: UiRect::all(Val::Px(10.)),
-                ..Default::default()
-            },
-            background_color: Color::BLUE.into(),
-            border_style: Color::WHITE.into(),
-            ..Default::default()
-        })
-        .id();
-    commands.entity(root).add_child(b);
 }
