@@ -190,14 +190,14 @@ jobs:
       - name: Build bevy
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome,ktx2,zstd"
+          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome,ktx2,zstd"
+            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
           done
           zip traces.zip trace*.json

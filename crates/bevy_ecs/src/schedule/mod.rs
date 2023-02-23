@@ -15,6 +15,8 @@ pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;
 
+pub use self::graph_utils::NodeId;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,6 +218,32 @@ mod tests {
             assert_eq!(world.resource::<SystemOrder>().0, vec![]);
 
             world.resource_mut::<RunConditionBool>().0 = true;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
+        fn systems_with_distributive_condition() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.insert_resource(RunConditionBool(true));
+            world.init_resource::<SystemOrder>();
+
+            fn change_condition(mut condition: ResMut<RunConditionBool>) {
+                condition.0 = false;
+            }
+
+            schedule.add_systems(
+                (
+                    make_function_system(0),
+                    change_condition,
+                    make_function_system(1),
+                )
+                    .chain()
+                    .distributive_run_if(|condition: Res<RunConditionBool>| condition.0),
+            );
+
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
         }
@@ -562,9 +590,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_hierarchy_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                hierarchy_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             // Add `A`.
             schedule.configure_set(TestSet::A);
@@ -634,9 +663,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_ambiguity_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
@@ -793,6 +823,28 @@ mod tests {
                 result,
                 Err(ScheduleBuildError::SetInMultipleBaseSets { .. })
             ));
+        }
+
+        #[test]
+        fn allow_same_base_sets() {
+            let mut world = World::new();
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::A))
+                .add_system(named_system.in_set(Normal::X).in_set(Normal::Y));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Ok(())));
+
+            let mut schedule = Schedule::new();
+            schedule
+                .configure_set(Normal::X.in_base_set(Base::A))
+                .configure_set(Normal::Y.in_base_set(Base::A).in_set(Normal::X));
+
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Ok(())));
         }
 
         #[test]

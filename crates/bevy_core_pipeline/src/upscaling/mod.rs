@@ -88,7 +88,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("upscaling pipeline".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: UPSCALING_SHADER_HANDLE.typed(),
@@ -103,6 +103,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
