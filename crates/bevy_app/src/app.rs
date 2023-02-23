@@ -387,7 +387,7 @@ impl App {
         let SystemAppConfig { system, schedule } = system.into_app_config();
 
         if let Some(schedule_label) = schedule {
-            if let Some(schedule) = schedules.get_mut(&schedule_label) {
+            if let Some(schedule) = schedules.get_mut(&*schedule_label) {
                 schedule.add_system(system);
             } else {
                 panic!("Schedule {schedule_label:?} does not exist.")
