@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
@@ -413,28 +413,12 @@ pub fn update_directional_light_cascades(
 ) {
     let views = views
         .iter()
-        .filter_map(|view| match view {
-            (entity, transform, Projection::Perspective(projection), camera)
-                if camera.is_active =>
-            {
-                Some((
-                    entity,
-                    projection.aspect_ratio,
-                    (0.5 * projection.fov).tan(),
-                    transform.compute_matrix(),
-                ))
+        .filter_map(|(entity, transform, projection, camera)| {
+            if camera.is_active {
+                Some((entity, projection, transform.compute_matrix()))
+            } else {
+                None
             }
-            (entity, transform, Projection::Orthographic(projection), camera)
-                if camera.is_active =>
-            {
-                Some((
-                    entity,
-                    projection.area.width() / projection.area.height(),
-                    std::f32::consts::FRAC_PI_4.tan(),
-                    transform.compute_matrix(),
-                ))
-            }
-            _ => None,
         })
         .collect::<Vec<_>>();
 
@@ -453,27 +437,38 @@ pub fn update_directional_light_cascades(
         let light_to_world_inverse = light_to_world.inverse();
 
         cascades.cascades.clear();
-        for (view_entity, aspect_ratio, tan_half_fov, view_to_world) in views.iter().copied() {
+        for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
             let view_cascades = cascades_config
                 .bounds
                 .iter()
                 .enumerate()
                 .map(|(idx, far_bound)| {
+                    // Negate bounds as -z is camera forward direction.
+                    let z_near = if idx > 0 {
+                        (1.0 - cascades_config.overlap_proportion)
+                            * -cascades_config.bounds[idx - 1]
+                    } else {
+                        -cascades_config.minimum_distance
+                    };
+                    let z_far = -far_bound;
+
+                    let corners = match projection {
+                        Projection::Perspective(projection) => frustum_corners(
+                            projection.aspect_ratio,
+                            (projection.fov / 2.).tan(),
+                            z_near,
+                            z_far,
+                        ),
+                        Projection::Orthographic(projection) => {
+                            frustum_corners_ortho(projection.area, z_near, z_far)
+                        }
+                    };
                     calculate_cascade(
-                        aspect_ratio,
-                        tan_half_fov,
+                        corners,
                         directional_light_shadow_map.size as f32,
                         light_to_world,
                         camera_to_light_view,
-                        // Negate bounds as -z is camera forward direction.
-                        if idx > 0 {
-                            (1.0 - cascades_config.overlap_proportion)
-                                * -cascades_config.bounds[idx - 1]
-                        } else {
-                            -cascades_config.minimum_distance
-                        },
-                        -far_bound,
                     )
                 })
                 .collect();
@@ -482,27 +477,27 @@ pub fn update_directional_light_cascades(
     }
 }
 
-fn calculate_cascade(
-    aspect_ratio: f32,
-    tan_half_fov: f32,
-    cascade_texture_size: f32,
-    light_to_world: Mat4,
-    camera_to_light: Mat4,
-    z_near: f32,
-    z_far: f32,
-) -> Cascade {
-    debug_assert!(z_near <= 0.0, "z_near {z_near} must be <= 0.0");
-    debug_assert!(z_far <= 0.0, "z_far {z_far} must be <= 0.0");
-    // NOTE: This whole function is very sensitive to floating point precision and instability and
-    // has followed instructions to avoid view dependence from the section on cascade shadow maps in
-    // Eric Lengyel's Foundations of Game Engine Development 2: Rendering. Be very careful when
-    // modifying this code!
+fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
+    //                                               for near then for far
+    [
+        Vec3A::new(area.max.x, area.min.y, z_near),
+        Vec3A::new(area.max.x, area.max.y, z_near),
+        Vec3A::new(area.max.x, area.max.y, z_near),
+        Vec3A::new(area.min.x, area.max.y, z_near),
+        Vec3A::new(area.min.x, area.min.y, z_far),
+        Vec3A::new(area.max.x, area.min.y, z_far),
+        Vec3A::new(area.max.x, area.max.y, z_far),
+        Vec3A::new(area.min.x, area.max.y, z_far),
+    ]
+}
 
+fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32) -> [Vec3A; 8] {
     let a = z_near.abs() * tan_half_fov;
     let b = z_far.abs() * tan_half_fov;
     // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
     //                                               for near then for far
-    let frustum_corners = [
+    [
         Vec3A::new(a * aspect_ratio, -a, z_near),
         Vec3A::new(a * aspect_ratio, a, z_near),
         Vec3A::new(-a * aspect_ratio, a, z_near),
@@ -511,8 +506,15 @@ fn calculate_cascade(
         Vec3A::new(b * aspect_ratio, b, z_far),
         Vec3A::new(-b * aspect_ratio, b, z_far),
         Vec3A::new(-b * aspect_ratio, -b, z_far),
-    ];
+    ]
+}
 
+fn calculate_cascade(
+    frustum_corners: [Vec3A; 8],
+    cascade_texture_size: f32,
+    light_to_world: Mat4,
+    camera_to_light: Mat4,
+) -> Cascade {
     let mut min = Vec3A::splat(f32::MAX);
     let mut max = Vec3A::splat(f32::MIN);
     for corner_camera_view in frustum_corners {
