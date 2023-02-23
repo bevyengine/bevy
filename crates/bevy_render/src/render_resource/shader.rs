@@ -2536,7 +2536,6 @@ This should not be part of the result
         assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
     }
 
-
     #[test]
     fn process_shader_define_in_shader_with_value() {
         #[rustfmt::skip]
