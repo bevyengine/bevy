@@ -1629,8 +1629,14 @@ pub fn queue_shadows<M: Material>(
                             mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                         }
                         let alpha_mode = material.properties.alpha_mode;
-                        if let AlphaMode::Mask(_) = alpha_mode {
-                            mesh_key |= MeshPipelineKey::ALPHA_MASK;
+                        match alpha_mode {
+                            AlphaMode::Mask(_) => {
+                                mesh_key |= MeshPipelineKey::ALPHA_MASK;
+                            }
+                            AlphaMode::Blend | AlphaMode::Add => {
+                                mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                            }
+                            _ => {}
                         }
                         let pipeline_id = pipelines.specialize(
                             &pipeline_cache,
