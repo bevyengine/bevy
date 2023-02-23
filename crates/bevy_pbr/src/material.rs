@@ -2,7 +2,7 @@ use crate::{
     AlphaMode, DrawMesh, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshUniform,
     PrepassPlugin, SetMeshBindGroup, SetMeshViewBindGroup,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -195,7 +195,7 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_schedule(ExtractSchedule, extract_materials::<M>)
+                .add_system(extract_materials::<M>.in_schedule(ExtractSchedule))
                 .add_system(
                     prepare_materials::<M>
                         .in_set(RenderSet::Prepare)

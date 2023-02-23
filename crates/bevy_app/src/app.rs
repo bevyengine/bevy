@@ -504,7 +504,7 @@ impl App {
     ///     .add_startup_system(my_startup_system);
     /// ```
     pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
-        self.add_system_to_schedule(CoreSchedule::Startup, system)
+        self.add_system(system.in_schedule(CoreSchedule::Startup))
     }
 
     /// Adds a collection of systems to [`CoreSchedule::Startup`].
@@ -529,7 +529,7 @@ impl App {
     /// );
     /// ```
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems_to_schedule(CoreSchedule::Startup, systems)
+        self.add_systems(systems.into_configs().in_schedule(CoreSchedule::Startup))
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
