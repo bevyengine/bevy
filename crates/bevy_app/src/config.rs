@@ -227,13 +227,13 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # let mut app = App::new();
-    /// # fn first_system() {}
+    /// # fn startup_system_a() {}
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
     /// app.add_systems(
     ///     (
-    ///         first_system.on_startup(),
+    ///         startup_system_a,
     ///         startup_system_b,
     ///         startup_system_c,
     ///     )
