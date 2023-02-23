@@ -25,7 +25,15 @@ pub trait IntoSystemAppConfig<Marker>: Sized {
     /// Converts into a [`SystemAppConfig`].
     fn into_app_config(self) -> SystemAppConfig;
 
-    /// Add to the provided `schedule`.
+    /// Adds the system to the provided `schedule`.
+    ///
+    /// If a schedule is not specified, it will be added to the [`App`]'s default schedule.
+    ///
+    /// [`App`]: crate::App
+    ///
+    /// # Panics
+    ///
+    /// If the system has already been assigned to a schedule.
     #[track_caller]
     fn in_schedule(self, schedule: impl ScheduleLabel) -> SystemAppConfig {
         let mut config = self.into_app_config();
@@ -39,9 +47,10 @@ pub trait IntoSystemAppConfig<Marker>: Sized {
         config
     }
 
-    /// Add this system to [`CoreSchedule::Startup`].
+    /// Adds the system to [`CoreSchedule::Startup`].
+    /// This is a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
     ///
-    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
+    /// Systems in this schedule will run exactly once, at the start of the [`App`]'s lifecycle.
     ///
     /// [`App`]: crate::App
     ///
@@ -59,18 +68,34 @@ pub trait IntoSystemAppConfig<Marker>: Sized {
     ///     .add_system(my_startup_system.on_startup())
     ///     .run();
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// If the system has already been assigned to a schedule.
     #[inline]
     fn on_startup(self) -> SystemAppConfig {
         self.in_schedule(CoreSchedule::Startup)
     }
 
-    /// Run this system whenever `State<S>` enters `state`.
+    /// Adds the system to [`OnEnter(state)`].
+    ///
+    /// Systems in this schedule will run whenever [`States<S>`] enters `state`.
+    ///
+    /// # Panics
+    ///
+    /// If the system has already been assigned to a schedule.
     #[track_caller]
     fn on_enter<S: States>(self, state: S) -> SystemAppConfig {
         self.in_schedule(OnEnter(state))
     }
 
-    /// Run this system whenever `State<S>` exits `state`.
+    /// Adds the system to [`OnExit(state)`].
+    ///
+    /// Systems in this schedule will run whenever [`States<S>`] leaves `state`.
+    ///
+    /// # Panics
+    ///
+    /// If the system has already been assigned to a schedule.
     #[track_caller]
     fn on_exit<S: States>(self, state: S) -> SystemAppConfig {
         self.in_schedule(OnExit(state))
@@ -187,6 +212,14 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     fn into_app_configs(self) -> SystemAppConfigs;
 
     /// Adds the systems to the provided `schedule`.
+    ///
+    /// If a schedule is not specified, they will be added to the [`App`]'s default schedule.
+    ///
+    /// [`App`]: crate::App
+    ///
+    /// # Panics
+    ///
+    /// If any of the systems have already been assigned to a schedule.
     #[track_caller]
     fn in_schedule(self, schedule: impl ScheduleLabel) -> SystemAppConfigs {
         let mut configs = self.into_app_configs();
@@ -213,6 +246,7 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     }
 
     /// Adds the systems to [`CoreSchedule::Startup`].
+    /// This is a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
     ///
     /// # Examples
     ///
@@ -234,18 +268,34 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     ///         .on_startup()
     /// );
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// If any of the systems have already been assigned to a schedule.
     #[track_caller]
     fn on_startup(self) -> SystemAppConfigs {
         self.in_schedule(CoreSchedule::Startup)
     }
 
-    /// Run these systems whenever `State<S>` enters `state`.
+    /// Adds the systems to [`OnEnter(state)`].
+    ///
+    /// Systems in this schedule will run whenever [`States<S>`] enters `state`.
+    ///
+    /// # Panics
+    ///
+    /// If any of the systems have already been assigned to a schedule.
     #[track_caller]
     fn on_enter<S: States>(self, state: S) -> SystemAppConfigs {
         self.in_schedule(OnEnter(state))
     }
 
-    /// Run these systems whenever `State<S>` exits `state`.
+    /// Adds the systems to [`OnExit(state)`].
+    ///
+    /// Systems in this schedule will run whenever [`States<S>`] leaves `state`.
+    ///
+    /// # Panics
+    ///
+    /// If any of the systems have already been assigned to a schedule.
     #[track_caller]
     fn on_exit<S: States>(self, state: S) -> SystemAppConfigs {
         self.in_schedule(OnExit(state))
