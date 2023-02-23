@@ -125,7 +125,9 @@ where
                     {
                         sink.set_speed(config.settings.speed);
                         match config.settings.volume {
-                            Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
+                            Volume::Relative(vol) => {
+                                sink.set_volume(vol.0 * global_volume.volume.0)
+                            }
                             Volume::Absolute(vol) => sink.set_volume(vol.0),
                         }
 
