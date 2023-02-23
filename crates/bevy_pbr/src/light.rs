@@ -425,6 +425,17 @@ pub fn update_directional_light_cascades(
                     transform.compute_matrix(),
                 ))
             }
+            (entity, transform, Projection::Orthographic(projection), camera)
+                if camera.is_active =>
+            {
+                Some((
+                    entity,
+                    ((projection.right - projection.left) / (projection.top - projection.bottom))
+                        .abs(),
+                    std::f32::consts::FRAC_PI_4,
+                    transform.compute_matrix(),
+                ))
+            }
             _ => None,
         })
         .collect::<Vec<_>>();
