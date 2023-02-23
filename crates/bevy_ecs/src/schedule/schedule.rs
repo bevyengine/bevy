@@ -203,7 +203,7 @@ impl Schedule {
 
     /// Configures a system set in this schedule, adding it if it does not exist.
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
-        self.graph.configure_set(set.into_config());
+        self.graph.configure_set(set);
         self
     }
 
