@@ -124,7 +124,8 @@ pub fn extract_text2d_sprite(
             let handle = atlas.texture.clone_weak();
             let index = text_glyph.atlas_info.glyph_index;
             let rect = Some(atlas.textures[index]);
-            let transform = text_transform * Transform::from_translation((text_glyph.position).extend(0.));
+            let transform =
+                text_transform * Transform::from_translation((text_glyph.position).extend(0.));
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
@@ -217,7 +218,7 @@ pub fn update_text2d_layout(
                             commands.entity(entity).insert(info);
                         }
                     }
-                },
+                }
             }
         }
     }
