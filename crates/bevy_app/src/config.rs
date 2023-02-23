@@ -1,8 +1,8 @@
 use bevy_ecs::{
     all_tuples,
     schedule::{
-        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, OnEnter,
-        OnExit, ScheduleLabel, States, SystemConfig, SystemConfigs, SystemSet,
+        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemConfigs, IntoSystemSet,
+        ScheduleLabel, SystemConfig, SystemConfigs, SystemSet,
     },
 };
 
@@ -75,30 +75,6 @@ pub trait IntoSystemAppConfig<Marker>: Sized {
     #[inline]
     fn on_startup(self) -> SystemAppConfig {
         self.in_schedule(CoreSchedule::Startup)
-    }
-
-    /// Adds the system to [`OnEnter(state)`].
-    ///
-    /// Systems in this schedule will run whenever [`States<S>`] enters `state`.
-    ///
-    /// # Panics
-    ///
-    /// If the system has already been assigned to a schedule.
-    #[track_caller]
-    fn on_enter<S: States>(self, state: S) -> SystemAppConfig {
-        self.in_schedule(OnEnter(state))
-    }
-
-    /// Adds the system to [`OnExit(state)`].
-    ///
-    /// Systems in this schedule will run whenever [`States<S>`] leaves `state`.
-    ///
-    /// # Panics
-    ///
-    /// If the system has already been assigned to a schedule.
-    #[track_caller]
-    fn on_exit<S: States>(self, state: S) -> SystemAppConfig {
-        self.in_schedule(OnExit(state))
     }
 }
 
@@ -276,30 +252,6 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     #[track_caller]
     fn on_startup(self) -> SystemAppConfigs {
         self.in_schedule(CoreSchedule::Startup)
-    }
-
-    /// Adds the systems to [`OnEnter(state)`].
-    ///
-    /// Systems in this schedule will run whenever [`States<S>`] enters `state`.
-    ///
-    /// # Panics
-    ///
-    /// If any of the systems have already been assigned to a schedule.
-    #[track_caller]
-    fn on_enter<S: States>(self, state: S) -> SystemAppConfigs {
-        self.in_schedule(OnEnter(state))
-    }
-
-    /// Adds the systems to [`OnExit(state)`].
-    ///
-    /// Systems in this schedule will run whenever [`States<S>`] leaves `state`.
-    ///
-    /// # Panics
-    ///
-    /// If any of the systems have already been assigned to a schedule.
-    #[track_caller]
-    fn on_exit<S: States>(self, state: S) -> SystemAppConfigs {
-        self.in_schedule(OnExit(state))
     }
 }
 
