@@ -244,6 +244,18 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     fn on_startup(self) -> SystemAppConfigs {
         self.in_schedule(CoreSchedule::Startup)
     }
+
+    /// Run these systems whenever `State<S>` enters `state`.
+    #[track_caller]
+    fn on_enter<S: States>(self, state: S) -> SystemAppConfigs {
+        self.in_schedule(OnEnter(state))
+    }
+
+    /// Run these systems whenever `State<S>` exits `state`.
+    #[track_caller]
+    fn on_exit<S: States>(self, state: S) -> SystemAppConfigs {
+        self.in_schedule(OnExit(state))
+    }
 }
 
 impl IntoSystemAppConfigs<()> for SystemAppConfigs {
