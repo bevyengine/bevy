@@ -510,7 +510,7 @@ impl App {
         self.add_systems_to_schedule(CoreSchedule::Startup, systems)
     }
 
-    /// Configures a system set, adding the set if it does not exist.
+    /// Configures a system set in the default schedule, adding the set if it does not exist.
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.world
             .resource_mut::<Schedules>()
