@@ -80,33 +80,33 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
 /// Types that can be converted into a [`SystemSetConfig`].
 ///
 /// This has been implemented for all types that implement [`SystemSet`] and boxed trait objects.
-pub trait IntoSystemSetConfig<Config = SystemSetConfig> {
+pub trait IntoSystemSetConfig {
     /// Convert into a [`SystemSetConfig`].
     #[doc(hidden)]
-    fn into_config(self) -> Config;
+    fn into_config(self) -> SystemSetConfig;
     /// Add to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> Config;
+    fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> Config;
+    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
     /// Add this set to the schedules's default base set.
-    fn in_default_base_set(self) -> Config;
+    fn in_default_base_set(self) -> SystemSetConfig;
     /// Run before all systems in `set`.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> Config;
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Run after all systems in `set`.
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> Config;
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> Config;
+    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Config;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> Config;
+    fn ambiguous_with_all(self) -> SystemSetConfig;
 }
 
 impl<S: SystemSet> IntoSystemSetConfig for S {

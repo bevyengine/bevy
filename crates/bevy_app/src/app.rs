@@ -1,6 +1,5 @@
 use crate::{
-    CoreSchedule, CoreSet, IntoSystemAppConfig, IntoSystemSetAppConfig, Plugin, PluginGroup,
-    StartupSet, SystemAppConfig, SystemSetAppConfig,
+    CoreSchedule, CoreSet, IntoSystemAppConfig, Plugin, PluginGroup, StartupSet, SystemAppConfig,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -8,7 +7,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
-        ScheduleLabel,
+        ScheduleLabel, SystemSetConfig,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -512,14 +511,12 @@ impl App {
     }
 
     /// Configures a system set, adding the set if it does not exist.
-    pub fn configure_set(&mut self, set: impl IntoSystemSetAppConfig) -> &mut Self {
-        let SystemSetAppConfig { config, schedule } = set.into_app_config();
-
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.world
             .resource_mut::<Schedules>()
-            .get_mut(schedule.as_deref().unwrap_or(&self.default_schedule_label))
+            .get_mut(&*self.default_schedule_label)
             .unwrap()
-            .configure_set(config);
+            .configure_set(set);
         self
     }
 
