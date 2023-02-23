@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn((
                 TextBundle::from_section(
-                    format!("Apple: nothing counted yet"),
+                    "Apple: nothing counted yet".to_string(),
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 80.0,
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
             parent.spawn((
                 TextBundle::from_section(
-                    format!("Orange: nothing counted yet"),
+                    "Orange: nothing counted yet".to_string(),
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 80.0,
@@ -139,9 +139,9 @@ fn count_apple(
     if timers.repeating.just_finished() {
         let mut apples_text = apple_count.single_mut();
         apples_text.sections[0].value = if apple.is_empty() {
-            format!("Apple: not counted")
+            "Apple: not counted".to_string()
         } else {
-            format!("Apple: counted")
+            "Apple: counted".to_string()
         };
     }
 }
@@ -162,9 +162,9 @@ fn count_orange(
     if timers.repeating.just_finished() {
         let mut oranges_text = orange_count.single_mut();
         oranges_text.sections[0].value = if orange.is_empty() {
-            format!("Orange: not counted")
+            "Orange: not counted".to_string()
         } else {
-            format!("Orange: counted")
+            "Orange: counted".to_string()
         };
     }
 }
