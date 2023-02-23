@@ -237,14 +237,14 @@ pub struct Style {
     pub justify_content: JustifyContent,
     /// The position of the node as described by its Rect
     pub position: UiRect,
-    /// The amount of space around the node outside its border
+    /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
-    /// For example, if a node has the style component:
+    ///
+    /// # Example
     /// ```
     /// # use bevy_ui::{Style, UiRect, Val};
     /// let style = Style {
-    ///     flex_basis: Val::Percent(100.),
     ///     margin: UiRect {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
@@ -254,16 +254,16 @@ pub struct Style {
     ///     ..Default::default()
     /// };
     /// ```
-    /// and a parent with dimensions of 100px by 300px, then the node's margins will be 10px on both left and right, and 15px on both top and bottom.
+    /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom egdes.
     pub margin: UiRect,
-    /// The space between the edges of the node and its contents
+    /// The amount of space between the edges of a node and its contents.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
-    /// For example, if a node has the style component:
+    ///
+    /// # Example
     /// ```
     /// # use bevy_ui::{Style, UiRect, Val};
     /// let style = Style {
-    ///     flex_basis: Val::Percent(100.),
     ///     padding: UiRect {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
@@ -273,7 +273,7 @@ pub struct Style {
     ///     ..Default::default()
     /// };
     /// ```
-    /// and a parent with dimensions of 300px by 100px, then the node's padding will be 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
+    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     pub padding: UiRect,
     /// The border of the node
     pub border: UiRect,
