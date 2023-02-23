@@ -32,13 +32,14 @@ impl Default for CalculatedBorder {
     }
 }
 
-fn resolve_thickness(value: Val, parent_width: f32) -> f32 {
+fn resolve_thickness(value: Val, parent_width: f32, max_thickness: f32) -> f32 {
     match value {
         Val::Px(px) => px,
         Val::Percent(percent) => parent_width * percent / 100.,
         Val::Auto => 0.,
         Val::Undefined => 0.,
     }
+    .min(max_thickness)
 }
 
 /// Generates the border geometry
@@ -52,6 +53,7 @@ pub fn calculate_borders_system(
     for (node, style, mut calculated_border, parent) in border_query.iter_mut() {
         let node_size = node.calculated_size;
         if node_size.x <= 0. || node_size.y <= 0. {
+            calculated_border.edges = [None; 4];
             continue;
         }
 
@@ -60,12 +62,12 @@ pub fn calculate_borders_system(
             .map(|parent_node| parent_node.calculated_size.x)
             .unwrap_or(0.);
         let border = style.border;
-        let left = resolve_thickness(border.left, parent_width).min(node_size.x);
-        let right = resolve_thickness(border.right, parent_width).min(node_size.x);
-        let top = resolve_thickness(border.top, parent_width).min(node_size.y);
-        let bottom = resolve_thickness(border.bottom, parent_width).min(node_size.y);
-        let min = -0.5 * node_size;
+        let left = resolve_thickness(border.left, parent_width, node_size.x);
+        let right = resolve_thickness(border.right, parent_width, node_size.x);
+        let top = resolve_thickness(border.top, parent_width, node_size.y);
+        let bottom = resolve_thickness(border.bottom, parent_width, node_size.y);
         let max = 0.5 * node_size;
+        let min = -max;
         let inner_min = min + Vec2::new(left, top);
         let inner_max = max - Vec2::new(right, bottom);
 
