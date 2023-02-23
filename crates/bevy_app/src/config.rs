@@ -1,8 +1,8 @@
 use bevy_ecs::{
     all_tuples,
     schedule::{
-        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemConfigs, IntoSystemSet,
-        ScheduleLabel, SystemConfig, SystemConfigs, SystemSet,
+        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, OnEnter,
+        OnExit, ScheduleLabel, States, SystemConfig, SystemConfigs, SystemSet,
     },
 };
 
@@ -66,6 +66,16 @@ pub trait IntoSystemAppConfig<Marker, Config = SystemAppConfig>:
     #[inline]
     fn on_startup(self) -> SystemAppConfig {
         self.in_schedule(CoreSchedule::Startup)
+    }
+
+    /// Run this system whenever `State<S>` enters `state`.
+    fn on_enter<S: States>(self, state: S) -> SystemAppConfig {
+        self.in_schedule(OnEnter(state))
+    }
+
+    /// Run this system whenever `State<S>` exits `state`.
+    fn on_exit<S: States>(self, state: S) -> SystemAppConfig {
+        self.in_schedule(OnExit(state))
     }
 }
 

@@ -25,8 +25,9 @@ pub mod prelude {
     pub use crate::AppTypeRegistry;
     #[doc(hidden)]
     pub use crate::{
-        app::App, config::IntoSystemAppConfig, CoreSchedule, CoreSet, DynamicPlugin, Plugin,
-        PluginGroup, StartupSet,
+        app::App,
+        config::{IntoSystemAppConfig, IntoSystemAppConfigs},
+        CoreSchedule, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet,
     };
 }
 
