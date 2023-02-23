@@ -198,11 +198,13 @@ pub struct SystemAppConfigs {
     pub(crate) schedule: ScheduleMode,
 }
 
+
+/// Stores the schedule/s associated with a set of [`SystemConfigs`].
 pub(crate) enum ScheduleMode {
     None,
-    // All systems in the same schedule.
+    /// All systems in the same schedule.
     Blanket(BoxedScheduleLabel),
-    // Each system gets its own schedule.
+    /// Each system gets its own schedule.
     Granular(Vec<Option<BoxedScheduleLabel>>),
 }
 
