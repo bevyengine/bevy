@@ -26,7 +26,7 @@ fn main() {
         .add_state::<GameState>()
         .add_systems((
             setup_cameras.on_startup(),
-            setup.on_enter(GameState::Playing),
+            setup.in_schedule(OnEnter(GameState::Playing)),
         ))
         .add_systems(
             (
@@ -39,10 +39,10 @@ fn main() {
                 .in_set(OnUpdate(GameState::Playing)),
         )
         .add_systems((
-            teardown.on_exit(GameState::Playing),
-            display_score.on_enter(GameState::GameOver),
+            teardown.in_schedule(OnExit(GameState::Playing)),
+            display_score.in_schedule(OnEnter(GameState::GameOver)),
             gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
-            teardown.on_exit(GameState::GameOver),
+            teardown.in_schedule(OnExit(GameState::GameOver)),
         ))
         .add_system(bevy::window::close_on_esc)
         .run();

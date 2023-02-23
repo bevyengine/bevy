@@ -15,12 +15,12 @@ fn main() {
         // This system runs when we enter `AppState::Menu`, during `CoreSet::StateTransitions`.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
-        .add_system(setup_menu.on_enter(AppState::Menu))
+        .add_system(setup_menu.in_schedule(OnEnter(AppState::Menu)))
         // By contrast, on_update systems are stored in the main schedule, during CoreSet::Update,
         // and simply check the value of the `State<T>` resource to see if they should run each frame.
         .add_system(menu.in_set(OnUpdate(AppState::Menu)))
-        .add_system(cleanup_menu.on_exit(AppState::Menu))
-        .add_system(setup_game.on_enter(AppState::InGame))
+        .add_system(cleanup_menu.in_schedule(OnExit(AppState::Menu)))
+        .add_system(setup_game.in_schedule(OnEnter(AppState::InGame)))
         .add_systems((movement, change_color).in_set(OnUpdate(AppState::InGame)))
         .run();
 }
