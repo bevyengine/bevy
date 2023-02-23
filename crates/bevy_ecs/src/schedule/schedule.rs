@@ -190,13 +190,13 @@ impl Schedule {
     }
 
     /// Add a system to the schedule.
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         self.graph.add_system(system);
         self
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.add_systems(systems);
         self
     }
@@ -556,7 +556,7 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
+    fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) {
         let SystemConfigs { systems, chained } = systems.into_configs();
         let mut system_iter = systems.into_iter();
         if chained {
@@ -574,13 +574,13 @@ impl ScheduleGraph {
         }
     }
 
-    fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) {
+    fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) {
         self.add_system_inner(system).unwrap();
     }
 
-    fn add_system_inner<P>(
+    fn add_system_inner<M>(
         &mut self,
-        system: impl IntoSystemConfig<P>,
+        system: impl IntoSystemConfig<M>,
     ) -> Result<NodeId, ScheduleBuildError> {
         let SystemConfig {
             system,
