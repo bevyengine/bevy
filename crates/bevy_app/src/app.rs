@@ -451,40 +451,6 @@ impl App {
         self
     }
 
-    /// Adds a system to the provided [`Schedule`].
-    pub fn add_system_to_schedule<M>(
-        &mut self,
-        schedule_label: impl ScheduleLabel,
-        system: impl IntoSystemConfig<M>,
-    ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(&schedule_label) {
-            schedule.add_system(system);
-        } else {
-            panic!("Provided schedule {schedule_label:?} does not exist.")
-        }
-
-        self
-    }
-
-    /// Adds a collection of system to the provided [`Schedule`].
-    pub fn add_systems_to_schedule<M>(
-        &mut self,
-        schedule_label: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
-    ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(&schedule_label) {
-            schedule.add_systems(systems);
-        } else {
-            panic!("Provided schedule {schedule_label:?} does not exist.")
-        }
-
-        self
-    }
-
     /// Adds a system to [`CoreSchedule::Startup`].
     ///
     /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
