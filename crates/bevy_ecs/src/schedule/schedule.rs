@@ -202,10 +202,7 @@ impl Schedule {
     }
 
     /// Configures a system set in this schedule, adding it if it does not exist.
-    pub fn configure_set(
-        &mut self,
-        set: impl IntoSystemSetConfig<Config = SystemSetConfig>,
-    ) -> &mut Self {
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.graph.configure_set(set.into_config());
         self
     }
@@ -622,16 +619,19 @@ impl ScheduleGraph {
         }
     }
 
-    fn configure_set(&mut self, set: impl IntoSystemSetConfig<Config = SystemSetConfig>) {
-        self.configure_set_inner(set.into_config()).unwrap();
+    fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
+        self.configure_set_inner(set).unwrap();
     }
 
-    fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
+    fn configure_set_inner(
+        &mut self,
+        set: impl IntoSystemSetConfig,
+    ) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
             set,
             graph_info,
             mut conditions,
-        } = set;
+        } = set.into_config();
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,

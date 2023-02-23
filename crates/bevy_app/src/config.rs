@@ -34,10 +34,8 @@ pub trait IntoSystemSetAppConfig: Sized + IntoSystemSetConfig {
     }
 }
 
-impl IntoSystemSetConfig for SystemSetAppConfig {
-    type Config = Self;
-
-    fn into_config(self) -> Self::Config {
+impl IntoSystemSetConfig<Self> for SystemSetAppConfig {
+    fn into_config(self) -> Self {
         self
     }
 
@@ -110,7 +108,7 @@ impl IntoSystemSetConfig for SystemSetAppConfig {
 
 impl<T> IntoSystemSetAppConfig for T
 where
-    T: IntoSystemSetConfig<Config = SystemSetConfig>,
+    T: IntoSystemSetConfig,
 {
     fn into_app_config(self) -> SystemSetAppConfig {
         SystemSetAppConfig {
