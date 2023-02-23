@@ -190,7 +190,10 @@ impl Schedule {
     }
 
     /// Add a system to the schedule.
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<P>(
+        &mut self,
+        system: impl IntoSystemConfig<P, Config = SystemConfig>,
+    ) -> &mut Self {
         self.graph.add_system(system);
         self
     }
@@ -574,19 +577,16 @@ impl ScheduleGraph {
         }
     }
 
-    fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) {
-        self.add_system_inner(system).unwrap();
+    fn add_system<P>(&mut self, system: impl IntoSystemConfig<P, Config = SystemConfig>) {
+        self.add_system_inner(system.into_config()).unwrap();
     }
 
-    fn add_system_inner<P>(
-        &mut self,
-        system: impl IntoSystemConfig<P>,
-    ) -> Result<NodeId, ScheduleBuildError> {
+    fn add_system_inner(&mut self, system: SystemConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemConfig {
             system,
             graph_info,
             conditions,
-        } = system.into_config();
+        } = system;
 
         let id = NodeId::System(self.systems.len());
 
