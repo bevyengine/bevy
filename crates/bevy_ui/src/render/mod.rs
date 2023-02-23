@@ -7,6 +7,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
+use crate::Orientation;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -168,8 +169,7 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
-    pub flip_x: bool,
-    pub flip_y: bool,
+    pub orientation: Orientation,
 }
 
 #[derive(Resource, Default)]
@@ -202,14 +202,17 @@ pub fn extract_uinodes(
                 continue;
             }
 
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+            let (image, orientation) = if let Some(image) = maybe_image {
                 // Skip loading images
                 if !images.contains(&image.texture) {
                     continue;
                 }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
+                (image.texture.clone_weak(), image.orientation)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (
+                    DEFAULT_IMAGE_HANDLE.typed().clone_weak(),
+                    Orientation::North,
+                )
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -223,8 +226,7 @@ pub fn extract_uinodes(
                 image,
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
-                flip_x,
-                flip_y,
+                orientation,
             });
         }
     }
@@ -357,8 +359,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
+                    orientation: Orientation::North,
                 });
             }
         }
@@ -512,12 +513,16 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        if extracted_uinode.flip_x {
-            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-        }
-        if extracted_uinode.flip_y {
-            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-        }
+        uvs = match extracted_uinode.orientation {
+            Orientation::North => uvs,
+            Orientation::East => [uvs[1], uvs[2], uvs[3], uvs[0]],
+            Orientation::South => [uvs[2], uvs[3], uvs[0], uvs[1]],
+            Orientation::West => [uvs[3], uvs[0], uvs[1], uvs[2]],
+            Orientation::FlippedNorth => [uvs[1], uvs[0], uvs[3], uvs[2]],
+            Orientation::FlippedEast => [uvs[0], uvs[3], uvs[2], uvs[1]],
+            Orientation::FlippedSouth => [uvs[3], uvs[2], uvs[1], uvs[0]],
+            Orientation::FlippedWest => [uvs[2], uvs[1], uvs[0], uvs[3]],
+        };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in QUAD_INDICES {

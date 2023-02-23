@@ -608,24 +608,121 @@ impl From<Color> for BackgroundColor {
     }
 }
 
+/// How the image is flipped and rotated
+/// Used to determine the ordering of the texture's uv coordinates
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum Orientation {
+    #[default]
+    /// Not flipped or rotated
+    North,
+    /// The image is rotated left by 90 degrees
+    East,
+    /// The image is rotated by 180 degrees
+    South,
+    /// The image is rotated right by 90 degrees
+    West,
+    /// The image is flipped along its x-axis
+    FlippedNorth,
+    /// The image is flipped along its x-axis and then rotated left by 90 degrees
+    FlippedEast,
+    /// The image is flipped along its x-axis and then rotated 180 degrees
+    FlippedSouth,
+    /// The image is flipped along its x-axis and then rotated right by 90 degrees
+    FlippedWest,
+}
+
+impl Orientation {
+    /// Rotate the image to the left by 90 degrees
+    #[inline]
+    pub const fn rotate_left(self) -> Self {
+        use Orientation::*;
+        match self {
+            North => East,
+            East => South,
+            South => West,
+            West => North,
+            FlippedNorth => FlippedEast,
+            FlippedEast => FlippedSouth,
+            FlippedSouth => FlippedWest,
+            FlippedWest => FlippedNorth,
+        }
+    }
+
+    /// Rotate the image to the right by 90 degrees
+    #[inline]
+    pub const fn rotate_right(self) -> Self {
+        use Orientation::*;
+        match self {
+            North => West,
+            East => North,
+            South => East,
+            West => South,
+            FlippedNorth => FlippedWest,
+            FlippedEast => FlippedNorth,
+            FlippedSouth => FlippedEast,
+            FlippedWest => FlippedSouth,
+        }
+    }
+
+    /// Rotate the image to the right by 90 degrees
+    pub const fn rotate_180(self) -> Self {
+        self.rotate_left().rotate_left()
+    }
+
+    /// Flip the image along its x-axis
+    #[inline]
+    pub const fn flip_x(self) -> Self {
+        use Orientation::*;
+        match self {
+            North => FlippedNorth,
+            East => FlippedWest,
+            South => FlippedSouth,
+            West => FlippedEast,
+            FlippedNorth => North,
+            FlippedEast => West,
+            FlippedSouth => South,
+            FlippedWest => East,
+        }
+    }
+
+    /// Flip the image along its x-axis
+    #[inline]
+    pub const fn flip_y(self) -> Self {
+        use Orientation::*;
+        match self {
+            North => FlippedSouth,
+            East => FlippedEast,
+            South => FlippedNorth,
+            West => FlippedWest,
+            FlippedNorth => South,
+            FlippedEast => East,
+            FlippedSouth => North,
+            FlippedWest => West,
+        }
+    }
+
+    /// The original orientation of the image, not flipped or rotated.
+    pub const fn identity() -> Self {
+        Self::North
+    }
+}
+
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
     pub texture: Handle<Image>,
-    /// Whether the image should be flipped along its x-axis
-    pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
-    pub flip_y: bool,
+    /// How the image is flipped and rotated
+    pub orientation: Orientation,
 }
 
 impl Default for UiImage {
     fn default() -> UiImage {
         UiImage {
             texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
+            orientation: Orientation::North,
         }
     }
 }
@@ -683,6 +780,7 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
+    use crate::Orientation;
     use crate::ValArithmeticError;
 
     use super::Val;
@@ -842,6 +940,54 @@ mod tests {
         assert_eq!(
             format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
+        );
+    }
+
+    #[test]
+    fn orientation_operations_compose_correctly() {
+        assert_eq!(
+            Orientation::North.rotate_left().rotate_left(),
+            Orientation::South
+        );
+        assert_eq!(
+            Orientation::North.rotate_left().rotate_left().rotate_left(),
+            Orientation::West
+        );
+        assert_eq!(
+            Orientation::North
+                .rotate_left()
+                .rotate_left()
+                .rotate_left()
+                .rotate_left(),
+            Orientation::North
+        );
+        assert_eq!(
+            Orientation::North
+                .rotate_right()
+                .rotate_right()
+                .rotate_right()
+                .rotate_right(),
+            Orientation::North
+        );
+        assert_eq!(
+            Orientation::North.rotate_left().rotate_right(),
+            Orientation::North
+        );
+        assert_eq!(
+            Orientation::North.rotate_right().rotate_left(),
+            Orientation::North
+        );
+        assert_eq!(Orientation::North.flip_x().flip_x(), Orientation::North);
+        assert_eq!(Orientation::North.flip_y().flip_y(), Orientation::North);
+        assert_eq!(Orientation::North.flip_x().flip_y(), Orientation::South);
+        assert_eq!(Orientation::North.flip_y().flip_x(), Orientation::South);
+        assert_eq!(
+            Orientation::North.flip_x().rotate_left(),
+            Orientation::FlippedEast
+        );
+        assert_eq!(
+            Orientation::North.rotate_left().flip_x(),
+            Orientation::FlippedWest
         );
     }
 }
