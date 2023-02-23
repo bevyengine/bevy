@@ -1,11 +1,13 @@
-use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
+use crate::{
+    CoreSchedule, CoreSet, IntoSystemAppConfig, Plugin, PluginGroup, StartupSet, SystemAppConfig,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
-        ScheduleLabel,
+        ScheduleLabel, SystemConfig,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -378,10 +380,18 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<P>(&mut self, system: impl IntoSystemAppConfig<P>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
+        let SystemAppConfig { system, schedule } = system.into_app_config();
+
+        if let Some(schedule_label) = schedule {
+            if let Some(schedule) = schedules.get_mut(&schedule_label) {
+                schedule.add_system(system);
+            } else {
+                panic!("Schedule {schedule_label:?} does not exist.")
+            }
+        } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
         } else {
             let schedule_label = &self.default_schedule_label;
@@ -423,7 +433,7 @@ impl App {
     pub fn add_system_to_schedule<P>(
         &mut self,
         schedule_label: impl ScheduleLabel,
-        system: impl IntoSystemConfig<P>,
+        system: impl IntoSystemConfig<P, Config = SystemConfig>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -471,7 +481,10 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_startup_system<P>(
+        &mut self,
+        system: impl IntoSystemConfig<P, Config = SystemConfig>,
+    ) -> &mut Self {
         self.add_system_to_schedule(CoreSchedule::Startup, system)
     }
 
