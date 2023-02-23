@@ -256,7 +256,7 @@ where
 }
 
 /// Defines the volume to play an audio source at.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Volume {
     /// A volume level relative to the global volume.
     Relative(VolumeLevel),

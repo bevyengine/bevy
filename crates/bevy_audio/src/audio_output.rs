@@ -1,4 +1,6 @@
-use crate::{Audio, AudioSource, Decodable, SpatialAudioSink, SpatialSettings, GlobalVolume, Volume};
+use crate::{
+    Audio, AudioSource, Decodable, GlobalVolume, SpatialAudioSink, SpatialSettings, Volume,
+};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::tracing::warn;
@@ -122,7 +124,10 @@ where
                         self.play_spatial_source(audio_source, config.settings.repeat, spatial)
                     {
                         sink.set_speed(config.settings.speed);
-                        sink.set_volume(config.settings.volume);
+                        match config.settings.volume {
+                            Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
+                            Volume::Absolute(vol) => sink.set_volume(vol.0),
+                        }
 
                         // don't keep the strong handle. there is no way to return it to the user here as it is async
                         let _ = spatial_sinks
@@ -160,6 +165,12 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
     if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks, &mut spatial_sinks, &global_volume);
+        audio_output.try_play_queued(
+            &*audio_sources,
+            &mut *audio,
+            &mut sinks,
+            &mut spatial_sinks,
+            &global_volume,
+        );
     };
 }
