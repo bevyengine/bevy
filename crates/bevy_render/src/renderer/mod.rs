@@ -1,6 +1,8 @@
+mod api;
 mod graph_runner;
 mod render_device;
 
+pub use api::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
@@ -106,6 +108,11 @@ pub struct RenderInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
+/// The handle to the api used for rendering.
+/// See [`Api`] for more info.
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderApi(pub Box<dyn Api>);
+
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
 } else {
@@ -115,12 +122,13 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
+    api: &dyn Api,
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
-    let adapter = instance
-        .request_adapter(request_adapter_options)
+    let adapter = api
+        .request_adapter(instance, request_adapter_options)
         .await
         .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
 
@@ -257,8 +265,9 @@ pub async fn initialize_renderer(
         };
     }
 
-    let (device, queue) = adapter
+    let (device, queue) = api
         .request_device(
+            &adapter,
             &wgpu::DeviceDescriptor {
                 label: options.device_label.as_ref().map(|a| a.as_ref()),
                 features,

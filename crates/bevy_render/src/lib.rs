@@ -47,7 +47,7 @@ use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, DefaultApi, RenderApi, RenderInstance},
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -178,20 +178,26 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
-            SystemState::new(&mut app.world);
-        let primary_window = system_state.get(&app.world);
+        if !app.world.contains_resource::<RenderApi>() {
+            app.world.insert_resource(RenderApi(Box::new(DefaultApi)));
+        }
+
+        let mut system_state: SystemState<(
+            Query<&RawHandleWrapper, With<PrimaryWindow>>,
+            Res<RenderApi>,
+        )> = SystemState::new(&mut app.world);
+        let (primary_window, render_api) = system_state.get(&app.world);
 
         if let Some(backends) = self.wgpu_settings.backends {
-            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            let instance = render_api.new_instance(wgpu::InstanceDescriptor {
                 backends,
                 dx12_shader_compiler: self.wgpu_settings.dx12_shader_compiler.clone(),
             });
             let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
                 // SAFETY: Plugins should be set up on the main thread.
                 let handle = wrapper.get_handle();
-                instance
-                    .create_surface(&handle)
+                render_api
+                    .create_surface(&instance, &handle)
                     .expect("Failed to create wgpu surface")
             });
 
@@ -202,6 +208,7 @@ impl Plugin for RenderPlugin {
             };
             let (device, queue, adapter_info, render_adapter) =
                 futures_lite::future::block_on(renderer::initialize_renderer(
+                    &*render_api.0,
                     &instance,
                     &self.wgpu_settings,
                     &request_adapter_options,
