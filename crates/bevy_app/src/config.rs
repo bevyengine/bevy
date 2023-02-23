@@ -204,6 +204,32 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
 
         configs
     }
+
+    /// Adds the systems to [`CoreSchedule::Startup`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn first_system() {}
+    /// # fn startup_system_b() {}
+    /// # fn startup_system_c() {}
+    /// #
+    /// app.add_systems(
+    ///     (
+    ///         first_system.on_startup(),
+    ///         startup_system_b,
+    ///         startup_system_c,
+    ///     )
+    ///         .on_startup()
+    /// );
+    /// ```
+    fn on_startup(self) -> SystemAppConfigs {
+        self.in_schedule(CoreSchedule::Startup)
+    }
 }
 
 impl IntoSystemAppConfigs<()> for SystemAppConfigs {
