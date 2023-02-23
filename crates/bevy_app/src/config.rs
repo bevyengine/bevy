@@ -60,8 +60,7 @@ pub trait IntoSystemAppConfig<Marker, Config = SystemAppConfig>:
     /// }
     ///
     /// App::new()
-    ///     .add_system(my_startup_system.on_startup())
-    ///     .run();
+    ///     .add_system(my_startup_system.on_startup());
     /// ```
     #[inline]
     fn on_startup(self) -> SystemAppConfig {
