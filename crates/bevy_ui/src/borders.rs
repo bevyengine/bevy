@@ -34,10 +34,9 @@ impl Default for CalculatedBorder {
 
 fn resolve_thickness(value: Val, parent_width: f32, max_thickness: f32) -> f32 {
     match value {
+        Val::Auto | Val::Undefined => 0.,
         Val::Px(px) => px,
         Val::Percent(percent) => parent_width * percent / 100.,
-        Val::Auto => 0.,
-        Val::Undefined => 0.,
     }
     .min(max_thickness)
 }
