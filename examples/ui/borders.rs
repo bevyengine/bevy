@@ -84,19 +84,33 @@ fn setup(mut commands: Commands) {
     ];
 
     for i in 0..64 {
-        let b = commands
+        let inner_spot = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    size: Size::all(Val::Px(10.)),
+                    ..Default::default()
+                },
+                background_color: Color::YELLOW.into(),
+                ..Default::default()
+            })
+            .id();
+        let bordered_node = commands
             .spawn(NodeBundle {
                 style: Style {
                     size: Size::all(Val::Px(50.)),
                     border: borders[i % borders.len()],
                     margin: UiRect::all(Val::Px(2.)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..Default::default()
                 },
                 background_color: Color::BLUE.into(),
                 border_style: Color::WHITE.with_a(0.5).into(),
                 ..Default::default()
             })
+            .add_child(inner_spot)
             .id();
-        commands.entity(root).add_child(b);
+        commands.entity(bordered_node).add_child(inner_spot);
+        commands.entity(root).add_child(bordered_node);
     }
 }
