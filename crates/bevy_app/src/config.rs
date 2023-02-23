@@ -44,10 +44,9 @@ pub trait IntoSystemAppConfig<Marker, Config = SystemAppConfig>:
         config
     }
 
-    /// Add to [`CoreSchedule::Startup`].
+    /// Add this system to [`CoreSchedule::Startup`].
     ///
     /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
-    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
     ///
     /// [`App`]: crate::App
     ///
