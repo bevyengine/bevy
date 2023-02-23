@@ -12,17 +12,6 @@ pub struct SystemAppConfig {
     pub(crate) schedule: Option<BoxedScheduleLabel>,
 }
 
-/*mod sealed {
-    use bevy_ecs::schedule::IntoSystemConfig;
-
-    #[doc(hidden)]
-    pub trait IntoSystemAppConfig<Marker> {}
-
-    impl IntoSystemAppConfig<()> for super::SystemAppConfig {}
-
-    impl<Marker, T> IntoSystemAppConfig<Marker> for T where T: IntoSystemConfig<Marker> {}
-}*/
-
 /// Types that can be converted into a [`SystemAppConfig`].
 ///
 /// This has been implemented for all `System<In = (), Out = ()>` trait objects
