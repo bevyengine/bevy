@@ -1,6 +1,9 @@
-use bevy_ecs::schedule::{
-    BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemSet, ScheduleLabel, SystemConfig,
-    SystemSet,
+use bevy_ecs::{
+    all_tuples,
+    schedule::{
+        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemConfigs, IntoSystemSet,
+        ScheduleLabel, SystemConfig, SystemConfigs, SystemSet,
+    },
 };
 
 use crate::CoreSchedule;
@@ -159,3 +162,84 @@ where
         }
     }
 }
+
+/// A collection of [`SystemAppConfig`]s.
+pub struct SystemAppConfigs {
+    pub(crate) systems: SystemConfigs,
+    pub(crate) schedule: ScheduleMode,
+}
+
+pub(crate) enum ScheduleMode {
+    None,
+    Blanket(BoxedScheduleLabel),
+    Granular(Vec<Option<BoxedScheduleLabel>>),
+}
+
+/// Types that can convert into [`SystemAppConfigs`].
+pub trait IntoSystemAppConfigs<Marker>: Sized {
+    /// Converts to [`SystemAppConfigs`].
+    fn into_app_configs(self) -> SystemAppConfigs;
+
+    /// Adds the systems to the provided `schedule`.
+    fn in_schedule(self, schedule: impl ScheduleLabel) -> SystemAppConfigs {
+        let mut configs = self.into_app_configs();
+
+        match &configs.schedule {
+            ScheduleMode::None => {}
+            ScheduleMode::Blanket(old_schedule) => panic!(
+                "Cannot add systems to the schedule '{schedule:?}: they are already in '{old_schedule:?}'"
+            ),
+            ScheduleMode::Granular(slots) => {
+                for slot in slots {
+                    if let Some(old_schedule) = &slot {
+                        panic!(
+                            "Cannot add system to the schedule '{schedule:?}': it is already in '{old_schedule:?}'."
+                        );
+                    }
+                }
+            }
+        }
+
+        configs.schedule = ScheduleMode::Blanket(Box::new(schedule));
+
+        configs
+    }
+}
+
+impl IntoSystemAppConfigs<()> for SystemAppConfigs {
+    fn into_app_configs(self) -> SystemAppConfigs {
+        self
+    }
+}
+
+impl IntoSystemAppConfigs<()> for SystemConfigs {
+    fn into_app_configs(self) -> SystemAppConfigs {
+        SystemAppConfigs {
+            systems: self,
+            schedule: ScheduleMode::None,
+        }
+    }
+}
+
+macro_rules! impl_system_collection {
+    ($(($param: ident, $sys: ident)),*) => {
+        impl<$($param, $sys),*> IntoSystemAppConfigs<($($param,)*)> for ($($sys,)*)
+        where
+            $($sys: IntoSystemAppConfig<$param>),*
+        {
+            #[allow(non_snake_case)]
+            fn into_app_configs(self) -> SystemAppConfigs {
+                let ($($sys,)*) = self;
+                $(
+                    let mut $sys = $sys.into_app_config();
+                )*
+                SystemAppConfigs {
+                    schedule: ScheduleMode::Granular(vec![$($sys.schedule.take(),)*]),
+                    systems: ($($sys.system,)*).into_configs(),
+                }
+            }
+        }
+    }
+}
+
+all_tuples!(impl_system_collection, 0, 15, P, S);

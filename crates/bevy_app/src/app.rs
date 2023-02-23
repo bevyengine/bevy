@@ -1,5 +1,6 @@
 use crate::{
-    CoreSchedule, CoreSet, IntoSystemAppConfig, Plugin, PluginGroup, StartupSet, SystemAppConfig,
+    CoreSchedule, CoreSet, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin, PluginGroup,
+    ScheduleMode, StartupSet, SystemAppConfig, SystemAppConfigs,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -416,14 +417,35 @@ impl App {
     /// #
     /// app.add_systems((system_a, system_b, system_c));
     /// ```
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_systems<P>(&mut self, systems: impl IntoSystemAppConfigs<P>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
-            default_schedule.add_systems(systems);
-        } else {
-            let schedule_label = &self.default_schedule_label;
-            panic!("Default schedule {schedule_label:?} does not exist.")
+        let SystemAppConfigs {
+            systems,
+            schedule: schedule_mode,
+        } = systems.into_app_configs();
+
+        match schedule_mode {
+            ScheduleMode::None => {
+                if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
+                    default_schedule.add_systems(systems);
+                } else {
+                    let schedule_label = &self.default_schedule_label;
+                    panic!("Default schedule {schedule_label:?} does not exist.")
+                }
+            }
+            ScheduleMode::Blanket(schedule) => {
+                if let Some(schedule) = schedules.get_mut(&*schedule) {
+                    schedule.add_systems(systems);
+                } else {
+                    panic!("Schedule {schedule:?} does not exist.")
+                }
+            }
+            ScheduleMode::Granular(schedule_labels) => {
+                for (system, schedule) in std::iter::zip(systems, schedule_labels) {
+                    self.add_system(SystemAppConfig { system, schedule });
+                }
+            }
         }
 
         self
