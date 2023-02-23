@@ -426,22 +426,25 @@ impl App {
         } = systems.into_app_configs();
 
         match schedule_mode {
-            ScheduleMode::None => {
-                if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
-                    default_schedule.add_systems(systems);
-                } else {
-                    let schedule_label = &self.default_schedule_label;
-                    panic!("Default schedule {schedule_label:?} does not exist.")
-                }
-            }
             ScheduleMode::Blanket(schedule) => {
-                if let Some(schedule) = schedules.get_mut(&*schedule) {
-                    schedule.add_systems(systems);
+                let schedule = if let Some(label) = schedule {
+                    schedules
+                        .get_mut(&*label)
+                        .unwrap_or_else(|| panic!("Schedule '{label:?}' does not exist."))
                 } else {
-                    panic!("Schedule {schedule:?} does not exist.")
-                }
+                    let label = &*self.default_schedule_label;
+                    schedules
+                        .get_mut(label)
+                        .unwrap_or_else(|| panic!("Default schedule '{label:?}' does not exist."))
+                };
+                // `systems` may have originally come from an instance of `SystemConfigs`,
+                // so we need to add them together in case they are chained.
+                schedule.add_systems(systems);
             }
             ScheduleMode::Granular(schedule_labels) => {
+                // `systems` came from a bunch of individual instances of
+                // `SystemAppConfig`, so they are definitely not chained.
+                // We can add them separately.
                 for (system, schedule) in std::iter::zip(systems, schedule_labels) {
                     self.add_system(SystemAppConfig { system, schedule });
                 }

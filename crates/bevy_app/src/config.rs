@@ -176,9 +176,8 @@ pub struct SystemAppConfigs {
 
 /// Stores the schedule/s associated with a set of [`SystemConfigs`].
 pub(crate) enum ScheduleMode {
-    None,
-    /// All systems in the same schedule.
-    Blanket(BoxedScheduleLabel),
+    /// All systems are in the same schedule.
+    Blanket(Option<BoxedScheduleLabel>),
     /// Each system gets its own schedule.
     Granular(Vec<Option<BoxedScheduleLabel>>),
 }
@@ -202,8 +201,8 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
         let mut configs = self.into_app_configs();
 
         match &configs.schedule {
-            ScheduleMode::None => {}
-            ScheduleMode::Blanket(old_schedule) => panic!(
+            ScheduleMode::Blanket(None) => {}
+            ScheduleMode::Blanket(Some(old_schedule)) => panic!(
                 "Cannot add systems to the schedule '{schedule:?}: they are already in '{old_schedule:?}'"
             ),
             ScheduleMode::Granular(slots) => {
@@ -217,7 +216,7 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
             }
         }
 
-        configs.schedule = ScheduleMode::Blanket(Box::new(schedule));
+        configs.schedule = ScheduleMode::Blanket(Some(Box::new(schedule)));
 
         configs
     }
@@ -265,7 +264,7 @@ impl IntoSystemAppConfigs<()> for SystemConfigs {
     fn into_app_configs(self) -> SystemAppConfigs {
         SystemAppConfigs {
             systems: self,
-            schedule: ScheduleMode::None,
+            schedule: ScheduleMode::Blanket(None),
         }
     }
 }
