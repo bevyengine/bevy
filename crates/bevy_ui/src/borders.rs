@@ -69,7 +69,7 @@ pub fn calculate_borders_system(
         let min = -max;
         let inner_min = min + Vec2::new(left, top);
         let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
-        
+
         let border_rects = [
             Rect {
                 min,
