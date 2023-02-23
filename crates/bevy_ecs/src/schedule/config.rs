@@ -54,7 +54,7 @@ impl SystemConfig {
     }
 }
 
-fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
+fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
@@ -100,7 +100,7 @@ pub trait IntoSystemSetConfig {
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
@@ -136,7 +136,7 @@ impl<S: SystemSet> IntoSystemSetConfig for S {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
         self.into_config().run_if(condition)
     }
 
@@ -176,7 +176,7 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
         self.into_config().run_if(condition)
     }
 
@@ -251,7 +251,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
-    fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> Self {
         self.conditions.push(new_condition(condition));
         self
     }
@@ -271,7 +271,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
 ///
 /// This has been implemented for boxed [`System<In=(), Out=()>`](crate::system::System)
 /// trait objects and all functions that turn into such.
-pub trait IntoSystemConfig<Params, Config = SystemConfig> {
+pub trait IntoSystemConfig<Marker, Config = SystemConfig> {
     /// Convert into a [`SystemConfig`].
     #[doc(hidden)]
     fn into_config(self) -> Config;
@@ -291,7 +291,7 @@ pub trait IntoSystemConfig<Params, Config = SystemConfig> {
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> Config;
+    fn run_if<M>(self, condition: impl Condition<M>) -> Config;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Config;
@@ -300,9 +300,9 @@ pub trait IntoSystemConfig<Params, Config = SystemConfig> {
     fn ambiguous_with_all(self) -> Config;
 }
 
-impl<Params, F> IntoSystemConfig<Params> for F
+impl<Marker, F> IntoSystemConfig<Marker> for F
 where
-    F: IntoSystem<(), (), Params>,
+    F: IntoSystem<(), (), Marker>,
 {
     fn into_config(self) -> SystemConfig {
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
@@ -330,7 +330,7 @@ where
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfig {
         self.into_config().run_if(condition)
     }
 
@@ -370,7 +370,7 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfig {
         self.into_config().run_if(condition)
     }
 
@@ -437,7 +437,7 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
-    fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> Self {
         self.conditions.push(new_condition(condition));
         self
     }
@@ -469,7 +469,7 @@ impl IntoIterator for SystemConfigs {
 }
 
 /// Types that can convert into a [`SystemConfigs`].
-pub trait IntoSystemConfigs<Params>
+pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {
@@ -529,7 +529,7 @@ where
     /// Use [`run_if`](IntoSystemSetConfig::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
-    fn distributive_run_if<P>(self, condition: impl Condition<P> + Clone) -> SystemConfigs {
+    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> SystemConfigs {
         self.into_configs().distributive_run_if(condition)
     }
 
@@ -616,7 +616,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
-    fn distributive_run_if<P>(mut self, condition: impl Condition<P> + Clone) -> SystemConfigs {
+    fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> SystemConfigs {
         for config in &mut self.systems {
             config.conditions.push(new_condition(condition.clone()));
         }

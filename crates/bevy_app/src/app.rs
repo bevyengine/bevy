@@ -381,7 +381,7 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<P>(&mut self, system: impl IntoSystemAppConfig<P>) -> &mut Self {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemAppConfig<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         let SystemAppConfig { system, schedule } = system.into_app_config();
@@ -417,7 +417,7 @@ impl App {
     /// #
     /// app.add_systems((system_a, system_b, system_c));
     /// ```
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemAppConfigs<P>) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSystemAppConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         let SystemAppConfigs {
@@ -452,10 +452,10 @@ impl App {
     }
 
     /// Adds a system to the provided [`Schedule`].
-    pub fn add_system_to_schedule<P>(
+    pub fn add_system_to_schedule<M>(
         &mut self,
         schedule_label: impl ScheduleLabel,
-        system: impl IntoSystemConfig<P>,
+        system: impl IntoSystemConfig<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -469,10 +469,10 @@ impl App {
     }
 
     /// Adds a collection of system to the provided [`Schedule`].
-    pub fn add_systems_to_schedule<P>(
+    pub fn add_systems_to_schedule<M>(
         &mut self,
         schedule_label: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<P>,
+        systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -503,7 +503,7 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         self.add_system_to_schedule(CoreSchedule::Startup, system)
     }
 
@@ -528,7 +528,7 @@ impl App {
     ///     )
     /// );
     /// ```
-    pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems_to_schedule(CoreSchedule::Startup, systems)
     }
 
