@@ -369,8 +369,19 @@ impl<'w> EntityMut<'w> {
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.archetype_row);
+        // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.set(swapped_entity.index(), old_location);
+            let swapped_location = entities.get(swapped_entity).unwrap();
+
+            entities.set(
+                swapped_entity.index(),
+                EntityLocation {
+                    archetype_id: swapped_location.archetype_id,
+                    archetype_row: old_location.archetype_row,
+                    table_id: swapped_location.table_id,
+                    table_row: swapped_location.table_row,
+                },
+            );
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -393,9 +404,19 @@ impl<'w> EntityMut<'w> {
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
             let new_location = new_archetype.allocate(entity, move_result.new_row);
 
-            // if an entity was moved into this entity's table spot, update its table row
+            // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
+
+                entities.set(
+                    swapped_entity.index(),
+                    EntityLocation {
+                        archetype_id: swapped_location.archetype_id,
+                        archetype_row: swapped_location.archetype_row,
+                        table_id: swapped_location.table_id,
+                        table_row: old_location.table_row,
+                    },
+                );
                 archetypes[swapped_location.archetype_id]
                     .set_entity_table_row(swapped_location.archetype_row, old_table_row);
             }
@@ -904,5 +925,39 @@ mod tests {
 
         // Ensure that the location has been properly updated.
         assert!(entity.location() != old_location);
+    }
+
+    #[test]
+    fn removing_sparse_updates_archetype_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn((Dense(0), Sparse)).id();
+        let e2 = world.spawn((Dense(1), Sparse)).id();
+
+        world.entity_mut(e1).remove::<Sparse>();
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    #[test]
+    fn removing_dense_updates_table_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn((Dense(0), Sparse)).id();
+        let e2 = world.spawn((Dense(1), Sparse)).id();
+
+        world.entity_mut(e1).remove::<Dense>();
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
     }
 }
