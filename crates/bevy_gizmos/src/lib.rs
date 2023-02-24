@@ -84,10 +84,10 @@ impl Plugin for GizmoPlugin {
                 GizmoNode2d::NAME,
                 GizmoNode2d::IN_VIEW,
             );
-            // graph.add_node_edge(
-            //     core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            //     GizmoNode2d::NAME,
-            // );
+            graph.add_node_edge(
+                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                GizmoNode2d::NAME,
+            );
             graph.add_node_edge(GizmoNode2d::NAME, core_2d::graph::node::UPSCALING);
         }
 
