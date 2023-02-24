@@ -1,6 +1,6 @@
 use crate::{
     CoreSchedule, CoreSet, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin, PluginGroup,
-    ScheduleMode, StartupSet, SystemAppConfig, SystemAppConfigs,
+    StartupSet, SystemAppConfig,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -420,13 +420,8 @@ impl App {
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemAppConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        let SystemAppConfigs {
-            systems,
-            schedule: schedule_mode,
-        } = systems.into_app_configs();
-
-        match schedule_mode {
-            ScheduleMode::Blanket(schedule) => {
+        match systems.into_app_configs().0 {
+            crate::InnerConfigs::Blanket { systems, schedule } => {
                 let schedule = if let Some(label) = schedule {
                     schedules
                         .get_mut(&*label)
@@ -437,16 +432,11 @@ impl App {
                         .get_mut(label)
                         .unwrap_or_else(|| panic!("Default schedule '{label:?}' does not exist."))
                 };
-                // `systems` may have originally come from an instance of `SystemConfigs`,
-                // so we need to add them together in case they are chained.
                 schedule.add_systems(systems);
             }
-            ScheduleMode::Granular(schedule_labels) => {
-                // `systems` came from a bunch of individual instances of
-                // `SystemAppConfig`, so they are definitely not chained.
-                // We can add them separately.
-                for (system, schedule) in std::iter::zip(systems, schedule_labels) {
-                    self.add_system(SystemAppConfig { system, schedule });
+            crate::InnerConfigs::Granular(systems) => {
+                for system in systems {
+                    self.add_system(system);
                 }
             }
         }

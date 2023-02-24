@@ -460,14 +460,6 @@ pub struct SystemConfigs {
     pub(super) chained: bool,
 }
 
-impl IntoIterator for SystemConfigs {
-    type Item = SystemConfig;
-    type IntoIter = std::vec::IntoIter<SystemConfig>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.systems.into_iter()
-    }
-}
-
 /// Types that can convert into a [`SystemConfigs`].
 pub trait IntoSystemConfigs<Marker>
 where

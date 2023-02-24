@@ -1,8 +1,8 @@
 use bevy_ecs::{
     all_tuples,
     schedule::{
-        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemConfigs, IntoSystemSet,
-        ScheduleLabel, SystemConfig, SystemConfigs, SystemSet,
+        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemSet, ScheduleLabel,
+        SystemConfig, SystemConfigs, SystemSet,
     },
 };
 
@@ -169,17 +169,18 @@ where
 }
 
 /// A collection of [`SystemAppConfig`]s.
-pub struct SystemAppConfigs {
-    pub(crate) systems: SystemConfigs,
-    pub(crate) schedule: ScheduleMode,
-}
+pub struct SystemAppConfigs(pub(crate) InnerConfigs);
 
-/// Stores the schedule/s associated with a set of [`SystemConfigs`].
-pub(crate) enum ScheduleMode {
+pub(crate) enum InnerConfigs {
+    /// This came from an instance of `SystemConfigs`.
     /// All systems are in the same schedule.
-    Blanket(Option<BoxedScheduleLabel>),
+    Blanket {
+        systems: SystemConfigs,
+        schedule: Option<BoxedScheduleLabel>,
+    },
+    /// This came from several separate instances of `SystemAppConfig`.
     /// Each system gets its own schedule.
-    Granular(Vec<Option<BoxedScheduleLabel>>),
+    Granular(Vec<SystemAppConfig>),
 }
 
 /// Types that can convert into [`SystemAppConfigs`].
@@ -197,26 +198,29 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
     ///
     /// If any of the systems have already been assigned to a schedule.
     #[track_caller]
-    fn in_schedule(self, schedule: impl ScheduleLabel) -> SystemAppConfigs {
+    fn in_schedule(self, label: impl ScheduleLabel) -> SystemAppConfigs {
         let mut configs = self.into_app_configs();
 
-        match &configs.schedule {
-            ScheduleMode::Blanket(None) => {}
-            ScheduleMode::Blanket(Some(old_schedule)) => panic!(
-                "Cannot add systems to the schedule '{schedule:?}: they are already in '{old_schedule:?}'"
-            ),
-            ScheduleMode::Granular(slots) => {
-                for slot in slots {
-                    if let Some(old_schedule) = &slot {
+        match &mut configs.0 {
+            InnerConfigs::Blanket { schedule, .. } => {
+                if schedule.is_some() {
+                    panic!(
+                        "Cannot add systems to the schedule '{label:?}: they are already in '{schedule:?}'"
+                    );
+                }
+                *schedule = Some(Box::new(label));
+            }
+            InnerConfigs::Granular(configs) => {
+                for SystemAppConfig { schedule, .. } in configs {
+                    if schedule.is_some() {
                         panic!(
-                            "Cannot add system to the schedule '{schedule:?}': it is already in '{old_schedule:?}'."
+                            "Cannot add system to the schedule '{label:?}': it is already in '{schedule:?}'."
                         );
                     }
+                    *schedule = Some(label.dyn_clone());
                 }
             }
         }
-
-        configs.schedule = ScheduleMode::Blanket(Some(Box::new(schedule)));
 
         configs
     }
@@ -262,10 +266,10 @@ impl IntoSystemAppConfigs<()> for SystemAppConfigs {
 
 impl IntoSystemAppConfigs<()> for SystemConfigs {
     fn into_app_configs(self) -> SystemAppConfigs {
-        SystemAppConfigs {
+        SystemAppConfigs(InnerConfigs::Blanket {
             systems: self,
-            schedule: ScheduleMode::Blanket(None),
-        }
+            schedule: None,
+        })
     }
 }
 
@@ -278,13 +282,7 @@ macro_rules! impl_system_collection {
             #[allow(non_snake_case)]
             fn into_app_configs(self) -> SystemAppConfigs {
                 let ($($sys,)*) = self;
-                $(
-                    let mut $sys = $sys.into_app_config();
-                )*
-                SystemAppConfigs {
-                    schedule: ScheduleMode::Granular(vec![$($sys.schedule.take(),)*]),
-                    systems: ($($sys.system,)*).into_configs(),
-                }
+                SystemAppConfigs(InnerConfigs::Granular(vec![$($sys.into_app_config(),)*]))
             }
         }
     }
