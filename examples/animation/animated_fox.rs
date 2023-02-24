@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 
 fn main() {
@@ -43,7 +44,7 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 500000.0 })),
+        mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -55,6 +56,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 400.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

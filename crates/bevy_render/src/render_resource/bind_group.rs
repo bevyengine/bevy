@@ -84,6 +84,8 @@ impl Deref for BindGroup {
 ///     color_texture: Handle<Image>,
 ///     #[storage(3, read_only)]
 ///     values: Vec<f32>,
+///     #[storage(4, read_only, buffer)]
+///     buffer: Buffer,
 /// }
 /// ```
 ///

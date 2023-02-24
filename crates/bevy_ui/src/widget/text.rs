@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val};
+use crate::{CalculatedSize, Node, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -54,7 +54,7 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<Entity, Or<(Changed<Text>, Changed<Node>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
         Query<(
             &Text,
@@ -65,10 +65,12 @@ pub fn text_system(
     )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+    let window_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(ui_scale.scale);
+        .unwrap_or(1.);
+
+    let scale_factor = ui_scale.scale * window_scale_factor;
 
     let inv_scale_factor = 1. / scale_factor;
 
@@ -133,10 +135,10 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-                    calculated_size.size = Size {
-                        width: Val::Px(scale_value(info.size.x, inv_scale_factor)),
-                        height: Val::Px(scale_value(info.size.y, inv_scale_factor)),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(info.size.x, inv_scale_factor),
+                        scale_value(info.size.y, inv_scale_factor),
+                    );
                     match text_layout_info {
                         Some(mut t) => *t = info,
                         None => {

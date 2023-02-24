@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfig, prelude::*};
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -25,7 +25,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+        mesh: meshes.add(shape::Plane::from_size(10.0).into()),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
@@ -198,8 +198,13 @@ fn setup(
         },
         // The default cascade config is designed to handle large scenes.
         // As this example has a much smaller world, we can tighten the shadow
-        // far bound for better visual quality.
-        cascade_shadow_config: CascadeShadowConfig::new(4, 5.0, 30.0, 0.2),
+        // bounds for better visual quality.
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 4.0,
+            maximum_distance: 10.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

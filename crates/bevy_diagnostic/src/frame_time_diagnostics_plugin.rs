@@ -1,7 +1,7 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::prelude::*;
 use bevy_time::Time;
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"

@@ -241,6 +241,14 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
+impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
+    type Item = &'a E;
+    type IntoIter = ManualEventIterator<'a, E>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 /// Sends events of type `T`.
 ///
 /// # Usage
@@ -278,8 +286,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///     // NOTE: the event won't actually be sent until commands get flushed
 ///     // at the end of the current stage.
 ///     commands.add(|w: &mut World| {
-///         let mut events_resource = w.resource_mut::<Events<_>>();
-///         events_resource.send(MyEvent);
+///         w.send_event(MyEvent);
 ///     });
 /// }
 /// ```
@@ -379,6 +386,21 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
         self.iter.next().map(|(event, _)| event)
     }
 
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.iter.last().map(|(event, _)| event)
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -387,12 +409,6 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
 impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
     fn len(&self) -> usize {
         self.iter.len()
-    }
-}
-
-impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(|(event, _)| event)
     }
 }
 
@@ -452,25 +468,34 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
         }
     }
 
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
+            self.reader.last_event_count += n + 1;
+            self.unread -= n + 1;
+            Some((event, *event_id))
+        } else {
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
+            None
+        }
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        let EventInstance { event_id, event } = self.chain.last()?;
+        self.reader.last_event_count += self.unread;
+        Some((event, *event_id))
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.chain.size_hint()
-    }
-}
-
-impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self
-            .chain
-            .next_back()
-            .map(|instance| (&instance.event, instance.event_id))
-        {
-            Some(item) => {
-                event_trace(item.1);
-                self.unread -= 1;
-                Some(item)
-            }
-            None => None,
-        }
     }
 }
 
@@ -577,9 +602,7 @@ impl<E: Event> Events<E> {
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
-    pub fn iter_current_update_events(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
+    pub fn iter_current_update_events(&self) -> impl ExactSizeIterator<Item = &E> {
         self.events_b.iter().map(|i| &i.event)
     }
 
@@ -617,6 +640,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
     where
         I: IntoIterator<Item = E>,
     {
+        let old_count = self.event_count;
         let mut event_count = self.event_count;
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
@@ -629,11 +653,14 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
         self.events_b.extend(events);
 
-        trace!(
-            "Events::extend() -> ids: ({}..{})",
-            self.event_count,
-            event_count
-        );
+        if old_count != event_count {
+            trace!(
+                "Events::extend() -> ids: ({}..{})",
+                self.event_count,
+                event_count
+            );
+        }
+
         self.event_count = event_count;
     }
 }
@@ -837,8 +864,10 @@ mod tests {
         assert_eq!(iter.len(), 3);
         iter.next();
         assert_eq!(iter.len(), 2);
-        iter.next_back();
+        iter.next();
         assert_eq!(iter.len(), 1);
+        iter.next();
+        assert_eq!(iter.len(), 0);
     }
 
     #[test]
@@ -893,6 +922,63 @@ mod tests {
         assert!(!is_empty, "EventReader should not be empty");
         let is_empty = reader.run((), &mut world);
         assert!(is_empty, "EventReader should be empty");
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::new();
+        schedule.add_system(|mut events: EventReader<TestEvent>| {
+            let mut iter = events.iter();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_event_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut reader =
+            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+                events.iter().last().copied()
+            });
+        reader.initialize(&mut world);
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
     }
 
     #[derive(Clone, PartialEq, Debug, Default)]

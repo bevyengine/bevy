@@ -8,13 +8,11 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_ecs::{
-    prelude::Entity,
-    query::With,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::{FromWorld, World},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -39,7 +37,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
@@ -99,15 +97,16 @@ where
         };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_phase)
-            .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<AlphaMask3dPrepass>,
+            .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
+            .add_system(
+                prepare_prepass_textures
+                    .in_set(RenderSet::Prepare)
+                    .after(bevy_render::view::prepare_windows),
             )
+            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
+            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
+            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
@@ -290,7 +289,7 @@ where
                 buffers: vec![vertex_buffer_layout],
             },
             fragment,
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 topology: key.mesh_key.primitive_topology(),
                 strip_index_format: None,
@@ -321,6 +320,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            push_constant_ranges: Vec::new(),
             label: Some("prepass_pipeline".into()),
         };
 

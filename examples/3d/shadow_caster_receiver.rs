@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -67,7 +67,7 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
@@ -78,7 +78,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
         material: white_handle,
         ..default()
     });
@@ -109,6 +109,12 @@ fn setup(
             PI / 2.,
             -PI / 4.,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 7.0,
+            maximum_distance: 25.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

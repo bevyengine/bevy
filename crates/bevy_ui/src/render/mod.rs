@@ -2,6 +2,8 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_render::ExtractSchedule;
+#[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -23,9 +25,12 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::SpriteAssetEvents;
+#[cfg(feature = "bevy_text")]
+use bevy_sprite::TextureAtlas;
+#[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
@@ -50,7 +55,7 @@ pub mod draw_ui_graph {
 pub const UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
 }
@@ -71,25 +76,19 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera2d>,
+        .add_systems_to_schedule(
+            ExtractSchedule,
+            (
+                extract_default_ui_camera_view::<Camera2d>,
+                extract_default_ui_camera_view::<Camera3d>,
+                extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                #[cfg(feature = "bevy_text")]
+                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+            ),
         )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera3d>,
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_uinodes.label(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
-        .add_system_to_stage(RenderStage::Queue, queue_uinodes)
-        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+        .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
+        .add_system(queue_uinodes.in_set(RenderSet::Queue))
+        .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -283,6 +282,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         physical_size.x,
                         physical_size.y,
                     ),
+                    color_grading: Default::default(),
                 })
                 .id();
             commands.get_or_spawn(entity).insert((
@@ -293,6 +293,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     }
 }
 
+#[cfg(feature = "bevy_text")]
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,

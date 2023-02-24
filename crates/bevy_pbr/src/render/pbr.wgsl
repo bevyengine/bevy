@@ -5,6 +5,7 @@
 #import bevy_pbr::utils
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::lighting
+#import bevy_pbr::pbr_ambient
 #import bevy_pbr::shadows
 #import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
@@ -66,8 +67,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 #endif
-        pbr_input.occlusion = occlusion;
-
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
         pbr_input.world_normal = prepare_world_normal(
@@ -91,6 +90,10 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
         );
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+        pbr_input.occlusion = occlusion;
+
+        pbr_input.flags = mesh.flags;
+
         output_color = pbr(pbr_input);
     } else {
         output_color = alpha_discard(material, output_color);
@@ -106,11 +109,11 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
-    output_rgb = pow(output_rgb, vec3<f32>(1.0 / 2.2));
+    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
     output_rgb = output_rgb + screen_space_dither(in.frag_coord.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = pow(output_rgb, vec3<f32>(2.2));
+    output_rgb = powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
 #endif
 #ifdef PREMULTIPLY_ALPHA
