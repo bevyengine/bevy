@@ -192,14 +192,14 @@ pub fn extract_uinode_borders(
         )>,
     >,
 ) {
+    let image = DEFAULT_IMAGE_HANDLE.typed();
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((transform, border, border_style, visibility, clip)) = uinode_query.get(*entity) {
             // Skip invisible nodes
             if !visibility.is_visible() || border_style.color.a() == 0.0 {
                 continue;
             }
-
-            let image = DEFAULT_IMAGE_HANDLE.typed();
 
             for &border_rect in border.edges.iter().flatten() {
                 let center = border_rect.center();
