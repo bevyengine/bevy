@@ -23,6 +23,7 @@ pub struct GizmoNode {
 
 impl GizmoNode {
     pub const IN_VIEW: &'static str = "view";
+    pub const NAME: &'static str = "gizmo_node";
 
     pub fn new(world: &mut World) -> Self {
         Self {
