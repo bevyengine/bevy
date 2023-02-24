@@ -8,8 +8,8 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_ecs_macros::SystemParam;
 pub use apply_commands::ApplyCommands;
+use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
