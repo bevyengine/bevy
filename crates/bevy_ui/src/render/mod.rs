@@ -418,7 +418,6 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
     ui_meta.vertices.clear();
-    let default_image: Handle<Image> = DEFAULT_IMAGE_HANDLE.typed().clone_weak();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
@@ -497,14 +496,8 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = 
-        if current_batch_handle == default_image {
-            [
-                Vec2::ZERO,
-                Vec2::X,
-                Vec2::ONE,
-                Vec2::Y,
-            ]
+        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             let mut uvs = [
