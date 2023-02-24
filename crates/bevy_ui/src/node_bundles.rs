@@ -9,6 +9,7 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
+#[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -95,6 +96,7 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
+#[cfg(feature = "bevy_text")]
 /// A UI node that is text
 #[derive(Bundle, Clone, Debug)]
 pub struct TextBundle {
@@ -128,6 +130,7 @@ pub struct TextBundle {
     pub background_color: BackgroundColor,
 }
 
+#[cfg(feature = "bevy_text")]
 impl Default for TextBundle {
     fn default() -> Self {
         Self {
@@ -147,6 +150,7 @@ impl Default for TextBundle {
     }
 }
 
+#[cfg(feature = "bevy_text")]
 impl TextBundle {
     /// Create a [`TextBundle`] from a single section.
     ///
