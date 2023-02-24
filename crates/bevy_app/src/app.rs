@@ -328,7 +328,15 @@ impl App {
     pub fn add_state<S: States>(&mut self) -> &mut Self {
         self.init_resource::<State<S>>();
         self.init_resource::<NextState<S>>();
-        self.add_systems(
+
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) else {
+            let schedule_label = &self.default_schedule_label;
+            panic!("Default schedule {schedule_label:?} does not exist.")
+        };
+
+        default_schedule.add_systems(
             (
                 run_enter_schedule::<S>.run_if(run_once_condition()),
                 apply_state_transition::<S>,
@@ -337,13 +345,11 @@ impl App {
                 .in_base_set(CoreSet::StateTransitions),
         );
 
-        let main_schedule = self.get_schedule_mut(CoreSchedule::Main).unwrap();
         for variant in S::variants() {
-            main_schedule.configure_set(
+            default_schedule.configure_set(
                 OnUpdate(variant.clone())
                     .in_base_set(CoreSet::Update)
-                    .run_if(in_state(variant))
-                    .after(apply_state_transition::<S>),
+                    .run_if(in_state(variant)),
             );
         }
 
@@ -372,7 +378,7 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
@@ -400,7 +406,7 @@ impl App {
     /// #
     /// app.add_systems((system_a, system_b, system_c));
     /// ```
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
@@ -414,10 +420,10 @@ impl App {
     }
 
     /// Adds a system to the provided [`Schedule`].
-    pub fn add_system_to_schedule<P>(
+    pub fn add_system_to_schedule<M>(
         &mut self,
         schedule_label: impl ScheduleLabel,
-        system: impl IntoSystemConfig<P>,
+        system: impl IntoSystemConfig<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -431,10 +437,10 @@ impl App {
     }
 
     /// Adds a collection of system to the provided [`Schedule`].
-    pub fn add_systems_to_schedule<P>(
+    pub fn add_systems_to_schedule<M>(
         &mut self,
         schedule_label: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<P>,
+        systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -465,7 +471,7 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         self.add_system_to_schedule(CoreSchedule::Startup, system)
     }
 
@@ -490,7 +496,7 @@ impl App {
     ///     )
     /// );
     /// ```
-    pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems_to_schedule(CoreSchedule::Startup, systems)
     }
 

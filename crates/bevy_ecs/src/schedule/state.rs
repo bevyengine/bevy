@@ -17,7 +17,7 @@ pub use bevy_ecs_macros::States;
 /// You can access the current state of type `T` with the [`State<T>`] resource,
 /// and the queued state with the [`NextState<T>`] resource.
 ///
-/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Varaitn>`] schedules,
+/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
 /// Systems that run each frame in various states are typically stored in the main schedule,
 /// and are conventionally part of the [`OnUpdate(T::Variant)`] system set.
@@ -75,7 +75,7 @@ pub struct State<S: States>(pub S);
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
-/// Note that these transitions can be overriden by other systems:
+/// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Default, Debug)]
 pub struct NextState<S: States>(pub Option<S>);

@@ -276,6 +276,7 @@ pub fn prepare_windows(
         // This is an ugly hack to work around drivers that don't support MSAA.
         // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
         // feature detection for MSAA.
+        // When removed, we can also remove the `.after(prepare_windows)` of `prepare_core_3d_depth_textures` and `prepare_prepass_textures`
         let sample_flags = render_adapter
             .get_texture_format_features(surface_configuration.format)
             .flags;

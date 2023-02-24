@@ -223,6 +223,32 @@ mod tests {
         }
 
         #[test]
+        fn systems_with_distributive_condition() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.insert_resource(RunConditionBool(true));
+            world.init_resource::<SystemOrder>();
+
+            fn change_condition(mut condition: ResMut<RunConditionBool>) {
+                condition.0 = false;
+            }
+
+            schedule.add_systems(
+                (
+                    make_function_system(0),
+                    change_condition,
+                    make_function_system(1),
+                )
+                    .chain()
+                    .distributive_run_if(|condition: Res<RunConditionBool>| condition.0),
+            );
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
         fn run_exclusive_system_with_condition() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
@@ -564,9 +590,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_hierarchy_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                hierarchy_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             // Add `A`.
             schedule.configure_set(TestSet::A);
@@ -636,9 +663,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_ambiguity_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);

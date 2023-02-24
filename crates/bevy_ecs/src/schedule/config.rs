@@ -54,7 +54,7 @@ impl SystemConfig {
     }
 }
 
-fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
+fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
@@ -100,7 +100,7 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from systems in this set having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
@@ -139,7 +139,7 @@ where
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
         self.into_config().run_if(condition)
     }
 
@@ -179,7 +179,7 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
         self.into_config().run_if(condition)
     }
 
@@ -254,7 +254,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
-    fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> Self {
         self.conditions.push(new_condition(condition));
         self
     }
@@ -274,7 +274,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
 ///
 /// This has been implemented for boxed [`System<In=(), Out=()>`](crate::system::System)
 /// trait objects and all functions that turn into such.
-pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
+pub trait IntoSystemConfig<Marker>: sealed::IntoSystemConfig<Marker> {
     /// Convert into a [`SystemConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemConfig;
@@ -294,7 +294,7 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig;
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfig;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
@@ -303,9 +303,9 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     fn ambiguous_with_all(self) -> SystemConfig;
 }
 
-impl<Params, F> IntoSystemConfig<Params> for F
+impl<Marker, F> IntoSystemConfig<Marker> for F
 where
-    F: IntoSystem<(), (), Params> + sealed::IntoSystemConfig<Params>,
+    F: IntoSystem<(), (), Marker> + sealed::IntoSystemConfig<Marker>,
 {
     fn into_config(self) -> SystemConfig {
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
@@ -333,7 +333,7 @@ where
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfig {
         self.into_config().run_if(condition)
     }
 
@@ -373,7 +373,7 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         self.into_config().after(set)
     }
 
-    fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
+    fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfig {
         self.into_config().run_if(condition)
     }
 
@@ -440,7 +440,7 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
-    fn run_if<P>(mut self, condition: impl Condition<P>) -> Self {
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> Self {
         self.conditions.push(new_condition(condition));
         self
     }
@@ -465,9 +465,9 @@ mod sealed {
 
     use super::{SystemConfig, SystemSetConfig};
 
-    pub trait IntoSystemConfig<Params> {}
+    pub trait IntoSystemConfig<Marker> {}
 
-    impl<Params, F: IntoSystem<(), (), Params>> IntoSystemConfig<Params> for F {}
+    impl<Marker, F: IntoSystem<(), (), Marker>> IntoSystemConfig<Marker> for F {}
 
     impl IntoSystemConfig<()> for BoxedSystem<(), ()> {}
 
@@ -490,7 +490,7 @@ pub struct SystemConfigs {
 }
 
 /// Types that can convert into a [`SystemConfigs`].
-pub trait IntoSystemConfigs<Params>
+pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {
@@ -518,6 +518,40 @@ where
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Add a run condition to each contained system.
+    ///
+    /// Each system will receive its own clone of the [`Condition`] and will only run
+    /// if the `Condition` is true.
+    ///
+    /// Each individual condition will be evaluated at most once (per schedule run),
+    /// right before the corresponding system prepares to run.
+    ///
+    /// This is equivalent to calling [`run_if`](IntoSystemConfig::run_if) on each individual
+    /// system, as shown below:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = Schedule::new();
+    /// # fn a() {}
+    /// # fn b() {}
+    /// # fn condition() -> bool { true }
+    /// app.add_systems((a, b).distributive_run_if(condition));
+    /// app.add_systems((a.run_if(condition), b.run_if(condition)));
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// Because the conditions are evaluated separately for each system, there is no guarantee
+    /// that all evaluations in a single schedule run will yield the same result. If another
+    /// system is run inbetween two evaluations it could cause the result of the condition to change.
+    ///
+    /// Use [`run_if`](IntoSystemSetConfig::run_if) on a [`SystemSet`] if you want to make sure
+    /// that either all or none of the systems are run, or you don't want to evaluate the run
+    /// condition for each contained system separately.
+    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> SystemConfigs {
+        self.into_configs().distributive_run_if(condition)
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
@@ -598,6 +632,14 @@ impl IntoSystemConfigs<()> for SystemConfigs {
                 .graph_info
                 .dependencies
                 .push(Dependency::new(DependencyKind::After, set.dyn_clone()));
+        }
+
+        self
+    }
+
+    fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> SystemConfigs {
+        for config in &mut self.systems {
+            config.conditions.push(new_condition(condition.clone()));
         }
 
         self
