@@ -553,7 +553,7 @@ mod tests {
                 Err(ScheduleBuildError::SystemTypeSetAmbiguity(_))
             ));
 
-            // same goes for `ambiguous_with`
+            // `ambiguous_with` is allowed
             let mut schedule = Schedule::new();
             schedule.add_system(foo);
             schedule.add_system(bar.ambiguous_with(foo));
@@ -561,10 +561,7 @@ mod tests {
             assert!(result.is_ok());
             schedule.add_system(foo);
             let result = schedule.initialize(&mut world);
-            assert!(matches!(
-                result,
-                Err(ScheduleBuildError::SystemTypeSetAmbiguity(_))
-            ));
+            assert!(result.is_ok());
         }
 
         #[test]

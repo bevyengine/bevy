@@ -1067,7 +1067,6 @@ impl ScheduleGraph {
             let set = &self.system_sets[id.index()];
             if set.is_system_type() {
                 let instances = systems.len();
-                let ambiguous_with = self.ambiguous_with.edges(id);
                 let before = self
                     .dependency
                     .graph
@@ -1076,7 +1075,7 @@ impl ScheduleGraph {
                     .dependency
                     .graph
                     .edges_directed(id, Direction::Outgoing);
-                let relations = before.count() + after.count() + ambiguous_with.count();
+                let relations = before.count() + after.count();
                 if instances > 1 && relations > 0 {
                     return Err(ScheduleBuildError::SystemTypeSetAmbiguity(
                         self.get_node_name(&id),
