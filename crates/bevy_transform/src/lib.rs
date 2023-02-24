@@ -90,6 +90,9 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
+        #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+        struct Set;
+
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
@@ -106,14 +109,22 @@ impl Plugin for TransformPlugin {
             .add_startup_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+                    .ambiguous_with(Set),
             )
-            .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
+            .add_startup_system(
+                propagate_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(Set),
+            )
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+                    .ambiguous_with(Set),
             )
-            .add_system(propagate_transforms.in_set(TransformSystem::TransformPropagate));
+            .add_system(
+                propagate_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(Set),
+            );
     }
 }
