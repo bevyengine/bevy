@@ -960,4 +960,79 @@ mod tests {
         world.entity_mut(e1).remove::<Dense>();
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
     }
+
+    #[test]
+    fn inserting_sparse_updates_archetype_row() {
+        use bevy_ecs::prelude::*;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse);
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    #[test]
+    fn inserting_dense_updates_archetype_row() {
+        use bevy_ecs::prelude::*;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        struct Dense2;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse).remove::<Sparse>();
+
+        // archetype with [e2, e1]
+        // table with [e1, e2]
+
+        world.entity_mut(e2).insert(Dense2);
+
+        assert_eq!(world.entity(e1).get::<Dense>().unwrap(), &Dense(0));
+    }
+
+    #[test]
+    fn inserting_dense_updates_table_row() {
+        use bevy_ecs::prelude::*;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        struct Dense2;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse).remove::<Sparse>();
+
+        // archetype with [e2, e1]
+        // table with [e1, e2]
+
+        world.entity_mut(e1).insert(Dense2);
+
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
 }
