@@ -10,7 +10,7 @@ use bevy_render::{
 
 use crate::pipeline_3d::GizmoLine3d;
 
-pub struct GizmoNode {
+pub struct GizmoNode3d {
     view_query: QueryState<
         (
             &'static ViewTarget,
@@ -21,9 +21,9 @@ pub struct GizmoNode {
     >,
 }
 
-impl GizmoNode {
+impl GizmoNode3d {
     pub const IN_VIEW: &'static str = "view";
-    pub const NAME: &'static str = "gizmo_node";
+    pub const NAME: &'static str = "gizmo_node_2d";
 
     pub fn new(world: &mut World) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl GizmoNode {
     }
 }
 
-impl Node for GizmoNode {
+impl Node for GizmoNode3d {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
@@ -58,7 +58,7 @@ impl Node for GizmoNode {
 
         {
             #[cfg(feature = "trace")]
-            let _main_opaque_pass_3d_span = info_span!("gizmo_line_3d_pass").entered();
+            let _gizmo_line_3d_pass = info_span!("gizmo_line_3d_pass").entered();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("gizmo_line_3d"),

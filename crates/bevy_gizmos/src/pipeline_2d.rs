@@ -1,18 +1,23 @@
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::prelude::Camera2d;
 use bevy_ecs::{
     prelude::Entity,
     query::With,
-    system::{Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
+    prelude::Camera,
     render_asset::RenderAssets,
-    render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        SetItemPipeline,
+    },
     render_resource::*,
     texture::BevyDefault,
     view::Msaa,
+    Extract,
 };
 use bevy_sprite::*;
 use bevy_utils::FloatOrd;
@@ -92,18 +97,69 @@ pub(crate) type DrawGizmoLines = (
     DrawMesh2d,
 );
 
+pub struct GizmoLine2d {
+    pub sort_key: FloatOrd,
+    pub pipeline: CachedRenderPipelineId,
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+
+impl PhaseItem for GizmoLine2d {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for GizmoLine2d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
+}
+
+pub fn extract_gizmo_line_2d_camera_phase(
+    mut commands: Commands,
+    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+) {
+    for (entity, camera) in &cameras_2d {
+        if camera.is_active {
+            commands
+                .get_or_spawn(entity)
+                .insert(RenderPhase::<GizmoLine2d>::default());
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue_gizmos_2d(
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
+    draw_functions: Res<DrawFunctions<GizmoLine2d>>,
     pipeline: Res<GizmoPipeline2d>,
     pipeline_cache: Res<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline2d>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoMesh>>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<&mut RenderPhase<GizmoLine2d>>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
+    let draw_function = draw_functions.read().id::<DrawGizmoLines>();
     let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples());
     for mut phase in &mut views {
         for (entity, mesh_handle) in &mesh_handles {
@@ -113,12 +169,11 @@ pub(crate) fn queue_gizmos_2d(
             let pipeline = specialized_pipelines
                 .specialize(&pipeline_cache, &pipeline, key, &mesh.layout)
                 .unwrap();
-            phase.add(Transparent2d {
+            phase.add(GizmoLine2d {
                 entity,
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::MAX),
-                batch_range: None,
             });
         }
     }

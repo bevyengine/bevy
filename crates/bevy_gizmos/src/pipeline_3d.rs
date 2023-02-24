@@ -225,7 +225,6 @@ pub(crate) fn queue_gizmos_3d(
     mut views: Query<(&ExtractedView, &mut RenderPhase<GizmoLine3d>)>,
 ) {
     let draw_function = draw_functions.read().id::<DrawGizmoLines>();
-
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, mut phase) in &mut views {
         let key = key | MeshPipelineKey::from_hdr(view.hdr);
