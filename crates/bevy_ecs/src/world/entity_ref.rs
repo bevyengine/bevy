@@ -279,11 +279,12 @@ impl<'w> EntityMut<'w> {
         self
     }
 
-    // TODO: move to BundleInfo
-    /// Removes a [`Bundle`] of components from the entity and returns the bundle.
+    /// Removes the components in the [`Bundle`] from the entity and returns their previous values.
     ///
-    /// Returns `None` if the entity does not contain the bundle.
-    pub fn remove<T: Bundle>(&mut self) -> Option<T> {
+    /// **Note:** This will not remove any components and will return `None` if the entity does not
+    /// have all components in the bundle.
+    // TODO: BundleRemover?
+    pub fn take<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -408,9 +409,9 @@ impl<'w> EntityMut<'w> {
         entities.set(entity.index(), new_location);
     }
 
-    // TODO: move to BundleInfo
-    /// Remove any components in the bundle that the entity has.
-    pub fn remove_intersection<T: Bundle>(&mut self) {
+    /// Removes the components in the [`Bundle`] from the entity.
+    // TODO: BundleRemover?
+    pub fn remove<T: Bundle>(&mut self) {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -647,11 +648,9 @@ unsafe fn remove_bundle_from_archetype(
     let remove_bundle_result = {
         let current_archetype = &mut archetypes[archetype_id];
         if intersection {
-            current_archetype
-                .edges()
-                .get_remove_bundle_intersection(bundle_info.id)
-        } else {
             current_archetype.edges().get_remove_bundle(bundle_info.id)
+        } else {
+            current_archetype.edges().get_take_bundle(bundle_info.id)
         }
     };
     let result = if let Some(result) = remove_bundle_result {
@@ -679,7 +678,7 @@ unsafe fn remove_bundle_from_archetype(
                     // graph
                     current_archetype
                         .edges_mut()
-                        .insert_remove_bundle(bundle_info.id, None);
+                        .insert_take_bundle(bundle_info.id, None);
                     return None;
                 }
             }
@@ -718,11 +717,11 @@ unsafe fn remove_bundle_from_archetype(
     if intersection {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle_intersection(bundle_info.id, result);
+            .insert_remove_bundle(bundle_info.id, result);
     } else {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle(bundle_info.id, result);
+            .insert_take_bundle(bundle_info.id, result);
     }
     result
 }
