@@ -195,20 +195,16 @@ pub fn extract_uinode_borders(
     let image = DEFAULT_IMAGE_HANDLE.typed();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((transform, border, border_style, visibility, clip)) = uinode_query.get(*entity) {
+        if let Ok((global_transform, border, border_style, visibility, clip)) = uinode_query.get(*entity) {
             // Skip invisible nodes
             if !visibility.is_visible() || border_style.color.a() == 0.0 {
                 continue;
             }
-
             for &border_rect in border.edges.iter().flatten() {
-                let center = border_rect.center();
-                let transform = Mat4::from_translation(Vec3::new(center.x, center.y, 0.0))
-                    * transform.compute_matrix();
-
+                let transform = global_transform.compute_matrix();
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform,
+                    transform: Mat4::from_translation(border_rect.center().extend(0.)) * transform,
                     color: border_style.color,
                     rect: Rect {
                         max: border_rect.size(),
