@@ -281,9 +281,10 @@ impl<'w> EntityMut<'w> {
 
     /// Removes the components in the [`Bundle`] from the entity and returns their previous values.
     ///
-    /// **Note:** This will not remove any components and will return `None` if the entity does not
-    /// have all components in the bundle.
+    /// **Note:** If the entity does not have every component in the bundle,
+    /// this method will not remove any of them.
     // TODO: BundleRemover?
+    #[must_use]
     pub fn take<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
@@ -409,7 +410,7 @@ impl<'w> EntityMut<'w> {
         entities.set(entity.index(), new_location);
     }
 
-    /// Removes the components in the [`Bundle`] from the entity.
+    /// Removes any components in the [`Bundle`] from the entity.
     // TODO: BundleRemover?
     pub fn remove<T: Bundle>(&mut self) {
         let archetypes = &mut self.world.archetypes;
