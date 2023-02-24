@@ -158,7 +158,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some(Cow::Borrowed("screenshot-to-screen")),
-            layout: Some(vec![self.bind_group_layout.clone()]),
+            layout: vec![self.bind_group_layout.clone()],
             vertex: VertexState {
                 buffers: vec![],
                 shader_defs: vec![],
@@ -186,6 +186,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
