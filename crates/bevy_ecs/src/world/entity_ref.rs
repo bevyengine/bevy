@@ -927,6 +927,7 @@ mod tests {
         assert!(entity.location() != old_location);
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
     #[test]
     fn removing_sparse_updates_archetype_row() {
         #[derive(Component, PartialEq, Debug)]
@@ -944,6 +945,7 @@ mod tests {
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
     #[test]
     fn removing_dense_updates_table_row() {
         #[derive(Component, PartialEq, Debug)]
@@ -961,6 +963,7 @@ mod tests {
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
     #[test]
     fn inserting_sparse_updates_archetype_row() {
         use bevy_ecs::prelude::*;
@@ -980,6 +983,7 @@ mod tests {
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
     #[test]
     fn inserting_dense_updates_archetype_row() {
         use bevy_ecs::prelude::*;
@@ -1008,6 +1012,7 @@ mod tests {
         assert_eq!(world.entity(e1).get::<Dense>().unwrap(), &Dense(0));
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
     #[test]
     fn inserting_dense_updates_table_row() {
         use bevy_ecs::prelude::*;
