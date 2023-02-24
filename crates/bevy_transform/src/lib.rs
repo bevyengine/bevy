@@ -90,8 +90,10 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
+        // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
+        // Used instead of the `SystemTypeSet` as that would not allow multiple instances of the system.
         #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-        struct Set;
+        struct PropagateTransformsSet;
 
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
@@ -109,22 +111,22 @@ impl Plugin for TransformPlugin {
             .add_startup_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(Set),
+                    .ambiguous_with(PropagateTransformsSet),
             )
             .add_startup_system(
                 propagate_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .in_set(Set),
+                    .in_set(PropagateTransformsSet),
             )
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(Set),
+                    .ambiguous_with(PropagateTransformsSet),
             )
             .add_system(
                 propagate_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .in_set(Set),
+                    .in_set(PropagateTransformsSet),
             );
     }
 }
