@@ -80,7 +80,7 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
 /// Types that can be converted into a [`SystemSetConfig`].
 ///
 /// This has been implemented for all types that implement [`SystemSet`] and boxed trait objects.
-pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
+pub trait IntoSystemSetConfig {
     /// Convert into a [`SystemSetConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemSetConfig;
@@ -109,10 +109,7 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     fn ambiguous_with_all(self) -> SystemSetConfig;
 }
 
-impl<S> IntoSystemSetConfig for S
-where
-    S: SystemSet + sealed::IntoSystemSetConfig,
-{
+impl<S: SystemSet> IntoSystemSetConfig for S {
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(Box::new(self))
     }
@@ -274,38 +271,38 @@ impl IntoSystemSetConfig for SystemSetConfig {
 ///
 /// This has been implemented for boxed [`System<In=(), Out=()>`](crate::system::System)
 /// trait objects and all functions that turn into such.
-pub trait IntoSystemConfig<Marker>: sealed::IntoSystemConfig<Marker> {
+pub trait IntoSystemConfig<Marker, Config = SystemConfig> {
     /// Convert into a [`SystemConfig`].
     #[doc(hidden)]
-    fn into_config(self) -> SystemConfig;
+    fn into_config(self) -> Config;
     /// Add to `set` membership.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> SystemConfig;
+    fn in_set(self, set: impl SystemSet) -> Config;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemConfig;
+    fn in_base_set(self, set: impl SystemSet) -> Config;
     /// Don't add this system to the schedules's default set.
-    fn no_default_base_set(self) -> SystemConfig;
+    fn no_default_base_set(self) -> Config;
     /// Run before all systems in `set`.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> Config;
     /// Run after all systems in `set`.
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> Config;
     /// Run only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
-    fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfig;
+    fn run_if<M>(self, condition: impl Condition<M>) -> Config;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Config;
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> SystemConfig;
+    fn ambiguous_with_all(self) -> Config;
 }
 
 impl<Marker, F> IntoSystemConfig<Marker> for F
 where
-    F: IntoSystem<(), (), Marker> + sealed::IntoSystemConfig<Marker>,
+    F: IntoSystem<(), (), Marker>,
 {
     fn into_config(self) -> SystemConfig {
         SystemConfig::new(Box::new(IntoSystem::into_system(self)))
@@ -454,32 +451,6 @@ impl IntoSystemConfig<()> for SystemConfig {
         self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
         self
     }
-}
-
-// only `System<In=(), Out=()>` system objects can be scheduled
-mod sealed {
-    use crate::{
-        schedule::{BoxedSystemSet, SystemSet},
-        system::{BoxedSystem, IntoSystem},
-    };
-
-    use super::{SystemConfig, SystemSetConfig};
-
-    pub trait IntoSystemConfig<Marker> {}
-
-    impl<Marker, F: IntoSystem<(), (), Marker>> IntoSystemConfig<Marker> for F {}
-
-    impl IntoSystemConfig<()> for BoxedSystem<(), ()> {}
-
-    impl IntoSystemConfig<()> for SystemConfig {}
-
-    pub trait IntoSystemSetConfig {}
-
-    impl<S: SystemSet> IntoSystemSetConfig for S {}
-
-    impl IntoSystemSetConfig for BoxedSystemSet {}
-
-    impl IntoSystemSetConfig for SystemSetConfig {}
 }
 
 /// A collection of [`SystemConfig`].

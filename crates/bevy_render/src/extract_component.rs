@@ -4,7 +4,7 @@ use crate::{
     view::ComputedVisibility,
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -180,9 +180,9 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app.add_system_to_schedule(ExtractSchedule, extract_visible_components::<C>);
+                render_app.add_system(extract_visible_components::<C>.in_schedule(ExtractSchedule));
             } else {
-                render_app.add_system_to_schedule(ExtractSchedule, extract_components::<C>);
+                render_app.add_system(extract_components::<C>.in_schedule(ExtractSchedule));
             }
         }
     }
