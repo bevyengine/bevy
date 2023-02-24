@@ -3,6 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
+use bevy_utils::HashSet;
 
 use crate::{
     archetype::{
@@ -12,10 +13,11 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    TypeIdMap,
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use std::{any::TypeId, collections::HashMap};
+use bevy_utils::all_tuples;
+use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -683,7 +685,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
-    bundle_ids: HashMap<TypeId, BundleId>,
+    bundle_ids: TypeIdMap<BundleId>,
 }
 
 impl Bundles {
@@ -709,7 +711,7 @@ impl Bundles {
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures info was created
-                unsafe { initialize_bundle(std::any::type_name::<T>(), component_ids, id) };
+                unsafe { initialize_bundle(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -723,16 +725,35 @@ impl Bundles {
 /// `component_id` must be valid [`ComponentId`]'s
 unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
+    components: &Components,
     component_ids: Vec<ComponentId>,
     id: BundleId,
 ) -> BundleInfo {
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
-    assert!(
-        deduped.len() == component_ids.len(),
-        "Bundle {bundle_type_name} has duplicate components",
-    );
+
+    if deduped.len() != component_ids.len() {
+        // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
+        let mut seen = HashSet::new();
+        let mut dups = Vec::new();
+        for id in component_ids {
+            if !seen.insert(id) {
+                dups.push(id);
+            }
+        }
+
+        let names = dups
+            .into_iter()
+            .map(|id| {
+                // SAFETY: component_id exists and is therefore valid
+                unsafe { components.get_info_unchecked(id).name() }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+    }
 
     BundleInfo { id, component_ids }
 }

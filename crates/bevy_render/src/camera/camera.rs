@@ -3,7 +3,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
-    view::{ExtractedView, ExtractedWindows, VisibleEntities},
+    view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -450,8 +450,8 @@ impl NormalizedRenderTarget {
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, as well as the runtime-selected [`Projection`]. The system runs during the
-/// [`CoreStage::PostUpdate`] stage.
+/// the app, as well as the runtime-selected [`Projection`].
+/// The system runs during [`CoreSet::PostUpdate`].
 ///
 /// ## World Resources
 ///
@@ -461,7 +461,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
-/// [`CoreStage::PostUpdate`]: bevy_app::CoreStage::PostUpdate
+/// [`CoreSet::PostUpdate`]: bevy_app::CoreSet::PostUpdate
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -530,12 +530,17 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            Option<&ColorGrading>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
 ) {
     let primary_window = primary_window.iter().next();
-    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
+    for (entity, camera, camera_render_graph, transform, visible_entities, color_grading) in
+        query.iter()
+    {
+        let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
+
         if !camera.is_active {
             continue;
         }
@@ -559,6 +564,7 @@ pub fn extract_cameras(
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
+                    view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
@@ -566,6 +572,7 @@ pub fn extract_cameras(
                         viewport_size.x,
                         viewport_size.y,
                     ),
+                    color_grading,
                 },
                 visible_entities.clone(),
             ));

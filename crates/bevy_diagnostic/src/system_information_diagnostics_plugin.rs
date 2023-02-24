@@ -1,5 +1,5 @@
 use crate::DiagnosticId;
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -34,7 +34,7 @@ impl SystemInformationDiagnosticsPlugin {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "bevy_dynamic_plugin")
+    not(feature = "dynamic_linking")
 ))]
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
@@ -142,7 +142,7 @@ pub mod internal {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "bevy_dynamic_plugin")
+    not(feature = "dynamic_linking")
 )))]
 pub mod internal {
     pub(crate) fn setup_system() {

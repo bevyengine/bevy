@@ -2,10 +2,8 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryItem, QueryState, With},
-    system::{Commands, Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    prelude::*,
+    query::{QueryItem, QueryState},
 };
 use bevy_math::{UVec2, UVec4, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};
@@ -21,7 +19,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -48,8 +46,8 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
+            .add_system(prepare_bloom_textures.in_set(RenderSet::Prepare))
+            .add_system(queue_bloom_bind_groups.in_set(RenderSet::Queue));
 
         {
             let bloom_node = BloomNode::new(&mut render_app.world);
@@ -439,7 +437,7 @@ impl FromWorld for BloomPipelines {
         let downsampling_prefilter_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("bloom_downsampling_prefilter_pipeline".into()),
-                layout: Some(vec![downsampling_bind_group_layout.clone()]),
+                layout: vec![downsampling_bind_group_layout.clone()],
                 vertex: fullscreen_shader_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
@@ -454,12 +452,13 @@ impl FromWorld for BloomPipelines {
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
+                push_constant_ranges: Vec::new(),
             });
 
         let downsampling_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("bloom_downsampling_pipeline".into()),
-                layout: Some(vec![downsampling_bind_group_layout.clone()]),
+                layout: vec![downsampling_bind_group_layout.clone()],
                 vertex: fullscreen_shader_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
@@ -474,11 +473,12 @@ impl FromWorld for BloomPipelines {
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
+                push_constant_ranges: Vec::new(),
             });
 
         let upsampling_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("bloom_upsampling_pipeline".into()),
-            layout: Some(vec![upsampling_bind_group_layout.clone()]),
+            layout: vec![upsampling_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
@@ -493,12 +493,13 @@ impl FromWorld for BloomPipelines {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         });
 
         let upsampling_final_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("bloom_upsampling_final_pipeline".into()),
-                layout: Some(vec![downsampling_bind_group_layout.clone()]),
+                layout: vec![downsampling_bind_group_layout.clone()],
                 vertex: fullscreen_shader_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
@@ -520,6 +521,7 @@ impl FromWorld for BloomPipelines {
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
+                push_constant_ranges: Vec::new(),
             });
 
         BloomPipelines {
@@ -580,6 +582,7 @@ fn prepare_bloom_textures(
                 dimension: TextureDimension::D2,
                 format: ViewTarget::TEXTURE_FORMAT_HDR,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             };
 
             texture_descriptor.label = Some("bloom_texture_a");

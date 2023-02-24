@@ -6,7 +6,8 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     query::{Changed, ReadOnlyWorldQuery, With, Without},
-    system::{Query, RemovedComponents, Res, ResMut, Resource},
+    removal_detection::RemovedComponents,
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -28,16 +29,13 @@ pub struct FlexSurface {
 }
 
 // SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
-    // FIXME https://github.com/DioxusLabs/taffy/issues/146
-    // _assert_send_sync::<Taffy>();
+    _assert_send_sync::<Taffy>();
 }
 
 impl fmt::Debug for FlexSurface {
@@ -85,7 +83,10 @@ impl FlexSurface {
         let taffy_style = convert::from_style(scale_factor, style);
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-                let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
+                let mut size = Size {
+                    width: (scale_factor * calculated_size.size.x as f64) as f32,
+                    height: (scale_factor * calculated_size.size.y as f64) as f32,
+                };
                 match (constraints.width, constraints.height) {
                     (None, None) => {}
                     (Some(width), None) => {
@@ -108,12 +109,11 @@ impl FlexSurface {
                 size
             },
         ));
-
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy.set_style(*taffy_node, taffy_style).unwrap();
             self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
         } else {
-            let taffy_node = taffy.new_leaf(taffy_style).unwrap();
+            let taffy_node = taffy.new_leaf_with_measure(taffy_style, measure).unwrap();
             self.entity_to_taffy.insert(entity, taffy_node);
         }
     }
@@ -234,9 +234,9 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    removed_children: RemovedComponents<Children>,
+    mut removed_children: RemovedComponents<Children>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
-    removed_nodes: RemovedComponents<Node>,
+    mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -270,7 +270,8 @@ pub fn flex_node_system(
         }
     }
 
-    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() {
+        scale_factor_events.clear();
         update_changed(&mut flex_surface, scale_factor, full_node_query);
     } else {
         update_changed(&mut flex_surface, scale_factor, node_query);
@@ -281,13 +282,13 @@ pub fn flex_node_system(
     }
 
     // clean up removed nodes
-    flex_surface.remove_entities(&removed_nodes);
+    flex_surface.remove_entities(removed_nodes.iter());
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
-    for entity in &removed_children {
+    for entity in removed_children.iter() {
         flex_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {

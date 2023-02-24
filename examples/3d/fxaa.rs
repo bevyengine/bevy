@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::fxaa::{Fxaa, Sensitivity},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -43,7 +44,7 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -70,18 +71,8 @@ fn setup(
     });
 
     // light
-    const HALF_SIZE: f32 = 2.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },
@@ -91,6 +82,12 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            maximum_distance: 3.0,
+            first_cascade_far_bound: 0.9,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

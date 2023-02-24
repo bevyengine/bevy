@@ -205,7 +205,7 @@ impl Node for MainPass3dNode {
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 
