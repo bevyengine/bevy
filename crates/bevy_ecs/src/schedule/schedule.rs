@@ -1062,7 +1062,7 @@ impl ScheduleGraph {
             }
         }
 
-        // check that there are no edges to system-type sets that have multiple instances
+        // check that there are no directed edges to system-type sets that have multiple instances
         for (&id, systems) in set_systems.iter() {
             let set = &self.system_sets[id.index()];
             if set.is_system_type() {
