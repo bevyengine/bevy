@@ -27,7 +27,9 @@ use bevy_render::{
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::SpriteAssetEvents;
+#[cfg(feature = "bevy_text")]
+use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;

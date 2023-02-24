@@ -14,7 +14,9 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
+#[cfg(feature = "bevy_text")]
+use bevy_render::camera::CameraUpdateSystem;
+use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
