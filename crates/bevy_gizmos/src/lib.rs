@@ -2,6 +2,7 @@ use std::mem;
 
 use bevy_app::{CoreSet, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_core_pipeline::{core_2d, core_3d};
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
     schedule::IntoSystemConfig,
@@ -12,7 +13,8 @@ use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::Mesh,
-    render_phase::AddRenderCommand,
+    render_graph::RenderGraph,
+    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
@@ -24,12 +26,14 @@ use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
 pub mod gizmos;
 
+mod node;
+
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::gizmos::GizmoStorage;
+use crate::{gizmos::GizmoStorage, node::GizmoNode};
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
@@ -62,21 +66,66 @@ impl Plugin for GizmoPlugin {
 
             render_app
                 .add_render_command::<Transparent2d, DrawGizmoLines>()
-                .init_resource::<GizmoLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
+                .init_resource::<GizmoPipeline2d>()
+                .init_resource::<SpecializedMeshPipelines<GizmoPipeline2d>>()
                 .add_system(queue_gizmos_2d.in_set(RenderSet::Queue));
         }
 
         #[cfg(feature = "bevy_pbr")]
         {
-            use bevy_core_pipeline::core_3d::Opaque3d;
             use pipeline_3d::*;
 
             render_app
-                .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<GizmoPipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
+                .init_resource::<GizmoPipeline3d>()
+                .init_resource::<SpecializedMeshPipelines<GizmoPipeline3d>>()
+                .init_resource::<DrawFunctions<GizmoLine3d>>()
+                .add_render_command::<GizmoLine3d, DrawGizmoLines>()
+                .add_system(sort_phase_system::<GizmoLine3d>)
+                .add_system_to_schedule(ExtractSchedule, extract_gizmo_line_3d_camera_phase)
                 .add_system(queue_gizmos_3d.in_set(RenderSet::Queue));
+        }
+
+        #[cfg(feature = "bevy_sprite")]
+        {
+            let gizmo_node = GizmoNode::new(&mut render_app.world);
+            let mut binding = render_app.world.resource_mut::<RenderGraph>();
+            let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
+
+            let node_name = "gizmo_node";
+
+            graph.add_node(node_name, gizmo_node);
+            graph.add_slot_edge(
+                graph.input_node().id,
+                core_2d::graph::input::VIEW_ENTITY,
+                node_name,
+                GizmoNode::IN_VIEW,
+            );
+            graph.add_node_edge(
+                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                node_name,
+            );
+        }
+
+        #[cfg(feature = "bevy_pbr")]
+        {
+            let gizmo_node = GizmoNode::new(&mut render_app.world);
+            let mut binding = render_app.world.resource_mut::<RenderGraph>();
+            let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
+
+            let node_name = "gizmo_node";
+
+            graph.add_node(node_name, gizmo_node);
+            graph.add_slot_edge(
+                graph.input_node().id,
+                core_3d::graph::input::VIEW_ENTITY,
+                node_name,
+                GizmoNode::IN_VIEW,
+            );
+            graph.add_node_edge(
+                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                node_name,
+            );
+            graph.add_node_edge(node_name, core_3d::graph::node::UPSCALING);
         }
     }
 }

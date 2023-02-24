@@ -20,21 +20,21 @@ use bevy_utils::FloatOrd;
 use crate::{GizmoMesh, LINE_SHADER_HANDLE};
 
 #[derive(Resource)]
-pub(crate) struct GizmoLinePipeline {
+pub(crate) struct GizmoPipeline2d {
     mesh_pipeline: Mesh2dPipeline,
     shader: Handle<Shader>,
 }
 
-impl FromWorld for GizmoLinePipeline {
+impl FromWorld for GizmoPipeline2d {
     fn from_world(render_world: &mut World) -> Self {
-        GizmoLinePipeline {
+        GizmoPipeline2d {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             shader: LINE_SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for GizmoLinePipeline {
+impl SpecializedMeshPipeline for GizmoPipeline2d {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(
@@ -95,9 +95,9 @@ pub(crate) type DrawGizmoLines = (
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<GizmoLinePipeline>,
+    pipeline: Res<GizmoPipeline2d>,
     pipeline_cache: Res<PipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
+    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline2d>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoMesh>>,

@@ -9,12 +9,41 @@ fn main() {
         .add_startup_system(setup)
         .add_system(system)
         .add_system(rotate_camera)
+        .add_system(update_config)
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+
+    // plane
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        ..default()
+    });
+    // cube
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+    // light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 1500.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
 }
@@ -58,4 +87,10 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
     let mut transform = query.single_mut();
 
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
+}
+
+fn update_config(mut gizmo_config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>) {
+    if keyboard.just_pressed(KeyCode::T) {
+        gizmo_config.on_top = !gizmo_config.on_top;
+    }
 }
