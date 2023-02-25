@@ -331,10 +331,10 @@ pub fn extract_text_uinodes(
             let scale = scale_factor.recip();
             let transform = global_transform.compute_matrix()
                 * mat4(
-                    scale * Vec4::X,
-                    scale * Vec4::Y,
-                    scale * Vec4::Z,
-                    (-0.5 * uinode.size()).extend(0.0).extend(1.0),
+                    Vec4::X * scale,
+                    Vec4::Y * scale,
+                    Vec4::Z * scale,
+                    Vec4::from((-0.5 * uinode.size(), 0., 1.)),
                 );
 
             for PositionedGlyph {
