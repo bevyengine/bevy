@@ -12,7 +12,7 @@ use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiIm
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{mat4, Mat4, Rect, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -31,7 +31,7 @@ use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextLayoutInfo};
+use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -312,8 +312,6 @@ pub fn extract_text_uinodes(
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
 
-    use bevy_math::Quat;
-    use bevy_text::PositionedGlyph;
     let scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)
@@ -330,11 +328,13 @@ pub fn extract_text_uinodes(
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
+            let scale = scale_factor.recip();
             let transform = global_transform.compute_matrix()
-                * Mat4::from_scale_rotation_translation(
-                    Vec3::splat(scale_factor.recip()),
-                    Quat::IDENTITY,
-                    (uinode.size() / -2.0).extend(0.0),
+                * mat4(
+                    scale * Vec4::X,
+                    scale * Vec4::Y,
+                    scale * Vec4::Z,
+                    (-0.5 * uinode.size()).extend(0.0).extend(1.0),
                 );
 
             for PositionedGlyph {
