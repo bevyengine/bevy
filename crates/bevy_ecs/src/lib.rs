@@ -734,8 +734,8 @@ mod tests {
         assert_eq!(query.get(&world, b).unwrap(), &TableStored("def"));
         assert_eq!(query.get(&world, c).unwrap(), &TableStored("ghi"));
 
-        world.entity_mut(b).take::<SparseStored>();
-        world.entity_mut(c).take::<SparseStored>();
+        world.entity_mut(b).remove::<SparseStored>();
+        world.entity_mut(c).remove::<SparseStored>();
 
         assert_eq!(query.get(&world, a).unwrap(), &TableStored("abc"));
         assert_eq!(query.get(&world, b).unwrap(), &TableStored("def"));
@@ -768,7 +768,7 @@ mod tests {
             "archetype moves does not result in 'removed component' state"
         );
 
-        world.entity_mut(b).take::<A>();
+        world.entity_mut(b).remove::<A>();
         assert_eq!(
             world.removed::<A>().collect::<Vec<_>>(),
             &[a, b],
