@@ -114,4 +114,67 @@ impl TextPipeline {
 
         Ok(TextLayoutInfo { glyphs, size })
     }
+
+    // hacked up `queue_text` that returns the text size constraints, there should be a better solution
+    pub fn compute_size_constraints(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        scale_factor: f64,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
+    ) -> Result<[Vec2; 2], TextError> {
+        let mut scaled_fonts = Vec::new();
+        let sections = sections
+            .iter()
+            .map(|section| {
+                let font = fonts
+                    .get(&section.style.font)
+                    .ok_or(TextError::NoSuchFont)?;
+                let font_id = self.get_or_insert_font_id(&section.style.font, font);
+                let font_size = scale_value(section.style.font_size, scale_factor);
+
+                let px_scale_font = ab_glyph::Font::into_scaled(font.font.clone(), font_size);
+                scaled_fonts.push(px_scale_font);
+
+                let section = SectionText {
+                    font_id,
+                    scale: PxScale::from(font_size),
+                    text: &section.value,
+                };
+
+                Ok(section)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let result = [
+            Vec2::new(0.0, f32::INFINITY),
+            Vec2::new(f32::INFINITY, f32::INFINITY),
+        ]
+        .map(|bounds| {
+            if let Ok(section_glyphs) =
+                self.brush
+                    .compute_glyphs(&sections, bounds, text_alignment, linebreak_behaviour)
+            {
+                let mut min_x: f32 = std::f32::MAX;
+                let mut min_y: f32 = std::f32::MAX;
+                let mut max_x: f32 = std::f32::MIN;
+                let mut max_y: f32 = std::f32::MIN;
+
+                for sg in section_glyphs {
+                    let scaled_font = &scaled_fonts[sg.section_index];
+                    let glyph = &sg.glyph;
+                    min_x = min_x.min(glyph.position.x);
+                    min_y = min_y.min(glyph.position.y - scaled_font.ascent());
+                    max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
+                    max_y = max_y.max(glyph.position.y - scaled_font.descent());
+                }
+
+                Vec2::new(max_x - min_x, max_y - min_y)
+            } else {
+                Vec2::ZERO
+            }
+        });
+        Ok(result)
+    }
 }

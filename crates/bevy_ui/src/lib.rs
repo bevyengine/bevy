@@ -10,6 +10,7 @@ mod stack;
 mod ui_node;
 
 pub mod camera_config;
+pub mod measurement;
 pub mod node_bundles;
 pub mod update;
 pub mod widget;
@@ -20,6 +21,7 @@ use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
+pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
 
@@ -27,11 +29,12 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale,
+        camera_config::*, geometry::*, measurement::IntrinsicSize, node_bundles::*, ui_node::*,
+        widget::Button, Interaction, UiScale,
     };
 }
 
+use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
@@ -39,8 +42,6 @@ use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-
-use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -82,7 +83,7 @@ impl Plugin for UiPlugin {
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
-            .register_type::<CalculatedSize>()
+            .register_type::<IntrinsicSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
@@ -106,49 +107,55 @@ impl Plugin for UiPlugin {
             .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
             .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
             .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem));
-        // add these systems to front because these must run before transform update systems
-        #[cfg(feature = "bevy_text")]
-        app.add_system(
-            widget::text_system
-                .in_base_set(CoreSet::PostUpdate)
-                .before(UiSystem::Flex)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(CameraUpdateSystem)
-                // Potential conflict: `Assets<Image>`
-                // Since both systems will only ever insert new [`Image`] assets,
-                // they will never observe each other's effects.
-                .ambiguous_with(bevy_text::update_text2d_layout),
-        );
-        app.add_system({
-            let system = widget::update_image_calculated_size_system
-                .in_base_set(CoreSet::PostUpdate)
-                .before(UiSystem::Flex);
-            // Potential conflicts: `Assets<Image>`
-            // They run independently since `widget::image_node_system` will only ever observe
-            // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-            // will never modify a pre-existing `Image` asset.
+            // add these systems to front because these must run before transform update systems
             #[cfg(feature = "bevy_text")]
-            let system = system
-                .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(widget::text_system);
+            app.add_system(
+                widget::measure_text_system
+                    .in_base_set(CoreSet::PostUpdate)
+                    .before(UiSystem::Flex)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
+            );
 
-            system
-        })
-        .add_system(
-            flex_node_system
-                .in_set(UiSystem::Flex)
-                .before(TransformSystem::TransformPropagate),
-        )
-        .add_system(ui_stack_system.in_set(UiSystem::Stack))
-        .add_system(
-            update_clipping_system
-                .after(TransformSystem::TransformPropagate)
-                .in_base_set(CoreSet::PostUpdate),
-        );
+            app.add_system({
+                let system = widget::update_image_calculated_size_system
+                    .in_base_set(CoreSet::PostUpdate)
+                    .before(UiSystem::Flex);
+                // Potential conflicts: `Assets<Image>`
+                // They run independently since `widget::image_node_system` will only ever observe
+                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // will never modify a pre-existing `Image` asset.
+                #[cfg(feature = "bevy_text")]
+                let system = system
+                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    .ambiguous_with(widget::text_system);
+                system
+            })
+            .add_system(
+                flex_node_system
+                    .in_set(UiSystem::Flex)
+                    .before(TransformSystem::TransformPropagate),
+            )
+            .add_system(ui_stack_system.in_set(UiSystem::Stack))
+            .add_system(
+                update_clipping_system
+                    .after(TransformSystem::TransformPropagate)
+                    .in_base_set(CoreSet::PostUpdate),
+            );
 
+            #[cfg(feature = "bevy_text")]
+            app.add_system(
+                widget::text_system
+                    .in_base_set(CoreSet::PostUpdate)
+                    .after(UiSystem::Flex),
+            );
         crate::render::build_ui_render(app);
     }
 }
