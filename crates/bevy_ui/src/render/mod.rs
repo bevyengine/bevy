@@ -328,10 +328,12 @@ pub fn extract_text_uinodes(
                 continue;
             }
             let text_glyphs = &text_layout_info.glyphs;
-            let alignment_offset = (uinode.size() / -2.0).extend(0.0);
+            let alignment_offset = (uinode.size() / -2.0).extend(0.0) * scale_factor;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
+            let transform = global_transform.compute_matrix()
+                * Mat4::from_scale(Vec3::splat(scale_factor.recip()));
             for text_glyph in text_glyphs {
                 if text_glyph.section_index != current_section {
                     color = text.sections[text_glyph.section_index]
@@ -348,12 +350,8 @@ pub fn extract_text_uinodes(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-                let extracted_transform = global_transform.compute_matrix()
-                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                    * Mat4::from_translation(
-                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                    );
+                let extracted_transform = transform
+                    * Mat4::from_translation(alignment_offset + text_glyph.position.extend(0.));
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
