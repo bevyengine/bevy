@@ -1,8 +1,12 @@
-use crate::render_resource::{
-    BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
-    RenderPipeline, Sampler, Texture,
+use crate::{
+    render_resource::{
+        BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
+        RenderPipeline, Sampler, Texture,
+    },
+    texture::{TextureFormatPixelInfo, Volume},
 };
 use bevy_ecs::system::Resource;
+use bevy_utils::tracing::{error, event};
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
 use super::RenderQueue;
@@ -138,6 +142,14 @@ impl RenderDevice {
         desc: &wgpu::TextureDescriptor,
         data: &[u8],
     ) -> Texture {
+        let desc_size = desc.size.volume() * desc.format.pixel_size();
+        let actual_size = data.len();
+        if actual_size < desc_size {
+            error!(
+                "Size of 'data' ({}) doesn't match size in texture descriptor ({}). Consider using image.resize(size)",
+                actual_size, desc_size
+            );
+        }
         let wgpu_texture = self
             .device
             .create_texture_with_data(render_queue.as_ref(), desc, data);
