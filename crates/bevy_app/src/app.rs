@@ -849,10 +849,8 @@ impl App {
     /// See [`bevy_reflect::TypeRegistry::register`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
-        {
-            let registry = self.world.resource_mut::<AppTypeRegistry>();
-            registry.write().register::<T>();
-        }
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register::<T>();
         self
     }
 
@@ -882,10 +880,8 @@ impl App {
     >(
         &mut self,
     ) -> &mut Self {
-        {
-            let registry = self.world.resource_mut::<AppTypeRegistry>();
-            registry.write().register_type_data::<T, D>();
-        }
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_type_data::<T, D>();
         self
     }
 
