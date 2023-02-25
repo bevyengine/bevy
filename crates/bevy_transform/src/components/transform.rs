@@ -120,6 +120,9 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points towards the `target` position and [`Transform::up`] points towards `up`.
+    ///
+    /// It is not possible to construct a rotation when the resulting forward direction is parallel with `up`.
+    /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -129,6 +132,9 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points in the given `direction` and [`Transform::up`] points towards `up`.
+    ///
+    /// It is not possible to construct a rotation when `direction` is parallel with `up`.
+    /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
     #[inline]
     #[must_use]
     pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
@@ -325,6 +331,9 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
     /// and [`Transform::up`] points towards `up`.
+    ///
+    /// It is not possible to construct a rotation when the resulting forward direction is parallel with `up`.
+    /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         self.look_to(target - self.translation, up);
@@ -332,10 +341,16 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
     /// and [`Transform::up`] points towards `up`.
+    ///
+    /// It is not possible to construct a rotation when `direction` is parallel with `up`.
+    /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
         let forward = -direction.normalize();
-        let right = up.cross(forward).normalize();
+        let right = up
+            .cross(forward)
+            .try_normalize()
+            .unwrap_or_else(|| up.any_orthogonal_vector());
         let up = forward.cross(right);
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
     }
