@@ -20,7 +20,7 @@ use std::hash::Hash;
 /// }
 /// ```
 ///
-/// If you want other system to be able to access whether the toggled state is active,
+/// If you want other systems to be able to access whether the toggled state is active,
 /// you should use a custom resource or a state for that:
 /// ```rust,no_run
 /// use bevy::prelude::*;
