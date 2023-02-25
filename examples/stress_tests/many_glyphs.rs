@@ -1,10 +1,9 @@
+//! Simple text rendering benchmark.
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin}, text::BreakLineOn,
 };
-
-const GLYPH_COUNT: usize = 100_000;
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
@@ -23,20 +22,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let mut text_sections = vec![];
-    for i in 0..GLYPH_COUNT {
-        let section = TextSection {
-            value: (i % 10).to_string(),
-            style: TextStyle {
-                font: font.clone(),
-                font_size: 4.,
-                color: Color::WHITE,
-                ..Default::default()
-            }
-        };
-        text_sections.push(section);
-    }
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
@@ -51,10 +36,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|commands| {
             commands.spawn(TextBundle {
                 text: Text {
-                    sections: text_sections,
+                    sections: vec![TextSection {
+                        value: std::iter::repeat("0123456789").take(10_000).collect::<String>(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 4.,
+                            color: Color::WHITE,
+                        },
+                    }],
                     alignment: TextAlignment::Left,
                     linebreak_behaviour: BreakLineOn::AnyCharacter,
-                    ..Default::default()
                 },
                 style: Style {
                     size: Size::width(Val::Px(1000.)),
