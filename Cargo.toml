@@ -1452,6 +1452,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_glyphs"
+path = "examples/stress_tests/many_glyphs.rs"
+
+[package.metadata.example.many_glyphs]
+name = "Many Glyphs"
+description = "Simple benchmark to test text rendering."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
 
