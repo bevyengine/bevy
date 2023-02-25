@@ -28,7 +28,6 @@
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
-
 ## Optional Features
 
 |feature name|description|
@@ -62,4 +61,3 @@
 |wayland|Wayland display server support|
 |wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|
-
