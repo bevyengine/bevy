@@ -35,7 +35,7 @@ pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_map`.
     ///
     /// Implementors should look up any and all [`Entity`] values stored within and
-    /// update them to the mapped values via `entity_map`.
+    /// update them to the mapped values via `entity_mapper`.
     fn map_entities(&mut self, entity_mapper: &mut EntityMapper);
 }
 
