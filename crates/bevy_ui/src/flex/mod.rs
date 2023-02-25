@@ -18,7 +18,7 @@ use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChan
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},
-    Taffy,
+    Taffy, style_helpers::TaffyMaxContent,
 };
 
 #[derive(Resource)]
@@ -61,13 +61,14 @@ impl FlexSurface {
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
         let mut added = false;
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, style);
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
+            let taffy_style = convert::from_style(scale_factor, style);
             taffy.new_leaf(taffy_style).unwrap()
         });
 
         if !added {
+            let taffy_style = convert::from_style(scale_factor, style);
             self.taffy.set_style(*taffy_node, taffy_style).unwrap();
         }
     }

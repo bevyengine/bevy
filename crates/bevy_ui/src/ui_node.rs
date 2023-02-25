@@ -235,6 +235,7 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
+    pub justify_self: JustifySelf,
     /// The margin of the node
     pub margin: UiRect,
     /// The padding of the node
@@ -289,6 +290,7 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
+        justify_self: JustifySelf::DEFAULT,        
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -314,6 +316,9 @@ impl Default for Style {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// Items are aligned at the start
     FlexStart,
     /// Items are aligned at the end
@@ -343,9 +348,19 @@ impl Default for AlignItems {
 pub enum AlignSelf {
     /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned
     Auto,
-    /// This item will be aligned at the start
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
+    /// Items are packed towards the flex-relative start of the axis.
+    ///
+    /// For flex containers with flex_direction RowReverse or ColumnReverse this is equivalent
+    /// to End. In all other cases it is equivalent to Start.
     FlexStart,
-    /// This item will be aligned at the end
+    /// Items are packed towards the flex-relative end of the axis.
+    ///
+    /// For flex containers with flex_direction RowReverse or ColumnReverse this is equivalent
+    /// to Start. In all other cases it is equivalent to End.
     FlexEnd,
     /// This item will be aligned at the center
     Center,
@@ -371,6 +386,10 @@ impl Default for AlignSelf {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// Each line moves towards the start of the cross axis
     FlexStart,
     /// Each line moves towards the end of the cross axis
@@ -474,6 +493,10 @@ impl Default for FlexDirection {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// Pushed towards the start
     FlexStart,
     /// Pushed towards the end
@@ -493,6 +516,36 @@ impl JustifyContent {
 }
 
 impl Default for JustifyContent {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// How this node should be aligned in the inline axis Falls back to the parents
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum JustifySelf {
+    Auto,
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
+    /// Items are aligned at the start
+    FlexStart,
+    /// Items are aligned at the end
+    FlexEnd,
+    /// Items are aligned at the center
+    Center,
+    /// Items are aligned at the baseline
+    Baseline,
+    /// Items are stretched across the whole cross axis
+    Stretch,
+}
+
+impl JustifySelf {
+    pub const DEFAULT: Self = Self::FlexStart;
+}
+
+impl Default for JustifySelf {
     fn default() -> Self {
         Self::DEFAULT
     }

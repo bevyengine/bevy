@@ -473,18 +473,15 @@ mod tests {
 
     #[test]
     fn uirect_default_equals_const_default() {
-<<<<<<< HEAD
         assert_eq!(
             UiRect::default(),
             UiRect {
-                left: Val::Undefined,
-                right: Val::Undefined,
-                top: Val::Undefined,
-                bottom: Val::Undefined
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.),
             }
         );
-=======
->>>>>>> origin/remove-val-undefined
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 
@@ -563,7 +560,6 @@ mod tests {
 
     #[test]
     fn size_default_equals_const_default() {
-<<<<<<< HEAD
         assert_eq!(
             Size::default(),
             Size {
@@ -571,8 +567,6 @@ mod tests {
                 height: Val::Auto
             }
         );
-=======
->>>>>>> origin/remove-val-undefined
         assert_eq!(Size::default(), Size::DEFAULT);
     }
 }
