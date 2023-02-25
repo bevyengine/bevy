@@ -117,7 +117,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'You added a new example but didn\'t update the readme. Please run `cargo run -p build-example-pages -- update` to update it, and commit the file change.'
+                body: 'You added a new example but didn\'t update the readme. Please run `cargo run -p build-templated-pages -- update examples` to update it, and commit the file change.'
               });
             }
 

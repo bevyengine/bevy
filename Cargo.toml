@@ -22,7 +22,7 @@ members = [
   "crates/*",
   "examples/mobile",
   "tools/ci",
-  "tools/build-example-pages",
+  "tools/build-templated-pages",
   "tools/build-wasm-example",
   "errors",
 ]
@@ -1257,7 +1257,7 @@ category = "Scene"
 wasm = false
 
 # Shaders
-[[package.metadata.category]]
+[[package.metadata.example_category]]
 name = "Shaders"
 description = """
 These examples demonstrate how to implement different shaders in user code.
@@ -1389,7 +1389,7 @@ category = "Shaders"
 wasm = false
 
 # Stress tests
-[[package.metadata.category]]
+[[package.metadata.example_category]]
 name = "Stress Tests"
 description = """
 These examples are used to test the performance and stability of various parts of the engine in an isolated way.
