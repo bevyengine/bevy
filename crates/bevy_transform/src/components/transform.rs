@@ -123,6 +123,7 @@ impl Transform {
     ///
     /// It is not possible to construct a rotation when the resulting forward direction is parallel with `up`.
     /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
+    /// It is also not possible when the target is at the same place as the transform. In this case, the Z axis will be used as the "forward" direction.
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -135,6 +136,7 @@ impl Transform {
     ///
     /// It is not possible to construct a rotation when `direction` is parallel with `up`.
     /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
+    /// It is also not possible when the direction provided is zero. In this case, the Z axis will be used as the "forward" direction.
     #[inline]
     #[must_use]
     pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
@@ -334,6 +336,7 @@ impl Transform {
     ///
     /// It is not possible to construct a rotation when the resulting forward direction is parallel with `up`.
     /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
+    /// It is also not possible when the target is at the same place as the transform. In this case, the Z axis will be used as the "forward" direction.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         self.look_to(target - self.translation, up);
@@ -344,9 +347,10 @@ impl Transform {
     ///
     /// It is not possible to construct a rotation when `direction` is parallel with `up`.
     /// If this happens, an orthogonal vector to `up` will be used as the "right" direction to get a valid value.
+    /// It is also not possible when the direction provided is zero. In this case, the Z axis will be used as the "forward" direction.
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
-        let forward = -direction.normalize();
+        let forward = -direction.try_normalize().unwrap_or(Vec3::Z);
         let right = up
             .cross(forward)
             .try_normalize()
