@@ -7,7 +7,8 @@ use crate::{
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
-use bevy_ecs_macros::all_tuples;
+
+use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 use super::ReadOnlySystem;
@@ -318,16 +319,14 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params>: Sized {
+pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
 
-pub struct AlreadyWasSystem;
-
 // Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
+impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
     type System = Sys;
     fn into_system(this: Self) -> Sys {
         this
@@ -361,8 +360,6 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
-#[doc(hidden)]
-pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -371,30 +368,27 @@ pub struct InputMarker;
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
-pub struct FunctionSystem<In, Out, Param, Marker, F>
+pub struct FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<Param::State>,
+    param_state: Option<<F::Param as SystemParam>::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn(In) -> (Out, Marker)>,
+    marker: PhantomData<fn() -> Marker>,
 }
 
 pub struct IsFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
+impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
 where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
 {
-    type System = FunctionSystem<In, Out, Param, Marker, F>;
+    type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -407,9 +401,9 @@ where
     }
 }
 
-impl<In, Out, Param, Marker, F> FunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     /// Message shown when a system isn't initialised
     // When lines get too long, rustfmt can sometimes refuse to format them.
@@ -417,16 +411,13 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<In, Out, Param, Marker, F> System for FunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> System for FunctionSystem<Marker, F>
 where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
 {
-    type In = In;
-    type Out = Out;
+    type In = F::In;
+    type Out = F::Out;
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
@@ -466,7 +457,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = Param::get_param(
+        let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -488,14 +479,14 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        Param::apply(param_state, &self.system_meta, world);
+        F::Param::apply(param_state, &self.system_meta, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(Param::init_state(world, &mut self.system_meta));
+        self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
@@ -507,7 +498,7 @@ where
 
         for archetype_index in archetype_index_range {
             let param_state = self.param_state.as_mut().unwrap();
-            Param::new_archetype(
+            F::Param::new_archetype(
                 param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.system_meta,
@@ -531,13 +522,11 @@ where
 }
 
 /// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
-unsafe impl<In, Out, Param, Marker, F> ReadOnlySystem for FunctionSystem<In, Out, Param, Marker, F>
+unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
 where
-    In: 'static,
-    Out: 'static,
-    Param: ReadOnlySystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
+    F::Param: ReadOnlySystemParam,
 {
 }
 
@@ -560,20 +549,15 @@ where
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
-/// // Unfortunately, we need all of these generics. `A` is the first system, with its
-/// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of `A` and `B`.
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(AParam, BParam)>) -> BOut
+/// ) -> impl FnMut(In<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
-///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
-///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
-///     AParam: SystemParam,
-///     BParam: SystemParam,
+///     A: SystemParamFunction<AMarker>,
+///     B: SystemParamFunction<BMarker, In = A::Out>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(a_in), mut params| {
@@ -606,19 +590,32 @@ where
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
-pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
-    fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
+pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    /// The input type to this system. See [`System::In`].
+    type In;
+
+    /// The return type of this system. See [`System::Out`].
+    type Out;
+
+    /// The [`SystemParam`]/s used by this system to access the [`World`].
+    type Param: SystemParam;
+
+    /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
+    fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = ();
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
@@ -637,12 +634,15 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
                 FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = Input;
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]

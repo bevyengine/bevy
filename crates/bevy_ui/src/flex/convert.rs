@@ -15,13 +15,6 @@ pub fn from_rect(
     }
 }
 
-pub fn from_f32_size(scale_factor: f64, size: Size) -> taffy::geometry::Size<f32> {
-    taffy::geometry::Size {
-        width: val_to_f32(scale_factor, size.width),
-        height: val_to_f32(scale_factor, size.height),
-    }
-}
-
 pub fn from_val_size(
     scale_factor: f64,
     size: Size,
@@ -54,15 +47,6 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         max_size: from_val_size(scale_factor, value.max_size),
         aspect_ratio: value.aspect_ratio,
         gap: from_val_size(scale_factor, value.gap),
-    }
-}
-
-/// Converts a [`Val`] to a [`f32`] while respecting the scale factor.
-pub fn val_to_f32(scale_factor: f64, val: Val) -> f32 {
-    match val {
-        Val::Undefined | Val::Auto => 0.0,
-        Val::Px(value) => (scale_factor * value as f64) as f32,
-        Val::Percent(value) => value / 100.0,
     }
 }
 

@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
@@ -32,7 +32,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
-                .add_system_to_schedule(ExtractSchedule, extract_windows)
+                .add_system(extract_windows.in_schedule(ExtractSchedule))
                 .configure_set(WindowSystem::Prepare.in_set(RenderSet::Prepare))
                 .add_system(prepare_windows.in_set(WindowSystem::Prepare));
         }
@@ -234,19 +234,30 @@ pub fn prepare_windows(
         // This is an ugly hack to work around drivers that don't support MSAA.
         // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
         // feature detection for MSAA.
+        // When removed, we can also remove the `.after(prepare_windows)` of `prepare_core_3d_depth_textures` and `prepare_prepass_textures`
         let sample_flags = render_adapter
             .get_texture_format_features(surface_configuration.format)
             .flags;
-        match *msaa {
-            Msaa::Off => (),
-            Msaa::Sample4 => {
-                if !sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
-                    bevy_log::warn!(
-                        "MSAA 4x is not supported on this device. Falling back to disabling MSAA."
-                    );
-                    *msaa = Msaa::Off;
-                }
-            }
+
+        if !sample_flags.sample_count_supported(msaa.samples()) {
+            let fallback = if sample_flags.sample_count_supported(Msaa::default().samples()) {
+                Msaa::default()
+            } else {
+                Msaa::Off
+            };
+
+            let fallback_str = if fallback == Msaa::Off {
+                "disabling MSAA".to_owned()
+            } else {
+                format!("MSAA {}x", fallback.samples())
+            };
+
+            bevy_log::warn!(
+                "MSAA {}x is not supported on this device. Falling back to {}.",
+                msaa.samples(),
+                fallback_str,
+            );
+            *msaa = fallback;
         }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux

@@ -8,12 +8,16 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+detailed_trace = []
+
 [dependencies]
 ahash = "0.7.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.12", features = ["serde"] }
+bevy_utils_proc_macros = {version = "0.9.0", path = "macros"}
 petgraph = "0.6"
 thiserror = "1.0"
 
