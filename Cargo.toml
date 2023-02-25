@@ -1308,6 +1308,16 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "extended_material"
+path = "examples/shader/extended_material.rs"
+
+[package.metadata.example.extended_material]
+name = "Extended Material"
+description = "A custom shader that builds on the standard material"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 

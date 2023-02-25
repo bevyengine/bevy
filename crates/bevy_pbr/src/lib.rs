@@ -3,6 +3,7 @@ pub mod wireframe;
 mod alpha;
 mod bundle;
 mod environment_map;
+mod extended_material;
 mod fog;
 mod light;
 mod material;
@@ -13,6 +14,7 @@ mod render;
 pub use alpha::*;
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
+pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
@@ -72,6 +74,8 @@ pub const PBR_LIGHTING_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14170772752254856967);
 pub const SHADOWS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
+pub const PBR_FRAGMENT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2295049283805286543);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
 pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
@@ -141,6 +145,12 @@ impl Plugin for PbrPlugin {
             app,
             PBR_AMBIENT_HANDLE,
             "render/pbr_ambient.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_FRAGMENT_HANDLE,
+            "render/pbr_fragment.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);

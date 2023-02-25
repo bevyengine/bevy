@@ -12,11 +12,10 @@ use bevy::{
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
         render_resource::{
-            AsBindGroup, AsBindGroupError, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            OwnedBindingResource, PreparedBindGroup, RenderPipelineDescriptor, SamplerBindingType,
-            ShaderRef, ShaderStages, SpecializedMeshPipelineError, TextureSampleType,
-            TextureViewDescriptor, TextureViewDimension,
+            AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindingType,
+            OwnedBindingResource, RenderPipelineDescriptor, SamplerBindingType, ShaderRef,
+            ShaderStages, SpecializedMeshPipelineError, TextureSampleType, TextureViewDescriptor,
+            TextureViewDimension, UnpreparedBindGroup,
         },
         renderer::RenderDevice,
         texture::{CompressedImageFormats, FallbackImage},
@@ -221,13 +220,14 @@ impl Material for CubemapMaterial {
 impl AsBindGroup for CubemapMaterial {
     type Data = ();
 
-    fn as_bind_group(
+    fn unprepared_bind_group(
         &self,
-        layout: &BindGroupLayout,
-        render_device: &RenderDevice,
+        _: &BindGroupLayout,
+        _: &RenderDevice,
         images: &RenderAssets<Image>,
-        _fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
+        _: &FallbackImage,
+    ) -> Result<bevy::render::render_resource::UnpreparedBindGroup<Self::Data>, AsBindGroupError>
+    {
         let base_color_texture = self
             .base_color_texture
             .as_ref()
@@ -235,55 +235,39 @@ impl AsBindGroup for CubemapMaterial {
         let image = images
             .get(base_color_texture)
             .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&image.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&image.sampler),
-                },
-            ],
-            label: Some("cubemap_texture_material_bind_group"),
-            layout,
-        });
 
-        Ok(PreparedBindGroup {
-            bind_group,
-            bindings: vec![
+        let bindings = vec![
+            (
+                0,
                 OwnedBindingResource::TextureView(image.texture_view.clone()),
-                OwnedBindingResource::Sampler(image.sampler.clone()),
-            ],
-            data: (),
-        })
+            ),
+            (1, OwnedBindingResource::Sampler(image.sampler.clone())),
+        ];
+
+        Ok(UnpreparedBindGroup { bindings, data: () })
     }
 
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // Cubemap Base Color Texture
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::Cube,
-                    },
-                    count: None,
+    fn bind_group_layout_entries(_: &RenderDevice) -> Vec<BindGroupLayoutEntry> {
+        vec![
+            // Cubemap Base Color Texture
+            BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled: false,
+                    sample_type: TextureSampleType::Float { filterable: true },
+                    view_dimension: TextureViewDimension::Cube,
                 },
-                // Cubemap Base Color Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: None,
-        })
+                count: None,
+            },
+            // Cubemap Base Color Texture Sampler
+            BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: None,
+            },
+        ]
     }
 }
 
