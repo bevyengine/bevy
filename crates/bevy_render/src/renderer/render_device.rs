@@ -6,7 +6,7 @@ use crate::{
     texture::{TextureFormatPixelInfo, Volume},
 };
 use bevy_ecs::system::Resource;
-use bevy_utils::tracing::{error, event};
+use bevy_utils::tracing::error;
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
 use super::RenderQueue;
