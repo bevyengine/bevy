@@ -67,13 +67,13 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
                     .to_string();
                 if let Some(description) = key.decor().prefix() {
                     let description = description.as_str().unwrap().to_string();
-                    if !description.starts_with("\n# ") || !description.ends_with("\n") {
+                    if !description.starts_with("\n# ") || !description.ends_with('\n') {
                         panic!("Missing description for feature {name}");
                     }
                     let description = description
                         .strip_prefix("\n# ")
                         .unwrap()
-                        .strip_suffix("\n")
+                        .strip_suffix('\n')
                         .unwrap()
                         .to_string();
                     Some(Feature {
