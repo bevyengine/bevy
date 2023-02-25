@@ -6,7 +6,6 @@ use bevy::{
     window::{PresentMode, WindowPlugin},
 };
 
-/// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
