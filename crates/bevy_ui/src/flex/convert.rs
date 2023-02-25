@@ -28,7 +28,7 @@ pub fn from_val_size(
 pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
     taffy::style::Style {
         display: value.display.into(),
-        position_type: value.position_type.into(),
+        position: value.position_type.into(),
         flex_direction: value.flex_direction.into(),
         flex_wrap: value.flex_wrap.into(),
         align_items: value.align_items.into(),
@@ -55,7 +55,6 @@ pub fn from_val(scale_factor: f64, val: Val) -> taffy::style::Dimension {
         Val::Auto => taffy::style::Dimension::Auto,
         Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
         Val::Px(value) => taffy::style::Dimension::Points((scale_factor * value as f64) as f32),
-        Val::Undefined => taffy::style::Dimension::Undefined,
     }
 }
 
@@ -130,11 +129,11 @@ impl From<JustifyContent> for taffy::style::JustifyContent {
     }
 }
 
-impl From<PositionType> for taffy::style::PositionType {
+impl From<PositionType> for taffy::style::Position {
     fn from(value: PositionType) -> Self {
         match value {
-            PositionType::Relative => taffy::style::PositionType::Relative,
-            PositionType::Absolute => taffy::style::PositionType::Absolute,
+            PositionType::Relative => taffy::style::Position::Relative,
+            PositionType::Absolute => taffy::style::Position::Absolute,
         }
     }
 }
