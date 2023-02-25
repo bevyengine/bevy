@@ -40,16 +40,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         value: std::iter::repeat("0123456789").take(10_000).collect::<String>(),
                         style: TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 20.0,
+                            font_size: 4.,
                             color: Color::WHITE,
                         },
                     }],
                     alignment: TextAlignment::Left,
                     linebreak_behaviour: BreakLineOn::AnyCharacter,
-                    ..Default::default()
                 },
                 style: Style {
-                    flex_basis: Val::Px(1000.),
+                    size: Size::width(Val::Px(1000.)),
                     ..Default::default()
                 },
                 ..Default::default()
