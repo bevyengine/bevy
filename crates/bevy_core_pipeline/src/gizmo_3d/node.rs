@@ -1,4 +1,3 @@
-use bevy_core_pipeline::core_3d::Camera3dDepthLoadOp;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -7,10 +6,14 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 
-use crate::pipeline_3d::GizmoLine3d;
+use crate::core_3d::Camera3dDepthLoadOp;
 
-pub struct GizmoNode3d {
+use super::GizmoLine3d;
+
+pub struct Gizmo3dNode {
     view_query: QueryState<
         (
             &'static ViewTarget,
@@ -21,9 +24,8 @@ pub struct GizmoNode3d {
     >,
 }
 
-impl GizmoNode3d {
+impl Gizmo3dNode {
     pub const IN_VIEW: &'static str = "view";
-    pub const NAME: &'static str = "gizmo_node_2d";
 
     pub fn new(world: &mut World) -> Self {
         Self {
@@ -32,7 +34,7 @@ impl GizmoNode3d {
     }
 }
 
-impl Node for GizmoNode3d {
+impl Node for Gizmo3dNode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
