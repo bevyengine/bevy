@@ -38,9 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             commands.spawn(TextBundle {
                 text: Text {
                     sections: vec![TextSection {
-                        value: std::iter::repeat("0123456789")
-                            .take(10_000)
-                            .collect::<String>(),
+                        value: "0123456789".repeat(10_000),
                         style: TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 4.,
