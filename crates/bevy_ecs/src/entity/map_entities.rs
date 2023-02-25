@@ -24,8 +24,8 @@ use bevy_utils::{Entry, HashMap};
 ///
 /// impl MapEntities for Spring {
 ///     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-///         self.a = entity_mapper.get_or_alloc(self.a);
-///         self.b = entity_mapper.get_or_alloc(self.b);
+///         self.a = entity_mapper.get_or_reserve(self.a);
+///         self.b = entity_mapper.get_or_reserve(self.b);
 ///     }
 /// }
 /// ```
@@ -54,72 +54,6 @@ pub trait MapEntities {
 #[derive(Default, Debug)]
 pub struct EntityMap {
     map: HashMap<Entity, Entity>,
-}
-
-/// A wrapper for [`EntityMap`], augmenting it with the ability to allocate new [`Entity`] references in a destination
-/// world. These newly allocated references are guaranteed to never point to any living entity in that world.
-///
-/// References are allocated by returning increasing generations starting from an internally initialized base
-/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
-/// requisite number of generations reserved.
-pub struct EntityMapper<'m> {
-    /// The wrapped [`EntityMap`].
-    map: &'m mut EntityMap,
-    /// A base [`Entity`] used to allocate new references.
-    dead_start: Entity,
-    /// The number of generations this mapper has allocated thus far.
-    generations: u32,
-}
-
-impl<'m> EntityMapper<'m> {
-    /// Returns the corresponding mapped entity or allocates a new dead entity if it is absent.
-    pub fn get_or_alloc(&mut self, entity: Entity) -> Entity {
-        if let Some(mapped) = self.map.get(entity) {
-            return mapped;
-        }
-
-        let new = Entity {
-            generation: self.dead_start.generation + self.generations,
-            index: self.dead_start.index,
-        };
-        self.generations += 1;
-
-        self.map.insert(entity, new);
-
-        new
-    }
-
-    /// Gets a reference to the underlying [`EntityMap`].
-    pub fn get_map(&'m self) -> &'m EntityMap {
-        self.map
-    }
-
-    /// Gets a mutable reference to the underlying [`EntityMap`]
-    pub fn get_map_mut(&'m mut self) -> &'m mut EntityMap {
-        self.map
-    }
-
-    /// Creates a new [`EntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
-    fn new(map: &'m mut EntityMap, world: &mut World) -> Self {
-        Self {
-            map,
-            dead_start: world.spawn_empty().id(),
-            generations: 0,
-        }
-    }
-
-    /// Reserves the allocated references to dead entities within the world. This despawns the temporary base
-    /// [`Entity`] while reserving extra generations via [`World::try_reserve_generations`]. Because this renders the
-    /// [`EntityMapper`] unable to safely allocate any more references, this method takes ownership of `self` in order
-    /// to render it unusable.
-    fn finish(self, world: &mut World) {
-        if self.generations == 0 {
-            assert!(world.despawn(self.dead_start));
-            return;
-        }
-
-        assert!(world.try_reserve_generations(self.dead_start, self.generations));
-    }
 }
 
 impl EntityMap {
@@ -175,13 +109,9 @@ impl EntityMap {
     /// Creates an [`EntityMapper`] from this [`EntityMap`] and scoped to the provided [`World`], then calls the
     /// provided function with it. This allows one to allocate new entity references in the provided `World` that are
     /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely
-    /// mapping entity identifiers that point at entities outside the source world.
-    ///
-    /// # Arguments
-    ///
-    /// * `world` - The world the entities are being mapped into.
-    /// * `f` - A function to call within the scope of the passed world. Its return value is then returned from
-    ///         `world_scope` as the generic type parameter `R`.
+    /// mapping entity identifiers that point at entities outside the source world. The passed function, `f`, is called
+    /// within the scope of the passed world. Its return value is then returned from `world_scope` as the generic type
+    /// parameter `R`.
     pub fn world_scope<R>(
         &mut self,
         world: &mut World,
@@ -191,6 +121,72 @@ impl EntityMap {
         let result = f(world, &mut mapper);
         mapper.finish(world);
         result
+    }
+}
+
+/// A wrapper for [`EntityMap`], augmenting it with the ability to allocate new [`Entity`] references in a destination
+/// world. These newly allocated references are guaranteed to never point to any living entity in that world.
+///
+/// References are allocated by returning increasing generations starting from an internally initialized base
+/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
+/// requisite number of generations reserved.
+pub struct EntityMapper<'m> {
+    /// The wrapped [`EntityMap`].
+    map: &'m mut EntityMap,
+    /// A base [`Entity`] used to allocate new references.
+    dead_start: Entity,
+    /// The number of generations this mapper has allocated thus far.
+    generations: u32,
+}
+
+impl<'m> EntityMapper<'m> {
+    /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
+    pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
+        if let Some(mapped) = self.map.get(entity) {
+            return mapped;
+        }
+
+        // this new entity reference is specifically designed to never represent any living entity
+        let new = Entity {
+            generation: self.dead_start.generation + self.generations,
+            index: self.dead_start.index,
+        };
+        self.generations += 1;
+
+        self.map.insert(entity, new);
+
+        new
+    }
+
+    /// Gets a reference to the underlying [`EntityMap`].
+    pub fn get_map(&'m self) -> &'m EntityMap {
+        self.map
+    }
+
+    /// Gets a mutable reference to the underlying [`EntityMap`]
+    pub fn get_map_mut(&'m mut self) -> &'m mut EntityMap {
+        self.map
+    }
+
+    /// Creates a new [`EntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
+    fn new(map: &'m mut EntityMap, world: &mut World) -> Self {
+        Self {
+            map,
+            // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
+            dead_start: unsafe { world.entities_mut().alloc() },
+            generations: 0,
+        }
+    }
+
+    /// Reserves the allocated references to dead entities within the world. This frees the temporary base
+    /// [`Entity`] while reserving extra generations via [`crate::entity::Entities::reserve_generations`]. Because this
+    /// renders the [`EntityMapper`] unable to safely allocate any more references, this method takes ownership of
+    /// `self` in order to render it unusable.
+    fn finish(self, world: &mut World) {
+        // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
+        let entities = unsafe { world.entities_mut() };
+        assert!(entities.free(self.dead_start).is_some());
+        assert!(entities.reserve_generations(self.dead_start.index, self.generations));
     }
 }
 
@@ -209,14 +205,17 @@ mod tests {
         let mut mapper = EntityMapper::new(&mut map, &mut world);
 
         let mapped_ent = Entity::new(FIRST_IDX, 0);
-        let dead_ref = mapper.get_or_alloc(mapped_ent);
+        let dead_ref = mapper.get_or_reserve(mapped_ent);
 
-        // Should persist the allocated mapping from the previous line
-        assert_eq!(dead_ref, mapper.get_or_alloc(mapped_ent));
-        // Should re-use the same index for further dead refs
         assert_eq!(
-            mapper.get_or_alloc(Entity::new(SECOND_IDX, 0)).index(),
-            dead_ref.index()
+            dead_ref,
+            mapper.get_or_reserve(mapped_ent),
+            "should persist the allocated mapping from the previous line"
+        );
+        assert_eq!(
+            mapper.get_or_reserve(Entity::new(SECOND_IDX, 0)).index(),
+            dead_ref.index(),
+            "should re-use the same index for further dead refs"
         );
 
         mapper.finish(&mut world);
@@ -232,7 +231,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = map.world_scope(&mut world, |_, mapper| {
-            mapper.get_or_alloc(Entity::new(0, 0))
+            mapper.get_or_reserve(Entity::new(0, 0))
         });
 
         // Next allocated entity should be a further generation on the same index

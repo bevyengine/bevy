@@ -37,7 +37,7 @@ impl FromWorld for Parent {
 
 impl MapEntities for Parent {
     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-        self.0 = entity_mapper.get_or_alloc(self.0);
+        self.0 = entity_mapper.get_or_reserve(self.0);
     }
 }
 

@@ -615,8 +615,11 @@ impl Entities {
         self.meta.get_unchecked_mut(index as usize).location = location;
     }
 
-    /// Increments the generation of a despawned [`Entity`]. This may only be called on an entity
-    /// index corresponding to an entity that once existed and has since been freed.
+    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
+    /// `index` will count `generation` starting from the prior `generation` + the specified
+    /// value + 1.
+    ///
+    /// Does nothing if no entity with this `index` has been allocated yet.
     pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
         if (index as usize) >= self.meta.len() {
             return false;
@@ -882,5 +885,21 @@ mod tests {
         entities.free(entity);
 
         assert!(entities.reserve_generations(entity.index, 1));
+    }
+
+    #[test]
+    fn reserve_generations_and_alloc() {
+        const GENERATIONS: u32 = 10;
+
+        let mut entities = Entities::new();
+        let entity = entities.alloc();
+        entities.free(entity);
+
+        assert!(entities.reserve_generations(entity.index, GENERATIONS));
+
+        // The very next entitiy allocated should be a further generation on the same index
+        let next_entity = entities.alloc();
+        assert_eq!(next_entity.index(), entity.index());
+        assert!(next_entity.generation > entity.generation + GENERATIONS);
     }
 }

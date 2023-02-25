@@ -433,13 +433,13 @@ mod tests {
         },
     }
 
-    #[derive(Component, Reflect, PartialEq)]
+    #[derive(Clone, Component, Reflect, PartialEq)]
     #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
 
     impl MapEntities for MyEntityRef {
         fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-            self.0 = entity_mapper.get_or_alloc(self.0);
+            self.0 = entity_mapper.get_or_reserve(self.0);
         }
     }
 
@@ -594,14 +594,14 @@ mod tests {
         let bar_to_foo = dst_world
             .query_filtered::<&MyEntityRef, Without<Foo>>()
             .get_single(&dst_world)
-            .unwrap()
-            .0;
+            .cloned()
+            .unwrap();
         let foo = dst_world
             .query_filtered::<Entity, With<Foo>>()
             .get_single(&dst_world)
             .unwrap();
 
-        assert_eq!(foo, bar_to_foo);
+        assert_eq!(foo, bar_to_foo.0);
         assert!(dst_world
             .query_filtered::<&MyEntityRef, With<Foo>>()
             .iter(&dst_world)
