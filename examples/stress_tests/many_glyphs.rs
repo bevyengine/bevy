@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             value: (i % 10).to_string(),
             style: TextStyle {
                 font: font.clone(),
-                font_size: 8.,
+                font_size: 4.,
                 color: Color::WHITE,
                 ..Default::default()
             }
@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::all(Val::Px(1050.)),
+                flex_basis: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -57,10 +57,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..Default::default()
                 },
                 style: Style {
-                    size: Size::all(Val::Px(1050.)),
+                    size: Size::width(Val::Px(1000.)),
                     ..Default::default()
                 },
-                background_color: Color::MAROON.into(),
                 ..Default::default()
             });
         });
