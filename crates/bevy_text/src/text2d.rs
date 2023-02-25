@@ -107,7 +107,8 @@ pub fn extract_text2d_sprite(
         let alignment_offset = text_layout_info.size * text_anchor;
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        let transform = *global_transform * Transform::from_scale(Vec3::splat(scale_factor.recip()));
+        let transform =
+            *global_transform * Transform::from_scale(Vec3::splat(scale_factor.recip()));
         for text_glyph in text_glyphs {
             if text_glyph.section_index != current_section {
                 color = text.sections[text_glyph.section_index]

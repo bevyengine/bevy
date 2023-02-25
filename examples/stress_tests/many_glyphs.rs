@@ -2,7 +2,8 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin}, text::BreakLineOn,
+    text::BreakLineOn,
+    window::{PresentMode, WindowPlugin},
 };
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -37,7 +38,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             commands.spawn(TextBundle {
                 text: Text {
                     sections: vec![TextSection {
-                        value: std::iter::repeat("0123456789").take(10_000).collect::<String>(),
+                        value: std::iter::repeat("0123456789")
+                            .take(10_000)
+                            .collect::<String>(),
                         style: TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 4.,
@@ -55,4 +58,3 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             });
         });
 }
-
