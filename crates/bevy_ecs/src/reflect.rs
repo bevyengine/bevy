@@ -422,8 +422,8 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
         ReflectMapEntities {
             map_entities: |world, entity_mapper| {
                 let entities = entity_mapper.get_map().values().collect::<Vec<Entity>>();
-                for entity in entities.iter().cloned() {
-                    if let Some(mut component) = world.get_mut::<C>(entity) {
+                for entity in &entities {
+                    if let Some(mut component) = world.get_mut::<C>(*entity) {
                         component.map_entities(entity_mapper);
                     }
                 }

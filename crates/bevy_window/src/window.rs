@@ -60,7 +60,7 @@ impl MapEntities for WindowRef {
             Self::Entity(entity) => {
                 *entity = entity_mapper.get_or_alloc(*entity);
             }
-            Self::Primary => (),
+            Self::Primary => {},
         };
     }
 }

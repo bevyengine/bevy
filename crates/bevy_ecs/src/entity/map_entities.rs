@@ -144,7 +144,7 @@ impl EntityMap {
 
     /// Returns the corresponding mapped entity.
     pub fn get(&self, entity: Entity) -> Option<Entity> {
-        self.map.get(&entity).cloned()
+        self.map.get(&entity).copied()
     }
 
     /// An iterator visiting all keys in arbitrary order.
