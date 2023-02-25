@@ -119,11 +119,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
         StatsText,
