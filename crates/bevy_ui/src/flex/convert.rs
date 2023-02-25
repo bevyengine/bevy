@@ -53,18 +53,6 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
     }
 }
 
-<<<<<<< HEAD
-=======
-/// Converts a [`Val`] to a [`f32`] while respecting the scale factor.
-pub fn val_to_f32(scale_factor: f64, val: Val) -> f32 {
-    match val {
-        Val::Auto => 0.0,
-        Val::Px(value) => (scale_factor * value as f64) as f32,
-        Val::Percent(value) => value / 100.0,
-    }
-}
-
->>>>>>> origin/remove-val-undefined
 pub fn from_val(scale_factor: f64, val: Val) -> taffy::style::Dimension {
     match val {
         Val::Auto => taffy::style::Dimension::Auto,
