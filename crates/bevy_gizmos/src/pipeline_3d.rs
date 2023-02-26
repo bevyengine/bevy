@@ -97,29 +97,15 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
             }),
             layout: bind_group_layout,
             primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                ..Default::default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Greater,
-                stencil: StencilState {
-                    front: StencilFaceState::IGNORE,
-                    back: StencilFaceState::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
-                bias: DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
+                stencil: Default::default(),
+                bias: Default::default(),
             }),
             multisample: MultisampleState {
                 count: key.msaa_samples(),

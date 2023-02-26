@@ -66,13 +66,8 @@ impl SpecializedMeshPipeline for GizmoPipeline2d {
             }),
             layout: vec![self.mesh_pipeline.view_layout.clone()],
             primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                ..Default::default()
             },
             depth_stencil: None,
             multisample: MultisampleState {
