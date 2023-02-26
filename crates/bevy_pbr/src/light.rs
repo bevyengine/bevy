@@ -509,6 +509,9 @@ fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32
     ]
 }
 
+/// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+/// The corner vertices should be specified in the following order:
+/// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(
     frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
