@@ -159,7 +159,7 @@ where
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
-            // Since these closures are `!Send + !Synd + !'static`, they can never be called
+            // Since these closures are `!Send + !Sync + !'static`, they can never be called
             // in parallel, so their world accesses will not conflict with each other.
             |input| self.a.run_unsafe(input, world),
             |input| self.b.run_unsafe(input, world),
@@ -172,7 +172,7 @@ where
         let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
         Func::combine(
             input,
-            // SAFETY: Since these closures are `!Send + !Synd + !'static`, they can never
+            // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
             |input| self.a.run(input, unsafe { world.deref_mut() }),
