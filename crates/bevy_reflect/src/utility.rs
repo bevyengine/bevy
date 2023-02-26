@@ -1,10 +1,13 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::HashMap;
+use bevy_utils::{FixedState, HashMap};
 use once_cell::race::OnceBox;
 use parking_lot::RwLock;
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    hash::BuildHasher,
+};
 
 /// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
@@ -146,4 +149,16 @@ impl GenericTypeInfoCell {
             Box::leak(Box::new(f()))
         })
     }
+}
+
+/// Deterministic fixed state hasher to be used by implementors of [`Reflect::reflect_hash`].
+///
+/// Hashes should be deterministic across processes so hashes can be used as
+/// checksums for saved scenes, rollback snapshots etc. This function returns
+/// such a hasher.
+///
+/// [`Reflect::reflect_hash`]: crate::Reflect
+#[inline]
+pub fn reflect_hasher() -> bevy_utils::AHasher {
+    FixedState.build_hasher()
 }

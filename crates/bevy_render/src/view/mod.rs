@@ -1,13 +1,14 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_asset::{load_internal_asset, HandleUntyped};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    prelude::Image,
+    prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -18,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -27,10 +28,15 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
+pub const VIEW_TYPE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+
         app.register_type::<ComputedVisibility>()
             .register_type::<ComputedVisibilityFlags>()
             .register_type::<Msaa>()
@@ -50,7 +56,8 @@ impl Plugin for ViewPlugin {
                 .add_system(
                     prepare_view_targets
                         .after(WindowSystem::Prepare)
-                        .in_set(RenderSet::Prepare),
+                        .in_set(RenderSet::Prepare)
+                        .after(crate::render_asset::prepare_assets::<Image>),
                 );
         }
     }
@@ -60,11 +67,9 @@ impl Plugin for ViewPlugin {
 ///
 /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
 /// smoother edges.
-/// Defaults to 4.
+/// Defaults to 4 samples.
 ///
-/// Note that WGPU currently only supports 1 or 4 samples.
-/// Ultimately we plan on supporting whatever is natively supported on a given device.
-/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+/// Note that web currently only supports 1 or 4 samples.
 ///
 /// # Example
 /// ```
@@ -78,8 +83,10 @@ impl Plugin for ViewPlugin {
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,
+    Sample2 = 2,
     #[default]
     Sample4 = 4,
+    Sample8 = 8,
 }
 
 impl Msaa {
@@ -100,12 +107,47 @@ pub struct ExtractedView {
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
+    pub color_grading: ColorGrading,
 }
 
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
         ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+    }
+}
+
+/// Configures basic color grading parameters to adjust the image appearance. Grading is applied just before/after tonemapping for a given [`Camera`](crate::camera::Camera) entity.
+#[derive(Component, Reflect, Debug, Copy, Clone, ShaderType)]
+#[reflect(Component)]
+pub struct ColorGrading {
+    /// Exposure value (EV) offset, measured in stops.
+    pub exposure: f32,
+
+    /// Non-linear luminance adjustment applied before tonemapping. y = pow(x, gamma)
+    pub gamma: f32,
+
+    /// Saturation adjustment applied before tonemapping.
+    /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
+    /// with luminance defined by ITU-R BT.709.
+    /// Values above 1.0 increase saturation.
+    pub pre_saturation: f32,
+
+    /// Saturation adjustment applied after tonemapping.
+    /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
+    /// with luminance defined by ITU-R BT.709
+    /// Values above 1.0 increase saturation.
+    pub post_saturation: f32,
+}
+
+impl Default for ColorGrading {
+    fn default() -> Self {
+        Self {
+            exposure: 0.0,
+            gamma: 1.0,
+            pre_saturation: 1.0,
+            post_saturation: 1.0,
+        }
     }
 }
 
@@ -120,6 +162,7 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    color_grading: ColorGrading,
 }
 
 #[derive(Resource, Default)]
@@ -281,6 +324,7 @@ fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport: camera.viewport.as_vec4(),
+                color_grading: camera.color_grading,
             }),
         };
 

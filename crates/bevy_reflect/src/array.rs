@@ -1,6 +1,6 @@
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    utility::{reflect_hasher, NonGenericTypeInfoCell},
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -8,32 +8,63 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// A static-sized array of [`Reflect`] items.
+/// A trait used to power [array-like] operations via [reflection].
 ///
-/// This corresponds to types like `[T; N]` (arrays).
+/// This corresponds to true Rust arrays like `[T; N]`,
+/// but also to any fixed-size linear sequence types.
+/// It is expected that implementors of this trait uphold this contract
+/// and maintain a fixed size as returned by the [`Array::len`] method.
 ///
-/// Currently, this only supports arrays of up to 32 items. It can technically
-/// contain more than 32, but the blanket [`GetTypeRegistration`] is only
-/// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogenous (i.e. all the same type).
 ///
+/// This trait has a blanket implementation over Rust arrays of up to 32 items.
+/// This implementation can technically contain more than 32,
+/// but the blanket [`GetTypeRegistration`] is only implemented up to the 32
+/// item limit due to a [limitation] on [`Deserialize`].
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Array};
+///
+/// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+///
+/// let field: &dyn Reflect = foo.get(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// ```
+///
+/// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
+/// [reflection]: crate
+/// [`List`]: crate::List
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
+/// [`Deserialize`]: ::serde::Deserialize
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-    /// Returns the number of elements in the collection.
+
+    /// Returns the number of elements in the array.
     fn len(&self) -> usize;
+
     /// Returns `true` if the collection contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    /// Returns an iterator over the collection.
+
+    /// Returns an iterator over the array.
     fn iter(&self) -> ArrayIter;
+
     /// Drain the elements of this array to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
+    /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.type_name().to_string(),
@@ -334,7 +365,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
+    let mut hasher = reflect_hasher();
     std::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
