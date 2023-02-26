@@ -630,6 +630,6 @@ impl Default for MainThreadExecutor {
 
 impl MainThreadExecutor {
     pub fn new() -> Self {
-        MainThreadExecutor(TaskPool::get_thread_executor().clone())
+        MainThreadExecutor(TaskPool::get_thread_executor())
     }
 }

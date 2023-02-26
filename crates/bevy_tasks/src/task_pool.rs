@@ -115,7 +115,7 @@ impl TaskPool {
         static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
     }
 
-    /// Each thread can only create one thread_executor, otherwise, there are good chances they will deadlock
+    /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock
     pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
         Self::THREAD_EXECUTOR.with(|executor| executor.clone())
     }
@@ -418,7 +418,7 @@ impl TaskPool {
                 let tick_forever = async {
                     loop {
                         if external_ticker.conflict_with(&scope_ticker) {
-                            external_ticker.tick().await
+                            external_ticker.tick().await;
                         } else {
                             external_ticker.tick().or(scope_ticker.tick()).await;
                         }

@@ -63,11 +63,11 @@ impl<'task> ThreadExecutor<'task> {
     }
 
     /// check whether same executor, if yes, then the `Ticker` should not
-    /// be used in same task. E.g, ticker_1.or(ticker_2).await. This will leak
+    /// be used in same task. E.g, `ticker_1.or(ticker_2).await`. This will leak
     /// the ticker and cause dead lock
     pub fn is_same_executor(&self, other: &Self) -> bool {
         if self.thread_id == other.thread_id {
-            // for same thread, we assert they are same object
+            // for same thread, there should be only one instance
             assert!(std::ptr::eq(self, other));
             true
         } else {
