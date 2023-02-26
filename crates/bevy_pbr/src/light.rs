@@ -486,8 +486,8 @@ fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
         Vec3A::new(area.min.x, area.min.y, z_near),
         Vec3A::new(area.min.x, area.min.y, z_far),
         Vec3A::new(area.max.x, area.min.y, z_far),
-        Vec3A::new(area.max.x, area.max.y, z_far),
         Vec3A::new(area.min.x, area.max.y, z_far),
+        Vec3A::new(area.min.x, area.min.y, z_far),
     ]
 }
 
