@@ -619,11 +619,17 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Clone)]
 pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+
+impl Default for MainThreadExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MainThreadExecutor {
     pub fn new() -> Self {
-        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+        MainThreadExecutor(TaskPool::get_thread_executor().clone())
     }
 }

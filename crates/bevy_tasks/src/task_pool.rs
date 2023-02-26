@@ -112,7 +112,12 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
-        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
+        static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
+    }
+
+    /// Each thread can only create one thread_executor, otherwise, there are good chances they will deadlock
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Self::THREAD_EXECUTOR.with(|executor| executor.clone())
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -412,7 +417,11 @@ impl TaskPool {
             loop {
                 let tick_forever = async {
                     loop {
-                        external_ticker.tick().or(scope_ticker.tick()).await;
+                        if external_ticker.conflict_with(&scope_ticker) {
+                            external_ticker.tick().await
+                        } else {
+                            external_ticker.tick().or(scope_ticker.tick()).await;
+                        }
                     }
                 };
                 // we don't care if it errors. If a scoped task errors it will propagate
@@ -436,7 +445,11 @@ impl TaskPool {
             loop {
                 let tick_forever = async {
                     loop {
-                        external_ticker.tick().or(scope_ticker.tick()).await;
+                        if external_ticker.conflict_with(&scope_ticker) {
+                            external_ticker.tick().await;
+                        } else {
+                            external_ticker.tick().or(scope_ticker.tick()).await;
+                        }
                     }
                 };
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();

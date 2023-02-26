@@ -62,6 +62,19 @@ impl<'task> ThreadExecutor<'task> {
         Self::default()
     }
 
+    /// check whether same executor, if yes, then the `Ticker` should not
+    /// be used in same task. E.g, ticker_1.or(ticker_2).await. This will leak
+    /// the ticker and cause dead lock
+    pub fn is_same_executor(&self, other: &Self) -> bool {
+        if self.thread_id == other.thread_id {
+            // for same thread, we assert they are same object
+            assert!(std::ptr::eq(self, other));
+            true
+        } else {
+            false
+        }
+    }
+
     /// Spawn a task on the thread executor
     pub fn spawn<T: Send + 'task>(
         &self,
@@ -77,7 +90,7 @@ impl<'task> ThreadExecutor<'task> {
     pub fn ticker<'ticker>(&'ticker self) -> Option<ThreadExecutorTicker<'task, 'ticker>> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
-                executor: &self.executor,
+                executor: self,
                 _marker: PhantomData::default(),
             });
         }
@@ -90,20 +103,26 @@ impl<'task> ThreadExecutor<'task> {
 /// created on.
 #[derive(Debug)]
 pub struct ThreadExecutorTicker<'task, 'ticker> {
-    executor: &'ticker Executor<'task>,
+    executor: &'ticker ThreadExecutor<'task>,
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
 impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
+    /// if executor is same, then the Ticker should not used
+    /// in same task
+    pub fn conflict_with(&self, other: &Self) -> bool {
+        self.executor.is_same_executor(other.executor)
+    }
+
     /// Tick the thread executor.
     pub async fn tick(&self) {
-        self.executor.tick().await;
+        self.executor.executor.tick().await;
     }
 
     /// Synchronously try to tick a task on the executor.
     /// Returns false if if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
-        self.executor.try_tick()
+        self.executor.executor.try_tick()
     }
 }
 
