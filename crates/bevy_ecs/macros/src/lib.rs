@@ -2,87 +2,19 @@ extern crate proc_macro;
 
 mod component;
 mod fetch;
+mod set;
+mod states;
 
-use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{
-    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest,
-};
+use crate::{fetch::derive_world_query_impl, set::derive_set};
+use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::Comma,
-    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
-    Result, Token, TypeParam,
+    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
+    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
+    TypeParam,
 };
-
-struct AllTuples {
-    macro_ident: Ident,
-    start: usize,
-    end: usize,
-    idents: Vec<Ident>,
-}
-
-impl Parse for AllTuples {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let macro_ident = input.parse::<Ident>()?;
-        input.parse::<Comma>()?;
-        let start = input.parse::<LitInt>()?.base10_parse()?;
-        input.parse::<Comma>()?;
-        let end = input.parse::<LitInt>()?.base10_parse()?;
-        input.parse::<Comma>()?;
-        let mut idents = vec![input.parse::<Ident>()?];
-        while input.parse::<Comma>().is_ok() {
-            idents.push(input.parse::<Ident>()?);
-        }
-
-        Ok(AllTuples {
-            macro_ident,
-            start,
-            end,
-            idents,
-        })
-    }
-}
-
-#[proc_macro]
-pub fn all_tuples(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as AllTuples);
-    let len = input.end - input.start;
-    let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..=input.end {
-        let idents = input
-            .idents
-            .iter()
-            .map(|ident| format_ident!("{}{}", ident, i));
-        if input.idents.len() < 2 {
-            ident_tuples.push(quote! {
-                #(#idents)*
-            });
-        } else {
-            ident_tuples.push(quote! {
-                (#(#idents),*)
-            });
-        }
-    }
-
-    let macro_ident = &input.macro_ident;
-    let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[..i];
-        quote! {
-            #macro_ident!(#(#ident_tuples),*);
-        }
-    });
-    TokenStream::from(quote! {
-        #(
-            #invocations
-        )*
-    })
-}
 
 enum BundleFieldKind {
     Component,
@@ -524,57 +456,12 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-/// Generates an impl of the `SystemLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
-#[proc_macro_derive(SystemLabel, attributes(system_label))]
-pub fn derive_system_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path, "system_label")
-}
-
-/// Generates an impl of the `StageLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
-#[proc_macro_derive(StageLabel, attributes(stage_label))]
-pub fn derive_stage_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path, "stage_label")
-}
-
-/// Generates an impl of the `RunCriteriaLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
-#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
-pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path, "run_criteria_label")
-}
-
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
-    trait_path
-        .segments
-        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
@@ -582,13 +469,11 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
-#[proc_macro_derive(SystemSet)]
+#[proc_macro_derive(SystemSet, attributes(system_set))]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
-    trait_path
-        .segments
-        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("SystemSet").into());
     derive_set(input, &trait_path)
 }
@@ -605,4 +490,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+#[proc_macro_derive(States)]
+pub fn derive_states(input: TokenStream) -> TokenStream {
+    states::derive_states(input)
 }

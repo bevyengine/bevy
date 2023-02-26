@@ -19,7 +19,7 @@ pub mod graph {
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
@@ -30,7 +30,7 @@ use bevy_render::{
         DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;
@@ -51,11 +51,12 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                batch_phase_system::<Transparent2d>.after(sort_phase_system::<Transparent2d>),
+            .add_system(extract_core_2d_camera_phases.in_schedule(ExtractSchedule))
+            .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
+            .add_system(
+                batch_phase_system::<Transparent2d>
+                    .after(sort_phase_system::<Transparent2d>)
+                    .in_set(RenderSet::PhaseSort),
             );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);

@@ -4,7 +4,7 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
-    event::{Events, ManualEventIterator, ManualEventReader},
+    event::{EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -19,14 +19,25 @@ use std::{
     option,
 };
 
-/// Wrapper around a [`ManualEventReader<Entity>`] so that we
+/// Wrapper around [`Entity`] for [`RemovedComponents`].
+/// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
+#[derive(Debug, Clone)]
+pub struct RemovedComponentEntity(Entity);
+
+impl From<RemovedComponentEntity> for Entity {
+    fn from(value: RemovedComponentEntity) -> Self {
+        value.0
+    }
+}
+
+/// Wrapper around a [`ManualEventReader<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
     T: Component,
 {
-    reader: ManualEventReader<Entity>,
+    reader: ManualEventReader<RemovedComponentEntity>,
     marker: PhantomData<T>,
 }
 
@@ -40,7 +51,7 @@ impl<T: Component> Default for RemovedComponentReader<T> {
 }
 
 impl<T: Component> Deref for RemovedComponentReader<T> {
-    type Target = ManualEventReader<Entity>;
+    type Target = ManualEventReader<RemovedComponentEntity>;
     fn deref(&self) -> &Self::Target {
         &self.reader
     }
@@ -52,11 +63,11 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
     }
 }
 
-/// Wrapper around a map of components to [`Events<Entity>`].
+/// Wrapper around a map of components to [`Events<RemovedComponentEntity>`].
 /// So that we can find the events without naming the type directly.
 #[derive(Default, Debug)]
 pub struct RemovedComponentEvents {
-    event_sets: SparseSet<ComponentId, Events<Entity>>,
+    event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
 }
 
 impl RemovedComponentEvents {
@@ -70,18 +81,23 @@ impl RemovedComponentEvents {
         }
     }
 
-    pub fn get(&self, component_id: impl Into<ComponentId>) -> Option<&Events<Entity>> {
+    pub fn get(
+        &self,
+        component_id: impl Into<ComponentId>,
+    ) -> Option<&Events<RemovedComponentEntity>> {
         self.event_sets.get(component_id.into())
     }
 
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
-            .send(entity);
+            .send(RemovedComponentEntity(entity));
     }
 }
 
 /// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
+///
+/// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
 ///
 /// Note that this does not allow you to see which data existed before removal.
 /// If you need this, you will need to track the component data value on your own,
@@ -122,16 +138,103 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
-pub type RemovedIter<'a> =
-    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, Entity>>>>;
+pub type RemovedIter<'a> = iter::Map<
+    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>>,
+    fn(RemovedComponentEntity) -> Entity,
+>;
 
+/// Iterator over entities that had a specific component removed.
+///
+/// See [`RemovedComponents`].
+pub type RemovedIterWithId<'a> = iter::Map<
+    iter::Flatten<option::IntoIter<ManualEventIteratorWithId<'a, RemovedComponentEntity>>>,
+    fn(
+        (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
+    ) -> (Entity, EventId<RemovedComponentEntity>),
+>;
+
+fn map_id_events(
+    (entity, id): (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
+) -> (Entity, EventId<RemovedComponentEntity>) {
+    (entity.clone().into(), id)
+}
+
+// For all practical purposes, the api surface of `RemovedComponents<T>`
+// should be similar to `EventReader<T>` to reduce confusion.
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
-    pub fn iter(&mut self) -> RemovedIter<'_> {
+    /// Fetch underlying [`ManualEventReader`].
+    pub fn reader(&self) -> &ManualEventReader<RemovedComponentEntity> {
+        &self.reader
+    }
+
+    /// Fetch underlying [`ManualEventReader`] mutably.
+    pub fn reader_mut(&mut self) -> &mut ManualEventReader<RemovedComponentEntity> {
+        &mut self.reader
+    }
+
+    /// Fetch underlying [`Events`].
+    pub fn events(&self) -> Option<&Events<RemovedComponentEntity>> {
+        self.event_sets.get(**self.component_id)
+    }
+
+    /// Destructures to get a mutable reference to the `ManualEventReader`
+    /// and a reference to `Events`.
+    ///
+    /// This is necessary since Rust can't detect destructuring through methods and most
+    /// usecases of the reader uses the `Events` as well.
+    pub fn reader_mut_with_events(
+        &mut self,
+    ) -> Option<(
+        &mut RemovedComponentReader<T>,
+        &Events<RemovedComponentEntity>,
+    )> {
         self.event_sets
             .get(**self.component_id)
-            .map(|events| self.reader.iter(events).cloned())
+            .map(|events| (&mut *self.reader, events))
+    }
+
+    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
+    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
+    pub fn iter(&mut self) -> RemovedIter<'_> {
+        self.reader_mut_with_events()
+            .map(|(reader, events)| reader.iter(events).cloned())
             .into_iter()
             .flatten()
+            .map(RemovedComponentEntity::into)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
+        self.reader_mut_with_events()
+            .map(|(reader, events)| reader.iter_with_id(events))
+            .into_iter()
+            .flatten()
+            .map(map_id_events)
+    }
+
+    /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
+    pub fn len(&self) -> usize {
+        self.events()
+            .map(|events| self.reader.len(events))
+            .unwrap_or(0)
+    }
+
+    /// Returns `true` if there are no events available to read.
+    pub fn is_empty(&self) -> bool {
+        self.events()
+            .map(|events| self.reader.is_empty(events))
+            .unwrap_or(true)
+    }
+
+    /// Consumes all available events.
+    ///
+    /// This means these events will not appear in calls to [`RemovedComponents::iter()`] or
+    /// [`RemovedComponents::iter_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
+    pub fn clear(&mut self) {
+        if let Some((reader, events)) = self.reader_mut_with_events() {
+            reader.clear(events);
+        }
     }
 }
 

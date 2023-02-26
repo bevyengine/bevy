@@ -1,10 +1,8 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
-    change_detection::{MutUntyped, TicksMut},
-    component::{
-        Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType,
-    },
+    change_detection::MutUntyped,
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -14,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::unsafe_world_cell::UnsafeWorldCellEntityRef;
+use super::unsafe_world_cell::UnsafeEntityCell;
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -43,8 +41,8 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCellEntityRef<'w> {
-        UnsafeWorldCellEntityRef::new(
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'w> {
+        UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
@@ -79,12 +77,14 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        contains_component_with_id(self.world, component_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_id(component_id)
     }
 
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        contains_component_with_type(self.world, type_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_type_id(type_id)
     }
 
     #[inline]
@@ -149,15 +149,15 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCellEntityRef<'_> {
-        UnsafeWorldCellEntityRef::new(
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'_> {
+        UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
     }
-    fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCellEntityRef<'_> {
-        UnsafeWorldCellEntityRef::new(
+    fn as_unsafe_world_cell(&mut self) -> UnsafeEntityCell<'_> {
+        UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
             self.location,
@@ -209,12 +209,14 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        contains_component_with_id(self.world, component_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_id(component_id)
     }
 
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        contains_component_with_type(self.world, type_id, self.location)
+        self.as_unsafe_world_cell_readonly()
+            .contains_type_id(type_id)
     }
 
     #[inline]
@@ -277,11 +279,13 @@ impl<'w> EntityMut<'w> {
         self
     }
 
-    // TODO: move to BundleInfo
-    /// Removes a [`Bundle`] of components from the entity and returns the bundle.
+    /// Removes all components in the [`Bundle`] from the entity and returns their previous values.
     ///
-    /// Returns `None` if the entity does not contain the bundle.
-    pub fn remove<T: Bundle>(&mut self) -> Option<T> {
+    /// **Note:** If the entity does not have every component in the bundle, this method will not
+    /// remove any of them.
+    // TODO: BundleRemover?
+    #[must_use]
+    pub fn take<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -406,9 +410,9 @@ impl<'w> EntityMut<'w> {
         entities.set(entity.index(), new_location);
     }
 
-    // TODO: move to BundleInfo
-    /// Remove any components in the bundle that the entity has.
-    pub fn remove_intersection<T: Bundle>(&mut self) {
+    /// Removes any components in the [`Bundle`] from the entity.
+    // TODO: BundleRemover?
+    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -433,7 +437,7 @@ impl<'w> EntityMut<'w> {
         };
 
         if new_archetype_id == old_location.archetype_id {
-            return;
+            return self;
         }
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
@@ -467,6 +471,8 @@ impl<'w> EntityMut<'w> {
                 new_archetype_id,
             );
         }
+
+        self
     }
 
     pub fn despawn(self) {
@@ -600,19 +606,10 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let info = self.world.components().get_info(component_id)?;
         // SAFETY:
-        // - entity_location is valid
-        // - component_id is valid as checked by the line above
-        // - the storage type is accurate as checked by the fetched ComponentInfo
-        unsafe {
-            self.world.get_component(
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-        }
+        // - `&self` ensures that no mutable references exist to this entity's components.
+        // - `as_unsafe_world_cell_readonly` gives read only permission for all components on this entity
+        unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
@@ -625,30 +622,11 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
-        unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
+        // SAFETY:
+        // - `&mut self` ensures that no references exist to this entity's components.
+        // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
+        unsafe { self.as_unsafe_world_cell().get_mut_by_id(component_id) }
     }
-}
-
-pub(crate) fn contains_component_with_type(
-    world: &World,
-    type_id: TypeId,
-    location: EntityLocation,
-) -> bool {
-    if let Some(component_id) = world.components.get_id(type_id) {
-        contains_component_with_id(world, component_id, location)
-    } else {
-        false
-    }
-}
-
-pub(crate) fn contains_component_with_id(
-    world: &World,
-    component_id: ComponentId,
-    location: EntityLocation,
-) -> bool {
-    world.archetypes[location.archetype_id].contains(component_id)
 }
 
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
@@ -673,11 +651,9 @@ unsafe fn remove_bundle_from_archetype(
     let remove_bundle_result = {
         let current_archetype = &mut archetypes[archetype_id];
         if intersection {
-            current_archetype
-                .edges()
-                .get_remove_bundle_intersection(bundle_info.id)
-        } else {
             current_archetype.edges().get_remove_bundle(bundle_info.id)
+        } else {
+            current_archetype.edges().get_take_bundle(bundle_info.id)
         }
     };
     let result = if let Some(result) = remove_bundle_result {
@@ -705,7 +681,7 @@ unsafe fn remove_bundle_from_archetype(
                     // graph
                     current_archetype
                         .edges_mut()
-                        .insert_remove_bundle(bundle_info.id, None);
+                        .insert_take_bundle(bundle_info.id, None);
                     return None;
                 }
             }
@@ -744,11 +720,11 @@ unsafe fn remove_bundle_from_archetype(
     if intersection {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle_intersection(bundle_info.id, result);
+            .insert_remove_bundle(bundle_info.id, result);
     } else {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle(bundle_info.id, result);
+            .insert_take_bundle(bundle_info.id, result);
     }
     result
 }
@@ -766,59 +742,6 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
             true
         }
     });
-}
-
-// SAFETY: EntityLocation must be valid
-#[inline]
-pub(crate) unsafe fn get_mut<T: Component>(
-    world: &mut World,
-    entity: Entity,
-    location: EntityLocation,
-) -> Option<Mut<'_, T>> {
-    let change_tick = world.change_tick();
-    let last_change_tick = world.last_change_tick();
-    // SAFETY:
-    // - world access is unique
-    // - entity location is valid
-    // - returned component is of type T
-    world
-        .get_component_and_ticks_with_type(
-            TypeId::of::<T>(),
-            T::Storage::STORAGE_TYPE,
-            entity,
-            location,
-        )
-        .map(|(value, ticks)| Mut {
-            // SAFETY:
-            // - world access is unique and ties world lifetime to `Mut` lifetime
-            // - `value` is of type `T`
-            value: value.assert_unique().deref_mut::<T>(),
-            ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
-        })
-}
-
-// SAFETY: EntityLocation must be valid, component_id must be valid
-#[inline]
-pub(crate) unsafe fn get_mut_by_id(
-    world: &mut World,
-    entity: Entity,
-    location: EntityLocation,
-    component_id: ComponentId,
-) -> Option<MutUntyped<'_>> {
-    let change_tick = world.change_tick();
-    // SAFETY: component_id is valid
-    let info = world.components.get_info_unchecked(component_id);
-    // SAFETY:
-    // - world access is unique
-    // - entity location is valid
-    // - returned component is of type T
-    world
-        .get_component_and_ticks(component_id, info.storage_type(), entity, location)
-        .map(|(value, ticks)| MutUntyped {
-            // SAFETY: world access is unique and ties world lifetime to `MutUntyped` lifetime
-            value: value.assert_unique(),
-            ticks: TicksMut::from_tick_cells(ticks, world.last_change_tick(), change_tick),
-        })
 }
 
 /// Moves component data out of storage.

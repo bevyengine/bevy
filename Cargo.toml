@@ -13,11 +13,14 @@ repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
-  "examples/android",
-  "examples/ios",
+  "examples/mobile",
   "tools/ci",
   "tools/build-example-pages",
   "tools/build-wasm-example",
@@ -41,9 +44,13 @@ default = [
   "bevy_ui",
   "png",
   "hdr",
+  "ktx2",
+  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "android_shared_stdcxx",
+  "tonemapping_luts"
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -72,6 +79,7 @@ trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
+exr = ["bevy_internal/exr"]
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
 tga = ["bevy_internal/tga"]
@@ -117,6 +125,16 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation"]
+
+# Enable using a shared stdlib for cxx on Android.
+android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
+
+# Enable detailed trace event logging.
+# These trace events are expensive even when off, thus they require compile time opt-in.
+detailed_trace = ["bevy_internal/detailed_trace"]
+
+# Include tonemapping LUT KTX2 files.
+tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
@@ -377,6 +395,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "tonemapping"
+path = "examples/3d/tonemapping.rs"
+required-features = ["ktx2", "zstd"]
+
+[package.metadata.example.tonemapping]
+name = "Tonemapping"
+description = "Compares tonemapping options"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "fxaa"
 path = "examples/3d/fxaa.rs"
 
@@ -459,7 +488,6 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -802,6 +830,26 @@ description = "Shows how to create and register a custom audio source by impleme
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "spatial_audio_2d"
+path = "examples/audio/spatial_audio_2d.rs"
+
+[package.metadata.example.spatial_audio_2d]
+name = "Spatial Audio 2D"
+description = "Shows how to play spatial audio, and moving the emitter in 2D"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "spatial_audio_3d"
+path = "examples/audio/spatial_audio_3d.rs"
+
+[package.metadata.example.spatial_audio_3d]
+name = "Spatial Audio 3D"
+description = "Shows how to play spatial audio, and moving the emitter in 3D"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -920,7 +968,17 @@ path = "examples/ecs/removal_detection.rs"
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
-description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+description = "Query for entities that had a specific component removed earlier in the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "run_conditions"
+path = "examples/ecs/run_conditions.rs"
+
+[package.metadata.example.run_conditions]
+name = "Run Conditions"
+description = "Run systems only when one or multiple conditions are met"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -971,16 +1029,6 @@ path = "examples/ecs/system_param.rs"
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "system_sets"
-path = "examples/ecs/system_sets.rs"
-
-[package.metadata.example.system_sets]
-name = "System Sets"
-description = "Shows `SystemSet` use along with run criterion"
 category = "ECS (Entity Component System)"
 wasm = false
 

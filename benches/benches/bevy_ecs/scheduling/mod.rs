@@ -1,21 +1,19 @@
 use criterion::criterion_group;
 
-mod run_criteria;
+mod run_condition;
+mod running_systems;
 mod schedule;
-mod stages;
 
-use run_criteria::*;
+use run_condition::*;
+use running_systems::*;
 use schedule::*;
-use stages::*;
 
 criterion_group!(
     scheduling_benches,
-    run_criteria_yes,
-    run_criteria_no,
-    run_criteria_yes_with_labels,
-    run_criteria_no_with_labels,
-    run_criteria_yes_with_query,
-    run_criteria_yes_with_resource,
+    run_condition_yes,
+    run_condition_no,
+    run_condition_yes_with_query,
+    run_condition_yes_with_resource,
     empty_systems,
     busy_systems,
     contrived,

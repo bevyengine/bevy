@@ -102,12 +102,7 @@ impl Edges {
 
     /// Removes an edge from the `input_edges` if it exists.
     pub(crate) fn remove_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if let Some((index, _)) = self
-            .input_edges
-            .iter()
-            .enumerate()
-            .find(|(_i, e)| **e == edge)
-        {
+        if let Some(index) = self.input_edges.iter().position(|e| *e == edge) {
             self.input_edges.swap_remove(index);
             Ok(())
         } else {
@@ -126,12 +121,7 @@ impl Edges {
 
     /// Removes an edge from the `output_edges` if it exists.
     pub(crate) fn remove_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if let Some((index, _)) = self
-            .output_edges
-            .iter()
-            .enumerate()
-            .find(|(_i, e)| **e == edge)
-        {
+        if let Some(index) = self.output_edges.iter().position(|e| *e == edge) {
             self.output_edges.swap_remove(index);
             Ok(())
         } else {

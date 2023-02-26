@@ -1,5 +1,5 @@
 use crate::DiagnosticId;
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///

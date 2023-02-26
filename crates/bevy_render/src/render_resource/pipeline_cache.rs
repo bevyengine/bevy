@@ -20,7 +20,9 @@ use bevy_utils::{
 use parking_lot::Mutex;
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout};
+use wgpu::{
+    PipelineLayoutDescriptor, PushConstantRange, VertexBufferLayout as RawVertexBufferLayout,
+};
 
 use crate::render_resource::resource_macros::*;
 
@@ -298,9 +300,10 @@ impl ShaderCache {
     }
 }
 
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -308,20 +311,24 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
+        push_constant_ranges: Vec<PushConstantRange>,
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
-            let bind_group_layouts = bind_group_layouts
-                .iter()
-                .map(|l| l.value())
-                .collect::<Vec<_>>();
-            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
-                &PipelineLayoutDescriptor {
-                    bind_group_layouts: &bind_group_layouts,
-                    ..default()
-                },
-            ))
-        })
+        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        self.layouts
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|(_, push_constant_ranges)| {
+                let bind_group_layouts = bind_group_layouts
+                    .iter()
+                    .map(|l| l.value())
+                    .collect::<Vec<_>>();
+                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                    &PipelineLayoutDescriptor {
+                        bind_group_layouts: &bind_group_layouts,
+                        push_constant_ranges,
+                        ..default()
+                    },
+                ))
+            })
     }
 }
 
@@ -330,13 +337,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderStage::Render`] stage, just before the render
+/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache do not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderStage::Render`]: crate::RenderStage::Render
+/// [`RenderSet::Render`]: crate::RenderSet::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: LayoutCache,
@@ -561,10 +568,14 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawRenderPipelineDescriptor {
@@ -610,10 +621,14 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawComputePipelineDescriptor {
@@ -630,10 +645,10 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderStage::Render`] stage, but can
+    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderStage::Render`]: crate::RenderStage::Render
+    /// [`RenderSet::Render`]: crate::RenderSet::Render
     pub fn process_queue(&mut self) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
