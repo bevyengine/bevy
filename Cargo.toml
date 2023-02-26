@@ -200,13 +200,13 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation", "bevy_animation"]
 
-# Enable using a shared stdlib for cxx on Android.
+# Enable using a shared stdlib for cxx on Android
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 
-# Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in.
+# Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
 
-# Include tonemapping LUT KTX2 files.
+# Include tonemapping Look Up Tables KTX2 files
 tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 [dependencies]

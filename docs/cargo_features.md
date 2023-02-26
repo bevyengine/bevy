@@ -4,7 +4,7 @@
 
 |feature name|description|
 |-|-|
-|android_shared_stdcxx|Enable using a shared stdlib for cxx on Android.|
+|android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |animation|Enable animation support, and glTF animation loading|
 |bevy_animation|Provides animation functionality|
 |bevy_asset|Provides asset functionality|
@@ -23,7 +23,7 @@
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
 |png|PNG image format support|
-|tonemapping_luts|Include tonemapping LUT KTX2 files.|
+|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
@@ -38,7 +38,7 @@
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
 |debug_asset_server|Enable the "debug asset server" for hot reloading internal assets|
-|detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in.|
+|detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
 |flac|FLAC audio format support|
