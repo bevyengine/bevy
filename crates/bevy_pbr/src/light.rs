@@ -495,8 +495,7 @@ fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
 fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32) -> [Vec3A; 8] {
     let a = z_near.abs() * tan_half_fov;
     let b = z_far.abs() * tan_half_fov;
-    // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
-    //                                               for near then for far
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
     [
         Vec3A::new(a * aspect_ratio, -a, z_near),
         Vec3A::new(a * aspect_ratio, a, z_near),
