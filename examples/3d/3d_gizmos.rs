@@ -62,7 +62,7 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
         Color::GREEN,
     );
 
-    gizmos.sphere(Vec3::new(1., 0.5, 0.), 0.5, Color::RED);
+    gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, Color::RED);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
@@ -79,7 +79,7 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
         .circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
         .segments(64);
     gizmos
-        .sphere(Vec3::ZERO, 3.2, Color::BLACK)
+        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)
         .circle_segments(64);
 }
 

@@ -118,10 +118,17 @@ impl GizmoBuffer {
 
     /// Draw a sphere.
     #[inline]
-    pub fn sphere(&mut self, position: Vec3, radius: f32, color: Color) -> SphereBuilder {
+    pub fn sphere(
+        &mut self,
+        position: Vec3,
+        rotation: Quat,
+        radius: f32,
+        color: Color,
+    ) -> SphereBuilder {
         SphereBuilder {
             buffer: self,
             position,
+            rotation,
             radius,
             color,
             circle_segments: DEFAULT_CIRCLE_SEGMENTS,
@@ -280,6 +287,7 @@ impl<'a> Drop for CircleBuilder<'a> {
 pub struct SphereBuilder<'a> {
     buffer: &'a mut GizmoBuffer,
     position: Vec3,
+    rotation: Quat,
     radius: f32,
     color: Color,
     circle_segments: usize,
@@ -296,7 +304,7 @@ impl Drop for SphereBuilder<'_> {
     fn drop(&mut self) {
         for axis in Vec3::AXES {
             self.buffer
-                .circle(self.position, axis, self.radius, self.color)
+                .circle(self.position, self.rotation * axis, self.radius, self.color)
                 .segments(self.circle_segments);
         }
     }
