@@ -480,14 +480,14 @@ pub fn update_directional_light_cascades(
 fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
     // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
     [
-        Vec3A::new(area.max.x, area.min.y, z_near),
-        Vec3A::new(area.max.x, area.max.y, z_near),
-        Vec3A::new(area.min.x, area.max.y, z_near),
-        Vec3A::new(area.min.x, area.min.y, z_near),
-        Vec3A::new(area.max.x, area.min.y, z_far),
-        Vec3A::new(area.max.x, area.max.y, z_far),
-        Vec3A::new(area.min.x, area.max.y, z_far),
-        Vec3A::new(area.min.x, area.min.y, z_far),
+        Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_near), // top right
+        Vec3A::new(area.min.x, area.max.y, z_near), // top left
+        Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
+        Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_far),  // top right
+        Vec3A::new(area.min.x, area.max.y, z_far),  // top left
+        Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
     ]
 }
 
@@ -496,14 +496,14 @@ fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32
     let b = z_far.abs() * tan_half_fov;
     // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
     [
-        Vec3A::new(a * aspect_ratio, -a, z_near),
-        Vec3A::new(a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, -a, z_near),
-        Vec3A::new(b * aspect_ratio, -b, z_far),
-        Vec3A::new(b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, -b, z_far),
+        Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+        Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+        Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+        Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+        Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+        Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+        Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+        Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
     ]
 }
 
