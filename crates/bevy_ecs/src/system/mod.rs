@@ -124,7 +124,7 @@ pub use system_piping::*;
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S) {
     if false {
         // Check it can be converted into a system
         // TODO: This should ensure that the system has no conflicting system params
@@ -137,7 +137,7 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_read_only_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
+pub fn assert_is_read_only_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
 where
     S::System: ReadOnlySystem,
 {
@@ -208,7 +208,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         schedule.add_system(system);
         schedule.run(world);
@@ -475,7 +475,7 @@ mod tests {
         _buffer: Vec<u8>,
     }
 
-    fn test_for_conflicting_resources<Param, S: IntoSystem<(), (), Param>>(sys: S) {
+    fn test_for_conflicting_resources<Marker, S: IntoSystem<(), (), Marker>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
         world.insert_resource(A);

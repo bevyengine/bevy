@@ -3,7 +3,7 @@ use crate::{
     prelude::Camera3d,
     prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, IntoSystemAppConfig};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
@@ -61,7 +61,7 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_system_to_schedule(ExtractSchedule, extract_taa_settings)
+            .add_system(extract_taa_settings.in_schedule(ExtractSchedule))
             .add_system(
                 prepare_taa_jitter
                     .before(prepare_view_uniforms)

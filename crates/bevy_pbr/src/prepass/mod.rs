@@ -1,4 +1,4 @@
-use bevy_app::{CoreSet, Plugin};
+use bevy_app::{CoreSet, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -100,7 +100,7 @@ where
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
+            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
             .add_system(
                 prepare_prepass_textures
                     .in_set(RenderSet::Prepare)

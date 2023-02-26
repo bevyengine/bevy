@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
-use crate::system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System};
+use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
 
-pub type BoxedCondition = BoxedSystem<(), bool>;
+pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
-pub trait Condition<Params>: sealed::Condition<Params> {
+pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and_then` return `true`.
     ///
@@ -53,7 +53,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and_then<P, C: Condition<P>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+    fn and_then<M, C: Condition<M>>(self, and_then: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and_then);
         let name = format!("{} && {}", a.name(), b.name());
@@ -100,7 +100,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or_else<P, C: Condition<P>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+    fn or_else<M, C: Condition<M>>(self, or_else: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or_else);
         let name = format!("{} || {}", a.name(), b.name());
@@ -108,22 +108,22 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     }
 }
 
-impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
+impl<Marker, F> Condition<Marker> for F where F: sealed::Condition<Marker> {}
 
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Params>:
-        IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
+    pub trait Condition<Marker>:
+        IntoSystem<(), bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
         type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
     }
 
-    impl<Params, F> Condition<Params> for F
+    impl<Marker, F> Condition<Marker> for F
     where
-        F: IntoSystem<(), bool, Params>,
+        F: IntoSystem<(), bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
@@ -137,7 +137,7 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         schedule::{State, States},
-        system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
+        system::{In, IntoPipeSystem, Res, Resource},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -373,9 +373,7 @@ pub mod common_conditions {
     /// #
     /// # fn my_system() { unreachable!() }
     /// ```
-    pub fn not<Params>(
-        condition: impl Condition<Params>,
-    ) -> impl ReadOnlySystem<In = (), Out = bool> {
+    pub fn not<Marker>(condition: impl Condition<Marker>) -> impl Condition<()> {
         condition.pipe(|In(val): In<bool>| !val)
     }
 }
