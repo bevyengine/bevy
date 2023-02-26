@@ -835,6 +835,10 @@ impl Tables {
     }
 
     /// Fetches mutable references to two different [`Table`]s.
+    ///
+    /// # Panics
+    /// 
+    /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
         if a.index() > b.index() {

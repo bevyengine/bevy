@@ -652,6 +652,9 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
+    /// # Panics
+    /// 
+    /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(
         &mut self,
