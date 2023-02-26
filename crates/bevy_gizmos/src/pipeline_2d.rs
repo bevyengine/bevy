@@ -64,7 +64,7 @@ impl SpecializedMeshPipeline for GizmoPipeline2d {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.mesh_pipeline.view_layout.clone()]),
+            layout: vec![self.mesh_pipeline.view_layout.clone()],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -80,6 +80,7 @@ impl SpecializedMeshPipeline for GizmoPipeline2d {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            push_constant_ranges: vec![],
             label: None,
         })
     }

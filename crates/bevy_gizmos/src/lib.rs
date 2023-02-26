@@ -1,6 +1,6 @@
 use std::mem;
 
-use bevy_app::{CoreSet, Plugin};
+use bevy_app::{CoreSet, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     gizmo_2d::{Gizmo2dPlugin, GizmoLine2d},
@@ -63,7 +63,7 @@ impl Plugin for GizmoPlugin {
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_system_to_schedule(ExtractSchedule, extract_gizmo_data);
+        render_app.add_system(extract_gizmo_data.in_schedule(ExtractSchedule));
 
         #[cfg(feature = "bevy_sprite")]
         {

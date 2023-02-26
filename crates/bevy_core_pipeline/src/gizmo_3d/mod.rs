@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
 
-use bevy_app::Plugin;
+use bevy_app::{IntoSystemAppConfig, Plugin};
 use bevy_ecs::{
     prelude::Entity,
     query::With,
@@ -34,7 +34,7 @@ impl Plugin for Gizmo3dPlugin {
         render_app
             .init_resource::<DrawFunctions<GizmoLine3d>>()
             .add_system(sort_phase_system::<GizmoLine3d>)
-            .add_system_to_schedule(ExtractSchedule, extract_gizmo_line_3d_camera_phase);
+            .add_system(extract_gizmo_line_3d_camera_phase.in_schedule(ExtractSchedule));
 
         let gizmo_node = Gizmo3dNode::new(&mut render_app.world);
         let mut binding = render_app.world.resource_mut::<RenderGraph>();

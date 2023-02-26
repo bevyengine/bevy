@@ -110,7 +110,7 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -141,6 +141,7 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            push_constant_ranges: vec![],
             label: Some(label),
         })
     }
