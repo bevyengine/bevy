@@ -2,6 +2,10 @@ use std::mem;
 
 use bevy_app::{CoreSet, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_core_pipeline::{
+    gizmo_2d::{Gizmo2dPlugin, GizmoLine2d},
+    gizmo_3d::{Gizmo3dPlugin, GizmoLine3d},
+};
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
     schedule::IntoSystemConfig,
@@ -51,31 +55,35 @@ impl Plugin for GizmoPlugin {
             .init_resource::<GizmoStorage>()
             .add_system(update_gizmo_meshes.in_base_set(CoreSet::Last));
 
+        #[cfg(feature = "bevy_sprite")]
+        app.add_plugin(Gizmo2dPlugin);
+
+        #[cfg(feature = "bevy_pbr")]
+        app.add_plugin(Gizmo3dPlugin);
+
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
         render_app.add_system_to_schedule(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
         {
-            use bevy_core_pipeline::core_2d::Transparent2d;
             use pipeline_2d::*;
 
             render_app
-                .add_render_command::<Transparent2d, DrawGizmoLines>()
-                .init_resource::<GizmoLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
+                .init_resource::<GizmoPipeline2d>()
+                .init_resource::<SpecializedMeshPipelines<GizmoPipeline2d>>()
+                .add_render_command::<GizmoLine2d, DrawGizmoLines>()
                 .add_system(queue_gizmos_2d.in_set(RenderSet::Queue));
         }
 
         #[cfg(feature = "bevy_pbr")]
         {
-            use bevy_core_pipeline::core_3d::Opaque3d;
             use pipeline_3d::*;
 
             render_app
-                .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<GizmoPipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
+                .init_resource::<GizmoPipeline3d>()
+                .init_resource::<SpecializedMeshPipelines<GizmoPipeline3d>>()
+                .add_render_command::<GizmoLine3d, DrawGizmoLines>()
                 .add_system(queue_gizmos_3d.in_set(RenderSet::Queue));
         }
     }

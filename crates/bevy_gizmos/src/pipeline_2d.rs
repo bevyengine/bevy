@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::gizmo_2d::GizmoLine2d;
 use bevy_ecs::{
     prelude::Entity,
     query::With,
@@ -20,21 +20,21 @@ use bevy_utils::FloatOrd;
 use crate::{GizmoMesh, LINE_SHADER_HANDLE};
 
 #[derive(Resource)]
-pub(crate) struct GizmoLinePipeline {
+pub(crate) struct GizmoPipeline2d {
     mesh_pipeline: Mesh2dPipeline,
     shader: Handle<Shader>,
 }
 
-impl FromWorld for GizmoLinePipeline {
+impl FromWorld for GizmoPipeline2d {
     fn from_world(render_world: &mut World) -> Self {
-        GizmoLinePipeline {
+        GizmoPipeline2d {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             shader: LINE_SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for GizmoLinePipeline {
+impl SpecializedMeshPipeline for GizmoPipeline2d {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(
@@ -94,16 +94,16 @@ pub(crate) type DrawGizmoLines = (
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue_gizmos_2d(
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<GizmoLinePipeline>,
+    draw_functions: Res<DrawFunctions<GizmoLine2d>>,
+    pipeline: Res<GizmoPipeline2d>,
     pipeline_cache: Res<PipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
+    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline2d>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoMesh>>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<&mut RenderPhase<GizmoLine2d>>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
+    let draw_function = draw_functions.read().id::<DrawGizmoLines>();
     let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples());
     for mut phase in &mut views {
         for (entity, mesh_handle) in &mesh_handles {
@@ -113,12 +113,11 @@ pub(crate) fn queue_gizmos_2d(
             let pipeline = specialized_pipelines
                 .specialize(&pipeline_cache, &pipeline, key, &mesh.layout)
                 .unwrap();
-            phase.add(Transparent2d {
+            phase.add(GizmoLine2d {
                 entity,
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::MAX),
-                batch_range: None,
             });
         }
     }

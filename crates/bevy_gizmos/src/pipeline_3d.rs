@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::Opaque3d;
+use bevy_core_pipeline::gizmo_3d::GizmoLine3d;
 use bevy_ecs::{
     entity::Entity,
     query::With,
@@ -24,21 +24,21 @@ use bevy_render::{
 use crate::{GizmoConfig, GizmoMesh, LINE_SHADER_HANDLE};
 
 #[derive(Resource)]
-pub(crate) struct GizmoPipeline {
+pub(crate) struct GizmoPipeline3d {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
 }
 
-impl FromWorld for GizmoPipeline {
+impl FromWorld for GizmoPipeline3d {
     fn from_world(render_world: &mut World) -> Self {
-        GizmoPipeline {
+        GizmoPipeline3d {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             shader: LINE_SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for GizmoPipeline {
+impl SpecializedMeshPipeline for GizmoPipeline3d {
     type Key = (bool, MeshPipelineKey);
 
     fn specialize(
@@ -155,38 +155,40 @@ pub(crate) type DrawGizmoLines = (
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue_gizmos_3d(
-    draw_functions: Res<DrawFunctions<Opaque3d>>,
-    pipeline: Res<GizmoPipeline>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline>>,
+    draw_functions: Res<DrawFunctions<GizmoLine3d>>,
+    pipeline: Res<GizmoPipeline3d>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline3d>>,
     pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoMesh>>,
     config: Res<GizmoConfig>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<GizmoLine3d>)>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
+    let draw_function = draw_functions.read().id::<DrawGizmoLines>();
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, mut phase) in &mut views {
         let key = key | MeshPipelineKey::from_hdr(view.hdr);
         for (entity, mesh_handle) in &mesh_handles {
-            if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline = pipelines
-                    .specialize(
-                        &pipeline_cache,
-                        &pipeline,
-                        (!config.on_top, key),
-                        &mesh.layout,
-                    )
-                    .unwrap();
-                phase.add(Opaque3d {
-                    entity,
-                    pipeline,
-                    draw_function,
-                    distance: 0.,
-                });
-            }
+            let Some(mesh) = render_meshes.get(mesh_handle) else {
+                continue;
+            };
+
+            let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let pipeline = pipelines
+                .specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    (!config.on_top, key),
+                    &mesh.layout,
+                )
+                .unwrap();
+            phase.add(GizmoLine3d {
+                entity,
+                pipeline,
+                draw_function,
+                distance: 0.,
+            });
         }
     }
 }
