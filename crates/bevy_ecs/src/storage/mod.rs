@@ -4,7 +4,7 @@
 //! unsafe APIs, and have been made `pub` primarily for debugging and monitoring purposes.
 //!
 //! # Fetching Storages
-//! Each of the primary backing data stores can be fetched via [`Storages`], which can be fetched from a
+//! Each of the below data stores can be fetched via [`Storages`], which can be fetched from a
 //! [`World`] via [`World::storages`]. It exposes a top level container for each class of storage within
 //! ECS:
 //!
