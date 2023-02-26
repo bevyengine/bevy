@@ -478,8 +478,7 @@ pub fn update_directional_light_cascades(
 }
 
 fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-    // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
-    //                                               for near then for far
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
     [
         Vec3A::new(area.max.x, area.min.y, z_near),
         Vec3A::new(area.max.x, area.max.y, z_near),
