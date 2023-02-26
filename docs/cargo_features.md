@@ -1,6 +1,13 @@
-# Cargo Features
+<!-- MD041 - This file will be included in docs and should not start with a top header -->
+<!-- markdownlint-disable-file MD041 -->
 
-## Default Features
+## Cargo Features
+
+Bevy exposes many features to customise the engine. Enabling them add functionnalities but often come at the cost of more compilation time and extra dependencies.
+
+### Default Features
+
+The default feature set enables most of the expected features of a game engine, like rendering in both 2D and 3D, asset loading, audio and UI. To help reduce compilation time, consider disabling default features and enabling only those you need.
 
 |feature name|description|
 |-|-|
@@ -28,7 +35,7 @@
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
-## Optional Features
+### Optional Features
 
 |feature name|description|
 |-|-|
