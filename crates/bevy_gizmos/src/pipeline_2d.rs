@@ -81,7 +81,7 @@ impl SpecializedMeshPipeline for GizmoPipeline2d {
                 alpha_to_coverage_enabled: false,
             },
             push_constant_ranges: vec![],
-            label: None,
+            label: Some("gizmo_2d_pipeline".into()),
         })
     }
 }

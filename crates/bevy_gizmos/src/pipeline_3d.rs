@@ -64,21 +64,6 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_COLOR.at_shader_location(1),
         ])?;
-        let (label, blend, depth_write_enabled);
-        if key.contains(MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA) {
-            label = "transparent_gizmo_pipeline".into();
-            blend = Some(BlendState::ALPHA_BLENDING);
-            // For the transparent pass, fragments that are closer will be alpha
-            // blended but their depth is not written to the depth buffer.
-            depth_write_enabled = false;
-        } else {
-            label = "opaque_gizmo_pipeline".into();
-            blend = Some(BlendState::REPLACE);
-            // For the opaque and alpha mask passes, fragments that are closer
-            // will replace the current fragment value in the output and the depth is
-            // written to the depth buffer.
-            depth_write_enabled = true;
-        }
         let bind_group_layout = match key.msaa_samples() {
             1 => vec![self.mesh_pipeline.view_layout.clone()],
             _ => {
@@ -106,7 +91,7 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend,
+                    blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -122,7 +107,7 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled,
+                depth_write_enabled: false,
                 depth_compare: CompareFunction::Greater,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
@@ -142,7 +127,7 @@ impl SpecializedMeshPipeline for GizmoPipeline3d {
                 alpha_to_coverage_enabled: false,
             },
             push_constant_ranges: vec![],
-            label: Some(label),
+            label: Some("gizmo_3d_pipeline".into()),
         })
     }
 }
