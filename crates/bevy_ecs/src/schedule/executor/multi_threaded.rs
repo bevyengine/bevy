@@ -453,7 +453,7 @@ impl MultiThreadedExecutor {
             let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY:
-                // - Access is compatible.
+                // - Access: TODO.
                 // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
