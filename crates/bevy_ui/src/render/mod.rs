@@ -312,6 +312,8 @@ pub fn extract_text_uinodes(
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
 
+    use bevy_math::Quat;
+
     let scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)

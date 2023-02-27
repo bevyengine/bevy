@@ -102,16 +102,17 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
+        let scale = Vec3::splat(scale_factor.recip());
         let text_glyphs = &text_layout_info.glyphs;
         let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
-        let alignment_offset = text_layout_info.size * text_anchor;
-        let transform = *global_transform
-            * Transform::from_scale_rotation_translation(
-                Vec3::splat(scale_factor.recip()),
-                Quat::IDENTITY,
-                alignment_offset.extend(0.),
-            );
-
+        let translation = (text_layout_info.size * text_anchor).extend(0.) * scale;
+        let mut transform = *global_transform
+            * Transform {
+                scale,
+                translation,
+                ..Default::default()
+            };
+        
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
