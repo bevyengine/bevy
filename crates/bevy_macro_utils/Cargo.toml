@@ -9,6 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-toml_edit = "0.18"
+toml_edit = "0.19"
 syn = "1.0"
 quote = "1.0"

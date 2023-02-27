@@ -7,7 +7,7 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-toml_edit = "0.18"
+toml_edit = "0.19"
 tera = "1.15"
 serde = { version = "1.0", features = [ "derive" ] }
 bitflags = "1.3"
