@@ -103,7 +103,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
-        let alignment_translation = (text_layout_info.size * text_anchor);
+        let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
             * Transform::from_scale(Vec3::splat(scale_factor.recip()))
             * Transform::from_translation(alignment_translation.extend(0.));
