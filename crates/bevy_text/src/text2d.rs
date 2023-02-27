@@ -103,10 +103,9 @@ pub fn extract_text2d_sprite(
         }
 
         let scale = Vec3::splat(scale_factor.recip());
-        let text_glyphs = &text_layout_info.glyphs;
         let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
         let translation = (text_layout_info.size * text_anchor).extend(0.) * scale;
-        let mut transform = *global_transform
+        let transform = *global_transform
             * Transform {
                 scale,
                 translation,
