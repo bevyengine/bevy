@@ -121,6 +121,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
 
+        let (tx, rx) = async_channel::bounded(sys_count.max(1));
+
+        self.sender = tx;
+        self.receiver = rx;
         self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
         self.ready_systems_copy = FixedBitSet::with_capacity(sys_count);
