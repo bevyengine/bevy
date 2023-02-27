@@ -23,8 +23,7 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::Comma,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
+    ConstParam, DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta,
     Result, Token, TypeParam,
 };
 
