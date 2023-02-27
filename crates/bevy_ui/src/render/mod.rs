@@ -326,8 +326,6 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
             let scale = scale_factor.recip();
             let alignment_translation = -0.5 * uinode.size();
             let transform = global_transform.compute_matrix()
@@ -337,6 +335,8 @@ pub fn extract_text_uinodes(
                     alignment_translation.extend(0.),
                 );
 
+            let mut color = Color::WHITE;
+            let mut current_section = usize::MAX;
             for PositionedGlyph {
                 position,
                 atlas_info,
