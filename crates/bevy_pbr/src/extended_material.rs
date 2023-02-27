@@ -12,7 +12,7 @@ use bevy_render::{
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, StandardMaterial};
 
-/// A material that extends the [`bevy_pbr::StandardMaterial`] with user-defined shaders
+/// A material that extends the [`StandardMaterial`] with user-defined shaders
 /// and data.
 /// The data from both the parts will be combined and made available to the shader
 /// so that the built in `pbr_fragment` function will work as expected, and custom
