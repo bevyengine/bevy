@@ -416,10 +416,12 @@ impl TaskPool {
         let execute_forever = async move {
             loop {
                 let tick_forever = async {
-                    loop {
-                        if external_ticker.conflict_with(&scope_ticker) {
+                    if external_ticker.conflict_with(&scope_ticker) {
+                        loop {
                             external_ticker.tick().await;
-                        } else {
+                        }
+                    } else {
+                        loop {
                             external_ticker.tick().or(scope_ticker.tick()).await;
                         }
                     }
@@ -444,10 +446,12 @@ impl TaskPool {
         let execute_forever = async {
             loop {
                 let tick_forever = async {
-                    loop {
-                        if external_ticker.conflict_with(&scope_ticker) {
+                    if external_ticker.conflict_with(&scope_ticker) {
+                        loop {
                             external_ticker.tick().await;
-                        } else {
+                        }
+                    } else {
+                        loop {
                             external_ticker.tick().or(scope_ticker.tick()).await;
                         }
                     }
