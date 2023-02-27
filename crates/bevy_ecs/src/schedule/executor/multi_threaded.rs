@@ -121,7 +121,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
 
-        let (tx, rx) = async_channel::bounded(sys_count.min(1));
+        let (tx, rx) = async_channel::bounded(sys_count.max(1));
 
         self.sender = tx;
         self.receiver = rx;
