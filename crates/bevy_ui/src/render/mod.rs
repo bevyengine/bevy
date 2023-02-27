@@ -328,14 +328,9 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let scale = scale_factor.recip();
-            let alignment_translation = -0.5 * uinode.size();
             let transform = global_transform.compute_matrix()
-                * Mat4::from_scale_rotation_translation(
-                    Vec3::splat(scale),
-                    Quat::IDENTITY,
-                    alignment_translation.extend(0.),
-                );
+                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+                * Mat4::from_scale(Vec3::splat(scale_factor.recip()));
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
