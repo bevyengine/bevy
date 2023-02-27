@@ -1,16 +1,21 @@
+use std::cmp::Reverse;
+
 use bevy_asset::Handle;
-use bevy_core_pipeline::gizmo_3d::GizmoLine3d;
+use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::Entity,
     query::With,
-    system::{Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_pbr::*;
 use bevy_render::{
     mesh::Mesh,
+    prelude::Camera,
+    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::Shader,
     view::{ExtractedView, ViewTarget},
+    Extract,
 };
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
@@ -20,6 +25,7 @@ use bevy_render::{
     texture::BevyDefault,
     view::Msaa,
 };
+use bevy_utils::FloatOrd;
 
 use crate::{GizmoConfig, GizmoMesh, LINE_SHADER_HANDLE};
 
@@ -124,6 +130,59 @@ pub(crate) type DrawGizmoLines = (
     SetMeshBindGroup<1>,
     DrawMesh,
 );
+
+pub struct GizmoLine3d {
+    pub distance: f32,
+    pub pipeline: CachedRenderPipelineId,
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+
+impl PhaseItem for GizmoLine3d {
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        Reverse(FloatOrd(self.distance))
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for GizmoLine3d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
+}
+
+pub fn extract_gizmo_line_3d_camera_phase(
+    mut commands: Commands,
+    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+) {
+    for (entity, camera) in &cameras_3d {
+        if camera.is_active {
+            commands
+                .get_or_spawn(entity)
+                .insert(RenderPhase::<GizmoLine3d>::default());
+        }
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue_gizmos_3d(
