@@ -3,7 +3,7 @@ use crate::{
     prelude::Camera3d,
     prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, Plugin, IntoSystemAppConfig};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
