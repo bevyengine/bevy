@@ -319,16 +319,14 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params>: Sized {
+pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
 
-pub struct AlreadyWasSystem;
-
 // Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
+impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
     type System = Sys;
     fn into_system(this: Self) -> Sys {
         this
@@ -362,8 +360,6 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
-#[doc(hidden)]
-pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -611,7 +607,7 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<((), Out, $($param,)*)> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
@@ -638,7 +634,7 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(Input, Out, $($param,)* InputMarker)> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +

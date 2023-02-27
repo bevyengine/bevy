@@ -73,6 +73,7 @@ impl TypeRegistry {
     pub fn new() -> Self {
         let mut registry = Self::empty();
         registry.register::<bool>();
+        registry.register::<char>();
         registry.register::<u8>();
         registry.register::<u16>();
         registry.register::<u32>();
@@ -87,6 +88,7 @@ impl TypeRegistry {
         registry.register::<isize>();
         registry.register::<f32>();
         registry.register::<f64>();
+        registry.register::<String>();
         registry
     }
 

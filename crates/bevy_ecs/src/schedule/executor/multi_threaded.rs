@@ -451,8 +451,7 @@ impl MultiThreadedExecutor {
                 sender.close();
             } else {
                 sender
-                    .send(system_index)
-                    .await
+                    .try_send(system_index)
                     .unwrap_or_else(|error| unreachable!("{}", error));
             }
         };
@@ -508,8 +507,7 @@ impl MultiThreadedExecutor {
                     sender.close();
                 } else {
                     sender
-                        .send(system_index)
-                        .await
+                        .try_send(system_index)
                         .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
@@ -532,8 +530,7 @@ impl MultiThreadedExecutor {
                     sender.close();
                 } else {
                     sender
-                        .send(system_index)
-                        .await
+                        .try_send(system_index)
                         .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };

@@ -19,7 +19,7 @@ pub struct ReflectAsset {
 
     get: fn(&World, HandleUntyped) -> Option<&dyn Reflect>,
     // SAFETY:
-    // - may only be called with a [`IteriorMutableWorld`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
@@ -144,7 +144,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 asset.map(|asset| asset as &dyn Reflect)
             },
             get_unchecked_mut: |world, handle| {
-                // SAFETY: `get_unchecked_mut` must be callied with `UnsafeWorldCell` having access to `Assets<A>`,
+                // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed());

@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
-use crate::system::{BoxedSystem, CombinatorSystem, Combine, IntoSystem, System};
+use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
 
-pub type BoxedCondition = BoxedSystem<(), bool>;
+pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
-pub trait Condition<Params>: sealed::Condition<Params> {
+pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and_then` return `true`.
     ///
@@ -53,7 +53,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and_then<P, C: Condition<P>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+    fn and_then<M, C: Condition<M>>(self, and_then: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and_then);
         let name = format!("{} && {}", a.name(), b.name());
@@ -100,7 +100,7 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or_else<P, C: Condition<P>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+    fn or_else<M, C: Condition<M>>(self, or_else: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or_else);
         let name = format!("{} || {}", a.name(), b.name());
@@ -108,22 +108,22 @@ pub trait Condition<Params>: sealed::Condition<Params> {
     }
 }
 
-impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
+impl<Marker, F> Condition<Marker> for F where F: sealed::Condition<Marker> {}
 
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Params>:
-        IntoSystem<(), bool, Params, System = Self::ReadOnlySystem>
+    pub trait Condition<Marker>:
+        IntoSystem<(), bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
         type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
     }
 
-    impl<Params, F> Condition<Params> for F
+    impl<Marker, F> Condition<Marker> for F
     where
-        F: IntoSystem<(), bool, Params>,
+        F: IntoSystem<(), bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
@@ -133,8 +133,11 @@ mod sealed {
 pub mod common_conditions {
     use super::Condition;
     use crate::{
+        change_detection::DetectChanges,
+        event::{Event, EventReader},
+        prelude::{Component, Query, With},
         schedule::{State, States},
-        system::{In, IntoPipeSystem, ReadOnlySystem, Res, Resource},
+        system::{In, IntoPipeSystem, Res, Resource},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -188,6 +191,107 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has been added since the condition was last checked.
+    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| match res {
+            Some(res) => res.is_added(),
+            None => false,
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Res<T>| res.is_changed()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// This run condition does not detect when the resource is removed.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| match res {
+            Some(res) => res.is_changed(),
+            None => false,
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// This run condition also detects removal. It will return `true` if the resource
+    /// has been removed since the run condition was last checked.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        let mut existed = false;
+        move |res: Option<Res<T>>| {
+            if let Some(value) = res {
+                existed = true;
+                value.is_changed()
+            } else if existed {
+                existed = false;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the resource of the given type has been removed since the condition was last checked.
+    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        let mut existed = false;
+        move |res: Option<Res<T>>| {
+            if res.is_some() {
+                existed = true;
+                false
+            } else if existed {
+                existed = false;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
     pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
@@ -216,6 +320,35 @@ pub mod common_conditions {
         }
     }
 
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the state machine changed state.
+    ///
+    /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
+    /// schedules. Use this run condition if you want to detect any change, regardless of the value.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn state_changed<S: States>() -> impl FnMut(Res<State<S>>) -> bool {
+        move |current_state: Res<State<S>>| current_state.is_changed()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any new events of the given type since it was last called.
+    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool {
+        // The events need to be consumed, so that there are no false positives on subsequent
+        // calls of the run condition. Simply checking `is_empty` would not be enough.
+        // PERF: note that `count` is efficient (not actually looping/iterating),
+        // due to Bevy having a specialized implementation for events.
+        move |mut reader: EventReader<T>| reader.iter().count() > 0
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entities with the given component type.
+    pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool {
+        move |query: Query<(), With<T>>| !query.is_empty()
+    }
+
     /// Generates a  [`Condition`](super::Condition) that inverses the result of passed one.
     ///
     /// # Examples
@@ -240,9 +373,7 @@ pub mod common_conditions {
     /// #
     /// # fn my_system() { unreachable!() }
     /// ```
-    pub fn not<Params>(
-        condition: impl Condition<Params>,
-    ) -> impl ReadOnlySystem<In = (), Out = bool> {
+    pub fn not<Marker>(condition: impl Condition<Marker>) -> impl Condition<()> {
         condition.pipe(|In(val): In<bool>| !val)
     }
 }
