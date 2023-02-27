@@ -7,7 +7,7 @@
 //! added to `CoreSet::Update`) but want to flush commands immediately.
 //!
 //! It is important that systems are ordered correctly with respect to
-//! `apply_system_buffers`, to lead to the expected behaviour.
+//! `apply_system_buffers`, to avoid surprising non-deterministic system execution order.
 
 use bevy::prelude::*;
 
