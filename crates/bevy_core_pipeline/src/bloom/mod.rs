@@ -198,6 +198,8 @@ impl Node for BloomNode {
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
         ) else { return Ok(()) };
 
+        render_context.command_encoder().push_debug_group("bloom");
+
         // First downsample pass
         {
             let downsampling_first_bind_group =
@@ -325,6 +327,8 @@ impl Node for BloomNode {
             upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
+
+        render_context.command_encoder().pop_debug_group();
 
         Ok(())
     }
