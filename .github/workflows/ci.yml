@@ -77,7 +77,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
@@ -297,7 +297,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Installs cargo-udeps
@@ -326,7 +326,7 @@ jobs:
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "MSRV=$msrv" >> $GITHUB_ENV
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
       - name: Install alsa and udev
