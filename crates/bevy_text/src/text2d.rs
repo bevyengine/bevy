@@ -112,7 +112,7 @@ pub fn extract_text2d_sprite(
                 translation,
                 ..Default::default()
             };
-        
+
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
