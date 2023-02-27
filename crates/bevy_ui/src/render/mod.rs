@@ -12,7 +12,7 @@ use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiIm
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{mat4, Mat4, Rect, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -329,12 +329,12 @@ pub fn extract_text_uinodes(
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
             let scale = scale_factor.recip();
+            let alignment_translation = -0.5 * uinode.size();
             let transform = global_transform.compute_matrix()
-                * mat4(
-                    Vec4::X * scale,
-                    Vec4::Y * scale,
-                    Vec4::Z * scale,
-                    Vec4::from((-0.5 * uinode.size(), 0., 1.)),
+                * Mat4::from_scale_rotation_translation(
+                    Vec3::splat(scale),
+                    Quat::IDENTITY,
+                    alignment_translation.extend(0.),
                 );
 
             for PositionedGlyph {
