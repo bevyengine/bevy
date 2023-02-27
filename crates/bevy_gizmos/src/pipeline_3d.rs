@@ -91,7 +91,7 @@ impl SpecializedMeshPipeline for GizmoPipeline {
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -102,7 +102,7 @@ impl SpecializedMeshPipeline for GizmoPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled: false,
+                depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
                 stencil: Default::default(),
                 bias: Default::default(),
