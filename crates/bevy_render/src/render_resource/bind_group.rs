@@ -308,6 +308,9 @@ pub trait AsBindGroup {
     }
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
+    /// In cases where `OwnedBindingResource` is not available (as for array textures currently),
+    /// an implementor may define `as_bind_group` directly. This may prevent certain features
+    /// from working correctly.
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
@@ -346,7 +349,7 @@ pub struct PreparedBindGroup<T> {
     pub data: T,
 }
 
-/// a surprised bind group
+/// a map containing `OwnedBindingResource`s, keyed by the target binding index
 pub struct UnpreparedBindGroup<T> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub data: T,

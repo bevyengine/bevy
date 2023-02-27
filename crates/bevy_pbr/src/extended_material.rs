@@ -12,6 +12,19 @@ use bevy_render::{
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, StandardMaterial};
 
+/// A material that extends the [`bevy_pbr::StandardMaterial`] with user-defined shaders
+/// and data.
+/// The data from both the parts will be combined and made available to the shader
+/// so that the built in `pbr_fragment` function will work as expected, and custom
+/// data can also be used.
+/// If the material `M` returns a non-default result from `vertex_shader()` it will be used in place of the standard
+/// vertex shader (`bevy_pbr::render::mesh.wgsl`). It should return the same output as the standard vertex shader.
+/// If the material `M` returns a non-default result from `fragment_shader()` it will be used in place of the standard
+/// fragment shader (`bevy_pbr::render::pbr_fragment.wgsl`). since all the standard material fields are
+/// present, the `pbr_fragment` shader function can be called from the custom shader (see
+/// the `extended_material` example).
+/// Alpha mode from the extended material is ignored, only the standard material's alpha mode
+/// is used.
 #[derive(Clone)]
 pub struct ExtendedMaterial<M: Material> {
     pub standard: StandardMaterial,
@@ -38,6 +51,7 @@ impl<M: Material> AsBindGroup for ExtendedMaterial<M> {
         fallback_image: &FallbackImage,
     ) -> Result<bevy_render::render_resource::UnpreparedBindGroup<Self::Data>, AsBindGroupError>
     {
+        // add together the bindings of the standard material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: standard_data,
@@ -70,6 +84,7 @@ impl<M: Material> AsBindGroup for ExtendedMaterial<M> {
     where
         Self: Sized,
     {
+        // add together the bindings of the standard material and the user material
         let mut entries = StandardMaterial::bind_group_layout_entries(render_device);
         entries.extend(M::bind_group_layout_entries(render_device));
         entries
@@ -92,7 +107,7 @@ impl<M: Material> Material for ExtendedMaterial<M> {
     }
 
     fn alpha_mode(&self) -> crate::AlphaMode {
-        M::alpha_mode(&self.extended)
+        StandardMaterial::alpha_mode(&self.standard)
     }
 
     fn depth_bias(&self) -> f32 {
@@ -123,6 +138,7 @@ impl<M: Material> Material for ExtendedMaterial<M> {
         layout: &MeshVertexBufferLayout,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
+        // call StandardMaterial specialize function
         let MaterialPipeline::<Self> {
             mesh_pipeline,
             material_layout,
@@ -143,6 +159,7 @@ impl<M: Material> Material for ExtendedMaterial<M> {
         };
         StandardMaterial::specialize(&standard_pipeline, descriptor, layout, standard_key)?;
 
+        // call custom material specialize function afterwards
         let MaterialPipeline::<Self> {
             mesh_pipeline,
             material_layout,

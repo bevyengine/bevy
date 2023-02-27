@@ -1,5 +1,4 @@
-//! A shader that uses dynamic data like the time since startup.
-//! The time data is in the globals binding which is part of the `mesh_view_bindings` shader import.
+//! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
 use bevy::{pbr::ExtendedMaterial, prelude::*, reflect::TypeUuid, render::render_resource::*};
 
