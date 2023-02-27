@@ -1,6 +1,6 @@
 //! Simple text rendering benchmark.
 //!
-//! Creates a `Text` with a single `TextSection` containing 100_000 glyphs,
+//! Creates a `Text` with a single `TextSection` containing `100_000` glyphs,
 //! and renders it with the UI in a white color and with Text2d in a red color.
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
