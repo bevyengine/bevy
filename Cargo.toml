@@ -688,6 +688,16 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "nested_app"
+path = "examples/app/nested_app.rs"
+
+[package.metadata.example.nested_app]
+name = "Nested"
+description = "Demonstrates the creation of nested app"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin_group"
 path = "examples/app/plugin_group.rs"
 
