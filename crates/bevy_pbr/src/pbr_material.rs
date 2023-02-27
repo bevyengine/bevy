@@ -78,22 +78,27 @@ pub struct StandardMaterial {
 
     /// Linear perceptual roughness, clamped to `[0.089, 1.0]` in the shader.
     ///
-    /// Defaults to minimum of `0.089`.
+    /// Defaults to `0.5`.
     ///
     /// Low values result in a "glossy" material with specular highlights,
     /// while values close to `1` result in rough materials.
     ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `roughness * roughness_texture_value`.
+    ///
+    /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
+    /// calculations used.
+    //
+    // Technically for 32-bit floats, 0.045 could be used.
+    // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
     pub perceptual_roughness: f32,
 
-    /// How "metallic" the material appears, within `[0.0, 1.0]`,
-    /// going from dielectric to pure metallic.
+    /// How "metallic" the material appears, within `[0.0, 1.0]`.
     ///
-    /// Defaults to `0.01`.
+    /// This should be set to 0.0 for dielectric materials or 1.0 for metallic materials.
+    /// For a hybrid surface such as corroded metal, you may need to use in-between values.
     ///
-    /// The closer to `1` the value, the more the material will
-    /// reflect light like a metal such as steel or gold.
+    /// Defaults to `0.00`, for dielectric.
     ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`.
@@ -207,6 +212,9 @@ pub struct StandardMaterial {
     /// shadows, alpha mode and ambient light are ignored if this is set to `true`.
     pub unlit: bool,
 
+    /// Whether to enable fog for this material.
+    pub fog_enabled: bool,
+
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
     /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
@@ -233,19 +241,16 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
+            // White because it gets multiplied with texture values if someone uses
+            // a texture.
             base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             emissive: Color::BLACK,
             emissive_texture: None,
-            // This is the minimum the roughness is clamped to in shader code
-            // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
-            // It's the minimum floating point value that won't be rounded down to 0 in the
-            // calculations used. Although technically for 32-bit floats, 0.045 could be
-            // used.
-            perceptual_roughness: 0.089,
-            // Few materials are purely dielectric or metallic
-            // This is just a default for mostly-dielectric
-            metallic: 0.01,
+            // Matches Blender's default roughness.
+            perceptual_roughness: 0.5,
+            // Metallic should generally be set to 0.0 or 1.0.
+            metallic: 0.0,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
@@ -257,6 +262,7 @@ impl Default for StandardMaterial {
             double_sided: false,
             cull_mode: Some(Face::Back),
             unlit: false,
+            fog_enabled: true,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
         }
@@ -300,6 +306,7 @@ bitflags::bitflags! {
         const UNLIT                      = (1 << 5);
         const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
         const FLIP_NORMAL_MAP_Y          = (1 << 7);
+        const FOG_ENABLED                = (1 << 8);
         const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
@@ -361,6 +368,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
+        }
+        if self.fog_enabled {
+            flags |= StandardMaterialFlags::FOG_ENABLED;
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {

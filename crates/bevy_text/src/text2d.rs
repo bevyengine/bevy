@@ -58,12 +58,19 @@ impl Text2dBounds {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
+    /// Contains the text.
     pub text: Text,
+    /// How the text is positioned relative to its transform.
     pub text_anchor: Anchor,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    /// The maximum width and height of the text.
     pub text_2d_bounds: Text2dBounds,
+    /// The transform of the text.
+    pub transform: Transform,
+    /// The global transform of the text.
+    pub global_transform: GlobalTransform,
+    /// The visibility properties of the text.
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
 }
 

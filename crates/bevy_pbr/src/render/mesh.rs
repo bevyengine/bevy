@@ -1,11 +1,18 @@
 use crate::{
-    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, queue_shadow_view_bind_group, EnvironmentMapLight, FogMeta, GlobalLightMeta,
+    GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
+    ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
-use bevy_app::Plugin;
+use bevy_app::{IntoSystemAppConfigs, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
+use bevy_core_pipeline::{
+    prepass::ViewPrepassTextures,
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+    },
+};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -26,11 +33,11 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
-        ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
+        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -101,11 +108,14 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .add_system_to_stage(RenderStage::Extract, extract_meshes)
-                .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
-                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+                .add_systems((extract_meshes, extract_skinned_meshes).in_schedule(ExtractSchedule))
+                .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
+                .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
+                .add_system(
+                    queue_mesh_view_bind_groups
+                        .in_set(RenderSet::Queue)
+                        .ambiguous_with(queue_shadow_view_bind_group), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`
+                );
         }
     }
 }
@@ -400,11 +410,32 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Fog
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(GpuFog::min_size()),
+                    },
+                    count: None,
+                },
             ];
+
+            // EnvironmentMapLight
+            let environment_map_entries =
+                environment_map::get_bind_group_layout_entries([11, 12, 13]);
+            entries.extend_from_slice(&environment_map_entries);
+
+            // Tonemapping
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
+            entries.extend_from_slice(&tonemapping_lut_entries);
+
             if cfg!(not(feature = "webgl")) {
                 // Depth texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 10,
+                    binding: 16,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -415,7 +446,7 @@ impl FromWorld for MeshPipeline {
                 });
                 // Normal texture
                 entries.push(BindGroupLayoutEntry {
-                    binding: 11,
+                    binding: 17,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled,
@@ -425,6 +456,7 @@ impl FromWorld for MeshPipeline {
                     count: None,
                 });
             }
+
             entries
         }
 
@@ -519,6 +551,7 @@ impl FromWorld for MeshPipeline {
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
+                mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
 
@@ -556,19 +589,29 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
-        const NONE                        = 0;
-        const HDR                         = (1 << 0);
-        const TONEMAP_IN_SHADER           = (1 << 1);
-        const DEBAND_DITHER               = (1 << 2);
-        const DEPTH_PREPASS               = (1 << 3);
-        const NORMAL_PREPASS              = (1 << 4);
-        const ALPHA_MASK                  = (1 << 5);
-        const BLEND_RESERVED_BITS         = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA   = (1 << Self::BLEND_SHIFT_BITS);                   //
-        const BLEND_MULTIPLY              = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const NONE                              = 0;
+        const HDR                               = (1 << 0);
+        const TONEMAP_IN_SHADER                 = (1 << 1);
+        const DEBAND_DITHER                     = (1 << 2);
+        const DEPTH_PREPASS                     = (1 << 3);
+        const NORMAL_PREPASS                    = (1 << 4);
+        const ALPHA_MASK                        = (1 << 5);
+        const ENVIRONMENT_MAP                   = (1 << 6);
+        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
+        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
+        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -581,6 +624,9 @@ impl MeshPipelineKey {
     const BLEND_MASK_BITS: u32 = 0b11;
     const BLEND_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_SHIFT_BITS: u32 =
+        Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -724,10 +770,34 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
+            let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
+
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
+        }
+
+        if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+            shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -753,7 +823,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -887,25 +958,46 @@ pub fn queue_mesh_view_bind_groups(
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
+    fog_meta: Res<FogMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(
         Entity,
         &ViewShadowBindings,
         &ViewClusterBindings,
         Option<&ViewPrepassTextures>,
+        Option<&EnvironmentMapLight>,
+        &Tonemapping,
     )>,
+    images: Res<RenderAssets<Image>>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,
+    fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
+    if let (
+        Some(view_binding),
+        Some(light_binding),
+        Some(point_light_binding),
+        Some(globals),
+        Some(fog_binding),
+    ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
+        fog_meta.gpu_fogs.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
+        for (
+            entity,
+            view_shadow_bindings,
+            view_cluster_bindings,
+            prepass_textures,
+            environment_map,
+            tonemapping,
+        ) in &views
+        {
             let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
@@ -957,7 +1049,23 @@ pub fn queue_mesh_view_bind_groups(
                     binding: 9,
                     resource: globals.clone(),
                 },
+                BindGroupEntry {
+                    binding: 10,
+                    resource: fog_binding.clone(),
+                },
             ];
+
+            let env_map = environment_map::get_bindings(
+                environment_map,
+                &images,
+                &fallback_cubemap,
+                [11, 12, 13],
+            );
+            entries.extend_from_slice(&env_map);
+
+            let tonemapping_luts =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
+            entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
             // When using WebGL, and MSAA is disabled, we can't bind the textures either
@@ -971,7 +1079,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 10,
+                    binding: 16,
                     resource: BindingResource::TextureView(depth_view),
                 });
 
@@ -984,7 +1092,7 @@ pub fn queue_mesh_view_bind_groups(
                     }
                 };
                 entries.push(BindGroupEntry {
-                    binding: 11,
+                    binding: 17,
                     resource: BindingResource::TextureView(normal_view),
                 });
             }
@@ -1008,6 +1116,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     type ViewWorldQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<ViewFogUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemWorldQuery = ();
@@ -1015,7 +1124,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, mesh_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
+            'w,
+            Self::ViewWorldQuery,
+        >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -1023,7 +1135,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset],
+            &[view_uniform.offset, view_lights.offset, view_fog.offset],
         );
 
         RenderCommandResult::Success

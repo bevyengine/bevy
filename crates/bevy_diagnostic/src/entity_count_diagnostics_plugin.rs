@@ -1,5 +1,5 @@
-use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::Entities, system::ResMut};
+use bevy_app::prelude::*;
+use bevy_ecs::{entity::Entities, prelude::*};
 
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 

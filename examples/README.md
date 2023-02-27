@@ -107,9 +107,11 @@ Example | Description
 --- | ---
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
+[Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Bloom](../examples/3d/bloom.rs) | Illustrates bloom configuration using HDR and emissive materials
 [FXAA](../examples/3d/fxaa.rs) | Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)
+[Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
@@ -125,6 +127,7 @@ Example | Description
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
+[Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
@@ -180,6 +183,8 @@ Example | Description
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
+[Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
+[Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
 ## Diagnostics
 
@@ -200,15 +205,13 @@ Example | Description
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this.
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
-[Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame
-[Run Criteria](../examples/ecs/run_criteria.rs) | Demonstrates using Run Criteria function conditions
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[System Sets](../examples/ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 [Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
@@ -233,6 +236,7 @@ Example | Description
 [Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 [Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 [Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+[Text Input](../examples/input/text_input.rs) | Simple text input with IME support
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -365,7 +369,7 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android_example
+cargo apk run -p bevy_mobile_example
 ```
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
@@ -412,7 +416,7 @@ min_sdk_version = >>API or less<<
 
 Example | File | Description
 --- | --- | ---
-`android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android
+`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## iOS
 
@@ -433,7 +437,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 Using bash:
 
 ```sh
-cd examples/ios
+cd examples/mobile
 make run
 ```
 
@@ -448,7 +452,7 @@ DEVICE_ID=${YOUR_DEVICE_ID} make run
 If you'd like to see xcode do stuff, you can run
 
 ```sh
-open bevy_ios_example.xcodeproj/
+open bevy_mobile_example.xcodeproj/
 ```
 
 which will open xcode. You then must push the zoom zoom play button and wait
@@ -456,7 +460,7 @@ for the magic.
 
 Example | File | Description
 --- | --- | ---
-`ios` | [`ios/src/lib.rs`](./ios/src/lib.rs) | The `3d/3d_scene.rs` example for iOS
+`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## WASM
 

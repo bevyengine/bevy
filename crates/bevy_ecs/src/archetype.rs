@@ -26,7 +26,6 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
-    collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
 };
@@ -151,7 +150,7 @@ impl BundleComponentStatus for SpawnBundleStatus {
 pub struct Edges {
     add_bundle: SparseArray<BundleId, AddBundle>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
+    take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
 }
 
 impl Edges {
@@ -223,32 +222,28 @@ impl Edges {
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the
-    /// source archetype. For more information, see [`EntityMut::remove_intersection`].
+    /// source archetype. For more information, see [`EntityMut::remove`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     ///
-    /// [`EntityMut::remove_intersection`]: crate::world::EntityMut::remove_intersection
+    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
     #[inline]
-    pub fn get_remove_bundle_intersection(
-        &self,
-        bundle_id: BundleId,
-    ) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle_intersection.get(bundle_id).cloned()
+    pub fn get_take_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
+        self.take_bundle.get(bundle_id).cloned()
     }
 
     /// Caches the target archetype when removing a bundle to the source archetype.
-    /// For more information, see [`EntityMut::remove_intersection`].
+    /// For more information, see [`EntityMut::take`].
     ///
-    /// [`EntityMut::remove_intersection`]: crate::world::EntityMut::remove_intersection
+    /// [`EntityMut::take`]: crate::world::EntityMut::take
     #[inline]
-    pub(crate) fn insert_remove_bundle_intersection(
+    pub(crate) fn insert_take_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
     ) {
-        self.remove_bundle_intersection
-            .insert(bundle_id, archetype_id);
+        self.take_bundle.insert(bundle_id, archetype_id);
     }
 }
 
@@ -601,7 +596,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
-    archetype_ids: HashMap<ArchetypeIdentity, ArchetypeId>,
+    archetype_ids: bevy_utils::HashMap<ArchetypeIdentity, ArchetypeId>,
 }
 
 impl Archetypes {

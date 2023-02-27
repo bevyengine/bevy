@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
@@ -160,7 +161,7 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5000.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -172,6 +173,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 0.9 * radius,
+            maximum_distance: 2.8 * radius,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
