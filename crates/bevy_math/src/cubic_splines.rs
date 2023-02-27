@@ -259,8 +259,8 @@ impl CubicSegment<Vec2> {
     /// always start at 0 and end at 1: `ease(0) = 0` and `ease(1) = 1`.
     ///
     /// ```
-    /// # use bevy_math::CubicEasing;
-    /// let cubic_bezier = CubicEasing::new_bezier((0.25, 0.1), (0.25, 1.0));
+    /// # use bevy_math::prelude::*;
+    /// let cubic_bezier = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0));
     /// assert_eq!(cubic_bezier.ease(0.0), 0.0);
     /// assert_eq!(cubic_bezier.ease(1.0), 1.0);
     /// ```
@@ -312,11 +312,6 @@ impl CubicSegment<Vec2> {
     /// > Use Newton's method to find a value of `t` that results in B(t) = (x,y) where `x == time`
     ///
     /// > Once a solution is found, use the resulting `y` value as the final result
-    ///
-    /// # Performance
-    ///
-    /// This operation can be used frequently without fear of performance issues. Benchmarks show
-    /// this operation taking on the order of 0.7 nanoseconds.
     #[inline]
     pub fn ease(&self, time: f32) -> f32 {
         let x = time.clamp(0.0, 1.0);
@@ -414,7 +409,7 @@ impl<P: Point> CubicCurve<P> {
         self.iter_samples(subdivisions, Self::acceleration)
     }
 
-    /// Returns the [`Segment`] and local `t` value given a spline's global `t` value.
+    /// Returns the [`CubicSegment`] and local `t` value given a spline's global `t` value.
     #[inline]
     fn segment(&self, t: f32) -> (&CubicSegment<P>, f32) {
         if self.segments.len() == 1 {

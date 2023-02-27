@@ -18,9 +18,9 @@ pub use rect::Rect;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        BSpline, BVec2, BVec3, BVec4, Bezier, CardinalSpline, CubicGenerator, EulerRot, Hermite,
-        IVec2, IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Ray, Rect, UVec2, UVec3, UVec4, Vec2, Vec3,
-        Vec4,
+        BSpline, BVec2, BVec3, BVec4, Bezier, CardinalSpline, CubicGenerator, CubicSegment,
+        EulerRot, Hermite, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Ray, Rect, UVec2, UVec3,
+        UVec4, Vec2, Vec3, Vec4,
     };
 }
 
