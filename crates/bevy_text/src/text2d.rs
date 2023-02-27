@@ -102,15 +102,11 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
-        let scale = Vec3::splat(scale_factor.recip());
         let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
-        let translation = (text_layout_info.size * text_anchor).extend(0.) * scale;
+        let alignment_translation = (text_layout_info.size * text_anchor);
         let transform = *global_transform
-            * Transform {
-                scale,
-                translation,
-                ..Default::default()
-            };
+            * Transform::from_scale(Vec3::splat(scale_factor.recip()))
+            * Transform::from_translation(alignment_translation.extend(0.));
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
