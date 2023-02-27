@@ -237,9 +237,43 @@ pub struct Style {
     pub justify_content: JustifyContent,
     /// The position of the node as described by its Rect
     pub position: UiRect,
-    /// The margin of the node
+    /// The amount of space around a node outside its border.
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, Val};
+    /// let style = Style {
+    ///     margin: UiRect {
+    ///         left: Val::Percent(10.),
+    ///         right: Val::Percent(10.),
+    ///         top: Val::Percent(15.),
+    ///         bottom: Val::Percent(15.)
+    ///     },
+    ///     ..Default::default()
+    /// };
+    /// ```
+    /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom egdes.
     pub margin: UiRect,
-    /// The padding of the node
+    /// The amount of space between the edges of a node and its contents.
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, Val};
+    /// let style = Style {
+    ///     padding: UiRect {
+    ///         left: Val::Percent(1.),
+    ///         right: Val::Percent(2.),
+    ///         top: Val::Percent(3.),
+    ///         bottom: Val::Percent(4.)
+    ///     },
+    ///     ..Default::default()
+    /// };
+    /// ```
+    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     pub padding: UiRect,
     /// The border of the node
     pub border: UiRect,
@@ -247,7 +281,9 @@ pub struct Style {
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
     pub flex_shrink: f32,
-    /// The initial size of the item
+    /// The initial length of the main axis, before other properties are applied.
+    ///
+    /// If both are set, `flex_basis` overrides `size` on the main axis but it obeys the bounds defined by `min_size` and `max_size`.
     pub flex_basis: Val,
     /// The ideal size of the flexbox
     ///
@@ -563,15 +599,15 @@ impl Default for FlexWrap {
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CalculatedSize {
-    /// The size of the node
-    pub size: Size,
+    /// The size of the node in logical pixels
+    pub size: Vec2,
     /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
     pub preserve_aspect_ratio: bool,
 }
 
 impl CalculatedSize {
     const DEFAULT: Self = Self {
-        size: Size::DEFAULT,
+        size: Vec2::ZERO,
         preserve_aspect_ratio: false,
     };
 }

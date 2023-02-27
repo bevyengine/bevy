@@ -168,9 +168,9 @@ impl LchRepresentation {
         let blue = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
 
         [
-            red.linear_to_nonlinear_srgb().max(0.0).min(1.0),
-            green.linear_to_nonlinear_srgb().max(0.0).min(1.0),
-            blue.linear_to_nonlinear_srgb().max(0.0).min(1.0),
+            red.linear_to_nonlinear_srgb().clamp(0.0, 1.0),
+            green.linear_to_nonlinear_srgb().clamp(0.0, 1.0),
+            blue.linear_to_nonlinear_srgb().clamp(0.0, 1.0),
         ]
     }
 
@@ -225,11 +225,7 @@ impl LchRepresentation {
             }
         };
 
-        (
-            (l / 100.0).max(0.0).min(1.5),
-            (c / 100.0).max(0.0).min(1.5),
-            h,
-        )
+        ((l / 100.0).clamp(0.0, 1.5), (c / 100.0).clamp(0.0, 1.5), h)
     }
 }
 

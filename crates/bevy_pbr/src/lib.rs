@@ -268,12 +268,12 @@ impl Plugin for PbrPlugin {
             .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
             .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
             .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
-            .add_systems_to_schedule(
-                ExtractSchedule,
+            .add_systems(
                 (
                     render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
                     render::extract_lights.in_set(RenderLightSystems::ExtractLights),
-                ),
+                )
+                    .in_schedule(ExtractSchedule),
             )
             .add_system(
                 render::prepare_lights

@@ -9,7 +9,6 @@ use std::{
 };
 
 use crate::utility::NonGenericTypeInfoCell;
-pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///
@@ -62,13 +61,17 @@ pub enum ReflectOwned {
     Value(Box<dyn Reflect>),
 }
 
-/// A reflected Rust type.
+/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
-/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
-/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
-/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
+/// See the [crate-level documentation] to see how this trait and its subtraits can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;

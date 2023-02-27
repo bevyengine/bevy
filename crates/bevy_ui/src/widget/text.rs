@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val};
+use crate::{CalculatedSize, Node, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -54,7 +54,7 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<Entity, Or<(Changed<Text>, Changed<Node>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
         Query<(
             &Text,
@@ -135,10 +135,10 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-                    calculated_size.size = Size {
-                        width: Val::Px(scale_value(info.size.x, inv_scale_factor)),
-                        height: Val::Px(scale_value(info.size.y, inv_scale_factor)),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(info.size.x, inv_scale_factor),
+                        scale_value(info.size.y, inv_scale_factor),
+                    );
                     match text_layout_info {
                         Some(mut t) => *t = info,
                         None => {

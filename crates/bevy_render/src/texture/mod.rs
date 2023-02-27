@@ -2,6 +2,8 @@
 mod basis;
 #[cfg(feature = "dds")]
 mod dds;
+#[cfg(feature = "exr")]
+mod exr_texture_loader;
 mod fallback_image;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
@@ -19,6 +21,8 @@ pub use self::image::*;
 pub use self::ktx2::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
+#[cfg(feature = "exr")]
+pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
@@ -27,7 +31,7 @@ pub use image_texture_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::{PrepareAssetLabel, RenderAssetPlugin},
+    render_asset::{PrepareAssetSet, RenderAssetPlugin},
     renderer::RenderDevice,
     RenderApp, RenderSet,
 };
@@ -79,13 +83,18 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<ImageTextureLoader>();
         }
 
+        #[cfg(feature = "exr")]
+        {
+            app.init_asset_loader::<ExrTextureLoader>();
+        }
+
         #[cfg(feature = "hdr")]
         {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
-            PrepareAssetLabel::PreAssetPrepare,
+        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_set(
+            PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
         .add_asset::<Image>()

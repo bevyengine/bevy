@@ -8,7 +8,7 @@ use crate::{
     VariantInfo, VariantType,
 };
 
-use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
+use crate::utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
@@ -180,7 +180,7 @@ impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect> Array for $ty {
+        impl<T: FromReflect> List for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 <$sub>::get(self, index).map(|value| value as &dyn Reflect)
@@ -191,25 +191,6 @@ macro_rules! impl_reflect_for_veclike {
                 <$sub>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
             }
 
-            #[inline]
-            fn len(&self) -> usize {
-                <$sub>::len(self)
-            }
-
-            #[inline]
-            fn iter(&self) -> ArrayIter {
-                ArrayIter::new(self)
-            }
-
-            #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-                self.into_iter()
-                    .map(|value| Box::new(value) as Box<dyn Reflect>)
-                    .collect()
-            }
-        }
-
-        impl<T: FromReflect> List for $ty {
             fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
@@ -238,6 +219,23 @@ macro_rules! impl_reflect_for_veclike {
 
             fn pop(&mut self) -> Option<Box<dyn Reflect>> {
                 $pop(self).map(|value| Box::new(value) as Box<dyn Reflect>)
+            }
+
+            #[inline]
+            fn len(&self) -> usize {
+                <$sub>::len(self)
+            }
+
+            #[inline]
+            fn iter(&self) -> $crate::ListIter {
+                $crate::ListIter::new(self)
+            }
+
+            #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                self.into_iter()
+                    .map(|value| Box::new(value) as Box<dyn Reflect>)
+                    .collect()
             }
         }
 
@@ -296,11 +294,11 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn clone_value(&self) -> Box<dyn Reflect> {
-                Box::new(List::clone_dynamic(self))
+                Box::new(self.clone_dynamic())
             }
 
             fn reflect_hash(&self) -> Option<u64> {
-                crate::array_hash(self)
+                crate::list_hash(self)
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -995,7 +993,7 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
@@ -1103,7 +1101,7 @@ impl Reflect for &'static Path {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())

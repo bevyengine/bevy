@@ -64,11 +64,11 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-    struct NumLabel(usize);
+    struct NumSet(usize);
     #[derive(Debug, Clone, Copy, SystemSet, PartialEq, Eq, Hash)]
-    struct DummyLabel;
+    struct DummySet;
 
-    impl SystemSet for NumLabel {
+    impl SystemSet for NumSet {
         fn dyn_clone(&self) -> Box<dyn SystemSet> {
             Box::new(self.clone())
         }
@@ -81,7 +81,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the schedule with full constraints. Hopefully this should be maximimally
     // difficult for bevy to figure out.
-    let labels: Vec<_> = (0..1000).map(|i| NumLabel(i)).collect();
+    let labels: Vec<_> = (0..1000).map(|i| NumSet(i)).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
@@ -100,12 +100,12 @@ pub fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_system(empty_system.in_set(DummyLabel));
+                app.add_system(empty_system.in_set(DummySet));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
                 for i in 0..graph_size {
-                    let mut sys = empty_system.in_set(labels[i]).before(DummyLabel);
+                    let mut sys = empty_system.in_set(labels[i]).before(DummySet);
                     for label in labels.iter().take(i) {
                         sys = sys.after(*label);
                     }

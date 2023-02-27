@@ -1,4 +1,4 @@
-use bevy_app::Plugin;
+use bevy_app::{IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -97,8 +97,12 @@ where
         };
 
         render_app
-            .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
-            .add_system(prepare_prepass_textures.in_set(RenderSet::Prepare))
+            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
+            .add_system(
+                prepare_prepass_textures
+                    .in_set(RenderSet::Prepare)
+                    .after(bevy_render::view::prepare_windows),
+            )
             .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
@@ -285,7 +289,7 @@ where
                 buffers: vec![vertex_buffer_layout],
             },
             fragment,
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 topology: key.mesh_key.primitive_topology(),
                 strip_index_format: None,
@@ -316,6 +320,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            push_constant_ranges: Vec::new(),
             label: Some("prepass_pipeline".into()),
         };
 

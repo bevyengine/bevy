@@ -28,7 +28,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(CameraUpdateSystem.in_set(StartupSet::PostStartup));
+                schedule.configure_set(CameraUpdateSystem.in_base_set(StartupSet::PostStartup));
             })
             .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
             .add_startup_system(
