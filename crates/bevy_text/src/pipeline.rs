@@ -177,4 +177,14 @@ impl TextPipeline {
         });
         Ok(result)
     }
+
+    fn compute_geometry(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        scale_factor: f64,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
+    ) {
+    }
 }
