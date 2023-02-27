@@ -1,8 +1,11 @@
 //! Simple text rendering benchmark.
+//! 
+//! Creates a `Text` with a single `TextSection` containing 100_000 glyphs,
+//! and renders it with the UI in a white color and with Text2d in a red color.
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::BreakLineOn,
+    text::{BreakLineOn, Text2dBounds},
     window::{PresentMode, WindowPlugin},
 };
 
@@ -23,6 +26,19 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
+    let mut text = Text {
+        sections: vec![TextSection {
+            value: "0123456789".repeat(10_000),
+            style: TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 4.,
+                color: Color::WHITE,
+            },
+        }],
+        alignment: TextAlignment::Left,
+        linebreak_behaviour: BreakLineOn::AnyCharacter,
+    };
+    
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -35,18 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|commands| {
             commands.spawn(TextBundle {
-                text: Text {
-                    sections: vec![TextSection {
-                        value: "0123456789".repeat(10_000),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 4.,
-                            color: Color::WHITE,
-                        },
-                    }],
-                    alignment: TextAlignment::Left,
-                    linebreak_behaviour: BreakLineOn::AnyCharacter,
-                },
+                text: text.clone(),
                 style: Style {
                     size: Size::width(Val::Px(1000.)),
                     ..Default::default()
@@ -54,4 +59,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..Default::default()
             });
         });
+
+    text.sections[0].style.color = Color::RED;
+
+    commands.spawn(Text2dBundle {
+        text,
+        text_anchor: bevy::sprite::Anchor::Center,
+        text_2d_bounds: Text2dBounds {
+            size: Vec2::new(1000., f32::INFINITY),
+        },
+        ..Default::default()
+    });
 }
