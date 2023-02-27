@@ -23,8 +23,8 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     spanned::Spanned,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta,
-    Result, Token, TypeParam,
+    ConstParam, DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Result, Token,
+    TypeParam,
 };
 
 enum BundleFieldKind {
