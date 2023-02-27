@@ -653,7 +653,7 @@ impl Archetypes {
     }
 
     /// # Panics
-    /// 
+    ///
     /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(

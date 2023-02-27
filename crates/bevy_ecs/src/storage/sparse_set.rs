@@ -213,7 +213,7 @@ impl ComponentSparseSet {
         })
     }
 
-     /// Returns references to the entity's component value and its added and changed ticks.
+    /// Returns references to the entity's component value and its added and changed ticks.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
@@ -472,7 +472,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         }
     }
 
-    /// Returns a reference to the value for `index`, inserting one computed from `func` 
+    /// Returns a reference to the value for `index`, inserting one computed from `func`
     /// if not already present.
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {

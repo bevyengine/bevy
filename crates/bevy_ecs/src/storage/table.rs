@@ -33,7 +33,7 @@ pub struct TableId(u32);
 impl TableId {
     pub(crate) const INVALID: TableId = TableId(u32::MAX);
 
-    /// Creates a new [`TableId`]. 
+    /// Creates a new [`TableId`].
     ///
     /// `index` *must* be retrieved from calling [`TableId::index`] on a `TableId` you got
     /// from a table of a given [`World`] or the created ID may be invalid.
@@ -300,7 +300,7 @@ impl Column {
     ///
     /// The pointer is type erased, so using this function to fetch anything
     /// other than the first element will require computing the offset using
-    /// [`Column::layout`].
+    /// [`Column::item_layout`].
     #[inline]
     pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
@@ -837,7 +837,7 @@ impl Tables {
     /// Fetches mutable references to two different [`Table`]s.
     ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
