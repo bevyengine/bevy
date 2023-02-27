@@ -6,18 +6,17 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 
-use super::GizmoLine2d;
+use crate::pipeline_2d::GizmoLine2d;
 
-pub struct Gizmo2dNode {
+pub struct GizmoNode2d {
     view_query:
         QueryState<(&'static ViewTarget, &'static RenderPhase<GizmoLine2d>), With<ExtractedView>>,
 }
 
-impl Gizmo2dNode {
+impl GizmoNode2d {
     pub const IN_VIEW: &'static str = "view";
+    pub const NAME: &'static str = "gizmo_node_2d";
 
     pub fn new(world: &mut World) -> Self {
         Self {
@@ -26,7 +25,7 @@ impl Gizmo2dNode {
     }
 }
 
-impl Node for Gizmo2dNode {
+impl Node for GizmoNode2d {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }

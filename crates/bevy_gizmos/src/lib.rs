@@ -2,10 +2,7 @@ use std::mem;
 
 use bevy_app::{CoreSet, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
-use bevy_core_pipeline::{
-    core_3d,
-    gizmo_2d::{Gizmo2dPlugin, GizmoLine2d},
-};
+use bevy_core_pipeline::{core_2d, core_3d};
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
     schedule::IntoSystemConfig,
@@ -29,6 +26,7 @@ use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
 pub mod gizmos;
 
+mod node_2d;
 mod node_3d;
 
 #[cfg(feature = "bevy_sprite")]
@@ -36,7 +34,7 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::{gizmos::GizmoStorage, node_3d::GizmoNode3d};
+use crate::{gizmos::GizmoStorage, node_2d::GizmoNode2d, node_3d::GizmoNode3d};
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
@@ -58,9 +56,6 @@ impl Plugin for GizmoPlugin {
             .init_resource::<GizmoStorage>()
             .add_system(update_gizmo_meshes.in_base_set(CoreSet::Last));
 
-        #[cfg(feature = "bevy_sprite")]
-        app.add_plugin(Gizmo2dPlugin);
-
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
         render_app.add_system(extract_gizmo_data.in_schedule(ExtractSchedule));
@@ -72,8 +67,28 @@ impl Plugin for GizmoPlugin {
             render_app
                 .init_resource::<GizmoPipeline2d>()
                 .init_resource::<SpecializedMeshPipelines<GizmoPipeline2d>>()
+                .init_resource::<DrawFunctions<GizmoLine2d>>()
                 .add_render_command::<GizmoLine2d, DrawGizmoLines>()
+                .add_system(sort_phase_system::<GizmoLine2d>)
+                .add_system_to_schedule(ExtractSchedule, extract_gizmo_line_2d_camera_phase)
                 .add_system(queue_gizmos_2d.in_set(RenderSet::Queue));
+
+            let gizmo_node = GizmoNode2d::new(&mut render_app.world);
+            let mut binding = render_app.world.resource_mut::<RenderGraph>();
+            let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
+
+            graph.add_node(GizmoNode2d::NAME, gizmo_node);
+            graph.add_slot_edge(
+                graph.input_node().id,
+                core_2d::graph::input::VIEW_ENTITY,
+                GizmoNode2d::NAME,
+                GizmoNode2d::IN_VIEW,
+            );
+            graph.add_node_edge(
+                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                GizmoNode2d::NAME,
+            );
+            graph.add_node_edge(GizmoNode2d::NAME, core_2d::graph::node::UPSCALING);
         }
 
         #[cfg(feature = "bevy_pbr")]

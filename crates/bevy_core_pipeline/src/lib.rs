@@ -4,7 +4,6 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
-pub mod gizmo_2d;
 pub mod prepass;
 pub mod tonemapping;
 pub mod upscaling;
