@@ -305,7 +305,7 @@ jobs:
           mkdir -p ./missing-features
           echo ${{ github.event.number }} > ./missing-features/NR
       - name: log failed task - missing features
-        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-featuresfeatures.conclusion == 'failure' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-features.conclusion == 'failure' }}
         run: touch ./missing-features/missing-features
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
