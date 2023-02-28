@@ -1,3 +1,5 @@
+//! Provides types for building cubic splines for rendering curves and use with animation easing.
+
 use glam::{Vec2, Vec3, Vec3A};
 
 use std::{
@@ -6,7 +8,8 @@ use std::{
     ops::{Add, Mul, Sub},
 };
 
-/// A point in space of any dimension that supports the math ops needed for spline interpolation.
+/// A point in space of any dimension that supports the math ops needed for cubic spline
+/// interpolation.
 pub trait Point:
     Mul<f32, Output = Self>
     + Add<Self, Output = Self>
@@ -27,15 +30,29 @@ impl Point for f32 {}
 
 /// A spline composed of a series of cubic Bezier curves.
 ///
-/// # Interpolation
+/// ### Interpolation
 /// The curve only passes through the first and last control point in each set of four points.
 ///
-/// # Tangency
+/// ### Tangency
 /// Manually defined by the two intermediate control points within each set of four points.
 ///
-/// # Continuity
+/// ### Continuity
 /// At minimum C0 continuous, up to C2. Continuity greater than C0 can result in a loss of local
 /// control over the spline due to the curvature constraints.
+///
+/// ### Usage
+///
+/// ```
+/// # use bevy_math::{*, prelude::*};
+/// let points = [[
+///     vec2(-1.0, -20.0),
+///     vec2(3.0, 2.0),
+///     vec2(5.0, 3.0),
+///     vec2(9.0, 8.0),
+/// ]];
+/// let bezier = Bezier::new(points).to_curve();
+/// let positions: Vec<_> = bezier.iter_positions(100).collect();
+/// ```
 pub struct Bezier<P: Point> {
     control_points: Vec<[P; 4]>,
 }
@@ -68,19 +85,49 @@ impl<P: Point> CubicGenerator<P> for Bezier<P> {
     }
 }
 
-/// A spline interpolated continuously across each set of four control points, with the position and
-/// slope of the curve constrained at every control point.
+/// A spline interpolated continuously across the nearest four control points, with the position and
+/// slope of the curve specified at every control point. This curve passes through all control
+/// points, with the specified direction
 ///
-/// # Interpolation
+/// ### Interpolation
 /// The curve passes through every control point.
 ///
-/// # Tangency
+/// ### Tangency
 /// Explicitly defined at each control point.
 ///
-/// # Continuity
+/// ### Continuity
 /// At minimum C0 continuous, up to C1.
+///
+/// ### Usage
+///
+/// ```
+/// # use bevy_math::{*, prelude::*};
+/// let points = [
+///     vec2(-1.0, -20.0),
+///     vec2(3.0, 2.0),
+///     vec2(5.0, 3.0),
+///     vec2(9.0, 8.0),
+/// ];
+/// let tangents = [
+///     vec2(0.0, 1.0),
+///     vec2(0.0, 1.0),
+///     vec2(0.0, 1.0),
+///     vec2(0.0, 1.0),
+/// ];
+/// let combined: Vec<_> = points.iter().cloned().zip(tangents.iter().cloned()).collect();
+/// let hermite = Hermite::new(combined).to_curve();
+/// let positions: Vec<_> = hermite.iter_positions(100).collect();
+/// ```
 pub struct Hermite<P: Point> {
     control_points: Vec<(P, P)>,
+}
+impl<P: Point> Hermite<P> {
+    /// Create a new Hermite curve from sets of control points.
+    pub fn new(control_points: impl Into<Vec<(P, P)>>) -> Self {
+        Self {
+            control_points: control_points.into(),
+        }
+    }
 }
 impl<P: Point> CubicGenerator<P> for Hermite<P> {
     #[inline]
@@ -105,19 +152,33 @@ impl<P: Point> CubicGenerator<P> for Hermite<P> {
     }
 }
 
-/// A spline interpolated continuously across each set of four control points, with the position of
-/// the curve constrained at every control point and the tangents computed automatically.
+/// A spline interpolated continuously across the nearest four control points, with the position of
+/// the curve specified at every control point and the tangents computed automatically.
 ///
-/// Note the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
+/// **Note** the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
 ///
-/// # Interpolation
+/// ### Interpolation
 /// The curve passes through every control point.
 ///
-/// # Tangency
+/// ### Tangency
 /// Automatically defined at each control point.
 ///
-/// # Continuity
+/// ### Continuity
 /// C1 continuous.
+///
+/// ### Usage
+///
+/// ```
+/// # use bevy_math::{*, prelude::*};
+/// let points = [
+///     vec2(-1.0, -20.0),
+///     vec2(3.0, 2.0),
+///     vec2(5.0, 3.0),
+///     vec2(9.0, 8.0),
+/// ];
+/// let cardinal = CardinalSpline::new(0.3, points).to_curve();
+/// let positions: Vec<_> = cardinal.iter_positions(100).collect();
+/// ```
 pub struct CardinalSpline<P: Point> {
     tension: f32,
     control_points: Vec<P>,
@@ -161,19 +222,41 @@ impl<P: Point> CubicGenerator<P> for CardinalSpline<P> {
     }
 }
 
-/// A spline sampled continuously across each set of four control points, with the position and
-/// slope of the curve constrained at every control point.
+/// A spline interpolated continuously across the nearest four control points. The curve does not
+/// pass through any of the control points.
 ///
-/// # Interpolation
+/// ### Interpolation
 /// The curve does not pass through control points.
 ///
-/// # Tangency
+/// ### Tangency
 /// Automatically computed based on the position of control points.
 ///
-/// # Continuity
+/// ### Continuity
 /// C2 continuous! The acceleration continuity of this spline makes it useful for camera paths.
+///
+/// ### Usage
+///
+/// ```
+/// # use bevy_math::{*, prelude::*};
+/// let points = [
+///     vec2(-1.0, -20.0),
+///     vec2(3.0, 2.0),
+///     vec2(5.0, 3.0),
+///     vec2(9.0, 8.0),
+/// ];
+/// let b_spline = BSpline::new(points).to_curve();
+/// let positions: Vec<_> = b_spline.iter_positions(100).collect();
+/// ```
 pub struct BSpline<P: Point> {
     control_points: Vec<P>,
+}
+impl<P: Point> BSpline<P> {
+    /// Build a new Cardinal spline.
+    pub fn new(control_points: impl Into<Vec<P>>) -> Self {
+        Self {
+            control_points: control_points.into(),
+        }
+    }
 }
 impl<P: Point> CubicGenerator<P> for BSpline<P> {
     #[inline]
@@ -202,6 +285,8 @@ pub trait CubicGenerator<P: Point> {
 }
 
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
+///
+/// Segments can be chained together to form a longer compound curve.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CubicSegment<P: Point> {
     coeff: [P; 4],
@@ -230,7 +315,7 @@ impl<P: Point> CubicSegment<P> {
     }
 }
 
-/// A 2-dimensional easing curve useful for animation.
+/// The `CubicSegment<Vec2>` can be used as aA 2-dimensional easing curve for animation.
 ///
 /// The x-axis of the curve is time, and the y-axis is the output value. This struct provides
 /// methods for extremely fast solves for y given x.
@@ -337,7 +422,7 @@ impl CubicSegment<Vec2> {
     }
 }
 
-/// A collection of spline segments chained into a curve
+/// A collection of spline segments chained into a curve.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CubicCurve<P: Point> {
     segments: Vec<CubicSegment<P>>,
@@ -440,10 +525,7 @@ impl<P: Point> CubicCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::{
-        cubic_splines::{Bezier, CubicGenerator},
-        CubicSegment,
-    };
+    use crate::cubic_splines::{Bezier, CubicGenerator, CubicSegment};
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
