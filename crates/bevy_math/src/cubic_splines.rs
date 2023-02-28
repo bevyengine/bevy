@@ -30,6 +30,9 @@ impl Point for f32 {}
 
 /// A spline composed of a series of cubic Bezier curves.
 ///
+/// Useful for user-drawn curves with local control, or animation easing. See
+/// [`CubicSegment::new_bezier`] for use in easing.
+///
 /// ### Interpolation
 /// The curve only passes through the first and last control point in each set of four points.
 ///
@@ -85,9 +88,12 @@ impl<P: Point> CubicGenerator<P> for Bezier<P> {
     }
 }
 
-/// A spline interpolated continuously across the nearest four control points, with the position and
-/// slope of the curve specified at every control point. This curve passes through all control
-/// points, with the specified direction
+/// A spline interpolated continuously between the nearest two control points, with the position and
+/// velocity of the curve specified at both control points. This curve passes through all control
+/// points, with the specified velocity which includes direction and parametric speed.
+///
+/// Useful for smooth interpolation when you know the position and velocity at two points in time,
+/// such as network prediction.
 ///
 /// ### Interpolation
 /// The curve passes through every control point.
@@ -114,8 +120,7 @@ impl<P: Point> CubicGenerator<P> for Bezier<P> {
 ///     vec2(0.0, 1.0),
 ///     vec2(0.0, 1.0),
 /// ];
-/// let combined: Vec<_> = points.iter().cloned().zip(tangents.iter().cloned()).collect();
-/// let hermite = Hermite::new(combined).to_curve();
+/// let hermite = Hermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
 pub struct Hermite<P: Point> {
@@ -123,9 +128,15 @@ pub struct Hermite<P: Point> {
 }
 impl<P: Point> Hermite<P> {
     /// Create a new Hermite curve from sets of control points.
-    pub fn new(control_points: impl Into<Vec<(P, P)>>) -> Self {
+    pub fn new(
+        control_points: impl IntoIterator<Item = P>,
+        tangents: impl IntoIterator<Item = P>,
+    ) -> Self {
         Self {
-            control_points: control_points.into(),
+            control_points: control_points
+                .into_iter()
+                .zip(tangents.into_iter())
+                .collect(),
         }
     }
 }
@@ -141,7 +152,7 @@ impl<P: Point> CubicGenerator<P> for Hermite<P> {
 
         let segments = self
             .control_points
-            .chunks_exact(2)
+            .windows(2)
             .map(|p| {
                 let (p0, v0, p1, v1) = (p[0].0, p[0].1, p[1].0, p[1].1);
                 CubicCurve::coefficients([p0, v0, p1, v1], 1.0, char_matrix)
@@ -215,7 +226,7 @@ impl<P: Point> CubicGenerator<P> for CardinalSpline<P> {
         let segments = self
             .control_points
             .windows(4)
-            .map(|p| CubicCurve::coefficients([p[0], p[1], p[2], p[3]], 0.5, char_matrix))
+            .map(|p| CubicCurve::coefficients([p[0], p[1], p[2], p[3]], 1.0, char_matrix))
             .collect();
 
         CubicCurve { segments }
