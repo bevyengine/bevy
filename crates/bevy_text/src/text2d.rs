@@ -182,11 +182,16 @@ pub fn update_text2d_layout(
         .map(|window| window.resolution.scale_factor())
         else {
             *skipped = true;
-            return 
+            return;
         };
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) || *skipped {
+        if factor_changed
+            || text.is_changed()
+            || bounds.is_changed()
+            || queue.remove(&entity)
+            || *skipped
+        {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),
