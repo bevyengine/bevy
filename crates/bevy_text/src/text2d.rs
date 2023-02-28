@@ -171,6 +171,7 @@ pub fn update_text2d_layout(
         Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
+    mut skipped: Local<bool>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
@@ -179,10 +180,13 @@ pub fn update_text2d_layout(
     let Ok(scale_factor) = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        else { return };
+        else {
+            *skipped = true;
+            return 
+        };
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) || *skipped {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),
@@ -219,6 +223,8 @@ pub fn update_text2d_layout(
             }
         }
     }
+
+    *skipped = false;
 }
 
 pub fn scale_value(value: f32, factor: f64) -> f32 {
