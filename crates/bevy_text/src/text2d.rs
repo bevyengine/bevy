@@ -176,10 +176,10 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+    let Ok(scale_factor) = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
+        else { return };
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
