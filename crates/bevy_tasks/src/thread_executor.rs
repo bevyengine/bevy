@@ -111,13 +111,13 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
         self.executor.executor.try_tick()
     }
 
-    /// join tick `self` and `other` with `or`
-    /// ref: https://github.com/bevyengine/bevy/pull/7825
+    /// join tick `self` and `other` with `or`.
+    /// check [this pr](https://github.com/bevyengine/bevy/pull/7825) for reference
     pub async fn or_tick(&self, other: &Self) {
         if self.executor.is_same_executor(other.executor) {
-            self.tick().await
+            self.tick().await;
         } else {
-            self.tick().or(other.tick()).await
+            self.tick().or(other.tick()).await;
         }
     }
 }
