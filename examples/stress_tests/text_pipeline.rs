@@ -1,6 +1,6 @@
 //! Text pipeline benchmark.
 //!
-//! Continuously recomputes a large `Text` component with a lot of sections.
+//! Continuously recomputes a large `Text` component with 100 sections.
 //! No rendering.
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -23,12 +23,12 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .init_resource::<TestText>()
-        .add_system(pipe_text)
+        .add_system(text_pipe)
         .run();
 }
 
 #[derive(Resource)]
-pub struct TestText {
+struct TestText {
     pub sections: Vec<TextSection>,
 }
 
@@ -36,7 +36,7 @@ impl FromWorld for TestText {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let mut sections = Vec::new();
-        for i in 1..=100 {
+        for i in 1..=50 {
             sections.push(TextSection {
                 value: "Hello World!".repeat(i),
                 style: TextStyle {
@@ -58,7 +58,7 @@ impl FromWorld for TestText {
     }
 }
 
-pub fn pipe_text(
+fn text_pipe(
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
