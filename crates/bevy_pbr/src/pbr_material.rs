@@ -420,6 +420,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 pub struct StandardMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
+    depth_bias: i32,
 }
 
 impl From<&StandardMaterial> for StandardMaterialKey {
@@ -427,6 +428,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         StandardMaterialKey {
             normal_map: material.normal_map_texture.is_some(),
             cull_mode: material.cull_mode,
+            depth_bias: material.depth_bias as i32,
         }
     }
 }
@@ -448,6 +450,9 @@ impl Material for StandardMaterial {
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
+        }
+        if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
+            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
         }
         Ok(())
     }
