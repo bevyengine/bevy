@@ -1327,7 +1327,6 @@ description = "A shader that uses the depth texture generated in a prepass"
 category = "Shaders"
 wasm = false
 
-
 [[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
@@ -1491,6 +1490,16 @@ description = "Various test cases for hierarchy and transform propagation perfor
 category = "Stress Tests"
 wasm = true
 
+[[example]]
+name = "text_pipeline"
+path = "examples/stress_tests/text_pipeline.rs"
+
+[package.metadata.example.text_pipeline]
+name = "Text Pipeline"
+description = "Text Pipeline benchmark"
+category = "Stress Tests"
+wasm = false
+
 # Tools
 [[example]]
 name = "scene_viewer"
@@ -1632,7 +1641,6 @@ name = "Text Layout"
 description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
 category = "UI (User Interface)"
 wasm = false
-
 
 [[example]]
 name = "transparency_ui"
