@@ -416,14 +416,8 @@ impl TaskPool {
         let execute_forever = async move {
             loop {
                 let tick_forever = async {
-                    if external_ticker.conflict_with(&scope_ticker) {
-                        loop {
-                            external_ticker.tick().await;
-                        }
-                    } else {
-                        loop {
-                            external_ticker.tick().or(scope_ticker.tick()).await;
-                        }
+                    loop {
+                        external_ticker.or_tick(&scope_ticker).await;
                     }
                 };
                 // we don't care if it errors. If a scoped task errors it will propagate
@@ -446,14 +440,8 @@ impl TaskPool {
         let execute_forever = async {
             loop {
                 let tick_forever = async {
-                    if external_ticker.conflict_with(&scope_ticker) {
-                        loop {
-                            external_ticker.tick().await;
-                        }
-                    } else {
-                        loop {
-                            external_ticker.tick().or(scope_ticker.tick()).await;
-                        }
+                    loop {
+                        external_ticker.or_tick(&scope_ticker).await;
                     }
                 };
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();

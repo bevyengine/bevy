@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_executor::{Executor, Task};
-use futures_lite::Future;
+use futures_lite::{Future, FutureExt};
 
 /// An executor that can only be ticked on the thread it was instantiated on. But
 /// can spawn `Send` tasks from other threads.
@@ -62,19 +62,6 @@ impl<'task> ThreadExecutor<'task> {
         Self::default()
     }
 
-    /// check whether same executor, if yes, then the `Ticker` should not
-    /// be used in same task. E.g, `ticker_1.or(ticker_2).await`. This will leak
-    /// the ticker and cause dead lock
-    pub fn is_same_executor(&self, other: &Self) -> bool {
-        if self.thread_id == other.thread_id {
-            // for same thread, there should be only one instance
-            assert!(std::ptr::eq(self, other));
-            true
-        } else {
-            false
-        }
-    }
-
     /// Spawn a task on the thread executor
     pub fn spawn<T: Send + 'task>(
         &self,
@@ -96,6 +83,11 @@ impl<'task> ThreadExecutor<'task> {
         }
         None
     }
+
+    /// check whether `self` and `other` is the same executor
+    fn is_same_executor(&self, other: &Self) -> bool {
+        std::ptr::eq(self, other)
+    }
 }
 
 /// Used to tick the [`ThreadExecutor`]. The executor does not
@@ -108,12 +100,6 @@ pub struct ThreadExecutorTicker<'task, 'ticker> {
     _marker: PhantomData<*const ()>,
 }
 impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
-    /// if executor is same, then the Ticker should not used
-    /// in same task
-    pub fn conflict_with(&self, other: &Self) -> bool {
-        self.executor.is_same_executor(other.executor)
-    }
-
     /// Tick the thread executor.
     pub async fn tick(&self) {
         self.executor.executor.tick().await;
@@ -123,6 +109,16 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     /// Returns false if if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
         self.executor.executor.try_tick()
+    }
+
+    /// join tick `self` and `other` with `or`
+    /// ref: https://github.com/bevyengine/bevy/pull/7825
+    pub async fn or_tick(&self, other: &Self) {
+        if self.executor.is_same_executor(other.executor) {
+            self.tick().await
+        } else {
+            self.tick().or(other.tick()).await
+        }
     }
 }
 
