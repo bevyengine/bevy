@@ -171,6 +171,7 @@ pub fn update_text2d_layout(
         Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
+    // Flag that indicates we skipped UI text computation the previous frame.
     mut skipped: Local<bool>,
 ) {
     // We need to consume the entire iterator, hence `last`
@@ -181,6 +182,7 @@ pub fn update_text2d_layout(
         .get_single()
         .map(|window| window.resolution.scale_factor())
         else {
+            // If there is no primary window skip text computation until we find one, otherwise unnecessary extra font atlases could be created.
             *skipped = true;
             return;
         };
