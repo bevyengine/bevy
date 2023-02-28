@@ -220,19 +220,14 @@ pub struct StandardMaterial {
     /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
     pub alpha_mode: AlphaMode,
 
-    /// Re-arrange render ordering.
+    /// Adjust rendered depth.
     ///
     /// A material with a positive depth bias will render closer to the
     /// camera while negative values cause the material to render behind
     /// other objects. This is independent of the viewport.
     ///
-    /// `depth_bias` only affects render ordering. This means that for opaque materials,
-    /// `depth_bias` will only have any effect if two materials are overlapping,
-    /// which only serves as a [z-fighting] resolver.
-    ///
-    /// `depth_bias` can however reorder [`AlphaMode::Blend`] materials.
-    /// This is useful if your transparent materials are not rendering
-    /// in the expected order.
+    /// `depth_bias` affects render ordering and depth write operations
+    /// using the `wgpu::DepthBiasState::Constant` field.
     ///
     /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
     pub depth_bias: f32,
