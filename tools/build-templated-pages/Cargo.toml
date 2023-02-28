@@ -1,8 +1,8 @@
 [package]
-name = "build-example-pages"
+name = "build-templated-pages"
 version = "0.9.0"
 edition = "2021"
-description = "handle examples in Bevy"
+description = "handle templated pages in Bevy repository"
 publish = false
 license = "MIT OR Apache-2.0"
 
