@@ -65,7 +65,7 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 # Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
 
-# Provides a core render pipeline
+# Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
@@ -92,7 +92,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text"]
 
-# A custom ECS-driven UI framework built specifically
+# A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui"]
 
 # winit window and input backend

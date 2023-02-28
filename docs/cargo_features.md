@@ -3,7 +3,7 @@
 
 ## Cargo Features
 
-Bevy exposes many features to customise the engine. Enabling them add functionalities but often come at the cost of more compilation time and extra dependencies.
+Bevy exposes many features to customise the engine. Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.
 
 ### Default Features
 
@@ -16,7 +16,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_animation|Provides animation functionality|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
-|bevy_core_pipeline|Provides a core render pipeline|
+|bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
@@ -24,7 +24,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_text|Provides text functionality|
-|bevy_ui|A custom ECS-driven UI framework built specifically|
+|bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
