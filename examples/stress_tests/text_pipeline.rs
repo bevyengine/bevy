@@ -5,7 +5,9 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, TextPipeline, FontAtlasSet, TextSettings, FontAtlasWarning, YAxisOrientation},
+    text::{
+        BreakLineOn, FontAtlasSet, FontAtlasWarning, TextPipeline, TextSettings, YAxisOrientation,
+    },
     window::{PresentMode, WindowPlugin},
 };
 
@@ -34,21 +36,21 @@ impl FromWorld for TestText {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let mut sections = Vec::new();
-        for i in 1 ..= 100 {
+        for i in 1..=100 {
             sections.push(TextSection {
                 value: "Hello World!".repeat(i),
                 style: TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::WHITE,
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: (10 + i % 10) as f32,
+                    ..Default::default()
                 },
             });
             sections.push(TextSection {
                 value: "So long, Earth?".repeat(i),
                 style: TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Medium.ttf"),
-                    font_size: 25.0,
-                    color: Color::RED,
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: (11 + i % 15) as f32,
+                    ..Default::default()
                 },
             });
         }
@@ -65,7 +67,7 @@ pub fn pipe_text(
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     test_text: Res<TestText>,
-) {    
+) {
     let _ = text_pipeline.queue_text(
         &fonts,
         &test_text.sections,
