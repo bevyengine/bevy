@@ -25,7 +25,8 @@ fn main() {
     };
 
     let target = match std::env::args().nth(2).as_deref() {
-        Some("exmaples") => Target::EXAMPLES,
+        Some("examples") => Target::EXAMPLES,
+        Some("features") => Target::FEATURES,
         _ => Target::all(),
     };
 
