@@ -5,9 +5,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{
-        BreakLineOn, Text2dBounds,
-    },
+    text::{BreakLineOn, Text2dBounds},
     window::{PresentMode, WindowPlugin},
 };
 
@@ -27,30 +25,30 @@ fn main() {
         .run();
 }
 
-fn spawn(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    let sections =
-        (1..=50).flat_map(|i| [
-            TextSection {
-                value: "text".repeat(i),
-                style: TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: (4 + i % 10) as f32,
-                    color: Color::BLUE,
+    let sections = (1..=50)
+        .flat_map(|i| {
+            [
+                TextSection {
+                    value: "text".repeat(i),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: (4 + i % 10) as f32,
+                        color: Color::BLUE,
+                    },
                 },
-            },
-            TextSection {
-                value: "pipeline".repeat(i),
-                style: TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: (4 + i % 11) as f32,
-                    color: Color::YELLOW,
+                TextSection {
+                    value: "pipeline".repeat(i),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: (4 + i % 11) as f32,
+                        color: Color::YELLOW,
+                    },
                 },
-            }]
-        ).collect::<Vec<_>>();
+            ]
+        })
+        .collect::<Vec<_>>();
     commands.spawn(Text2dBundle {
         text: Text {
             sections,
@@ -62,10 +60,7 @@ fn spawn(
 }
 
 // changing the bounds of the text will cause a recomputation
-fn update_text_bounds(
-    time: Res<Time>,
-    mut text_bounds_query: Query<&mut Text2dBounds>,
-) {
+fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut Text2dBounds>) {
     let width = (1. + time.elapsed_seconds().sin()) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
         text_bounds.size.x = width;
