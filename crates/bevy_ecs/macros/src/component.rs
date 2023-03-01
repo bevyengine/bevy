@@ -113,17 +113,13 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 }
             };
         } else if left_ident == &format_ident!("read_set") {
-            let tokens: TokenStream2 = get_lit_str(Symbol("read_set"), &right)?
-                .value()
-                .as_str()
-                .parse()?;
-            attrs.read_sets.push(syn::parse2(tokens)?);
+            attrs.read_sets.push(syn::parse_str(
+                get_lit_str(Symbol("read_set"), &right)?.value().as_str(),
+            )?);
         } else if left_ident == &format_ident!("write_set") {
-            let tokens: TokenStream2 = get_lit_str(Symbol("write_set"), &right)?
-                .value()
-                .as_str()
-                .parse()?;
-            attrs.write_sets.push(syn::parse2(tokens)?);
+            attrs.write_sets.push(syn::parse_str(
+                get_lit_str(Symbol("write_set"), &right)?.value().as_str(),
+            )?);
         } else {
             return Err(Error::new_spanned(
                 left,
