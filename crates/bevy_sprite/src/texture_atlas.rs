@@ -25,7 +25,7 @@ pub struct TextureAtlas {
 
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct TextureAtlasSprite {
-    /// The tint color used to draw the sprite, default is [`Color::WRITE`]
+    /// The tint color used to draw the sprite, defaulting to [`Color::WHITE`]
     pub color: Color,
     /// Texture index in [`TextureAtlas`]
     pub index: usize,
