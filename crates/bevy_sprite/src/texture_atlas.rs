@@ -36,6 +36,7 @@ pub struct TextureAtlasSprite {
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image in the atlas. The sprite will be scaled.
     pub custom_size: Option<Vec2>,
+    /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
 }
 
@@ -135,17 +136,17 @@ impl TextureAtlas {
         self.textures.len() - 1
     }
 
-    /// How many textures are in this [`TextureAtlas`]
+    /// How many textures are in the [`TextureAtlas`]
     pub fn len(&self) -> usize {
         self.textures.len()
     }
 
-    /// Returns `true` if there are no textures in this [`TextureAtlas`]
+    /// Returns `true` if there are no textures in the [`TextureAtlas`]
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }
 
-    /// Returns the index if texture in this [`TextureAtlas`]
+    /// Returns the index if texture in the [`TextureAtlas`]
     pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
         self.texture_handles
             .as_ref()
