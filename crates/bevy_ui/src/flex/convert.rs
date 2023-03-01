@@ -1,26 +1,22 @@
-use crate::Breadth;
-use crate::JustifySelf;
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Style, Val,
+    AlignContent, AlignItems, AlignSelf, Breadth, Display, FlexDirection, FlexWrap, JustifyContent,
+    JustifySelf, PositionType, Style, Val,
 };
-use taffy::prelude::LengthPercentage;
-use taffy::prelude::LengthPercentageAuto;
-use taffy::prelude::Rect;
+use taffy::prelude::{LengthPercentage, LengthPercentageAuto, Rect};
 use taffy::style::Dimension;
+
+fn from_breadth(scale_factor: f64, breadth: Breadth) -> LengthPercentage {
+    match breadth {
+        Breadth::Percent(value) => LengthPercentage::Percent(value / 100.0),
+        Breadth::Px(value) => LengthPercentage::Points((scale_factor * value as f64) as f32),
+    }
+}
 
 fn from_val(scale_factor: f64, val: Val) -> LengthPercentageAuto {
     match val {
         Val::Auto => LengthPercentageAuto::Auto,
         Val::Percent(value) => LengthPercentageAuto::Percent(value / 100.0),
         Val::Px(value) => LengthPercentageAuto::Points((scale_factor * value as f64) as f32),
-    }
-}
-
-fn from_breadth(scale_factor: f64, breadth: Breadth) -> LengthPercentage {
-    match breadth {
-        Breadth::Percent(value) => LengthPercentage::Percent(value / 100.0),
-        Breadth::Px(value) => LengthPercentage::Points((scale_factor * value as f64) as f32),
     }
 }
 
