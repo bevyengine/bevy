@@ -13,12 +13,16 @@ repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
   "examples/mobile",
   "tools/ci",
-  "tools/build-example-pages",
+  "tools/build-templated-pages",
   "tools/build-wasm-example",
   "errors",
 ]
@@ -40,70 +44,148 @@ default = [
   "bevy_ui",
   "png",
   "hdr",
+  "ktx2",
+  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
-  "android_shared_stdcxx"
+  "android_shared_stdcxx",
+  "tonemapping_luts"
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
 
-# Optional bevy crates
+# Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation"]
+
+# Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
+
+# Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
+
+# Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+
+# Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
+
+# Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
+
+# [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf"]
+
+# Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
+
+# Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
+
+# Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
+
+# Provides sprite functionality
 bevy_sprite = ["bevy_internal/bevy_sprite"]
+
+# Provides text functionality
 bevy_text = ["bevy_internal/bevy_text"]
+
+# A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui"]
+
+# winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
-# Tracing features
+# Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+
+# Tracing support, exposing a port for Tracy
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+
+# Tracing support
 trace = ["bevy_internal/trace"]
+
+# Save a trace of all wgpu calls
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
-# Image format support for texture loading (PNG and HDR are enabled by default)
+# EXR image format support
+exr = ["bevy_internal/exr"]
+
+# HDR image format support
 hdr = ["bevy_internal/hdr"]
+
+# PNG image format support
 png = ["bevy_internal/png"]
+
+# TGA image format support
 tga = ["bevy_internal/tga"]
+
+# JPEG image format support
 jpeg = ["bevy_internal/jpeg"]
+
+# BMP image format support
 bmp = ["bevy_internal/bmp"]
+
+# Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
+
+# DDS compressed texture support
 dds = ["bevy_internal/dds"]
+
+# KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
-# For ktx2 supercompression
+
+# For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
+
+# For KTX2 supercompression
 zstd = ["bevy_internal/zstd"]
 
-# Audio format support (vorbis is enabled by default)
+# FLAC audio format support
 flac = ["bevy_internal/flac"]
+
+# MP3 audio format support
 mp3 = ["bevy_internal/mp3"]
+
+# OGG/VORBIS audio format support
 vorbis = ["bevy_internal/vorbis"]
+
+# WAV audio format support
 wav = ["bevy_internal/wav"]
+
+# MP3 audio format support (through minimp3)
+minimp3 = ["bevy_internal/minimp3"]
+
+# AAC audio format support (through symphonia)
 symphonia-aac = ["bevy_internal/symphonia-aac"]
+
+# AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)
 symphonia-all = ["bevy_internal/symphonia-all"]
+
+# FLAC audio format support (through symphonia)
 symphonia-flac = ["bevy_internal/symphonia-flac"]
+
+# MP4 audio format support (through symphonia)
 symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
-symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+
+# OGG/VORBIS audio format support (through symphonia)
 symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+
+# WAV audio format support (through symphonia)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
+# Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
-# Display server protocol support (X11 is enabled by default)
+# Wayland display server support
 wayland = ["bevy_internal/wayland"]
+
+# X11 display server support
 x11 = ["bevy_internal/x11"]
 
 # Enable rendering of font glyphs using subpixel accuracy
@@ -116,10 +198,16 @@ bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_internal/animation"]
+animation = ["bevy_internal/animation", "bevy_animation"]
 
-# Enable using a shared stdlib for cxx on Android.
+# Enable using a shared stdlib for cxx on Android
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
+
+# Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
+detailed_trace = ["bevy_internal/detailed_trace"]
+
+# Include tonemapping Look Up Tables KTX2 files
+tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
@@ -372,11 +460,21 @@ wasm = false
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "tonemapping"
+path = "examples/3d/tonemapping.rs"
+required-features = ["ktx2", "zstd"]
+
+[package.metadata.example.tonemapping]
+name = "Tonemapping"
+description = "Compares tonemapping options"
 category = "3D Rendering"
 wasm = true
 
@@ -423,7 +521,6 @@ wasm = true
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
@@ -464,7 +561,6 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -807,6 +903,26 @@ description = "Shows how to create and register a custom audio source by impleme
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "spatial_audio_2d"
+path = "examples/audio/spatial_audio_2d.rs"
+
+[package.metadata.example.spatial_audio_2d]
+name = "Spatial Audio 2D"
+description = "Shows how to play spatial audio, and moving the emitter in 2D"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "spatial_audio_3d"
+path = "examples/audio/spatial_audio_3d.rs"
+
+[package.metadata.example.spatial_audio_3d]
+name = "Spatial Audio 3D"
+description = "Shows how to play spatial audio, and moving the emitter in 3D"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -836,6 +952,16 @@ path = "examples/ecs/ecs_guide.rs"
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "apply_system_buffers"
+path = "examples/ecs/apply_system_buffers.rs"
+
+[package.metadata.example.apply_system_buffers]
+name = "Apply System Buffers"
+description = "Show how to use `apply_system_buffers` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -926,6 +1052,16 @@ path = "examples/ecs/removal_detection.rs"
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
 description = "Query for entities that had a specific component removed earlier in the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "run_conditions"
+path = "examples/ecs/run_conditions.rs"
+
+[package.metadata.example.run_conditions]
+name = "Run Conditions"
+description = "Run systems only when one or multiple conditions are met"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1204,7 +1340,7 @@ category = "Scene"
 wasm = false
 
 # Shaders
-[[package.metadata.category]]
+[[package.metadata.example_category]]
 name = "Shaders"
 description = """
 These examples demonstrate how to implement different shaders in user code.
@@ -1336,7 +1472,7 @@ category = "Shaders"
 wasm = false
 
 # Stress tests
-[[package.metadata.category]]
+[[package.metadata.example_category]]
 name = "Stress Tests"
 description = """
 These examples are used to test the performance and stability of various parts of the engine in an isolated way.
@@ -1432,7 +1568,6 @@ wasm = true
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"

@@ -23,8 +23,10 @@ trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
+detailed_trace = ["bevy_utils/detailed_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
+exr = ["bevy_render/exr"]
 hdr = ["bevy_render/hdr"]
 png = ["bevy_render/png"]
 tga = ["bevy_render/tga"]
@@ -37,16 +39,19 @@ ktx2 = ["bevy_render/ktx2"]
 zlib = ["bevy_render/zlib"]
 zstd = ["bevy_render/zstd"]
 
+# Include tonemapping LUT KTX2 files.
+tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
+
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
+minimp3 = ["bevy_audio/minimp3"]
 symphonia-aac = ["bevy_audio/symphonia-aac"]
 symphonia-all = ["bevy_audio/symphonia-all"]
 symphonia-flac = ["bevy_audio/symphonia-flac"]
 symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
-symphonia-mp3 = ["bevy_audio/symphonia-mp3"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
@@ -76,6 +81,8 @@ dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
+
+bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
 [dependencies]
 # bevy

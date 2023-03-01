@@ -78,6 +78,7 @@ fn fallback_image_new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         ),
+        mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }
 
@@ -126,7 +127,7 @@ pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 /// A Cache of fallback depth textures that uses the sample count as a key
 ///
 /// # WARNING
-/// Detph images are never initialized with data, therefore,
+/// Depth images are never initialized with data, therefore,
 /// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);

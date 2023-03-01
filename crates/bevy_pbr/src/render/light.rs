@@ -1,9 +1,9 @@
 use crate::{
     directional_light_order, point_light_order, AmbientLight, Cascade, CascadeShadowConfig,
     Cascades, CascadesVisibleEntities, Clusters, CubemapVisibleEntities, DirectionalLight,
-    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight, VisiblePointLights,
-    SHADOW_SHADER_HANDLE,
+    DirectionalLightShadowMap, DrawMesh, EnvironmentMapLight, GlobalVisiblePointLights,
+    MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight,
+    VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
@@ -218,6 +218,7 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
+    environment_map_smallest_specular_mip_level: u32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -372,7 +373,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: None,
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
@@ -400,6 +401,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             }),
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
+            push_constant_ranges: Vec::new(),
         })
     }
 }
@@ -786,12 +788,18 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
+    images: Res<RenderAssets<Image>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (Entity, &ExtractedView, &ExtractedClusterConfig),
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            Option<&EnvironmentMapLight>,
+        ),
         With<RenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
@@ -1028,7 +1036,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters) in &views {
+    for (entity, extracted_view, clusters, environment_map) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -1095,6 +1103,10 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
+            environment_map_smallest_specular_mip_level: environment_map
+                .and_then(|env_map| images.get(&env_map.specular_map))
+                .map(|specular_map| specular_map.mip_level_count - 1)
+                .unwrap_or(0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -1149,6 +1161,7 @@ pub fn prepare_lights(
                             view_projection: None,
                             projection: cube_face_projection,
                             hdr: false,
+                            color_grading: Default::default(),
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -1206,6 +1219,7 @@ pub fn prepare_lights(
                         projection: spot_projection,
                         view_projection: None,
                         hdr: false,
+                        color_grading: Default::default(),
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
@@ -1271,6 +1285,7 @@ pub fn prepare_lights(
                             projection: cascade.projection,
                             view_projection: Some(cascade.view_projection),
                             hdr: false,
+                            color_grading: Default::default(),
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional {

@@ -277,7 +277,7 @@ fn calculate_cascade_bounds(
 /// Builder for [`CascadeShadowConfig`].
 pub struct CascadeShadowConfigBuilder {
     /// The number of shadow cascades.
-    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenom where areas
+    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas
     /// nearer the camera are covered by fewer shadow map texels than areas further from the camera, causing
     /// blocky looking shadows.
     ///
@@ -393,7 +393,7 @@ pub struct Cascade {
     pub(crate) view_transform: Mat4,
     /// The orthographic projection for this cascade.
     pub(crate) projection: Mat4,
-    /// The view-projection matrix for this cacade, converting world space into light clip space.
+    /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
     pub(crate) view_projection: Mat4,
@@ -2173,7 +2173,7 @@ mod test {
         // check a smaller number of clusters would not cover the screen
         assert!(clusters.tile_size.x * (clusters.dimensions.x - 1) < screen_size.x);
         assert!(clusters.tile_size.y * (clusters.dimensions.y - 1) < screen_size.y);
-        // check a smaller tilesize would not cover the screen
+        // check a smaller tile size would not cover the screen
         assert!((clusters.tile_size.x - 1) * clusters.dimensions.x < screen_size.x);
         assert!((clusters.tile_size.y - 1) * clusters.dimensions.y < screen_size.y);
         // check we don't have more clusters than pixels

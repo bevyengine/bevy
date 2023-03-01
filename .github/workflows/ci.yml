@@ -190,14 +190,14 @@ jobs:
       - name: Build bevy
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome,ktx2,zstd"
+          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome,ktx2,zstd"
+            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
           done
           zip traces.zip trace*.json
@@ -257,14 +257,14 @@ jobs:
       - uses: actions/checkout@v3
       - name: check for missing metadata
         id: missing-metadata
-        run: cargo run -p build-example-pages -- check-missing
+        run: cargo run -p build-templated-pages -- check-missing examples
       - name: check for missing update
         id: missing-update
-        run: cargo run -p build-example-pages -- update
+        run: cargo run -p build-templated-pages -- update examples
       - name: Check for modified files
         run: |
           echo "if this step fails, run the following command and commit the changed file on your PR."
-          echo " > cargo run -p build-example-pages -- update"
+          echo " > cargo run -p build-templated-pages -- update examples"
           git diff --quiet HEAD --
       - name: Save PR number
         if: ${{ failure() && github.event_name == 'pull_request' }}
@@ -282,6 +282,39 @@ jobs:
         with:
           name: missing-examples
           path: missing-examples/
+
+  check-missing-features-in-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+      - name: check for missing features
+        id: missing-features
+        run: cargo run -p build-templated-pages -- check-missing features
+      - name: check for missing update
+        id: missing-update
+        run: cargo run -p build-templated-pages -- update features
+      - name: Check for modified files
+        run: |
+          echo "if this step fails, run the following command and commit the changed file on your PR."
+          echo " > cargo run -p build-templated-pages -- update features"
+          git diff --quiet HEAD --
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./missing-features
+          echo ${{ github.event.number }} > ./missing-features/NR
+      - name: log failed task - missing features
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-features.conclusion == 'failure' }}
+        run: touch ./missing-features/missing-features
+      - name: log failed task - missing update
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
+        run: touch ./missing-features/missing-update
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: missing-features
+          path: missing-features/
 
   check-unused-dependencies:
     runs-on: ubuntu-latest

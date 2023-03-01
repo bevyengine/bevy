@@ -1,53 +1,70 @@
-# Cargo Features
+<!-- MD041 - This file will be included in docs and should not start with a top header -->
+<!-- markdownlint-disable-file MD041 -->
 
-## Default Features
+## Cargo Features
 
-|feature name|description|
-|-|-|
-|animation|Animation support and glTF animation loading.|
-|bevy_asset|Provides asset functionality for Bevy Engine.|
-|bevy_audio|Audio support. Support for all audio formats depends on this.|
-|bevy_gilrs|Adds gamepad support.|
-|bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
-|bevy_scene|Provides scene functionality for Bevy Engine.|
-|bevy_winit|GUI support.|
-|render|The render pipeline and all render related plugins.|
-|png|PNG picture format support.|
-|hdr|[HDR](https://en.wikipedia.org/wiki/High_dynamic_range) support.|
-|vorbis|Ogg Vorbis audio format support.|
-|x11|Make GUI applications use X11 protocol. You could enable wayland feature to override this.|
-|filesystem_watcher|Enable watching the file system for asset hot reload|
+Bevy exposes many features to customise the engine. Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.
 
-## Optional Features
+### Default Features
+
+The default feature set enables most of the expected features of a game engine, like rendering in both 2D and 3D, asset loading, audio and UI. To help reduce compilation time, consider disabling default features and enabling only those you need.
 
 |feature name|description|
 |-|-|
-|bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading)).|
-|dynamic_linking|Forces bevy to be dynamically linked, which improves iterative compile times.|
-|trace|Enables system tracing.|
-|trace_chrome|Enables [tracing-chrome](https://github.com/thoren-d/tracing-chrome) as bevy_log output. This allows you to visualize system execution.|
-|trace_tracy|Enables [Tracy](https://github.com/wolfpld/tracy) as bevy_log output. This allows `Tracy` to connect to and capture profiling data as well as visualize system execution in real-time, present statistics about system execution times, and more.|
-|wgpu_trace|For tracing wgpu.|
-|dds|DDS picture format support.|
-|ktx2|KTX2 picture format support.|
-|zlib|KTX2 Zlib supercompression support.|
-|zstd|KTX2 Zstandard supercompression support.|
-|basis-universal|Basis Universal picture format support and, if the `ktx2` feature is enabled, also KTX2 UASTC picture format transcoding support.|
-|tga|TGA picture format support.|
-|jpeg|JPEG picture format support.|
-|bmp|BMP picture format support.|
-|flac|FLAC audio format support. It's included in bevy_audio feature.|
-|mp3|MP3 audio format support.|
-|wav|WAV audio format support.|
-|symphonia-aac|AAC audio format support by Symphonia. For more details, see `symphonia-all`.|
-|symphonia-all|AAC, FLAC, MP4, MP3, Vorbis, and WAV support by Symphonia. Add support for parsing multiple file formats using a single crate instead of compiling different crates. The other non-`symphonia` features are disabled when its corresponding `symphonia` feature is enabled. [Link to `symphonia` documentation](https://docs.rs/symphonia/latest/symphonia/). More information about this topic can be found [here](https://github.com/bevyengine/bevy/pull/6388#discussion_r1009622883) |
-|symphonia-flac|FLAC audio format support by Symphonia. For more details, see `symphonia-all`.|
-|symphonia-isomp4|MP4 audio format support by Symphonia. For more details, see `symphonia-all`.|
-|symphonia-mp3|MP3 audio format support by Symphonia. For more details, see `symphonia-all`.|
-|symphonia-vorbis|Vorbis audio format support by Symphonia. For more details, see `symphonia-all`.|
-|symphonia-wav|WAV audio format support by Symphonia. For more details, see `symphonia-all`.|
-|serialize|Enables serialization of `bevy_input` types.|
-|wayland|Enable this to use Wayland display server protocol other than X11.|
-|subpixel_glyph_atlas|Enable this to cache glyphs using subpixel accuracy. This increases texture memory usage as each position requires a separate sprite in the glyph atlas, but provide more accurate character spacing.|
-|bevy_ci_testing|Used for running examples in CI.|
-|debug_asset_server|Enabling this turns on "hot reloading" of built in assets, such as shaders.|
+|android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
+|animation|Enable animation support, and glTF animation loading|
+|bevy_animation|Provides animation functionality|
+|bevy_asset|Provides asset functionality|
+|bevy_audio|Provides audio functionality|
+|bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_gilrs|Adds gamepad support|
+|bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
+|bevy_pbr|Adds PBR rendering|
+|bevy_render|Provides rendering functionality|
+|bevy_scene|Provides scene functionality|
+|bevy_sprite|Provides sprite functionality|
+|bevy_text|Provides text functionality|
+|bevy_ui|A custom ECS-driven UI framework|
+|bevy_winit|winit window and input backend|
+|filesystem_watcher|Enable watching file system for asset hot reload|
+|hdr|HDR image format support|
+|ktx2|KTX2 compressed texture support|
+|png|PNG image format support|
+|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
+|vorbis|OGG/VORBIS audio format support|
+|x11|X11 display server support|
+|zstd|For KTX2 supercompression|
+
+### Optional Features
+
+|feature name|description|
+|-|-|
+|basis-universal|Basis Universal compressed texture support|
+|bevy_ci_testing|Enable systems that allow for automated testing on CI|
+|bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
+|bmp|BMP image format support|
+|dds|DDS compressed texture support|
+|debug_asset_server|Enable the "debug asset server" for hot reloading internal assets|
+|detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
+|dynamic_linking|Force dynamic linking, which improves iterative compile times|
+|exr|EXR image format support|
+|flac|FLAC audio format support|
+|jpeg|JPEG image format support|
+|minimp3|MP3 audio format support (through minimp3)|
+|mp3|MP3 audio format support|
+|serialize|Enable serialization support through serde|
+|subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
+|symphonia-aac|AAC audio format support (through symphonia)|
+|symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
+|symphonia-flac|FLAC audio format support (through symphonia)|
+|symphonia-isomp4|MP4 audio format support (through symphonia)|
+|symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
+|symphonia-wav|WAV audio format support (through symphonia)|
+|tga|TGA image format support|
+|trace|Tracing support|
+|trace_chrome|Tracing support, saving a file in Chrome Tracing format|
+|trace_tracy|Tracing support, exposing a port for Tracy|
+|wav|WAV audio format support|
+|wayland|Wayland display server support|
+|wgpu_trace|Save a trace of all wgpu calls|
+|zlib|For KTX2 supercompression|

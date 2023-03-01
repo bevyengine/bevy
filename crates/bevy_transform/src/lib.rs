@@ -37,7 +37,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
@@ -77,7 +77,7 @@ impl From<Transform> for TransformBundle {
         Self::from_transform(transform)
     }
 }
-/// Label enum for the systems relating to transform propagation
+/// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
     /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
@@ -90,6 +90,11 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
+        // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
+        // Used instead of the `SystemTypeSet` as that would not allow multiple instances of the system.
+        #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+        struct PropagateTransformsSet;
+
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
@@ -97,7 +102,7 @@ impl Plugin for TransformPlugin {
             .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(
-                    TransformSystem::TransformPropagate.in_set(StartupSet::PostStartup),
+                    TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
                 );
             })
             // FIXME: https://github.com/bevyengine/bevy/issues/4381
@@ -106,14 +111,22 @@ impl Plugin for TransformPlugin {
             .add_startup_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+                    .ambiguous_with(PropagateTransformsSet),
             )
-            .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
+            .add_startup_system(
+                propagate_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(PropagateTransformsSet),
+            )
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+                    .ambiguous_with(PropagateTransformsSet),
             )
-            .add_system(propagate_transforms.in_set(TransformSystem::TransformPropagate));
+            .add_system(
+                propagate_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(PropagateTransformsSet),
+            );
     }
 }

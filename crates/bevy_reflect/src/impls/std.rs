@@ -8,16 +8,16 @@ use crate::{
     VariantInfo, VariantType,
 };
 
-use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
+use crate::utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
+use bevy_utils::HashSet;
 use bevy_utils::{Duration, Instant};
-use bevy_utils::{HashMap, HashSet};
 use std::{
     any::Any,
     borrow::Cow,
     collections::VecDeque,
     ffi::OsString,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
@@ -180,7 +180,7 @@ impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect> Array for $ty {
+        impl<T: FromReflect> List for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 <$sub>::get(self, index).map(|value| value as &dyn Reflect)
@@ -191,25 +191,6 @@ macro_rules! impl_reflect_for_veclike {
                 <$sub>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
             }
 
-            #[inline]
-            fn len(&self) -> usize {
-                <$sub>::len(self)
-            }
-
-            #[inline]
-            fn iter(&self) -> ArrayIter {
-                ArrayIter::new(self)
-            }
-
-            #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-                self.into_iter()
-                    .map(|value| Box::new(value) as Box<dyn Reflect>)
-                    .collect()
-            }
-        }
-
-        impl<T: FromReflect> List for $ty {
             fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
@@ -238,6 +219,23 @@ macro_rules! impl_reflect_for_veclike {
 
             fn pop(&mut self) -> Option<Box<dyn Reflect>> {
                 $pop(self).map(|value| Box::new(value) as Box<dyn Reflect>)
+            }
+
+            #[inline]
+            fn len(&self) -> usize {
+                <$sub>::len(self)
+            }
+
+            #[inline]
+            fn iter(&self) -> $crate::ListIter {
+                $crate::ListIter::new(self)
+            }
+
+            #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                self.into_iter()
+                    .map(|value| Box::new(value) as Box<dyn Reflect>)
+                    .collect()
             }
         }
 
@@ -296,11 +294,11 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn clone_value(&self) -> Box<dyn Reflect> {
-                Box::new(List::clone_dynamic(self))
+                Box::new(self.clone_dynamic())
             }
 
             fn reflect_hash(&self) -> Option<u64> {
-                crate::array_hash(self)
+                crate::list_hash(self)
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -349,187 +347,215 @@ impl_reflect_for_veclike!(
     VecDeque::<T>
 );
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
-    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
-        key.downcast_ref::<K>()
-            .and_then(|key| HashMap::get(self, key))
-            .map(|value| value as &dyn Reflect)
-    }
-
-    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
-        key.downcast_ref::<K>()
-            .and_then(move |key| HashMap::get_mut(self, key))
-            .map(|value| value as &mut dyn Reflect)
-    }
-
-    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
-        self.iter()
-            .nth(index)
-            .map(|(key, value)| (key as &dyn Reflect, value as &dyn Reflect))
-    }
-
-    fn len(&self) -> usize {
-        Self::len(self)
-    }
-
-    fn iter(&self) -> MapIter {
-        MapIter {
-            map: self,
-            index: 0,
-        }
-    }
-
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
-        self.into_iter()
-            .map(|(key, value)| {
-                (
-                    Box::new(key) as Box<dyn Reflect>,
-                    Box::new(value) as Box<dyn Reflect>,
-                )
-            })
-            .collect()
-    }
-
-    fn clone_dynamic(&self) -> DynamicMap {
-        let mut dynamic_map = DynamicMap::default();
-        dynamic_map.set_name(self.type_name().to_string());
-        for (k, v) in self {
-            dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
-        }
-        dynamic_map
-    }
-
-    fn insert_boxed(
-        &mut self,
-        key: Box<dyn Reflect>,
-        value: Box<dyn Reflect>,
-    ) -> Option<Box<dyn Reflect>> {
-        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
-            panic!(
-                "Attempted to insert invalid key of type {}.",
-                key.type_name()
-            )
-        });
-        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
-            panic!(
-                "Attempted to insert invalid value of type {}.",
-                value.type_name()
-            )
-        });
-        self.insert(key, value)
-            .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
-    }
-
-    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
-        let mut from_reflect = None;
-        key.downcast_ref::<K>()
-            .or_else(|| {
-                from_reflect = K::from_reflect(key);
-                from_reflect.as_ref()
-            })
-            .and_then(|key| self.remove(key))
-            .map(|value| Box::new(value) as Box<dyn Reflect>)
-    }
-}
-
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
-    fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
-
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
-    }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn apply(&mut self, value: &dyn Reflect) {
-        map_apply(self, value);
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Map(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Map(self)
-    }
-
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Map(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        map_partial_eq(self, value)
-    }
-}
-
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
-    }
-}
-
-impl<K, V> GetTypeRegistration for HashMap<K, V>
-where
-    K: FromReflect + Eq + Hash,
-    V: FromReflect,
-{
-    fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectFromPtr>(FromType::<HashMap<K, V>>::from_type());
-        registration
-    }
-}
-
-impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
-            let mut new_map = Self::with_capacity(ref_map.len());
-            for (key, value) in ref_map.iter() {
-                let new_key = K::from_reflect(key)?;
-                let new_value = V::from_reflect(value)?;
-                new_map.insert(new_key, new_value);
+macro_rules! impl_reflect_for_hashmap {
+    ($ty:ty) => {
+        impl<K, V, S> Map for $ty
+        where
+            K: FromReflect + Eq + Hash,
+            V: FromReflect,
+            S: BuildHasher + Send + Sync + 'static,
+        {
+            fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
+                key.downcast_ref::<K>()
+                    .and_then(|key| Self::get(self, key))
+                    .map(|value| value as &dyn Reflect)
             }
-            Some(new_map)
-        } else {
-            None
+
+            fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
+                key.downcast_ref::<K>()
+                    .and_then(move |key| Self::get_mut(self, key))
+                    .map(|value| value as &mut dyn Reflect)
+            }
+
+            fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
+                self.iter()
+                    .nth(index)
+                    .map(|(key, value)| (key as &dyn Reflect, value as &dyn Reflect))
+            }
+
+            fn len(&self) -> usize {
+                Self::len(self)
+            }
+
+            fn iter(&self) -> MapIter {
+                MapIter {
+                    map: self,
+                    index: 0,
+                }
+            }
+
+            fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+                self.into_iter()
+                    .map(|(key, value)| {
+                        (
+                            Box::new(key) as Box<dyn Reflect>,
+                            Box::new(value) as Box<dyn Reflect>,
+                        )
+                    })
+                    .collect()
+            }
+
+            fn clone_dynamic(&self) -> DynamicMap {
+                let mut dynamic_map = DynamicMap::default();
+                dynamic_map.set_name(self.type_name().to_string());
+                for (k, v) in self {
+                    dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
+                }
+                dynamic_map
+            }
+
+            fn insert_boxed(
+                &mut self,
+                key: Box<dyn Reflect>,
+                value: Box<dyn Reflect>,
+            ) -> Option<Box<dyn Reflect>> {
+                let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+                    panic!(
+                        "Attempted to insert invalid key of type {}.",
+                        key.type_name()
+                    )
+                });
+                let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+                    panic!(
+                        "Attempted to insert invalid value of type {}.",
+                        value.type_name()
+                    )
+                });
+                self.insert(key, value)
+                    .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
+            }
+
+            fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+                let mut from_reflect = None;
+                key.downcast_ref::<K>()
+                    .or_else(|| {
+                        from_reflect = K::from_reflect(key);
+                        from_reflect.as_ref()
+                    })
+                    .and_then(|key| self.remove(key))
+                    .map(|value| Box::new(value) as Box<dyn Reflect>)
+            }
         }
-    }
+
+        impl<K, V, S> Reflect for $ty
+        where
+            K: FromReflect + Eq + Hash,
+            V: FromReflect,
+            S: BuildHasher + Send + Sync + 'static,
+        {
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+
+            fn get_type_info(&self) -> &'static TypeInfo {
+                <Self as Typed>::type_info()
+            }
+
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
+                self
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            #[inline]
+            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+                self
+            }
+
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                self
+            }
+
+            fn apply(&mut self, value: &dyn Reflect) {
+                map_apply(self, value);
+            }
+
+            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+                *self = value.take()?;
+                Ok(())
+            }
+
+            fn reflect_ref(&self) -> ReflectRef {
+                ReflectRef::Map(self)
+            }
+
+            fn reflect_mut(&mut self) -> ReflectMut {
+                ReflectMut::Map(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                ReflectOwned::Map(self)
+            }
+
+            fn clone_value(&self) -> Box<dyn Reflect> {
+                Box::new(self.clone_dynamic())
+            }
+
+            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+                map_partial_eq(self, value)
+            }
+        }
+
+        impl<K, V, S> Typed for $ty
+        where
+            K: FromReflect + Eq + Hash,
+            V: FromReflect,
+            S: BuildHasher + Send + Sync + 'static,
+        {
+            fn type_info() -> &'static TypeInfo {
+                static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+                CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
+            }
+        }
+
+        impl<K, V, S> GetTypeRegistration for $ty
+        where
+            K: FromReflect + Eq + Hash,
+            V: FromReflect,
+            S: BuildHasher + Send + Sync + 'static,
+        {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<Self>();
+                registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration
+            }
+        }
+
+        impl<K, V, S> FromReflect for $ty
+        where
+            K: FromReflect + Eq + Hash,
+            V: FromReflect,
+            S: BuildHasher + Default + Send + Sync + 'static,
+        {
+            fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+                if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
+                    let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), S::default());
+                    for (key, value) in ref_map.iter() {
+                        let new_key = K::from_reflect(key)?;
+                        let new_value = V::from_reflect(value)?;
+                        new_map.insert(new_key, new_value);
+                    }
+                    Some(new_map)
+                } else {
+                    None
+                }
+            }
+        }
+    };
 }
+
+impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(std::collections::HashMap<K, V, S>);
 
 impl<T: Reflect, const N: usize> Array for [T; N] {
     #[inline]
@@ -995,7 +1021,7 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
@@ -1103,7 +1129,7 @@ impl Reflect for &'static Path {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = crate::ReflectHasher::default();
+        let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())

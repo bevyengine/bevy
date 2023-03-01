@@ -399,13 +399,13 @@ impl Time {
     #[inline]
     pub fn set_relative_speed_f64(&mut self, ratio: f64) {
         assert!(ratio.is_finite(), "tried to go infinitely fast");
-        assert!(ratio.is_sign_positive(), "tried to go back in time");
+        assert!(ratio >= 0.0, "tried to go back in time");
         self.relative_speed = ratio;
     }
 
     /// Stops the clock, preventing it from advancing until resumed.
     ///
-    /// **Note:** This does affect the `raw_*` measurements.
+    /// **Note:** This does not affect the `raw_*` measurements.
     #[inline]
     pub fn pause(&mut self) {
         self.paused = true;

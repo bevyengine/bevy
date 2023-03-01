@@ -80,7 +80,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: BLIT_SHADER_HANDLE.typed(),
@@ -98,6 +98,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 count: key.samples,
                 ..Default::default()
             },
+            push_constant_ranges: Vec::new(),
         }
     }
 }
