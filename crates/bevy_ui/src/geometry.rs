@@ -316,19 +316,19 @@ where
 
 impl UiRect<Val> {
     pub const DEFAULT_VAL: Self = Self {
-        left: Val::DEFAULT,
-        right: Val::DEFAULT,
-        top: Val::DEFAULT,
-        bottom: Val::DEFAULT,
+        left: Val::Px(0.),
+        right: Val::Px(0.),
+        top: Val::Px(0.),
+        bottom: Val::Px(0.),
     };
 }
 
 impl UiRect<Breadth> {
     pub const DEFAULT_BREADTH: Self = Self {
-        left: Breadth::DEFAULT,
-        right: Breadth::DEFAULT,
-        top: Breadth::DEFAULT,
-        bottom: Breadth::DEFAULT,
+        left: Breadth::Px(0.),
+        right: Breadth::Px(0.),
+        top: Breadth::Px(0.),
+        bottom: Breadth::Px(0.),
     };
 }
 
