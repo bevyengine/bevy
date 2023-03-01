@@ -427,7 +427,13 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let index = Components::init_component_inner(&mut self.components, storages, descriptor);
+        let index = if let Some(type_id) = descriptor.type_id {
+            *self.indices.entry(type_id).or_insert_with(|| {
+                Components::init_component_inner(&mut self.components, storages, descriptor)
+            })
+        } else {
+            Components::init_component_inner(&mut self.components, storages, descriptor)
+        };
         ComponentId(index)
     }
 
