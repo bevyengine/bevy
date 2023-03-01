@@ -82,10 +82,15 @@ dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 
+# Enable AccessKit on Unix backends (currently only works with experimental
+# screen readers and forks.)
+accesskit_unix = ["bevy_winit/accesskit_unix"]
+
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
 [dependencies]
 # bevy
+bevy_a11y = { path = "../bevy_a11y", version = "0.9.0" }
 bevy_app = { path = "../bevy_app", version = "0.9.0" }
 bevy_core = { path = "../bevy_core", version = "0.9.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.9.0" }

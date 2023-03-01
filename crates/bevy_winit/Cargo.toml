@@ -12,11 +12,15 @@ keywords = ["bevy"]
 trace = []
 wayland = ["winit/wayland"]
 x11 = ["winit/x11"]
+accesskit_unix = ["accesskit_winit/accesskit_unix"]
 
 [dependencies]
 # bevy
+bevy_a11y = { path = "../bevy_a11y", version = "0.9.0" }
 bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
 bevy_input = { path = "../bevy_input", version = "0.9.0" }
 bevy_math = { path = "../bevy_math", version = "0.9.0" }
 bevy_window = { path = "../bevy_window", version = "0.9.0" }
@@ -24,6 +28,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other
 winit = { version = "0.28", default-features = false }
+accesskit_winit = { version = "0.12", default-features = false }
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 

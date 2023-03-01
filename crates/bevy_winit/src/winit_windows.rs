@@ -1,3 +1,10 @@
+use std::sync::atomic::Ordering;
+
+use accesskit_winit::Adapter;
+use bevy_a11y::{
+    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
+    AccessKitEntityExt, AccessibilityRequested,
+};
 use bevy_ecs::entity::Entity;
 
 use bevy_utils::{tracing::warn, HashMap};
@@ -8,7 +15,10 @@ use winit::{
     monitor::MonitorHandle,
 };
 
-use crate::converters::convert_window_level;
+use crate::{
+    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
+    converters::convert_window_level,
+};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -27,8 +37,15 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         entity: Entity,
         window: &Window,
+        adapters: &mut AccessKitAdapters,
+        handlers: &mut WinitActionHandlers,
+        accessibility_requested: &mut AccessibilityRequested,
     ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
+
+        // Due to a UIA limitation, winit windows need to be invisible for the
+        // AccessKit adapter is initialized.
+        winit_window_builder = winit_window_builder.with_visible(false);
 
         winit_window_builder = match window.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
@@ -118,6 +135,30 @@ impl WinitWindows {
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
+        let name = window.title.clone();
+
+        let mut root_builder = NodeBuilder::new(Role::Window);
+        root_builder.set_name(name.into_boxed_str());
+        let root = root_builder.build(&mut NodeClassSet::lock_global());
+
+        let accesskit_window_id = entity.to_node_id();
+        let handler = WinitActionHandler::default();
+        let accessibility_requested = (*accessibility_requested).clone();
+        let adapter = Adapter::with_action_handler(
+            &winit_window,
+            move || {
+                accessibility_requested.store(true, Ordering::SeqCst);
+                TreeUpdate {
+                    nodes: vec![(accesskit_window_id, root)],
+                    tree: Some(Tree::new(accesskit_window_id)),
+                    focus: None,
+                }
+            },
+            Box::new(handler.clone()),
+        );
+        adapters.insert(entity, adapter);
+        handlers.insert(entity, handler);
+        winit_window.set_visible(true);
 
         // Do not set the grab mode on window creation if it's none, this can fail on mobile
         if window.cursor.grab_mode != CursorGrabMode::None {
