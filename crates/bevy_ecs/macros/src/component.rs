@@ -87,8 +87,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         write_sets: vec![],
     };
 
-    for meta in meta_items {
-        let syn::ExprAssign { left, right, .. } = syn::parse2(meta)?;
+    for syn::ExprAssign { left, right, .. } in meta_items {
         let left = match *left {
             syn::Expr::Path(left) => left,
             other => {
@@ -113,13 +112,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 }
             };
         } else if left_ident == &format_ident!("read_set") {
-            attrs.read_sets.push(syn::parse_str(
-                get_lit_str(Symbol("read_set"), &right)?.value().as_str(),
-            )?);
+            attrs.read_sets.push(*right);
         } else if left_ident == &format_ident!("write_set") {
-            attrs.write_sets.push(syn::parse_str(
-                get_lit_str(Symbol("write_set"), &right)?.value().as_str(),
-            )?);
+            attrs.write_sets.push(*right);
         } else {
             return Err(Error::new_spanned(
                 left,

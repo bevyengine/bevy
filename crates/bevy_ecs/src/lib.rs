@@ -1748,7 +1748,7 @@ mod tests {
         struct WriteSet;
 
         #[derive(Component)]
-        #[component(write_set = "WriteSet")]
+        #[component(write_set = WriteSet)]
         struct WithWriteSet;
 
         fn does_write(_q: Query<&mut WithWriteSet>) {}

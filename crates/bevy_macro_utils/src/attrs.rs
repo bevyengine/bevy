@@ -1,18 +1,15 @@
-use proc_macro2::TokenStream as TokenStream2;
-use quote::ToTokens;
-use syn::DeriveInput;
+
+use syn::{ DeriveInput};
 
 use crate::symbol::Symbol;
 
-pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<TokenStream2>> {
+pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<syn::ExprAssign>> {
     let mut list = Vec::new();
     for attr in ast.attrs.iter().filter(|a| a.path == attr_name) {
-        match attr.parse_meta() {
-            Ok(syn::Meta::List(meta)) => {
-                list.extend(meta.nested.into_iter().map(ToTokens::into_token_stream));
-            }
-            _ => list.push(attr.tokens.clone()),
-        }
+        let args = attr.parse_args_with(|parse: &syn::parse::ParseBuffer| {
+            parse.parse_terminated::<syn::ExprAssign, syn::token::Comma>(|parse| parse.parse())
+        })?;
+        list.extend(args);
     }
     Ok(list)
 }
