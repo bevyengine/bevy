@@ -1,4 +1,4 @@
-use bevy_macro_utils::{get_lit_str, Symbol};
+use bevy_macro_utils::{get_lit_str, NamedArg, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
@@ -79,45 +79,34 @@ const TABLE: &str = "Table";
 const SPARSE_SET: &str = "SparseSet";
 
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
-    let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
-
     let mut attrs = Attrs {
         storage: StorageTy::Table,
         read_sets: vec![],
         write_sets: vec![],
     };
 
-    for syn::ExprAssign { left, right, .. } in meta_items {
-        let left = match *left {
-            syn::Expr::Path(left) => left,
-            other => {
-                return Err(Error::new_spanned(
-                    other,
-                    r#"invalid attribute: expected #[component(storage = "...")]"#,
-                ))
-            }
-        };
-        let left_ident = left.path.get_ident().unwrap();
-        if left_ident == &format_ident!("storage") {
-            attrs.storage = match get_lit_str(STORAGE, &right)?.value().as_str() {
+    for NamedArg { path, expr } in bevy_macro_utils::parse_attrs(ast, COMPONENT)? {
+        let ident = path.get_ident().unwrap();
+        if ident == &format_ident!("storage") {
+            attrs.storage = match get_lit_str(STORAGE, &expr)?.value().as_str() {
                 TABLE => StorageTy::Table,
                 SPARSE_SET => StorageTy::SparseSet,
                 s => {
                     return Err(Error::new_spanned(
-                        right,
+                        expr,
                         format!(
                             "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
                         ),
                     ))
                 }
             };
-        } else if left_ident == &format_ident!("read_set") {
-            attrs.read_sets.push(*right);
-        } else if left_ident == &format_ident!("write_set") {
-            attrs.write_sets.push(*right);
+        } else if ident == &format_ident!("read_set") {
+            attrs.read_sets.push(expr);
+        } else if ident == &format_ident!("write_set") {
+            attrs.write_sets.push(expr);
         } else {
             return Err(Error::new_spanned(
-                left,
+                ident,
                 "Invalid component attribute format: expected `storages`",
             ));
         }
