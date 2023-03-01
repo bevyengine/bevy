@@ -140,6 +140,40 @@ For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to
 [Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/games/jumpy/default.nix)
 is an example of packaging a Bevy program in nix.
 
+### Adhering to rust-toolchain.toml
+
+If you run your project from several environments,
+you might want your nix environment to follow the version specified by the rust toolchain file.
+You can do this by using a nix file similar to this:
+
+```nix
+{ pkgs ? import <nixpkgs> { } }:
+
+with pkgs;
+
+mkShell rec {
+  nativeBuildInputs = [
+    pkg-config rustup
+  ];
+  buildInputs = [
+    udev alsa-lib vulkan-loader
+    xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
+    libxkbcommon wayland # To use the wayland feature
+  ];
+  RUSTC_VERSION =
+    builtins.elemAt
+      (builtins.match
+        ".*channel *= *\"([^\"]*)\".*"
+        (pkgs.lib.readFile ./rust-toolchain.toml)
+      )
+      0;
+  LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
+  shellHook = ''
+    rustup toolchain install ''${RUSTC_VERSION}
+  '';
+}
+```
+
 ## [OpenSUSE](https://www.opensuse.org/)
 
 ```bash
