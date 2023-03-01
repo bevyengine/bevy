@@ -1,5 +1,4 @@
-
-use syn::{ DeriveInput};
+use syn::DeriveInput;
 
 use crate::symbol::Symbol;
 
