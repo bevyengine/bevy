@@ -42,10 +42,9 @@ pub struct SystemConfig {
 
 impl SystemConfig {
     fn new(system: BoxedSystem) -> Self {
-        // include system in its default sets
-        let sets = system.default_system_sets().into_iter().collect();
         let mut graph_info = GraphInfo::system();
-        graph_info.sets = sets;
+        // Include the system in its default sets.
+        graph_info.sets = system.default_system_sets();
         Self {
             system,
             graph_info,
