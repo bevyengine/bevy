@@ -40,8 +40,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.),
-            right: Val::Px(10.),
+            position: UiRect {
+                bottom: Val::Px(5.),
+                right: Val::Px(10.),
+                ..default()
+            },
             ..default()
         }),
     ));

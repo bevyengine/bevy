@@ -147,8 +147,11 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
     )
     .with_style(Style {
         position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
+        position: UiRect {
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        },
         ..default()
     }),));
 }
