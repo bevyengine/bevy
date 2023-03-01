@@ -65,6 +65,10 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::schedule::{
+        IntoSystemConfig, IntoSystemSetConfig, Schedule, ScheduleBuildSettings, SystemSet,
+    };
+    use crate::system::Query;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -1737,5 +1741,32 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn component_with_access_set() {
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct WriteSet;
+
+        fn does_write(_q: Query<&mut A>) {}
+        fn after_write(_q: Query<&A>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        world.init_component::<A>();
+
+        schedule.configure_set(WriteSet.on_write::<A>());
+
+        schedule.add_system(does_write);
+        schedule.add_system(after_write.after(WriteSet));
+
+        // Panic if there are ambiguities.
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: bevy_ecs::schedule::LogLevel::Error,
+            ..Default::default()
+        });
+
+        schedule.run(&mut world);
     }
 }
