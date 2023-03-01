@@ -35,8 +35,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: UiRect::all(Breadth::Px(2.0)),
+                        size: Size::width(Val::Px(200.)),
+                        border: UiRect::all(Val::Px(2.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -152,7 +152,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         left: Val::Px(210.),
                         bottom: Val::Px(10.),
-                        border: UiRect::all(Breadth::Px(20.0)),
+                        border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.4, 0.4, 1.).into(),

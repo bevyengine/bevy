@@ -1,10 +1,6 @@
-use crate::{Val, Breadth};
+use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
-
-trait FieldDefault<F> {
-    const FIELD_DEFAULT: F;
-}
 
 /// A type which is commonly used to define positions, margins, paddings and borders.
 ///
@@ -97,13 +93,13 @@ trait FieldDefault<F> {
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Breadth};
+/// # use bevy_ui::{UiRect, Val};
 /// #
 /// let padding = UiRect {
-///     left: Breadth::Px(10.0),
-///     right: Breadth::Px(20.0),
-///     top: Breadth::Px(30.0),
-///     bottom: Breadth::Px(40.0),
+///     left: Val::Px(10.0),
+///     right: Val::Px(20.0),
+///     top: Val::Px(30.0),
+///     bottom: Val::Px(40.0),
 /// };
 /// ```
 ///
@@ -112,33 +108,37 @@ trait FieldDefault<F> {
 /// A border is used to define the width of the border of a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Breadth};
+/// # use bevy_ui::{UiRect, Val};
 /// #
 /// let border = UiRect {
-///     left: Breadth::Px(10.0),
-///     right: Breadth::Px(20.0),
-///     top: Breadth::Px(30.0),
-///     bottom: Breadth::Px(40.0),
+///     left: Val::Px(10.0),
+///     right: Val::Px(20.0),
+///     top: Val::Px(30.0),
+///     bottom: Val::Px(40.0),
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect<T: Default + Copy + Clone + PartialEq = Val> {
+pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
-    pub left: T,
+    pub left: Val,
     /// The value corresponding to the right side of the UI rect.
-    pub right: T,
+    pub right: Val,
     /// The value corresponding to the top side of the UI rect.
-    pub top: T,
+    pub top: Val,
     /// The value corresponding to the bottom side of the UI rect.
-    pub bottom: T,
+    pub bottom: Val,
 }
 
-impl<T> UiRect<T>
-where
-    UiRect<T>: Default,
-    T: Default + Copy + Clone + PartialEq,
-{
+impl UiRect {
+    pub const DEFAULT: Self = Self {
+        left: Val::Px(0.),
+        right: Val::Px(0.),
+        top: Val::Px(0.),
+        bottom: Val::Px(0.),
+    };
+
+    /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
     ///
@@ -157,7 +157,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub const fn new(left: T, right: T, top: T, bottom: T) -> Self {
+    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -180,7 +180,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn all(value: T) -> Self {
+    pub const fn all(value: Val) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -203,7 +203,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn horizontal(value: T) -> Self {
+    pub fn horizontal(value: Val) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -225,7 +225,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn vertical(value: T) -> Self {
+    pub fn vertical(value: Val) -> Self {
         UiRect {
             top: value,
             bottom: value,
@@ -247,7 +247,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn left(value: T) -> Self {
+    pub fn left(value: Val) -> Self {
         UiRect {
             left: value,
             ..Default::default()
@@ -268,7 +268,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn right(value: T) -> Self {
+    pub fn right(value: Val) -> Self {
         UiRect {
             right: value,
             ..Default::default()
@@ -289,7 +289,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn top(value: T) -> Self {
+    pub fn top(value: Val) -> Self {
         UiRect {
             top: value,
             ..Default::default()
@@ -310,7 +310,7 @@ where
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn bottom(value: T) -> Self {
+    pub fn bottom(value: Val) -> Self {
         UiRect {
             bottom: value,
             ..Default::default()
@@ -318,44 +318,9 @@ where
     }
 }
 
-impl UiRect<Val> {
-    pub const DEFAULT: Self = Self {
-        left: Val::DEFAULT,
-        right: Val::DEFAULT,
-        top: Val::DEFAULT,
-        bottom: Val::DEFAULT,
-    };
-}
-
-impl Default for UiRect<Val> {
+impl Default for UiRect {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-impl UiRect<Breadth> {
-    pub const DEFAULT_BREADTH: Self = Self {
-        left: Breadth::DEFAULT,
-        right: Breadth::DEFAULT,
-        top: Breadth::DEFAULT,
-        bottom: Breadth::DEFAULT,
-    };
-}
-
-impl Default for UiRect<Breadth> {
-    fn default() -> Self {
-        Self::DEFAULT_BREADTH
-    }
-}
-
-impl From<UiRect<Breadth>> for UiRect<Val> {
-    fn from(rect: UiRect<Breadth>) -> Self {
-        Self {
-            left: rect.left.into(),
-            right: rect.right.into(),
-            top: rect.top.into(),
-            bottom: rect.bottom.into(),
-        }
     }
 }
 
@@ -364,26 +329,15 @@ impl From<UiRect<Breadth>> for UiRect<Val> {
 /// It is commonly used to define the size of a text or UI element.
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct Size<T: Default + Copy + Clone + PartialEq = Val> {
+pub struct Size {
     /// The width of the 2-dimensional area.
-    pub width: T,
+    pub width: Val,
     /// The height of the 2-dimensional area.
-    pub height: T,
+    pub height: Val,
 }
 
-impl FieldDefault<Val> for Size {
-    const FIELD_DEFAULT: Val = Val::Auto;
-}
-
-impl FieldDefault<Breadth> for Size<Breadth> {
-    const FIELD_DEFAULT: Breadth = Breadth::Px(0.);
-}
-
-impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefault<T> {
-    pub const DEFAULT: Self = Self {
-        width: Self::FIELD_DEFAULT,
-        height: Self::FIELD_DEFAULT,
-    };
+impl Size {
+    pub const DEFAULT: Self = Self::AUTO;
 
     /// Creates a new [`Size`] from a width and a height.
     ///
@@ -397,7 +351,7 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub const fn new(width: T, height: T) -> Self {
+    pub const fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
 
@@ -413,7 +367,7 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
     /// assert_eq!(size.width, Val::Px(10.0));
     /// assert_eq!(size.height, Val::Px(10.0));
     /// ```
-    pub const fn all(value: T) -> Self {
+    pub const fn all(value: Val) -> Self {
         Self {
             width: value,
             height: value,
@@ -432,10 +386,10 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
     /// assert_eq!(size.width, Val::Px(10.0));
     /// assert_eq!(size.height, Val::Auto);
     /// ```
-    pub const fn width(width: T) -> Self {
+    pub const fn width(width: Val) -> Self {
         Self {
             width,
-            height: Self::FIELD_DEFAULT,
+            height: Val::Auto,
         }
     }
 
@@ -451,20 +405,18 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
     /// assert_eq!(size.width, Val::Auto);
     /// assert_eq!(size.height, Val::Px(10.));
     /// ```
-    pub const fn height(height: T) -> Self {
+    pub const fn height(height: Val) -> Self {
         Self {
-            width: Self::FIELD_DEFAULT,
+            width: Val::Auto,
             height,
         }
     }
-}
 
-impl Size {
     /// Creates a Size where both values are [`Val::Auto`].
     pub const AUTO: Self = Self::all(Val::Auto);
 }
 
-impl0 Default for Size {
+impl Default for Size {
     fn default() -> Self {
         Self::DEFAULT
     }

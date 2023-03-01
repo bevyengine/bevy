@@ -161,10 +161,10 @@ fn spawn_nested_text_bundle(
             style: Style {
                 margin,
                 padding: UiRect {
-                    top: Breadth::Px(1.),
-                    left: Breadth::Px(5.),
-                    right: Breadth::Px(5.),
-                    bottom: Breadth::Px(1.),
+                    top: Val::Px(1.),
+                    left: Val::Px(5.),
+                    right: Val::Px(5.),
+                    bottom: Val::Px(1.),
                 },
                 ..Default::default()
             },
