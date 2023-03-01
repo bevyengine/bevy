@@ -505,7 +505,7 @@ impl Style {
         max_size: Size::AUTO,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        gap: Size::DEFAULT_BREADTH,
+        gap: Size::<Breadth>::DEFAULT,
     };
 }
 

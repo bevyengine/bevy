@@ -85,8 +85,11 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            left: Val::Px(100.0),
+            position: UiRect {
+                top: Val::Px(20.0),
+                left: Val::Px(100.0),
+                ..default()
+            },
             ..default()
         }),
     );
@@ -102,8 +105,11 @@ fn setup(
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
-            right: Val::Px(0.0),
+            position: UiRect {
+                top: Val::Px(130.0),
+                right: Val::Px(0.0),
+                ..default()
+            },
             ..default()
         },
         transform: Transform {
@@ -124,8 +130,11 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            right: Val::Px(20.0),
+            position: UiRect {
+                bottom: Val::Px(20.0),
+                right: Val::Px(20.0),
+                ..default()
+            },
             ..default()
         }),
         EnvironmentMapLabel,
