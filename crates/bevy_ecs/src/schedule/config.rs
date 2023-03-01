@@ -102,6 +102,10 @@ pub trait IntoSystemSetConfig {
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
+    /// Automatically assign any system that reads `T` to this set.
+    fn on_read<T: 'static>(self) -> SystemSetConfig;
+    // Automatically assign any system that can read `T` to this set.
+    fn on_write<T: 'static>(self) -> SystemSetConfig;
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
@@ -142,6 +146,14 @@ impl<S: SystemSet> IntoSystemSetConfig for S {
         self.into_config().after(set)
     }
 
+    fn on_read<T: 'static>(self) -> SystemSetConfig {
+        self.into_config().on_read::<T>()
+    }
+
+    fn on_write<T: 'static>(self) -> SystemSetConfig {
+        self.into_config().on_write::<T>()
+    }
+
     fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
         self.into_config().run_if(condition)
     }
@@ -180,6 +192,14 @@ impl IntoSystemSetConfig for BoxedSystemSet {
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
         self.into_config().after(set)
+    }
+
+    fn on_read<T: 'static>(self) -> SystemSetConfig {
+        self.into_config().on_read::<T>()
+    }
+
+    fn on_write<T: 'static>(self) -> SystemSetConfig {
+        self.into_config().on_write::<T>()
     }
 
     fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
@@ -254,6 +274,16 @@ impl IntoSystemSetConfig for SystemSetConfig {
             DependencyKind::After,
             Box::new(set.into_system_set()),
         ));
+        self
+    }
+
+    fn on_read<T: 'static>(mut self) -> SystemSetConfig {
+        self.on_read.push(TypeId::of::<T>());
+        self
+    }
+
+    fn on_write<T: 'static>(mut self) -> SystemSetConfig {
+        self.on_write.push(TypeId::of::<T>());
         self
     }
 
