@@ -432,13 +432,13 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Breadth};
+    /// # use bevy_ui::{Style, UiRect, Val};
     /// let style = Style {
     ///     padding: UiRect {
-    ///         left: Breadth::Percent(1.),
-    ///         right: Breadth::Percent(2.),
-    ///         top: Breadth::Percent(3.),
-    ///         bottom: Breadth::Percent(4.)
+    ///         left: Val::Percent(1.),
+    ///         right: Val::Percent(2.),
+    ///         top: Val::Percent(3.),
+    ///         bottom: Val::Percent(4.)
     ///     },
     ///     ..Default::default()
     /// };
