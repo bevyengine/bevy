@@ -382,8 +382,10 @@ impl TaskPool {
 
                 // we get this from a thread local so we should always be on the scope executors thread.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                if let Some(external_ticker) = external_executor.ticker() {
-                    if tick_task_pool_executor {
+                match (external_executor.ticker(), tick_task_pool_executor) {
+                    (Some(external_ticker), true)
+                        if !external_ticker.is_same_executor(&scope_ticker) =>
+                    {
                         Self::execute_global_external_scope(
                             executor,
                             external_ticker,
@@ -391,14 +393,18 @@ impl TaskPool {
                             get_results,
                         )
                         .await
-                    } else {
+                    }
+                    (Some(external_ticker), false)
+                        if !external_ticker.is_same_executor(&scope_ticker) =>
+                    {
                         Self::execute_external_scope(external_ticker, scope_ticker, get_results)
                             .await
                     }
-                } else if tick_task_pool_executor {
-                    Self::execute_global_scope(executor, scope_ticker, get_results).await
-                } else {
-                    Self::execute_scope(scope_ticker, get_results).await
+                    // either external_executor is none or it is same as scope_executor
+                    (_, true) => {
+                        Self::execute_global_scope(executor, scope_ticker, get_results).await
+                    }
+                    (_, false) => Self::execute_scope(scope_ticker, get_results).await,
                 }
             })
         }
@@ -417,7 +423,7 @@ impl TaskPool {
             loop {
                 let tick_forever = async {
                     loop {
-                        external_ticker.or_tick(&scope_ticker).await;
+                        external_ticker.tick().or(scope_ticker.tick()).await;
                     }
                 };
                 // we don't care if it errors. If a scoped task errors it will propagate
@@ -441,7 +447,7 @@ impl TaskPool {
             loop {
                 let tick_forever = async {
                     loop {
-                        external_ticker.or_tick(&scope_ticker).await;
+                        external_ticker.tick().or(scope_ticker.tick()).await;
                     }
                 };
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
