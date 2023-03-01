@@ -1082,6 +1082,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> bool {
         true
     }
+
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {
+        T::add_default_sets(sets);
+    }
 }
 
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
@@ -1562,6 +1566,10 @@ macro_rules! impl_anytuple_fetch {
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
+            }
+
+            fn add_default_sets(_sets: &mut Vec<BoxedSystemSet>) {
+                $( $name::add_default_sets(_sets); )*
             }
         }
 
