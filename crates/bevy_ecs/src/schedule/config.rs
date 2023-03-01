@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use bevy_utils::all_tuples;
 
 use crate::{
@@ -14,6 +16,8 @@ pub struct SystemSetConfig {
     pub(super) set: BoxedSystemSet,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
+    pub(super) on_read: Vec<TypeId>,
+    pub(super) on_write: Vec<TypeId>,
 }
 
 impl SystemSetConfig {
@@ -29,6 +33,8 @@ impl SystemSetConfig {
             set,
             graph_info: GraphInfo::system_set(),
             conditions: Vec::new(),
+            on_read: Vec::new(),
+            on_write: Vec::new(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use std::{
+    any::TypeId,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -407,6 +408,11 @@ impl SystemNode {
     }
 }
 
+enum PendingAccessSet {
+    Read(TypeId, NodeId),
+    Write(TypeId, NodeId),
+}
+
 /// Metadata for a [`Schedule`].
 #[derive(Default)]
 pub struct ScheduleGraph {
@@ -415,6 +421,9 @@ pub struct ScheduleGraph {
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
+    read_system_sets: HashMap<ComponentId, Vec<NodeId>>,
+    write_system_sets: HashMap<ComponentId, Vec<NodeId>>,
+    uninit_access_sets: Vec<PendingAccessSet>,
     uninit: Vec<(NodeId, usize)>,
     maybe_default_base_set: Vec<NodeId>,
     hierarchy: Dag,
@@ -437,6 +446,9 @@ impl ScheduleGraph {
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
             system_set_ids: HashMap::new(),
+            read_system_sets: HashMap::new(),
+            write_system_sets: HashMap::new(),
+            uninit_access_sets: Vec::new(),
             maybe_default_base_set: Vec::new(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
@@ -631,12 +643,23 @@ impl ScheduleGraph {
             set,
             graph_info,
             mut conditions,
+            on_read,
+            on_write,
         } = set.into_config();
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
             None => self.add_set(set.dyn_clone()),
         };
+
+        for component in on_read {
+            self.uninit_access_sets
+                .push(PendingAccessSet::Read(component, id));
+        }
+        for component in on_write {
+            self.uninit_access_sets
+                .push(PendingAccessSet::Write(component, id));
+        }
 
         // graph updates are immediate
         self.update_graphs(id, graph_info, set.is_base())?;
@@ -811,10 +834,44 @@ impl ScheduleGraph {
 
     /// Initializes any newly-added systems and conditions by calling [`System::initialize`]
     pub fn initialize(&mut self, world: &mut World) {
+        for pending in self.uninit_access_sets.drain(..) {
+            match pending {
+                PendingAccessSet::Read(component, node) => self
+                    .read_system_sets
+                    .entry(world.components().get_id(component).unwrap())
+                    .or_insert(Vec::new())
+                    .push(node),
+                PendingAccessSet::Write(component, node) => self
+                    .write_system_sets
+                    .entry(world.components().get_id(component).unwrap())
+                    .or_insert(Vec::new())
+                    .push(node),
+            }
+        }
         for (id, i) in self.uninit.drain(..) {
             match id {
                 NodeId::System(index) => {
-                    self.systems[index].get_mut().unwrap().initialize(world);
+                    let system = self.systems[index].get_mut().unwrap();
+                    system.initialize(world);
+
+                    let system_access = system.component_access();
+                    for component in system_access.reads() {
+                        let Some(read_sets) = self.read_system_sets.get(&component) else {
+                            continue;
+                        };
+                        for &set in read_sets {
+                            self.hierarchy.graph.add_edge(set, id, ());
+                        }
+                    }
+                    for component in system_access.writes() {
+                        let Some(write_sets) = self.write_system_sets.get(&component) else {
+                            continue;
+                        };
+                        for &set in write_sets {
+                            self.hierarchy.graph.add_edge(set, id, ());
+                        }
+                    }
+
                     if let Some(v) = self.system_conditions[index].as_mut() {
                         for condition in v.iter_mut() {
                             condition.initialize(world);
