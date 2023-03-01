@@ -293,6 +293,11 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
 pub struct EventWriter<'w, E: Event> {
+    events: ResMut<'w, Events<E>>,
+}
+
+impl<'w, E: Event> EventWriter<'w, E> {
+    /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {
         self.events.send(event);
