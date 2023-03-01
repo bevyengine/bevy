@@ -842,7 +842,7 @@ impl ScheduleGraph {
                     self.read_system_sets
                         .entry(component)
                         .or_insert(Vec::new())
-                        .push(node)
+                        .push(node);
                 }
                 PendingAccessSet::Write(component, node) => {
                     let component = world
@@ -851,7 +851,7 @@ impl ScheduleGraph {
                     self.write_system_sets
                         .entry(component)
                         .or_insert(Vec::new())
-                        .push(node)
+                        .push(node);
                 }
             }
         }
