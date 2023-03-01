@@ -1754,8 +1754,6 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::new();
 
-        world.init_component::<A>();
-
         schedule.configure_set(WriteSet.on_write::<A>());
 
         schedule.add_system(does_write);
