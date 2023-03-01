@@ -223,7 +223,7 @@ impl TaskPool {
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
     /// let results = pool.scope(|s| {
-    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 0 });
     ///     s.spawn(async { 1 });
     /// });
     /// assert_eq!(&results[..], &[0, 1]);

@@ -197,6 +197,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Apply System Buffers](../examples/ecs/apply_system_buffers.rs) | Show how to use `apply_system_buffers` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
