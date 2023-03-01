@@ -202,11 +202,13 @@ pub fn extract_uinode_borders(
             if !visibility.is_visible() || border_style.color.a() == 0.0 {
                 continue;
             }
+
+            let transform = global_transform.compute_matrix();
+            
             for &border_rect in border.edges.iter().flatten() {
-                let transform = global_transform.compute_matrix();
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: Mat4::from_translation(border_rect.center().extend(0.)) * transform,
+                    transform: transform * Mat4::from_translation(border_rect.center().extend(0.)),
                     color: border_style.color,
                     rect: Rect {
                         max: border_rect.size(),

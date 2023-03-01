@@ -9,7 +9,6 @@ use bevy_hierarchy::Parent;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-
 use crate::Node;
 use crate::Style;
 use crate::Val;
@@ -32,13 +31,13 @@ impl Default for CalculatedBorder {
     }
 }
 
-fn resolve_thickness(value: Val, parent_width: f32, max_thickness: f32) -> f32 {
+/// Percentage thickness of all border edges is calculated based on the width of the parent node.
+fn resolve_thickness(value: Val, parent_width: f32) -> f32 {
     match value {
         Val::Auto | Val::Undefined => 0.,
         Val::Px(px) => px,
         Val::Percent(percent) => parent_width * percent / 100.,
     }
-    .min(max_thickness)
 }
 
 /// Generates the border geometry
@@ -61,28 +60,34 @@ pub fn calculate_borders_system(
             .map(|parent_node| parent_node.calculated_size.x)
             .unwrap_or(0.);
         let border = style.border;
-        let left = resolve_thickness(border.left, parent_width, node_size.x);
-        let right = resolve_thickness(border.right, parent_width, node_size.x);
-        let top = resolve_thickness(border.top, parent_width, node_size.y);
-        let bottom = resolve_thickness(border.bottom, parent_width, node_size.y);
+        let left = resolve_thickness(border.left, parent_width);
+        let right = resolve_thickness(border.right, parent_width);
+        let top = resolve_thickness(border.top, parent_width);
+        let bottom = resolve_thickness(border.bottom, parent_width);
+
+        // calculate border rects, ensuring that they don't overlap
         let max = 0.5 * node_size;
         let min = -max;
         let inner_min = min + Vec2::new(left, top);
         let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
 
         let border_rects = [
+            // Left border
             Rect {
                 min,
                 max: Vec2::new(inner_min.x, max.y),
             },
+            // Right border
             Rect {
                 min: Vec2::new(inner_max.x, min.y),
                 max,
             },
+            // Top border
             Rect {
                 min: Vec2::new(inner_min.x, min.y),
                 max: Vec2::new(inner_max.x, inner_min.y),
             },
+            // Bottom border
             Rect {
                 min: Vec2::new(inner_min.x, inner_max.y),
                 max: Vec2::new(inner_max.x, max.y),
