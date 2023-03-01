@@ -2,6 +2,7 @@
 
 use crate::{
     change_detection::MAX_CHANGE_AGE,
+    schedule::BoxedSystemSet,
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource},
     world::{FromWorld, World},
@@ -147,6 +148,12 @@ use std::{
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
+
+    #[allow(unused_variables)]
+    fn add_read_sets(sets: &mut Vec<BoxedSystemSet>) {}
+
+    #[allow(unused_variables)]
+    fn add_write_sets(sets: &mut Vec<BoxedSystemSet>) {}
 }
 
 pub struct TableStorage;

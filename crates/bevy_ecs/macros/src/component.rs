@@ -33,6 +33,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
+    let read_sets = attrs.read_sets;
+    let write_sets = attrs.write_sets;
+
     ast.generics
         .make_where_clause()
         .predicates
@@ -44,6 +47,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
+
+            fn add_read_sets(_sets: &mut Vec<#bevy_ecs_path::schedule::BoxedSystemSet>) {
+                #(_sets.push(#read_sets.dyn_clone());)*
+            }
+
+            fn add_write_sets(_sets: &mut Vec<#bevy_ecs_path::schedule::BoxedSystemSet>) {
+                #(_sets.push(#write_sets.dyn_clone());)*
+            }
         }
     })
 }
@@ -53,6 +64,8 @@ pub const STORAGE: Symbol = Symbol("storage");
 
 struct Attrs {
     storage: StorageTy,
+    read_sets: Vec<syn::Expr>,
+    write_sets: Vec<syn::Expr>,
 }
 
 #[derive(Clone, Copy)]
@@ -70,6 +83,8 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        read_sets: vec![],
+        write_sets: vec![],
     };
 
     for meta in meta_items {
@@ -83,7 +98,8 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 ))
             }
         };
-        if left.path.get_ident().unwrap() == &format_ident!("storage") {
+        let left_ident = left.path.get_ident().unwrap();
+        if left_ident == &format_ident!("storage") {
             attrs.storage = match get_lit_str(STORAGE, &right)?.value().as_str() {
                 TABLE => StorageTy::Table,
                 SPARSE_SET => StorageTy::SparseSet,
@@ -96,6 +112,10 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     ))
                 }
             };
+        } else if left_ident == &format_ident!("read_set") {
+            attrs.read_sets.push(*right);
+        } else if left_ident == &format_ident!("write_set") {
+            attrs.write_sets.push(*right);
         } else {
             return Err(Error::new_spanned(
                 left,

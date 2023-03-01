@@ -652,6 +652,10 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {
+        T::add_read_sets(sets);
+    }
 }
 
 /// SAFETY: access is read only
@@ -812,6 +816,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
+    }
+
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {
+        T::add_read_sets(sets);
     }
 }
 
@@ -977,6 +985,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
+    }
+
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {
+        T::add_write_sets(sets);
     }
 }
 
