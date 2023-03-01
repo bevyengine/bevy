@@ -729,6 +729,7 @@ impl Default for JustifyContent {
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifySelf {
     Auto,
+    /// Items are packed toward the start of the axis
     Start,
     /// Items are packed toward the end of the axis
     End,
