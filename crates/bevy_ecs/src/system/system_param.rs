@@ -8,6 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
+    schedule::BoxedSystemSet,
     system::{Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -171,6 +172,9 @@ pub unsafe trait SystemParam: Sized {
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item<'world, 'state>;
+
+    #[allow(unused_variables)]
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {}
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].

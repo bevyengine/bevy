@@ -4,6 +4,7 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
+    schedule::SystemSet,
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
@@ -515,9 +516,11 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<Box<dyn SystemSet>> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+        let mut sets = vec![Box::new(set) as Box<dyn SystemSet>];
+        F::Param::add_default_sets(&mut sets);
+        sets
     }
 }
 
