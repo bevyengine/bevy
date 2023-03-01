@@ -72,11 +72,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );

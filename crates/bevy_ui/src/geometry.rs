@@ -2,10 +2,6 @@ use crate::{Val, Breadth};
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-trait FieldDefault<F> {
-    const FIELD_DEFAULT: F;
-}
-
 /// A type which is commonly used to define positions, margins, paddings and borders.
 ///
 /// # Examples
@@ -319,18 +315,12 @@ where
 }
 
 impl UiRect<Val> {
-    pub const DEFAULT: Self = Self {
+    pub const DEFAULT_VAL: Self = Self {
         left: Val::DEFAULT,
         right: Val::DEFAULT,
         top: Val::DEFAULT,
         bottom: Val::DEFAULT,
     };
-}
-
-impl Default for UiRect<Val> {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
 }
 
 impl UiRect<Breadth> {
@@ -340,6 +330,12 @@ impl UiRect<Breadth> {
         top: Breadth::DEFAULT,
         bottom: Breadth::DEFAULT,
     };
+}
+
+impl Default for UiRect<Val> {
+    fn default() -> Self {
+        Self::DEFAULT_VAL
+    }
 }
 
 impl Default for UiRect<Breadth> {
@@ -362,7 +358,7 @@ impl From<UiRect<Breadth>> for UiRect<Val> {
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 #[reflect(PartialEq)]
 pub struct Size<T: Default + Copy + Clone + PartialEq = Val> {
     /// The width of the 2-dimensional area.
@@ -371,19 +367,8 @@ pub struct Size<T: Default + Copy + Clone + PartialEq = Val> {
     pub height: T,
 }
 
-impl FieldDefault<Val> for Size {
-    const FIELD_DEFAULT: Val = Val::Auto;
-}
+impl <T> Size<T> where T: Default + Copy + Clone + PartialEq {
 
-impl FieldDefault<Breadth> for Size<Breadth> {
-    const FIELD_DEFAULT: Breadth = Breadth::Px(0.);
-}
-
-impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefault<T> {
-    pub const DEFAULT: Self = Self {
-        width: Self::FIELD_DEFAULT,
-        height: Self::FIELD_DEFAULT,
-    };
 
     /// Creates a new [`Size`] from a width and a height.
     ///
@@ -432,10 +417,10 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
     /// assert_eq!(size.width, Val::Px(10.0));
     /// assert_eq!(size.height, Val::Auto);
     /// ```
-    pub const fn width(width: T) -> Self {
+    pub fn width(width: T) -> Self {
         Self {
             width,
-            height: Self::FIELD_DEFAULT,
+            .. Self::default()
         }
     }
 
@@ -451,10 +436,10 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
     /// assert_eq!(size.width, Val::Auto);
     /// assert_eq!(size.height, Val::Px(10.));
     /// ```
-    pub const fn height(height: T) -> Self {
-        Self {
-            width: Self::FIELD_DEFAULT,
+    pub fn height(height: T) -> Self {
+        Self {            
             height,
+            .. Self::default()
         }
     }
 }
@@ -462,13 +447,15 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq, Size<T>: FieldDefa
 impl Size {
     /// Creates a Size where both values are [`Val::Auto`].
     pub const AUTO: Self = Self::all(Val::Auto);
+
+    pub const DEFAULT_VAL: Self = Self::all(Val::DEFAULT);
 }
 
-impl0 Default for Size {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
+impl Size<Breadth> {
+    pub const DEFAULT_BREADTH: Self = Self::all(Breadth::DEFAULT);
 }
+
+
 
 impl From<(Val, Val)> for Size {
     fn from(vals: (Val, Val)) -> Self {
@@ -530,7 +517,8 @@ mod tests {
                 bottom: Val::Px(0.),
             }
         );
-        assert_eq!(UiRect::default(), UiRect::DEFAULT);
+        assert_eq!(UiRect::default(), UiRect::DEFAULT_BREADTH);
+        assert_eq!(UiRect::default(), UiRect::DEFAULT_VAL);
     }
 
     #[test]
@@ -615,6 +603,7 @@ mod tests {
                 height: Val::Auto
             }
         );
-        assert_eq!(Size::default(), Size::DEFAULT);
+        assert_eq!(Size::default(), Size::DEFAULT_VAL);
+        assert_eq!(Size::default(), Size::DEFAULT_BREADTH);
     }
 }
