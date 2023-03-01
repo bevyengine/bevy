@@ -207,7 +207,7 @@ impl Val {
 /// `Breadth` is used to represent distances from side to side that the UI layout algorithm
 /// cannot infer automatically.
 ///
-/// `Breadth` is similar to the `Val` enum except that it has no non-evaluatable variants
+/// `Breadth` is similar to the [`Val`] enum except that it has no non-evaluatable variants
 /// and its methods have been adapted to to reflect that they always have a defined output.
 /// For example, [`Val::try_add_with_size`] can return an error, but `Breadth`'s equivalent
 /// returns an `f32` and is renamed to [`Breadth::add_with_size`].
