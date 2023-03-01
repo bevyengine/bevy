@@ -65,6 +65,8 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::schedule::{IntoSystemConfig, Schedule, ScheduleBuildSettings};
+    use crate::system::Query;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -74,6 +76,7 @@ mod tests {
         system::Resource,
         world::{Mut, World},
     };
+    use bevy_ecs_macros::SystemSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
@@ -1737,5 +1740,32 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn component_with_access_set() {
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct WriteSet;
+
+        #[derive(Component)]
+        #[component(write_set = "WriteSet")]
+        struct WithWriteSet;
+
+        fn does_write(_q: Query<&mut WithWriteSet>) {}
+        fn after_write(_q: Query<&WithWriteSet>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        schedule.add_system(does_write);
+        schedule.add_system(after_write.after(WriteSet));
+
+        // Panic if there are ambiguities.
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: bevy_ecs::schedule::LogLevel::Error,
+            ..Default::default()
+        });
+
+        schedule.run(&mut world);
     }
 }
