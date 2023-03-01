@@ -35,7 +35,10 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         align_self: value.align_self.into(),
         align_content: value.align_content.into(),
         justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position),
+        position: from_rect(
+            scale_factor,
+            UiRect::new(value.left, value.right, value.top, value.bottom),
+        ),
         margin: from_rect(scale_factor, value.margin),
         padding: from_rect(scale_factor, value.padding),
         border: from_rect(scale_factor, value.border),
@@ -50,12 +53,20 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
     }
 }
 
+/// Converts a [`Val`] to a [`f32`] while respecting the scale factor.
+pub fn val_to_f32(scale_factor: f64, val: Val) -> f32 {
+    match val {
+        Val::Auto => 0.0,
+        Val::Px(value) => (scale_factor * value as f64) as f32,
+        Val::Percent(value) => value / 100.0,
+    }
+}
+
 pub fn from_val(scale_factor: f64, val: Val) -> taffy::style::Dimension {
     match val {
         Val::Auto => taffy::style::Dimension::Auto,
         Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
         Val::Px(value) => taffy::style::Dimension::Points((scale_factor * value as f64) as f32),
-        Val::Undefined => taffy::style::Dimension::Undefined,
     }
 }
 

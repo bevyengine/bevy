@@ -25,9 +25,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
-        (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
-            scale_value(size, scale_factor)
-        }
+        (Val::Auto, Val::Px(size), Val::Auto) => scale_value(size, scale_factor),
         _ => f32::MAX,
     }
 }
