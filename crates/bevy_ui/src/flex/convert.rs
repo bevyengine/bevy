@@ -82,6 +82,7 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         align_self: value.align_self.into(),
         align_content: Some(value.align_content.into()),
         justify_content: Some(value.justify_content.into()),
+        justify_self: value.justify_self.into(),  
         margin: lpa_from_rect(scale_factor, value.margin),
         padding: lp_from_rect(scale_factor, value.padding),
         border: lp_from_rect(scale_factor, value.border),
@@ -92,16 +93,7 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         min_size: from_val_size(scale_factor, value.min_size),
         max_size: from_val_size(scale_factor, value.max_size),
         aspect_ratio: value.aspect_ratio,
-        gap: lp_from_val_size(scale_factor, value.gap),
-        justify_self: value.justify_self.into(),        
-    }
-}
-
-fn lpa_from_val(scale_factor: f64, val: Val) -> LengthPercentageAuto {
-    match val {
-        Val::Auto => LengthPercentageAuto::Auto,
-        Val::Percent(value) => LengthPercentageAuto::Percent(value / 100.0),
-        Val::Px(value) => LengthPercentageAuto::Points((scale_factor * value as f64) as f32),
+        gap: lp_from_val_size(scale_factor, value.gap),        
     }
 }
 
@@ -121,6 +113,13 @@ fn from_val(scale_factor: f64, val: Val) -> Dimension {
     }
 }
 
+fn lpa_from_val(scale_factor: f64, val: Val) -> LengthPercentageAuto {
+    match val {
+        Val::Auto => LengthPercentageAuto::Auto,
+        Val::Percent(value) => LengthPercentageAuto::Percent(value / 100.0),
+        Val::Px(value) => LengthPercentageAuto::Points((scale_factor * value as f64) as f32),
+    }
+}
 
 
 impl From<AlignItems> for taffy::style::AlignItems {
@@ -216,6 +215,7 @@ impl From<JustifySelf> for Option<taffy::style::AlignItems> {
         }
     }
 }
+
 
 impl From<PositionType> for taffy::style::Position {
     fn from(value: PositionType) -> Self {

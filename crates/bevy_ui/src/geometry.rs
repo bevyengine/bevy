@@ -473,6 +473,15 @@ mod tests {
 
     #[test]
     fn uirect_default_equals_const_default() {
+        assert_eq!(
+            UiRect::default(),
+            UiRect {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.),
+            }
+        );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 
