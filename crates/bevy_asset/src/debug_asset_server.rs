@@ -3,11 +3,7 @@
 //! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
 //! reloaded using the conventional API.
 use bevy_app::{App, Plugin};
-use bevy_ecs::{
-    event::Events,
-    schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, SystemState},
-};
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
 use std::{
@@ -16,8 +12,7 @@ use std::{
 };
 
 use crate::{
-    Asset, AssetEvent, AssetPlugin, AssetServer, AssetServerSettings, Assets, FileAssetIo, Handle,
-    HandleUntyped,
+    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, FileAssetIo, Handle, HandleUntyped,
 };
 
 /// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
@@ -37,8 +32,8 @@ impl DerefMut for DebugAssetApp {
     }
 }
 
-/// A label describing the system that runs [`DebugAssetApp`].
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+/// A set containing the system that runs [`DebugAssetApp`].
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 
 /// Facilitates the creation of a "debug asset app", whose sole responsibility is hot reloading
@@ -52,6 +47,7 @@ pub struct DebugAssetServerPlugin;
 
 /// A collection that maps internal assets in a [`DebugAssetApp`]'s asset server to their mirrors in
 /// the main [`App`].
+#[derive(Resource)]
 pub struct HandleMap<T: Asset> {
     /// The collection of asset handles.
     pub handles: HashMap<Handle<T>, Handle<T>>,
@@ -74,12 +70,10 @@ impl Plugin for DebugAssetServerPlugin {
                 .build()
         });
         let mut debug_asset_app = App::new();
-        debug_asset_app
-            .insert_resource(AssetServerSettings {
-                asset_folder: "crates".to_string(),
-                watch_for_changes: true,
-            })
-            .add_plugin(AssetPlugin);
+        debug_asset_app.add_plugin(AssetPlugin {
+            asset_folder: "crates".to_string(),
+            watch_for_changes: true,
+        });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
         app.add_system(run_debug_asset_app);
     }
@@ -116,10 +110,10 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 /// Uses the return type of the given loader to register the given handle with the appropriate type
 /// and load the asset with the given `path` and parent `file_path`.
 ///
-/// If this feels a bit odd ... thats because it is. This was built to improve the UX of the
+/// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
-pub fn register_handle_with_loader<A: Asset>(
-    _loader: fn(&'static str) -> A,
+pub fn register_handle_with_loader<A: Asset, T>(
+    _loader: fn(T) -> A,
     app: &mut DebugAssetApp,
     handle: HandleUntyped,
     file_path: &str,

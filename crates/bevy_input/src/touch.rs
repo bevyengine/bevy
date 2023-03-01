@@ -1,7 +1,11 @@
 use bevy_ecs::event::EventReader;
-use bevy_ecs::system::ResMut;
+use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::HashMap;
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A touch input event.
 ///
@@ -26,7 +30,13 @@ use bevy_utils::HashMap;
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct TouchInput {
     /// The phase of the touch input.
     pub phase: TouchPhase,
@@ -42,7 +52,13 @@ pub struct TouchInput {
 }
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum ForceTouch {
     /// On iOS, the force is calibrated so that the same number corresponds to
     /// roughly the same amount of pressure on the screen regardless of the
@@ -82,8 +98,13 @@ pub enum ForceTouch {
 /// This includes a phase that indicates that a touch input has started or ended,
 /// or that a finger has moved. There is also a cancelled phase that indicates that
 /// the system cancelled the tracking of the finger.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum TouchPhase {
     /// A finger started to touch the touchscreen.
     Started,
@@ -201,7 +222,7 @@ impl From<&TouchInput> for Touch {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`touch_screen_input_system`](crate::touch::touch_screen_input_system).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Resource)]
 pub struct Touches {
     /// A collection of every [`Touch`] that is currently being pressed.
     pressed: HashMap<u64, Touch>,
@@ -297,12 +318,22 @@ impl Touches {
                 }
             }
             TouchPhase::Ended => {
-                self.just_released.insert(event.id, event.into());
-                self.pressed.remove_entry(&event.id);
+                // if touch `just_released`, add related event to it
+                // the event position info is inside `pressed`, so use it unless not found
+                if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
+                    self.just_released.insert(event.id, v);
+                } else {
+                    self.just_released.insert(event.id, event.into());
+                }
             }
             TouchPhase::Cancelled => {
-                self.just_cancelled.insert(event.id, event.into());
-                self.pressed.remove_entry(&event.id);
+                // if touch `just_cancelled`, add related event to it
+                // the event position info is inside `pressed`, so use it unless not found
+                if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
+                    self.just_cancelled.insert(event.id, v);
+                } else {
+                    self.just_cancelled.insert(event.id, event.into());
+                }
             }
         };
     }
@@ -310,7 +341,7 @@ impl Touches {
     /// Clears the `just_pressed`, `just_released`, and `just_cancelled` collections.
     ///
     /// This is not clearing the `pressed` collection, because it could incorrectly mark
-    /// a touch input as not pressed eventhough it is pressed. This could happen if the
+    /// a touch input as not pressed even though it is pressed. This could happen if the
     /// touch input is not moving for a single frame and would therefore be marked as
     /// not pressed, because this function is called on every single frame no matter
     /// if there was an event or not.
@@ -427,8 +458,8 @@ mod test {
         touches.update();
         touches.process_touch_event(&cancel_touch_event);
 
-        assert!(touches.just_cancelled.get(&cancel_touch_event.id).is_some());
-        assert!(touches.pressed.get(&cancel_touch_event.id).is_none());
+        assert!(touches.just_cancelled.get(&touch_event.id).is_some());
+        assert!(touches.pressed.get(&touch_event.id).is_none());
 
         // Test ending an event
 
@@ -436,15 +467,19 @@ mod test {
             phase: TouchPhase::Ended,
             position: Vec2::splat(4.0),
             force: None,
-            id: 4,
+            id: touch_event.id,
         };
 
         touches.update();
         touches.process_touch_event(&touch_event);
+        touches.process_touch_event(&moved_touch_event);
         touches.process_touch_event(&end_touch_event);
 
         assert!(touches.just_released.get(&touch_event.id).is_some());
         assert!(touches.pressed.get(&touch_event.id).is_none());
+        let touch = touches.just_released.get(&touch_event.id).unwrap();
+        // Make sure the position is updated from TouchPhase::Moved and TouchPhase::Ended
+        assert!(touch.previous_position != touch.position);
     }
 
     #[test]

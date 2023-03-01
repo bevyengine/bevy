@@ -25,6 +25,7 @@ pub struct WasmAssetIo {
 }
 
 impl WasmAssetIo {
+    /// Creates a new `WasmAssetIo`. The path provided will be used to build URLs to query for assets.
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         WasmAssetIo {
             root_path: path.as_ref().to_owned(),
@@ -51,6 +52,7 @@ impl AssetIo for WasmAssetIo {
         &self,
         _path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
+        bevy_log::warn!("Loading folders is not supported in WASM");
         Ok(Box::new(std::iter::empty::<PathBuf>()))
     }
 

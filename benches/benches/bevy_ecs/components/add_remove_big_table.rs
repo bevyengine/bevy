@@ -25,8 +25,7 @@ impl Benchmark {
         for _ in 0..10_000 {
             entities.push(
                 world
-                    .spawn()
-                    .insert_bundle((
+                    .spawn((
                         A(Mat4::from_scale(Vec3::ONE)),
                         B(Mat4::from_scale(Vec3::ONE)),
                         C(Mat4::from_scale(Vec3::ONE)),

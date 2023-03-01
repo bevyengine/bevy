@@ -43,7 +43,7 @@ pub fn spawn_commands(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for i in 0..entity_count {
-                    let mut entity = commands.spawn();
+                    let mut entity = commands.spawn_empty();
 
                     if black_box(i % 2 == 0) {
                         entity.insert(A);
@@ -61,7 +61,6 @@ pub fn spawn_commands(criterion: &mut Criterion) {
                         entity.despawn();
                     }
                 }
-                drop(commands);
                 command_queue.apply(&mut world);
             });
         });
@@ -82,12 +81,12 @@ pub fn insert_commands(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(4));
 
     let entity_count = 10_000;
-    group.bench_function(format!("insert"), |bencher| {
+    group.bench_function("insert", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
         for _ in 0..entity_count {
-            entities.push(world.spawn().id());
+            entities.push(world.spawn_empty().id());
         }
 
         bencher.iter(|| {
@@ -95,18 +94,17 @@ pub fn insert_commands(criterion: &mut Criterion) {
             for entity in &entities {
                 commands
                     .entity(*entity)
-                    .insert_bundle((Matrix::default(), Vec3::default()));
+                    .insert((Matrix::default(), Vec3::default()));
             }
-            drop(commands);
             command_queue.apply(&mut world);
         });
     });
-    group.bench_function(format!("insert_batch"), |bencher| {
+    group.bench_function("insert_batch", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
         for _ in 0..entity_count {
-            entities.push(world.spawn().id());
+            entities.push(world.spawn_empty().id());
         }
 
         bencher.iter(|| {
@@ -116,7 +114,6 @@ pub fn insert_commands(criterion: &mut Criterion) {
                 values.push((*entity, (Matrix::default(), Vec3::default())));
             }
             commands.insert_or_spawn_batch(values);
-            drop(commands);
             command_queue.apply(&mut world);
         });
     });
@@ -160,7 +157,6 @@ pub fn fake_commands(criterion: &mut Criterion) {
                         commands.add(FakeCommandB(0));
                     }
                 }
-                drop(commands);
                 command_queue.apply(&mut world);
             });
         });
@@ -203,7 +199,6 @@ pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
                 for _ in 0..command_count {
                     commands.add(T::default());
                 }
-                drop(commands);
                 command_queue.apply(&mut world);
             });
         });
@@ -238,7 +233,7 @@ pub fn get_or_spawn(criterion: &mut Criterion) {
             for i in 0..10_000 {
                 commands
                     .get_or_spawn(Entity::from_raw(i))
-                    .insert_bundle((Matrix::default(), Vec3::default()));
+                    .insert((Matrix::default(), Vec3::default()));
             }
             command_queue.apply(&mut world);
         });

@@ -1,104 +1,123 @@
 mod render_layers;
 
-use smallvec::SmallVec;
-
 pub use render_layers::*;
 
-use bevy_app::{CoreStage, Plugin};
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_app::{CoreSet, Plugin};
+use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
-use bevy_utils::HashMap;
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
+    camera::{
+        camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Projection,
+    },
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
-
-/// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
-/// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, Debug)]
+///
+/// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
+/// are set to `Inherited` will also be hidden.
+///
+/// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
+/// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
+#[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
-pub struct Visibility {
-    /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
-    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`] and [`Parent`] for
-    /// hierarchy info.
-    pub is_visible: bool,
+pub enum Visibility {
+    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
+    ///
+    /// A root-level entity that is set to `Inherited` will be visible.
+    #[default]
+    Inherited,
+    /// An entity with `Visibility::Hidden` will be unconditionally hidden.
+    Hidden,
+    /// An entity with `Visibility::Visible` will be unconditionally visible.
+    ///
+    /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
+    /// [`Parent`] entity is hidden.
+    Visible,
 }
 
-impl Default for Visibility {
-    fn default() -> Self {
-        Self::visible()
+// Allows `&Visibility == Visibility`
+impl std::cmp::PartialEq<Visibility> for &Visibility {
+    #[inline]
+    fn eq(&self, other: &Visibility) -> bool {
+        **self == *other
     }
 }
 
-impl Visibility {
-    /// Creates a new [`Visibility`], set as visible
-    pub const fn visible() -> Self {
-        Self { is_visible: true }
+// Allows `Visibility == &Visibility`
+impl std::cmp::PartialEq<&Visibility> for Visibility {
+    #[inline]
+    fn eq(&self, other: &&Visibility) -> bool {
+        *self == **other
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Reflect)]
+    pub(super) struct ComputedVisibilityFlags: u8 {
+        const VISIBLE_IN_VIEW = 1 << 0;
+        const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct ComputedVisibility {
-    is_visible_in_hierarchy: bool,
-    is_visible_in_view: bool,
+    flags: ComputedVisibilityFlags,
 }
 
 impl Default for ComputedVisibility {
     fn default() -> Self {
-        Self::not_visible()
+        Self::HIDDEN
     }
 }
 
 impl ComputedVisibility {
-    /// Creates a new [`ComputedVisibility`], set as not visible
-    pub const fn not_visible() -> Self {
-        Self {
-            is_visible_in_hierarchy: false,
-            is_visible_in_view: false,
-        }
-    }
+    /// A [`ComputedVisibility`], set as invisible.
+    pub const HIDDEN: Self = ComputedVisibility {
+        flags: ComputedVisibilityFlags::empty(),
+    };
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
-    /// This value is updated in [`CoreStage::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label. Reading it from the
-    /// [`CoreStage::Update`] stage will yield the value from the previous frame.
+    /// This value is updated in [`CoreSet::PostUpdate`] by the [`VisibilitySystems::CheckVisibility`] system set.
+    /// Reading it during [`CoreSet::Update`] will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        self.is_visible_in_hierarchy && self.is_visible_in_view
+        self.flags.bits == ComputedVisibilityFlags::all().bits
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
     /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`]) are hidden, this entity
-    /// will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
-    /// [`VisibilitySystems::VisibilityPropagate`] system label.
+    /// will be hidden as well. This value is updated in the [`VisibilitySystems::VisibilityPropagate`], which lives under the [`CoreSet::PostUpdate`] set.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
-        self.is_visible_in_hierarchy
+        self.flags
+            .contains(ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY)
     }
 
     /// Whether this entity is visible in _any_ view (Cameras, Lights, etc). Each entity type (and view type) should choose how to set this
     /// value. For cameras and drawn entities, this will take into account [`RenderLayers`].
     ///
-    /// This value is reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] during [`CoreStage::PostUpdate`].
-    /// Each entity type then chooses how to set this field in the [`CoreStage::PostUpdate`] stage in the
-    /// [`VisibilitySystems::CheckVisibility`] system label. Meshes might use frustum culling to decide if they are visible in a view.
+    /// This value is reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] during [`CoreSet::PostUpdate`].
+    /// Each entity type then chooses how to set this field in the [`VisibilitySystems::CheckVisibility`] system set, under [`CoreSet::PostUpdate`].
+    /// Meshes might use frustum culling to decide if they are visible in a view.
     /// Other entities might just set this to `true` every frame.
     #[inline]
     pub fn is_visible_in_view(&self) -> bool {
-        self.is_visible_in_view
+        self.flags
+            .contains(ComputedVisibilityFlags::VISIBLE_IN_VIEW)
     }
 
     /// Sets `is_visible_in_view` to `true`. This is not reversible for a given frame, as it encodes whether or not this is visible in
@@ -107,7 +126,16 @@ impl ComputedVisibility {
     /// label. Don't call this unless you are defining a custom visibility system. For normal user-defined entity visibility, see [`Visibility`].
     #[inline]
     pub fn set_visible_in_view(&mut self) {
-        self.is_visible_in_view = true;
+        self.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
+    }
+
+    #[inline]
+    fn reset(&mut self, visible_in_hierarchy: bool) {
+        self.flags = if visible_in_hierarchy {
+            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
+        } else {
+            ComputedVisibilityFlags::empty()
+        };
     }
 }
 
@@ -129,11 +157,6 @@ pub struct VisibilityBundle {
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
 #[derive(Component)]
 pub struct NoFrustumCulling;
-
-/// Use this component to opt-out of built-in [`Aabb`] updating for Mesh entities (i.e. to opt out
-/// of [`update_bounds`]).
-#[derive(Component)]
-pub struct NoAabbUpdate;
 
 /// Collection of entities visible from the current view.
 ///
@@ -168,59 +191,10 @@ impl VisibleEntities {
     }
 }
 
-/// Tracks which [`Entities`](Entity) have which meshes for entities whose [`Aabb`]s are managed by
-/// the [`calculate_bounds`] and [`update_bounds`] systems. This is needed because `update_bounds`
-/// recomputes `Aabb`s for entities whose mesh has been mutated. These mutations are visible via
-/// [`AssetEvent<Mesh>`](AssetEvent) which tells us which mesh was changed but not which entities
-/// have that mesh.
-#[derive(Debug, Default, Clone)]
-pub struct EntityMeshMap {
-    entities_with_mesh: HashMap<Handle<Mesh>, SmallVec<[Entity; 1]>>,
-    mesh_for_entity: HashMap<Entity, Handle<Mesh>>,
-}
-
-impl EntityMeshMap {
-    /// Register the passed `entity` as having the passed `mesh_handle`.
-    fn register(&mut self, entity: Entity, mesh_handle: &Handle<Mesh>) {
-        // Note that this list can have duplicates if an entity is registered for a mesh multiple
-        // times. This should be rare and only cause an additional `Aabb.clone()` in
-        // `update_bounds` so it is preferable to a `HashSet` for now.
-        self.entities_with_mesh
-            .entry(mesh_handle.clone_weak())
-            .or_default()
-            .push(entity);
-        self.mesh_for_entity
-            .insert(entity, mesh_handle.clone_weak());
-    }
-
-    /// Deregisters the mapping between an `Entity` and `Mesh`. Used so [`update_bounds`] can
-    /// track which mappings are still active so `Aabb`s are updated correctly.
-    fn deregister(&mut self, entity: Entity) {
-        let mut inner = || {
-            let mesh = self.mesh_for_entity.remove(&entity)?;
-
-            // This lookup failing is _probably_ an error.
-            let entities = self.entities_with_mesh.get_mut(&mesh)?;
-
-            // There could be duplicate entries in here if an entity was registered with a mesh
-            // multiple times. It's important to remove all references so that if an entity gets a
-            // new mesh and its old mesh is mutated, the entity doesn't get its old mesh's new
-            // `Aabb`. Note that there _should_ only be one entity.
-            for i in (0..entities.len()).rev() {
-                if entities[i] == entity {
-                    entities.swap_remove(i);
-                }
-            }
-            Some(())
-        };
-        inner();
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     CalculateBounds,
-    UpdateBounds,
+    CalculateBoundsFlush,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
@@ -236,40 +210,52 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.init_resource::<EntityMeshMap>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                calculate_bounds.label(CalculateBounds),
-            )
-            .add_system_to_stage(CoreStage::PostUpdate, update_bounds.label(UpdateBounds))
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_frusta::<OrthographicProjection>
-                    .label(UpdateOrthographicFrusta)
-                    .after(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_frusta::<PerspectiveProjection>
-                    .label(UpdatePerspectiveFrusta)
-                    .after(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_frusta::<Projection>
-                    .label(UpdateProjectionFrusta)
-                    .after(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                visibility_propagate_system.label(VisibilityPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                check_visibility
-                    .label(CheckVisibility)
+        app.configure_set(CalculateBounds.in_base_set(CoreSet::PostUpdate))
+            // We add an AABB component in CalculateBounds, which must be ready on the same frame.
+            .add_system(apply_system_buffers.in_set(CalculateBoundsFlush))
+            .configure_set(
+                CalculateBoundsFlush
                     .after(CalculateBounds)
-                    .after(UpdateBounds)
+                    .in_base_set(CoreSet::PostUpdate),
+            )
+            .configure_set(UpdateOrthographicFrusta.in_base_set(CoreSet::PostUpdate))
+            .configure_set(UpdatePerspectiveFrusta.in_base_set(CoreSet::PostUpdate))
+            .configure_set(UpdateProjectionFrusta.in_base_set(CoreSet::PostUpdate))
+            .configure_set(CheckVisibility.in_base_set(CoreSet::PostUpdate))
+            .configure_set(VisibilityPropagate.in_base_set(CoreSet::PostUpdate))
+            .add_system(calculate_bounds.in_set(CalculateBounds))
+            .add_system(
+                update_frusta::<OrthographicProjection>
+                    .in_set(UpdateOrthographicFrusta)
+                    .after(camera_system::<OrthographicProjection>)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no camera will have more than one projection component,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                    .ambiguous_with(update_frusta::<Projection>),
+            )
+            .add_system(
+                update_frusta::<PerspectiveProjection>
+                    .in_set(UpdatePerspectiveFrusta)
+                    .after(camera_system::<PerspectiveProjection>)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no camera will have more than one projection component,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_frusta::<Projection>),
+            )
+            .add_system(
+                update_frusta::<Projection>
+                    .in_set(UpdateProjectionFrusta)
+                    .after(camera_system::<Projection>)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system(visibility_propagate_system.in_set(VisibilityPropagate))
+            .add_system(
+                check_visibility
+                    .in_set(CheckVisibility)
+                    .after(CalculateBoundsFlush)
                     .after(UpdateOrthographicFrusta)
                     .after(UpdatePerspectiveFrusta)
                     .after(UpdateProjectionFrusta)
@@ -279,74 +265,16 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
-/// Calculates [`Aabb`]s for [`Entities`](Entity) with [`Mesh`]es.
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    mut entity_mesh_map: ResMut<EntityMeshMap>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
-                entity_mesh_map.register(entity, mesh_handle);
                 commands.entity(entity).insert(aabb);
             }
-        }
-    }
-}
-
-/// Updates [`Aabb`]s for [`Entities`](Entity) with [`Mesh`]es. This includes `Entities` that have
-/// been assigned new `Mesh`es as well as `Entities` whose `Mesh` has been directly mutated.
-///
-/// To opt out of bound calculation for an `Entity`, give it the [`NoAabbUpdate`] component.
-///
-/// NOTE: This system needs to remove entities from their collection in
-/// [`EntityMeshMap`] whenever a mesh handle is reassigned or an entity's mesh handle is
-/// removed. This may impact performance if meshes with many entities are frequently
-/// reassigned/removed.
-pub fn update_bounds(
-    mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    mut mesh_reassigned: Query<
-        (Entity, &Handle<Mesh>, &mut Aabb),
-        (
-            Changed<Handle<Mesh>>,
-            Without<NoFrustumCulling>,
-            Without<NoAabbUpdate>,
-        ),
-    >,
-    mut entity_mesh_map: ResMut<EntityMeshMap>,
-    mut mesh_events: EventReader<AssetEvent<Mesh>>,
-    entities_lost_mesh: RemovedComponents<Handle<Mesh>>,
-) {
-    for entity in entities_lost_mesh.iter() {
-        entity_mesh_map.deregister(entity);
-    }
-
-    for (entity, mesh_handle, mut aabb) in mesh_reassigned.iter_mut() {
-        entity_mesh_map.deregister(entity);
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(new_aabb) = mesh.compute_aabb() {
-                entity_mesh_map.register(entity, mesh_handle);
-                *aabb = new_aabb;
-            }
-        }
-    }
-
-    let to_update = |event: &AssetEvent<Mesh>| {
-        let handle = match event {
-            AssetEvent::Modified { handle } => handle,
-            _ => return None,
-        };
-        let mesh = meshes.get(handle)?;
-        let entities_with_handle = entity_mesh_map.entities_with_mesh.get(handle)?;
-        let aabb = mesh.compute_aabb()?;
-        Some((aabb, entities_with_handle))
-    };
-    for (aabb, entities_with_handle) in mesh_events.iter().filter_map(to_update) {
-        for entity in entities_with_handle {
-            commands.entity(*entity).insert(aabb.clone());
         }
     }
 }
@@ -357,7 +285,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection(
+        *frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
             &transform.translation(),
             &transform.back(),
@@ -380,13 +308,13 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
+        computed_visibility
+            .reset(visibility == Visibility::Inherited || visibility == Visibility::Visible);
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
-                    computed_visibility.is_visible_in_hierarchy,
+                    computed_visibility.is_visible_in_hierarchy(),
                     &mut visibility_query,
                     &children_query,
                     *child,
@@ -413,10 +341,11 @@ fn propagate_recursive(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible && parent_visible;
+        let visible_in_hierarchy = (parent_visible && visibility == Visibility::Inherited)
+            || visibility == Visibility::Visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
-        computed_visibility.is_visible_in_hierarchy
+        computed_visibility.reset(visible_in_hierarchy);
+        visible_in_hierarchy
     };
 
     for child in children_query.get(entity).map_err(drop)?.iter() {
@@ -425,12 +354,9 @@ fn propagate_recursive(
     Ok(())
 }
 
-// the batch size used for check_visibility, chosen because this number tends to perform well
-const VISIBLE_ENTITIES_QUERY_BATCH_SIZE: usize = 1024;
-
 /// System updating the visibility of entities each frame.
 ///
-/// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
+/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
@@ -451,9 +377,9 @@ pub fn check_visibility(
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
+
         visible_entities.entities.clear();
-        visible_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_aabb_query.par_iter_mut().for_each_mut(
             |(
                 entity,
                 mut computed_visibility,
@@ -485,12 +411,12 @@ pub fn check_visibility(
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
                         return;
                     }
                 }
 
-                computed_visibility.is_visible_in_view = true;
+                computed_visibility.set_visible_in_view();
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -498,8 +424,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_no_aabb_query.par_iter_mut().for_each_mut(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
@@ -512,7 +437,7 @@ pub fn check_visibility(
                     return;
                 }
 
-                computed_visibility.is_visible_in_view = true;
+                computed_visibility.set_visible_in_view();
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -542,34 +467,23 @@ mod test {
 
         let root1 = app
             .world
-            .spawn()
-            .insert_bundle((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root1_child1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root1_child2 = app
             .world
-            .spawn()
-            .insert_bundle((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root1_child1_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root1_child2_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
 
         app.world
@@ -584,31 +498,23 @@ mod test {
 
         let root2 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child2 = app
             .world
-            .spawn()
-            .insert_bundle((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root2_child1_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child2_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
 
         app.world
@@ -628,7 +534,7 @@ mod test {
                 .entity(e)
                 .get::<ComputedVisibility>()
                 .unwrap()
-                .is_visible_in_hierarchy
+                .is_visible_in_hierarchy()
         };
         assert!(
             !is_visible(root1),
@@ -671,5 +577,90 @@ mod test {
             !is_visible(root2_child2_grandchild1),
             "child's invisibility propagates down to grandchild"
         );
+    }
+
+    #[test]
+    fn visibility_propagation_unconditional_visible() {
+        let mut app = App::new();
+        app.add_system(visibility_propagate_system);
+
+        let root1 = app
+            .world
+            .spawn((Visibility::Visible, ComputedVisibility::default()))
+            .id();
+        let root1_child1 = app
+            .world
+            .spawn((Visibility::Inherited, ComputedVisibility::default()))
+            .id();
+        let root1_child2 = app
+            .world
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
+            .id();
+        let root1_child1_grandchild1 = app
+            .world
+            .spawn((Visibility::Visible, ComputedVisibility::default()))
+            .id();
+        let root1_child2_grandchild1 = app
+            .world
+            .spawn((Visibility::Visible, ComputedVisibility::default()))
+            .id();
+
+        let root2 = app
+            .world
+            .spawn((Visibility::Inherited, ComputedVisibility::default()))
+            .id();
+        let root3 = app
+            .world
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
+            .id();
+
+        app.world
+            .entity_mut(root1)
+            .push_children(&[root1_child1, root1_child2]);
+        app.world
+            .entity_mut(root1_child1)
+            .push_children(&[root1_child1_grandchild1]);
+        app.world
+            .entity_mut(root1_child2)
+            .push_children(&[root1_child2_grandchild1]);
+
+        app.update();
+
+        let is_visible = |e: Entity| {
+            app.world
+                .entity(e)
+                .get::<ComputedVisibility>()
+                .unwrap()
+                .is_visible_in_hierarchy()
+        };
+        assert!(
+            is_visible(root1),
+            "an unconditionally visible root is visible"
+        );
+        assert!(
+            is_visible(root1_child1),
+            "an inheriting child of an unconditionally visible parent is visible"
+        );
+        assert!(
+            !is_visible(root1_child2),
+            "a hidden child on an unconditionally visible parent is hidden"
+        );
+        assert!(
+            is_visible(root1_child1_grandchild1),
+            "an unconditionally visible child of an inheriting parent is visible"
+        );
+        assert!(
+            is_visible(root1_child2_grandchild1),
+            "an unconditionally visible child of a hidden parent is visible"
+        );
+        assert!(is_visible(root2), "an inheriting root is visible");
+        assert!(!is_visible(root3), "a hidden root is hidden");
+    }
+
+    #[test]
+    fn ensure_visibility_enum_size() {
+        use std::mem;
+        assert_eq!(1, mem::size_of::<Visibility>());
+        assert_eq!(1, mem::size_of::<Option<Visibility>>());
     }
 }

@@ -3,7 +3,7 @@
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
-    time::FixedTimestep,
+    sprite::MaterialMesh2dBundle,
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -57,14 +57,20 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(check_for_collisions)
-                .with_system(move_paddle.before(check_for_collisions))
-                .with_system(apply_velocity.before(check_for_collisions))
-                .with_system(play_collision_sound.after(check_for_collisions)),
+        // Add our gameplay simulation systems to the fixed timestep schedule
+        .add_systems(
+            (
+                check_for_collisions,
+                apply_velocity.before(check_for_collisions),
+                move_paddle
+                    .before(check_for_collisions)
+                    .after(apply_velocity),
+                play_collision_sound.after(check_for_collisions),
+            )
+                .in_schedule(CoreSchedule::FixedUpdate),
         )
+        // Configure how frequently our gameplay systems are run
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
         .run();
@@ -88,6 +94,7 @@ struct CollisionEvent;
 #[derive(Component)]
 struct Brick;
 
+#[derive(Resource)]
 struct CollisionSound(Handle<AudioSource>);
 
 // This bundle is a collection of the components that define a "wall" in our game
@@ -95,7 +102,6 @@ struct CollisionSound(Handle<AudioSource>);
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    #[bundle]
     sprite_bundle: SpriteBundle,
     collider: Collider,
 }
@@ -164,14 +170,20 @@ impl WallBundle {
 }
 
 // This resource tracks the game's score
+#[derive(Resource)]
 struct Scoreboard {
     score: usize,
 }
 
 // Add the game's entities to our world
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
     // Camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
@@ -180,10 +192,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
-    commands
-        .spawn()
-        .insert(Paddle)
-        .insert_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
                 scale: PADDLE_SIZE,
@@ -194,29 +204,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        })
-        .insert(Collider);
+        },
+        Paddle,
+        Collider,
+    ));
 
     // Ball
-    commands
-        .spawn()
-        .insert(Ball)
-        .insert_bundle(SpriteBundle {
-            transform: Transform {
-                scale: BALL_SIZE,
-                translation: BALL_STARTING_POSITION,
-                ..default()
-            },
-            sprite: Sprite {
-                color: BALL_COLOR,
-                ..default()
-            },
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(BALL_COLOR)),
+            transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
             ..default()
-        })
-        .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
+        },
+        Ball,
+        Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
+    ));
 
     // Scoreboard
-    commands.spawn_bundle(
+    commands.spawn(
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -244,10 +250,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
 
     // Walls
-    commands.spawn_bundle(WallBundle::new(WallLocation::Left));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Right));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Bottom));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Top));
+    commands.spawn(WallBundle::new(WallLocation::Left));
+    commands.spawn(WallBundle::new(WallLocation::Right));
+    commands.spawn(WallBundle::new(WallLocation::Bottom));
+    commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
     // Negative scales result in flipped sprites / meshes,
@@ -289,10 +295,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             );
 
             // brick
-            commands
-                .spawn()
-                .insert(Brick)
-                .insert_bundle(SpriteBundle {
+            commands.spawn((
+                SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,
                         ..default()
@@ -303,8 +307,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     ..default()
-                })
-                .insert(Collider);
+                },
+                Brick,
+                Collider,
+            ));
         }
     }
 }
@@ -403,7 +409,7 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
-    collision_events: EventReader<CollisionEvent>,
+    mut collision_events: EventReader<CollisionEvent>,
     audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {

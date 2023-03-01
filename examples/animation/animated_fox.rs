@@ -1,5 +1,9 @@
 //! Plays animations from a skinned glTF.
 
+use std::f32::consts::PI;
+use std::time::Duration;
+
+use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 
 fn main() {
@@ -15,6 +19,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
 
 fn setup(
@@ -31,36 +36,37 @@ fn setup(
     ]));
 
     // Camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(100.0, 100.0, 150.0)
             .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
         ..default()
     });
 
     // Plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 500000.0 })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
 
     // Light
-    commands.spawn_bundle(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            1.0,
-            -std::f32::consts::FRAC_PI_4,
-        )),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 400.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
     // Fox
-    commands.spawn_bundle(SceneBundle {
+    commands.spawn(SceneBundle {
         scene: asset_server.load("models/animated/Fox.glb#Scene0"),
         ..default()
     });
@@ -124,7 +130,10 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::Return) {
             *current_animation = (*current_animation + 1) % animations.0.len();
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play_with_transition(
+                    animations.0[*current_animation].clone_weak(),
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }

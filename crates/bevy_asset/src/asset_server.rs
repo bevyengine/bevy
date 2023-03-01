@@ -5,7 +5,7 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
@@ -79,9 +79,18 @@ pub struct AssetServerInternal {
 ///
 /// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
 /// of the assets it manages and can even reload them from the filesystem with
-/// [`AssetServer::watch_for_changes`]!
+/// ```
+/// # use bevy_asset::*;
+/// # use bevy_app::*;
+/// # let mut app = App::new();
+/// // The asset plugin can be configured to watch for asset changes.
+/// app.add_plugin(AssetPlugin {
+///     watch_for_changes: true,
+///     ..Default::default()
+/// });
+/// ```
 ///
-/// The asset server is a _resource_, so in order to accesss it in a system you need a `Res`
+/// The asset server is a _resource_, so in order to access it in a system you need a `Res`
 /// accessor, like this:
 ///
 /// ```rust,no_run
@@ -102,7 +111,7 @@ pub struct AssetServerInternal {
 /// See the [`asset_loading`] example for more information.
 ///
 /// [`asset_loading`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/asset_loading.rs
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
@@ -138,10 +147,7 @@ impl AssetServer {
             .server
             .asset_lifecycles
             .write()
-            .insert(
-                T::TYPE_UUID,
-                Box::new(AssetLifecycleChannel::<T>::default()),
-            )
+            .insert(T::TYPE_UUID, Box::<AssetLifecycleChannel<T>>::default())
             .is_some()
         {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
@@ -167,13 +173,6 @@ impl AssetServer {
                 .insert(extension.to_string(), loader_index);
         }
         loaders.push(Arc::new(loader));
-    }
-
-    /// Enable watching of the filesystem for changes, if support is available, starting from after
-    /// the point of calling this function.
-    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        self.asset_io().watch_for_changes()?;
-        Ok(())
     }
 
     /// Gets a strong handle for an asset with the provided id.
@@ -256,7 +255,7 @@ impl AssetServer {
     /// Gets the overall load state of a group of assets from the provided handles.
     ///
     /// This method will only return [`LoadState::Loaded`] if all assets in the
-    /// group were loaded succesfully.
+    /// group were loaded successfully.
     pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
         let mut load_state = LoadState::Loaded;
         for handle_id in handles {
@@ -285,13 +284,13 @@ impl AssetServer {
     /// to look for loaders of `bar.baz` and `baz` assets.
     ///
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
-    /// setting the `"CARGO_MANIFEST_DIR"` environment variable
+    /// setting the `"BEVY_ASSET_ROOT"` or `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
-    /// to another directory. When the application  is run through Cargo, then
+    /// to another directory. When the application is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
-    /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
+    /// [`AssetPlugin`](crate::AssetPlugin). The default name is
     /// `"assets"`.
     ///
     /// The asset is loaded asynchronously, and will generally not be available by the time
@@ -388,7 +387,7 @@ impl AssetServer {
             return Err(err);
         }
 
-        // if version has changed since we loaded and grabbed a lock, return. theres is a newer
+        // if version has changed since we loaded and grabbed a lock, return. there is a newer
         // version being loaded
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources
@@ -786,7 +785,7 @@ mod test {
 
     fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
         let asset_dir = tempfile::tempdir().unwrap();
-        std::fs::write(asset_dir.path().join(file), &[]).unwrap();
+        std::fs::write(asset_dir.path().join(file), []).unwrap();
         asset_dir
     }
 
@@ -848,12 +847,12 @@ mod test {
         asset_server.add_loader(FakePngLoader);
         let assets = asset_server.register_asset_type::<PngAsset>();
 
-        #[derive(SystemLabel, Clone, Hash, Debug, PartialEq, Eq)]
+        #[derive(SystemSet, Clone, Hash, Debug, PartialEq, Eq)]
         struct FreeUnusedAssets;
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(free_unused_assets_system.label(FreeUnusedAssets));
+        app.add_system(free_unused_assets_system.in_set(FreeUnusedAssets));
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {

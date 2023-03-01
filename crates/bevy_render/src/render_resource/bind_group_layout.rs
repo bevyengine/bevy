@@ -1,13 +1,13 @@
-use bevy_reflect::Uuid;
-use std::{ops::Deref, sync::Arc};
+use crate::{define_atomic_id, render_resource::resource_macros::*};
+use std::ops::Deref;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupLayoutId(Uuid);
+define_atomic_id!(BindGroupLayoutId);
+render_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);
 
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
-    value: Arc<wgpu::BindGroupLayout>,
+    value: ErasedBindGroupLayout,
 }
 
 impl PartialEq for BindGroupLayout {
@@ -31,8 +31,8 @@ impl BindGroupLayout {
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
-            id: BindGroupLayoutId(Uuid::new_v4()),
-            value: Arc::new(value),
+            id: BindGroupLayoutId::new(),
+            value: ErasedBindGroupLayout::new(value),
         }
     }
 }

@@ -61,6 +61,7 @@ impl From<RegularPolygon> for Mesh {
 }
 
 /// A circle in the `XY` plane
+#[derive(Debug, Copy, Clone)]
 pub struct Circle {
     /// Inscribed radius in the `XY` plane.
     pub radius: f32,

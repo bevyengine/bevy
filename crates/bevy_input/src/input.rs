@@ -1,3 +1,5 @@
+use bevy_ecs::system::Resource;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -32,8 +34,16 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug, Clone)]
-pub struct Input<T: Eq + Hash> {
+///
+/// Note: Calling `clear` from a [`ResMut`] will trigger change detection.
+/// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
+/// to avoid causing the resource to always be marked as changed.
+///
+///[`ResMut`]: bevy_ecs::system::ResMut
+///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+#[derive(Debug, Clone, Resource, Reflect)]
+#[reflect(Default)]
+pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -42,7 +52,7 @@ pub struct Input<T: Eq + Hash> {
     just_released: HashSet<T>,
 }
 
-impl<T: Eq + Hash> Default for Input<T> {
+impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -54,7 +64,7 @@ impl<T: Eq + Hash> Default for Input<T> {
 
 impl<T> Input<T>
 where
-    T: Copy + Eq + Hash,
+    T: Copy + Eq + Hash + Send + Sync + 'static,
 {
     /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {

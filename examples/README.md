@@ -88,11 +88,12 @@ Example | Description
 Example | Description
 --- | ---
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+[2D Shapes](../examples/2d/2d_shapes.rs) | Renders a rectangle, circle, and hexagon
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
-[Shapes](../examples/2d/shapes.rs) | Renders a rectangle, circle, and hexagon
+[Pixel Perfect](../examples/2d/pixel_perfect.rs) | Demonstrates pixel perfect in 2d
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
@@ -105,7 +106,12 @@ Example | Description
 Example | Description
 --- | ---
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
-[3D Shapes](../examples/3d/shapes.rs) | A scene showcasing the built-in 3D shapes
+[3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
+[Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
+[Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Bloom](../examples/3d/bloom.rs) | Illustrates bloom configuration using HDR and emissive materials
+[FXAA](../examples/3d/fxaa.rs) | Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)
+[Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
@@ -116,10 +122,12 @@ Example | Description
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
+[Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
+[Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
@@ -174,6 +182,9 @@ Example | Description
 --- | ---
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
+[Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
+[Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
+[Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
 ## Diagnostics
 
@@ -186,6 +197,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Apply System Buffers](../examples/ecs/apply_system_buffers.rs) | Show how to use `apply_system_buffers` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
@@ -194,14 +206,15 @@ Example | Description
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this.
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
-[Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame
+[Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
+[Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
-[System Chaining](../examples/ecs/system_chaining.rs) | Chain two systems together, specifying a return type in a system (such as `Result`)
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
-[System Sets](../examples/ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
+[System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
 [Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
@@ -226,6 +239,7 @@ Example | Description
 [Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 [Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 [Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+[Text Input](../examples/input/text_input.rs) | Simple text input with IME support
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -262,8 +276,10 @@ Example | Description
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the depth texture generated in a prepass
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
+[Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
 ## Stress Tests
 
@@ -279,6 +295,7 @@ Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
+[Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
 [Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling
 [Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
@@ -289,14 +306,14 @@ Example | Description
 
 Example | Description
 --- | ---
-[Scene Viewer](../examples/tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
+[Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
+[Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
 ## Transforms
 
 Example | Description
 --- | ---
 [3D Rotation](../examples/transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
-[Global / Local Translation](../examples/transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
 [Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction
 [Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects
 [Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis
@@ -307,10 +324,15 @@ Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Text Layout](../examples/ui/text_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
+[UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
+[UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
 ## Window
 
@@ -321,6 +343,7 @@ Example | Description
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
+[Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
 
 # Tests
@@ -349,7 +372,7 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android_example
+cargo apk run -p bevy_mobile_example
 ```
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
@@ -372,7 +395,7 @@ You can view the logs with the following command:
 adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
 ```
 
-In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more informations.
+In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more information.
 
 Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
 
@@ -396,7 +419,7 @@ min_sdk_version = >>API or less<<
 
 Example | File | Description
 --- | --- | ---
-`android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android
+`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## iOS
 
@@ -417,7 +440,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 Using bash:
 
 ```sh
-cd examples/ios
+cd examples/mobile
 make run
 ```
 
@@ -432,7 +455,7 @@ DEVICE_ID=${YOUR_DEVICE_ID} make run
 If you'd like to see xcode do stuff, you can run
 
 ```sh
-open bevy_ios_example.xcodeproj/
+open bevy_mobile_example.xcodeproj/
 ```
 
 which will open xcode. You then must push the zoom zoom play button and wait
@@ -440,7 +463,7 @@ for the magic.
 
 Example | File | Description
 --- | --- | ---
-`ios` | [`ios/src/lib.rs`](./ios/src/lib.rs) | The `3d/3d_scene.rs` example for iOS
+`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ## WASM
 
@@ -458,7 +481,9 @@ following commands.
 
 ```sh
 cargo build --release --example lighting --target wasm32-unknown-unknown
-wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
+wasm-bindgen --out-name wasm_example \
+  --out-dir examples/wasm/target \
+  --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
 ```
 
 The first command will build the example for the wasm target, creating a binary. Then,
@@ -478,6 +503,83 @@ python3 -m http.server --directory examples/wasm
 # with ruby
 ruby -run -ehttpd examples/wasm
 ```
+
+### Optimizing
+
+On the web, it's useful to reduce the size of the files that are distributed.
+With rust, there are many ways to improve your executable sizes.
+Here are some.
+
+#### 1. Tweak your `Cargo.toml`
+
+Add a new [profile](https://doc.rust-lang.org/cargo/reference/profiles.html)
+to your `Cargo.toml`:
+
+```toml
+[profile.wasm-release]
+# Use release profile as default values
+inherits = "release"
+
+# Optimize with size in mind, also try "s", sometimes it is better.
+# This doesn't increase compilation times compared to -O3, great improvements
+opt-level = "z"
+
+# Do a second optimization pass removing duplicate or unused code from dependencies.
+# Slows compile times, marginal improvements
+lto = "fat"
+
+# When building crates, optimize larger chunks at a time
+# Slows compile times, marginal improvements
+codegen-units = 1
+```
+
+Now, when building the final executable, use the `wasm-release` profile
+by replacing `--release` by `--profile wasm-release` in the cargo command.
+
+```sh
+cargo build --profile wasm-release --example lighting --target wasm32-unknown-unknown
+```
+
+Make sure your final executable size is smaller, some of those optimizations
+may not be worth keeping, due to compilation time increases.
+
+#### 2. Use `wasm-opt` from the binaryen package
+
+Binaryen is a set of tools for working with wasm. It has a `wasm-opt` CLI tool.
+
+First download the `binaryen` package,
+then locate the `.wasm` file generated by `wasm-bindgen`.
+It should be in the `--out-dir` you specified in the command line,
+the file name should end in `_bg.wasm`.
+
+Then run `wasm-opt` with the `-Oz` flag. Note that `wasm-opt` is _very slow_.
+
+Note that `wasm-opt` optimizations might not be as effective if you
+didn't apply the optimizations from the previous section.
+
+```sh
+wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
+mv optimized.wasm examples/wasm/target/lighting_bg.wasm
+```
+
+For a small project with a basic 3d model and two lights,
+the generated file sizes are, as of Jully 2022 as following:
+
+|profile                           | wasm-opt | no wasm-opt |
+|----------------------------------|----------|-------------|
+|Default                           | 8.5M     | 13.0M       |
+|opt-level = "z"                   | 6.1M     | 12.7M       |
+|"z" + lto = "thin"                | 5.9M     | 12M         |
+|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
+|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
+|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+
+There are more advanced optimization options available,
+check the following pages for more info:
+
+- <https://rustwasm.github.io/book/reference/code-size.html>
+- <https://rustwasm.github.io/docs/wasm-bindgen/reference/optimize-size.html>
+- <https://rustwasm.github.io/book/game-of-life/code-size.html>
 
 ### Loading Assets
 

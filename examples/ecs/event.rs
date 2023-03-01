@@ -22,6 +22,7 @@ struct MyEvent {
 #[derive(Default)]
 struct PlaySound;
 
+#[derive(Resource)]
 struct EventTriggerState {
     event_timer: Timer,
 }
@@ -29,7 +30,7 @@ struct EventTriggerState {
 impl Default for EventTriggerState {
     fn default() -> Self {
         EventTriggerState {
-            event_timer: Timer::from_seconds(1.0, true),
+            event_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
         }
     }
 }

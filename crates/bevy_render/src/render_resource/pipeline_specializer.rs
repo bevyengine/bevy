@@ -6,6 +6,7 @@ use crate::{
         VertexBufferLayout,
     },
 };
+use bevy_ecs::system::Resource;
 use bevy_utils::{
     default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
     PreHashMapExt,
@@ -18,6 +19,7 @@ pub trait SpecializedRenderPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
 }
 
+#[derive(Resource)]
 pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
     cache: HashMap<S::Key, CachedRenderPipelineId>,
 }
@@ -31,7 +33,7 @@ impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
 impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
     ) -> CachedRenderPipelineId {
@@ -47,6 +49,7 @@ pub trait SpecializedComputePipeline {
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
 }
 
+#[derive(Resource)]
 pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
     cache: HashMap<S::Key, CachedComputePipelineId>,
 }
@@ -60,7 +63,7 @@ impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
 impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
     ) -> CachedComputePipelineId {
@@ -80,6 +83,7 @@ pub trait SpecializedMeshPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError>;
 }
 
+#[derive(Resource)]
 pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
     mesh_layout_cache:
         PreHashMap<InnerMeshVertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
@@ -99,7 +103,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
     #[inline]
     pub fn specialize(
         &mut self,
-        cache: &mut PipelineCache,
+        cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
         layout: &MeshVertexBufferLayout,

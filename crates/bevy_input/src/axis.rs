@@ -1,10 +1,11 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
 use std::hash::Hash;
 
 /// Stores the position data of the input devices of type `T`.
 ///
 /// The values are stored as `f32`s, which range from [`Axis::MIN`] to [`Axis::MAX`], inclusive.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Axis<T> {
     /// The position data of the input devices.
     axis_data: HashMap<T, f32>,
@@ -50,6 +51,10 @@ where
     /// Removes the position data of the `input_device`, returning the position data if the input device was previously set.
     pub fn remove(&mut self, input_device: T) -> Option<f32> {
         self.axis_data.remove(&input_device)
+    }
+    /// Returns an iterator of all the input devices that have position data
+    pub fn devices(&self) -> impl ExactSizeIterator<Item = &T> {
+        self.axis_data.keys()
     }
 }
 
@@ -106,5 +111,35 @@ mod tests {
 
             assert_eq!(expected, actual);
         }
+    }
+
+    #[test]
+    fn test_axis_devices() {
+        let mut axis = Axis::<GamepadButton>::default();
+        assert_eq!(axis.devices().count(), 0);
+
+        axis.set(
+            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            0.1,
+        );
+        assert_eq!(axis.devices().count(), 1);
+
+        axis.set(
+            GamepadButton::new(Gamepad::new(1), GamepadButtonType::LeftTrigger),
+            0.5,
+        );
+        assert_eq!(axis.devices().count(), 2);
+
+        axis.set(
+            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            -0.1,
+        );
+        assert_eq!(axis.devices().count(), 2);
+
+        axis.remove(GamepadButton::new(
+            Gamepad::new(1),
+            GamepadButtonType::RightTrigger,
+        ));
+        assert_eq!(axis.devices().count(), 1);
     }
 }

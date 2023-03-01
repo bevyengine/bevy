@@ -28,64 +28,57 @@ struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     // Text with one section
-    commands
-        .spawn_bundle(
-            // Create a TextBundle that has a Text with a single section.
-            TextBundle::from_section(
-                // Accepts a `String` or any type that converts into a `String`, such as `&str`
-                "hello\nbevy!",
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+            "hello\nbevy!",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 100.0,
+                color: Color::WHITE,
+            },
+        ) // Set the alignment of the Text
+        .with_text_alignment(TextAlignment::Center)
+        // Set the style of the TextBundle itself.
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                bottom: Val::Px(5.0),
+                right: Val::Px(15.0),
+                ..default()
+            },
+            ..default()
+        }),
+        ColorText,
+    ));
+    // Text with multiple sections
+    commands.spawn((
+        // Create a TextBundle that has a Text with a list of sections.
+        TextBundle::from_sections([
+            TextSection::new(
+                "FPS: ",
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 100.0,
+                    font_size: 60.0,
                     color: Color::WHITE,
                 },
-            ) // Set the alignment of the Text
-            .with_text_alignment(TextAlignment::TOP_CENTER)
-            // Set the style of the TextBundle itself.
-            .with_style(Style {
-                align_self: AlignSelf::FlexEnd,
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    bottom: Val::Px(5.0),
-                    right: Val::Px(15.0),
-                    ..default()
-                },
-                ..default()
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 60.0,
+                color: Color::GOLD,
             }),
-        )
-        .insert(ColorText);
-    // Text with multiple sections
-    commands
-        .spawn_bundle(
-            // Create a TextBundle that has a Text with a list of sections.
-            TextBundle::from_sections([
-                TextSection::new(
-                    "FPS: ",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 60.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 60.0,
-                    color: Color::GOLD,
-                }),
-            ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexEnd,
-                ..default()
-            }),
-        )
-        .insert(FpsText);
+        ]),
+        FpsText,
+    ));
 }
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
     for mut text in &mut query {
-        let seconds = time.seconds_since_startup() as f32;
+        let seconds = time.elapsed_seconds();
 
         // Update the color of the first and only section.
         text.sections[0].style.color = Color::Rgba {
@@ -100,9 +93,9 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
     for mut text in &mut query {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(average) = fps.average() {
+            if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
-                text.sections[1].value = format!("{average:.2}");
+                text.sections[1].value = format!("{value:.2}");
             }
         }
     }

@@ -1,20 +1,18 @@
-use crate::{CalculatedSize, Size, Style, Val};
+use crate::{CalculatedSize, Node, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
-use bevy_window::{WindowId, Windows};
-
-#[derive(Debug, Default)]
-pub struct QueuedText {
-    entities: Vec<Entity>,
-}
+use bevy_text::{
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
+    TextSettings, YAxisOrientation,
+};
+use bevy_window::{PrimaryWindow, Window};
 
 fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
@@ -36,23 +34,43 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
+///
+/// ## World Resources
+///
+/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut queued_text: Local<QueuedText>,
+    mut commands: Commands,
+    mut queued_text_ids: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Res<Windows>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
+    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
-    mut text_pipeline: ResMut<DefaultTextPipeline>,
+    mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<Entity, Or<(Changed<Text>, Changed<Node>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize)>,
+        Query<(
+            &Text,
+            &Style,
+            &mut CalculatedSize,
+            Option<&mut TextLayoutInfo>,
+        )>,
     )>,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary());
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let window_scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.);
+
+    let scale_factor = ui_scale.scale * window_scale_factor;
 
     let inv_scale_factor = 1. / scale_factor;
 
@@ -60,25 +78,25 @@ pub fn text_system(
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text or the style has changed to the local queue
         for entity in text_queries.p0().iter() {
-            queued_text.entities.push(entity);
+            queued_text_ids.push(entity);
         }
     } else {
         // If the scale factor has changed, queue all text
         for entity in text_queries.p1().iter() {
-            queued_text.entities.push(entity);
+            queued_text_ids.push(entity);
         }
         *last_scale_factor = scale_factor;
     }
 
-    if queued_text.entities.is_empty() {
+    if queued_text_ids.is_empty() {
         return;
     }
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
-    for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+    for entity in queued_text_ids.drain(..) {
+        if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -95,15 +113,18 @@ pub fn text_system(
             );
 
             match text_pipeline.queue_text(
-                entity,
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
+                text.linebreak_behaviour,
                 node_size,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
+                text_settings.as_ref(),
+                &mut font_atlas_warning,
+                YAxisOrientation::TopToBottom,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -111,20 +132,23 @@ pub fn text_system(
                     new_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                    panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(()) => {
-                    let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
-                        "Failed to get glyphs from the pipeline that have just been computed",
+                Ok(info) => {
+                    calculated_size.size = Vec2::new(
+                        scale_value(info.size.x, inv_scale_factor),
+                        scale_value(info.size.y, inv_scale_factor),
                     );
-                    calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.x, inv_scale_factor),
-                        height: scale_value(text_layout_info.size.y, inv_scale_factor),
-                    };
+                    match text_layout_info {
+                        Some(mut t) => *t = info,
+                        None => {
+                            commands.entity(entity).insert(info);
+                        }
+                    }
                 }
             }
         }
     }
 
-    queued_text.entities = new_queue;
+    *queued_text_ids = new_queue;
 }

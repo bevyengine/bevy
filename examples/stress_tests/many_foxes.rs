@@ -1,12 +1,17 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
+use std::f32::consts::PI;
+use std::time::Duration;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
+#[derive(Resource)]
 struct Foxes {
     count: usize,
     speed: f32,
@@ -15,12 +20,14 @@ struct Foxes {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(Foxes {
@@ -41,6 +48,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
 
 const RING_SPACING: f32 = 2.0;
@@ -91,7 +99,7 @@ fn setup(
 
     let ring_directions = [
         (
-            Quat::from_rotation_y(std::f32::consts::PI),
+            Quat::from_rotation_y(PI),
             RotationDirection::CounterClockwise,
         ),
         (Quat::IDENTITY, RotationDirection::Clockwise),
@@ -106,17 +114,14 @@ fn setup(
     while foxes_remaining > 0 {
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
-            .spawn_bundle((
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::default(),
-                ComputedVisibility::default(),
+            .spawn((
+                SpatialBundle::INHERITED_IDENTITY,
                 ring_direction,
                 Ring { radius },
             ))
             .id();
 
-        let circumference = std::f32::consts::TAU * radius;
+        let circumference = PI * 2. * radius;
         let foxes_in_ring = ((circumference / FOX_SPACING) as usize).min(foxes_remaining);
         let fox_spacing_angle = circumference / (foxes_in_ring as f32 * radius);
 
@@ -126,9 +131,9 @@ fn setup(
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn_bundle(SceneBundle {
+                builder.spawn(SceneBundle {
                     scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x as f32, 0.0, z as f32)
+                    transform: Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
                     ..default()
@@ -148,31 +153,32 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
         ..default()
     });
 
     // Plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 500000.0 })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
 
     // Light
-    commands.spawn_bundle(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            1.0,
-            -std::f32::consts::FRAC_PI_4,
-        )),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 0.9 * radius,
+            maximum_distance: 2.8 * radius,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
@@ -268,7 +274,10 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Return) {
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play_with_transition(
+                    animations.0[*current_animation].clone_weak(),
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }

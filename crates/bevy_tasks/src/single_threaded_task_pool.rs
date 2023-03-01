@@ -1,5 +1,6 @@
 use std::{
     future::Future,
+    marker::PhantomData,
     mem,
     sync::{Arc, Mutex},
 };
@@ -7,6 +8,20 @@ use std::{
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
+
+/// This is a dummy struct for wasm support to provide the same api as with the multithreaded
+/// task pool. In the case of the multithreaded task pool this struct is used to spawn
+/// tasks on a specific thread. But the wasm task pool just calls
+/// [`wasm_bindgen_futures::spawn_local`] for spawning which just runs tasks on the main thread
+/// and so the [`ThreadExecutor`] does nothing.
+#[derive(Default)]
+pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
+impl<'a> ThreadExecutor<'a> {
+    /// Creates a new `ThreadExecutor`
+    pub fn new() -> Self {
+        Self(PhantomData::default())
+    }
+}
 
 impl TaskPoolBuilder {
     /// Creates a new TaskPoolBuilder instance
@@ -61,27 +76,52 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        T: Send + 'static,
+    {
+        self.scope_with_executor(false, None, f)
+    }
+
+    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    ///
+    /// This is similar to `rayon::scope` and `crossbeam::scope`
+    pub fn scope_with_executor<'env, F, T>(
+        &self,
+        _tick_task_pool_executor: bool,
+        _thread_executor: Option<&ThreadExecutor>,
+        f: F,
+    ) -> Vec<T>
+    where
+        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         let executor = &async_executor::LocalExecutor::new();
-        let executor: &'scope async_executor::LocalExecutor<'scope> =
+        let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
+
+        let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
+        let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
             executor,
-            results: Vec::new(),
+            results,
+            scope: PhantomData,
+            env: PhantomData,
         };
 
-        f(&mut scope);
+        let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
+
+        f(scope_ref);
 
         // Loop until all tasks are done
         while executor.try_tick() {}
 
-        scope
-            .results
+        let results = scope.results.lock().unwrap();
+        results
             .iter()
             .map(|result| result.lock().unwrap().take().unwrap())
             .collect()
@@ -127,32 +167,47 @@ impl FakeTask {
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
-pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::LocalExecutor<'scope>,
+pub struct Scope<'scope, 'env: 'scope, T> {
+    executor: &'env async_executor::LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
-    results: Vec<Arc<Mutex<Option<T>>>>,
+    results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
+
+    // make `Scope` invariant over 'scope and 'env
+    scope: PhantomData<&'scope mut &'scope ()>,
+    env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, T: Send + 'scope> Scope<'scope, T> {
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
+    /// Spawns a scoped future onto the executor. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
-    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
+    /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        self.spawn_local(f);
+    pub fn spawn<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+        self.spawn_on_scope(f);
     }
 
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// Spawns a scoped future onto the executor. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
+    /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
+    ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
+    pub fn spawn_on_external<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+        self.spawn_on_scope(f);
+    }
+
+    /// Spawns a scoped future that runs on the thread the scope called from. The
+    /// scope *must* outlive the provided future. The results of the future will be
+    /// returned as a part of [`TaskPool::scope`]'s return value.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
         let result = Arc::new(Mutex::new(None));
-        self.results.push(result.clone());
+        self.results.lock().unwrap().push(result.clone());
         let f = async move {
             result.lock().unwrap().replace(f.await);
         };

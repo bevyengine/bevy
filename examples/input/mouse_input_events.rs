@@ -3,7 +3,6 @@
 use bevy::{
     input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     prelude::*,
-    window::CursorMoved,
 };
 
 fn main() {

@@ -1,10 +1,10 @@
 //! Renders a lot of animated sprites to allow performance testing.
 //!
-//! It sets up many animated sprites in different sizes and rotations, and at different scales in the world,
-//! and moves the camera over them to see how well frustum culling works.
+//! It sets up many animated sprites in different sizes and rotations,
+//! and at different scales in the world, and moves the camera over them.
 //!
-//! To measure performance realistically, be sure to run this in release mode.
-//! `cargo run --example many_animated_sprites --release`
+//! Having sprites out of the camera's field of view should also help stress
+//! test any future potential 2d frustum culling implementation.
 
 use std::time::Duration;
 
@@ -13,6 +13,7 @@ use bevy::{
     math::Quat,
     prelude::*,
     render::camera::Camera,
+    window::PresentMode,
 };
 
 use rand::Rng;
@@ -24,7 +25,13 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_startup_system(setup)
         .add_system(animate_sprite)
         .add_system(print_sprite_count)
@@ -37,6 +44,8 @@ fn setup(
     assets: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);
@@ -46,14 +55,13 @@ fn setup(
     let half_y = (map_size.y / 2.0) as i32;
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1);
+    let texture_atlas =
+        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
-    commands
-        .spawn()
-        .insert_bundle(Camera2dBundle::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
+
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
@@ -62,11 +70,11 @@ fn setup(
             let translation = (position * tile_size).extend(rng.gen::<f32>());
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
-            let mut timer = Timer::from_seconds(0.1, true);
+            let mut timer = Timer::from_seconds(0.1, TimerMode::Repeating);
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
-            commands
-                .spawn_bundle(SpriteSheetBundle {
+            commands.spawn((
+                SpriteSheetBundle {
                     texture_atlas: texture_atlas_handle.clone(),
                     transform: Transform {
                         translation,
@@ -78,8 +86,9 @@ fn setup(
                         ..default()
                     },
                     ..default()
-                })
-                .insert(AnimationTimer(timer));
+                },
+                AnimationTimer(timer),
+            ));
         }
     }
 }
@@ -118,7 +127,7 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 

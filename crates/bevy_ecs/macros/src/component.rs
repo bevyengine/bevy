@@ -4,6 +4,24 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
 
+pub fn derive_resource(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
+
+    let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
+        }
+    })
+}
+
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
@@ -68,8 +86,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         return Err(Error::new_spanned(
                             m.lit,
                             format!(
-                                "Invalid storage type `{}`, expected '{}' or '{}'.",
-                                s, TABLE, SPARSE_SET
+                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
                             ),
                         ))
                     }

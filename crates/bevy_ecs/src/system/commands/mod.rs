@@ -2,17 +2,18 @@ mod command_queue;
 mod parallel_scope;
 
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
-    component::Component,
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_ecs_macros::SystemParam;
+use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::Resource;
+use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -24,7 +25,7 @@ use super::Resource;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::Command;
 /// // Our world resource
-/// #[derive(Default)]
+/// #[derive(Resource, Default)]
 /// struct Counter(u64);
 ///
 /// // Our custom command
@@ -41,13 +42,19 @@ use super::Resource;
 ///     commands.add(AddToCounter(42));
 /// }
 /// ```
-pub trait Command: Send + Sync + 'static {
+pub trait Command: Send + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A queue of [commands](Command) that get executed at the end of the stage of the system that called them.
+/// A [`Command`] queue to perform impactful changes to the [`World`].
 ///
-/// Commands are executed one at a time in an exclusive fashion.
+/// Since each command requires exclusive access to the `World`,
+/// all queued commands are automatically applied in sequence
+/// when the [`apply_system_buffers`] system runs.
+///
+/// The command queue of an individual system can also be manually applied
+/// by calling [`System::apply_buffers`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -57,7 +64,7 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -88,31 +95,53 @@ pub trait Command: Send + Sync + 'static {
 /// });
 /// # }
 /// ```
+///
+/// [`System::apply_buffers`]: crate::system::System::apply_buffers
+/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
+/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: &'s mut CommandQueue,
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
 }
 
+impl SystemBuffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
+        self.apply(world);
+    }
+}
+
 impl<'w, 's> Commands<'w, 's> {
-    /// Create a new `Commands` from a queue and a world.
+    /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
+    ///
+    /// It is not required to call this constructor when using `Commands` as a [system parameter].
+    ///
+    /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
+        Self::new_from_entities(queue, world.entities())
+    }
+
+    /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
+    ///
+    /// It is not required to call this constructor when using `Commands` as a [system parameter].
+    ///
+    /// [system parameter]: crate::system::SystemParam
+    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
-            queue,
-            entities: world.entities(),
+            queue: Deferred(queue),
+            entities,
         }
     }
 
-    /// Create a new `Commands` from a queue and an [`Entities`] reference.
-    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
-        Self { queue, entities }
-    }
-
-    /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
+    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
+    /// and returns its corresponding [`EntityCommands`].
     ///
-    /// To directly spawn an entity with a [`Bundle`] included, you can use
-    /// [`spawn_bundle`](Self::spawn_bundle) instead of `.spawn().insert_bundle()`.
-    ///
-    /// See [`World::spawn`] for more details.
+    /// See [`World::spawn_empty`] for more details.
     ///
     /// # Example
     ///
@@ -128,18 +157,23 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new empty entity and retrieve its id.
-    ///     let empty_entity = commands.spawn().id();
+    ///     let empty_entity = commands.spawn_empty().id();
     ///
     ///     // Create another empty entity, then add some component to it
-    ///     commands.spawn()
+    ///     commands.spawn_empty()
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((Strength(1), Agility(2)))
+    ///         .insert((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    pub fn spawn<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
+    ///
+    /// # See also
+    ///
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    pub fn spawn_empty<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
@@ -147,10 +181,16 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Returns an [`EntityCommands`] for the given `entity` (if it exists) or spawns one if it
-    /// doesn't exist. This will return [`None`] if the `entity` exists with a different generation.
+    /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
+    /// and returns its corresponding [`EntityCommands`].
+    ///
+    /// This method silently fails by returning `EntityCommands`
+    /// even if the given `Entity` cannot be spawned.
+    ///
+    /// See [`World::get_or_spawn`] for more details.
     ///
     /// # Note
+    ///
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
@@ -163,14 +203,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Creates a new entity with the components contained in `bundle`.
-    ///
-    /// This returns an [`EntityCommands`] builder, which enables inserting more components and
-    /// bundles using a "builder pattern".
-    ///
-    /// Note that `bundle` is a [`Bundle`], which is a collection of components. [`Bundle`] is
-    /// automatically implemented for tuples of components. You can also create your own bundle
-    /// types by deriving [`derive@Bundle`].
+    /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
+    /// and returns its corresponding [`EntityCommands`].
     ///
     /// # Example
     ///
@@ -195,29 +229,41 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with a single component.
+    ///     commands.spawn(Component1);
+    ///
     ///     // Create a new entity with a component bundle.
-    ///     commands.spawn_bundle(ExampleBundle {
+    ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
     ///         b: Component2,
     ///     });
     ///
     ///     commands
     ///         // Create a new entity with two components using a "tuple bundle".
-    ///         .spawn_bundle((Component1, Component2))
-    ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
-    ///         .insert_bundle((Strength(1), Agility(2)))
+    ///         .spawn((Component1, Component2))
+    ///         // `spawn returns a builder, so you can insert more bundles like this:
+    ///         .insert((Strength(1), Agility(2)))
     ///         // or insert single components like this:
     ///         .insert(Label("hello world"));
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
-        let mut e = self.spawn();
-        e.insert_bundle(bundle);
+    ///
+    /// # See also
+    ///
+    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
+        let mut e = self.spawn_empty();
+        e.insert(bundle);
         e
     }
 
-    /// Returns an [`EntityCommands`] builder for the requested [`Entity`].
+    /// Returns the [`EntityCommands`] for the requested [`Entity`].
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -230,38 +276,81 @@ impl<'w, 's> Commands<'w, 's> {
     /// struct Strength(u32);
     /// #[derive(Component)]
     /// struct Agility(u32);
-
+    ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
-    ///     let entity = commands.spawn().id();
+    ///     let entity = commands.spawn_empty().id();
     ///
     ///     commands.entity(entity)
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((Strength(1), Agility(2)))
+    ///         .insert((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`get_entity`](Self::get_entity) for the fallible version.
+    #[inline]
     #[track_caller]
     pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        assert!(
-            self.entities.contains(entity),
-            "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
-            entity
-        );
-        EntityCommands {
-            entity,
-            commands: self,
-        }
+        self.get_entity(entity).unwrap_or_else(|| {
+            panic!(
+                "Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",
+            )
+        })
     }
 
-    /// Spawns entities to the [`World`] according to the given iterator (or a type that can
-    /// be converted to it).
+    /// Returns the [`EntityCommands`] for the requested [`Entity`], if it exists.
     ///
-    /// The end result of this command is equivalent to iterating `bundles_iter` and calling
-    /// [`spawn`](Self::spawn) on each bundle, but it is more performant due to memory
-    /// pre-allocation.
+    /// Returns `None` if the entity does not exist.
+    ///
+    /// This method does not guarantee that `EntityCommands` will be successfully applied,
+    /// since another command in the queue may delete the entity before them.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new, empty entity
+    ///     let entity = commands.spawn_empty().id();
+    ///
+    ///     // Get the entity if it still exists, which it will in this case
+    ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
+    ///         // adds a single component to the entity
+    ///         entity_commands.insert(Label("hello world"));
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`entity`](Self::entity) for the panicking version.
+    #[inline]
+    #[track_caller]
+    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+        self.entities.contains(entity).then_some(EntityCommands {
+            entity,
+            commands: self,
+        })
+    }
+
+    /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
+    ///
+    /// `bundles_iter` is a type that can be converted into a `Bundle` iterator
+    /// (it can also be a collection).
+    ///
+    /// This method is equivalent to iterating `bundles_iter`
+    /// and calling [`spawn`](Self::spawn) on each bundle,
+    /// but it is faster due to memory pre-allocation.
     ///
     /// # Example
     ///
@@ -287,6 +376,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
+    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -295,10 +389,21 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
-    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// Pushes a [`Command`] to the queue for creating entities, if needed,
+    /// and for adding a bundle to each entity.
     ///
-    /// This is faster than doing equivalent operations one-by-one.
+    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
+    /// (it can also be a collection).
+    ///
+    /// When the command is applied,
+    /// for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
+    /// the `Entity` is spawned, if it does not exist already.
+    /// Then, the `Bundle` is added to the entity.
+    ///
+    /// This method is equivalent to iterating `bundles_iter`,
+    /// calling [`get_or_spawn`](Self::get_or_spawn) for each bundle,
+    /// and passing it to [`insert`](EntityCommands::insert),
+    /// but it is faster due to memory pre-allocation.
     ///
     /// # Note
     ///
@@ -314,24 +419,20 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
-    /// Inserts a resource with standard starting values to the [`World`].
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
     ///
-    /// If the resource already exists, nothing happens.
-    ///
-    /// The value given by the [`FromWorld::from_world`] method will be used.
-    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
-    /// and those default values will be here instead.
+    /// The inferred value is determined by the [`FromWorld`] trait of the resource.
+    /// When the command is applied,
+    /// if the resource already exists, nothing happens.
     ///
     /// See [`World::init_resource`] for more details.
-    /// Note that commands do not take effect immediately.
-    /// When possible, prefer the equivalent methods on `App` or `World`.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(Default)]
+    /// # #[derive(Resource, Default)]
     /// # struct Scoreboard {
     /// #     current_score: u32,
     /// #     high_score: u32,
@@ -348,17 +449,18 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Inserts a resource to the [`World`], overwriting any previous value of the same type.
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
+    ///
+    /// This will overwrite any previous value of the same resource type.
     ///
     /// See [`World::insert_resource`] for more details.
-    /// Note that commands do not take effect immediately.
-    /// When possible, prefer the equivalent methods on `App` or `World`.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct Scoreboard {
     /// #     current_score: u32,
     /// #     high_score: u32,
@@ -376,7 +478,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertResource { resource });
     }
 
-    /// Removes a resource from the [`World`].
+    /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
     ///
     /// See [`World::remove_resource`] for more details.
     ///
@@ -385,6 +487,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct Scoreboard {
     /// #     current_score: u32,
     /// #     high_score: u32,
@@ -401,7 +504,7 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Adds a command directly to the command queue.
+    /// Pushes a generic [`Command`] to the command queue.
     ///
     /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
     /// that takes [`&mut World`](World) as an argument.
@@ -410,7 +513,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::{system::Command, prelude::*};
-    /// #[derive(Default)]
+    /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
     /// struct AddToCounter(u64);
@@ -440,6 +543,87 @@ impl<'w, 's> Commands<'w, 's> {
     }
 }
 
+/// A [`Command`] which gets executed for a given [`Entity`].
+///
+/// # Examples
+///
+/// ```
+/// # use std::collections::HashSet;
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::EntityCommand;
+/// #
+/// # #[derive(Component, PartialEq)]
+/// # struct Name(String);
+/// # impl Name {
+/// #   fn new(s: String) -> Self { Name(s) }
+/// #   fn as_str(&self) -> &str { &self.0 }
+/// # }
+///
+/// #[derive(Resource, Default)]
+/// struct Counter(i64);
+///
+/// /// A `Command` which names an entity based on a global counter.
+/// struct CountName;
+///
+/// impl EntityCommand for CountName {
+///     fn write(self, id: Entity, world: &mut World) {
+///         // Get the current value of the counter, and increment it for next time.
+///         let mut counter = world.resource_mut::<Counter>();
+///         let i = counter.0;
+///         counter.0 += 1;
+///
+///         // Name the entity after the value of the counter.
+///         world.entity_mut(id).insert(Name::new(format!("Entity #{i}")));
+///     }
+/// }
+///
+/// // App creation boilerplate omitted...
+/// # let mut world = World::new();
+/// # world.init_resource::<Counter>();
+/// #
+/// # let mut setup_schedule = Schedule::new();
+/// # setup_schedule.add_system(setup);
+/// # let mut assert_schedule = Schedule::new();
+/// # assert_schedule.add_system(assert_names);
+/// #
+/// # setup_schedule.run(&mut world);
+/// # assert_schedule.run(&mut world);
+///
+/// fn setup(mut commands: Commands) {
+///     commands.spawn_empty().add(CountName);
+///     commands.spawn_empty().add(CountName);
+/// }
+///
+/// fn assert_names(named: Query<&Name>) {
+///     // We use a HashSet because we do not care about the order.
+///     let names: HashSet<_> = named.iter().map(Name::as_str).collect();
+///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
+/// }
+/// ```
+pub trait EntityCommand: Send + 'static {
+    fn write(self, id: Entity, world: &mut World);
+    /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
+    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    where
+        Self: Sized,
+    {
+        WithEntity { cmd: self, id }
+    }
+}
+
+/// Turns an [`EntityCommand`] type into a [`Command`] type.
+pub struct WithEntity<C: EntityCommand> {
+    cmd: C,
+    id: Entity,
+}
+
+impl<C: EntityCommand> Command for WithEntity<C> {
+    #[inline]
+    fn write(self, world: &mut World) {
+        self.cmd.write(self.id, world);
+    }
+}
+
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'w, 's, 'a> {
     entity: Entity,
@@ -455,7 +639,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// fn my_system(mut commands: Commands) {
-    ///     let entity_id = commands.spawn().id();
+    ///     let entity_id = commands.spawn_empty().id();
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
@@ -467,80 +651,64 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Adds a [`Bundle`] of components to the entity.
     ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
     /// # Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
+    /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// # #[derive(Component)]
-    /// # struct Strength(u32);
-    /// # #[derive(Component)]
-    /// # struct Defense(u32);
-    /// #
-    /// # #[derive(Bundle)]
-    /// # struct CombatBundle {
-    /// #     health: Health,
-    /// #     strength: Strength,
-    /// #     defense: Defense,
-    /// # }
-    /// #
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
     /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.entity(player.entity).insert_bundle(CombatBundle {
-    ///         health: Health(100),
-    ///         strength: Strength(40),
-    ///         defense: Defense(20),
-    ///     });
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can insert individual components:
+    ///         .insert(Defense(10))
+    ///         // You can also insert pre-defined bundles of components:
+    ///         .insert(CombatBundle {
+    ///             health: Health(100),
+    ///             strength: Strength(40),
+    ///         })
+    ///         // You can also insert tuples of components and bundles.
+    ///         // This is equivalent to the calls above:
+    ///         .insert((
+    ///             Defense(10),
+    ///             CombatBundle {
+    ///                 health: Health(100),
+    ///                 strength: Strength(40),
+    ///             },
+    ///         ));
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
-    pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(InsertBundle {
+    pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.commands.add(Insert {
             entity: self.entity,
             bundle,
         });
         self
     }
 
-    /// Adds a single [`Component`] to the entity.
-    ///
-    /// # Example
-    ///
-    /// `Self::insert` can be chained with [`Commands::spawn`].
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Component1;
-    /// # #[derive(Component)]
-    /// # struct Component2;
-    /// #
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity with `Component1` and `Component2`
-    ///     commands.spawn()
-    ///         .insert(Component1)
-    ///         .insert(Component2);
-    ///
-    ///     // The following statements are equivalent to above one.
-    ///     commands.spawn().insert_bundle((Component1, Component2));
-    ///     commands.spawn_bundle((Component1, Component2));
-    /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
-    /// ```
-    pub fn insert(&mut self, component: impl Component) -> &mut Self {
-        self.commands.add(Insert {
-            entity: self.entity,
-            component,
-        });
-        self
-    }
-
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle) for more
+    /// See [`EntityMut::remove`](crate::world::EntityMut::remove) for more
     /// details.
     ///
     /// # Example
@@ -548,50 +716,37 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
-    /// #
-    /// # #[derive(Component)]
-    /// struct Dummy;
-    /// # #[derive(Bundle)]
-    /// # struct CombatBundle { a: Dummy }; // dummy field, unit bundles are not permitted.
-    /// #
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can remove individual components:
+    ///         .remove::<Defense>()
+    ///         // You can also remove pre-defined Bundles of components:
+    ///         .remove::<CombatBundle>()
+    ///         // You can also remove tuples of components and bundles.
+    ///         // This is equivalent to the calls above:
+    ///         .remove::<(Defense, CombatBundle)>();
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
-    pub fn remove_bundle<T>(&mut self) -> &mut Self
-    where
-        T: Bundle,
-    {
-        self.commands.add(RemoveBundle::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
-        self
-    }
-
-    /// Removes a single component from the entity.
-    ///
-    /// See [`EntityMut::remove`](crate::world::EntityMut::remove) for more details.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # struct TargetEnemy { entity: Entity }
-    /// # #[derive(Component)]
-    /// # struct Enemy;
-    /// #
-    /// fn convert_enemy_system(mut commands: Commands, enemy: Res<TargetEnemy>) {
-    ///     commands.entity(enemy.entity).remove::<Enemy>();
-    /// }
-    /// # bevy_ecs::system::assert_is_system(convert_enemy_system);
-    /// ```
     pub fn remove<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: Bundle,
     {
         self.commands.add(Remove::<T> {
             entity: self.entity,
@@ -604,11 +759,16 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
     /// # Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct CharacterToRemove { entity: Entity }
     /// #
     /// fn remove_character_system(
@@ -626,7 +786,32 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
     }
 
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # fn my_system(mut commands: Commands) {
+    /// commands
+    ///     .spawn_empty()
+    ///     // Closures with this signature implement `EntityCommand`.
+    ///     .add(|id: Entity, world: &mut World| {
+    ///         println!("Executed an EntityCommand for {id:?}");
+    ///     });
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
+    pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
+        self.commands.add(command.with_entity(self.entity));
+        self
+    }
+
     /// Logs the components of the entity at the info level.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(&mut self) {
         self.commands.add(LogComponents {
             entity: self.entity,
@@ -641,10 +826,19 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
 impl<F> Command for F
 where
-    F: FnOnce(&mut World) + Send + Sync + 'static,
+    F: FnOnce(&mut World) + Send + 'static,
 {
     fn write(self, world: &mut World) {
         self(world);
+    }
+}
+
+impl<F> EntityCommand for F
+where
+    F: FnOnce(Entity, &mut World) + Send + 'static,
+{
+    fn write(self, id: Entity, world: &mut World) {
+        self(id, world);
     }
 }
 
@@ -658,7 +852,7 @@ where
     T: Bundle,
 {
     fn write(self, world: &mut World) {
-        world.spawn().insert_bundle(self.bundle);
+        world.spawn(self.bundle);
     }
 }
 
@@ -723,45 +917,24 @@ pub struct Despawn {
 
 impl Command for Despawn {
     fn write(self, world: &mut World) {
-        if !world.despawn(self.entity) {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", self.entity);
-        }
+        world.despawn(self.entity);
     }
 }
 
-pub struct InsertBundle<T> {
+pub struct Insert<T> {
     pub entity: Entity,
     pub bundle: T,
 }
 
-impl<T> Command for InsertBundle<T>
+impl<T> Command for Insert<T>
 where
     T: Bundle + 'static,
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert_bundle(self.bundle);
+            entity.insert(self.bundle);
         } else {
             panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Insert<T> {
-    pub entity: Entity,
-    pub component: T,
-}
-
-impl<T> Command for Insert<T>
-where
-    T: Component,
-{
-    fn write(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(self.component);
-        } else {
-            panic!("error[B0003]: Could not add a component (of type `{}`) to entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
         }
     }
 }
@@ -774,30 +947,11 @@ pub struct Remove<T> {
 
 impl<T> Command for Remove<T>
 where
-    T: Component,
-{
-    fn write(self, world: &mut World) {
-        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            entity_mut.remove::<T>();
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct RemoveBundle<T> {
-    pub entity: Entity,
-    pub phantom: PhantomData<T>,
-}
-
-impl<T> Command for RemoveBundle<T>
-where
     T: Bundle,
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            // remove intersection to gracefully handle components that were removed before running
-            // this command
-            entity_mut.remove_bundle_intersection::<T>();
+            entity_mut.remove::<T>();
         }
     }
 }
@@ -854,7 +1008,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands},
+        system::{CommandQueue, Commands, Resource},
         world::World,
     };
     use std::sync::{
@@ -881,11 +1035,11 @@ mod tests {
         }
     }
 
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct W<T>(T);
 
     fn simple_command(world: &mut World) {
-        world.spawn().insert_bundle((W(0u32), W(42u64)));
+        world.spawn((W(0u32), W(42u64)));
     }
 
     #[test]
@@ -893,7 +1047,7 @@ mod tests {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let entity = Commands::new(&mut command_queue, &world)
-            .spawn_bundle((W(1u32), W(2u64)))
+            .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
         assert!(world.entities().len() == 1);
@@ -923,7 +1077,7 @@ mod tests {
 
             // set up a simple command using a closure that adds one additional entity
             commands.add(|world: &mut World| {
-                world.spawn().insert_bundle((W(42u32), W(0u64)));
+                world.spawn((W(42u32), W(0u64)));
             });
 
             // set up a simple command using a function that adds one additional entity
@@ -949,8 +1103,7 @@ mod tests {
         let sparse_dropck = SparseDropCk(sparse_dropck);
 
         let entity = Commands::new(&mut command_queue, &world)
-            .spawn()
-            .insert_bundle((W(1u32), W(2u64), dense_dropck, sparse_dropck))
+            .spawn((W(1u32), W(2u64), dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
@@ -964,7 +1117,7 @@ mod tests {
         Commands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<W<u32>>()
-            .remove_bundle::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
+            .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
@@ -992,21 +1145,21 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.insert_resource(123);
-            commands.insert_resource(456.0);
+            commands.insert_resource(W(123i32));
+            commands.insert_resource(W(456.0f64));
         }
 
         queue.apply(&mut world);
-        assert!(world.contains_resource::<i32>());
-        assert!(world.contains_resource::<f64>());
+        assert!(world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
 
         {
             let mut commands = Commands::new(&mut queue, &world);
             // test resource removal
-            commands.remove_resource::<i32>();
+            commands.remove_resource::<W<i32>>();
         }
         queue.apply(&mut world);
-        assert!(!world.contains_resource::<i32>());
-        assert!(world.contains_resource::<f64>());
+        assert!(!world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
     }
 }

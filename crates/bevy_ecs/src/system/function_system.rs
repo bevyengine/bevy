@@ -4,15 +4,14 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::{SystemLabel, SystemLabelId},
-    system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState,
-    },
+    system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
-use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+
+use bevy_utils::all_tuples;
+use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+
+use super::ReadOnlySystem;
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -27,7 +26,7 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    fn new<T>() -> Self {
+    pub(crate) fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
@@ -35,6 +34,12 @@ impl SystemMeta {
             is_send: true,
             last_change_tick: 0,
         }
+    }
+
+    /// Returns the system's name
+    #[inline]
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     /// Returns true if the system is [`Send`].
@@ -82,6 +87,7 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// #[derive(Component)]
@@ -102,6 +108,9 @@ impl SystemMeta {
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+///
+/// // If you are using [`Commands`], you can choose when you want to apply them to the world.
+/// // You need to manually call `.apply(world)` on the [`SystemState`] to apply them.
 /// ```
 /// Caching:
 /// ```rust
@@ -110,8 +119,9 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
-/// struct CachedSystemState<'w, 's>{
-///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// #[derive(Resource)]
+/// struct CachedSystemState {
+///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
 /// }
 ///
 /// // Create and store a system state once
@@ -131,9 +141,9 @@ impl SystemMeta {
 ///     };
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam> {
+pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
-    param_state: <Param as SystemParam>::Fetch,
+    param_state: Param::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }
@@ -142,7 +152,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
+        let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -158,25 +168,21 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
+    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
     where
-        Param::Fetch: ReadOnlySystemParamFetch,
+        Param: ReadOnlySystemParam,
     {
-        self.validate_world_and_update_archetypes(world);
+        self.validate_world(world);
+        self.update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
-        self.validate_world_and_update_archetypes(world);
+    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
+        self.validate_world(world);
+        self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
@@ -186,7 +192,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
-        self.param_state.apply(world);
+        Param::apply(&mut self.param_state, &self.meta, world);
     }
 
     #[inline]
@@ -194,19 +200,69 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
-    fn validate_world_and_update_archetypes(&mut self, world: &World) {
+    /// Asserts that the [`SystemState`] matches the provided [`World`].
+    #[inline]
+    fn validate_world(&self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+    }
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    #[inline]
+    pub fn update_archetypes(&mut self, world: &World) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
-            self.param_state.new_archetype(
+            Param::new_archetype(
+                &mut self.param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.meta,
             );
         }
+    }
+
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    /// This will not update the state's view of the world's archetypes automatically nor increment the
+    /// world's change tick.
+    ///
+    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
+    /// function.
+    ///
+    /// Users should strongly prefer to use [`SystemState::get`] over this function.
+    #[inline]
+    pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    where
+        Param: ReadOnlySystemParam,
+    {
+        self.validate_world(world);
+        let change_tick = world.read_change_tick();
+        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        unsafe { self.fetch(world, change_tick) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes
+    /// automatically nor increment the world's change tick.
+    ///
+    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
+    /// function.
+    ///
+    /// Users should strongly prefer to use [`SystemState::get_mut`] over this function.
+    #[inline]
+    pub fn get_manual_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> SystemParamItem<'w, 's, Param> {
+        self.validate_world(world);
+        let change_tick = world.change_tick();
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.fetch(world, change_tick) }
     }
 
     /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
@@ -219,14 +275,22 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
+    ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        let param = <Param::Fetch as SystemParamFetch>::get_param(
-            &mut self.param_state,
-            &self.meta,
-            world,
-            change_tick,
-        );
+        self.fetch(world, change_tick)
+    }
+
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    unsafe fn fetch<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+        change_tick: u32,
+    ) -> SystemParamItem<'w, 's, Param> {
+        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
         self.meta.last_change_tick = change_tick;
         param
     }
@@ -246,26 +310,23 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 /// # Examples
 ///
 /// ```
-/// use bevy_ecs::system::IntoSystem;
-/// use bevy_ecs::system::Res;
+/// use bevy_ecs::prelude::*;
 ///
-/// fn my_system_function(an_usize_resource: Res<usize>) {}
+/// fn my_system_function(a_usize_local: Local<usize>) {}
 ///
 /// let system = IntoSystem::into_system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params>: Sized {
+pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
 
-pub struct AlreadyWasSystem;
-
 // Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
+impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
     type System = Sys;
     fn into_system(this: Self) -> Sys {
         this
@@ -277,7 +338,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// [`System`]s may take an optional input which they require to be passed to them when they
 /// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input paramaters.
+/// means a system can only have one or zero input parameters.
 ///
 /// # Examples
 ///
@@ -299,8 +360,6 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
-#[doc(hidden)]
-pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -309,30 +368,27 @@ pub struct InputMarker;
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
-pub struct FunctionSystem<In, Out, Param, Marker, F>
+pub struct FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<Param::Fetch>,
+    param_state: Option<<F::Param as SystemParam>::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (In, Out, Marker)>,
+    marker: PhantomData<fn() -> Marker>,
 }
 
 pub struct IsFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
+impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
 where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
 {
-    type System = FunctionSystem<In, Out, Param, Marker, F>;
+    type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -345,9 +401,9 @@ where
     }
 }
 
-impl<In, Out, Param, Marker, F> FunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     /// Message shown when a system isn't initialised
     // When lines get too long, rustfmt can sometimes refuse to format them.
@@ -355,20 +411,22 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<In, Out, Param, Marker, F> System for FunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> System for FunctionSystem<Marker, F>
 where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
 {
-    type In = In;
-    type Out = Out;
+    type In = F::In;
+    type Out = F::Out;
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
+    }
+
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<F>()
     }
 
     #[inline]
@@ -387,6 +445,11 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
@@ -394,7 +457,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::Fetch::get_param(
+        let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -405,20 +468,25 @@ where
         out
     }
 
+    fn get_last_change_tick(&self) -> u32 {
+        self.system_meta.last_change_tick
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.system_meta.last_change_tick = last_change_tick;
+    }
+
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        param_state.apply(world);
+        F::Param::apply(param_state, &self.system_meta, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::Fetch as SystemParamState>::init(
-            world,
-            &mut self.system_meta,
-        ));
+        self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
@@ -429,7 +497,9 @@ where
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
-            self.param_state.as_mut().unwrap().new_archetype(
+            let param_state = self.param_state.as_mut().unwrap();
+            F::Param::new_archetype(
+                param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.system_meta,
             );
@@ -444,37 +514,21 @@ where
             self.system_meta.name.as_ref(),
         );
     }
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        let mut labels = Param::auto_labels();
-        labels.push(self.func.as_system_label().as_label());
-        labels
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let set = crate::schedule::SystemTypeSet::<F>::new();
+        vec![Box::new(set)]
     }
 }
 
-/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
-
-impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
-    #[inline]
-    fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
-    }
+/// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
+unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: SystemParamFunction<Marker>,
+    F::Param: ReadOnlySystemParam,
+{
 }
-
-impl<T> Debug for SystemTypeIdLabel<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SystemTypeIdLabel")
-            .field(&std::any::type_name::<T>())
-            .finish()
-    }
-}
-
-impl<T> Clone for SystemTypeIdLabel<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T> Copy for SystemTypeIdLabel<T> {}
 
 /// A trait implemented for all functions that can be used as [`System`]s.
 ///
@@ -487,7 +541,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///
 /// # Example
 ///
-/// To create something like [`ChainSystem`], but in entirely safe code.
+/// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```rust
 /// use std::num::ParseIntError;
@@ -495,20 +549,15 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
-/// // Unfortunately, we need all of these generics. `A` is the first system, with its
-/// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of `A` and `B`.
-/// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
+/// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
+/// ) -> impl FnMut(In<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
-///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
-///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
-///     AParam: SystemParam,
-///     BParam: SystemParam,
+///     A: SystemParamFunction<AMarker>,
+///     B: SystemParamFunction<BMarker, In = A::Out>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(a_in), mut params| {
@@ -517,17 +566,18 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
+/// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
 ///
+/// #[derive(Resource)]
 /// struct Message(String);
 ///
 /// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {
@@ -538,21 +588,34 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-/// [`ChainSystem`]: crate::system::ChainSystem
+/// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
-pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
-    fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
+pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    /// The input type to this system. See [`System::In`].
+    type In;
+
+    /// The return type of this system. See [`System::Out`].
+    type Out;
+
+    /// The [`SystemParam`]/s used by this system to access the [`World`].
+    type Param: SystemParam;
+
+    /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
+    fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = ();
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
@@ -571,12 +634,15 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
+                FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = Input;
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
@@ -597,25 +663,3 @@ macro_rules! impl_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_system_function, 0, 16, F);
-
-/// Used to implicitly convert systems to their default labels. For example, it will convert
-/// "system functions" to their [`SystemTypeIdLabel`].
-pub trait AsSystemLabel<Marker> {
-    fn as_system_label(&self) -> SystemLabelId;
-}
-
-impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
-    AsSystemLabel<(In, Out, Param, Marker)> for T
-{
-    #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
-        SystemTypeIdLabel::<T>(PhantomData).as_label()
-    }
-}
-
-impl<T: SystemLabel> AsSystemLabel<()> for T {
-    #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
-        self.as_label()
-    }
-}

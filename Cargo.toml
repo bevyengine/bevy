@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.8.0-dev"
+version = "0.9.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,15 +10,19 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+rust-version = "1.67.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = [
+  "benches",
+  "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_reflect_compile_fail_tests",
+]
 members = [
   "crates/*",
-  "examples/ios",
+  "examples/mobile",
   "tools/ci",
-  "tools/spancmp",
-  "tools/build-example-pages",
+  "tools/build-templated-pages",
   "tools/build-wasm-example",
   "errors",
 ]
@@ -26,77 +30,162 @@ members = [
 [features]
 default = [
   "animation",
+  "bevy_asset",
   "bevy_audio",
   "bevy_gilrs",
+  "bevy_scene",
   "bevy_winit",
-  "render",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
   "png",
   "hdr",
+  "ktx2",
+  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "android_shared_stdcxx",
+  "tonemapping_luts"
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
 
-# Rendering support
-render = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_internal/bevy_pbr",
-  "bevy_internal/bevy_gltf",
-  "bevy_internal/bevy_render",
-  "bevy_internal/bevy_sprite",
-  "bevy_internal/bevy_text",
-  "bevy_internal/bevy_ui",
-]
-
-# Optional bevy crates
+# Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation"]
+
+# Provides asset functionality
+bevy_asset = ["bevy_internal/bevy_asset"]
+
+# Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
+
+# Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+
+# Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
+
+# Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
+
+# [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf"]
+
+# Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
+
+# Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
+
+# Provides scene functionality
+bevy_scene = ["bevy_internal/bevy_scene"]
+
+# Provides sprite functionality
 bevy_sprite = ["bevy_internal/bevy_sprite"]
+
+# Provides text functionality
 bevy_text = ["bevy_internal/bevy_text"]
+
+# A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui"]
+
+# winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
-# Tracing features
+# Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+
+# Tracing support, exposing a port for Tracy
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+
+# Tracing support
 trace = ["bevy_internal/trace"]
+
+# Save a trace of all wgpu calls
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
-# Image format support for texture loading (PNG and HDR are enabled by default)
+# EXR image format support
+exr = ["bevy_internal/exr"]
+
+# HDR image format support
 hdr = ["bevy_internal/hdr"]
+
+# PNG image format support
 png = ["bevy_internal/png"]
+
+# TGA image format support
 tga = ["bevy_internal/tga"]
+
+# JPEG image format support
 jpeg = ["bevy_internal/jpeg"]
+
+# BMP image format support
 bmp = ["bevy_internal/bmp"]
+
+# Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
+
+# DDS compressed texture support
 dds = ["bevy_internal/dds"]
+
+# KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
-# For ktx2 supercompression
+
+# For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
+
+# For KTX2 supercompression
 zstd = ["bevy_internal/zstd"]
 
-# Audio format support (vorbis is enabled by default)
+# FLAC audio format support
 flac = ["bevy_internal/flac"]
+
+# MP3 audio format support
 mp3 = ["bevy_internal/mp3"]
+
+# OGG/VORBIS audio format support
 vorbis = ["bevy_internal/vorbis"]
+
+# WAV audio format support
 wav = ["bevy_internal/wav"]
+
+# MP3 audio format support (through minimp3)
+minimp3 = ["bevy_internal/minimp3"]
+
+# AAC audio format support (through symphonia)
+symphonia-aac = ["bevy_internal/symphonia-aac"]
+
+# AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)
+symphonia-all = ["bevy_internal/symphonia-all"]
+
+# FLAC audio format support (through symphonia)
+symphonia-flac = ["bevy_internal/symphonia-flac"]
+
+# MP4 audio format support (through symphonia)
+symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+
+# OGG/VORBIS audio format support (through symphonia)
+symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+
+# WAV audio format support (through symphonia)
+symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
+# Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
-# Display server protocol support (X11 is enabled by default)
+# Wayland display server support
 wayland = ["bevy_internal/wayland"]
+
+# X11 display server support
 x11 = ["bevy_internal/x11"]
 
 # Enable rendering of font glyphs using subpixel accuracy
@@ -109,21 +198,30 @@ bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_internal/animation"]
+animation = ["bevy_internal/animation", "bevy_animation"]
+
+# Enable using a shared stdlib for cxx on Android
+android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
+
+# Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
+detailed_trace = ["bevy_internal/detailed_trace"]
+
+# Include tonemapping Look Up Tables KTX2 files
+tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.8.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0", default-features = false, features = [
   "webgl",
 ] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
-ron = "0.7.0"
+ron = "0.8.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
@@ -189,11 +287,11 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "shapes"
-path = "examples/2d/shapes.rs"
+name = "2d_shapes"
+path = "examples/2d/2d_shapes.rs"
 
-[package.metadata.example.shapes]
-name = "Shapes"
+[package.metadata.example.2d_shapes]
+name = "2D Shapes"
 description = "Renders a rectangle, circle, and hexagon"
 category = "2D Rendering"
 wasm = true
@@ -258,6 +356,16 @@ description = "Demonstrates transparency in 2d"
 category = "2D Rendering"
 wasm = true
 
+[[example]]
+name = "pixel_perfect"
+path = "examples/2d/pixel_perfect.rs"
+
+[package.metadata.example.pixel_perfect]
+name = "Pixel Perfect"
+description = "Demonstrates pixel perfect in 2d"
+category = "2D Rendering"
+wasm = true
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -271,11 +379,41 @@ wasm = true
 
 [[example]]
 name = "3d_shapes"
-path = "examples/3d/shapes.rs"
+path = "examples/3d/3d_shapes.rs"
 
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "atmospheric_fog"
+path = "examples/3d/atmospheric_fog.rs"
+
+[package.metadata.example.atmospheric_fog]
+name = "Atmospheric Fog"
+description = "A scene showcasing the atmospheric fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fog"
+path = "examples/3d/fog.rs"
+
+[package.metadata.example.fog]
+name = "Fog"
+description = "A scene showcasing the distance fog effect"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blend_modes"
+path = "examples/3d/blend_modes.rs"
+
+[package.metadata.example.blend_modes]
+name = "Blend Modes"
+description = "Showcases different blend modes"
 category = "3D Rendering"
 wasm = true
 
@@ -310,12 +448,43 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "bloom"
+path = "examples/3d/bloom.rs"
+
+[package.metadata.example.bloom]
+name = "Bloom"
+description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "tonemapping"
+path = "examples/3d/tonemapping.rs"
+required-features = ["ktx2", "zstd"]
+
+[package.metadata.example.tonemapping]
+name = "Tonemapping"
+description = "Compares tonemapping options"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fxaa"
+path = "examples/3d/fxaa.rs"
+
+[package.metadata.example.fxaa]
+name = "FXAA"
+description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
 category = "3D Rendering"
 wasm = true
 
@@ -388,6 +557,16 @@ name = "Shadow Caster and Receiver"
 description = "Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "skybox"
+path = "examples/3d/skybox.rs"
+
+[package.metadata.example.skybox]
+name = "Skybox"
+description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "spherical_area_lights"
@@ -714,6 +893,36 @@ description = "Shows how to load and play an audio file, and control how it's pl
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "decodable"
+path = "examples/audio/decodable.rs"
+
+[package.metadata.example.decodable]
+name = "Decodable"
+description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "spatial_audio_2d"
+path = "examples/audio/spatial_audio_2d.rs"
+
+[package.metadata.example.spatial_audio_2d]
+name = "Spatial Audio 2D"
+description = "Shows how to play spatial audio, and moving the emitter in 2D"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "spatial_audio_3d"
+path = "examples/audio/spatial_audio_3d.rs"
+
+[package.metadata.example.spatial_audio_3d]
+name = "Spatial Audio 3D"
+description = "Shows how to play spatial audio, and moving the emitter in 3D"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -743,6 +952,16 @@ path = "examples/ecs/ecs_guide.rs"
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "apply_system_buffers"
+path = "examples/ecs/apply_system_buffers.rs"
+
+[package.metadata.example.apply_system_buffers]
+name = "Apply System Buffers"
+description = "Show how to use `apply_system_buffers` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -832,7 +1051,17 @@ path = "examples/ecs/removal_detection.rs"
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
-description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+description = "Query for entities that had a specific component removed earlier in the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "run_conditions"
+path = "examples/ecs/run_conditions.rs"
+
+[package.metadata.example.run_conditions]
+name = "Run Conditions"
+description = "Run systems only when one or multiple conditions are met"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -857,12 +1086,12 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "system_chaining"
-path = "examples/ecs/system_chaining.rs"
+name = "system_piping"
+path = "examples/ecs/system_piping.rs"
 
-[package.metadata.example.system_chaining]
-name = "System Chaining"
-description = "Chain two systems together, specifying a return type in a system (such as `Result`)"
+[package.metadata.example.system_piping]
+name = "System Piping"
+description = "Pipe the output of one system into a second, allowing you to handle any errors gracefully"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -883,16 +1112,6 @@ path = "examples/ecs/system_param.rs"
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "system_sets"
-path = "examples/ecs/system_sets.rs"
-
-[package.metadata.example.system_sets]
-name = "System Sets"
-description = "Shows `SystemSet` use along with run criterion"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1058,6 +1277,16 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
+[[example]]
+name = "text_input"
+path = "examples/input/text_input.rs"
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Simple text input with IME support"
+category = "Input"
+wasm = false
+
 # Reflection
 [[example]]
 name = "reflection"
@@ -1111,7 +1340,7 @@ category = "Scene"
 wasm = false
 
 # Shaders
-[[package.metadata.category]]
+[[package.metadata.example_category]]
 name = "Shaders"
 description = """
 These examples demonstrate how to implement different shaders in user code.
@@ -1160,6 +1389,17 @@ name = "Material"
 description = "A shader and a material that uses it"
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "shader_prepass"
+path = "examples/shader/shader_prepass.rs"
+
+[package.metadata.example.shader_prepass]
+name = "Material Prepass"
+description = "A shader that uses the depth texture generated in a prepass"
+category = "Shaders"
+wasm = false
+
 
 [[example]]
 name = "shader_material_screenspace_texture"
@@ -1221,8 +1461,18 @@ description = "A shader that shows how to reuse the core bevy PBR shading functi
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader/texture_binding_array.rs"
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
+
 # Stress tests
-[[package.metadata.category]]
+[[package.metadata.example_category]]
 name = "Stress Tests"
 description = """
 These examples are used to test the performance and stability of various parts of the engine in an isolated way.
@@ -1251,6 +1501,16 @@ path = "examples/stress_tests/many_animated_sprites.rs"
 [package.metadata.example.many_animated_sprites]
 name = "Many Animated Sprites"
 description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_buttons"
+path = "examples/stress_tests/many_buttons.rs"
+
+[package.metadata.example.many_buttons]
+name = "Many Buttons"
+description = "Test rendering of many UI elements"
 category = "Stress Tests"
 wasm = true
 
@@ -1307,7 +1567,7 @@ wasm = true
 # Tools
 [[example]]
 name = "scene_viewer"
-path = "examples/tools/scene_viewer.rs"
+path = "examples/tools/scene_viewer/main.rs"
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -1315,16 +1575,25 @@ description = "A simple way to view glTF models with Bevy. Just run `cargo run -
 category = "Tools"
 wasm = true
 
-# Transforms
 [[example]]
-name = "global_vs_local_translation"
-path = "examples/transforms/global_vs_local_translation.rs"
+name = "gamepad_viewer"
+path = "examples/tools/gamepad_viewer.rs"
 
-[package.metadata.example.global_vs_local_translation]
-name = "Global / Local Translation"
-description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
-category = "Transforms"
-wasm = true
+[package.metadata.example.gamepad_viewer]
+name = "Gamepad Viewer"
+description = "Shows a visualization of gamepad buttons, sticks, and triggers"
+category = "Tools"
+wasm = false
+
+[[example]]
+name = "nondeterministic_system_order"
+path = "examples/ecs/nondeterministic_system_order.rs"
+
+[package.metadata.example.nondeterministic_system_order]
+name = "Nondeterministic System Order"
+description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "3d_rotation"
@@ -1378,12 +1647,32 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "window_fallthrough"
+path = "examples/ui/window_fallthrough.rs"
+
+[package.metadata.example.window_fallthrough]
+name = "Window Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
 description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1408,6 +1697,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_layout"
+path = "examples/ui/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "UI (User Interface)"
+wasm = false
+
+
+[[example]]
 name = "transparency_ui"
 path = "examples/ui/transparency_ui.rs"
 
@@ -1418,12 +1718,32 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "z_index"
+path = "examples/ui/z_index.rs"
+
+[package.metadata.example.z_index]
+name = "UI Z-Index"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
 
 [package.metadata.example.ui]
 name = "UI"
 description = "Illustrates various features of Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_scaling"
+path = "examples/ui/ui_scaling.rs"
+
+[package.metadata.example.ui_scaling]
+name = "UI Scaling"
+description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1502,25 +1822,23 @@ path = "tests/window/minimising.rs"
 [package.metadata.example.minimising]
 hidden = true
 
-# Android
 [[example]]
-crate-type = ["cdylib"]
-name = "android_example"
-path = "examples/android/android.rs"
+name = "window_resizing"
+path = "examples/window/window_resizing.rs"
 
-[package.metadata.example.android_example]
-hidden = true
+[package.metadata.example.window_resizing]
+name = "Window Resizing"
+description = "Demonstrates resizing and responding to resizing a window"
+category = "Window"
+wasm = true
 
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "assets"
-resources = "assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
 
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
+[profile.stress-test]
+inherits = "release"
+lto = "fat"
+panic = "abort"

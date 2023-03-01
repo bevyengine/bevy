@@ -1,12 +1,9 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
+use bevy::{pbr::AmbientLight, prelude::*};
 use rand::{thread_rng, Rng};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
-
-const DELTA_TIME: f64 = 0.01;
+const DELTA_TIME: f32 = 0.01;
 
 fn main() {
     App::new()
@@ -16,14 +13,8 @@ fn main() {
             ..default()
         })
         .add_startup_system(generate_bodies)
-        .add_stage_after(
-            CoreStage::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies)
-                .with_system(integrate),
-        )
+        .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
+        .add_systems((interact_bodies, integrate).in_schedule(CoreSchedule::FixedUpdate))
         .add_system(look_at_star)
         .insert_resource(ClearColor(Color::BLACK))
         .run();
@@ -43,7 +34,6 @@ struct Star;
 
 #[derive(Bundle, Default)]
 struct BodyBundle {
-    #[bundle]
     pbr: PbrBundle,
     mass: Mass,
     last_pos: LastPos,
@@ -55,10 +45,13 @@ fn generate_bodies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Icosphere {
-        radius: 1.0,
-        subdivisions: 3,
-    }));
+    let mesh = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: 1.0,
+            subdivisions: 3,
+        })
+        .unwrap(),
+    );
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
@@ -74,10 +67,10 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(0.2f32..1.0).powf(1. / 3.)
+            * rng.gen_range(0.2f32..1.0).cbrt()
             * 15.;
 
-        commands.spawn_bundle(BodyBundle {
+        commands.spawn(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform {
                     translation: position,
@@ -103,7 +96,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * DELTA_TIME as f32,
+                    ) * DELTA_TIME,
             ),
         });
     }
@@ -111,26 +104,31 @@ fn generate_bodies(
     // add bigger "star" body in the center
     let star_radius = 1.;
     commands
-        .spawn_bundle(BodyBundle {
-            pbr: PbrBundle {
-                transform: Transform::from_scale(Vec3::splat(star_radius)),
-                mesh: meshes.add(Mesh::from(shape::Icosphere {
-                    radius: 1.0,
-                    subdivisions: 5,
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::ORANGE_RED,
-                    emissive: (Color::ORANGE_RED * 2.),
+        .spawn((
+            BodyBundle {
+                pbr: PbrBundle {
+                    transform: Transform::from_scale(Vec3::splat(star_radius)),
+                    mesh: meshes.add(
+                        Mesh::try_from(shape::Icosphere {
+                            radius: 1.0,
+                            subdivisions: 5,
+                        })
+                        .unwrap(),
+                    ),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::ORANGE_RED,
+                        emissive: (Color::ORANGE_RED * 2.),
+                        ..default()
+                    }),
                     ..default()
-                }),
+                },
+                mass: Mass(500.0),
                 ..default()
             },
-            mass: Mass(500.0),
-            ..default()
-        })
-        .insert(Star)
+            Star,
+        ))
         .with_children(|p| {
-            p.spawn_bundle(PointLightBundle {
+            p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
                     intensity: 400.0,
@@ -141,7 +139,7 @@ fn generate_bodies(
                 ..default()
             });
         });
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -163,13 +161,12 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
 }
 
 fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
+    let dt_sq = DELTA_TIME * DELTA_TIME;
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
 
-        let new_pos =
-            transform.translation + transform.translation - last_pos.0 + acceleration.0 * dt_sq;
+        let new_pos = transform.translation * 2.0 - last_pos.0 + acceleration.0 * dt_sq;
         acceleration.0 = Vec3::ZERO;
         last_pos.0 = transform.translation;
         transform.translation = new_pos;

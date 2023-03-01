@@ -1,27 +1,35 @@
 //! In this example we generate a new texture atlas (sprite sheet) from a folder containing
 //! individual sprites.
 
-use bevy::{asset::LoadState, prelude::*, render::texture::ImageSettings};
+use bevy::{asset::LoadState, prelude::*};
 
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
-        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
-        .add_plugins(DefaultPlugins)
-        .add_state(AppState::Setup)
-        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures))
-        .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup))
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
+        .add_state::<AppState>()
+        .add_system(load_textures.in_schedule(OnEnter(AppState::Setup)))
+        .add_system(check_textures.in_set(OnUpdate(AppState::Setup)))
+        .add_system(setup.in_schedule(OnEnter(AppState::Finished)))
         .run();
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 enum AppState {
+    #[default]
     Setup,
     Finished,
 }
 
-#[derive(Default)]
+impl States for AppState {
+    type Iter = std::array::IntoIter<AppState, 2>;
+
+    fn variants() -> Self::Iter {
+        [AppState::Setup, AppState::Finished].into_iter()
+    }
+}
+
+#[derive(Resource, Default)]
 struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }
@@ -31,14 +39,14 @@ fn load_textures(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server:
 }
 
 fn check_textures(
-    mut state: ResMut<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
 ) {
-    if let LoadState::Loaded =
-        asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
+    if let LoadState::Loaded = asset_server
+        .get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id()))
     {
-        state.set(AppState::Finished).unwrap();
+        next_state.set(AppState::Finished);
     }
 }
 
@@ -52,7 +60,11 @@ fn setup(
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
         let handle = handle.typed_weak();
-        let texture = textures.get(&handle).expect("Textures folder contained a file which way matched by a loader which did not create an `Image` asset");
+        let Some(texture) = textures.get(&handle) else {
+            warn!("{:?} did not resolve to an `Image` asset.", asset_server.get_handle_path(handle));
+            continue;
+        };
+
         texture_atlas_builder.add_texture(handle, texture);
     }
 
@@ -63,9 +75,9 @@ fn setup(
     let atlas_handle = texture_atlases.add(texture_atlas);
 
     // set up a scene to display our texture atlas
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     // draw a sprite from the atlas
-    commands.spawn_bundle(SpriteSheetBundle {
+    commands.spawn(SpriteSheetBundle {
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
@@ -76,7 +88,7 @@ fn setup(
         ..default()
     });
     // draw the atlas itself
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
         ..default()

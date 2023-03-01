@@ -28,7 +28,7 @@ struct Foo {
 #[derive(Reflect)]
 struct Bar(String);
 
-#[derive(Reflect)]
+#[derive(Reflect, FromReflect)]
 struct Baz {
     value: f32,
 }
@@ -77,7 +77,7 @@ assert_eq!(value, 3.14);
 ```rust ignore
 for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
-    if let Ok(value) = value.downcast_ref::<u32>() {
+    if let Some(value) = value.downcast_ref::<u32>() {
         println!("{} is a u32 with the value: {}", field_name, *value);
     }
 }
@@ -137,7 +137,7 @@ let reflect_value: Box<dyn Reflect> = Box::new(MyType {
 // don't know the type at compile time?
 
 // Normally in rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
-let mut type_registry = TypeRegistry::default()
+let mut type_registry = TypeRegistry::default();
 type_registry.register::<MyType>();
 
 // The #[reflect] attribute we put on our DoThing trait generated a new `ReflectDoThing` struct, which implements TypeData.

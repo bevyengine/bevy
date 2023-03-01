@@ -110,15 +110,13 @@ impl Mesh {
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let values: VertexAttributeValues = values.into();
-
+        let values = values.into();
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
-            error!(
-                "Invalid attribute format for {}. Given format is {:?} but expected {:?}",
-                attribute.name, values_format, attribute.format
+            panic!(
+                "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
+                attribute.name, attribute.format
             );
-            panic!("Failed to insert attribute");
         }
 
         self.attributes
@@ -242,7 +240,7 @@ impl Mesh {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
-                        "{:?} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_id, attribute_len, previous_vertex_count);
+                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
             }
             vertex_count = Some(attribute_len);
         }
@@ -617,35 +615,35 @@ impl VertexAttributeValues {
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
     #[allow(clippy::match_same_arms)]
     pub fn len(&self) -> usize {
-        match *self {
-            VertexAttributeValues::Float32(ref values) => values.len(),
-            VertexAttributeValues::Sint32(ref values) => values.len(),
-            VertexAttributeValues::Uint32(ref values) => values.len(),
-            VertexAttributeValues::Float32x2(ref values) => values.len(),
-            VertexAttributeValues::Sint32x2(ref values) => values.len(),
-            VertexAttributeValues::Uint32x2(ref values) => values.len(),
-            VertexAttributeValues::Float32x3(ref values) => values.len(),
-            VertexAttributeValues::Sint32x3(ref values) => values.len(),
-            VertexAttributeValues::Uint32x3(ref values) => values.len(),
-            VertexAttributeValues::Float32x4(ref values) => values.len(),
-            VertexAttributeValues::Sint32x4(ref values) => values.len(),
-            VertexAttributeValues::Uint32x4(ref values) => values.len(),
-            VertexAttributeValues::Sint16x2(ref values) => values.len(),
-            VertexAttributeValues::Snorm16x2(ref values) => values.len(),
-            VertexAttributeValues::Uint16x2(ref values) => values.len(),
-            VertexAttributeValues::Unorm16x2(ref values) => values.len(),
-            VertexAttributeValues::Sint16x4(ref values) => values.len(),
-            VertexAttributeValues::Snorm16x4(ref values) => values.len(),
-            VertexAttributeValues::Uint16x4(ref values) => values.len(),
-            VertexAttributeValues::Unorm16x4(ref values) => values.len(),
-            VertexAttributeValues::Sint8x2(ref values) => values.len(),
-            VertexAttributeValues::Snorm8x2(ref values) => values.len(),
-            VertexAttributeValues::Uint8x2(ref values) => values.len(),
-            VertexAttributeValues::Unorm8x2(ref values) => values.len(),
-            VertexAttributeValues::Sint8x4(ref values) => values.len(),
-            VertexAttributeValues::Snorm8x4(ref values) => values.len(),
-            VertexAttributeValues::Uint8x4(ref values) => values.len(),
-            VertexAttributeValues::Unorm8x4(ref values) => values.len(),
+        match self {
+            VertexAttributeValues::Float32(values) => values.len(),
+            VertexAttributeValues::Sint32(values) => values.len(),
+            VertexAttributeValues::Uint32(values) => values.len(),
+            VertexAttributeValues::Float32x2(values) => values.len(),
+            VertexAttributeValues::Sint32x2(values) => values.len(),
+            VertexAttributeValues::Uint32x2(values) => values.len(),
+            VertexAttributeValues::Float32x3(values) => values.len(),
+            VertexAttributeValues::Sint32x3(values) => values.len(),
+            VertexAttributeValues::Uint32x3(values) => values.len(),
+            VertexAttributeValues::Float32x4(values) => values.len(),
+            VertexAttributeValues::Sint32x4(values) => values.len(),
+            VertexAttributeValues::Uint32x4(values) => values.len(),
+            VertexAttributeValues::Sint16x2(values) => values.len(),
+            VertexAttributeValues::Snorm16x2(values) => values.len(),
+            VertexAttributeValues::Uint16x2(values) => values.len(),
+            VertexAttributeValues::Unorm16x2(values) => values.len(),
+            VertexAttributeValues::Sint16x4(values) => values.len(),
+            VertexAttributeValues::Snorm16x4(values) => values.len(),
+            VertexAttributeValues::Uint16x4(values) => values.len(),
+            VertexAttributeValues::Unorm16x4(values) => values.len(),
+            VertexAttributeValues::Sint8x2(values) => values.len(),
+            VertexAttributeValues::Snorm8x2(values) => values.len(),
+            VertexAttributeValues::Uint8x2(values) => values.len(),
+            VertexAttributeValues::Unorm8x2(values) => values.len(),
+            VertexAttributeValues::Sint8x4(values) => values.len(),
+            VertexAttributeValues::Snorm8x4(values) => values.len(),
+            VertexAttributeValues::Uint8x4(values) => values.len(),
+            VertexAttributeValues::Unorm8x4(values) => values.len(),
         }
     }
 
@@ -668,34 +666,34 @@ impl VertexAttributeValues {
     #[allow(clippy::match_same_arms)]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Float32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm8x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Float32(values) => cast_slice(values),
+            VertexAttributeValues::Sint32(values) => cast_slice(values),
+            VertexAttributeValues::Uint32(values) => cast_slice(values),
+            VertexAttributeValues::Float32x2(values) => cast_slice(values),
+            VertexAttributeValues::Sint32x2(values) => cast_slice(values),
+            VertexAttributeValues::Uint32x2(values) => cast_slice(values),
+            VertexAttributeValues::Float32x3(values) => cast_slice(values),
+            VertexAttributeValues::Sint32x3(values) => cast_slice(values),
+            VertexAttributeValues::Uint32x3(values) => cast_slice(values),
+            VertexAttributeValues::Float32x4(values) => cast_slice(values),
+            VertexAttributeValues::Sint32x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint32x4(values) => cast_slice(values),
+            VertexAttributeValues::Sint16x2(values) => cast_slice(values),
+            VertexAttributeValues::Snorm16x2(values) => cast_slice(values),
+            VertexAttributeValues::Uint16x2(values) => cast_slice(values),
+            VertexAttributeValues::Unorm16x2(values) => cast_slice(values),
+            VertexAttributeValues::Sint16x4(values) => cast_slice(values),
+            VertexAttributeValues::Snorm16x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint16x4(values) => cast_slice(values),
+            VertexAttributeValues::Unorm16x4(values) => cast_slice(values),
+            VertexAttributeValues::Sint8x2(values) => cast_slice(values),
+            VertexAttributeValues::Snorm8x2(values) => cast_slice(values),
+            VertexAttributeValues::Uint8x2(values) => cast_slice(values),
+            VertexAttributeValues::Unorm8x2(values) => cast_slice(values),
+            VertexAttributeValues::Sint8x4(values) => cast_slice(values),
+            VertexAttributeValues::Snorm8x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint8x4(values) => cast_slice(values),
+            VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
         }
     }
 }

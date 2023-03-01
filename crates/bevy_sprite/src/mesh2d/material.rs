@@ -1,16 +1,17 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{DebandDither, Tonemapping},
+};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
-    event::EventReader,
-    prelude::{Bundle, World},
-    schedule::ParallelSystemDescriptorCoercion,
+    prelude::*,
+    query::ROQueryItem,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, SystemParamItem,
+        lifetimeless::{Read, SRes},
+        SystemParamItem,
     },
-    world::FromWorld,
 };
 use bevy_log::error;
 use bevy_reflect::TypeUuid;
@@ -18,10 +19,10 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetLabel, RenderAssets},
+    render_asset::{PrepareAssetSet, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
@@ -30,8 +31,8 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -44,7 +45,6 @@ use crate::{
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
-/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
 /// way to render [`Mesh2dHandle`] entities with custom shader logic.
 ///
@@ -88,7 +88,7 @@ use crate::{
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn_bundle(MaterialMesh2dBundle {
+///     commands.spawn(MaterialMesh2dBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: Color::RED,
 ///             color_texture: asset_server.load("some_image.png"),
@@ -101,14 +101,14 @@ use crate::{
 ///
 /// ```wgsl
 /// struct CustomMaterial {
-///     color: vec4<f32>;
-/// };
+///     color: vec4<f32>,
+/// }
 ///
-/// [[group(1), binding(0)]]
+/// @group(1) @binding(0)
 /// var<uniform> material: CustomMaterial;
-/// [[group(1), binding(1)]]
+/// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
-/// [[group(1), binding(2)]]
+/// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
@@ -153,6 +153,7 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
@@ -160,17 +161,19 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials_2d::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials_2d::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+                .add_system(extract_materials_2d::<M>.in_schedule(ExtractSchedule))
+                .add_system(
+                    prepare_materials_2d::<M>
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepareAssetSet::PreAssetPrepare),
                 )
-                .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
+                .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
         }
     }
 }
 
 /// Render pipeline data for a given [`Material2d`]
+#[derive(Resource)]
 pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
     pub material2d_layout: BindGroupLayout,
@@ -217,6 +220,18 @@ where
     }
 }
 
+impl<M: Material2d> Clone for Material2dPipeline<M> {
+    fn clone(&self) -> Self {
+        Self {
+            mesh2d_pipeline: self.mesh2d_pipeline.clone(),
+            material2d_layout: self.material2d_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -236,11 +251,11 @@ where
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = Some(vec![
+        descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
             self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
-        ]);
+        ];
 
         M::specialize(&mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -280,15 +295,21 @@ type DrawMaterial2d<M> = (
 );
 
 pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<M: Material2d, const I: usize> EntityRenderCommand for SetMaterial2dBindGroup<M, I> {
-    type Param = (SRes<RenderMaterials2d<M>>, SQuery<Read<Handle<M>>>);
+impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
+    for SetMaterial2dBindGroup<M, I>
+{
+    type Param = SRes<RenderMaterials2d<M>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<M>>;
+
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d_handle = query.get(item).unwrap();
         let material2d = materials.into_inner().get(material2d_handle).unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
@@ -300,25 +321,53 @@ pub fn queue_material2d_meshes<M: Material2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials2d<M>>,
     material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &VisibleEntities,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        &mut RenderPhase<Transparent2d>,
+    )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     if material2d_meshes.is_empty() {
         return;
     }
-    for (visible_entities, mut transparent_phase) in &mut views {
-        let draw_transparent_pbr = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial2d<M>>()
-            .unwrap();
 
-        let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
+        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
+
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= match tonemapping {
+                    Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+                    Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
+                    Tonemapping::ReinhardLuminance => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                    }
+                    Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
+                    Tonemapping::SomewhatBoringDisplayTransform => {
+                        Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                    }
+                    Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                };
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+            }
+        }
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
@@ -326,11 +375,11 @@ pub fn queue_material2d_meshes<M: Material2d>(
             {
                 if let Some(material2d) = render_materials.get(material2d_handle) {
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = msaa_key
+                        let mesh_key = view_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &material2d_pipeline,
                             Material2dKey {
                                 mesh_key,
@@ -374,6 +423,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
     pub key: T::Data,
 }
 
+#[derive(Resource)]
 struct ExtractedMaterials2d<M: Material2d> {
     extracted: Vec<(Handle<M>, M)>,
     removed: Vec<Handle<M>>,
@@ -389,7 +439,14 @@ impl<M: Material2d> Default for ExtractedMaterials2d<M> {
 }
 
 /// Stores all prepared representations of [`Material2d`] assets for as long as they exist.
-pub type RenderMaterials2d<T> = HashMap<Handle<T>, PreparedMaterial2d<T>>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterials2d<T: Material2d>(HashMap<Handle<T>, PreparedMaterial2d<T>>);
+
+impl<T: Material2d> Default for RenderMaterials2d<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 /// This system extracts all created or modified assets of the corresponding [`Material2d`] type
 /// into the "render world".
@@ -449,8 +506,8 @@ fn prepare_materials_2d<M: Material2d>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<Material2dPipeline<M>>,
 ) {
-    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.drain(..) {
+    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, material) in queued_assets {
         match prepare_material2d(
             &material,
             &render_device,

@@ -25,18 +25,47 @@ var directional_shadow_textures: texture_depth_2d_array;
 @group(0) @binding(5)
 var directional_shadow_textures_sampler: sampler_comparison;
 
-#ifdef NO_STORAGE_BUFFERS_SUPPORT
-@group(0) @binding(6)
-var<uniform> point_lights: PointLights;
-@group(0) @binding(7)
-var<uniform> cluster_light_index_lists: ClusterLightIndexLists;
-@group(0) @binding(8)
-var<uniform> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
-#else
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 @group(0) @binding(6)
 var<storage> point_lights: PointLights;
 @group(0) @binding(7)
 var<storage> cluster_light_index_lists: ClusterLightIndexLists;
 @group(0) @binding(8)
 var<storage> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
+#else
+@group(0) @binding(6)
+var<uniform> point_lights: PointLights;
+@group(0) @binding(7)
+var<uniform> cluster_light_index_lists: ClusterLightIndexLists;
+@group(0) @binding(8)
+var<uniform> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
+#endif
+
+@group(0) @binding(9)
+var<uniform> globals: Globals;
+@group(0) @binding(10)
+var<uniform> fog: Fog;
+
+@group(0) @binding(11)
+var environment_map_diffuse: texture_cube<f32>;
+@group(0) @binding(12)
+var environment_map_specular: texture_cube<f32>;
+@group(0) @binding(13)
+var environment_map_sampler: sampler;
+
+@group(0) @binding(14)
+var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(15)
+var dt_lut_sampler: sampler;
+
+#ifdef MULTISAMPLED
+@group(0) @binding(16)
+var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(17)
+var normal_prepass_texture: texture_multisampled_2d<f32>;
+#else
+@group(0) @binding(16)
+var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(17)
+var normal_prepass_texture: texture_2d<f32>;
 #endif

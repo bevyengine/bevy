@@ -24,11 +24,13 @@ fn main() {
 // Store contributors in a collection that preserves the uniqueness
 type Contributors = HashSet<String>;
 
+#[derive(Resource)]
 struct ContributorSelection {
     order: Vec<Entity>,
     idx: usize,
 }
 
+#[derive(Resource)]
 struct SelectionState {
     timer: Timer,
     has_triggered: bool,
@@ -37,7 +39,7 @@ struct SelectionState {
 impl Default for SelectionState {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, TimerMode::Repeating),
             has_triggered: false,
         }
     }
@@ -102,25 +104,24 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let entity = commands
-            .spawn()
-            .insert_bundle((
+            .spawn((
                 Contributor { name, hue },
                 Velocity {
                     translation: velocity,
                     rotation: -dir * 5.0,
                 },
-            ))
-            .insert_bundle(SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
-                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
-                    flip_x: flipped,
+                SpriteBundle {
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
+                        color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
+                        flip_x: flipped,
+                        ..default()
+                    },
+                    texture: texture_handle.clone(),
+                    transform,
                     ..default()
                 },
-                texture: texture_handle.clone(),
-                transform,
-                ..default()
-            })
+            ))
             .id();
 
         contributor_selection.order.push(entity);
@@ -132,9 +133,9 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
-    commands.spawn().insert(ContributorDisplay).insert_bundle(
+    commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
                 "Contributor showcase",
@@ -154,7 +155,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_self: AlignSelf::FlexEnd,
             ..default()
         }),
-    );
+        ContributorDisplay,
+    ));
 }
 
 /// Finds the next contributor to display and selects the entity
@@ -243,23 +245,19 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = if let Some(window) = windows.get_primary() {
-        window
-    } else {
-        return;
-    };
+    let window = windows.single();
 
     let ceiling = window.height() / 2.;
-    let ground = -(window.height() / 2.);
+    let ground = -window.height() / 2.;
 
-    let wall_left = -(window.width() / 2.);
+    let wall_left = -window.width() / 2.;
     let wall_right = window.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = window.height() - SPRITE_SIZE * 2.0;
+    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
 
     let mut rng = rand::thread_rng();
 
@@ -274,7 +272,7 @@ fn collision_system(
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
 
             // How high this birb will bounce.
-            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..max_bounce_height);
+            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..=max_bounce_height);
 
             // Apply the velocity that would bounce the birb up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
@@ -322,7 +320,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
 
     let mut cmd = std::process::Command::new("git")
-        .args(&["--no-pager", "log", "--pretty=format:%an"])
+        .args(["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()

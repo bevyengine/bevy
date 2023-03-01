@@ -13,21 +13,19 @@ fn main() {
 
     // Create a schedule and a stage
     let mut schedule = Schedule::default();
-    let mut update = SystemStage::parallel();
 
     // Add systems to increase the counter and to print out the current value
-    update.add_system(increase_counter);
-    update.add_system(print_counter.after(increase_counter));
-    schedule.add_stage("update", update);
+    schedule.add_system(increase_counter);
+    schedule.add_system(print_counter.after(increase_counter));
 
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }
 
 // Counter resource to be increased and read by systems
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct Counter {
     pub value: i32,
 }

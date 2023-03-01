@@ -1,5 +1,6 @@
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
+    utility::{reflect_hasher, NonGenericTypeInfoCell},
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -7,30 +8,63 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// A static-sized array of [`Reflect`] items.
+/// A trait used to power [array-like] operations via [reflection].
 ///
-/// This corresponds to types like `[T; N]` (arrays).
+/// This corresponds to true Rust arrays like `[T; N]`,
+/// but also to any fixed-size linear sequence types.
+/// It is expected that implementors of this trait uphold this contract
+/// and maintain a fixed size as returned by the [`Array::len`] method.
 ///
-/// Currently, this only supports arrays of up to 32 items. It can technically
-/// contain more than 32, but the blanket [`GetTypeRegistration`] is only
-/// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogenous (i.e. all the same type).
 ///
+/// This trait has a blanket implementation over Rust arrays of up to 32 items.
+/// This implementation can technically contain more than 32,
+/// but the blanket [`GetTypeRegistration`] is only implemented up to the 32
+/// item limit due to a [limitation] on [`Deserialize`].
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Array};
+///
+/// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+///
+/// let field: &dyn Reflect = foo.get(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// ```
+///
+/// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
+/// [reflection]: crate
+/// [`List`]: crate::List
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
+/// [`Deserialize`]: ::serde::Deserialize
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-    /// Returns the number of elements in the collection.
+
+    /// Returns the number of elements in the array.
     fn len(&self) -> usize;
+
     /// Returns `true` if the collection contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    /// Returns an iterator over the collection.
+
+    /// Returns an iterator over the array.
     fn iter(&self) -> ArrayIter;
 
+    /// Drain the elements of this array to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+
+    /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.type_name().to_string(),
@@ -47,6 +81,8 @@ pub struct ArrayInfo {
     item_type_name: &'static str,
     item_type_id: TypeId,
     capacity: usize,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl ArrayInfo {
@@ -63,7 +99,15 @@ impl ArrayInfo {
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this array.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The compile-time capacity of the array.
@@ -104,6 +148,12 @@ impl ArrayInfo {
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }
+
+    /// The docstring of this array, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// A fixed-size list of reflected values.
@@ -115,6 +165,7 @@ impl ArrayInfo {
 /// can be mutated— just that the _number_ of items cannot change.
 ///
 /// [`DynamicList`]: crate::DynamicList
+#[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) name: String,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
@@ -178,6 +229,11 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -205,6 +261,11 @@ impl Reflect for DynamicArray {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Array(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Array(self)
     }
 
     #[inline]
@@ -240,10 +301,12 @@ impl Array for DynamicArray {
 
     #[inline]
     fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+        ArrayIter::new(self)
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values.into_vec()
     }
 
     #[inline]
@@ -268,8 +331,16 @@ impl Typed for DynamicArray {
 
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
-    pub(crate) array: &'a dyn Array,
-    pub(crate) index: usize,
+    array: &'a dyn Array,
+    index: usize,
+}
+
+impl<'a> ArrayIter<'a> {
+    /// Creates a new [`ArrayIter`].
+    #[inline]
+    pub const fn new(array: &'a dyn Array) -> ArrayIter {
+        ArrayIter { array, index: 0 }
+    }
 }
 
 impl<'a> Iterator for ArrayIter<'a> {
@@ -294,7 +365,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
+    let mut hasher = reflect_hasher();
     std::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
