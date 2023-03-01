@@ -53,7 +53,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
 
             fn add_write_sets(_sets: &mut Vec<#bevy_ecs_path::schedule::BoxedSystemSet>) {
-                #(_sets.push(#write_sets.dyn_clone());)*
+                #(_sets.push(Box::new(#write_sets));)*
             }
         }
     })
@@ -113,9 +113,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 }
             };
         } else if left_ident == &format_ident!("read_set") {
-            attrs.read_sets.push(*right);
+            let tokens: TokenStream2 = get_lit_str(Symbol("read_set"), &right)?
+                .value()
+                .as_str()
+                .parse()?;
+            attrs.read_sets.push(syn::parse2(tokens)?);
         } else if left_ident == &format_ident!("write_set") {
-            attrs.write_sets.push(*right);
+            let tokens: TokenStream2 = get_lit_str(Symbol("write_set"), &right)?
+                .value()
+                .as_str()
+                .parse()?;
+            attrs.write_sets.push(syn::parse2(tokens)?);
         } else {
             return Err(Error::new_spanned(
                 left,
