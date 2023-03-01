@@ -155,6 +155,9 @@ vorbis = ["bevy_internal/vorbis"]
 # WAV audio format support
 wav = ["bevy_internal/wav"]
 
+# MP3 audio format support (through minimp3)
+minimp3 = ["bevy_internal/minimp3"]
+
 # AAC audio format support (through symphonia)
 symphonia-aac = ["bevy_internal/symphonia-aac"]
 
@@ -166,9 +169,6 @@ symphonia-flac = ["bevy_internal/symphonia-flac"]
 
 # MP4 audio format support (through symphonia)
 symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
-
-# MP3 audio format support (through symphonia)
-symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
 
 # OGG/VORBIS audio format support (through symphonia)
 symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]

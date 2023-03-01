@@ -50,6 +50,7 @@ The default feature set enables most of the expected features of a game engine, 
 |exr|EXR image format support|
 |flac|FLAC audio format support|
 |jpeg|JPEG image format support|
+|minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
 |serialize|Enable serialization support through serde|
 |subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
@@ -57,7 +58,6 @@ The default feature set enables most of the expected features of a game engine, 
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
 |symphonia-flac|FLAC audio format support (through symphonia)|
 |symphonia-isomp4|MP4 audio format support (through symphonia)|
-|symphonia-mp3|MP3 audio format support (through symphonia)|
 |symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
 |symphonia-wav|WAV audio format support (through symphonia)|
 |tga|TGA image format support|
