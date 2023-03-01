@@ -39,6 +39,7 @@ The default feature set enables most of the expected features of a game engine, 
 
 |feature name|description|
 |-|-|
+|accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
