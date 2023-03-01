@@ -5,7 +5,8 @@ use bevy_render::texture::{Image, TextureFormatPixelInfo};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
 /// Helper utility to update [`TextureAtlas`] on the fly.
-/// It is used in cases when texture is created highly dynamic,
+///
+/// Helpful in cases when texture is created highly dynamic,
 /// e.g: font glyph texture, only render for letters to be rendered.
 pub struct DynamicTextureAtlasBuilder {
     atlas_allocator: AtlasAllocator,
