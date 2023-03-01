@@ -90,6 +90,7 @@ impl Plugin for UiPlugin {
             .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
             .register_type::<JustifyContent>()
+            .register_type::<JustifySelf>()
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
