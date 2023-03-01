@@ -1425,6 +1425,11 @@ macro_rules! impl_system_param_tuple {
                 let ($($param,)*) = state;
                 ($($param::get_param($param, _system_meta, _world, _change_tick),)*)
             }
+
+            #[inline]
+            fn add_default_sets(_sets: &mut Vec<BoxedSystemSet>) {
+                $( $param::add_default_sets(_sets); )*
+            }
         }
     };
 }
@@ -1547,6 +1552,11 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
         StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
+    }
+
+    #[inline]
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {
+        P::add_default_sets(sets);
     }
 }
 

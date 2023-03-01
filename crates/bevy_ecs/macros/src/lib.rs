@@ -236,6 +236,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         change_tick,
                     }
                 }
+
+                #[inline]
+                fn add_default_sets(_sets: &mut Vec<BoxedSystemSet>) {
+                    #( #param::add_default_sets(_sets); )*
+                }
             }
 
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
@@ -440,6 +445,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         #(#fields: #field_locals,)*
                         #(#ignored_fields: std::default::Default::default(),)*
                     }
+                }
+
+                #[inline]
+                fn add_default_sets(_sets: &mut Vec<#path::schedule::BoxedSystemSet>) {
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::add_default_sets(_sets);
                 }
             }
 
