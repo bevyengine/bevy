@@ -7,6 +7,7 @@ use crate::{
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
     },
+    system::Resource,
     system::{BoxedSystem, IntoSystem, System},
 };
 
@@ -103,8 +104,12 @@ pub trait IntoSystemSetConfig {
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Automatically assign any system that reads `T` to this set.
     fn on_read<T: Component>(self) -> SystemSetConfig;
-    // Automatically assign any system that can read `T` to this set.
+    // Automatically assign any system that can write `T` to this set.
     fn on_write<T: Component>(self) -> SystemSetConfig;
+    /// Automatically assign any system that reads `T` to this set.
+    fn on_read_resource<T: Resource>(self) -> SystemSetConfig;
+    // Automatically assign any system that can write `T` to this set.
+    fn on_write_resource<T: Resource>(self) -> SystemSetConfig;
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
@@ -153,6 +158,14 @@ impl<S: SystemSet> IntoSystemSetConfig for S {
         self.into_config().on_write::<T>()
     }
 
+    fn on_read_resource<T: Resource>(self) -> SystemSetConfig {
+        self.into_config().on_read_resource::<T>()
+    }
+
+    fn on_write_resource<T: Resource>(self) -> SystemSetConfig {
+        self.into_config().on_write_resource::<T>()
+    }
+
     fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfig {
         self.into_config().run_if(condition)
     }
@@ -195,6 +208,14 @@ impl IntoSystemSetConfig for BoxedSystemSet {
 
     fn on_read<T: Component>(self) -> SystemSetConfig {
         self.into_config().on_read::<T>()
+    }
+
+    fn on_read_resource<T: Resource>(self) -> SystemSetConfig {
+        self.into_config().on_read_resource::<T>()
+    }
+
+    fn on_write_resource<T: Resource>(self) -> SystemSetConfig {
+        self.into_config().on_write_resource::<T>()
     }
 
     fn on_write<T: Component>(self) -> SystemSetConfig {
@@ -283,6 +304,16 @@ impl IntoSystemSetConfig for SystemSetConfig {
 
     fn on_write<T: Component>(mut self) -> SystemSetConfig {
         self.on_write.push(ComponentDescriptor::new::<T>());
+        self
+    }
+
+    fn on_read_resource<T: Resource>(mut self) -> SystemSetConfig {
+        self.on_read.push(ComponentDescriptor::new_resource::<T>());
+        self
+    }
+
+    fn on_write_resource<T: Resource>(mut self) -> SystemSetConfig {
+        self.on_write.push(ComponentDescriptor::new_resource::<T>());
         self
     }
 
