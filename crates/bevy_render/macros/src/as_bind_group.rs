@@ -1,4 +1,4 @@
-use bevy_macro_utils::{get_lit_bool, get_lit_str, BevyManifest, Symbol};
+use bevy_macro_utils::{get_lit_bool, BevyManifest, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
@@ -7,6 +7,17 @@ use syn::{
     punctuated::Punctuated,
     Data, DataStruct, Error, Fields, LitInt, LitStr, NestedMeta, Result, Token,
 };
+
+fn get_lit_str(attr_name: Symbol, lit: &syn::Lit) -> syn::Result<&syn::LitStr> {
+    if let syn::Lit::Str(lit) = lit {
+        Ok(lit)
+    } else {
+        Err(syn::Error::new_spanned(
+            lit,
+            format!("expected {attr_name} attribute to be a string: `{attr_name} = \"...\"`"),
+        ))
+    }
+}
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");

@@ -1,7 +1,7 @@
 use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
@@ -73,40 +73,34 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     };
 
     for meta in meta_items {
-        use syn::{
-            Meta::NameValue,
-            NestedMeta::{Lit, Meta},
-        };
-        match meta {
-            Meta(NameValue(m)) if m.path == STORAGE => {
-                attrs.storage = match get_lit_str(STORAGE, &m.lit)?.value().as_str() {
-                    TABLE => StorageTy::Table,
-                    SPARSE_SET => StorageTy::SparseSet,
-                    s => {
-                        return Err(Error::new_spanned(
-                            m.lit,
-                            format!(
-                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
-                            ),
-                        ))
-                    }
-                };
-            }
-            Meta(meta_item) => {
+        let syn::ExprAssign { left, right, .. } = syn::parse2(meta)?;
+        let left = match *left {
+            syn::Expr::Path(left) => left,
+            other => {
                 return Err(Error::new_spanned(
-                    meta_item.path(),
-                    format!(
-                        "unknown component attribute `{}`",
-                        meta_item.path().into_token_stream()
-                    ),
-                ));
-            }
-            Lit(lit) => {
-                return Err(Error::new_spanned(
-                    lit,
-                    "unexpected literal in component attribute",
+                    other,
+                    r#"invalid attribute: expected #[component(storage = "...")]"#,
                 ))
             }
+        };
+        if left.path.get_ident().unwrap() == &format_ident!("storage") {
+            attrs.storage = match get_lit_str(STORAGE, &right)?.value().as_str() {
+                TABLE => StorageTy::Table,
+                SPARSE_SET => StorageTy::SparseSet,
+                s => {
+                    return Err(Error::new_spanned(
+                        right,
+                        format!(
+                            "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                        ),
+                    ))
+                }
+            };
+        } else {
+            return Err(Error::new_spanned(
+                left,
+                "Invalid component attribute format: expected `storages`",
+            ));
         }
     }
 
