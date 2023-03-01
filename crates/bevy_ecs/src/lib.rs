@@ -1744,7 +1744,34 @@ mod tests {
     }
 
     #[test]
-    fn component_with_access_set() {
+    fn read_component_with_access_set() {
+        #[derive(Component)]
+        struct Conflict;
+
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct ReadSet;
+
+        fn before_read(_: Query<&mut Conflict>) {}
+        fn does_read(_: Query<&A>, _: Query<&mut Conflict>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        schedule.configure_set(ReadSet.on_read::<A>());
+
+        schedule.add_systems((before_read.before(ReadSet), does_read));
+
+        // Panic if there are ambiguities.
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: bevy_ecs::schedule::LogLevel::Error,
+            ..Default::default()
+        });
+
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn write_component_with_access_set() {
         #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
         struct WriteSet;
 
