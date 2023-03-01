@@ -246,8 +246,6 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         Q::add_default_sets(sets);
         F::add_default_sets(sets);
     }
-}
-
 fn assert_component_access_compatibility(
     system_name: &str,
     query_type: &'static str,
