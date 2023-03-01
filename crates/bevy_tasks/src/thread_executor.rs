@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_executor::{Executor, Task};
-use futures_lite::{Future, FutureExt};
+use futures_lite::Future;
 
 /// An executor that can only be ticked on the thread it was instantiated on. But
 /// can spawn `Send` tasks from other threads.
@@ -82,11 +82,6 @@ impl<'task> ThreadExecutor<'task> {
             });
         }
         None
-    }
-
-    /// check whether `self` and `other` is the same executor
-    fn is_same_executor(&self, other: &Self) -> bool {
-        std::ptr::eq(self, other)
     }
 }
 
