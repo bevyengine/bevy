@@ -443,7 +443,7 @@ pub struct Style {
     ///     ..Default::default()
     /// };
     /// ```
-    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
+    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom. 
     pub padding: UiRect<Breadth>,
     /// The border of the node
     pub border: UiRect<Breadth>,
@@ -493,7 +493,7 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        justify_self: JustifySelf::DEFAULT,
+        justify_self: JustifySelf::DEFAULT,        
         margin: UiRect::all(Val::Px(0.)),
         padding: UiRect::all(Breadth::Px(0.)),
         border: UiRect::all(Breadth::Px(0.)),

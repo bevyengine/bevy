@@ -1,13 +1,13 @@
+use taffy::prelude::Rect;
+use taffy::prelude::LengthPercentage;
+use taffy::prelude::LengthPercentageAuto;
+use taffy::style::Dimension;
 use crate::Breadth;
 use crate::JustifySelf;
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
     PositionType, Style, Val,
 };
-use taffy::prelude::LengthPercentage;
-use taffy::prelude::LengthPercentageAuto;
-use taffy::prelude::Rect;
-use taffy::style::Dimension;
 
 fn from_val(scale_factor: f64, val: Val) -> LengthPercentageAuto {
     match val {
@@ -48,7 +48,7 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         align_self: style.align_self.into(),
         align_content: Some(style.align_content.into()),
         justify_content: Some(style.justify_content.into()),
-        justify_self: style.justify_self.into(),
+        justify_self: style.justify_self.into(),  
         margin: Rect {
             left: from_val(scale_factor, style.margin.left),
             right: from_val(scale_factor, style.margin.right),
@@ -183,6 +183,7 @@ impl From<JustifySelf> for Option<taffy::style::AlignItems> {
         }
     }
 }
+
 
 impl From<PositionType> for taffy::style::Position {
     fn from(value: PositionType) -> Self {
