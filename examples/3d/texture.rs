@@ -32,7 +32,6 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
-        alpha_mode: AlphaMode::Blend,
         unlit: true,
         ..default()
     });
@@ -41,7 +40,6 @@ fn setup(
     let red_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
-        alpha_mode: AlphaMode::Blend,
         unlit: true,
         ..default()
     });
@@ -50,7 +48,6 @@ fn setup(
     let blue_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
-        alpha_mode: AlphaMode::Blend,
         unlit: true,
         ..default()
     });
