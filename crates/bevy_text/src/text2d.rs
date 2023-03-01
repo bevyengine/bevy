@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut, Commands},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -72,7 +72,6 @@ pub struct Text2dBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
-    pub text_layout_info: TextLayoutInfo,
 }
 
 pub fn extract_text2d_sprite(
