@@ -9,7 +9,7 @@ pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<Toke
     for attr in ast.attrs.iter().filter(|a| a.path == attr_name) {
         match attr.parse_meta() {
             Ok(syn::Meta::List(meta)) => {
-                list.extend(meta.nested.into_iter().map(ToTokens::into_token_stream))
+                list.extend(meta.nested.into_iter().map(ToTokens::into_token_stream));
             }
             _ => list.push(attr.tokens.clone()),
         }
