@@ -1,6 +1,6 @@
 use crate::{
     AlignContent, AlignItems, AlignSelf, Breadth, Display, FlexDirection, FlexWrap, JustifyContent,
-    JustifySelf, PositionType, Style, Val,
+    PositionType, Style, Val,
 };
 use taffy::prelude::{LengthPercentage, LengthPercentageAuto, Rect};
 use taffy::style::Dimension;
@@ -44,7 +44,6 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         align_self: style.align_self.into(),
         align_content: Some(style.align_content.into()),
         justify_content: Some(style.justify_content.into()),
-        justify_self: style.justify_self.into(),
         margin: Rect {
             left: from_val(scale_factor, style.margin.left),
             right: from_val(scale_factor, style.margin.right),
@@ -83,6 +82,7 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
             width: from_breadth(scale_factor, style.gap.width),
             height: from_breadth(scale_factor, style.gap.height),
         },
+        justify_self: None,
     }
 }
 
@@ -161,21 +161,6 @@ impl From<JustifyContent> for taffy::style::JustifyContent {
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,
-        }
-    }
-}
-
-impl From<JustifySelf> for Option<taffy::style::AlignItems> {
-    fn from(value: JustifySelf) -> Self {
-        match value {
-            JustifySelf::Auto => None,
-            JustifySelf::Start => taffy::style::AlignItems::Start.into(),
-            JustifySelf::End => taffy::style::AlignItems::End.into(),
-            JustifySelf::FlexStart => taffy::style::AlignItems::FlexStart.into(),
-            JustifySelf::FlexEnd => taffy::style::AlignItems::FlexEnd.into(),
-            JustifySelf::Center => taffy::style::AlignItems::Center.into(),
-            JustifySelf::Baseline => taffy::style::AlignItems::Baseline.into(),
-            JustifySelf::Stretch => taffy::style::AlignItems::Stretch.into(),
         }
     }
 }

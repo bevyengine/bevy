@@ -405,8 +405,6 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// How this node should be aligned in the main axis
-    pub justify_self: JustifySelf,
     /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -493,7 +491,6 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        justify_self: JustifySelf::DEFAULT,
         margin: UiRect::all(Val::Px(0.)),
         padding: UiRect::all(Breadth::Px(0.)),
         border: UiRect::all(Breadth::Px(0.)),
@@ -719,37 +716,6 @@ impl JustifyContent {
 }
 
 impl Default for JustifyContent {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-/// How this node should be aligned in the main axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub enum JustifySelf {
-    Auto,
-    /// Items are packed toward the start of the axis
-    Start,
-    /// Items are packed toward the end of the axis
-    End,
-    /// Items are aligned at the start
-    FlexStart,
-    /// Items are aligned at the end
-    FlexEnd,
-    /// Items are aligned at the center
-    Center,
-    /// Items are aligned at the baseline
-    Baseline,
-    /// Items are stretched across the whole cross axis
-    Stretch,
-}
-
-impl JustifySelf {
-    pub const DEFAULT: Self = Self::FlexStart;
-}
-
-impl Default for JustifySelf {
     fn default() -> Self {
         Self::DEFAULT
     }
