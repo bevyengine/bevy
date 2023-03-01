@@ -68,7 +68,7 @@ mod tests {
     use crate::schedule::{
         IntoSystemConfig, IntoSystemSetConfig, Schedule, ScheduleBuildSettings, SystemSet,
     };
-    use crate::system::Query;
+    use crate::system::{Query, Res, ResMut};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -1785,6 +1785,40 @@ mod tests {
 
         schedule.add_system(does_write);
         schedule.add_system(after_write.after(WriteSet));
+
+        // Panic if there are ambiguities.
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: bevy_ecs::schedule::LogLevel::Error,
+            ..Default::default()
+        });
+
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn resource_with_access_set() {
+        #[derive(Resource, Default)]
+        struct R;
+
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct Writers;
+
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct Readers;
+
+        fn send_system(_: ResMut<R>) {}
+        fn read_system(_: Res<R>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        schedule.configure_sets((
+            Writers.on_write_resource::<R>(),
+            Readers.on_read_resource::<R>().after(Writers),
+        ));
+
+        world.init_resource::<R>();
+        schedule.add_systems((send_system, read_system));
 
         // Panic if there are ambiguities.
         schedule.set_build_settings(ScheduleBuildSettings {
