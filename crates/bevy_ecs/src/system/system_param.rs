@@ -241,6 +241,11 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
             false,
         )
     }
+
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {
+        Q::add_default_sets(sets);
+        F::add_default_sets(sets);
+    }
 }
 
 fn assert_component_access_compatibility(

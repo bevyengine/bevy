@@ -4,6 +4,7 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
+    schedule::BoxedSystemSet,
     storage::{ComponentSparseSet, Table, TableRow},
     world::{Mut, Ref, World},
 };
@@ -428,6 +429,9 @@ pub unsafe trait WorldQuery {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
+
+    #[allow(unused_variables)]
+    fn add_default_sets(sets: &mut Vec<BoxedSystemSet>) {}
 }
 
 /// A world query that is read only.
