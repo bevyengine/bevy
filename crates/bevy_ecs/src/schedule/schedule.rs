@@ -1,5 +1,4 @@
 use std::{
-    any::TypeId,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -18,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components},
+    component::{ComponentDescriptor, ComponentId, Components},
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -409,8 +408,8 @@ impl SystemNode {
 }
 
 enum PendingAccessSet {
-    Read(TypeId, NodeId),
-    Write(TypeId, NodeId),
+    Read(ComponentDescriptor, NodeId),
+    Write(ComponentDescriptor, NodeId),
 }
 
 /// Metadata for a [`Schedule`].
@@ -836,16 +835,24 @@ impl ScheduleGraph {
     pub fn initialize(&mut self, world: &mut World) {
         for pending in self.uninit_access_sets.drain(..) {
             match pending {
-                PendingAccessSet::Read(component, node) => self
-                    .read_system_sets
-                    .entry(world.components().get_id(component).unwrap())
-                    .or_insert(Vec::new())
-                    .push(node),
-                PendingAccessSet::Write(component, node) => self
-                    .write_system_sets
-                    .entry(world.components().get_id(component).unwrap())
-                    .or_insert(Vec::new())
-                    .push(node),
+                PendingAccessSet::Read(component, node) => {
+                    let component = world
+                        .components
+                        .init_component_with_descriptor(&mut world.storages, component);
+                    self.read_system_sets
+                        .entry(component)
+                        .or_insert(Vec::new())
+                        .push(node)
+                }
+                PendingAccessSet::Write(component, node) => {
+                    let component = world
+                        .components
+                        .init_component_with_descriptor(&mut world.storages, component);
+                    self.write_system_sets
+                        .entry(component)
+                        .or_insert(Vec::new())
+                        .push(node)
+                }
             }
         }
         for (id, i) in self.uninit.drain(..) {

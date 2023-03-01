@@ -1,8 +1,7 @@
-use std::any::TypeId;
-
 use bevy_utils::all_tuples;
 
 use crate::{
+    component::{Component, ComponentDescriptor},
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
@@ -16,8 +15,8 @@ pub struct SystemSetConfig {
     pub(super) set: BoxedSystemSet,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
-    pub(super) on_read: Vec<TypeId>,
-    pub(super) on_write: Vec<TypeId>,
+    pub(super) on_read: Vec<ComponentDescriptor>,
+    pub(super) on_write: Vec<ComponentDescriptor>,
 }
 
 impl SystemSetConfig {
@@ -103,9 +102,9 @@ pub trait IntoSystemSetConfig {
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Automatically assign any system that reads `T` to this set.
-    fn on_read<T: 'static>(self) -> SystemSetConfig;
+    fn on_read<T: Component>(self) -> SystemSetConfig;
     // Automatically assign any system that can read `T` to this set.
-    fn on_write<T: 'static>(self) -> SystemSetConfig;
+    fn on_write<T: Component>(self) -> SystemSetConfig;
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
@@ -146,11 +145,11 @@ impl<S: SystemSet> IntoSystemSetConfig for S {
         self.into_config().after(set)
     }
 
-    fn on_read<T: 'static>(self) -> SystemSetConfig {
+    fn on_read<T: Component>(self) -> SystemSetConfig {
         self.into_config().on_read::<T>()
     }
 
-    fn on_write<T: 'static>(self) -> SystemSetConfig {
+    fn on_write<T: Component>(self) -> SystemSetConfig {
         self.into_config().on_write::<T>()
     }
 
@@ -194,11 +193,11 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         self.into_config().after(set)
     }
 
-    fn on_read<T: 'static>(self) -> SystemSetConfig {
+    fn on_read<T: Component>(self) -> SystemSetConfig {
         self.into_config().on_read::<T>()
     }
 
-    fn on_write<T: 'static>(self) -> SystemSetConfig {
+    fn on_write<T: Component>(self) -> SystemSetConfig {
         self.into_config().on_write::<T>()
     }
 
@@ -277,13 +276,13 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
-    fn on_read<T: 'static>(mut self) -> SystemSetConfig {
-        self.on_read.push(TypeId::of::<T>());
+    fn on_read<T: Component>(mut self) -> SystemSetConfig {
+        self.on_read.push(ComponentDescriptor::new::<T>());
         self
     }
 
-    fn on_write<T: 'static>(mut self) -> SystemSetConfig {
-        self.on_write.push(TypeId::of::<T>());
+    fn on_write<T: Component>(mut self) -> SystemSetConfig {
+        self.on_write.push(ComponentDescriptor::new::<T>());
         self
     }
 
