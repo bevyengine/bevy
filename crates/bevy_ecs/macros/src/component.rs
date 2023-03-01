@@ -1,7 +1,7 @@
 use bevy_macro_utils::{get_lit_str, NamedArg, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
@@ -86,29 +86,29 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     };
 
     for NamedArg { path, expr } in bevy_macro_utils::parse_attrs(ast, COMPONENT)? {
-        let ident = path.get_ident().unwrap();
-        if ident == &format_ident!("storage") {
-            attrs.storage = match get_lit_str(STORAGE, &expr)?.value().as_str() {
-                TABLE => StorageTy::Table,
-                SPARSE_SET => StorageTy::SparseSet,
-                s => {
-                    return Err(Error::new_spanned(
-                        expr,
-                        format!(
-                            "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
-                        ),
-                    ))
-                }
-            };
-        } else if ident == &format_ident!("read_set") {
-            attrs.read_sets.push(expr);
-        } else if ident == &format_ident!("write_set") {
-            attrs.write_sets.push(expr);
-        } else {
-            return Err(Error::new_spanned(
-                ident,
-                "Invalid component attribute format: expected `storages`",
-            ));
+        match path.get_ident().unwrap().to_string().as_str() {
+            "storage" => {
+                attrs.storage = match get_lit_str(STORAGE, &expr)?.value().as_str() {
+                    TABLE => StorageTy::Table,
+                    SPARSE_SET => StorageTy::SparseSet,
+                    s => {
+                        return Err(Error::new_spanned(
+                            expr,
+                            format!(
+                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                            ),
+                        ))
+                    }
+                };
+            }
+            "read_set" => attrs.read_sets.push(expr),
+            "write_set" => attrs.write_sets.push(expr),
+            _ => {
+                return Err(Error::new_spanned(
+                    path,
+                    "Invalid component attribute format: expected `storages`, `read_set`, or `write_set`",
+                ));
+            }
         }
     }
 
