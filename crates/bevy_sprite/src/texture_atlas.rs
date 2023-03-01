@@ -19,17 +19,22 @@ pub struct TextureAtlas {
     pub size: Vec2,
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
-    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
+    /// Mapping from texture handle to index
+    pub(crate) texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct TextureAtlasSprite {
+    /// The tint color used to draw the sprite, default is [`Color::WRITE`]
     pub color: Color,
+    /// Texture index in [`TextureAtlas`]
     pub index: usize,
+    /// Whether flip the sprite in x axis
     pub flip_x: bool,
+    /// Whether flip the sprite in y axis
     pub flip_y: bool,
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image in the atlas
+    /// of the sprite's image in the atlas. The sprite will be scaled.
     pub custom_size: Option<Vec2>,
     pub anchor: Anchor,
 }
@@ -48,6 +53,8 @@ impl Default for TextureAtlasSprite {
 }
 
 impl TextureAtlasSprite {
+    /// Create a new [`TextureAtlasSprite`] with a sprite index,
+    /// it should be valid in corresponding [`TextureAtlas`]
     pub fn new(index: usize) -> TextureAtlasSprite {
         Self {
             index,
@@ -57,7 +64,7 @@ impl TextureAtlasSprite {
 }
 
 impl TextureAtlas {
-    /// Create a new `TextureAtlas` that has a texture, but does not have
+    /// Create a new [`TextureAtlas`] that has a texture, but does not have
     /// any individual sprites specified
     pub fn new_empty(texture: Handle<Image>, dimensions: Vec2) -> Self {
         Self {
@@ -68,10 +75,10 @@ impl TextureAtlas {
         }
     }
 
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// Generate a [`TextureAtlas`] by splitting a texture into a grid where each
     /// `tile_size` by `tile_size` grid-cell is one of the textures in the
     /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
+    /// at `offset` pixels from the top left corner. Resulting [`TextureAtlas`] is
     /// indexed left to right, top to bottom.
     pub fn from_grid(
         texture: Handle<Image>,
@@ -116,8 +123,8 @@ impl TextureAtlas {
         }
     }
 
-    /// Add a sprite to the list of textures in the `TextureAtlas`
-    /// returns an index to the texture which can be used with `TextureAtlasSprite`
+    /// Add a sprite to the list of textures in the [`TextureAtlas`]
+    /// returns an index to the texture which can be used with [`TextureAtlasSprite`]
     ///
     /// # Arguments
     ///
@@ -128,15 +135,17 @@ impl TextureAtlas {
         self.textures.len() - 1
     }
 
-    /// How many textures are in the `TextureAtlas`
+    /// How many textures are in this [`TextureAtlas`]
     pub fn len(&self) -> usize {
         self.textures.len()
     }
 
+    /// Returns `true` if there are no textures in this [`TextureAtlas`]
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }
 
+    /// Returns the index if texture in this [`TextureAtlas`]
     pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
         self.texture_handles
             .as_ref()
