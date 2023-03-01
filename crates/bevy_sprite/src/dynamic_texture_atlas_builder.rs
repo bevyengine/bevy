@@ -8,8 +8,8 @@ use guillotiere::{size2, Allocation, AtlasAllocator};
 /// It is used in cases when texture is created highly dynamic,
 /// e.g: font glyph texture, only render for letters to be rendered.
 pub struct DynamicTextureAtlasBuilder {
-    pub atlas_allocator: AtlasAllocator,
-    pub padding: i32,
+    atlas_allocator: AtlasAllocator,
+    padding: i32,
 }
 
 impl DynamicTextureAtlasBuilder {
