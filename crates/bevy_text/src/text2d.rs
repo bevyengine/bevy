@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut, Commands},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;

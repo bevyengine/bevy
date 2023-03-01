@@ -1,4 +1,4 @@
-use crate::{Val, Breadth};
+use crate::{Breadth, Val};
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
@@ -367,9 +367,10 @@ pub struct Size<T: Default + Copy + Clone + PartialEq = Val> {
     pub height: T,
 }
 
-impl <T> Size<T> where T: Default + Copy + Clone + PartialEq {
-
-
+impl<T> Size<T>
+where
+    T: Default + Copy + Clone + PartialEq,
+{
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -420,7 +421,7 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq {
     pub fn width(width: T) -> Self {
         Self {
             width,
-            .. Self::default()
+            ..Self::default()
         }
     }
 
@@ -437,9 +438,9 @@ impl <T> Size<T> where T: Default + Copy + Clone + PartialEq {
     /// assert_eq!(size.height, Val::Px(10.));
     /// ```
     pub fn height(height: T) -> Self {
-        Self {            
+        Self {
             height,
-            .. Self::default()
+            ..Self::default()
         }
     }
 }
@@ -454,8 +455,6 @@ impl Size {
 impl Size<Breadth> {
     pub const DEFAULT_BREADTH: Self = Self::all(Breadth::DEFAULT);
 }
-
-
 
 impl From<(Val, Val)> for Size {
     fn from(vals: (Val, Val)) -> Self {
