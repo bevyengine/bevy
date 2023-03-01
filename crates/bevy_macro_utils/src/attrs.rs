@@ -23,7 +23,7 @@ pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<Name
                     ))
                 }
             };
-            list.push(NamedArg { path, expr: *right })
+            list.push(NamedArg { path, expr: *right });
         }
     }
     Ok(list)
