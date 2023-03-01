@@ -157,7 +157,7 @@ fn queue_msaa_writeback_pipelines(
 ) {
     for (entity, view_target, camera) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
-        // as there is nothing to write back fo the first camera.
+        // as there is nothing to write back for the first camera.
         if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
         {
             let key = BlitPipelineKey {
