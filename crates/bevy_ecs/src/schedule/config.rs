@@ -350,7 +350,7 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     #[track_caller]
-    fn in_set(mut self, set: impl FreeSystemSet) -> Self {
+    fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
@@ -364,7 +364,7 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     #[track_caller]
-    fn in_base_set(mut self, set: impl BaseSystemSet) -> Self {
+    fn in_base_set(mut self, set: impl SystemSet) -> Self {
         assert!(
             set.system_type().is_none(),
             "System type sets cannot be base sets."
