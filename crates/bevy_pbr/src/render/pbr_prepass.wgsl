@@ -23,6 +23,9 @@ const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
 fn prepass_alpha_discard(in: FragmentInput) {
+
+// This is a workaround since the preprocessor does not support
+// #if defined(ALPHA_MASK) || defined(BLEND_PREMULTIPLIED_ALPHA)
 #ifndef ALPHA_MASK
 #ifndef BLEND_PREMULTIPLIED_ALPHA
 
