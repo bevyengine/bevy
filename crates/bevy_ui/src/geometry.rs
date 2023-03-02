@@ -189,7 +189,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `left` and `right` take the given value.
+    /// Creates a new [`UiRect`] where `left` and `right` take the given value,
+    /// and `top` and `bottom` set to zero `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -211,7 +212,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value.
+    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value,
+    /// and `left` and `right` are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -233,7 +235,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `left` takes the given value.
+    /// Creates a new [`UiRect`] where `left` takes the given value, and
+    /// the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -254,7 +257,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `right` takes the given value.
+    /// Creates a new [`UiRect`] where `right` takes the given value,
+    /// and the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -275,7 +279,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `top` takes the given value.
+    /// Creates a new [`UiRect`] where `top` takes the given value,
+    /// and the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -296,7 +301,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `bottom` takes the given value.
+    /// Creates a new [`UiRect`] where `bottom` takes the given value,
+    /// and the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -363,18 +369,20 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `width` takes the given value.
+    /// Creates a new [`Size`] where `width` takes the given value,
+    /// and `height` is set to [`Val::Auto`].
     pub const fn width(width: Val) -> Self {
         Self {
             width,
-            height: Val::DEFAULT,
+            height: Val::Auto,
         }
     }
 
-    /// Creates a new [`Size`] where `height` takes the given value.
+    /// Creates a new [`Size`] where `height` takes the given value,
+    /// and `width` is set to [`Val::Auto`].
     pub const fn height(height: Val) -> Self {
         Self {
-            width: Val::DEFAULT,
+            width: Val::Auto,
             height,
         }
     }
