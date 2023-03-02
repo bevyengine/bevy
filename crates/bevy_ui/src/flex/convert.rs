@@ -80,7 +80,7 @@ fn margin(scale_factor: f64, val: Val) -> taffy::style::LengthPercentageAuto {
     }
 }
 
-pub fn from_rect(
+fn from_rect(
     scale_factor: f64,
     rect: UiRect,
 ) -> taffy::geometry::Rect<taffy::style::LengthPercentageAuto> {
@@ -92,7 +92,7 @@ pub fn from_rect(
     }
 }
 
-pub fn from_size(
+fn from_size(
     scale_factor: f64,
     size: Size,
 ) -> taffy::geometry::Size<taffy::style::Dimension> {
