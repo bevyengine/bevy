@@ -136,7 +136,7 @@ impl TextureAtlas {
         self.textures.len() - 1
     }
 
-    /// How many textures are in the [`TextureAtlas`]
+    /// The number of textures in the [`TextureAtlas`]
     pub fn len(&self) -> usize {
         self.textures.len()
     }
