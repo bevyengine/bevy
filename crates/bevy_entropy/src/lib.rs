@@ -14,6 +14,28 @@ use rand_core::{RngCore, SeedableRng};
 use resource::GlobalEntropy;
 use serde::{Deserialize, Serialize};
 
+/// Plugin for integrating a PRNG that implements `RngCore` into
+/// the bevy engine, registering types for a global resource and
+/// entropy components.
+/// 
+/// ```
+/// use bevy_ecs::prelude::ResMut;
+/// use bevy_app::App;
+/// use bevy_entropy::prelude::*;
+/// use rand_core::RngCore;
+/// use rand_chacha::ChaCha8Rng;
+///
+/// fn main() {
+///  App::new()
+///    .add_plugin(EntropyPlugin::<ChaCha8Rng>::default())
+///    .add_system(print_random_value)
+///    .run();
+/// }
+///
+/// fn print_random_value(mut rng: ResMut<GlobalEntropy<ChaCha8Rng>>) {
+///   println!("Random value: {}", rng.next_u32());
+/// }
+/// ```
 pub struct EntropyPlugin<
     R: RngCore
         + SeedableRng
