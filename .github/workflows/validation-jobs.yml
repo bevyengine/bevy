@@ -88,7 +88,12 @@ jobs:
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+
+            if [[ -f ".github/example-run/$example_name.sh" ]]; then
+              time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example CI_FEATURES="bevy_ci_testing" sh .github/example-run/$example_name.sh
+            then
+              time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            else
             sleep 10
           done
 
