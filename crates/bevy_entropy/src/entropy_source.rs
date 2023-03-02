@@ -40,7 +40,7 @@ impl RngCore for EntropySource {
 
     #[inline]
     fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.get_rng().fill_bytes(dest)
+        self.get_rng().fill_bytes(dest);
     }
 
     #[inline]
