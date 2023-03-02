@@ -682,13 +682,6 @@ mod tests {
 
         #[test]
         #[should_panic]
-        fn disallow_adding_base_sets_to_sets_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_sets((Normal::X, Normal::Y).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
         fn disallow_adding_base_sets_to_sets() {
             let mut schedule = Schedule::new();
             schedule.configure_set(Base::A.in_set(Normal::X));

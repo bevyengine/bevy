@@ -659,7 +659,7 @@ where
 
     /// Add these system sets to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> SystemSetConfigs {
+    fn in_set(self, set: impl FreeSystemSet) -> SystemSetConfigs {
         self.into_configs().in_set(set)
     }
 
