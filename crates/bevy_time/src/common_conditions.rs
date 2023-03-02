@@ -8,9 +8,10 @@ use bevy_utils::Duration;
 /// If used for a fixed timestep system, use [`on_fixed_timer`] instead.
 ///
 /// ```rust,no_run
-/// use bevy::prelude::*;
-/// use bevy::time::common_conditions::on_timer;
-/// use bevy::utils::Duration;
+/// # use bevy_app::{App, IntoSystemAppConfig, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_ecs::schedule::IntoSystemConfig;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::on_timer;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
@@ -45,9 +46,10 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool {
 /// If used for a non-fixed timestep system, use [`on_timer`] instead.
 ///
 /// ```rust,no_run
-/// use bevy::prelude::*;
-/// use bevy::time::common_conditions::on_fixed_timer;
-/// use bevy::utils::Duration;
+/// # use bevy_app::{App, CoreSchedule, IntoSystemAppConfig, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_ecs::schedule::IntoSystemConfig;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::on_fixed_timer;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
