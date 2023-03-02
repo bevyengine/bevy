@@ -44,6 +44,15 @@ pub struct NodeBundle {
     pub z_index: ZIndex,
 }
 
+impl NodeBundle {
+    pub fn with_style(style: Style) -> Self {
+        Self {
+            style,
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
