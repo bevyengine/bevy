@@ -1,3 +1,5 @@
+/// Common run conditions
+pub mod common_conditions;
 pub mod fixed_timestep;
 mod stopwatch;
 #[allow(clippy::module_inception)]
