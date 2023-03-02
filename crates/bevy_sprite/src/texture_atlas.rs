@@ -31,7 +31,7 @@ pub struct TextureAtlasSprite {
     pub index: usize,
     /// Whether to flip the sprite in the X axis
     pub flip_x: bool,
-    /// Whether flip the sprite in y axis
+    /// Whether to flip the sprite in the Y axis
     pub flip_y: bool,
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image in the atlas. The sprite will be scaled.
