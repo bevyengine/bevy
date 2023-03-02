@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// Plugin for integrating a PRNG that implements `RngCore` into
 /// the bevy engine, registering types for a global resource and
 /// entropy components.
-/// 
+///
 /// ```
 /// use bevy_ecs::prelude::ResMut;
 /// use bevy_app::App;
