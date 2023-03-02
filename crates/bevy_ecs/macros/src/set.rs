@@ -13,12 +13,12 @@ pub static BASE_ATTRIBUTE_NAME: &str = "base";
 /// - `trait_path`: The [`syn::Path`] to the set trait
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
     let mut base_trait_path = trait_path.clone();
-    let x = &mut base_trait_path.segments.last_mut().unwrap().ident;
-    *x = format_ident!("Base{x}");
+    let ident = &mut base_trait_path.segments.last_mut().unwrap().ident;
+    *ident = format_ident!("Base{x}");
 
     let mut free_trait_path = trait_path.clone();
-    let x = &mut free_trait_path.segments.last_mut().unwrap().ident;
-    *x = format_ident!("Free{x}");
+    let ident = &mut free_trait_path.segments.last_mut().unwrap().ident;
+    *ident = format_ident!("Free{x}");
 
     let ident = input.ident;
 
