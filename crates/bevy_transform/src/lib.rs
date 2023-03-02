@@ -114,18 +114,12 @@ impl Plugin for TransformPlugin {
                     .in_set(TransformSystem::TransformPropagate)
                     .ambiguous_with(PropagateTransformsSet),
             )
-            .add_startup_system(
-                propagate_transforms
-                    .in_set(PropagateTransformsSet),
-            )
+            .add_startup_system(propagate_transforms.in_set(PropagateTransformsSet))
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .ambiguous_with(PropagateTransformsSet),
             )
-            .add_system(
-                propagate_transforms
-                    .in_set(PropagateTransformsSet),
-            );
+            .add_system(propagate_transforms.in_set(PropagateTransformsSet));
     }
 }
