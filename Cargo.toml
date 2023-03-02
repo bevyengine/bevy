@@ -32,6 +32,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_entropy",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
@@ -68,6 +69,9 @@ bevy_audio = ["bevy_internal/bevy_audio"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline", "bevy_asset", "bevy_render"]
+
+# Plugin for providing PRNG integration into bevy
+bevy_entropy = ["bevy_internal/bevy_entropy"]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]

@@ -121,6 +121,12 @@ pub mod core_pipeline {
     pub use bevy_core_pipeline::*;
 }
 
+#[cfg(feature = "bevy_entropy")]
+pub mod entropy {
+    //! Provides types and plugins for integrating PRNGs into bevy.
+    pub use bevy_entropy::*;
+}
+
 #[cfg(feature = "bevy_gilrs")]
 pub mod gilrs {
     //! Bevy interface with `GilRs` - "Game Input Library for Rust" - to handle gamepad inputs.

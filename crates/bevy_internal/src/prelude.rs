@@ -24,6 +24,10 @@ pub use crate::animation::prelude::*;
 pub use crate::core_pipeline::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_entropy")]
+pub use crate::entropy::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_pbr")]
 pub use crate::pbr::prelude::*;
 
