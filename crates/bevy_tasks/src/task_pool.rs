@@ -384,10 +384,12 @@ impl TaskPool {
                 // note: it is possible `scope_executor` and `external_executor` is the same executor,
                 // in that case, we should only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                match (external_executor.ticker(), tick_task_pool_executor) {
-                    (Some(external_ticker), true)
-                        if !external_ticker.is_same_executor(&scope_ticker) =>
-                    {
+                let external_ticker = external_executor
+                    .ticker()
+                    .filter(|external_ticker| !external_ticker.is_same_executor(&scope_ticker));
+
+                match (external_ticker, tick_task_pool_executor) {
+                    (Some(external_ticker), true) => {
                         Self::execute_global_external_scope(
                             executor,
                             external_ticker,
@@ -396,17 +398,15 @@ impl TaskPool {
                         )
                         .await
                     }
-                    (Some(external_ticker), false)
-                        if !external_ticker.is_same_executor(&scope_ticker) =>
-                    {
+                    (Some(external_ticker), false) => {
                         Self::execute_external_scope(external_ticker, scope_ticker, get_results)
                             .await
                     }
                     // either external_executor is none or it is same as scope_executor
-                    (_, true) => {
+                    (None, true) => {
                         Self::execute_global_scope(executor, scope_ticker, get_results).await
                     }
-                    (_, false) => Self::execute_scope(scope_ticker, get_results).await,
+                    (None, false) => Self::execute_scope(scope_ticker, get_results).await,
                 }
             })
         }
