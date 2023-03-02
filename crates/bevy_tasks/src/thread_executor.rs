@@ -107,7 +107,6 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     }
 
     /// Returns true if `self` and `other`'s executor is same
-    /// check [this pr](https://github.com/bevyengine/bevy/pull/7825) for reference
     pub fn is_same_executor(&self, other: &Self) -> bool {
         std::ptr::eq(self.executor, other.executor)
     }

@@ -381,6 +381,8 @@ impl TaskPool {
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
 
                 // we get this from a thread local so we should always be on the scope executors thread.
+                // note: it is possible `scope_executor` and `external_executor` is the same executor,
+                // in that case, we should only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
                 match (external_executor.ticker(), tick_task_pool_executor) {
                     (Some(external_ticker), true)
