@@ -9,7 +9,7 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         position: value.position_type.into(),
         flex_direction: value.flex_direction.into(),
         flex_wrap: value.flex_wrap.into(),
-        align_items: Some(value.align_items.into()),
+        align_items: value.align_items.into(),
         align_self: value.align_self.into(),
         align_content: Some(value.align_content.into()),
         justify_content: Some(value.justify_content.into()),
@@ -105,16 +105,17 @@ fn from_size(scale_factor: f64, size: Size) -> taffy::geometry::Size<taffy::styl
     }
 }
 
-impl From<AlignItems> for taffy::style::AlignItems {
+impl From<AlignItems> for Option<taffy::style::AlignItems> {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Start => taffy::style::AlignItems::Start,
-            AlignItems::End => taffy::style::AlignItems::End,
-            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
-            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
-            AlignItems::Center => taffy::style::AlignItems::Center,
-            AlignItems::Baseline => taffy::style::AlignItems::Baseline,
-            AlignItems::Stretch => taffy::style::AlignItems::Stretch,
+            AlignItems::Unset => None,
+            AlignItems::Start => taffy::style::AlignItems::Start.into(),
+            AlignItems::End => taffy::style::AlignItems::End.into(),
+            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart.into(),
+            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd.into(),
+            AlignItems::Center => taffy::style::AlignItems::Center.into(),
+            AlignItems::Baseline => taffy::style::AlignItems::Baseline.into(),
+            AlignItems::Stretch => taffy::style::AlignItems::Stretch.into(),
         }
     }
 }
