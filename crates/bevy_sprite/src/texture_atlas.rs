@@ -146,7 +146,7 @@ impl TextureAtlas {
         self.textures.is_empty()
     }
 
-    /// Returns the index if texture in the [`TextureAtlas`]
+    /// Returns the index of the texture corresponding to the given image handle in the [`TextureAtlas`]
     pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
         self.texture_handles
             .as_ref()
