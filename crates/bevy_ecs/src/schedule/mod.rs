@@ -678,14 +678,6 @@ mod tests {
         enum Normal {
             X,
             Y,
-            Z,
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_set_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_set(Normal::Y.in_base_set(Normal::X));
         }
 
         #[test]
@@ -693,13 +685,6 @@ mod tests {
         fn disallow_adding_base_sets_to_sets_with_in_set() {
             let mut schedule = Schedule::new();
             schedule.configure_sets((Normal::X, Normal::Y).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_sets_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_sets((Normal::X, Normal::Y).in_base_set(Normal::Z));
         }
 
         #[test]

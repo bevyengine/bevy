@@ -91,7 +91,7 @@ pub trait IntoSystemSetConfig {
     fn in_set(self, set: impl FreeSystemSet) -> SystemSetConfig;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig;
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemSetConfig;
     /// Add this set to the schedules's default base set.
     fn in_default_base_set(self) -> SystemSetConfig;
     /// Run before all systems in `set`.
@@ -122,7 +122,7 @@ impl<S: SystemSet> IntoSystemSetConfig for S {
     }
 
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig {
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemSetConfig {
         self.into_config().in_base_set(set)
     }
 
@@ -162,7 +162,7 @@ impl IntoSystemSetConfig for BoxedSystemSet {
     }
 
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfig {
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemSetConfig {
         self.into_config().in_base_set(set)
     }
 
@@ -665,7 +665,7 @@ where
 
     /// Add these system sets to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemSetConfigs {
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemSetConfigs {
         self.into_configs().in_base_set(set)
     }
 
