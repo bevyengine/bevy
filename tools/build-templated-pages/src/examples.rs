@@ -1,60 +1,10 @@
 use std::{cmp::Ordering, collections::HashMap, fs::File};
 
-use bitflags::bitflags;
 use serde::Serialize;
 use tera::{Context, Tera};
 use toml_edit::Document;
 
-bitflags! {
-    struct Command: u32 {
-        const CHECK_MISSING = 0b00000001;
-        const UPDATE = 0b00000010;
-    }
-}
-
-fn main() {
-    let what_to_run = match std::env::args().nth(1).as_deref() {
-        Some("check-missing") => Command::CHECK_MISSING,
-        Some("update") => Command::UPDATE,
-        _ => Command::all(),
-    };
-
-    let examples = parse_examples(what_to_run.contains(Command::CHECK_MISSING));
-
-    if what_to_run.contains(Command::UPDATE) {
-        let categories = parse_categories();
-        let examples_by_category: HashMap<String, Category> = examples
-            .into_iter()
-            .fold(HashMap::<String, Vec<Example>>::new(), |mut v, ex| {
-                v.entry(ex.category.clone()).or_default().push(ex);
-                v
-            })
-            .into_iter()
-            .map(|(key, mut examples)| {
-                examples.sort();
-                let description = categories.get(&key).cloned();
-                (
-                    key,
-                    Category {
-                        description,
-                        examples,
-                    },
-                )
-            })
-            .collect();
-
-        let mut context = Context::new();
-        context.insert("all_examples", &examples_by_category);
-        Tera::new("examples/*.md.tpl")
-            .expect("error parsing template")
-            .render_to(
-                "README.md.tpl",
-                &context,
-                File::create("examples/README.md").expect("error creating file"),
-            )
-            .expect("error rendering template");
-    }
-}
+use crate::Command;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 struct Category {
@@ -138,7 +88,7 @@ fn parse_categories() -> HashMap<String, String> {
         .unwrap()
         .get("metadata")
         .as_ref()
-        .unwrap()["category"]
+        .unwrap()["example_category"]
         .clone()
         .as_array_of_tables()
         .unwrap()
@@ -150,4 +100,42 @@ fn parse_categories() -> HashMap<String, String> {
             )
         })
         .collect()
+}
+
+pub(crate) fn check(what_to_run: Command) {
+    let examples = parse_examples(what_to_run.contains(Command::CHECK_MISSING));
+
+    if what_to_run.contains(Command::UPDATE) {
+        let categories = parse_categories();
+        let examples_by_category: HashMap<String, Category> = examples
+            .into_iter()
+            .fold(HashMap::<String, Vec<Example>>::new(), |mut v, ex| {
+                v.entry(ex.category.clone()).or_default().push(ex);
+                v
+            })
+            .into_iter()
+            .map(|(key, mut examples)| {
+                examples.sort();
+                let description = categories.get(&key).cloned();
+                (
+                    key,
+                    Category {
+                        description,
+                        examples,
+                    },
+                )
+            })
+            .collect();
+
+        let mut context = Context::new();
+        context.insert("all_examples", &examples_by_category);
+        Tera::new("docs-template/*.md.tpl")
+            .expect("error parsing template")
+            .render_to(
+                "EXAMPLE_README.md.tpl",
+                &context,
+                File::create("examples/README.md").expect("error creating file"),
+            )
+            .expect("error rendering template");
+    }
 }

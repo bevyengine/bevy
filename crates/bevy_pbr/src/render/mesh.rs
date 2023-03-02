@@ -1,5 +1,5 @@
 use crate::{
-    environment_map, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowSamplers,
     ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
@@ -427,29 +427,11 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
-            if cfg!(not(feature = "webgl")) {
-                // Depth texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 16,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Depth,
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
-                // Normal texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 17,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
+            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
+                entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
+                    [16, 17],
+                    multisampled,
+                ));
             }
 
             entries
@@ -1063,34 +1045,15 @@ pub fn queue_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
-            // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
-            // When using WebGL, and MSAA is disabled, we can't bind the textures either
-            if cfg!(not(feature = "webgl")) {
-                let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => {
-                        &fallback_depths
-                            .image_for_samplecount(msaa.samples())
-                            .texture_view
-                    }
-                };
-                entries.push(BindGroupEntry {
-                    binding: 16,
-                    resource: BindingResource::TextureView(depth_view),
-                });
-
-                let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => {
-                        &fallback_images
-                            .image_for_samplecount(msaa.samples())
-                            .texture_view
-                    }
-                };
-                entries.push(BindGroupEntry {
-                    binding: 17,
-                    resource: BindingResource::TextureView(normal_view),
-                });
+            // When using WebGL, we can't have a depth texture with multisampling
+            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+                entries.extend_from_slice(&prepass::get_bindings(
+                    prepass_textures,
+                    &mut fallback_images,
+                    &mut fallback_depths,
+                    &msaa,
+                    [16, 17],
+                ));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {

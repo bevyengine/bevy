@@ -479,13 +479,11 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_systems(
-    ///     (
-    ///         startup_system_a,
-    ///         startup_system_b,
-    ///         startup_system_c,
-    ///     )
-    /// );
+    /// app.add_startup_systems((
+    ///     startup_system_a,
+    ///     startup_system_b,
+    ///     startup_system_c,
+    /// ));
     /// ```
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems(systems.into_configs().in_schedule(CoreSchedule::Startup))
@@ -849,10 +847,8 @@ impl App {
     /// See [`bevy_reflect::TypeRegistry::register`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
-        {
-            let registry = self.world.resource_mut::<AppTypeRegistry>();
-            registry.write().register::<T>();
-        }
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register::<T>();
         self
     }
 
@@ -882,10 +878,8 @@ impl App {
     >(
         &mut self,
     ) -> &mut Self {
-        {
-            let registry = self.world.resource_mut::<AppTypeRegistry>();
-            registry.write().register_type_data::<T, D>();
-        }
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_type_data::<T, D>();
         self
     }
 
