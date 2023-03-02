@@ -55,7 +55,7 @@ impl Default for TextureAtlasSprite {
 
 impl TextureAtlasSprite {
     /// Create a new [`TextureAtlasSprite`] with a sprite index,
-    /// it should be valid in corresponding [`TextureAtlas`]
+    /// it should be valid in the corresponding [`TextureAtlas`]
     pub fn new(index: usize) -> TextureAtlasSprite {
         Self {
             index,
@@ -79,7 +79,7 @@ impl TextureAtlas {
     /// Generate a [`TextureAtlas`] by splitting a texture into a grid where each
     /// `tile_size` by `tile_size` grid-cell is one of the textures in the
     /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner. Resulting [`TextureAtlas`] is
+    /// at `offset` pixels from the top left corner. The resulting [`TextureAtlas`] is
     /// indexed left to right, top to bottom.
     pub fn from_grid(
         texture: Handle<Image>,
