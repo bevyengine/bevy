@@ -21,33 +21,33 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
             bottom: margin(scale_factor, value.margin.bottom),
         },
         padding: taffy::geometry::Rect {
-            left: lp(scale_factor, value.padding.left),
-            right: lp(scale_factor, value.padding.right),
-            top: lp(scale_factor, value.padding.top),
-            bottom: lp(scale_factor, value.padding.bottom),
+            left: length_percent(scale_factor, value.padding.left),
+            right: length_percent(scale_factor, value.padding.right),
+            top: length_percent(scale_factor, value.padding.top),
+            bottom: length_percent(scale_factor, value.padding.bottom),
         },
         border: taffy::geometry::Rect {
-            left: lp(scale_factor, value.border.left),
-            right: lp(scale_factor, value.border.right),
-            top: lp(scale_factor, value.border.top),
-            bottom: lp(scale_factor, value.border.bottom),
+            left: length_percent(scale_factor, value.border.left),
+            right: length_percent(scale_factor, value.border.right),
+            top: length_percent(scale_factor, value.border.top),
+            bottom: length_percent(scale_factor, value.border.bottom),
         },
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
-        flex_basis: dim(scale_factor, value.flex_basis),
+        flex_basis: dimension(scale_factor, value.flex_basis),
         size: from_size(scale_factor, value.size),
         min_size: from_size(scale_factor, value.min_size),
         max_size: from_size(scale_factor, value.max_size),
         aspect_ratio: value.aspect_ratio,
         gap: taffy::geometry::Size {
-            width: lp(scale_factor, value.gap.width),
-            height: lp(scale_factor, value.gap.height),
+            width: length_percent(scale_factor, value.gap.width),
+            height: length_percent(scale_factor, value.gap.height),
         },
         justify_self: None,
     }
 }
 
-fn dim(scale_factor: f64, val: Val) -> taffy::style::Dimension {
+fn dimension(scale_factor: f64, val: Val) -> taffy::style::Dimension {
     match val {
         Val::Auto | Val::Undefined => taffy::style::Dimension::Auto,
         Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
@@ -55,7 +55,7 @@ fn dim(scale_factor: f64, val: Val) -> taffy::style::Dimension {
     }
 }
 
-fn lp(scale_factor: f64, val: Val) -> taffy::style::LengthPercentage {
+fn length_percent(scale_factor: f64, val: Val) -> taffy::style::LengthPercentage {
     match val {
         Val::Auto | Val::Undefined => taffy::style::LengthPercentage::Points(0.0),
         Val::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
@@ -65,7 +65,7 @@ fn lp(scale_factor: f64, val: Val) -> taffy::style::LengthPercentage {
     }
 }
 
-fn lpa(scale_factor: f64, val: Val) -> taffy::style::LengthPercentageAuto {
+fn length_percent_auto(scale_factor: f64, val: Val) -> taffy::style::LengthPercentageAuto {
     match val {
         Val::Auto | Val::Undefined => taffy::style::LengthPercentageAuto::Auto,
         Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
@@ -91,17 +91,17 @@ fn from_rect(
     rect: UiRect,
 ) -> taffy::geometry::Rect<taffy::style::LengthPercentageAuto> {
     taffy::geometry::Rect {
-        left: lpa(scale_factor, rect.left),
-        right: lpa(scale_factor, rect.right),
-        top: lpa(scale_factor, rect.top),
-        bottom: lpa(scale_factor, rect.bottom),
+        left: length_percent_auto(scale_factor, rect.left),
+        right: length_percent_auto(scale_factor, rect.right),
+        top: length_percent_auto(scale_factor, rect.top),
+        bottom: length_percent_auto(scale_factor, rect.bottom),
     }
 }
 
 fn from_size(scale_factor: f64, size: Size) -> taffy::geometry::Size<taffy::style::Dimension> {
     taffy::geometry::Size {
-        width: dim(scale_factor, size.width),
-        height: dim(scale_factor, size.height),
+        width: dimension(scale_factor, size.width),
+        height: dimension(scale_factor, size.height),
     }
 }
 
