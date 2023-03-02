@@ -1633,7 +1633,7 @@ pub fn queue_shadows<M: Material>(
                             AlphaMode::Mask(_) => {
                                 mesh_key |= MeshPipelineKey::ALPHA_MASK;
                             }
-                            AlphaMode::Blend | AlphaMode::Add => {
+                            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add => {
                                 mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
                             }
                             _ => {}
