@@ -1,7 +1,7 @@
 use crate::{
     queue_mesh_view_bind_groups, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight,
-    MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin, RenderLightSystems,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPipelinePlugin, PrepassPlugin,
+    RenderLightSystems, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -212,6 +212,9 @@ where
                 )
                 .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
+
+        // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
+        app.add_plugin(PrepassPipelinePlugin::<M>::default());
 
         if self.prepass_enabled {
             app.add_plugin(PrepassPlugin::<M>::default());
