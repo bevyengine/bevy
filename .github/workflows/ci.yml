@@ -197,7 +197,11 @@ jobs:
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            if [[ -f ".github/example-run/$example_name.sh" ]]; then
+              time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run sh .github/example-run/$example_name.sh 
+            else
+              time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            fi
             sleep 10
           done
           zip traces.zip trace*.json
