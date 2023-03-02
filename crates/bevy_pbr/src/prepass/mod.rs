@@ -59,6 +59,9 @@ pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
 pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
 
+/// Sets up everything required to use the prepass pipeline.
+///
+/// This does not add the actual prepasses, see [`PrepassPipeline`] for that.
 pub struct PrepassPipelinePlugin<M: Material>(PhantomData<M>);
 
 impl<M: Material> Default for PrepassPipelinePlugin<M> {
@@ -105,6 +108,9 @@ where
     }
 }
 
+/// Sets up the prepasses for a [`Material`].
+///
+/// This depends on the [`PrepassPipelinePlugin`].
 pub struct PrepassPlugin<M: Material>(PhantomData<M>);
 
 impl<M: Material> Default for PrepassPlugin<M> {
