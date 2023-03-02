@@ -3,65 +3,96 @@ use crate::{
     PositionType, Size, Style, UiRect, Val,
 };
 
-pub fn from_rect(
-    scale_factor: f64,
-    rect: UiRect,
-) -> taffy::geometry::Rect<taffy::style::Dimension> {
-    taffy::geometry::Rect {
-        left: from_val(scale_factor, rect.left),
-        right: from_val(scale_factor, rect.right),
-        top: from_val(scale_factor, rect.top),
-        bottom: from_val(scale_factor, rect.bottom),
+pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
+    taffy::style::Style {
+        display: value.display.into(),
+        position: value.position_type.into(),
+        flex_direction: value.flex_direction.into(),
+        flex_wrap: value.flex_wrap.into(),
+        align_items: Some(value.align_items.into()),
+        align_self: value.align_self.into(),
+        align_content: Some(value.align_content.into()),
+        justify_content: Some(value.justify_content.into()),
+        inset: from_rect(scale_factor, value.position),
+        margin: from_rect(scale_factor, value.margin),
+        padding: taffy::geometry::Rect {
+            left: lp(scale_factor, value.padding.left),
+            right: lp(scale_factor, value.padding.right),
+            top: lp(scale_factor, value.padding.top),
+            bottom: lp(scale_factor, value.padding.bottom),
+        },
+        border: taffy::geometry::Rect {
+            left: lp(scale_factor, value.border.left),
+            right: lp(scale_factor, value.border.right),
+            top: lp(scale_factor, value.border.top),
+            bottom: lp(scale_factor, value.border.bottom),
+        },
+        flex_grow: value.flex_grow,
+        flex_shrink: value.flex_shrink,
+        flex_basis: dim(scale_factor, value.flex_basis),
+        size: from_size(scale_factor, value.size),
+        min_size: from_size(scale_factor, value.min_size),
+        max_size: from_size(scale_factor, value.max_size),
+        aspect_ratio: value.aspect_ratio,
+        gap: taffy::geometry::Size {
+            width: lp(scale_factor, value.gap.width),
+            height: lp(scale_factor, value.gap.height),
+        },
+        justify_self: None,        
     }
 }
 
-pub fn from_val_size(
+fn dim(scale_factor: f64, val: Val) -> taffy::style::Dimension {
+    match val {
+        Val::Auto | Val::Undefined => taffy::style::Dimension::Auto,
+        Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
+        Val::Px(value) => taffy::style::Dimension::Points((scale_factor * value as f64) as f32),
+    }
+}
+
+fn lp(scale_factor: f64, val: Val) -> taffy::style::LengthPercentage {
+    match val {
+        Val::Auto | Val::Undefined => taffy::style::LengthPercentage::Points(0.0),
+        Val::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
+        Val::Px(value) => taffy::style::LengthPercentage::Points((scale_factor * value as f64) as f32),
+    }
+}
+
+fn lpa(scale_factor: f64, val: Val) -> taffy::style::LengthPercentageAuto {
+    match val {
+        Val::Auto | Val::Undefined => taffy::style::LengthPercentageAuto::Auto,
+        Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
+        Val::Px(value) => taffy::style::LengthPercentageAuto::Points((scale_factor * value as f64) as f32),
+    }
+}
+
+pub fn from_rect(
+    scale_factor: f64,
+    rect: UiRect,
+) -> taffy::geometry::Rect<taffy::style::LengthPercentageAuto> {
+    taffy::geometry::Rect {
+        left: lpa(scale_factor, rect.left),
+        right: lpa(scale_factor, rect.right),
+        top: lpa(scale_factor, rect.top),
+        bottom: lpa(scale_factor, rect.bottom),
+    }
+}
+
+pub fn from_size(
     scale_factor: f64,
     size: Size,
 ) -> taffy::geometry::Size<taffy::style::Dimension> {
     taffy::geometry::Size {
-        width: from_val(scale_factor, size.width),
-        height: from_val(scale_factor, size.height),
-    }
-}
-
-pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
-    taffy::style::Style {
-        display: value.display.into(),
-        position_type: value.position_type.into(),
-        flex_direction: value.flex_direction.into(),
-        flex_wrap: value.flex_wrap.into(),
-        align_items: value.align_items.into(),
-        align_self: value.align_self.into(),
-        align_content: value.align_content.into(),
-        justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position),
-        margin: from_rect(scale_factor, value.margin),
-        padding: from_rect(scale_factor, value.padding),
-        border: from_rect(scale_factor, value.border),
-        flex_grow: value.flex_grow,
-        flex_shrink: value.flex_shrink,
-        flex_basis: from_val(scale_factor, value.flex_basis),
-        size: from_val_size(scale_factor, value.size),
-        min_size: from_val_size(scale_factor, value.min_size),
-        max_size: from_val_size(scale_factor, value.max_size),
-        aspect_ratio: value.aspect_ratio,
-        gap: from_val_size(scale_factor, value.gap),
-    }
-}
-
-pub fn from_val(scale_factor: f64, val: Val) -> taffy::style::Dimension {
-    match val {
-        Val::Auto => taffy::style::Dimension::Auto,
-        Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
-        Val::Px(value) => taffy::style::Dimension::Points((scale_factor * value as f64) as f32),
-        Val::Undefined => taffy::style::Dimension::Undefined,
+        width: dim(scale_factor, size.width),
+        height: dim(scale_factor, size.height),
     }
 }
 
 impl From<AlignItems> for taffy::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
+            AlignItems::Start => taffy::style::AlignItems::Start,
+            AlignItems::End => taffy::style::AlignItems::End,
             AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
             AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
             AlignItems::Center => taffy::style::AlignItems::Center,
@@ -71,15 +102,17 @@ impl From<AlignItems> for taffy::style::AlignItems {
     }
 }
 
-impl From<AlignSelf> for taffy::style::AlignSelf {
+impl From<AlignSelf> for Option<taffy::style::AlignSelf> {
     fn from(value: AlignSelf) -> Self {
         match value {
-            AlignSelf::Auto => taffy::style::AlignSelf::Auto,
-            AlignSelf::FlexStart => taffy::style::AlignSelf::FlexStart,
-            AlignSelf::FlexEnd => taffy::style::AlignSelf::FlexEnd,
-            AlignSelf::Center => taffy::style::AlignSelf::Center,
-            AlignSelf::Baseline => taffy::style::AlignSelf::Baseline,
-            AlignSelf::Stretch => taffy::style::AlignSelf::Stretch,
+            AlignSelf::Auto => None,
+            AlignSelf::Start => taffy::style::AlignSelf::Start.into(),
+            AlignSelf::End => taffy::style::AlignSelf::End.into(),
+            AlignSelf::FlexStart => taffy::style::AlignSelf::FlexStart.into(),
+            AlignSelf::FlexEnd => taffy::style::AlignSelf::FlexEnd.into(),
+            AlignSelf::Center => taffy::style::AlignSelf::Center.into(),
+            AlignSelf::Baseline => taffy::style::AlignSelf::Baseline.into(),
+            AlignSelf::Stretch => taffy::style::AlignSelf::Stretch.into(),
         }
     }
 }
@@ -87,12 +120,15 @@ impl From<AlignSelf> for taffy::style::AlignSelf {
 impl From<AlignContent> for taffy::style::AlignContent {
     fn from(value: AlignContent) -> Self {
         match value {
+            AlignContent::Start => taffy::style::AlignContent::Start,
+            AlignContent::End => taffy::style::AlignContent::End,
             AlignContent::FlexStart => taffy::style::AlignContent::FlexStart,
             AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd,
             AlignContent::Center => taffy::style::AlignContent::Center,
             AlignContent::Stretch => taffy::style::AlignContent::Stretch,
             AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween,
             AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround,
+            AlignContent::SpaceEvenly => taffy::style::AlignContent::SpaceEvenly,
         }
     }
 }
@@ -120,9 +156,12 @@ impl From<FlexDirection> for taffy::style::FlexDirection {
 impl From<JustifyContent> for taffy::style::JustifyContent {
     fn from(value: JustifyContent) -> Self {
         match value {
+            JustifyContent::Start => taffy::style::JustifyContent::Start,
+            JustifyContent::End => taffy::style::JustifyContent::End,
             JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart,
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd,
             JustifyContent::Center => taffy::style::JustifyContent::Center,
+            JustifyContent::Stretch => taffy::style::JustifyContent::Stretch,
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,
@@ -130,11 +169,11 @@ impl From<JustifyContent> for taffy::style::JustifyContent {
     }
 }
 
-impl From<PositionType> for taffy::style::PositionType {
+impl From<PositionType> for taffy::style::Position {
     fn from(value: PositionType) -> Self {
         match value {
-            PositionType::Relative => taffy::style::PositionType::Relative,
-            PositionType::Absolute => taffy::style::PositionType::Absolute,
+            PositionType::Relative => taffy::style::Position::Relative,
+            PositionType::Absolute => taffy::style::Position::Absolute,
         }
     }
 }

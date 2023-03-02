@@ -347,6 +347,10 @@ impl Default for Style {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// Items are aligned at the start
     FlexStart,
     /// Items are aligned at the end
@@ -376,6 +380,10 @@ impl Default for AlignItems {
 pub enum AlignSelf {
     /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned
     Auto,
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// This item will be aligned at the start
     FlexStart,
     /// This item will be aligned at the end
@@ -404,6 +412,10 @@ impl Default for AlignSelf {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// Each line moves towards the start of the cross axis
     FlexStart,
     /// Each line moves towards the end of the cross axis
@@ -415,6 +427,9 @@ pub enum AlignContent {
     /// Each line fills the space it needs, putting the remaining space, if any
     /// inbetween the lines
     SpaceBetween,
+    /// The gap between the first and last items is exactly THE SAME as the gap between items.
+    /// The gaps are distributed evenly
+    SpaceEvenly,
     /// Each line fills the space it needs, putting the remaining space, if any
     /// around the lines
     SpaceAround,
@@ -507,10 +522,16 @@ impl Default for FlexDirection {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
+    /// Items are packed toward the start of the axis
+    Start,
+    /// Items are packed toward the end of the axis
+    End,
     /// Pushed towards the start
     FlexStart,
     /// Pushed towards the end
     FlexEnd,
+    /// Items are stretched to fill the container
+    Stretch,
     /// Centered along the main axis
     Center,
     /// Remaining space is distributed between the items
