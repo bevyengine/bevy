@@ -1,7 +1,6 @@
 use crate::{
-    queue_mesh_view_bind_groups, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight,
-    MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin, RenderLightSystems,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
+    MeshUniform, PrepassPlugin, RenderLightSystems, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -205,11 +204,6 @@ where
                         .after(PrepareAssetSet::PreAssetPrepare),
                 )
                 .add_system(render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows))
-                .add_system(
-                    render::queue_shadow_view_bind_group::<M>
-                        .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_mesh_view_bind_groups), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`),
-                )
                 .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
 
