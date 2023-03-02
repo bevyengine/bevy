@@ -14,7 +14,12 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         align_content: Some(value.align_content.into()),
         justify_content: Some(value.justify_content.into()),
         inset: from_rect(scale_factor, value.position),
-        margin: from_rect(scale_factor, value.margin),
+        margin: taffy::geometry::Rect {
+            left: margin(scale_factor, value.margin.left),
+            right: margin(scale_factor, value.margin.right),
+            top: margin(scale_factor, value.margin.top),
+            bottom: margin(scale_factor, value.margin.bottom),            
+        },
         padding: taffy::geometry::Rect {
             left: lp(scale_factor, value.padding.left),
             right: lp(scale_factor, value.padding.right),
@@ -61,6 +66,15 @@ fn lp(scale_factor: f64, val: Val) -> taffy::style::LengthPercentage {
 fn lpa(scale_factor: f64, val: Val) -> taffy::style::LengthPercentageAuto {
     match val {
         Val::Auto | Val::Undefined => taffy::style::LengthPercentageAuto::Auto,
+        Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
+        Val::Px(value) => taffy::style::LengthPercentageAuto::Points((scale_factor * value as f64) as f32),
+    }
+}
+
+fn margin(scale_factor: f64, val: Val) -> taffy::style::LengthPercentageAuto {
+    match val {
+        Val::Auto => taffy::style::LengthPercentageAuto::Auto,
+        Val::Undefined => taffy::style::LengthPercentageAuto::Points(0.),
         Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
         Val::Px(value) => taffy::style::LengthPercentageAuto::Points((scale_factor * value as f64) as f32),
     }
