@@ -279,6 +279,8 @@ pub struct Style {
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     ///
+    /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
+    ///
     /// Rendering for borders is not yet implemented.
     pub border: UiRect,
     /// Defines how much a flexbox item should grow if there's space available
