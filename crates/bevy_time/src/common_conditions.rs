@@ -1,12 +1,12 @@
-use crate::{Timer, TimerMode, Time, fixed_timestep::FixedTime};
+use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 use bevy_ecs::system::Res;
 use bevy_utils::Duration;
 
 /// Run condition that is active on a regular time interval, using [`Time`] to advance
 /// the timer.
-/// 
+///
 /// If used for a fixed timestep system, use [`on_fixed_timer`] instead.
-/// 
+///
 /// ```rust,no_run
 /// use bevy::prelude::*;
 /// use bevy::time::common_conditions::on_timer;
@@ -27,7 +27,7 @@ use bevy_utils::Duration;
 /// the system will only run once even though the timer may have completed multiple
 /// times. This condition should only be used with large time durations (relative to
 /// delta time).
-/// 
+///
 /// For more accurate timers, use the [`Timer`] class directly (see
 /// [`Timer::times_finished_this_tick`] to address the problem mentioned above), or
 /// use fixed timesteps that allow systems to run multiple times per frame.
@@ -41,9 +41,9 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool {
 
 /// Run condition that is active on a regular time interval, using [`FixedTime`] to
 /// advance the timer.
-/// 
+///
 /// If used for a non-fixed timestep system, use [`on_timer`] instead.
-/// 
+///
 /// ```rust,no_run
 /// use bevy::prelude::*;
 /// use bevy::time::common_conditions::on_fixed_timer;
