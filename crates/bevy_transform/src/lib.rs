@@ -100,6 +100,7 @@ impl Plugin for TransformPlugin {
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
             .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
+            .configure_set(PropagateTransformsSet.in_set(TransformSystem::TransformPropagate))
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(
                     TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
@@ -113,20 +114,12 @@ impl Plugin for TransformPlugin {
                     .in_set(TransformSystem::TransformPropagate)
                     .ambiguous_with(PropagateTransformsSet),
             )
-            .add_startup_system(
-                propagate_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .in_set(PropagateTransformsSet),
-            )
+            .add_startup_system(propagate_transforms.in_set(PropagateTransformsSet))
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .ambiguous_with(PropagateTransformsSet),
             )
-            .add_system(
-                propagate_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .in_set(PropagateTransformsSet),
-            );
+            .add_system(propagate_transforms.in_set(PropagateTransformsSet));
     }
 }

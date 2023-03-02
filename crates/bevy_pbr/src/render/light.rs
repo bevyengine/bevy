@@ -8,10 +8,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
-use bevy_ecs::{
-    prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
-};
+use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
@@ -20,13 +17,12 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ComputedVisibility, ExtractedView, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{ComputedVisibility, ExtractedView, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -579,7 +575,6 @@ impl GlobalLightMeta {
 #[derive(Resource, Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformBuffer<GpuLights>,
-    pub shadow_view_bind_group: Option<BindGroup>,
 }
 
 #[derive(Component)]
@@ -1549,25 +1544,6 @@ pub fn prepare_clusters(
     }
 }
 
-pub fn queue_shadow_view_bind_group<M: Material>(
-    render_device: Res<RenderDevice>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    mut light_meta: ResMut<LightMeta>,
-    view_uniforms: Res<ViewUniforms>,
-) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        light_meta.shadow_view_bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding,
-                }],
-                label: Some("shadow_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
@@ -1770,33 +1746,5 @@ impl Node for ShadowPassNode {
         }
 
         Ok(())
-    }
-}
-
-pub struct SetShadowViewBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
-    type Param = SRes<LightMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        _item: &Shadow,
-        view_uniform_offset: &'_ ViewUniformOffset,
-        _entity: (),
-        light_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            light_meta
-                .into_inner()
-                .shadow_view_bind_group
-                .as_ref()
-                .unwrap(),
-            &[view_uniform_offset.offset],
-        );
-
-        RenderCommandResult::Success
     }
 }
