@@ -2,6 +2,12 @@
 name = "bevy_entropy"
 version = "0.9.0"
 edition = "2021"
+description = "Bevy Engine's RNG integration"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["game", "bevy", "rand", "rng"]
+categories = ["game-engines", "algorithms"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
