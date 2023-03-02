@@ -1,6 +1,7 @@
 use crate::{
-    AlphaMode, DrawMesh, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshUniform,
-    PrepassPlugin, SetMeshBindGroup, SetMeshViewBindGroup,
+    queue_mesh_view_bind_groups, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight,
+    MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin, RenderLightSystems,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -188,6 +189,8 @@ where
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<DrawFunctions<Shadow>>()
+                .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
@@ -200,6 +203,12 @@ where
                     prepare_materials::<M>
                         .in_set(RenderSet::Prepare)
                         .after(PrepareAssetSet::PreAssetPrepare),
+                )
+                .add_system(render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows))
+                .add_system(
+                    render::queue_shadow_view_bind_group::<M>
+                        .in_set(RenderSet::Queue)
+                        .ambiguous_with(queue_mesh_view_bind_groups), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`),
                 )
                 .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
