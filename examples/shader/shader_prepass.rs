@@ -10,7 +10,7 @@ use bevy::{
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 fn main() {
@@ -31,7 +31,7 @@ fn main() {
         })
         .add_startup_system(setup)
         .add_system(rotate)
-        .add_system(update)
+        .add_system(toggle_prepass_view)
         .run();
 }
 
@@ -70,8 +70,7 @@ fn setup(
         MaterialMeshBundle {
             mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
             material: depth_materials.add(PrepassOutputMaterial {
-                show_depth: 0.0,
-                show_normal: 0.0,
+                settings: ShowPrepassSettings::default(),
             }),
             transform: Transform::from_xyz(-0.75, 1.25, 3.0)
                 .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
@@ -194,14 +193,20 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     }
 }
 
+#[derive(Debug, Clone, Default, ShaderType)]
+struct ShowPrepassSettings {
+    show_depth: u32,
+    show_normals: u32,
+    padding_1: u32,
+    padding_2: u32,
+}
+
 // This shader simply loads the prepass texture and outputs it directly
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
 pub struct PrepassOutputMaterial {
     #[uniform(0)]
-    show_depth: f32,
-    #[uniform(1)]
-    show_normal: f32,
+    settings: ShowPrepassSettings,
 }
 
 impl Material for PrepassOutputMaterial {
@@ -215,7 +220,8 @@ impl Material for PrepassOutputMaterial {
     }
 }
 
-fn update(
+/// Every time you press space, it will cycle between transparent, depth and normals view
+fn toggle_prepass_view(
     keycode: Res<Input<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
@@ -223,20 +229,20 @@ fn update(
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         let handle = material_handle.single();
-        let mut mat = materials.get_mut(handle).unwrap();
+        let mat = materials.get_mut(handle).unwrap();
         let out_text;
-        if mat.show_depth == 1.0 {
+        if mat.settings.show_depth == 1 {
             out_text = "normal";
-            mat.show_depth = 0.0;
-            mat.show_normal = 1.0;
-        } else if mat.show_normal == 1.0 {
+            mat.settings.show_depth = 0;
+            mat.settings.show_normals = 1;
+        } else if mat.settings.show_normals == 1 {
             out_text = "transparent";
-            mat.show_depth = 0.0;
-            mat.show_normal = 0.0;
+            mat.settings.show_depth = 0;
+            mat.settings.show_normals = 0;
         } else {
             out_text = "depth";
-            mat.show_depth = 1.0;
-            mat.show_normal = 0.0;
+            mat.settings.show_depth = 1;
+            mat.settings.show_normals = 0;
         }
 
         let mut text = text.single_mut();

@@ -22,7 +22,10 @@ use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages,
@@ -181,7 +184,8 @@ pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
-    main_texture: AtomicUsize,
+    /// This is shared across view targets with the same render target
+    main_texture: Arc<AtomicUsize>,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
 }
@@ -352,6 +356,9 @@ struct MainTargetTextures {
     a: TextureView,
     b: TextureView,
     sampled: Option<TextureView>,
+    /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
+    /// This is shared across view targets with the same render target
+    main_texture: Arc<AtomicUsize>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -434,13 +441,14 @@ fn prepare_view_targets(
                                     )
                                     .default_view
                             }),
+                            main_texture: Arc::new(AtomicUsize::new(0)),
                         }
                     });
 
                 commands.entity(entity).insert(ViewTarget {
                     main_textures: main_textures.clone(),
                     main_texture_format,
-                    main_texture: AtomicUsize::new(0),
+                    main_texture: main_textures.main_texture.clone(),
                     out_texture: out_texture_view.clone(),
                     out_texture_format,
                 });

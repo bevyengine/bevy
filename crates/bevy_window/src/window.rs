@@ -130,9 +130,7 @@ pub struct Window {
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
-    /// - Windows 11: Not working as expected
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
-    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
     /// Should the window start focused?
     pub focused: bool,

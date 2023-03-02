@@ -7,6 +7,7 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
+        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const PREPASS: &str = "prepass";
         pub const MAIN_PASS: &str = "main_pass";
         pub const BLOOM: &str = "bloom";

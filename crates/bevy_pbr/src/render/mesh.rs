@@ -1,9 +1,9 @@
 use crate::{
-    environment_map, queue_shadow_view_bind_group, EnvironmentMapLight, FogMeta, GlobalLightMeta,
-    GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{IntoSystemAppConfigs, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -111,11 +111,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems((extract_meshes, extract_skinned_meshes).in_schedule(ExtractSchedule))
                 .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
                 .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
-                .add_system(
-                    queue_mesh_view_bind_groups
-                        .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_shadow_view_bind_group), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`
-                );
+                .add_system(queue_mesh_view_bind_groups.in_set(RenderSet::Queue));
         }
     }
 }
@@ -438,40 +434,11 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
-            if cfg!(not(feature = "webgl")) {
-                // Depth texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 16,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Depth,
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
-                // Normal texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 17,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
-                // Velocity texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 18,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
+            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
+                entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
+                    [16, 17, 18],
+                    multisampled,
+                ));
             }
 
             entries
@@ -615,6 +582,7 @@ bitflags::bitflags! {
         const VELOCITY_PREPASS                  = (1 << 5);
         const ALPHA_MASK                        = (1 << 6);
         const ENVIRONMENT_MAP                   = (1 << 7);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 8);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -973,7 +941,7 @@ pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
-    shadow_pipeline: Res<ShadowPipeline>,
+    shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     fog_meta: Res<FogMeta>,
@@ -1039,7 +1007,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
+                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 4,
@@ -1049,7 +1017,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::Sampler(&shadow_pipeline.directional_light_sampler),
+                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 6,
@@ -1085,43 +1053,15 @@ pub fn queue_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
-            // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
-            // When using WebGL, and MSAA is disabled, we can't bind the textures either
-            if cfg!(not(feature = "webgl")) {
-                let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => {
-                        &fallback_depths
-                            .image_for_samplecount(msaa.samples())
-                            .texture_view
-                    }
-                };
-                entries.push(BindGroupEntry {
-                    binding: 16,
-                    resource: BindingResource::TextureView(depth_view),
-                });
-
-                let normal_velocity_fallback = &fallback_images
-                    .image_for_samplecount(msaa.samples())
-                    .texture_view;
-
-                let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => normal_velocity_fallback,
-                };
-                entries.push(BindGroupEntry {
-                    binding: 17,
-                    resource: BindingResource::TextureView(normal_view),
-                });
-
-                let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => normal_velocity_fallback,
-                };
-                entries.push(BindGroupEntry {
-                    binding: 18,
-                    resource: BindingResource::TextureView(velocity_view),
-                });
+            // When using WebGL, we can't have a depth texture with multisampling
+            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+                entries.extend_from_slice(&prepass::get_bindings(
+                    prepass_textures,
+                    &mut fallback_images,
+                    &mut fallback_depths,
+                    &msaa,
+                    [16, 17, 18],
+                ));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {

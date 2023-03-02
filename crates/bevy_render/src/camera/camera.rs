@@ -15,20 +15,20 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
 
 use std::{borrow::Cow, ops::Range};
-use wgpu::{Extent3d, TextureFormat};
+use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -108,6 +108,15 @@ pub struct Camera {
     /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
     // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
     pub hdr: bool,
+    // todo: reflect this when #6042 lands
+    /// The [`CameraOutputMode`] for this camera.
+    #[reflect(ignore)]
+    pub output_mode: CameraOutputMode,
+    /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
+    /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
+    /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
+    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
+    pub msaa_writeback: bool,
 }
 
 impl Default for Camera {
@@ -118,7 +127,9 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
+            output_mode: Default::default(),
             hdr: false,
+            msaa_writeback: true,
         }
     }
 }
@@ -306,6 +317,35 @@ impl Camera {
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
         (!world_space_coords.is_nan()).then_some(world_space_coords)
+    }
+}
+
+/// Control how this camera outputs once rendering is completed.
+#[derive(Debug, Clone, Copy)]
+pub enum CameraOutputMode {
+    /// Writes the camera output to configured render target.
+    Write {
+        /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
+        blend_state: Option<BlendState>,
+        /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
+        /// target texture.
+        color_attachment_load_op: wgpu::LoadOp<wgpu::Color>,
+    },
+    /// Skips writing the camera output to the configured render target. The output will remain in the
+    /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
+    /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
+    /// them to be lost. Only use this if you know what you are doing!
+    /// In camera setups with multiple active cameras rendering to the same RenderTarget, the Skip mode can be used to remove
+    /// unnecessary / redundant writes to the final output texture, removing unnecessary render passes.
+    Skip,
+}
+
+impl Default for CameraOutputMode {
+    fn default() -> Self {
+        CameraOutputMode::Write {
+            blend_state: None,
+            color_attachment_load_op: LoadOp::Clear(Default::default()),
+        }
     }
 }
 
@@ -520,6 +560,9 @@ pub struct ExtractedCamera {
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
     pub order: isize,
+    pub output_mode: CameraOutputMode,
+    pub msaa_writeback: bool,
+    pub sorted_camera_index_for_target: usize,
 }
 
 pub fn extract_cameras(
@@ -573,6 +616,10 @@ pub fn extract_cameras(
                     physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
                     order: camera.order,
+                    output_mode: camera.output_mode,
+                    msaa_writeback: camera.msaa_writeback,
+                    // this will be set in sort_cameras
+                    sorted_camera_index_for_target: 0,
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
@@ -594,6 +641,66 @@ pub fn extract_cameras(
                 commands.insert(temporal_jitter.clone());
             }
         }
+    }
+}
+
+/// Cameras sorted by their order field. This is updated in the [`sort_cameras`] system.
+#[derive(Resource, Default)]
+pub struct SortedCameras(pub Vec<SortedCamera>);
+
+pub struct SortedCamera {
+    pub entity: Entity,
+    pub order: isize,
+    pub target: Option<NormalizedRenderTarget>,
+}
+
+pub fn sort_cameras(
+    mut sorted_cameras: ResMut<SortedCameras>,
+    mut cameras: Query<(Entity, &mut ExtractedCamera)>,
+) {
+    sorted_cameras.0.clear();
+    for (entity, camera) in cameras.iter() {
+        sorted_cameras.0.push(SortedCamera {
+            entity,
+            order: camera.order,
+            target: camera.target.clone(),
+        });
+    }
+    // sort by order and ensure within an order, RenderTargets of the same type are packed together
+    sorted_cameras
+        .0
+        .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
+            std::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
+            ord => ord,
+        });
+    let mut previous_order_target = None;
+    let mut ambiguities = HashSet::new();
+    let mut target_counts = HashMap::new();
+    for sorted_camera in &mut sorted_cameras.0 {
+        let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
+        if let Some(previous_order_target) = previous_order_target {
+            if previous_order_target == new_order_target {
+                ambiguities.insert(new_order_target.clone());
+            }
+        }
+        if let Some(target) = &sorted_camera.target {
+            let count = target_counts.entry(target.clone()).or_insert(0usize);
+            let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
+            camera.sorted_camera_index_for_target = *count;
+            *count += 1;
+        }
+        previous_order_target = Some(new_order_target);
+    }
+
+    if !ambiguities.is_empty() {
+        warn!(
+            "Camera order ambiguities detected for active cameras with the following priorities: {:?}. \
+            To fix this, ensure there is exactly one Camera entity spawned with a given order for a given RenderTarget. \
+            Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
+            result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, \
+            ambiguities could result in unpredictable render results.",
+            ambiguities
+        );
     }
 }
 
