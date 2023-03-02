@@ -341,6 +341,308 @@ impl Style {
         overflow: Overflow::DEFAULT,
         gap: Size::UNDEFINED,
     };
+
+    /// Construct a style instance with `flex_direction` set to `FlexDirection::Row`
+    pub fn row() -> Self {
+        Self {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Construct a style instance with `flex_direction` set to `FlexDirection::Column`
+    pub fn column() -> Self {
+        Self {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Set the `display` property
+    pub fn display(mut self, val: Display) -> Self {
+        self.display = val;
+        self
+    }
+
+    /// Set the `position_type` property
+    pub fn position_type(mut self, val: PositionType) -> Self {
+        self.position_type = val;
+        self
+    }
+
+    /// Set the `direction` property
+    pub fn direction(mut self, val: Direction) -> Self {
+        self.direction = val;
+        self
+    }
+    /// Set the `flex_direction` property
+    pub fn flex_direction(mut self, val: FlexDirection) -> Self {
+        self.flex_direction = val;
+        self
+    }
+    /// Set the `flex_wrap` property
+    pub fn flex_wrap(mut self, val: FlexWrap) -> Self {
+        self.flex_wrap = val;
+        self
+    }
+    /// Set the `align_items` property
+    pub fn align_items(mut self, val: AlignItems) -> Self {
+        self.align_items = val;
+        self
+    }
+    /// Set the `align_self` property
+    pub fn align_self(mut self, val: AlignSelf) -> Self {
+        self.align_self = val;
+        self
+    }
+    /// Set the `align_content` property
+    pub fn align_content(mut self, val: AlignContent) -> Self {
+        self.align_content = val;
+        self
+    }
+    /// Set the `justify_content` property
+    pub fn justify_content(mut self, val: JustifyContent) -> Self {
+        self.justify_content = val;
+        self
+    }
+
+    /// Set the `position.left` property
+    pub fn left(mut self, val: Val) -> Self {
+        self.position.left = val;
+        self
+    }
+    /// Set the `position.left` property
+    pub fn right(mut self, val: Val) -> Self {
+        self.position.right = val;
+        self
+    }
+    /// Set the `position.top` property
+    pub fn top(mut self, val: Val) -> Self {
+        self.position.top = val;
+        self
+    }
+    /// Set the `position.bottom` property
+    pub fn bottom(mut self, val: Val) -> Self {
+        self.position.bottom = val;
+        self
+    }
+    /// Set the `position.left` and `position.right` properties
+    pub fn position_horizontal(mut self, val: Val) -> Self {
+        self.position.right = val;
+        self.position.left = val;
+        self
+    }
+    /// Set the `position.top` and `position.bottom` properties
+    pub fn position_vertical(mut self, val: Val) -> Self {
+        self.position.top = val;
+        self.position.bottom = val;
+        self
+    }
+    /// Set the `position.top`,`position.bottom`,`position.left`, and `position.right` properties
+    pub fn position(mut self, val: Val) -> Self {
+        self.position.top = val;
+        self.position.bottom = val;
+        self.position.left = val;
+        self.position.right = val;
+        self
+    }
+
+    /// Set the `margin.left` property
+    pub fn margin_left(mut self, val: Val) -> Self {
+        self.margin.left = val;
+        self
+    }
+    /// Set the `margin.left` property
+    pub fn margin_right(mut self, val: Val) -> Self {
+        self.margin.right = val;
+        self
+    }
+    /// Set the `margin.top` property
+    pub fn margin_top(mut self, val: Val) -> Self {
+        self.margin.top = val;
+        self
+    }
+    /// Set the `margin.bottom` property
+    pub fn margin_bottom(mut self, val: Val) -> Self {
+        self.margin.bottom = val;
+        self
+    }
+    /// Set the `margin.left` and `margin.right` properties
+    pub fn margin_horizontal(mut self, val: Val) -> Self {
+        self.margin.right = val;
+        self.margin.left = val;
+        self
+    }
+    /// Set the `margin.top` and `margin.bottom` properties
+    pub fn margin_vertical(mut self, val: Val) -> Self {
+        self.margin.top = val;
+        self.margin.bottom = val;
+        self
+    }
+    /// Set the `margin.top`,`margin.bottom`,`margin.left`, and `margin.right` properties
+    pub fn margin(mut self, val: Val) -> Self {
+        self.margin.top = val;
+        self.margin.bottom = val;
+        self.margin.left = val;
+        self.margin.right = val;
+        self
+    }
+
+    /// Set the `padding.left` property
+    pub fn padding_left(mut self, val: Val) -> Self {
+        self.padding.left = val;
+        self
+    }
+    /// Set the `padding.left` property
+    pub fn padding_right(mut self, val: Val) -> Self {
+        self.padding.right = val;
+        self
+    }
+    /// Set the `padding.top` property
+    pub fn padding_top(mut self, val: Val) -> Self {
+        self.padding.top = val;
+        self
+    }
+    /// Set the `padding.bottom` property
+    pub fn padding_bottom(mut self, val: Val) -> Self {
+        self.padding.bottom = val;
+        self
+    }
+    /// Set the `padding.left` and `padding.right` properties
+    pub fn padding_horizontal(mut self, val: Val) -> Self {
+        self.padding.right = val;
+        self.padding.left = val;
+        self
+    }
+    /// Set the `padding.top` and `padding.bottom` properties
+    pub fn padding_vertical(mut self, val: Val) -> Self {
+        self.padding.top = val;
+        self.padding.bottom = val;
+        self
+    }
+    /// Set the `padding.top`,`padding.bottom`,`padding.left`, and `padding.right` properties
+    pub fn padding(mut self, val: Val) -> Self {
+        self.padding.top = val;
+        self.padding.bottom = val;
+        self.padding.left = val;
+        self.padding.right = val;
+        self
+    }
+
+    /// Set the `border.left` property
+    pub fn border_left(mut self, val: Val) -> Self {
+        self.border.left = val;
+        self
+    }
+    /// Set the `border.left` property
+    pub fn border_right(mut self, val: Val) -> Self {
+        self.border.right = val;
+        self
+    }
+    /// Set the `border.top` property
+    pub fn border_top(mut self, val: Val) -> Self {
+        self.border.top = val;
+        self
+    }
+    /// Set the `border.bottom` property
+    pub fn border_bottom(mut self, val: Val) -> Self {
+        self.border.bottom = val;
+        self
+    }
+    /// Set the `border.left` and `border.right` properties
+    pub fn border_horizontal(mut self, val: Val) -> Self {
+        self.border.right = val;
+        self.border.left = val;
+        self
+    }
+    /// Set the `border.top` and `border.bottom` properties
+    pub fn border_vertical(mut self, val: Val) -> Self {
+        self.border.top = val;
+        self.border.bottom = val;
+        self
+    }
+    /// Set the `border.top`,`border.bottom`,`border.left`, and `border.right` properties
+    pub fn border(mut self, val: Val) -> Self {
+        self.border.top = val;
+        self.border.bottom = val;
+        self.border.left = val;
+        self.border.right = val;
+        self
+    }
+
+    /// Set the `flex_grow` property
+    pub fn flex_grow(mut self, val: f32) -> Self {
+        self.flex_grow = val;
+        self
+    }
+    /// Set the `flex_shrink` property
+    pub fn flex_shrink(mut self, val: f32) -> Self {
+        self.flex_shrink = val;
+        self
+    }
+    /// Set the `flex_basis` property
+    pub fn flex_basis(mut self, val: Val) -> Self {
+        self.flex_basis = val;
+        self
+    }
+    /// Set the `size.width` property
+    pub fn width(mut self, val: Val) -> Self {
+        self.size.width = val;
+        self
+    }
+    /// Set the `size.height` property
+    pub fn height(mut self, val: Val) -> Self {
+        self.size.height = val;
+        self
+    }
+    /// Set the `min_size.width` property
+    pub fn min_width(mut self, val: Val) -> Self {
+        self.min_size.width = val;
+        self
+    }
+    /// Set the `min_size.height` property
+    pub fn min_height(mut self, val: Val) -> Self {
+        self.min_size.height = val;
+        self
+    }
+    /// Set the `max_size.width` property
+    pub fn max_width(mut self, val: Val) -> Self {
+        self.max_size.width = val;
+        self
+    }
+    /// Set the `max_size.height` property
+    pub fn max_height(mut self, val: Val) -> Self {
+        self.max_size.height = val;
+        self
+    }
+    /// Set the `aspect_ratio` property
+    pub fn aspect_ratio(mut self, val: f32) -> Self {
+        self.aspect_ratio = Some(val);
+        self
+    }
+    /// Set the `overflow` property
+    pub fn overflow(mut self, val: Overflow) -> Self {
+        self.overflow = val;
+        self
+    }
+    /// Set the spacing between rows
+    pub fn row_gap(mut self, val: Val) -> Self {
+        self.gap.height = val;
+        self
+    }
+    /// Set the spacing between columns
+    pub fn column_gap(mut self, val: Val) -> Self {
+        self.gap.width = val;
+        self
+    }
+    /// Set the spacing between both rows and columns
+    pub fn gap(mut self, val: Val) -> Self {
+        self.gap.width = val;
+        self.gap.height = val;
+        self
+    }
 }
 
 impl Default for Style {
