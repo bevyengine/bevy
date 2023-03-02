@@ -54,8 +54,8 @@ fn prepass_alpha_discard(in: FragmentInput) {
     if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) 
         && output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
         discard;
-    } else if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED 
-        && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF))) {
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED 
+        && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
         discard;
     }
 #endif // BLEND_PREMULTIPLIED_ALPHA
