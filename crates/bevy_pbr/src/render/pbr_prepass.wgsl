@@ -18,10 +18,10 @@ struct FragmentInput {
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
 
-#ifdef VELOCITY_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
-#endif // VELOCITY_PREPASS
+#endif // MOTION_VECTOR_PREPASS
 };
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
@@ -57,10 +57,10 @@ fn prepass_alpha_discard(in: FragmentInput) {
 
 #ifdef BLEND_PREMULTIPLIED_ALPHA
     let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) 
+    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD)
         && output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
         discard;
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED 
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
         && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
         discard;
     }
@@ -75,9 +75,9 @@ struct FragmentOutput {
     @location(0) normal: vec4<f32>,
 #endif // NORMAL_PREPASS
 
-#ifdef VELOCITY_PREPASS
-    @location(1) velocity: vec2<f32>,
-#endif // VELOCITY_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
+    @location(1) motion_vector: vec2<f32>,
+#endif // MOTION_VECTOR_PREPASS
 }
 
 @fragment
@@ -114,13 +114,13 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     }
 #endif // NORMAL_PREPASS
 
-#ifdef VELOCITY_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
-    out.velocity = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
-#endif // VELOCITY_PREPASS
+    out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
+#endif // MOTION_VECTOR_PREPASS
 
     return out;
 }

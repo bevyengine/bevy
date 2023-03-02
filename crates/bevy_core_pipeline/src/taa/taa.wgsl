@@ -11,7 +11,7 @@ const MIN_HISTORY_BLEND_RATE: f32 = 0.015;
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
-@group(0) @binding(2) var velocity: texture_2d<f32>;
+@group(0) @binding(2) var motion_vectors: texture_2d<f32>;
 @group(0) @binding(3) var depth: texture_depth_2d;
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
@@ -82,7 +82,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 #endif
 
 #ifndef RESET
-    // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)
+    // Pick the closest motion_vector from 5 samples (reduces aliasing on the edges of moving entities)
     // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 27
     let offset = texel_size * 2.0;
     let d_uv_tl = uv + vec2(-offset.x, offset.y);
@@ -110,7 +110,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     if d_br > closest_depth {
         closest_uv = d_uv_br;
     }
-    let closest_velocity = textureSample(velocity, nearest_sampler, closest_uv).rg;
+    let closest_motion_vector = textureSample(motion_vectors, nearest_sampler, closest_uv).rg;
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
@@ -118,7 +118,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // https://vec3.ca/bicubic-filtering-in-fewer-taps
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
-    let history_uv = uv - closest_velocity;
+    let history_uv = uv - closest_motion_vector;
     let sample_position = history_uv * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
     let f = sample_position - texel_center;
@@ -159,8 +159,8 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 
     // How confident we are that the history is representative of the current frame
     var history_confidence = textureSample(history, nearest_sampler, uv).a;
-    let pixel_velocity = abs(closest_velocity) * texture_size;
-    if pixel_velocity.x < 0.01 && pixel_velocity.y < 0.01 {
+    let pixel_motion_vector = abs(closest_motion_vector) * texture_size;
+    if pixel_motion_vector.x < 0.01 && pixel_motion_vector.y < 0.01 {
         // Increment when pixels are not moving
         history_confidence += 10.0;
     } else {

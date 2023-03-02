@@ -22,13 +22,13 @@ fn prepass_normal(frag_coord: vec4<f32>, sample_index: u32) -> vec3<f32> {
 }
 #endif // NORMAL_PREPASS
 
-#ifndef VELOCITY_PREPASS
-fn prepass_velocity(frag_coord: vec4<f32>, sample_index: u32) -> vec2<f32> {
+#ifndef MOTION_VECTOR_PREPASS
+fn prepass_motion_vector(frag_coord: vec4<f32>, sample_index: u32) -> vec2<f32> {
 #ifdef MULTISAMPLED
-    let velocity_sample = textureLoad(velocity_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
+    let motion_vector_sample = textureLoad(motion_vector_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
 #else
-    let velocity_sample = textureLoad(velocity_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+    let motion_vector_sample = textureLoad(motion_vector_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 #endif
-    return velocity_sample.rg;
+    return motion_vector_sample.rg;
 }
-#endif // VELOCITY_PREPASS
+#endif // MOTION_VECTOR_PREPASS

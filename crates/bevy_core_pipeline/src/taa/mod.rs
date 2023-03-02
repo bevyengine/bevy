@@ -1,7 +1,7 @@
 use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
+    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -101,7 +101,7 @@ pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
     pub jitter: TemporalJitter,
     pub depth_prepass: DepthPrepass,
-    pub velocity_prepass: VelocityPrepass,
+    pub motion_vector_prepass: MotionVectorPrepass,
 }
 
 /// Component to apply temporal anti-aliasing to a 3D perspective camera.
@@ -130,17 +130,17 @@ pub struct TemporalAntialiasBundle {
 /// # Usage Notes
 ///
 /// Requires that you add [`TemporalAntialiasPlugin`] to your app,
-/// and add the [`DepthPrepass`], [`VelocityPrepass`], and [`TemporalJitter`]
+/// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
 /// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
 ///
-/// It is very important that correct velocity vectors are written for everything on screen.
+/// It is very important that correct motion vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
 /// are added using a third party library, the library must either:
-/// 1. Write particle velocity to the velocity prepass texture
+/// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntialiasSettings {
@@ -212,11 +212,11 @@ impl Node for TAANode {
         };
         let (
             Some(taa_pipeline),
-            Some(prepass_velocity_texture),
+            Some(prepass_motion_vectors_texture),
             Some(prepass_depth_texture),
         ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
-            &prepass_textures.velocity,
+            &prepass_textures.motion_vectors,
             &prepass_textures.depth,
         ) else {
             return Ok(());
@@ -243,7 +243,7 @@ impl Node for TAANode {
                         BindGroupEntry {
                             binding: 2,
                             resource: BindingResource::TextureView(
-                                &prepass_velocity_texture.default_view,
+                                &prepass_motion_vectors_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
@@ -342,7 +342,7 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Velocity
+                    // Motion Vectors
                     BindGroupLayoutEntry {
                         binding: 2,
                         visibility: ShaderStages::FRAGMENT,
@@ -447,7 +447,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
             With<Camera3d>,
             With<TemporalJitter>,
             With<DepthPrepass>,
-            With<VelocityPrepass>,
+            With<MotionVectorPrepass>,
         )>();
 
     for (entity, camera, camera_projection, mut taa_settings) in

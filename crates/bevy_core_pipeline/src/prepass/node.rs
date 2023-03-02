@@ -86,9 +86,9 @@ impl Node for PrepassNode {
         } else {
             color_attachments.push(None);
         }
-        if let Some(view_velocities_texture) = &view_prepass_textures.velocity {
+        if let Some(view_motion_vectors_texture) = &view_prepass_textures.motion_vectors {
             color_attachments.push(Some(RenderPassColorAttachment {
-                view: &view_velocities_texture.default_view,
+                view: &view_motion_vectors_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
                     // Blue channel dosen't matter, but set to 1.0 for possible faster clear
