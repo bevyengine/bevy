@@ -700,23 +700,9 @@ mod tests {
 
         #[test]
         #[should_panic]
-        fn disallow_adding_sets_to_system_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_system(named_system.in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
         fn disallow_adding_base_sets_to_systems_with_in_set() {
             let mut schedule = Schedule::new();
             schedule.add_systems((named_system, named_system).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_systems_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_systems((named_system, named_system).in_base_set(Normal::X));
         }
 
         #[test]

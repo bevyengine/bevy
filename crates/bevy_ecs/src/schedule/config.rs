@@ -9,6 +9,8 @@ use crate::{
     system::{BoxedSystem, IntoSystem, System},
 };
 
+use super::BaseSystemSet;
+
 /// A [`SystemSet`] with scheduling metadata.
 pub struct SystemSetConfig {
     pub(super) set: BoxedSystemSet,
@@ -280,7 +282,7 @@ pub trait IntoSystemConfig<Marker, Config = SystemConfig> {
     fn in_set(self, set: impl SystemSet) -> Config;
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> Config;
+    fn in_base_set(self, set: impl BaseSystemSet) -> Config;
     /// Don't add this system to the schedules's default set.
     fn no_default_base_set(self) -> Config;
     /// Run before all systems in `set`.
@@ -314,7 +316,7 @@ where
     }
 
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemConfig {
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemConfig {
         self.into_config().in_base_set(set)
     }
 
@@ -354,7 +356,7 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
     }
 
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemConfig {
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemConfig {
         self.into_config().in_base_set(set)
     }
 
@@ -477,7 +479,7 @@ where
 
     /// Add these systems to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> SystemConfigs {
+    fn in_base_set(self, set: impl BaseSystemSet) -> SystemConfigs {
         self.into_configs().in_base_set(set)
     }
 
