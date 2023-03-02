@@ -352,16 +352,15 @@ where
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }));
-            } else if key
-                .mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-            {
-                targets.push(None);
             }
             if key
                 .mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
             {
+                if !key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+                    targets.push(None);
+                }
+
                 targets.push(Some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
