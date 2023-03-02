@@ -19,7 +19,7 @@ impl DynamicTextureAtlasBuilder {
     /// # Arguments
     ///
     /// * `size` - total size for the atlas
-    /// * `padding` - padding between textures in the atlas
+    /// * `padding` - gap added between textures in the atlas, both in x axis and y axis
     pub fn new(size: Vec2, padding: i32) -> Self {
         Self {
             atlas_allocator: AtlasAllocator::new(to_size2(size)),
