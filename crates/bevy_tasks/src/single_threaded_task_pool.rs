@@ -56,6 +56,11 @@ impl TaskPoolBuilder {
 pub struct TaskPool {}
 
 impl TaskPool {
+    /// Just create a new `ThreadExecutor` for wasm
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Arc::new(ThreadExecutor::new())
+    }
+
     /// Create a `TaskPool` with the default configuration.
     pub fn new() -> Self {
         TaskPoolBuilder::new().build()
