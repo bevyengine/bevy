@@ -44,9 +44,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap};
 
 use crate::{
-    AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
-    MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
+    MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup,
+    SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -106,7 +106,17 @@ where
                     .in_set(RenderSet::Prepare)
                     .after(bevy_render::view::prepare_windows),
             )
-            .add_system(prepare_previous_view_projection_uniforms.in_set(RenderSet::Prepare))
+            .add_system(
+                apply_system_buffers
+                    .in_set(RenderSet::Prepare)
+                    .in_set(PrepassLightsViewFlush)
+                    .after(prepare_lights),
+            )
+            .add_system(
+                prepare_previous_view_projection_uniforms
+                    .in_set(RenderSet::Prepare)
+                    .after(PrepassLightsViewFlush),
+            )
             .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
@@ -897,3 +907,6 @@ pub type DrawPrepass<M> = (
     SetMeshBindGroup<2>,
     DrawMesh,
 );
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+struct PrepassLightsViewFlush;
