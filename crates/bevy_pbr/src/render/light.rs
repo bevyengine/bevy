@@ -575,7 +575,6 @@ impl GlobalLightMeta {
 #[derive(Resource, Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformBuffer<GpuLights>,
-    pub shadow_view_bind_group: Option<BindGroup>,
 }
 
 #[derive(Component)]
