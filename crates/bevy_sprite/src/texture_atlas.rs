@@ -29,7 +29,7 @@ pub struct TextureAtlasSprite {
     pub color: Color,
     /// Texture index in [`TextureAtlas`]
     pub index: usize,
-    /// Whether flip the sprite in x axis
+    /// Whether to flip the sprite in the X axis
     pub flip_x: bool,
     /// Whether flip the sprite in y axis
     pub flip_y: bool,
