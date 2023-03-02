@@ -1,6 +1,6 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
-#ifdef NORMAL_PREPASS
+#ifdef PREPASS_FRAGMENT
 #import bevy_pbr::pbr_functions
 #endif // NORMAL_PREPASS
 
