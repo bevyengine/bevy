@@ -281,29 +281,24 @@ where
     #[doc(hidden)]
     fn into_config(self) -> Config;
     /// Add to `set` membership.
-    #[inline]
     #[track_caller]
     fn in_set(self, set: impl FreeSystemSet) -> Config {
         self.into_config().in_set(set)
     }
     /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
-    #[inline]
     #[track_caller]
     fn in_base_set(self, set: impl BaseSystemSet) -> Config {
         self.into_config().in_base_set(set)
     }
     /// Don't add this system to the schedules's default set.
-    #[inline]
     fn no_default_base_set(self) -> Config {
         self.into_config().no_default_base_set()
     }
     /// Run before all systems in `set`.
-    #[inline]
     fn before<M>(self, set: impl IntoSystemSet<M>) -> Config {
         self.into_config().before(set)
     }
     /// Run after all systems in `set`.
-    #[inline]
     fn after<M>(self, set: impl IntoSystemSet<M>) -> Config {
         self.into_config().after(set)
     }
@@ -311,19 +306,16 @@ where
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// when the system prepares to run.
-    #[inline]
     fn run_if<M>(self, condition: impl Condition<M>) -> Config {
         self.into_config().run_if(condition)
     }
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    #[inline]
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> Config {
         self.into_config().ambiguous_with(set)
     }
     /// Suppress warnings and errors that would result from this system having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    #[inline]
     fn ambiguous_with_all(self) -> Config {
         self.into_config().ambiguous_with_all()
     }
