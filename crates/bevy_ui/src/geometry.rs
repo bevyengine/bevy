@@ -343,7 +343,7 @@ pub struct Size {
 }
 
 impl Size {
-    pub const DEFAULT: Self = Self::all(Val::Auto);
+    pub const DEFAULT: Self = Self::AUTO;
 
     /// Creates a new [`Size`] from a width and a height.
     ///
@@ -362,6 +362,17 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where both sides take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::all(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Px(10.0));
+    /// ```
     pub const fn all(value: Val) -> Self {
         Self {
             width: value,
@@ -371,6 +382,18 @@ impl Size {
 
     /// Creates a new [`Size`] where `width` takes the given value,
     /// and `height` is set to [`Val::Auto`].
+
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::width(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Auto);
+    /// ```
     pub const fn width(width: Val) -> Self {
         Self {
             width,
@@ -380,6 +403,17 @@ impl Size {
 
     /// Creates a new [`Size`] where `height` takes the given value,
     /// and `width` is set to [`Val::Auto`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::height(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Auto);
+    /// assert_eq!(size.height, Val::Px(10.));
+    /// ```
     pub const fn height(height: Val) -> Self {
         Self {
             width: Val::Auto,
@@ -448,6 +482,15 @@ mod tests {
 
     #[test]
     fn uirect_default_equals_const_default() {
+        assert_eq!(
+            UiRect::default(),
+            UiRect {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.)
+            }
+        );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 
@@ -526,6 +569,13 @@ mod tests {
 
     #[test]
     fn size_default_equals_const_default() {
+        assert_eq!(
+            Size::default(),
+            Size {
+                width: Val::Auto,
+                height: Val::Auto
+            }
+        );
         assert_eq!(Size::default(), Size::DEFAULT);
     }
 }

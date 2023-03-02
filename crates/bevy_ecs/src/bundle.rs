@@ -3,6 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
+use bevy_utils::HashSet;
 
 use crate::{
     archetype::{
@@ -12,10 +13,11 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    TypeIdMap,
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use std::{any::TypeId, collections::HashMap};
+use bevy_utils::all_tuples;
+use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -553,7 +555,16 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.set(swapped_entity.index(), location);
+                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    self.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: swapped_location.table_row,
+                        },
+                    );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 self.entities.set(entity.index(), new_location);
@@ -581,7 +592,16 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.set(swapped_entity.index(), location);
+                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    self.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: swapped_location.table_row,
+                        },
+                    );
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
@@ -606,6 +626,15 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                             .add(swapped_location.archetype_id.index())
                     };
 
+                    self.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: swapped_location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: result.table_row,
+                        },
+                    );
                     swapped_archetype
                         .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                 }
@@ -683,7 +712,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
-    bundle_ids: HashMap<TypeId, BundleId>,
+    bundle_ids: TypeIdMap<BundleId>,
 }
 
 impl Bundles {
@@ -709,7 +738,7 @@ impl Bundles {
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures info was created
-                unsafe { initialize_bundle(std::any::type_name::<T>(), component_ids, id) };
+                unsafe { initialize_bundle(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -723,16 +752,35 @@ impl Bundles {
 /// `component_id` must be valid [`ComponentId`]'s
 unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
+    components: &Components,
     component_ids: Vec<ComponentId>,
     id: BundleId,
 ) -> BundleInfo {
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
-    assert!(
-        deduped.len() == component_ids.len(),
-        "Bundle {bundle_type_name} has duplicate components",
-    );
+
+    if deduped.len() != component_ids.len() {
+        // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
+        let mut seen = HashSet::new();
+        let mut dups = Vec::new();
+        for id in component_ids {
+            if !seen.insert(id) {
+                dups.push(id);
+            }
+        }
+
+        let names = dups
+            .into_iter()
+            .map(|id| {
+                // SAFETY: component_id exists and is therefore valid
+                unsafe { components.get_info_unchecked(id).name() }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+    }
 
     BundleInfo { id, component_ids }
 }

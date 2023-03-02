@@ -29,16 +29,13 @@ pub struct FlexSurface {
 }
 
 // SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
-    // FIXME https://github.com/DioxusLabs/taffy/issues/146
-    // _assert_send_sync::<Taffy>();
+    _assert_send_sync::<Taffy>();
 }
 
 impl fmt::Debug for FlexSurface {
@@ -86,7 +83,10 @@ impl FlexSurface {
         let taffy_style = convert::from_style(scale_factor, style);
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-                let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
+                let mut size = Size {
+                    width: (scale_factor * calculated_size.size.x as f64) as f32,
+                    height: (scale_factor * calculated_size.size.y as f64) as f32,
+                };
                 match (constraints.width, constraints.height) {
                     (None, None) => {}
                     (Some(width), None) => {

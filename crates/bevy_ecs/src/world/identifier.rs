@@ -1,9 +1,16 @@
-use crate::storage::SparseSetIndex;
+use crate::{
+    storage::SparseSetIndex,
+    system::{ReadOnlySystemParam, SystemParam},
+    world::{FromWorld, World},
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
-/// A unique identifier for a [`super::World`].
+/// A unique identifier for a [`World`].
+///
+/// The trait [`FromWorld`] is implemented for this type, which returns the
+/// ID of the world passed to [`FromWorld::from_world`].
 // Note that this *is* used by external crates as well as for internal safety checks
 pub struct WorldId(usize);
 
@@ -24,6 +31,34 @@ impl WorldId {
             })
             .map(WorldId)
             .ok()
+    }
+}
+
+impl FromWorld for WorldId {
+    #[inline]
+    fn from_world(world: &mut World) -> Self {
+        world.id()
+    }
+}
+
+// SAFETY: Has read-only access to shared World metadata
+unsafe impl ReadOnlySystemParam for WorldId {}
+
+// SAFETY: A World's ID is immutable and fetching it from the World does not borrow anything
+unsafe impl SystemParam for WorldId {
+    type State = ();
+
+    type Item<'world, 'state> = WorldId;
+
+    fn init_state(_: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _: &'state mut Self::State,
+        _: &crate::system::SystemMeta,
+        world: &'world super::World,
+        _: u32,
+    ) -> Self::Item<'world, 'state> {
+        world.id
     }
 }
 

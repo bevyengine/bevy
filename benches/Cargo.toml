@@ -16,6 +16,7 @@ bevy_ecs = { path = "../crates/bevy_ecs" }
 bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
+bevy_math = { path = "../crates/bevy_math" }
 
 [profile.release]
 opt-level = 3
@@ -49,4 +50,9 @@ harness = false
 [[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
+harness = false
+
+[[bench]]
+name = "bezier"
+path = "benches/bevy_math/bezier.rs"
 harness = false

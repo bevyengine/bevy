@@ -16,6 +16,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
@@ -33,6 +34,7 @@ pub enum ImageFormat {
     Dds,
     Farbfeld,
     Gif,
+    OpenExr,
     Hdr,
     Ico,
     Jpeg,
@@ -52,6 +54,7 @@ impl ImageFormat {
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
+            "image/x-exr" => ImageFormat::OpenExr,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
             _ => return None,
         })
@@ -65,6 +68,7 @@ impl ImageFormat {
             "dds" => ImageFormat::Dds,
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
             "gif" => ImageFormat::Gif,
+            "exr" => ImageFormat::OpenExr,
             "hdr" => ImageFormat::Hdr,
             "ico" => ImageFormat::Ico,
             "jpg" | "jpeg" => ImageFormat::Jpeg,
@@ -85,6 +89,7 @@ impl ImageFormat {
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
             ImageFormat::Gif => image::ImageFormat::Gif,
+            ImageFormat::OpenExr => image::ImageFormat::OpenExr,
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
@@ -494,6 +499,7 @@ pub struct GpuImage {
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Vec2,
+    pub mip_level_count: u32,
 }
 
 impl RenderAsset for Image {
@@ -543,6 +549,7 @@ impl RenderAsset for Image {
             texture_format: image.texture_descriptor.format,
             sampler,
             size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }

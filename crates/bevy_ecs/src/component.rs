@@ -5,6 +5,7 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource},
     world::{FromWorld, World},
+    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -238,7 +239,8 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
-    fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    /// Create a new [`ComponentInfo`].
+    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo { id, descriptor }
     }
 }
@@ -400,8 +402,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: TypeIdMap<usize>,
+    resource_indices: TypeIdMap<usize>,
 }
 
 impl Components {
@@ -596,8 +598,10 @@ impl Tick {
     }
 
     #[inline]
-    /// Returns `true` if the tick is older than the system last's run.
-    pub fn is_older_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
+    /// Returns `true` if this `Tick` occurred since the system's `last_change_tick`.
+    ///
+    /// `change_tick` is the current tick of the system, used as a reference to help deal with wraparound.
+    pub fn is_newer_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
         // `last_change_tick` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
@@ -670,13 +674,13 @@ impl ComponentTicks {
     #[inline]
     /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.added.is_older_than(last_change_tick, change_tick)
+        self.added.is_newer_than(last_change_tick, change_tick)
     }
 
     #[inline]
     /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.changed.is_older_than(last_change_tick, change_tick)
+        self.changed.is_newer_than(last_change_tick, change_tick)
     }
 
     pub(crate) fn new(change_tick: u32) -> Self {

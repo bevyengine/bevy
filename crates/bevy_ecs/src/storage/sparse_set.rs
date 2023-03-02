@@ -497,7 +497,35 @@ pub struct SparseSets {
 }
 
 impl SparseSets {
-    pub fn get_or_insert(&mut self, component_info: &ComponentInfo) -> &mut ComponentSparseSet {
+    /// Returns the number of [`ComponentSparseSet`]s this collection contains.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.sets.len()
+    }
+
+    /// Returns true if this collection contains no [`ComponentSparseSet`]s.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.sets.is_empty()
+    }
+
+    /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.
+    /// NOTE: Order is not guaranteed.
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
+        self.sets.iter().map(|(id, data)| (*id, data))
+    }
+
+    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
+        self.sets.get(component_id)
+    }
+
+    /// Gets a mutable reference of [`ComponentSparseSet`] of a [`ComponentInfo`].
+    /// Create a new [`ComponentSparseSet`] if not exists.
+    pub(crate) fn get_or_insert(
+        &mut self,
+        component_info: &ComponentInfo,
+    ) -> &mut ComponentSparseSet {
         if !self.sets.contains(component_info.id()) {
             self.sets.insert(
                 component_info.id(),
@@ -508,15 +536,13 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-        self.sets.get(component_id)
-    }
-
-    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
 
-    pub fn clear(&mut self) {
+    /// Clear entities stored in each [`ComponentSparseSet`]
+    pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
         }
@@ -531,7 +557,13 @@ impl SparseSets {
 
 #[cfg(test)]
 mod tests {
-    use crate::{entity::Entity, storage::SparseSet};
+    use super::SparseSets;
+    use crate::{
+        self as bevy_ecs,
+        component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
+        entity::Entity,
+        storage::SparseSet,
+    };
 
     #[derive(Debug, Eq, PartialEq)]
     struct Foo(usize);
@@ -583,5 +615,43 @@ mod tests {
 
         *set.get_mut(e1).unwrap() = Foo(11);
         assert_eq!(set.get(e1), Some(&Foo(11)));
+    }
+
+    #[test]
+    fn sparse_sets() {
+        let mut sets = SparseSets::default();
+
+        #[derive(Component, Default, Debug)]
+        struct TestComponent1;
+
+        #[derive(Component, Default, Debug)]
+        struct TestComponent2;
+
+        assert_eq!(sets.len(), 0);
+        assert!(sets.is_empty());
+
+        init_component::<TestComponent1>(&mut sets, 1);
+        assert_eq!(sets.len(), 1);
+
+        init_component::<TestComponent2>(&mut sets, 2);
+        assert_eq!(sets.len(), 2);
+
+        // check its shape by iter
+        let mut collected_sets = sets
+            .iter()
+            .map(|(id, set)| (id, set.len()))
+            .collect::<Vec<_>>();
+        collected_sets.sort();
+        assert_eq!(
+            collected_sets,
+            vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
+        );
+
+        fn init_component<T: Component>(sets: &mut SparseSets, id: usize) {
+            let descriptor = ComponentDescriptor::new::<TestComponent1>();
+            let id = ComponentId::new(id);
+            let info = ComponentInfo::new(id, descriptor);
+            sets.get_or_insert(&info);
+        }
     }
 }

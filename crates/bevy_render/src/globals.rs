@@ -1,26 +1,32 @@
 use crate::{
     extract_resource::ExtractResource,
+    prelude::Shader,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfigs, Plugin};
+use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_time::Time;
+
+pub const GLOBALS_TYPE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17924628719070609599);
 
 pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(app, GLOBALS_TYPE_HANDLE, "globals.wgsl", Shader::from_wgsl);
         app.register_type::<GlobalsUniform>();
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
-                .add_systems_to_schedule(ExtractSchedule, (extract_frame_count, extract_time))
+                .add_systems((extract_frame_count, extract_time).in_schedule(ExtractSchedule))
                 .add_system(prepare_globals_buffer.in_set(RenderSet::Prepare));
         }
     }

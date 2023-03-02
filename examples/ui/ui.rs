@@ -1,6 +1,10 @@
 //! This example illustrates the various features of Bevy UI.
 
 use bevy::{
+    a11y::{
+        accesskit::{NodeBuilder, Role},
+        AccessibilityNode,
+    },
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
@@ -55,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // text
-                            parent.spawn(
+                            parent.spawn((
                                 TextBundle::from_section(
                                     "Text Example",
                                     TextStyle {
@@ -68,7 +72,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::all(Val::Px(5.)),
                                     ..default()
                                 }),
-                            );
+                                // Because this is a distinct label widget and
+                                // not button/list item text, this is necessary
+                                // for accessibility to treat the text accordingly.
+                                Label,
+                            ));
                         });
                 });
             // right vertical fill
@@ -86,13 +94,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn(TextBundle::from_section(
+                    parent.spawn((TextBundle::from_section(
                         "Scrolling list",
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 25.,
                             color: Color::WHITE,
                         },
+                        Label,
                     ));
                     // List with hidden overflow
                     parent
@@ -121,11 +130,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     ScrollingList::default(),
+                                    AccessibilityNode(NodeBuilder::new(Role::List)),
                                 ))
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..30 {
-                                        parent.spawn(
+                                        parent.spawn((
                                             TextBundle::from_section(
                                                 format!("Item {i}"),
                                                 TextStyle {
@@ -140,7 +150,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 size: Size::height(Val::Px(20.)),
                                                 ..default()
                                             }),
-                                        );
+                                            Label,
+                                            AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                        ));
                                     }
                                 });
                         });
@@ -193,6 +205,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
+                                    // Take the size of the parent node.
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(20.),
@@ -252,14 +265,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    parent.spawn(ImageBundle {
-                        style: Style {
-                            size: Size::width(Val::Px(500.)),
+
+                    parent
+                        .spawn(ImageBundle {
+                            style: Style {
+                                size: Size::width(Val::Px(500.0)),
+                                ..default()
+                            },
                             ..default()
-                        },
-                        image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
-                        ..default()
-                    });
+                        })
+                        .with_children(|parent| {
+                            // alt text
+                            parent
+                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                        });
                 });
         });
 }

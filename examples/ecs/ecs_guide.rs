@@ -26,7 +26,6 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    log::LogPlugin,
     prelude::*,
     utils::Duration,
 };
@@ -282,7 +281,7 @@ fn main() {
         // add_system(system) adds systems to the Update system set by default
         // However we can manually specify the set if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_system(score_system)
+        .add_system(score_system.in_base_set(CoreSet::Update))
         // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
         .add_system(print_at_end_round.in_base_set(CoreSet::Last))
         // We can also create new system sets, and order them relative to other system sets.
@@ -298,19 +297,16 @@ fn main() {
                 .after(new_round_system)
                 .in_base_set(MySet::BeforeRound),
         )
-        .add_system(exclusive_player_system.in_set(MySet::BeforeRound))
-        .add_system(score_check_system.in_set(MySet::AfterRound))
+        .add_system(exclusive_player_system.in_base_set(MySet::BeforeRound))
+        .add_system(score_check_system.in_base_set(MySet::AfterRound))
         .add_system(
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
             // To do this we use either `.before` or `.after` to describe the order we want the relationship
             // Since we are using `after`, `game_over_system` runs after `score_check_system`
-            game_over_system.after(score_check_system),
+            game_over_system
+                .after(score_check_system)
+                .in_base_set(MySet::AfterRound),
         )
-        // We can check our systems for execution order ambiguities by examining the output produced
-        // in the console by using the `LogPlugin` and adding the following Resource to our App :)
-        // Be aware that not everything reported by this checker is a potential problem, you'll have
-        // to make that judgement yourself.
-        .add_plugin(LogPlugin::default())
         // This call to run() starts the app we just built!
         .run();
 }

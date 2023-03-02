@@ -227,30 +227,82 @@ pub struct Style {
     pub flex_wrap: FlexWrap,
     /// How items are aligned according to the cross axis
     pub align_items: AlignItems,
-    /// Like align_items but for only this item
+    /// How this item is aligned according to the cross axis.
+    /// Overrides [`AlignItems`].
     pub align_self: AlignSelf,
     /// How to align each line, only applies if flex_wrap is set to
     /// [`FlexWrap::Wrap`] and there are multiple lines of items
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The margin of the node
+    /// The amount of space around a node outside its border.
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, Val};
+    /// let style = Style {
+    ///     margin: UiRect {
+    ///         left: Val::Percent(10.),
+    ///         right: Val::Percent(10.),
+    ///         top: Val::Percent(15.),
+    ///         bottom: Val::Percent(15.)
+    ///     },
+    ///     ..Default::default()
+    /// };
+    /// ```
+    /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom egdes.
     pub margin: UiRect,
-    /// The padding of the node
+    /// The amount of space between the edges of a node and its contents.
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, Val};
+    /// let style = Style {
+    ///     padding: UiRect {
+    ///         left: Val::Percent(1.),
+    ///         right: Val::Percent(2.),
+    ///         top: Val::Percent(3.),
+    ///         bottom: Val::Percent(4.)
+    ///     },
+    ///     ..Default::default()
+    /// };
+    /// ```
+    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     pub padding: UiRect,
-    /// The border of the node
+    /// The amount of space between the margins of a node and its padding.
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
+    ///
+    /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
+    ///
+    /// Rendering for borders is not yet implemented.
     pub border: UiRect,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
     pub flex_shrink: f32,
-    /// The initial size of the item
+    /// The initial length of the main axis, before other properties are applied.
+    ///
+    /// If both are set, `flex_basis` overrides `size` on the main axis but it obeys the bounds defined by `min_size` and `max_size`.
     pub flex_basis: Val,
-    /// The size of the flexbox
+    /// The ideal size of the flexbox
+    ///
+    /// `size.width` is used when it is within the bounds defined by `min_size.width` and `max_size.width`.
+    /// `size.height` is used when it is within the bounds defined by `min_size.height` and `max_size.height`.
     pub size: Size,
     /// The minimum size of the flexbox
+    ///
+    /// `min_size.width` is used if it is greater than either `size.width` or `max_size.width`, or both.
+    /// `min_size.height` is used if it is greater than either `size.height` or `max_size.height`, or both.
     pub min_size: Size,
     /// The maximum size of the flexbox
+    ///
+    /// `max_size.width` is used if it is within the bounds defined by `min_size.width` and `size.width`.
+    /// `max_size.height` is used if it is within the bounds defined by `min_size.height` and `size.height.
     pub max_size: Size,
     /// The aspect ratio of the flexbox
     pub aspect_ratio: Option<f32>,
@@ -324,21 +376,22 @@ impl Default for AlignItems {
     }
 }
 
-/// Works like [`AlignItems`] but applies only to a single item
+/// How this item is aligned according to the cross axis.
+/// Overrides [`AlignItems`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
-    /// Use the value of [`AlignItems`]
+    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned
     Auto,
-    /// If the parent has [`AlignItems::Center`] only this item will be at the start
+    /// This item will be aligned at the start
     FlexStart,
-    /// If the parent has [`AlignItems::Center`] only this item will be at the end
+    /// This item will be aligned at the end
     FlexEnd,
-    /// If the parent has [`AlignItems::FlexStart`] only this item will be at the center
+    /// This item will be aligned at the center
     Center,
-    /// If the parent has [`AlignItems::Center`] only this item will be at the baseline
+    /// This item will be aligned at the baseline
     Baseline,
-    /// If the parent has [`AlignItems::Center`] only this item will stretch along the whole cross axis
+    /// This item will be stretched across the whole cross axis
     Stretch,
 }
 
@@ -553,15 +606,15 @@ impl Default for FlexWrap {
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CalculatedSize {
-    /// The size of the node
-    pub size: Size,
+    /// The size of the node in logical pixels
+    pub size: Vec2,
     /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
     pub preserve_aspect_ratio: bool,
 }
 
 impl CalculatedSize {
     const DEFAULT: Self = Self {
-        size: Size::DEFAULT,
+        size: Vec2::ZERO,
         preserve_aspect_ratio: false,
     };
 }

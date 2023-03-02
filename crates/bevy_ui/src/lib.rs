@@ -9,12 +9,15 @@ mod render;
 mod stack;
 mod ui_node;
 
+mod accessibility;
 pub mod camera_config;
 pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
+#[cfg(feature = "bevy_text")]
+use bevy_render::camera::CameraUpdateSystem;
+use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
@@ -25,8 +28,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
     };
 }
 
@@ -100,47 +102,54 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
+            .register_type::<widget::Label>()
+            .add_plugin(accessibility::AccessibilityPlugin)
             .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
             .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
             .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
-            .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem))
-            // add these systems to front because these must run before transform update systems
-            .add_system(
-                widget::text_system
-                    .in_base_set(CoreSet::PostUpdate)
-                    .before(UiSystem::Flex)
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `widget::text_system`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
-                    // Potential conflict: `Assets<Image>`
-                    // Since both systems will only ever insert new [`Image`] assets,
-                    // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
-            )
-            .add_system(
-                widget::update_image_calculated_size_system
-                    .in_base_set(CoreSet::PostUpdate)
-                    .before(UiSystem::Flex)
-                    // Potential conflicts: `Assets<Image>`
-                    // They run independently since `widget::image_node_system` will only ever observe
-                    // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(bevy_text::update_text2d_layout)
-                    .ambiguous_with(widget::text_system),
-            )
-            .add_system(
-                flex_node_system
-                    .in_set(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
-            )
-            .add_system(ui_stack_system.in_set(UiSystem::Stack))
-            .add_system(
-                update_clipping_system
-                    .after(TransformSystem::TransformPropagate)
-                    .in_base_set(CoreSet::PostUpdate),
-            );
+            .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem));
+        // add these systems to front because these must run before transform update systems
+        #[cfg(feature = "bevy_text")]
+        app.add_system(
+            widget::text_system
+                .in_base_set(CoreSet::PostUpdate)
+                .before(UiSystem::Flex)
+                // Potential conflict: `Assets<Image>`
+                // In practice, they run independently since `bevy_render::camera_update_system`
+                // will only ever observe its own render target, and `widget::text_system`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(CameraUpdateSystem)
+                // Potential conflict: `Assets<Image>`
+                // Since both systems will only ever insert new [`Image`] assets,
+                // they will never observe each other's effects.
+                .ambiguous_with(bevy_text::update_text2d_layout),
+        );
+        app.add_system({
+            let system = widget::update_image_calculated_size_system
+                .in_base_set(CoreSet::PostUpdate)
+                .before(UiSystem::Flex);
+            // Potential conflicts: `Assets<Image>`
+            // They run independently since `widget::image_node_system` will only ever observe
+            // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+            // will never modify a pre-existing `Image` asset.
+            #[cfg(feature = "bevy_text")]
+            let system = system
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(widget::text_system);
+
+            system
+        })
+        .add_system(
+            flex_node_system
+                .in_set(UiSystem::Flex)
+                .before(TransformSystem::TransformPropagate),
+        )
+        .add_system(ui_stack_system.in_set(UiSystem::Stack))
+        .add_system(
+            update_clipping_system
+                .after(TransformSystem::TransformPropagate)
+                .in_base_set(CoreSet::PostUpdate),
+        );
 
         crate::render::build_ui_render(app);
     }

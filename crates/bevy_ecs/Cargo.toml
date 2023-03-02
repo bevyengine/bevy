@@ -24,7 +24,7 @@ async-channel = "1.4"
 event-listener = "2.5"
 thread_local = "1.1.4"
 fixedbitset = "0.4.2"
-fxhash = "0.2"
+rustc-hash = "1.1"
 downcast-rs = "1.2"
 serde = { version = "1", features = ["derive"] }
 
