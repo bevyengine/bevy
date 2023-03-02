@@ -275,7 +275,11 @@ pub struct Style {
     /// ```
     /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     pub padding: UiRect,
-    /// The border of the node
+    /// The amount of space between the margins of a node and its padding.
+    ///
+    /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
+    ///
+    /// Rendering for borders is not yet implemented.
     pub border: UiRect,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
