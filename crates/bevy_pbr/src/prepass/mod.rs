@@ -140,7 +140,6 @@ where
             .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }
