@@ -305,6 +305,13 @@ where
             shader_defs.push("VELOCITY_PREPASS".into());
         }
 
+        if key
+            .mesh_key
+            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::VELOCITY_PREPASS)
+        {
+            shader_defs.push("PREPASS_FRAGMENT".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
@@ -326,8 +333,6 @@ where
                 | MeshPipelineKey::ALPHA_MASK,
         ) || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
         {
-            shader_defs.push("PREPASS_FRAGMENT".into());
-
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
@@ -343,7 +348,7 @@ where
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }));
-            } else {
+            } else if key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS) {
                 targets.push(None);
             }
             if key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS) {

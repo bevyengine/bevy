@@ -69,6 +69,7 @@ fn prepass_alpha_discard(in: FragmentInput) {
 #endif // EMPTY_PREPASS_ALPHA_DISCARD not defined
 }
 
+#ifdef PREPASS_FRAGMENT
 struct FragmentOutput {
 #ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
@@ -123,3 +124,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     return out;
 }
+#else
+@fragment
+fn fragment(in: FragmentInput) {
+    prepass_alpha_discard(in);
+}
+#endif // PREPASS_FRAGMENT
