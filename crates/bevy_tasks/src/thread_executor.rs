@@ -83,6 +83,11 @@ impl<'task> ThreadExecutor<'task> {
         }
         None
     }
+
+    /// Returns true if `self` and `other`'s executor is same
+    pub fn is_same(&self, other: &Self) -> bool {
+        std::ptr::eq(self, other)
+    }
 }
 
 /// Used to tick the [`ThreadExecutor`]. The executor does not
@@ -104,11 +109,6 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     /// Returns false if if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
         self.executor.executor.try_tick()
-    }
-
-    /// Returns true if `self` and `other`'s executor is same
-    pub fn is_same_executor(&self, other: &Self) -> bool {
-        std::ptr::eq(self.executor, other.executor)
     }
 }
 

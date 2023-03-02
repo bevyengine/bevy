@@ -384,9 +384,11 @@ impl TaskPool {
                 // note: it is possible `scope_executor` and `external_executor` is the same executor,
                 // in that case, we should only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                let external_ticker = external_executor
-                    .ticker()
-                    .filter(|external_ticker| !external_ticker.is_same_executor(&scope_ticker));
+                let external_ticker = if !external_executor.is_same(scope_executor) {
+                    external_executor.ticker()
+                } else {
+                    None
+                };
 
                 match (external_ticker, tick_task_pool_executor) {
                     (Some(external_ticker), true) => {
