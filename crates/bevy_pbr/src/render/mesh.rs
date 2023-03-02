@@ -1,9 +1,8 @@
 use crate::{
-    environment_map, prepass, queue_shadow_view_bind_group, EnvironmentMapLight, FogMeta,
-    GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
-    NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowSamplers,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{IntoSystemAppConfigs, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -111,11 +110,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems((extract_meshes, extract_skinned_meshes).in_schedule(ExtractSchedule))
                 .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
                 .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
-                .add_system(
-                    queue_mesh_view_bind_groups
-                        .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_shadow_view_bind_group), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`
-                );
+                .add_system(queue_mesh_view_bind_groups.in_set(RenderSet::Queue));
         }
     }
 }
@@ -579,6 +574,7 @@ bitflags::bitflags! {
         const NORMAL_PREPASS                    = (1 << 4);
         const ALPHA_MASK                        = (1 << 5);
         const ENVIRONMENT_MAP                   = (1 << 6);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 7);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -937,7 +933,7 @@ pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
-    shadow_pipeline: Res<ShadowPipeline>,
+    shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     fog_meta: Res<FogMeta>,
@@ -1003,7 +999,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
+                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 4,
@@ -1013,7 +1009,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::Sampler(&shadow_pipeline.directional_light_sampler),
+                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 6,

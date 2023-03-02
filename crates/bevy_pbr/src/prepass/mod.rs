@@ -202,6 +202,13 @@ where
             shader_defs.push("ALPHA_MASK".into());
         }
 
+        let blend_key = key
+            .mesh_key
+            .intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -215,6 +222,9 @@ where
             "MAX_CASCADES_PER_LIGHT".to_string(),
             MAX_CASCADES_PER_LIGHT as i32,
         ));
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
+            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -244,9 +254,11 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
-        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
-            || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+        // The fragment shader is only used when the normal prepass is enabled or the material uses alpha cutoff values
+        let fragment = if key
+            .mesh_key
+            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::ALPHA_MASK)
+            || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
         {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
