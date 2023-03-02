@@ -422,7 +422,7 @@ impl AssetServer {
         }
 
         self.asset_io()
-            .watch_path_for_changes(asset_path.path())
+            .watch_path_for_changes(asset_path.path(), None)
             .unwrap();
         self.create_assets_in_load_context(&mut load_context);
         Ok(asset_path_id)

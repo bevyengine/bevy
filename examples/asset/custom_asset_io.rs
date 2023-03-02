@@ -18,7 +18,7 @@ struct CustomAssetIo(Box<dyn AssetIo>);
 
 impl AssetIo for CustomAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        info!("load_path({:?})", path);
+        info!("load_path({path:?})");
         self.0.load_path(path)
     }
 
@@ -26,13 +26,17 @@ impl AssetIo for CustomAssetIo {
         &self,
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        info!("read_directory({:?})", path);
+        info!("read_directory({path:?})");
         self.0.read_directory(path)
     }
 
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
-        info!("watch_path_for_changes({:?})", path);
-        self.0.watch_path_for_changes(path)
+    fn watch_path_for_changes(
+        &self,
+        to_watch: &Path,
+        to_reload: Option<PathBuf>,
+    ) -> Result<(), AssetIoError> {
+        info!("watch_path_for_changes({to_watch:?}, {to_reload:?})");
+        self.0.watch_path_for_changes(to_watch, to_reload)
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
@@ -41,7 +45,7 @@ impl AssetIo for CustomAssetIo {
     }
 
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
-        info!("get_metadata({:?})", path);
+        info!("get_metadata({path:?})");
         self.0.get_metadata(path)
     }
 }
