@@ -484,7 +484,7 @@ fn prepare_taa_jitter(
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
     for mut jitter in &mut query {
-        jitter.offset = offset;
+        jitter.offset = offset - 0.5;
     }
 }
 
