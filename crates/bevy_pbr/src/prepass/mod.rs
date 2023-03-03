@@ -392,12 +392,13 @@ where
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
-            let Some(frag_shader_handle) = &self.material_fragment_shader else {
-                PREPASS_SHADER_HANDLE
+            let frag_shader_handle = match self.material_fragment_shader.clone() {
+                Some(frag_shader_handle) => frag_shader_handle,
+                _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
             };
 
             FragmentState {
-                shader: frag_shader_handle.clone(),
+                shader: frag_shader_handle,
                 entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets,
