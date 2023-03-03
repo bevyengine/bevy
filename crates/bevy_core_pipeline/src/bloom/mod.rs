@@ -46,7 +46,7 @@ const BLOOM_SHADER_HANDLE: HandleUntyped =
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
 // Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-// 512 behaves well with the UV offset of 0.003906 used in bloom.wgsl
+// 512 behaves well with the UV offset of 0.004 used in bloom.wgsl
 const MAX_MIP_DIMENSION: u32 = 512;
 
 pub struct BloomPlugin;
