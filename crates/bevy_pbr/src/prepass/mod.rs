@@ -393,8 +393,7 @@ where
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
             let Some(frag_shader_handle) = &self.material_fragment_shader else {
-                // if a fragment shader is required and not provided, we can't continue
-                panic!("No prepass fragment shader provided for {}.", std::any::type_name::<M>());
+                PREPASS_SHADER_HANDLE
             };
 
             FragmentState {
