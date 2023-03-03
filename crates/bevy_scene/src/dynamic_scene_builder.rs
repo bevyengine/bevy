@@ -112,19 +112,17 @@ impl<'w> DynamicSceneBuilder<'w> {
     pub fn extract_entities(&mut self, entities: impl Iterator<Item = Entity>) -> &mut Self {
         let type_registry = self.type_registry.read();
 
-        for entity in entities {
-            let index = entity;
-
+        for index in entities {
             if self.extracted_scene.contains_key(&index) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity,
+                entity: index,
                 components: Vec::new(),
             };
 
-            let entity = self.original_world.entity(entity);
+            let entity = self.original_world.entity(index);
             for component_id in entity.archetype().components() {
                 let reflect_component = self
                     .original_world

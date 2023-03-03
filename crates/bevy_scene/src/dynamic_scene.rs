@@ -30,8 +30,7 @@ pub struct DynamicScene {
 pub struct DynamicEntity {
     /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
     ///
-    /// Components in the scene that reference other entities reference them through this identifier, and so this
-    /// identifier must be consistent with the references contained within components.
+    /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
