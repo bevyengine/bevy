@@ -37,14 +37,15 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
 
-/// A system set that is never contained in another set.
-/// Systems and other system sets may only belong to one base set.
+/// A marker trait for `SystemSet` types where `is_base` returns `true`.
+/// This should only be implemented for types that satisfy this requirement.
 ///
-/// This should only be implemented for types that return `true` from [`SystemSet::is_base`].
+/// A base set is a system set that is never contained in another set.
+/// Systems and other system sets may only belong to one base set.
 pub trait BaseSystemSet: SystemSet {}
 
-/// System sets that are *not* base sets. This should not be implemented for
-/// any types that implement [`BaseSystemSet`].
+/// A marker trait for `SystemSet` types where `is_base` returns `false`.
+/// This should only be implemented for types that satisfy this requirement.
 pub trait FreeSystemSet: SystemSet {}
 
 impl PartialEq for dyn SystemSet {
