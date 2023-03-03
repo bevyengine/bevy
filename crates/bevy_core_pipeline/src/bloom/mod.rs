@@ -33,7 +33,7 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
-    BloomDownsamplingUniforms,
+    BloomUniforms,
 };
 use std::num::NonZeroU32;
 use upsampling_pipeline::{
@@ -45,6 +45,10 @@ const BLOOM_SHADER_HANDLE: HandleUntyped =
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
+// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+// 512 behaves well with the UV offset of 0.003906 used in bloom.wgsl
+const MAX_MIP_DIMENSION: u32 = 512;
+
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
@@ -55,7 +59,7 @@ impl Plugin for BloomPlugin {
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
         app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<BloomDownsamplingUniforms>::default());
+        app.add_plugin(UniformComponentPlugin::<BloomUniforms>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -130,7 +134,7 @@ pub struct BloomNode {
         &'static ViewTarget,
         &'static BloomTexture,
         &'static BloomBindGroups,
-        &'static DynamicUniformIndex<BloomDownsamplingUniforms>,
+        &'static DynamicUniformIndex<BloomUniforms>,
         &'static BloomSettings,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
@@ -170,7 +174,7 @@ impl Node for BloomNode {
 
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let uniforms = world.resource::<ComponentUniforms<BloomDownsamplingUniforms>>();
+        let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let Ok((
             camera,
@@ -207,7 +211,7 @@ impl Node for BloomNode {
                     .render_device()
                     .create_bind_group(&BindGroupDescriptor {
                         label: Some("bloom_downsampling_first_bind_group"),
-                        layout: &downsampling_pipeline_res.extended_bind_group_layout,
+                        layout: &downsampling_pipeline_res.bind_group_layout,
                         entries: &[
                             BindGroupEntry {
                                 binding: 0,
@@ -262,7 +266,7 @@ impl Node for BloomNode {
             downsampling_pass.set_bind_group(
                 0,
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
-                &[],
+                &[uniform_index.index()],
             );
             downsampling_pass.draw(0..3, 0..1);
         }
@@ -287,7 +291,7 @@ impl Node for BloomNode {
             upsampling_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
-                &[],
+                &[uniform_index.index()],
             );
             let blend = compute_blend_factor(
                 bloom_settings,
@@ -317,7 +321,7 @@ impl Node for BloomNode {
             upsampling_final_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
-                &[],
+                &[uniform_index.index()],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_final_pass.set_camera_viewport(viewport);
@@ -363,15 +367,15 @@ fn prepare_bloom_textures(
             y: height,
         }) = camera.physical_viewport_size
         {
-            let min_view = width.min(height) as f32;
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = (min_view.log2().floor() as u32 - 1).max(1);
+            let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
+            let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
                 size: Extent3d {
-                    width: (width / 2).max(1),
-                    height: (height / 2).max(1),
+                    width: ((width as f32 * mip_height_ratio).round() as u32).max(1),
+                    height: ((height as f32 * mip_height_ratio).round() as u32).max(1),
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: mip_count,
@@ -403,6 +407,7 @@ fn queue_bloom_bind_groups(
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomTexture)>,
+    uniforms: Res<ComponentUniforms<BloomUniforms>>,
 ) {
     let sampler = &downsampling_pipeline.sampler;
 
@@ -423,6 +428,10 @@ fn queue_bloom_bind_groups(
                         binding: 1,
                         resource: BindingResource::Sampler(sampler),
                     },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: uniforms.binding().unwrap(),
+                    },
                 ],
             }));
         }
@@ -440,6 +449,10 @@ fn queue_bloom_bind_groups(
                     BindGroupEntry {
                         binding: 1,
                         resource: BindingResource::Sampler(sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: uniforms.binding().unwrap(),
                     },
                 ],
             }));

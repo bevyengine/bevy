@@ -1,4 +1,7 @@
-use super::{BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
+use super::{
+    downsampling_pipeline::BloomUniforms, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
+    BLOOM_TEXTURE_FORMAT,
+};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -47,6 +50,17 @@ impl FromWorld for BloomUpsamplingPipeline {
                     BindGroupLayoutEntry {
                         binding: 1,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                        visibility: ShaderStages::FRAGMENT,
+                        count: None,
+                    },
+                    // BloomUniforms
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(BloomUniforms::min_size()),
+                        },
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
                     },

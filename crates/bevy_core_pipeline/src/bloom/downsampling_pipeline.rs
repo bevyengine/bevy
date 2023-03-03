@@ -16,10 +16,8 @@ pub struct BloomDownsamplingPipelineIds {
 
 #[derive(Resource)]
 pub struct BloomDownsamplingPipeline {
-    /// Layout with just a texture and a sampler
+    /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
-    /// Layout with a texture, a sampler, and downsampling settings
-    pub extended_bind_group_layout: BindGroupLayout,
     pub sampler: Sampler,
 }
 
@@ -30,12 +28,13 @@ pub struct BloomDownsamplingPipelineKeys {
 }
 
 /// The uniform struct extracted from [`BloomSettings`] attached to a Camera.
-/// Will be available for use in the Bloom shader in the first downsample pass.
+/// Will be available for use in the Bloom shader.
 #[derive(Component, ShaderType, Clone)]
-pub struct BloomDownsamplingUniforms {
+pub struct BloomUniforms {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
+    pub aspect: f32,
 }
 
 impl FromWorld for BloomDownsamplingPipeline {
@@ -68,19 +67,14 @@ impl FromWorld for BloomDownsamplingPipeline {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
-                min_binding_size: Some(BloomDownsamplingUniforms::min_size()),
+                min_binding_size: Some(BloomUniforms::min_size()),
             },
             visibility: ShaderStages::FRAGMENT,
             count: None,
         };
 
-        // Bind group layouts
+        // Bind group layout
         let bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_downsampling_bind_group_layout"),
-                entries: &[texture, sampler],
-            });
-        let extended_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("bloom_downsampling_bind_group_layout_with_settings"),
                 entries: &[texture, sampler, settings],
@@ -97,7 +91,6 @@ impl FromWorld for BloomDownsamplingPipeline {
 
         BloomDownsamplingPipeline {
             bind_group_layout,
-            extended_bind_group_layout,
             sampler,
         }
     }
@@ -107,11 +100,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let layout = if key.first_downsample {
-            vec![self.extended_bind_group_layout.clone()]
-        } else {
-            vec![self.bind_group_layout.clone()]
-        };
+        let layout = vec![self.bind_group_layout.clone()];
 
         let entry_point = if key.first_downsample {
             "downsample_first".into()

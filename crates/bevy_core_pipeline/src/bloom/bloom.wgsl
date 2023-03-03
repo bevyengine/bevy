@@ -8,9 +8,10 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
-struct BloomDownsamplingUniforms {
+struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
+    aspect: f32,
 };
 
 @group(0) @binding(0)
@@ -18,10 +19,10 @@ var input_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var s: sampler;
 
-#ifdef FIRST_DOWNSAMPLE
 @group(0) @binding(2)
-var<uniform> uniforms: BloomDownsamplingUniforms;
+var<uniform> uniforms: BloomUniforms;
 
+#ifdef FIRST_DOWNSAMPLE
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
@@ -99,7 +100,7 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 // [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     // Radius. Empirically chosen by and tweaked from the LearnOpenGL article.
-    let x = 0.004;
+    let x = 0.004 / uniforms.aspect;
     let y = 0.004;
 
     let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;

@@ -1,4 +1,4 @@
-use super::downsampling_pipeline::BloomDownsamplingUniforms;
+use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem};
 use bevy_math::{UVec4, Vec4};
 use bevy_reflect::Reflect;
@@ -179,7 +179,7 @@ impl ExtractComponent for BloomSettings {
     type Query = (&'static Self, &'static Camera);
 
     type Filter = ();
-    type Out = (Self, BloomDownsamplingUniforms);
+    type Out = (Self, BloomUniforms);
 
     fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
         match (
@@ -194,7 +194,7 @@ impl ExtractComponent for BloomSettings {
                 let threshold_softness = settings.prefilter_settings.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);
 
-                let uniform = BloomDownsamplingUniforms {
+                let uniform = BloomUniforms {
                     threshold_precomputations: Vec4::new(
                         threshold,
                         threshold - knee,
@@ -204,6 +204,7 @@ impl ExtractComponent for BloomSettings {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
+                    aspect: size.x as f32 / size.y as f32,
                 };
 
                 Some((settings.clone(), uniform))
