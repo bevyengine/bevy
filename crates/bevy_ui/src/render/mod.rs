@@ -7,7 +7,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{borders::CalculatedBorder, BorderStyle};
+use crate::{borders::CalculatedBorder, BorderColor};
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -186,7 +186,7 @@ pub fn extract_uinode_borders(
         Query<(
             &GlobalTransform,
             &CalculatedBorder,
-            &BorderStyle,
+            &BorderColor,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
@@ -195,21 +195,21 @@ pub fn extract_uinode_borders(
     let image = DEFAULT_IMAGE_HANDLE.typed();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((global_transform, border, border_style, visibility, clip)) =
+        if let Ok((global_transform, border, &BorderColor(border_color), visibility, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible nodes
-            if !visibility.is_visible() || border_style.color.a() == 0.0 {
+            if !visibility.is_visible() || border_color.a() == 0.0 {
                 continue;
             }
 
             let transform = global_transform.compute_matrix();
-            
+
             for &border_rect in border.edges.iter().flatten() {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
                     transform: transform * Mat4::from_translation(border_rect.center().extend(0.)),
-                    color: border_style.color,
+                    color: border_color,
                     rect: Rect {
                         max: border_rect.size(),
                         ..Default::default()

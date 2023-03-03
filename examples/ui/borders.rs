@@ -105,7 +105,7 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 background_color: Color::BLUE.into(),
-                border_style: Color::WHITE.with_a(0.5).into(),
+                border_color: Color::WHITE.with_a(0.5).into(),
                 ..Default::default()
             })
             .add_child(inner_spot)

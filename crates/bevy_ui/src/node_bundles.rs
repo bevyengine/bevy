@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    borders::CalculatedBorder, widget::Button, BackgroundColor, BorderStyle, CalculatedSize,
+    borders::CalculatedBorder, widget::Button, BackgroundColor, BorderColor, CalculatedSize,
     FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -23,8 +23,8 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
-    /// How to draw the node's border
-    pub border_style: BorderStyle,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// Stores the border's calculated geometry
     pub calculated_border: CalculatedBorder,
     /// Whether this node should block interaction with lower nodes
@@ -52,7 +52,7 @@ impl Default for NodeBundle {
         NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
-            border_style: Color::NONE.into(),
+            border_color: Color::NONE.into(),
             calculated_border: Default::default(),
             node: Default::default(),
             style: Default::default(),
@@ -198,8 +198,8 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// How to draw the node's border
-    pub border_style: BorderStyle,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// Stores the border's calculated geometry
     pub calculated_border: CalculatedBorder,
     /// Marker component that signals this node is a button
@@ -241,7 +241,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_style: Default::default(),
+            border_color: Default::default(),
             calculated_border: Default::default(),
             interaction: Default::default(),
             background_color: Default::default(),

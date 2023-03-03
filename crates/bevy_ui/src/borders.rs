@@ -1,3 +1,8 @@
+use crate::BorderColor;
+use crate::Node;
+use crate::Style;
+use crate::Val;
+use bevy_ecs::prelude::Bundle;
 use bevy_ecs::prelude::Component;
 use bevy_ecs::query::Changed;
 use bevy_ecs::query::Or;
@@ -9,9 +14,6 @@ use bevy_hierarchy::Parent;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use crate::Node;
-use crate::Style;
-use crate::Val;
 
 /// Stores the calculated border geometry
 #[derive(Component, Copy, Clone, Debug, Reflect)]
@@ -29,6 +31,13 @@ impl Default for CalculatedBorder {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// A bundle containing the components needed for a Node to display a border
+#[derive(Bundle, Default, Clone)]
+pub struct BorderBundle {
+    pub border_color: BorderColor,
+    pub calculated_border: CalculatedBorder,
 }
 
 /// Percentage thickness of all border edges is calculated based on the width of the parent node.

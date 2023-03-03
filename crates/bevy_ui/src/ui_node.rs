@@ -611,29 +611,21 @@ impl From<Color> for BackgroundColor {
 /// The border color of the node
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct BorderStyle {
-    pub color: Color,
+pub struct BorderColor(pub Color);
+
+impl BorderColor {
+    pub const DEFAULT: Self = BorderColor(Color::WHITE);
 }
 
-impl BorderStyle {
-    pub const DEFAULT: Self = Self {
-        color: Color::WHITE,
-    };
-
-    pub fn new(color: Color) -> Self {
-        Self { color }
-    }
-}
-
-impl Default for BorderStyle {
+impl Default for BorderColor {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
-impl From<Color> for BorderStyle {
+impl From<Color> for BorderColor {
     fn from(color: Color) -> Self {
-        Self { color }
+        Self(color)
     }
 }
 

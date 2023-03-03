@@ -101,7 +101,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
-            .register_type::<BorderStyle>()
+            .register_type::<BorderColor>()
             .register_type::<borders::CalculatedBorder>()
             .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
             .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
