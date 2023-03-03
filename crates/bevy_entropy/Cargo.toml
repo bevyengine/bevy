@@ -16,5 +16,8 @@ bevy_app = { path = "../bevy_app", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0" }
 serde = { version = "1.0", features = ["derive"] }
-rand_core = { version = "0.6", features = ["serde1"] }
+rand_core = { version = "0.6", features = ["std", "serde1"] }
 rand_chacha = { version = "0.3", features = ["serde1"] }
+
+[target.'cfg(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }

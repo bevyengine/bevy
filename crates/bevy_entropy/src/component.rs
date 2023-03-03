@@ -1,11 +1,11 @@
 use std::fmt::Debug;
 
+use crate::{
+    entropy_source::EntropySource, resource::GlobalEntropy, Deserialize, RngCore, SeedableRng,
+    Serialize,
+};
 use bevy_ecs::{prelude::Component, system::ResMut, world::Mut};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
-use rand_core::{RngCore, SeedableRng};
-use serde::{Deserialize, Serialize};
-
-use crate::{entropy_source::EntropySource, resource::GlobalEntropy};
 
 #[derive(Debug, Clone, PartialEq, Eq, Component, Reflect, FromReflect, Serialize, Deserialize)]
 #[serde(bound(deserialize = "R: for<'a> Deserialize<'a>"))]

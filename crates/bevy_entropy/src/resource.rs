@@ -1,9 +1,8 @@
 use std::fmt::Debug;
 
+use crate::{Deserialize, RngCore, SeedableRng, Serialize};
 use bevy_ecs::prelude::Resource;
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
-use rand_core::{RngCore, SeedableRng};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Resource, Reflect, FromReflect, Serialize, Deserialize)]
 #[serde(bound(deserialize = "R: for<'a> Deserialize<'a>"))]

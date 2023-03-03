@@ -67,6 +67,8 @@ impl<
 where
     R::Seed: Send + Sync + Copy,
 {
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             seed: None,
@@ -74,6 +76,7 @@ where
         }
     }
 
+    #[inline]
     pub fn with_seed(mut self, seed: R::Seed) -> Self {
         self.seed = Some(seed);
         self
