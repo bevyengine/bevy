@@ -136,6 +136,7 @@ pub struct TemporalAntialiasBundle {
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
 /// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
+/// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
@@ -484,7 +485,7 @@ fn prepare_taa_jitter(
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
     for mut jitter in &mut query {
-        jitter.offset = offset;
+        jitter.offset = offset - 0.5;
     }
 }
 

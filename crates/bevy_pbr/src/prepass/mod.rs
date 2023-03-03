@@ -1,4 +1,4 @@
-use bevy_app::{CoreSet, IntoSystemAppConfig, Plugin};
+use bevy_app::{IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -61,15 +61,18 @@ pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
 pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
 
-pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+/// Sets up everything required to use the prepass pipeline.
+///
+/// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
+pub struct PrepassPipelinePlugin<M: Material>(PhantomData<M>);
 
-impl<M: Material> Default for PrepassPlugin<M> {
+impl<M: Material> Default for PrepassPipelinePlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material> Plugin for PrepassPlugin<M>
+impl<M: Material> Plugin for PrepassPipelinePlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -95,10 +98,37 @@ where
             Shader::from_wgsl
         );
 
-        app.add_system(update_previous_view_projections.in_base_set(CoreSet::PreUpdate))
-            .add_system(update_mesh_previous_global_transforms.in_base_set(CoreSet::PreUpdate));
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app
+            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<PrepassViewBindGroup>()
+            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
+    }
+}
+
+/// Sets up the prepasses for a [`Material`].
+///
+/// This depends on the [`PrepassPipelinePlugin`].
+pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for PrepassPlugin<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<M: Material> Plugin for PrepassPlugin<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    fn build(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
@@ -118,16 +148,12 @@ where
                     .in_set(RenderSet::Prepare)
                     .after(PrepassLightsViewFlush),
             )
-            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
-            .init_resource::<PrepassPipeline<M>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .init_resource::<PreviousViewProjectionUniforms>()
-            .init_resource::<PrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }
@@ -329,54 +355,55 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass or motion vectors prepass
-        // is enabled or the material uses alpha cutoff values
-        let fragment = if key.mesh_key.intersects(
-            MeshPipelineKey::NORMAL_PREPASS
-                | MeshPipelineKey::MOTION_VECTOR_PREPASS
-                | MeshPipelineKey::ALPHA_MASK,
-        ) || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-        {
-            // Use the fragment shader from the material if present
-            let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
-                handle.clone()
-            } else {
-                PREPASS_SHADER_HANDLE.typed::<Shader>()
-            };
-
-            // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
-            let mut targets = vec![];
-            if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-                targets.push(Some(ColorTargetState {
+        // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
+        let mut targets = vec![];
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::NORMAL_PREPASS)
+                .then_some(ColorTargetState {
                     format: NORMAL_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
-                }));
-            }
-            if key
-                .mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-            {
-                if !key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-                    targets.push(None);
-                }
+                }),
+        );
 
-                targets.push(Some(ColorTargetState {
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
+                .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
-                }));
-            }
+                }),
+        );
 
-            Some(FragmentState {
-                shader: frag_shader_handle,
+        if targets.iter().all(Option::is_none) {
+            // if no targets are required then clear the list, so that no fragment shader is required
+            // (though one may still be used for discarding depth buffer writes)
+            targets.clear();
+        }
+
+        // The fragment shader is only used when the normal prepass or motion vectors prepass
+        // is enabled or the material uses alpha cutoff values
+        let fragment_required = key
+            .mesh_key
+            .intersects(MeshPipelineKey::ALPHA_MASK | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+            || !targets.is_empty();
+
+        let fragment = fragment_required.then(|| {
+            // Use the fragment shader from the material
+            let Some(frag_shader_handle) = &self.material_fragment_shader else {
+                // if a fragment shader is required and not provided, we can't continue
+                panic!("No prepass fragment shader provided for {}.", std::any::type_name::<M>());
+            };
+
+            FragmentState {
+                shader: frag_shader_handle.clone(),
                 entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets,
-            })
-        } else {
-            None
-        };
+            }
+        });
 
         // Use the vertex shader from the material if present
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
