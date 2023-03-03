@@ -357,18 +357,25 @@ where
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![];
-        targets.push(key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS).then(|| ColorTargetState {
-                format: NORMAL_PREPASS_FORMAT,
-                blend: Some(BlendState::REPLACE),
-                write_mask: ColorWrites::ALL,
-            })
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::NORMAL_PREPASS)
+                .then_some(ColorTargetState {
+                    format: NORMAL_PREPASS_FORMAT,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                }),
         );
-        
-        targets.push(key.mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS).then(|| ColorTargetState {
-            format: MOTION_VECTOR_PREPASS_FORMAT,
-            blend: Some(BlendState::REPLACE),
-            write_mask: ColorWrites::ALL,
-        }));
+
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
+                .then_some(ColorTargetState {
+                    format: MOTION_VECTOR_PREPASS_FORMAT,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                }),
+        );
 
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
@@ -378,7 +385,9 @@ where
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values
-        let fragment_required = key.mesh_key.intersects(MeshPipelineKey::ALPHA_MASK | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+        let fragment_required = key
+            .mesh_key
+            .intersects(MeshPipelineKey::ALPHA_MASK | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
             || !targets.is_empty();
 
         let fragment = fragment_required.then(|| {
