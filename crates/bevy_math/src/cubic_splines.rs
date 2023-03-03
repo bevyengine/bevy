@@ -326,7 +326,7 @@ impl<P: Point> CubicSegment<P> {
     }
 }
 
-/// The `CubicSegment<Vec2>` can be used as aA 2-dimensional easing curve for animation.
+/// The `CubicSegment<Vec2>` can be used as a 2-dimensional easing curve for animation.
 ///
 /// The x-axis of the curve is time, and the y-axis is the output value. This struct provides
 /// methods for extremely fast solves for y given x.
@@ -433,14 +433,14 @@ impl CubicSegment<Vec2> {
     }
 }
 
-/// A collection of spline segments chained into a curve.
+/// A collection of [`CubicSegment`]s chained into a curve.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CubicCurve<P: Point> {
     segments: Vec<CubicSegment<P>>,
 }
 
 impl<P: Point> CubicCurve<P> {
-    /// Compute the position of a point on the Catmull-Rom spline at the parametric value `t`.
+    /// Compute the position of a point on the cubic curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
     #[inline]
@@ -450,7 +450,7 @@ impl<P: Point> CubicCurve<P> {
     }
 
     /// Compute the first derivative with respect to t at `t`. This is the instantaneous velocity of
-    /// a point on the Catmull-Rom spline at `t`.
+    /// a point on the cubic curve at `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
     #[inline]
@@ -460,7 +460,7 @@ impl<P: Point> CubicCurve<P> {
     }
 
     /// Compute the second derivative with respect to t at `t`. This is the instantaneous
-    /// acceleration of a point on the Catmull-Rom spline at `t`.
+    /// acceleration of a point on the cubic curve at `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
     #[inline]
