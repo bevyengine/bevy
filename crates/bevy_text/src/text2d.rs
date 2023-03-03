@@ -68,7 +68,7 @@ pub struct Text2dBundle {
     pub transform: Transform,
     /// The global transform of the text.
     pub global_transform: GlobalTransform,
-    /// The visbility properties of the text.
+    /// The visibility properties of the text.
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
@@ -168,7 +168,7 @@ pub fn update_text2d_layout(
     mut text_query: Query<(
         Entity,
         Ref<Text>,
-        &Text2dBounds,
+        Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
 ) {
@@ -182,7 +182,7 @@ pub fn update_text2d_layout(
         .unwrap_or(1.0);
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || queue.remove(&entity) {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),

@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 
 pub static SYSTEM_SET_ATTRIBUTE_NAME: &str = "system_set";
@@ -12,6 +12,14 @@ pub static BASE_ATTRIBUTE_NAME: &str = "base";
 /// - `input`: The [`syn::DeriveInput`] for the struct that we want to derive the set trait for
 /// - `trait_path`: The [`syn::Path`] to the set trait
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+    let mut base_trait_path = trait_path.clone();
+    let ident = &mut base_trait_path.segments.last_mut().unwrap().ident;
+    *ident = format_ident!("Base{ident}");
+
+    let mut free_trait_path = trait_path.clone();
+    let ident = &mut free_trait_path.segments.last_mut().unwrap().ident;
+    *ident = format_ident!("Free{ident}");
+
     let ident = input.ident;
 
     let mut is_base = false;
@@ -65,6 +73,16 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
         .unwrap(),
     );
 
+    let marker_impl = if is_base {
+        quote! {
+            impl #impl_generics #base_trait_path for #ident #ty_generics #where_clause {}
+        }
+    } else {
+        quote! {
+            impl #impl_generics #free_trait_path for #ident #ty_generics #where_clause {}
+        }
+    };
+
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             fn is_base(&self) -> bool {
@@ -75,6 +93,8 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
                 std::boxed::Box::new(std::clone::Clone::clone(self))
             }
         }
+
+        #marker_impl
     })
     .into()
 }

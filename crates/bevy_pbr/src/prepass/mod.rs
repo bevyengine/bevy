@@ -1,4 +1,4 @@
-use bevy_app::Plugin;
+use bevy_app::{IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -26,16 +26,17 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
-        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FragmentState,
-        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, VertexState,
+        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
+        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+        Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode,
+        PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages,
+        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        VertexState,
     },
     renderer::RenderDevice,
-    texture::TextureCache,
+    texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
@@ -97,7 +98,7 @@ where
         };
 
         render_app
-            .add_system_to_schedule(ExtractSchedule, extract_camera_prepass_phase)
+            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
             .add_system(
                 prepare_prepass_textures
                     .in_set(RenderSet::Prepare)
@@ -201,6 +202,13 @@ where
             shader_defs.push("ALPHA_MASK".into());
         }
 
+        let blend_key = key
+            .mesh_key
+            .intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -214,6 +222,9 @@ where
             "MAX_CASCADES_PER_LIGHT".to_string(),
             MAX_CASCADES_PER_LIGHT as i32,
         ));
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
+            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -243,9 +254,11 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
-        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
-            || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+        // The fragment shader is only used when the normal prepass is enabled or the material uses alpha cutoff values
+        let fragment = if key
+            .mesh_key
+            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::ALPHA_MASK)
+            || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
         {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
@@ -331,6 +344,73 @@ where
 
         Ok(descriptor)
     }
+}
+
+pub fn get_bind_group_layout_entries(
+    bindings: [u32; 2],
+    multisampled: bool,
+) -> [BindGroupLayoutEntry; 2] {
+    [
+        // Depth texture
+        BindGroupLayoutEntry {
+            binding: bindings[0],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled,
+                sample_type: TextureSampleType::Depth,
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
+        // Normal texture
+        BindGroupLayoutEntry {
+            binding: bindings[1],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled,
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
+    ]
+}
+
+pub fn get_bindings<'a>(
+    prepass_textures: Option<&'a ViewPrepassTextures>,
+    fallback_images: &'a mut FallbackImagesMsaa,
+    fallback_depths: &'a mut FallbackImagesDepth,
+    msaa: &'a Msaa,
+    bindings: [u32; 2],
+) -> [BindGroupEntry<'a>; 2] {
+    let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
+        Some(texture) => &texture.default_view,
+        None => {
+            &fallback_depths
+                .image_for_samplecount(msaa.samples())
+                .texture_view
+        }
+    };
+
+    let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
+        Some(texture) => &texture.default_view,
+        None => {
+            &fallback_images
+                .image_for_samplecount(msaa.samples())
+                .texture_view
+        }
+    };
+
+    [
+        BindGroupEntry {
+            binding: bindings[0],
+            resource: BindingResource::TextureView(depth_view),
+        },
+        BindGroupEntry {
+            binding: bindings[1],
+            resource: BindingResource::TextureView(normal_view),
+        },
+    ]
 }
 
 // Extract the render phases for the prepass

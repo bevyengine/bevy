@@ -405,7 +405,7 @@ impl Time {
 
     /// Stops the clock, preventing it from advancing until resumed.
     ///
-    /// **Note:** This does affect the `raw_*` measurements.
+    /// **Note:** This does not affect the `raw_*` measurements.
     #[inline]
     pub fn pause(&mut self) {
         self.paused = true;

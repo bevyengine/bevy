@@ -168,7 +168,7 @@ impl Image {
         )
     }
 
-    /// Convert a [`Image`] to a [`DynamicImage`]. Usefull for editing image
+    /// Convert a [`Image`] to a [`DynamicImage`]. Useful for editing image
     /// data. Not all [`TextureFormat`] are covered, therefore it will return an
     /// error if the format is unsupported. Supported formats are:
     /// - `TextureFormat::R8Unorm`

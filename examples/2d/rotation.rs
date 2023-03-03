@@ -9,13 +9,13 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_systems_to_schedule(
-            CoreSchedule::FixedUpdate,
+        .add_systems(
             (
                 player_movement_system,
                 snap_to_player_system,
                 rotate_to_player_system,
-            ),
+            )
+                .in_schedule(CoreSchedule::FixedUpdate),
         )
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(bevy::window::close_on_esc)
