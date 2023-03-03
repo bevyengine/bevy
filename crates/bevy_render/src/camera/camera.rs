@@ -713,7 +713,7 @@ pub fn sort_cameras(
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default)]
 pub struct TemporalJitter {
-    /// Offset is in range [0, 1].
+    /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,
 }
 
@@ -726,12 +726,9 @@ impl TemporalJitter {
             return;
         }
 
-        let jitter = (2.0 * self.offset) / view_size;
-        let jitter_matrix = Mat4::from_translation(Vec3 {
-            x: jitter.x,
-            y: -jitter.y,
-            z: 0.0,
-        });
-        *projection = jitter_matrix * (*projection);
+        let jitter = self.offset / view_size;
+
+        projection.z_axis.x += jitter.x;
+        projection.z_axis.y += jitter.y;
     }
 }
