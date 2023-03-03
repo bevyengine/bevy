@@ -479,13 +479,11 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_systems(
-    ///     (
-    ///         startup_system_a,
-    ///         startup_system_b,
-    ///         startup_system_c,
-    ///     )
-    /// );
+    /// app.add_startup_systems((
+    ///     startup_system_a,
+    ///     startup_system_b,
+    ///     startup_system_c,
+    /// ));
     /// ```
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems(systems.into_configs().in_schedule(CoreSchedule::Startup))

@@ -569,16 +569,6 @@ mod tests {
 
         #[test]
         #[should_panic]
-        fn in_system_type_set() {
-            fn foo() {}
-            fn bar() {}
-
-            let mut schedule = Schedule::new();
-            schedule.add_system(foo.in_set(bar.into_system_set()));
-        }
-
-        #[test]
-        #[should_panic]
         fn configure_system_type_set() {
             fn foo() {}
             let mut schedule = Schedule::new();
@@ -688,63 +678,6 @@ mod tests {
         enum Normal {
             X,
             Y,
-            Z,
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_system_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_system(named_system.in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_system_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_system(named_system.in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_systems_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_systems((named_system, named_system).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_systems_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_systems((named_system, named_system).in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_set_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_set(Normal::Y.in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_set_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_set(Normal::Y.in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_sets_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_sets((Normal::X, Normal::Y).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_sets_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_sets((Normal::X, Normal::Y).in_base_set(Normal::Z));
         }
 
         #[test]

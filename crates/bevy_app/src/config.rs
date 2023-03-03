@@ -1,8 +1,8 @@
 use bevy_ecs::{
     all_tuples,
     schedule::{
-        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemSet, ScheduleLabel,
-        SystemConfig, SystemConfigs, SystemSet,
+        BaseSystemSet, BoxedScheduleLabel, Condition, FreeSystemSet, IntoSystemConfig,
+        IntoSystemSet, ScheduleLabel, SystemConfig, SystemConfigs,
     },
 };
 
@@ -84,7 +84,7 @@ impl IntoSystemConfig<(), Self> for SystemAppConfig {
     }
 
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> Self {
+    fn in_set(self, set: impl FreeSystemSet) -> Self {
         let Self { system, schedule } = self;
         Self {
             system: system.in_set(set),
@@ -93,7 +93,7 @@ impl IntoSystemConfig<(), Self> for SystemAppConfig {
     }
 
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> Self {
+    fn in_base_set(self, set: impl BaseSystemSet) -> Self {
         let Self { system, schedule } = self;
         Self {
             system: system.in_base_set(set),

@@ -9,6 +9,8 @@ mod render;
 mod stack;
 mod ui_node;
 
+#[cfg(feature = "bevy_text")]
+mod accessibility;
 pub mod camera_config;
 pub mod node_bundles;
 pub mod update;
@@ -27,8 +29,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
     };
 }
 
@@ -102,6 +103,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
+            .register_type::<widget::Label>()
             .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
             .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
             .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
@@ -122,6 +124,8 @@ impl Plugin for UiPlugin {
                 // they will never observe each other's effects.
                 .ambiguous_with(bevy_text::update_text2d_layout),
         );
+        #[cfg(feature = "bevy_text")]
+        app.add_plugin(accessibility::AccessibilityPlugin);
         app.add_system({
             let system = widget::update_image_calculated_size_system
                 .in_base_set(CoreSet::PostUpdate)

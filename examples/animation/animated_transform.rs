@@ -53,7 +53,7 @@ fn setup(
         },
     );
     // Or it can modify the rotation of the transform.
-    // To find the entity to modify, the hierarchy  will be traversed looking for
+    // To find the entity to modify, the hierarchy will be traversed looking for
     // an entity with the right name at each level
     animation.add_curve_to_path(
         EntityPath {
