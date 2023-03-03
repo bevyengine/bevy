@@ -655,6 +655,46 @@ impl Style {
         self.gap.height = val;
         self
     }
+
+    /// Center content in the vertical axis using the `align_items` `align_content` and `justify_content` properties
+    pub fn center_content_vertically(mut self) -> Self {
+        match (self.display, self.flex_direction) {
+            (Display::Flex, FlexDirection::Row | FlexDirection::RowReverse) => {
+                self.align_items = AlignItems::Center;
+                self.align_content = AlignContent::Center;
+            }
+            (Display::Flex, FlexDirection::Column | FlexDirection::ColumnReverse) => {
+                self.justify_content = JustifyContent::Center;
+            }
+            _ => {}
+        }
+
+        self
+    }
+
+    /// Center content in the vertical axis using the `align_items` and `justify_content` properties
+    pub fn center_content_horizontally(mut self) -> Self {
+        match (self.display, self.flex_direction) {
+            (Display::Flex, FlexDirection::Row | FlexDirection::RowReverse) => {
+                self.justify_content = JustifyContent::Center;
+            }
+            (Display::Flex, FlexDirection::Column | FlexDirection::ColumnReverse) => {
+                self.align_content = AlignContent::Center;
+                self.align_items = AlignItems::Center;
+            }
+            _ => {}
+        }
+
+        self
+    }
+
+    /// Center content in both axes using the `align_items` and `justify_content` properties
+    pub fn center_content(mut self) -> Self {
+        self.align_items = AlignItems::Center;
+        self.justify_content = JustifyContent::Center;
+        self.align_content = AlignContent::Center;
+        self
+    }
 }
 
 impl Default for Style {
