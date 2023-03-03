@@ -118,8 +118,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // https://vec3.ca/bicubic-filtering-in-fewer-taps
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
-    let history_uv = uv - closest_motion_vector;
-    let sample_position = history_uv * texture_size;
+    let sample_position = (uv * texture_size) - closest_motion_vector;
     let texel_center = floor(sample_position - 0.5) + 0.5;
     let f = sample_position - texel_center;
     let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));

@@ -119,7 +119,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
-    out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
+    out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5) * view.viewport.zw;
 #endif // MOTION_VECTOR_PREPASS
 
     return out;
