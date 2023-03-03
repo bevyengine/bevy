@@ -231,15 +231,24 @@ fn toggle_prepass_view(
     if keycode.just_pressed(KeyCode::Space) {
         *prepass_view = (*prepass_view + 1) % 4;
 
-        let out_text = match *prepass_view {
+        let label = match *prepass_view {
             0 => "transparent",
             1 => "depth",
             2 => "normals",
             3 => "motion vectors",
             _ => unreachable!(),
         };
+        let text_color = if *prepass_view == 3 {
+            Color::BLACK
+        } else {
+            Color::WHITE
+        };
+
         let mut text = text.single_mut();
-        text.sections[0].value = format!("Prepass Output: {out_text}\n");
+        text.sections[0].value = format!("Prepass Output: {label}\n");
+        for section in &mut text.sections {
+            section.style.color = text_color;
+        }
 
         let handle = material_handle.single();
         let mat = materials.get_mut(handle).unwrap();
