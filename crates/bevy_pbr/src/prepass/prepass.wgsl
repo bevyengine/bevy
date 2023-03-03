@@ -122,7 +122,4 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     return out;
 }
-#else
-@fragment
-fn fragment(in: VertexOutput) {}
 #endif // PREPASS_FRAGMENT
