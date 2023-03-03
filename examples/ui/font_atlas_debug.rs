@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .init_resource::<State>()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(text_update_system)
         .add_system(atlas_render_system)

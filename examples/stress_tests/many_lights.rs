@@ -15,7 +15,7 @@ use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: (1024.0, 768.0).into(),
                 title: "many_lights".into(),

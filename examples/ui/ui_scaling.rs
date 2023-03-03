@@ -6,7 +6,7 @@ const SCALE_TIME: u64 = 400;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .insert_resource(TextSettings {
             allow_dynamic_font_size: true,
             ..default()

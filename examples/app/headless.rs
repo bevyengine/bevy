@@ -12,7 +12,7 @@ fn main() {
     // this app runs once
     App::new()
         .insert_resource(ScheduleRunnerSettings::run_once())
-        .add_plugins(MinimalPlugins)
+        .add_plugin_group(MinimalPlugins)
         .add_system(hello_world_system)
         .run();
 
@@ -21,7 +21,7 @@ fn main() {
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
-        .add_plugins(MinimalPlugins)
+        .add_plugin_group(MinimalPlugins)
         .add_system(counter)
         .run();
 }

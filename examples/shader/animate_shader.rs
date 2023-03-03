@@ -5,7 +5,7 @@ use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::*};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
         .add_startup_system(setup)
         .run();

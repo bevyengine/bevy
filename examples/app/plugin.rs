@@ -8,7 +8,7 @@ use bevy::{prelude::*, utils::Duration};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         // plugins are registered as part of the "app building" process
         .add_plugin(PrintMessagePlugin {
             wait_duration: Duration::from_secs(1),

@@ -11,7 +11,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(RenderPlugin {
+        .add_plugin_group(DefaultPlugins.set(RenderPlugin {
             wgpu_settings: WgpuSettings {
                 backends: None,
                 ..default()

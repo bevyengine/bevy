@@ -5,7 +5,7 @@ use std::any::TypeId;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         // You must manually register each instance of a generic type
         .register_type::<MyType<u32>>()
         .add_startup_system(setup)

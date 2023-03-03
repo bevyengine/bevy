@@ -5,7 +5,7 @@ use bevy::{prelude::*, window::WindowResolution};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
                 ..default()

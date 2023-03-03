@@ -183,7 +183,7 @@ fn main() {
 
     App::new()
         .insert_resource(cfg)
-        .add_plugins(MinimalPlugins)
+        .add_plugin_group(MinimalPlugins)
         .add_plugin(TransformPlugin::default())
         .add_startup_system(setup)
         // Updating transforms *must* be done before `CoreSet::PostUpdate`

@@ -18,7 +18,7 @@ fn main() {
     7/8    - decrease/increase direction light normal bias"
     );
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(adjust_point_light_biases)
         .add_system(toggle_light)

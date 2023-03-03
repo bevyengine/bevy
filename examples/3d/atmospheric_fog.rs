@@ -14,7 +14,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup_camera_fog)
         .add_startup_system(setup_terrain_scene)
         .add_startup_system(setup_instructions)

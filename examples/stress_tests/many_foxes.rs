@@ -20,7 +20,7 @@ struct Foxes {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugin_group(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                 present_mode: PresentMode::AutoNoVsync,

@@ -52,7 +52,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
 ///     App::new()
-///         .add_plugins(DefaultPlugins.set(LogPlugin {
+///         .add_plugin_group(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///         }))
@@ -74,7 +74,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     App::new()
-///         .add_plugins(DefaultPlugins.build().disable::<LogPlugin>())
+///         .add_plugin_group(DefaultPlugins.build().disable::<LogPlugin>())
 ///         .run();
 /// }
 /// ```

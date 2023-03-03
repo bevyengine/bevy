@@ -123,7 +123,7 @@ impl GamepadButtonBundle {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .init_resource::<ButtonMeshes>()
         .init_resource::<FontHandle>()

@@ -15,7 +15,7 @@ use serde::de::DeserializeSeed;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .register_type::<Foo>()
         .register_type::<Bar>()
         .add_startup_system(setup)

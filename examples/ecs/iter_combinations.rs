@@ -7,7 +7,7 @@ const DELTA_TIME: f32 = 0.01;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 0.03,
             ..default()

@@ -21,7 +21,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
         .add_startup_system(setup)
         .add_system(main_camera_cube_rotator_system)

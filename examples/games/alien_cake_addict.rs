@@ -22,7 +22,7 @@ fn main() {
             5.0,
             TimerMode::Repeating,
         )))
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_state::<GameState>()
         .add_systems((
             setup_cameras.on_startup(),

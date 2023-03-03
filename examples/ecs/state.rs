@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_state::<AppState>()
         .add_system(setup.on_startup())
         // This system runs when we enter `AppState::Menu`, during `CoreSet::StateTransitions`.

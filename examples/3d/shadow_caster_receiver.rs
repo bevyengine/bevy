@@ -15,7 +15,7 @@ fn main() {
     L      - switch between directional and point lights"
     );
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(toggle_light)
         .add_system(toggle_shadows)
