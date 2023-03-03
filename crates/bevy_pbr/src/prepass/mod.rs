@@ -1,4 +1,4 @@
-use bevy_app::{IntoSystemAppConfig, Plugin};
+use bevy_app::{CoreSet, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -126,38 +126,53 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut bevy_app::App) {
+        let no_prepass_plugin_loaded = app.world.get_resource::<AnyPrepassPluginLoaded>().is_none();
+
+        if no_prepass_plugin_loaded {
+            app.insert_resource(AnyPrepassPluginLoaded).add_system(
+                update_mesh_previous_global_transforms.in_base_set(CoreSet::PostUpdate),
+            );
+        }
+
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
+        if no_prepass_plugin_loaded {
+            render_app
+                .init_resource::<DrawFunctions<Opaque3dPrepass>>()
+                .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
+                .init_resource::<PreviousViewProjectionUniforms>()
+                .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
+                .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
+                .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
+                .add_system(
+                    prepare_prepass_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                )
+                .add_system(
+                    apply_system_buffers
+                        .in_set(RenderSet::Prepare)
+                        .in_set(PrepassLightsViewFlush)
+                        .after(prepare_lights),
+                )
+                .add_system(
+                    prepare_previous_view_projection_uniforms
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepassLightsViewFlush),
+                );
+        }
+
         render_app
-            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
-            .add_system(
-                prepare_prepass_textures
-                    .in_set(RenderSet::Prepare)
-                    .after(bevy_render::view::prepare_windows),
-            )
-            .add_system(
-                apply_system_buffers
-                    .in_set(RenderSet::Prepare)
-                    .in_set(PrepassLightsViewFlush)
-                    .after(prepare_lights),
-            )
-            .add_system(
-                prepare_previous_view_projection_uniforms
-                    .in_set(RenderSet::Prepare)
-                    .after(PrepassLightsViewFlush),
-            )
-            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
-            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
-            .init_resource::<DrawFunctions<Opaque3dPrepass>>()
-            .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-            .init_resource::<PreviousViewProjectionUniforms>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
-            .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
+            .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
+            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue));
     }
 }
+
+#[derive(Resource)]
+struct AnyPrepassPluginLoaded;
 
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewProjection {
