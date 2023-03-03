@@ -148,7 +148,6 @@ where
                     .in_set(RenderSet::Prepare)
                     .after(PrepassLightsViewFlush),
             )
-            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
@@ -356,53 +355,46 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled
-        // or the material uses alpha cutoff values and doesn't rely on the standard prepass shader
-        let fragment = if key.mesh_key.intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::MOTION_VECTOR_PREPASS)
-            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
-                && self.material_fragment_shader.is_some())
-        {
-            // Use the fragment shader from the material if present
-            let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
-                handle.clone()
-            } else {
-                PREPASS_SHADER_HANDLE.typed::<Shader>()
+        // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
+        let mut targets = vec![];
+        targets.push(key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS).then(|| ColorTargetState {
+                format: NORMAL_PREPASS_FORMAT,
+                blend: Some(BlendState::REPLACE),
+                write_mask: ColorWrites::ALL,
+            })
+        );
+        
+        targets.push(key.mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS).then(|| ColorTargetState {
+            format: MOTION_VECTOR_PREPASS_FORMAT,
+            blend: Some(BlendState::REPLACE),
+            write_mask: ColorWrites::ALL,
+        }));
+
+        if targets.iter().all(Option::is_none) {
+            // if no targets are required then clear the list, so that no fragment shader is required
+            // (though one may still be used for discarding depth buffer writes)
+            targets.clear();
+        }
+
+        // The fragment shader is only used when the normal prepass or motion vectors prepass
+        // is enabled or the material uses alpha cutoff values
+        let fragment_required = key.mesh_key.intersects(MeshPipelineKey::ALPHA_MASK | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+            || !targets.is_empty();
+
+        let fragment = fragment_required.then(|| {
+            // Use the fragment shader from the material
+            let Some(frag_shader_handle) = &self.material_fragment_shader else {
+                // if a fragment shader is required and not provided, we can't continue
+                panic!("No prepass fragment shader provided for {}.", std::any::type_name::<M>());
             };
 
-            // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
-            let mut targets = vec![];
-            if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-                targets.push(Some(ColorTargetState {
-                    format: NORMAL_PREPASS_FORMAT,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                }));
-            }
-            if key
-                .mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-            {
-                if !key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-                    targets.push(None);
-                }
-
-                targets.push(Some(ColorTargetState {
-                    format: MOTION_VECTOR_PREPASS_FORMAT,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                }));
-            }
-
-            Some(FragmentState {
-                shader: frag_shader_handle,
+            FragmentState {
+                shader: frag_shader_handle.clone(),
                 entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets,
-            })
-        } else {
-            None
-        };
+            }
+        });
 
         // Use the vertex shader from the material if present
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
