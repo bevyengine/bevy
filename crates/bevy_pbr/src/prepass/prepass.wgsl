@@ -124,5 +124,5 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 }
 #else
 @fragment
-fn fragment(@location(0) foo: vec2<f32>) {}
+fn fragment(in: VertexOutput) {}
 #endif // PREPASS_FRAGMENT
