@@ -39,14 +39,14 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
 
 /// A marker trait for `SystemSet` types where [`is_base`] returns `true`.
 /// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implented for base set types by `#[derive(SystemSet)]`.
+/// It is automatically implemented for base set types by `#[derive(SystemSet)]`.
 ///
 /// [`is_base`]: SystemSet::is_base
 pub trait BaseSystemSet: SystemSet {}
 
 /// A marker trait for `SystemSet` types where [`is_base`] returns `false`.
 /// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implented for non-base set types by `#[derive(SystemSet)]`.
+/// It is automatically implemented for non-base set types by `#[derive(SystemSet)]`.
 ///
 /// [`is_base`]: SystemSet::is_base
 pub trait FreeSystemSet: SystemSet {}
