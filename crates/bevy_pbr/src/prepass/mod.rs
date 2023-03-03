@@ -61,7 +61,7 @@ pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
 
 /// Sets up everything required to use the prepass pipeline.
 ///
-/// This does not add the actual prepasses, see [`PrepassPipeline`] for that.
+/// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
 pub struct PrepassPipelinePlugin<M: Material>(PhantomData<M>);
 
 impl<M: Material> Default for PrepassPipelinePlugin<M> {
