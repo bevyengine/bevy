@@ -47,26 +47,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2dBundle::default());
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                size: Size::width(Val::Percent(100.0)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            ..default()
-        })
+        .spawn(NodeBundle::with_style(
+            Style::row()
+                .width(Val::Percent(100.0))
+                .center_content()
+        ))
         .with_children(|parent| {
             parent
                 .spawn(ButtonBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
+                    style: Style::row()
+                        .width(150)
+                        .height(65)
+                        .center_content(),
                     background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
