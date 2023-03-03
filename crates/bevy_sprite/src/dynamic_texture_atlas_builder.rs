@@ -6,8 +6,8 @@ use guillotiere::{size2, Allocation, AtlasAllocator};
 
 /// Helper utility to update [`TextureAtlas`] on the fly.
 ///
-/// Helpful in cases when texture is created highly dynamic,
-/// e.g: font glyph texture, only render for letters to be rendered.
+/// Helpful in cases when texture is created procedurally,
+/// e.g: in a font glyph [`TextureAtlas`], only add the [`Image`] texture for letters to be rendered.
 pub struct DynamicTextureAtlasBuilder {
     atlas_allocator: AtlasAllocator,
     padding: i32,
