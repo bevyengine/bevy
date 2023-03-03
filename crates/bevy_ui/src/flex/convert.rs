@@ -6,26 +6,26 @@ use crate::{
 };
 
 impl Val {
-    fn scaled(&self, scale_factor: f64) -> Self {
+    fn scaled(self, scale_factor: f64) -> Self {
         match self {
             Val::Auto => Val::Auto,
-            Val::Percent(value) => Val::Percent(*value),
-            Val::Px(value) => Val::Px((scale_factor * *value as f64) as f32),
+            Val::Percent(value) => Val::Percent(value),
+            Val::Px(value) => Val::Px((scale_factor * value as f64) as f32),
             Val::Undefined => Val::Undefined,
         }
     }
 
-    fn to_inset(&self) -> LengthPercentageAuto {
+    fn to_inset(self) -> LengthPercentageAuto {
         match self {
             Val::Auto | Val::Undefined => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(*value),
+            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
         }
     }
 }
 
 impl UiRect {
-    fn scaled(&self, scale_factor: f64) -> Self {
+    fn scaled(self, scale_factor: f64) -> Self {
         Self {
             left: self.left.scaled(scale_factor),
             right: self.right.scaled(scale_factor),
@@ -36,7 +36,7 @@ impl UiRect {
 }
 
 impl Size {
-    fn scaled(&self, scale_factor: f64) -> Self {
+    fn scaled(self, scale_factor: f64) -> Self {
         Self {
             width: self.width.scaled(scale_factor),
             height: self.height.scaled(scale_factor),
