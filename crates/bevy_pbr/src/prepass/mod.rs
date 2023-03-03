@@ -281,11 +281,12 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled or the material uses alpha cutoff values
-        let fragment = if key
-            .mesh_key
-            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::ALPHA_MASK)
-            || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+        // The fragment shader is only used when the normal prepass is enabled
+        // or the material uses alpha cutoff values and doesn't rely on the standard prepass shader
+        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
+            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+                && self.material_fragment_shader.is_some())
         {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
