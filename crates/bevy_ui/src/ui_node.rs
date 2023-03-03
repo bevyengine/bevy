@@ -421,39 +421,42 @@ impl Style {
     }
 
     /// Set the `position.left` property
-    pub fn left(mut self, val: Val) -> Self {
-        self.position.left = val;
+    pub fn left(mut self, val: impl Into<Val>) -> Self {
+        self.position.left = val.into();
         self
     }
     /// Set the `position.left` property
-    pub fn right(mut self, val: Val) -> Self {
-        self.position.right = val;
+    pub fn right(mut self, val: impl Into<Val>) -> Self {
+        self.position.right = val.into();
         self
     }
     /// Set the `position.top` property
-    pub fn top(mut self, val: Val) -> Self {
-        self.position.top = val;
+    pub fn top(mut self, val: impl Into<Val>) -> Self {
+        self.position.top = val.into();
         self
     }
     /// Set the `position.bottom` property
-    pub fn bottom(mut self, val: Val) -> Self {
-        self.position.bottom = val;
+    pub fn bottom(mut self, val: impl Into<Val>) -> Self {
+        self.position.bottom = val.into();
         self
     }
     /// Set the `position.left` and `position.right` properties
-    pub fn position_horizontal(mut self, val: Val) -> Self {
+    pub fn position_horizontal(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.position.right = val;
         self.position.left = val;
         self
     }
     /// Set the `position.top` and `position.bottom` properties
-    pub fn position_vertical(mut self, val: Val) -> Self {
+    pub fn position_vertical(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.position.top = val;
         self.position.bottom = val;
         self
     }
     /// Set the `position.top`,`position.bottom`,`position.left`, and `position.right` properties
-    pub fn position(mut self, val: Val) -> Self {
+    pub fn position(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.position.top = val;
         self.position.bottom = val;
         self.position.left = val;
@@ -462,39 +465,42 @@ impl Style {
     }
 
     /// Set the `margin.left` property
-    pub fn margin_left(mut self, val: Val) -> Self {
-        self.margin.left = val;
+    pub fn margin_left(mut self, val: impl Into<Val>) -> Self {
+        self.margin.left = val.into();
         self
     }
     /// Set the `margin.left` property
-    pub fn margin_right(mut self, val: Val) -> Self {
-        self.margin.right = val;
+    pub fn margin_right(mut self, val: impl Into<Val>) -> Self {
+        self.margin.right = val.into();
         self
     }
     /// Set the `margin.top` property
-    pub fn margin_top(mut self, val: Val) -> Self {
-        self.margin.top = val;
+    pub fn margin_top(mut self, val: impl Into<Val>) -> Self {
+        self.margin.top = val.into();
         self
     }
     /// Set the `margin.bottom` property
-    pub fn margin_bottom(mut self, val: Val) -> Self {
-        self.margin.bottom = val;
+    pub fn margin_bottom(mut self, val: impl Into<Val>) -> Self {
+        self.margin.bottom = val.into();
         self
     }
     /// Set the `margin.left` and `margin.right` properties
-    pub fn margin_horizontal(mut self, val: Val) -> Self {
+    pub fn margin_horizontal(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.margin.right = val;
         self.margin.left = val;
         self
     }
     /// Set the `margin.top` and `margin.bottom` properties
-    pub fn margin_vertical(mut self, val: Val) -> Self {
+    pub fn margin_vertical(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.margin.top = val;
         self.margin.bottom = val;
         self
     }
     /// Set the `margin.top`,`margin.bottom`,`margin.left`, and `margin.right` properties
-    pub fn margin(mut self, val: Val) -> Self {
+    pub fn margin(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.margin.top = val;
         self.margin.bottom = val;
         self.margin.left = val;
@@ -503,39 +509,42 @@ impl Style {
     }
 
     /// Set the `padding.left` property
-    pub fn padding_left(mut self, val: Val) -> Self {
-        self.padding.left = val;
+    pub fn padding_left(mut self, val: impl Into<Val>) -> Self {
+        self.padding.left = val.into();
         self
     }
     /// Set the `padding.left` property
-    pub fn padding_right(mut self, val: Val) -> Self {
-        self.padding.right = val;
+    pub fn padding_right(mut self, val: impl Into<Val>) -> Self {
+        self.padding.right = val.into();
         self
     }
     /// Set the `padding.top` property
-    pub fn padding_top(mut self, val: Val) -> Self {
-        self.padding.top = val;
+    pub fn padding_top(mut self, val: impl Into<Val>) -> Self {
+        self.padding.top = val.into();
         self
     }
     /// Set the `padding.bottom` property
-    pub fn padding_bottom(mut self, val: Val) -> Self {
-        self.padding.bottom = val;
+    pub fn padding_bottom(mut self, val: impl Into<Val>) -> Self {
+        self.padding.bottom = val.into();
         self
     }
     /// Set the `padding.left` and `padding.right` properties
-    pub fn padding_horizontal(mut self, val: Val) -> Self {
+    pub fn padding_horizontal(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.padding.right = val;
         self.padding.left = val;
         self
     }
     /// Set the `padding.top` and `padding.bottom` properties
-    pub fn padding_vertical(mut self, val: Val) -> Self {
+    pub fn padding_vertical(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.padding.top = val;
         self.padding.bottom = val;
         self
     }
     /// Set the `padding.top`,`padding.bottom`,`padding.left`, and `padding.right` properties
-    pub fn padding(mut self, val: Val) -> Self {
+    pub fn padding(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.padding.top = val;
         self.padding.bottom = val;
         self.padding.left = val;
@@ -544,39 +553,42 @@ impl Style {
     }
 
     /// Set the `border.left` property
-    pub fn border_left(mut self, val: Val) -> Self {
-        self.border.left = val;
+    pub fn border_left(mut self, val: impl Into<Val>) -> Self {
+        self.border.left = val.into();
         self
     }
     /// Set the `border.left` property
-    pub fn border_right(mut self, val: Val) -> Self {
-        self.border.right = val;
+    pub fn border_right(mut self, val: impl Into<Val>) -> Self {
+        self.border.right = val.into();
         self
     }
     /// Set the `border.top` property
-    pub fn border_top(mut self, val: Val) -> Self {
-        self.border.top = val;
+    pub fn border_top(mut self, val: impl Into<Val>) -> Self {
+        self.border.top = val.into();
         self
     }
     /// Set the `border.bottom` property
-    pub fn border_bottom(mut self, val: Val) -> Self {
-        self.border.bottom = val;
+    pub fn border_bottom(mut self, val: impl Into<Val>) -> Self {
+        self.border.bottom = val.into();
         self
     }
     /// Set the `border.left` and `border.right` properties
-    pub fn border_horizontal(mut self, val: Val) -> Self {
+    pub fn border_horizontal(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.border.right = val;
         self.border.left = val;
         self
     }
     /// Set the `border.top` and `border.bottom` properties
-    pub fn border_vertical(mut self, val: Val) -> Self {
+    pub fn border_vertical(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.border.top = val;
         self.border.bottom = val;
         self
     }
     /// Set the `border.top`,`border.bottom`,`border.left`, and `border.right` properties
-    pub fn border(mut self, val: Val) -> Self {
+    pub fn border(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.border.top = val;
         self.border.bottom = val;
         self.border.left = val;
@@ -595,38 +607,38 @@ impl Style {
         self
     }
     /// Set the `flex_basis` property
-    pub fn flex_basis(mut self, val: Val) -> Self {
-        self.flex_basis = val;
+    pub fn flex_basis(mut self, val: impl Into<Val>) -> Self {
+        self.flex_basis = val.into();
         self
     }
     /// Set the `size.width` property
-    pub fn width(mut self, val: Val) -> Self {
-        self.size.width = val;
+    pub fn width(mut self, val: impl Into<Val>) -> Self {
+        self.size.width = val.into();
         self
     }
     /// Set the `size.height` property
-    pub fn height(mut self, val: Val) -> Self {
-        self.size.height = val;
+    pub fn height(mut self, val: impl Into<Val>) -> Self {
+        self.size.height = val.into();
         self
     }
     /// Set the `min_size.width` property
-    pub fn min_width(mut self, val: Val) -> Self {
-        self.min_size.width = val;
+    pub fn min_width(mut self, val: impl Into<Val>) -> Self {
+        self.min_size.width = val.into();
         self
     }
     /// Set the `min_size.height` property
-    pub fn min_height(mut self, val: Val) -> Self {
-        self.min_size.height = val;
+    pub fn min_height(mut self, val: impl Into<Val>) -> Self {
+        self.min_size.height = val.into();
         self
     }
     /// Set the `max_size.width` property
-    pub fn max_width(mut self, val: Val) -> Self {
-        self.max_size.width = val;
+    pub fn max_width(mut self, val: impl Into<Val>) -> Self {
+        self.max_size.width = val.into();
         self
     }
     /// Set the `max_size.height` property
-    pub fn max_height(mut self, val: Val) -> Self {
-        self.max_size.height = val;
+    pub fn max_height(mut self, val: impl Into<Val>) -> Self {
+        self.max_size.height = val.into();
         self
     }
     /// Set the `aspect_ratio` property
@@ -640,17 +652,18 @@ impl Style {
         self
     }
     /// Set the spacing between rows
-    pub fn row_gap(mut self, val: Val) -> Self {
-        self.gap.height = val;
+    pub fn row_gap(mut self, val: impl Into<Val>) -> Self {
+        self.gap.height = val.into();
         self
     }
     /// Set the spacing between columns
-    pub fn column_gap(mut self, val: Val) -> Self {
-        self.gap.width = val;
+    pub fn column_gap(mut self, val: impl Into<Val>) -> Self {
+        self.gap.width = val.into();
         self
     }
     /// Set the spacing between both rows and columns
-    pub fn gap(mut self, val: Val) -> Self {
+    pub fn gap(mut self, val: impl Into<Val>) -> Self {
+        let val = val.into();
         self.gap.width = val;
         self.gap.height = val;
         self
