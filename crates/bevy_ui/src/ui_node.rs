@@ -64,6 +64,18 @@ impl Default for Val {
     }
 }
 
+impl From<f32> for Val {
+    fn from(value: f32) -> Self {
+        Self::Px(value)
+    }
+}
+
+impl From<i32> for Val {
+    fn from(value: i32) -> Self {
+        Self::Px(value as f32)
+    }
+}
+
 impl Mul<f32> for Val {
     type Output = Val;
 
