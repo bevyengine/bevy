@@ -44,7 +44,7 @@ impl Size {
     }
 }
 
-impl <T: From<Val>> From<UiRect> for taffy::prelude::Rect<T> {
+impl<T: From<Val>> From<UiRect> for taffy::prelude::Rect<T> {
     fn from(value: UiRect) -> Self {
         Self {
             left: value.left.into(),
@@ -55,7 +55,7 @@ impl <T: From<Val>> From<UiRect> for taffy::prelude::Rect<T> {
     }
 }
 
-impl <T: From<Val>> From<Size> for taffy::prelude::Size<T> {
+impl<T: From<Val>> From<Size> for taffy::prelude::Size<T> {
     fn from(value: Size) -> Self {
         Self {
             width: value.width.into(),
