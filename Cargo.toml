@@ -50,7 +50,7 @@ default = [
   "x11",
   "filesystem_watcher",
   "android_shared_stdcxx",
-  "tonemapping_luts"
+  "tonemapping_luts",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -239,6 +239,16 @@ path = "examples/hello_world.rs"
 hidden = true
 
 # 2D Rendering
+[[example]]
+name = "bloom_2d"
+path = "examples/2d/bloom_2d.rs"
+
+[package.metadata.example.bloom_2d]
+name = "2D Bloom"
+description = "Illustrates bloom post-processing in 2d"
+category = "2D Rendering"
+wasm = false
+
 [[example]]
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
@@ -451,11 +461,11 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "bloom"
-path = "examples/3d/bloom.rs"
+name = "bloom_3d"
+path = "examples/3d/bloom_3d.rs"
 
-[package.metadata.example.bloom]
-name = "Bloom"
+[package.metadata.example.bloom_3d]
+name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
 wasm = false
