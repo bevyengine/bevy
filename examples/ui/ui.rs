@@ -296,11 +296,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
                             ..default()
                         });
-                        // .with_children(|parent| {
-                        //     // alt text
-                        //     parent
-                        //         .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
-                        // });
                 });
         });
 }
