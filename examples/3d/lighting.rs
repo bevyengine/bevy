@@ -22,6 +22,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // ground plane
     commands.spawn(PbrBundle {
@@ -60,6 +61,25 @@ fn setup(
         }),
         ..default()
     });
+
+    // Bevy logo to demonstrate alpha mask shadows
+    let mut transform = Transform::from_xyz(-2.2, 0.5, 1.0);
+    transform.rotate_y(PI / 8.);
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(2.0, 0.5)))),
+            transform,
+            material: materials.add(StandardMaterial {
+                base_color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
+                perceptual_roughness: 1.0,
+                alpha_mode: AlphaMode::Mask(0.5),
+                cull_mode: None,
+                ..default()
+            }),
+            ..default()
+        },
+        Movable,
+    ));
 
     // cube
     commands.spawn((
