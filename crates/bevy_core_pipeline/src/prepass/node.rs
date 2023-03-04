@@ -69,10 +69,6 @@ impl Node for PrepassNode {
             return Ok(());
         };
 
-        if opaque_prepass_phase.items.is_empty() && alpha_mask_prepass_phase.items.is_empty() {
-            return Ok(());
-        }
-
         let mut color_attachments = vec![];
         color_attachments.push(
             view_prepass_textures

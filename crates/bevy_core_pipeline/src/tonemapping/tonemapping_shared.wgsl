@@ -258,6 +258,10 @@ fn tonemapping_reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
     return tonemapping_change_luminance(color, l_new);
 }
 
+fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
+    return pow(color, vec3<f32>(1.0 / 2.2));
+}
+
 // Source: Advanced VR Rendering, GDC 2015, Alex Vlachos, Valve, Slide 49
 // https://media.steampowered.com/apps/valve/2015/Alex_Vlachos_Advanced_VR_Rendering_GDC2015.pdf
 fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
