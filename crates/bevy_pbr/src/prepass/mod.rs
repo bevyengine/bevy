@@ -106,7 +106,8 @@ where
             .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<PrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
+            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
+            .init_resource::<PreviousViewProjectionUniforms>();
     }
 }
 
@@ -144,7 +145,6 @@ where
             render_app
                 .init_resource::<DrawFunctions<Opaque3dPrepass>>()
                 .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-                .init_resource::<PreviousViewProjectionUniforms>()
                 .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
                 .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
                 .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
@@ -213,7 +213,8 @@ pub fn update_mesh_previous_global_transforms(
 
 #[derive(Resource)]
 pub struct PrepassPipeline<M: Material> {
-    pub view_layout: BindGroupLayout,
+    pub view_layout_motion_vectors: BindGroupLayout,
+    pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
     pub material_layout: BindGroupLayout,
@@ -228,38 +229,58 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<AssetServer>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // View
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
+        let view_layout_motion_vectors =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    // View
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(ViewUniform::min_size()),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                // PreviousViewProjection
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(PreviousViewProjection::min_size()),
+                    // PreviousViewProjection
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(PreviousViewProjection::min_size()),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-            ],
-            label: Some("prepass_view_layout"),
-        });
+                ],
+                label: Some("prepass_view_layout_motion_vectors"),
+            });
+
+        let view_layout_no_motion_vectors =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    // View
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(ViewUniform::min_size()),
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("prepass_view_layout_no_motion_vectors"),
+            });
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
         PrepassPipeline {
-            view_layout,
+            view_layout_motion_vectors,
+            view_layout_no_motion_vectors,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             skinned_mesh_layout: mesh_pipeline.skinned_mesh_layout.clone(),
             material_vertex_shader: match M::prepass_vertex_shader() {
@@ -290,13 +311,20 @@ where
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut bind_group_layout = vec![self.view_layout.clone()];
+        let mut bind_group_layouts = vec![if key
+            .mesh_key
+            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
+        {
+            self.view_layout_motion_vectors.clone()
+        } else {
+            self.view_layout_no_motion_vectors.clone()
+        }];
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layout.insert(1, self.material_layout.clone());
+        bind_group_layouts.insert(1, self.material_layout.clone());
 
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
@@ -365,9 +393,9 @@ where
             shader_defs.push("SKINNED".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
-            bind_group_layout.insert(2, self.skinned_mesh_layout.clone());
+            bind_group_layouts.insert(2, self.skinned_mesh_layout.clone());
         } else {
-            bind_group_layout.insert(2, self.mesh_layout.clone());
+            bind_group_layouts.insert(2, self.mesh_layout.clone());
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
@@ -438,7 +466,7 @@ where
                 buffers: vec![vertex_buffer_layout],
             },
             fragment,
-            layout: bind_group_layout,
+            layout: bind_group_layouts,
             primitive: PrimitiveState {
                 topology: key.mesh_key.primitive_topology(),
                 strip_index_format: None,
@@ -640,7 +668,10 @@ pub fn prepare_previous_view_projection_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&PreviousViewProjection>)>,
+    views: Query<
+        (Entity, &ExtractedView, Option<&PreviousViewProjection>),
+        With<MotionVectorPrepass>,
+    >,
 ) {
     view_uniforms.uniforms.clear();
 
@@ -773,7 +804,8 @@ pub fn prepare_prepass_textures(
 
 #[derive(Default, Resource)]
 pub struct PrepassViewBindGroup {
-    bind_group: Option<BindGroup>,
+    motion_vectors: Option<BindGroup>,
+    no_motion_vectors: Option<BindGroup>,
 }
 
 pub fn queue_prepass_view_bind_group<M: Material>(
@@ -783,27 +815,38 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     previous_view_proj_uniforms: Res<PreviousViewProjectionUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    let (Some(view_binding), Some(previous_view_proj_binding)) =
-        (view_uniforms.uniforms.binding(), previous_view_proj_uniforms.uniforms.binding())
-    else {
-        return;
-    };
+    if let (Some(view_binding), Some(previous_view_proj_binding)) = (
+        view_uniforms.uniforms.binding(),
+        previous_view_proj_uniforms.uniforms.binding(),
+    ) {
+        prepass_view_bind_group.motion_vectors =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_binding,
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: previous_view_proj_binding,
+                    },
+                ],
+                label: Some("prepass_view_motion_vectors_bind_group"),
+                layout: &prepass_pipeline.view_layout_motion_vectors,
+            }));
+    }
 
-    prepass_view_bind_group.bind_group =
-        Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
+    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+        prepass_view_bind_group.no_motion_vectors =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: previous_view_proj_binding,
-                },
-            ],
-            label: Some("prepass_view_bind_group"),
-            layout: &prepass_pipeline.view_layout,
-        }));
+                }],
+                label: Some("prepass_view_no_motion_vectors_bind_group"),
+                layout: &prepass_pipeline.view_layout_no_motion_vectors,
+            }));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -934,7 +977,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     type Param = SRes<PrepassViewBindGroup>;
     type ViewWorldQuery = (
         Read<ViewUniformOffset>,
-        Read<PreviousViewProjectionUniformOffset>,
+        Option<Read<PreviousViewProjectionUniformOffset>>,
     );
     type ItemWorldQuery = ();
 
@@ -943,21 +986,33 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
         _item: &P,
         (view_uniform_offset, previous_view_projection_uniform_offset): (
             &'_ ViewUniformOffset,
-            &'_ PreviousViewProjectionUniformOffset,
+            Option<&'_ PreviousViewProjectionUniformOffset>,
         ),
         _entity: (),
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
-        pass.set_bind_group(
-            I,
-            prepass_view_bind_group.bind_group.as_ref().unwrap(),
-            &[
-                view_uniform_offset.offset,
-                previous_view_projection_uniform_offset.offset,
-            ],
-        );
+
+        if let Some(previous_view_projection_uniform_offset) =
+            previous_view_projection_uniform_offset
+        {
+            pass.set_bind_group(
+                I,
+                prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
+                &[
+                    view_uniform_offset.offset,
+                    previous_view_projection_uniform_offset.offset,
+                ],
+            );
+        } else {
+            pass.set_bind_group(
+                I,
+                prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
+                &[view_uniform_offset.offset],
+            );
+        }
+
         RenderCommandResult::Success
     }
 }
