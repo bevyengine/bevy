@@ -293,6 +293,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 size: Size::width(Val::Px(500.0)),
                                 ..default()
                             },
+                            image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
+                        ..default()
                             ..default()
                         })
                         .with_children(|parent| {
