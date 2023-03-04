@@ -290,7 +290,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(ImageBundle {
                             style: Style {
-                                size: Size::width(Val::Px(500.0)),
+                                min_size: Size::new(Val::Px(500.0), Val::Px(125.0)),
+                                max_size: Size::new(Val::Px(500.0), Val::Px(125.0)),
                                 ..default()
                             },
                             image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
@@ -298,14 +299,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // alt text
-                            parent.spawn(TextBundle::from_section(
-                                "Bevy logo",
-                                TextStyle {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: 20.,
-                                    color: Color::WHITE,
-                                },
-                            ));
+                            parent
+                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
                         });
                 });
         });
