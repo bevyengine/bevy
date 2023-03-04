@@ -26,7 +26,7 @@ fn fragment(
         return vec4(normal, 1.0);
     } else if settings.show_motion_vectors == 1u {
         let motion_vector = prepass_motion_vector(frag_coord, sample_index);
-        return vec4(motion_vector, 0.0, 1.0);
+        return vec4(motion_vector / globals.delta_time, 0.0, 1.0);
     }
 
     return vec4(0.0);
