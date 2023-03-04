@@ -138,7 +138,7 @@ fn setup(
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::RED,
-                    emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+                    emissive: Color::rgba_linear(7.13, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -170,7 +170,7 @@ fn setup(
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::GREEN,
-                    emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
+                    emissive: Color::rgba_linear(0.0, 7.13, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -198,7 +198,7 @@ fn setup(
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLUE,
-                    emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
+                    emissive: Color::rgba_linear(0.0, 0.0, 7.13, 0.0),
                     ..default()
                 }),
                 ..default()
