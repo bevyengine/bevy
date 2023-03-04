@@ -294,14 +294,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
-                        ..default()
                             ..default()
-                        })
-                        .with_children(|parent| {
-                            // alt text
-                            parent
-                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
                         });
+                        // .with_children(|parent| {
+                        //     // alt text
+                        //     parent
+                        //         .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                        // });
                 });
         });
 }
