@@ -1,8 +1,9 @@
 use crate::{
-    AlphaMode, DrawMesh, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshUniform,
-    PrepassPlugin, SetMeshBindGroup, SetMeshViewBindGroup,
+    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
+    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
+    SetMeshViewBindGroup, Shadow,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -125,7 +126,8 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
 
     #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
-    /// for meshes with equal depth, to avoid z-fighting.
+    /// for meshes with similar depth, to avoid z-fighting.
+    /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     fn depth_bias(&self) -> f32 {
         0.0
     }
@@ -188,6 +190,8 @@ where
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<DrawFunctions<Shadow>>()
+                .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
@@ -195,14 +199,18 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_schedule(ExtractSchedule, extract_materials::<M>)
+                .add_system(extract_materials::<M>.in_schedule(ExtractSchedule))
                 .add_system(
                     prepare_materials::<M>
                         .in_set(RenderSet::Prepare)
                         .after(PrepareAssetSet::PreAssetPrepare),
                 )
+                .add_system(render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows))
                 .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
+
+        // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
+        app.add_plugin(PrepassPipelinePlugin::<M>::default());
 
         if self.prepass_enabled {
             app.add_plugin(PrepassPlugin::<M>::default());
@@ -507,6 +515,7 @@ pub struct MaterialProperties {
     pub alpha_mode: AlphaMode,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
+    /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     pub depth_bias: f32,
 }
 

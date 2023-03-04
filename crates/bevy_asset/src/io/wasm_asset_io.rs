@@ -56,7 +56,11 @@ impl AssetIo for WasmAssetIo {
         Ok(Box::new(std::iter::empty::<PathBuf>()))
     }
 
-    fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(
+        &self,
+        _to_watch: &Path,
+        _to_reload: Option<PathBuf>,
+    ) -> Result<(), AssetIoError> {
         Ok(())
     }
 

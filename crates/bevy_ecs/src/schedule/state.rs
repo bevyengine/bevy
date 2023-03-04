@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::mem;
 
 use crate as bevy_ecs;
+use crate::change_detection::DetectChangesMut;
 use crate::schedule::{ScheduleLabel, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
@@ -97,13 +98,14 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Runs the [`OnExit(exited_state)`] schedule.
 /// - Runs the [`OnEnter(entered_state)`] schedule.
 pub fn apply_state_transition<S: States>(world: &mut World) {
-    if world.resource::<NextState<S>>().0.is_some() {
-        let entered_state = world.resource_mut::<NextState<S>>().0.take().unwrap();
-        let exited_state = mem::replace(
-            &mut world.resource_mut::<State<S>>().0,
-            entered_state.clone(),
-        );
-        world.run_schedule(OnExit(exited_state));
-        world.run_schedule(OnEnter(entered_state));
+    // We want to take the `NextState` resource,
+    // but only mark it as changed if it wasn't empty.
+    let mut next_state_resource = world.resource_mut::<NextState<S>>();
+    if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
+        next_state_resource.set_changed();
+
+        let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
+        world.run_schedule(OnExit(exited));
+        world.run_schedule(OnEnter(entered));
     }
 }

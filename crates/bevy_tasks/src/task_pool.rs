@@ -112,7 +112,12 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
-        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
+        static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
+    }
+
+    /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Self::THREAD_EXECUTOR.with(|executor| executor.clone())
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -223,7 +228,7 @@ impl TaskPool {
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
     /// let results = pool.scope(|s| {
-    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 0 });
     ///     s.spawn(async { 1 });
     /// });
     /// assert_eq!(&results[..], &[0, 1]);
@@ -376,9 +381,17 @@ impl TaskPool {
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
 
                 // we get this from a thread local so we should always be on the scope executors thread.
+                // note: it is possible `scope_executor` and `external_executor` is the same executor,
+                // in that case, we should only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                if let Some(external_ticker) = external_executor.ticker() {
-                    if tick_task_pool_executor {
+                let external_ticker = if !external_executor.is_same(scope_executor) {
+                    external_executor.ticker()
+                } else {
+                    None
+                };
+
+                match (external_ticker, tick_task_pool_executor) {
+                    (Some(external_ticker), true) => {
                         Self::execute_global_external_scope(
                             executor,
                             external_ticker,
@@ -386,14 +399,16 @@ impl TaskPool {
                             get_results,
                         )
                         .await
-                    } else {
+                    }
+                    (Some(external_ticker), false) => {
                         Self::execute_external_scope(external_ticker, scope_ticker, get_results)
                             .await
                     }
-                } else if tick_task_pool_executor {
-                    Self::execute_global_scope(executor, scope_ticker, get_results).await
-                } else {
-                    Self::execute_scope(scope_ticker, get_results).await
+                    // either external_executor is none or it is same as scope_executor
+                    (None, true) => {
+                        Self::execute_global_scope(executor, scope_ticker, get_results).await
+                    }
+                    (None, false) => Self::execute_scope(scope_ticker, get_results).await,
                 }
             })
         }
