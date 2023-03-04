@@ -80,7 +80,6 @@ fn setup(
         },
         Movable,
     ));
-    });
 
     // cube
     commands.spawn((
