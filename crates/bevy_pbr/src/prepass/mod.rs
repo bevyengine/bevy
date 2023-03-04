@@ -129,7 +129,8 @@ where
         let no_prepass_plugin_loaded = app.world.get_resource::<AnyPrepassPluginLoaded>().is_none();
 
         if no_prepass_plugin_loaded {
-            app.insert_resource(AnyPrepassPluginLoaded);
+            app.insert_resource(AnyPrepassPluginLoaded)
+                .add_system(update_previous_view_projections);
 
             // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
             app.add_system(update_mesh_previous_global_transforms.in_base_set(CoreSet::PreUpdate));
