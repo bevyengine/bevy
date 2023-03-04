@@ -445,14 +445,19 @@ pub fn queue_material_meshes<M: Material>(
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
-                    let alpha_mode = material.properties.alpha_mode;
-                    if let AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add = alpha_mode
-                    {
-                        // Blend, Premultiplied and Add all share the same pipeline key
-                        // They're made distinct in the PBR shader, via `premultiply_alpha()`
-                        mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
-                    } else if let AlphaMode::Multiply = alpha_mode {
-                        mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
+                    match material.properties.alpha_mode {
+                        AlphaMode::Blend => {
+                            mesh_key |= MeshPipelineKey::BLEND_ALPHA;
+                        }
+                        AlphaMode::Premultiplied | AlphaMode::Add => {
+                            // Premultiplied and Add share the same pipeline key
+                            // They're made distinct in the PBR shader, via `premultiply_alpha()`
+                            mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                        }
+                        AlphaMode::Multiply => {
+                            mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
+                        }
+                        _ => (),
                     }
 
                     let pipeline_id = pipelines.specialize(
@@ -474,7 +479,7 @@ pub fn queue_material_meshes<M: Material>(
 
                     let distance = rangefinder.distance(&mesh_uniform.transform)
                         + material.properties.depth_bias;
-                    match alpha_mode {
+                    match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
                             opaque_phase.add(Opaque3d {
                                 entity: *visible_entity,

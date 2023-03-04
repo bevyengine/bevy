@@ -235,6 +235,9 @@ where
         if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
         }
+        if blend_key == MeshPipelineKey::BLEND_ALPHA {
+            shader_defs.push("BLEND_ALPHA".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
@@ -285,7 +288,8 @@ where
         // or the material uses alpha cutoff values and doesn't rely on the standard prepass shader
         let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
             || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+                || blend_key == MeshPipelineKey::BLEND_ALPHA)
                 && self.material_fragment_shader.is_some())
         {
             // Use the fragment shader from the material if present
