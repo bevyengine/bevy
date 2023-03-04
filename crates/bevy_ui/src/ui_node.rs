@@ -353,15 +353,21 @@ impl Default for Style {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
-    /// Items are aligned at the start
+    /// Items are packed towards the start of the axis.
+    Start,
+    /// Items are packed towards the end of the axis.
+    End,
+    /// Items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then they are packed towards the end of the axis.
     FlexStart,
-    /// Items are aligned at the end
+    /// Items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then they are packed towards the end of the axis.
     FlexEnd,
-    /// Items are aligned at the center
+    /// Items are aligned at the center.
     Center,
-    /// Items are aligned at the baseline
+    /// Items are aligned at the baseline.
     Baseline,
-    /// Items are stretched across the whole cross axis
+    /// Items are stretched across the whole cross axis.
     Stretch,
 }
 
@@ -380,17 +386,23 @@ impl Default for AlignItems {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
-    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned
+    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
     Auto,
-    /// This item will be aligned at the start
+    /// This item will be aligned with the start of the axis.
+    Start,
+    /// This item will be aligned with the end of the axis.
+    End,
+    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the end of the axis.
     FlexStart,
-    /// This item will be aligned at the end
+    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the end of the axis.
     FlexEnd,
-    /// This item will be aligned at the center
+    /// This item will be aligned at the center.
     Center,
-    /// This item will be aligned at the baseline
+    /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis
+    /// This item will be stretched across the whole cross axis.
     Stretch,
 }
 
@@ -410,19 +422,26 @@ impl Default for AlignSelf {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
-    /// Each line moves towards the start of the cross axis
+    /// Each line moves towards the start of the cross axis.
+    Start,
+    /// Each line moves towards the end of the cross axis.
+    End,
+    /// Each line moves towards the start of the cross axis, unless the flex direction is reversed; then the line moves towards the end of the cross axis.
     FlexStart,
-    /// Each line moves towards the end of the cross axis
+    /// Each line moves towards the end of the cross axis, unless the flex direction is reversed; then the line moves towards the start of the cross axis.
     FlexEnd,
-    /// Each line moves towards the center of the cross axis
+    /// Each line moves towards the center of the cross axis.
     Center,
-    /// Each line will stretch to fill the remaining space
+    /// Each line will stretch to fill the remaining space.
     Stretch,
     /// Each line fills the space it needs, putting the remaining space, if any
-    /// inbetween the lines
+    /// inbetween the lines.
     SpaceBetween,
+    /// The gap between the first and last items is exactly THE SAME as the gap between items.
+    /// The gaps are distributed evenly.
+    SpaceEvenly,
     /// Each line fills the space it needs, putting the remaining space, if any
-    /// around the lines
+    /// around the lines.
     SpaceAround,
 }
 
@@ -442,11 +461,11 @@ impl Default for AlignContent {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
-    /// Inherit from parent node
+    /// Inherit from parent node.
     Inherit,
-    /// Text is written left to right
+    /// Text is written left to right.
     LeftToRight,
-    /// Text is written right to left
+    /// Text is written right to left.
     RightToLeft,
 }
 
@@ -489,13 +508,13 @@ impl Default for Display {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum FlexDirection {
-    /// Same way as text direction along the main axis
+    /// Same way as text direction along the main axis.
     Row,
-    /// Flex from top to bottom
+    /// Flex from top to bottom.
     Column,
-    /// Opposite way as text direction along the main axis
+    /// Opposite way as text direction along the main axis.
     RowReverse,
-    /// Flex from bottom to top
+    /// Flex from bottom to top.
     ColumnReverse,
 }
 
@@ -513,17 +532,21 @@ impl Default for FlexDirection {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
-    /// Pushed towards the start
+    /// Items are packed toward the start of the axis.
+    Start,
+    /// Items are packed toward the end of the axis.
+    End,
+    /// Pushed towards the start, unless the flex direction is reversed; then pushed towards the end.
     FlexStart,
-    /// Pushed towards the end
+    /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
     FlexEnd,
-    /// Centered along the main axis
+    /// Centered along the main axis.
     Center,
-    /// Remaining space is distributed between the items
+    /// Remaining space is distributed between the items.
     SpaceBetween,
-    /// Remaining space is distributed around the items
+    /// Remaining space is distributed around the items.
     SpaceAround,
-    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items
+    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items.
     SpaceEvenly,
 }
 
@@ -541,9 +564,9 @@ impl Default for JustifyContent {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Overflow {
-    /// Show overflowing items
+    /// Show overflowing items.
     Visible,
-    /// Hide overflowing items
+    /// Hide overflowing items.
     Hidden,
 }
 
@@ -561,11 +584,11 @@ impl Default for Overflow {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum PositionType {
-    /// Relative to all other nodes with the [`PositionType::Relative`] value
+    /// Relative to all other nodes with the [`PositionType::Relative`] value.
     Relative,
-    /// Independent of all other nodes
+    /// Independent of all other nodes.
     ///
-    /// As usual, the `Style.position` field of this node is specified relative to its parent node
+    /// As usual, the `Style.position` field of this node is specified relative to its parent node.
     Absolute,
 }
 
@@ -583,11 +606,11 @@ impl Default for PositionType {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum FlexWrap {
-    /// Single line, will overflow if needed
+    /// Single line, will overflow if needed.
     NoWrap,
-    /// Multiple lines, if needed
+    /// Multiple lines, if needed.
     Wrap,
-    /// Same as [`FlexWrap::Wrap`] but new lines will appear before the previous one
+    /// Same as [`FlexWrap::Wrap`] but new lines will appear before the previous one.
     WrapReverse,
 }
 
