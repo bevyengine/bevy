@@ -101,7 +101,7 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         position: style.position_type.into(),
         flex_direction: style.flex_direction.into(),
         flex_wrap: style.flex_wrap.into(),
-        align_items: style.align_items.into(),
+        align_items: Some(style.align_items.into()),
         align_self: style.align_self.into(),
         align_content: Some(style.align_content.into()),
         justify_content: Some(style.justify_content.into()),
@@ -126,17 +126,16 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
     }
 }
 
-impl From<AlignItems> for Option<taffy::style::AlignItems> {
+impl From<AlignItems> for taffy::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Unset => None,
-            AlignItems::Start => taffy::style::AlignItems::Start.into(),
-            AlignItems::End => taffy::style::AlignItems::End.into(),
-            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart.into(),
-            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd.into(),
-            AlignItems::Center => taffy::style::AlignItems::Center.into(),
-            AlignItems::Baseline => taffy::style::AlignItems::Baseline.into(),
-            AlignItems::Stretch => taffy::style::AlignItems::Stretch.into(),
+            AlignItems::Start => taffy::style::AlignItems::Start,
+            AlignItems::End => taffy::style::AlignItems::End,
+            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
+            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
+            AlignItems::Center => taffy::style::AlignItems::Center,
+            AlignItems::Baseline => taffy::style::AlignItems::Baseline,
+            AlignItems::Stretch => taffy::style::AlignItems::Stretch,
         }
     }
 }
@@ -200,7 +199,6 @@ impl From<JustifyContent> for taffy::style::JustifyContent {
             JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart,
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd,
             JustifyContent::Center => taffy::style::JustifyContent::Center,
-            JustifyContent::Stretch => taffy::style::JustifyContent::Stretch,
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,

@@ -347,8 +347,6 @@ impl Default for Style {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
-    /// `Unset` acts like `Stretch` for relatively positions and `Start` for absolutely positions.
-    Unset,
     /// Items are packed towards the start of the axis.
     Start,
     /// Items are packed towards the end of the axis.
@@ -536,8 +534,6 @@ pub enum JustifyContent {
     FlexStart,
     /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
     FlexEnd,
-    /// Items are stretched to fill the container (only affects grid).
-    Stretch,
     /// Centered along the main axis.
     Center,
     /// Remaining space is distributed between the items.
