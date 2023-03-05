@@ -26,8 +26,8 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        PipelineCache, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
@@ -245,8 +245,11 @@ where
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
+        let mut descriptor = self
+            .mesh2d_pipeline
+            .specialize(key.mesh_key, layout, shader_defs)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }

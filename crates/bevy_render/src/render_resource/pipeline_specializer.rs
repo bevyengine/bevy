@@ -14,9 +14,15 @@ use bevy_utils::{
 use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 
+use super::ShaderDefVal;
+
 pub trait SpecializedRenderPipeline {
     type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor;
 }
 
 #[derive(Resource)]
@@ -38,7 +44,7 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
         key: S::Key,
     ) -> CachedRenderPipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+            let descriptor = specialize_pipeline.specialize(key, cache.base_shader_defs());
             cache.queue_render_pipeline(descriptor)
         })
     }
@@ -46,7 +52,11 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
 
 pub trait SpecializedComputePipeline {
     type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> ComputePipelineDescriptor;
 }
 
 #[derive(Resource)]
@@ -68,7 +78,7 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
         key: S::Key,
     ) -> CachedComputePipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+            let descriptor = specialize_pipeline.specialize(key, cache.base_shader_defs());
             cache.queue_compute_pipeline(descriptor)
         })
     }
@@ -80,6 +90,7 @@ pub trait SpecializedMeshPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError>;
 }
 
@@ -115,7 +126,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             Entry::Occupied(entry) => Ok(*entry.into_mut()),
             Entry::Vacant(entry) => {
                 let descriptor = specialize_pipeline
-                    .specialize(key.clone(), layout)
+                    .specialize(key.clone(), layout, cache.base_shader_defs())
                     .map_err(|mut err| {
                         {
                             let SpecializedMeshPipelineError::MissingVertexAttribute(err) =

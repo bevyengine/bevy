@@ -99,7 +99,11 @@ impl FromWorld for BloomDownsamplingPipeline {
 impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        mut shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         let layout = vec![self.bind_group_layout.clone()];
 
         let entry_point = if key.first_downsample {
@@ -107,8 +111,6 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
         } else {
             "downsample".into()
         };
-
-        let mut shader_defs = vec![];
 
         if key.first_downsample {
             shader_defs.push("FIRST_DOWNSAMPLE".into());
@@ -128,7 +130,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
                 .into(),
             ),
             layout,
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: fullscreen_shader_vertex_state(shader_defs.clone()),
             fragment: Some(FragmentState {
                 shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,

@@ -7,6 +7,7 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::render_resource::ShaderDefVal;
 use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -86,8 +87,9 @@ impl SpecializedMeshPipeline for WireframePipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout, shader_defs)?;
         descriptor.vertex.shader = self.shader.clone_weak();
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;

@@ -205,7 +205,11 @@ impl SpritePipelineKey {
 impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        mut shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         let mut formats = vec![
             // position
             VertexFormat::Float32x3,
@@ -221,7 +225,6 @@ impl SpecializedRenderPipeline for SpritePipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        let mut shader_defs = Vec::new();
         if key.contains(SpritePipelineKey::COLORED) {
             shader_defs.push("COLORED".into());
         }

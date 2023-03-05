@@ -230,9 +230,9 @@ where
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        mut shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layout = vec![self.view_layout.clone()];
-        let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.

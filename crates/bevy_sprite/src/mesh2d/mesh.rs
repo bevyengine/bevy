@@ -211,6 +211,7 @@ impl FromWorld for Mesh2dPipeline {
             }],
             label: Some("mesh2d_layout"),
         });
+
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
@@ -256,6 +257,7 @@ impl FromWorld for Mesh2dPipeline {
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
+
         Mesh2dPipeline {
             view_layout,
             mesh_layout,
@@ -361,8 +363,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        mut shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {

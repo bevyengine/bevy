@@ -74,7 +74,11 @@ impl FromWorld for BloomUpsamplingPipeline {
 impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         let texture_format = if key.final_pipeline {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -116,10 +120,10 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
         RenderPipelineDescriptor {
             label: Some("bloom_upsampling_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: fullscreen_shader_vertex_state(shader_defs.clone()),
             fragment: Some(FragmentState {
                 shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "upsample".into(),
                 targets: vec![Some(ColorTargetState {
                     format: texture_format,

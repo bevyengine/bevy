@@ -77,14 +77,18 @@ pub struct BlitPipelineKey {
 impl SpecializedRenderPipeline for BlitPipeline {
     type Key = BlitPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: fullscreen_shader_vertex_state(shader_defs.clone()),
             fragment: Some(FragmentState {
                 shader: BLIT_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,

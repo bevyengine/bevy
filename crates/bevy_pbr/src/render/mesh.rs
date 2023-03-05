@@ -653,8 +653,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        mut shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {

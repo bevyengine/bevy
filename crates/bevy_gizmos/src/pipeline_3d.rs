@@ -45,8 +45,8 @@ impl SpecializedMeshPipeline for GizmoPipeline {
         &self,
         (depth_test, key): Self::Key,
         layout: &MeshVertexBufferLayout,
+        mut shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut shader_defs = Vec::new();
         shader_defs.push("GIZMO_LINES_3D".into());
         shader_defs.push(ShaderDefVal::Int(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),

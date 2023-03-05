@@ -193,25 +193,13 @@ impl ShaderCache {
         let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
-                let mut shader_defs = shader_defs.to_vec();
-                #[cfg(feature = "webgl")]
-                {
-                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
-                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
-                }
-
-                shader_defs.push(ShaderDefVal::UInt(
-                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage,
-                ));
-
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
                     handle, shader_defs
                 );
                 let processed = self.processor.process(
                     shader,
-                    &shader_defs,
+                    shader_defs,
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
@@ -311,6 +299,7 @@ impl ShaderCache {
 }
 
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
+
 #[derive(Default)]
 struct LayoutCache {
     layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
@@ -362,6 +351,7 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    base_shader_defs: Vec<ShaderDefVal>,
 }
 
 impl PipelineCache {
@@ -369,8 +359,25 @@ impl PipelineCache {
         self.pipelines.iter()
     }
 
+    pub fn base_shader_defs(&self) -> Vec<ShaderDefVal> {
+        self.base_shader_defs.clone()
+    }
+
     /// Create a new pipeline cache associated with the given render device.
     pub fn new(device: RenderDevice) -> Self {
+        let mut base_shader_defs = Vec::new();
+
+        #[cfg(feature = "webgl")]
+        {
+            base_shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+            base_shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
+
+        base_shader_defs.push(ShaderDefVal::UInt(
+            String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+            device.limits().max_storage_buffers_per_shader_stage,
+        ));
+
         Self {
             device,
             layout_cache: default(),
@@ -378,6 +385,7 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            base_shader_defs,
         }
     }
 

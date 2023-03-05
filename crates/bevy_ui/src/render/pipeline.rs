@@ -67,7 +67,11 @@ pub struct UiPipelineKey {
 impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Vertex,
             vec![
@@ -79,7 +83,6 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
             ],
         );
-        let shader_defs = Vec::new();
 
         RenderPipelineDescriptor {
             vertex: VertexState {

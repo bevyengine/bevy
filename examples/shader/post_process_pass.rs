@@ -283,6 +283,8 @@ impl FromWorld for PostProcessPipeline {
             .resource::<AssetServer>()
             .load("shaders/post_process_pass.wgsl");
 
+        let shader_defs = world.resource::<PipelineCache>().base_shader_defs();
+
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
             // This will add the pipeline to the cache and queue it's creation
@@ -290,10 +292,10 @@ impl FromWorld for PostProcessPipeline {
                 label: Some("post_process_pipeline".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: fullscreen_shader_vertex_state(shader_defs.clone()),
                 fragment: Some(FragmentState {
                     shader,
-                    shader_defs: vec![],
+                    shader_defs,
                     // Make sure this matches the entry point of your shader.
                     // It can be anything as long as it matches here and in the shader.
                     entry_point: "fragment".into(),
