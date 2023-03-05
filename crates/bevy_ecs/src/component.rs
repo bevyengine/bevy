@@ -707,8 +707,8 @@ impl ComponentTicks {
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
     #[inline]
-    pub fn set_changed(&mut self, change_tick: u32) {
-        self.changed.set_changed(change_tick);
+    pub fn set_changed(&mut self, change_tick: Tick) {
+        self.changed = change_tick;
     }
 }
 
