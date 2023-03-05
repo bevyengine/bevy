@@ -26,9 +26,6 @@ pub use bevy_ptr as ptr;
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::query::ChangeTrackers;
-    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{ReflectComponent, ReflectResource};
     #[doc(hidden)]
@@ -1297,33 +1294,6 @@ mod tests {
         })
         .join()
         .unwrap();
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn trackers_query() {
-        use crate::prelude::ChangeTrackers;
-
-        let mut world = World::default();
-        let e1 = world.spawn((A(0), B(0))).id();
-        world.spawn(B(0));
-
-        let mut trackers_query = world.query::<Option<ChangeTrackers<A>>>();
-        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
-        let a_trackers = trackers[0].as_ref().unwrap();
-        assert!(trackers[1].is_none());
-        assert!(a_trackers.is_added());
-        assert!(a_trackers.is_changed());
-        world.clear_trackers();
-        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
-        let a_trackers = trackers[0].as_ref().unwrap();
-        assert!(!a_trackers.is_added());
-        assert!(!a_trackers.is_changed());
-        *world.get_mut(e1).unwrap() = A(1);
-        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
-        let a_trackers = trackers[0].as_ref().unwrap();
-        assert!(!a_trackers.is_added());
-        assert!(a_trackers.is_changed());
     }
 
     #[test]
