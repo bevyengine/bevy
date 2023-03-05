@@ -401,7 +401,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
-            emissive: self.emissive.into(),
+            emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,

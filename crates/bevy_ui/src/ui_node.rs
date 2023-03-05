@@ -15,13 +15,13 @@ use thiserror::Error;
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
-    /// The size of the node as width and height in pixels
+    /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::flex::flex_node_system`]
     pub(crate) calculated_size: Vec2,
 }
 
 impl Node {
-    /// The calculated node size as width and height in pixels
+    /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::flex::flex_node_system`]
     pub fn size(&self) -> Vec2 {
         self.calculated_size

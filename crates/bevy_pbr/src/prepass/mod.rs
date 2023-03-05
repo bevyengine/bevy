@@ -340,6 +340,9 @@ where
         if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
         }
+        if blend_key == MeshPipelineKey::BLEND_ALPHA {
+            shader_defs.push("BLEND_ALPHA".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
@@ -431,7 +434,8 @@ where
         // prepass shader
         let fragment_required = !targets.is_empty()
             || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+                || blend_key == MeshPipelineKey::BLEND_ALPHA)
                 && self.material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {

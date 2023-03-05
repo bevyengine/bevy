@@ -83,7 +83,6 @@ impl Node for PrepassNode {
                     },
                 }),
         );
-
         color_attachments.push(view_prepass_textures.motion_vectors.as_ref().map(
             |view_motion_vectors_texture| RenderPassColorAttachment {
                 view: &view_motion_vectors_texture.default_view,
@@ -96,7 +95,6 @@ impl Node for PrepassNode {
                 },
             },
         ));
-
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();
