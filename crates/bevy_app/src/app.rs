@@ -390,7 +390,9 @@ impl App {
             if let Some(schedule) = schedules.get_mut(&*schedule_label) {
                 schedule.add_system(system);
             } else {
-                panic!("Schedule {schedule_label:?} does not exist.")
+                self
+                    .add_schedule(schedule_label, Schedule::new())
+                    .add_system(system);
             }
         } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
