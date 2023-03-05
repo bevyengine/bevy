@@ -57,6 +57,7 @@ impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
 
+    #[inline]
     pub fn id(&self) -> usize {
         self.0
     }
