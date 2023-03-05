@@ -626,20 +626,7 @@ impl Tick {
         }
     }
 
-    /// Manually sets the change tick.
-    ///
-    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
-    /// However, components and resources that make use of interior mutability might require manual updates.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// # use bevy_ecs::{world::World, component::ComponentTicks};
-    /// let world: World = unimplemented!();
-    /// let component_ticks: ComponentTicks = unimplemented!();
-    ///
-    /// component_ticks.set_changed(world.read_change_tick());
-    /// ```
+    /// Manually set the value of this change tick.
     #[inline]
     pub fn set(&mut self, tick: u32) {
         self.tick = tick;
