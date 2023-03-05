@@ -69,14 +69,15 @@ pub trait System: Send + Sync + 'static {
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         Vec::new()
     }
-    /// Gets the system's last change tick
-    fn get_last_change_tick(&self) -> Tick;
-    /// Sets the system's last change tick
+    /// Gets the tick indicating the last time this system ran.
+    fn get_last_run(&self) -> Tick;
+    /// Overwrites the tick indicating the last time this system ran.
+    ///
     /// # Warning
     /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
-    fn set_last_change_tick(&mut self, last_change_tick: Tick);
+    fn set_last_run(&mut self, last_change_tick: Tick);
 }
 
 /// [`System`] types that do not modify the [`World`] when run.

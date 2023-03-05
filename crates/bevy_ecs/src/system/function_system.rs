@@ -469,11 +469,11 @@ where
         out
     }
 
-    fn get_last_change_tick(&self) -> Tick {
+    fn get_last_run(&self) -> Tick {
         self.system_meta.last_change_tick
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: Tick) {
+    fn set_last_run(&mut self, last_change_tick: Tick) {
         self.system_meta.last_change_tick = last_change_tick;
     }
 
