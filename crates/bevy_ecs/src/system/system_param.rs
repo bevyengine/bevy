@@ -462,8 +462,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             ticks: Ticks {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
+                last_run: system_meta.last_change_tick,
+                this_run: change_tick,
             },
         }
     }
@@ -496,8 +496,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                 ticks: Ticks {
                     added: ticks.added.deref(),
                     changed: ticks.changed.deref(),
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
+                    last_run: system_meta.last_change_tick,
+                    this_run: change_tick,
                 },
             })
     }
@@ -557,8 +557,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             ticks: TicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
+                last_run: system_meta.last_change_tick,
+                this_run: change_tick,
             },
         }
     }
@@ -588,8 +588,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                 ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
+                    last_run: system_meta.last_change_tick,
+                    this_run: change_tick,
                 },
             })
     }
@@ -992,8 +992,8 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
                 added: nsm.ticks.added.to_owned(),
                 changed: nsm.ticks.changed.to_owned(),
             },
-            change_tick: nsm.ticks.change_tick,
-            last_change_tick: nsm.ticks.last_change_tick,
+            change_tick: nsm.ticks.this_run,
+            last_change_tick: nsm.ticks.last_run,
         }
     }
 }

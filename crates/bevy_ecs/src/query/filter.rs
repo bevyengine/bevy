@@ -50,13 +50,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
-    unsafe fn init_fetch(
-        _world: &World,
-        _state: &ComponentId,
-        _last_change_tick: Tick,
-        _change_tick: Tick,
-    ) {
-    }
+    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
@@ -152,13 +146,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
-    unsafe fn init_fetch(
-        _world: &World,
-        _state: &ComponentId,
-        _last_change_tick: Tick,
-        _change_tick: Tick,
-    ) {
-    }
+    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 

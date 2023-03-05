@@ -500,21 +500,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     unsafe fn init(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: Tick,
-        change_tick: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryIterationCursor {
             fetch,
             filter,

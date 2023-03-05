@@ -3,7 +3,10 @@ use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
 use bevy_ptr::UnsafeCellDeref;
 
 use crate::{
-    archetype::ArchetypeComponentId, component::{ComponentId, Tick}, prelude::World, query::Access,
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    prelude::World,
+    query::Access,
 };
 
 use super::{ReadOnlySystem, System};

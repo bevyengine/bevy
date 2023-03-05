@@ -1306,8 +1306,8 @@ impl World {
             ticks: TicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                last_change_tick,
-                change_tick,
+                last_run: last_change_tick,
+                this_run: change_tick,
             },
         };
         let result = f(self, value_mut);
