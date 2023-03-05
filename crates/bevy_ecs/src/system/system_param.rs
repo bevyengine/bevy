@@ -942,8 +942,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 pub struct NonSend<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
-    last_change_tick: Tick,
-    change_tick: Tick,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -961,13 +961,12 @@ where
 impl<'w, T: 'static> NonSend<'w, T> {
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
+        self.ticks.is_added(self.last_run, self.this_run)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+        self.ticks.is_changed(self.last_run, self.this_run)
     }
 }
 
@@ -986,8 +985,8 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
                 added: nsm.ticks.added.to_owned(),
                 changed: nsm.ticks.changed.to_owned(),
             },
-            change_tick: nsm.ticks.this_run,
-            last_change_tick: nsm.ticks.last_run,
+            this_run: nsm.ticks.this_run,
+            last_run: nsm.ticks.last_run,
         }
     }
 }
@@ -1044,8 +1043,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         NonSend {
             value: ptr.deref(),
             ticks: ticks.read(),
-            last_change_tick: system_meta.last_run,
-            change_tick,
+            last_run: system_meta.last_run,
+            this_run: change_tick,
         }
     }
 }
@@ -1075,8 +1074,8 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
-                last_change_tick: system_meta.last_run,
-                change_tick,
+                last_run: system_meta.last_run,
+                this_run: change_tick,
             })
     }
 }

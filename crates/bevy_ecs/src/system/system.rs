@@ -77,7 +77,7 @@ pub trait System: Send + Sync + 'static {
     /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
-    fn set_last_run(&mut self, last_change_tick: Tick);
+    fn set_last_run(&mut self, last_run: Tick);
 }
 
 /// [`System`] types that do not modify the [`World`] when run.
@@ -93,12 +93,8 @@ pub unsafe trait ReadOnlySystem: System {}
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_change_tick(
-    last_change_tick: &mut Tick,
-    change_tick: Tick,
-    system_name: &str,
-) {
-    let age = change_tick.tick.wrapping_sub(last_change_tick.tick);
+pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
+    let age = this_run.tick.wrapping_sub(last_run.tick);
     // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
     // so long as this check always runs before that can happen.
     if age > MAX_CHANGE_AGE {
@@ -109,7 +105,7 @@ pub(crate) fn check_system_change_tick(
             age,
             MAX_CHANGE_AGE - 1,
         );
-        last_change_tick.set_changed(change_tick.tick.wrapping_sub(MAX_CHANGE_AGE));
+        last_run.set_changed(this_run.tick.wrapping_sub(MAX_CHANGE_AGE));
     }
 }
 

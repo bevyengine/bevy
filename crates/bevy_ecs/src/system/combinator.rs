@@ -215,9 +215,9 @@ where
         self.a.get_last_run()
     }
 
-    fn set_last_run(&mut self, last_change_tick: Tick) {
-        self.a.set_last_run(last_change_tick);
-        self.b.set_last_run(last_change_tick);
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.a.set_last_run(last_run);
+        self.b.set_last_run(last_run);
     }
 
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {

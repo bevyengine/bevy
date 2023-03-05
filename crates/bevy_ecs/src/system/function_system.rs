@@ -473,8 +473,8 @@ where
         self.system_meta.last_run
     }
 
-    fn set_last_run(&mut self, last_change_tick: Tick) {
-        self.system_meta.last_run = last_change_tick;
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 
     #[inline]
