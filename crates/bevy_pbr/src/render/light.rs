@@ -1671,7 +1671,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.pipeline)
+        items.sort_by_key(|item| item.pipeline);
     }
 }
 
