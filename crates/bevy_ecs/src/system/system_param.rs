@@ -229,13 +229,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: &'w World,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        Query::new(
-            world,
-            state,
-            system_meta.last_change_tick,
-            change_tick,
-            false,
-        )
+        Query::new(world, state, system_meta.last_run, change_tick, false)
     }
 }
 
@@ -462,7 +456,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             ticks: Ticks {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
-                last_run: system_meta.last_change_tick,
+                last_run: system_meta.last_run,
                 this_run: change_tick,
             },
         }
@@ -496,7 +490,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                 ticks: Ticks {
                     added: ticks.added.deref(),
                     changed: ticks.changed.deref(),
-                    last_run: system_meta.last_change_tick,
+                    last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
             })
@@ -557,7 +551,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             ticks: TicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
-                last_run: system_meta.last_change_tick,
+                last_run: system_meta.last_run,
                 this_run: change_tick,
             },
         }
@@ -588,7 +582,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                 ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
-                    last_run: system_meta.last_change_tick,
+                    last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
             })
@@ -1050,7 +1044,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         NonSend {
             value: ptr.deref(),
             ticks: ticks.read(),
-            last_change_tick: system_meta.last_change_tick,
+            last_change_tick: system_meta.last_run,
             change_tick,
         }
     }
@@ -1081,7 +1075,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
-                last_change_tick: system_meta.last_change_tick,
+                last_change_tick: system_meta.last_run,
                 change_tick,
             })
     }
@@ -1140,7 +1134,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
+            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1166,7 +1160,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
-                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
+                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
             })
     }
 }
@@ -1301,7 +1295,7 @@ unsafe impl SystemParam for SystemChangeTick {
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemChangeTick {
-            last_run: system_meta.last_change_tick,
+            last_run: system_meta.last_run,
             this_run: change_tick,
         }
     }
