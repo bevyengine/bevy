@@ -2,10 +2,7 @@ use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
 use crate::component::Tick;
-use crate::{
-    archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, world::World,
-};
+use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
 use std::any::TypeId;
 use std::borrow::Cow;
@@ -99,7 +96,7 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",
-            MAX_CHANGE_AGE - 1,
+            Tick::MAX.get() - 1,
         );
     }
 }

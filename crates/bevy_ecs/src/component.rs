@@ -594,7 +594,9 @@ pub struct Tick {
 }
 
 impl Tick {
-    /// The maximum age for a change tick.
+    /// The maximum relative age for a change tick.
+    /// The value of this is equal to [`crate::change_detection::MAX_CHANGE_AGE`].
+    ///
     /// Since change detection will not work for any ticks older than this,
     /// ticks are periodically scanned to ensure their relative values are below this.
     pub const MAX: Self = Self::new(MAX_CHANGE_AGE);
@@ -640,12 +642,12 @@ impl Tick {
     /// Wraps this change tick's value if it exceeds [`Tick::MAX`].
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
-    pub(crate) fn check_tick(&mut self, Tick { tick }: Tick) -> bool {
-        let age = tick.wrapping_sub(self.tick);
+    pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
+        let age = tick.relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
-        if age > MAX_CHANGE_AGE {
-            self.tick = tick.wrapping_sub(MAX_CHANGE_AGE);
+        if age.get() > Self::MAX.get() {
+            *self = tick.relative_to(Self::MAX);
             true
         } else {
             false
