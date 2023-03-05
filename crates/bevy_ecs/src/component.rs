@@ -637,12 +637,18 @@ impl Tick {
         Self { tick }
     }
 
-    pub(crate) fn check_tick(&mut self, Tick { tick }: Tick) {
+    /// Wraps this change tick's value if it exceeds [`Tick::MAX`].
+    ///
+    /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
+    pub(crate) fn check_tick(&mut self, Tick { tick }: Tick) -> bool {
         let age = tick.wrapping_sub(self.tick);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age > MAX_CHANGE_AGE {
             self.tick = tick.wrapping_sub(MAX_CHANGE_AGE);
+            true
+        } else {
+            false
         }
     }
 }

@@ -94,18 +94,13 @@ pub unsafe trait ReadOnlySystem: System {}
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
 pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
-    let age = this_run.relative_to(*last_run).get();
-    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-    // so long as this check always runs before that can happen.
-    if age > MAX_CHANGE_AGE {
+    if last_run.check_tick(this_run) {
+        let age = this_run.relative_to(*last_run).get();
         warn!(
-            "System '{}' has not run for {} ticks. \
+            "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",
-            system_name,
-            age,
             MAX_CHANGE_AGE - 1,
         );
-        *last_run = this_run.relative_to(Tick::MAX);
     }
 }
 
