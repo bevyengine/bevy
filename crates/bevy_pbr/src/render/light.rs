@@ -26,7 +26,6 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
     HashMap,
@@ -1653,7 +1652,7 @@ pub struct Shadow {
 }
 
 impl PhaseItem for Shadow {
-    type SortKey = FloatOrd;
+    type SortKey = CachedRenderPipelineId;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -1662,7 +1661,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        self.pipeline
     }
 
     #[inline]
@@ -1672,7 +1671,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        items.sort_by_key(|item| item.pipeline)
     }
 }
 
