@@ -15,6 +15,7 @@ keywords = ["bevy"]
 [features]
 trace = []
 webgl = []
+tonemapping_luts = []
 
 [dependencies]
 # bevy

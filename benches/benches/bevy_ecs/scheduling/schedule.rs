@@ -63,16 +63,11 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
     struct NumSet(usize);
-    #[derive(Debug, Clone, Copy, SystemSet, PartialEq, Eq, Hash)]
-    struct DummySet;
 
-    impl SystemSet for NumSet {
-        fn dyn_clone(&self) -> Box<dyn SystemSet> {
-            Box::new(self.clone())
-        }
-    }
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct DummySet;
 
     let mut group = criterion.benchmark_group("build_schedule");
     group.warm_up_time(std::time::Duration::from_millis(500));

@@ -76,8 +76,8 @@ impl BatchingStrategy {
 
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
-/// This struct is created by the [`Query::par_iter`](crate::system::Query::iter) and
-/// [`Query::par_iter_mut`](crate::system::Query::iter_mut) methods.
+/// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
+/// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
 pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) world: &'w World,
     pub(crate) state: &'s QueryState<Q, F>,

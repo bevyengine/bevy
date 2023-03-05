@@ -7,16 +7,38 @@ use bevy_utils::{Entry, HashMap};
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
 
-/// An ordered mapping between [`Reflect`] values.
+/// A trait used to power [map-like] operations via [reflection].
 ///
-/// Because the values are reflected, the underlying types of keys and values
-/// may differ between entries.
+/// Maps contain zero or more entries of a key and its associated value,
+/// and correspond to types like [`HashMap`].
+/// The order of these entries is not guaranteed by this trait.
 ///
-///`ReflectValue` `Keys` are assumed to return a non-`None` hash. The ordering
-/// of `Map` entries is not guaranteed to be stable across runs or between
-/// instances.
+/// # Hashing
 ///
-/// This trait corresponds to types like [`std::collections::HashMap`].
+/// All keys are expected to return a valid hash value from [`Reflect::reflect_hash`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
+/// to the entire struct or enum.
+/// This is true even for manual implementors who do not use the hashed value,
+/// as it is still relied on by [`DynamicMap`].
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Map};
+/// use bevy_utils::HashMap;
+///
+///
+/// let foo: &mut dyn Map = &mut HashMap::<u32, bool>::new();
+/// foo.insert_boxed(Box::new(123_u32), Box::new(true));
+/// assert_eq!(foo.len(), 1);
+///
+/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
+/// assert_eq!(field.downcast_ref::<bool>(), Some(&true));
+/// ```
+///
+/// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
+/// [reflection]: crate
+/// [`HashMap`]: bevy_utils::HashMap
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///

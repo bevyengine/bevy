@@ -223,6 +223,32 @@ mod tests {
         }
 
         #[test]
+        fn systems_with_distributive_condition() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.insert_resource(RunConditionBool(true));
+            world.init_resource::<SystemOrder>();
+
+            fn change_condition(mut condition: ResMut<RunConditionBool>) {
+                condition.0 = false;
+            }
+
+            schedule.add_systems(
+                (
+                    make_function_system(0),
+                    change_condition,
+                    make_function_system(1),
+                )
+                    .chain()
+                    .distributive_run_if(|condition: Res<RunConditionBool>| condition.0),
+            );
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
         fn run_exclusive_system_with_condition() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
@@ -543,16 +569,6 @@ mod tests {
 
         #[test]
         #[should_panic]
-        fn in_system_type_set() {
-            fn foo() {}
-            fn bar() {}
-
-            let mut schedule = Schedule::new();
-            schedule.add_system(foo.in_set(bar.into_system_set()));
-        }
-
-        #[test]
-        #[should_panic]
         fn configure_system_type_set() {
             fn foo() {}
             let mut schedule = Schedule::new();
@@ -564,9 +580,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_hierarchy_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                hierarchy_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             // Add `A`.
             schedule.configure_set(TestSet::A);
@@ -636,9 +653,10 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
-            schedule.set_build_settings(
-                ScheduleBuildSettings::new().with_ambiguity_detection(LogLevel::Error),
-            );
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
@@ -660,63 +678,6 @@ mod tests {
         enum Normal {
             X,
             Y,
-            Z,
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_system_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_system(named_system.in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_system_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_system(named_system.in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_systems_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_systems((named_system, named_system).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_systems_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.add_systems((named_system, named_system).in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_set_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_set(Normal::Y.in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_set_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_set(Normal::Y.in_base_set(Normal::X));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_base_sets_to_sets_with_in_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_sets((Normal::X, Normal::Y).in_set(Base::A));
-        }
-
-        #[test]
-        #[should_panic]
-        fn disallow_adding_sets_to_sets_with_in_base_set() {
-            let mut schedule = Schedule::new();
-            schedule.configure_sets((Normal::X, Normal::Y).in_base_set(Normal::Z));
         }
 
         #[test]
