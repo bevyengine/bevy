@@ -105,7 +105,7 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
             age,
             MAX_CHANGE_AGE - 1,
         );
-        last_run.set_changed(this_run.tick.wrapping_sub(MAX_CHANGE_AGE));
+        last_run.set(this_run.tick.wrapping_sub(MAX_CHANGE_AGE));
     }
 }
 

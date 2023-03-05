@@ -104,7 +104,7 @@ where
         let out = self.func.run(world, input, params);
 
         let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_run.set_changed(*change_tick);
+        self.system_meta.last_run.set(*change_tick);
         *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
 
@@ -136,7 +136,7 @@ where
         self.world_id = Some(world.id());
         self.system_meta
             .last_run
-            .set_changed(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
+            .set(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 

@@ -152,7 +152,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run
-            .set_changed(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
+            .set(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
         let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
@@ -488,7 +488,7 @@ where
         self.world_id = Some(world.id());
         self.system_meta
             .last_run
-            .set_changed(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
+            .set(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
         self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 

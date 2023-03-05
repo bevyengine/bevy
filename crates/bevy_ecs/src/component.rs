@@ -641,8 +641,8 @@ impl Tick {
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
     #[inline]
-    pub fn set_changed(&mut self, change_tick: u32) {
-        self.tick = change_tick;
+    pub fn set(&mut self, tick: u32) {
+        self.tick = tick;
     }
 }
 
