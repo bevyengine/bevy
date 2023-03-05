@@ -586,7 +586,8 @@ impl Components {
     }
 }
 
-/// Used to track changes in state between system runs, e.g. components being added or accessed mutably.
+/// A value that tracks when a system ran relative to other systems.
+/// This is used to power change detection.
 #[derive(Copy, Clone, Debug)]
 pub struct Tick {
     pub(crate) tick: u32,
