@@ -56,7 +56,7 @@ pub trait DetectChanges {
     /// For comparison, the previous change tick of a system can be read using the
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
-    fn last_changed(&self) -> u32;
+    fn last_changed(&self) -> Tick;
 }
 
 /// Types that implement reliable change detection.
@@ -156,8 +156,8 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
-            fn last_changed(&self) -> u32 {
-                self.ticks.changed.tick
+            fn last_changed(&self) -> Tick {
+                *self.ticks.changed
             }
         }
 
@@ -653,8 +653,8 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     }
 
     #[inline]
-    fn last_changed(&self) -> u32 {
-        self.ticks.changed.tick
+    fn last_changed(&self) -> Tick {
+        *self.ticks.changed
     }
 }
 
