@@ -594,6 +594,11 @@ pub struct Tick {
 }
 
 impl Tick {
+    /// The maximum age for a change tick.
+    /// Since change detection will not work for any ticks older than this,
+    /// ticks are periodically scanned to ensure their relative values are below this.
+    pub const MAX: Self = Tick::new(MAX_CHANGE_AGE);
+
     pub const fn new(tick: u32) -> Self {
         Self { tick }
     }
@@ -602,19 +607,22 @@ impl Tick {
     /// Returns `true` if this `Tick` occurred since the system's `last_run`.
     ///
     /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
-    pub fn is_newer_than(&self, last_run: Tick, this_run: Tick) -> bool {
+    pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
         // This works even with wraparound because the world tick (`this_run`) is always "newer" than
         // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_insert = this_run.tick.wrapping_sub(self.tick).min(MAX_CHANGE_AGE);
-        let ticks_since_system = this_run
-            .tick
-            .wrapping_sub(last_run.tick)
-            .min(MAX_CHANGE_AGE);
+        let ticks_since_insert = this_run.relative_to(self).tick.min(MAX_CHANGE_AGE);
+        let ticks_since_system = this_run.relative_to(last_run).tick.min(MAX_CHANGE_AGE);
 
         ticks_since_system > ticks_since_insert
+    }
+
+    /// Returns a change tick representing the relationship between `self` and `other`.
+    pub fn relative_to(self, other: Self) -> Self {
+        let tick = self.tick.wrapping_sub(other.tick);
+        Self { tick }
     }
 
     pub(crate) fn check_tick(&mut self, Tick { tick }: Tick) {

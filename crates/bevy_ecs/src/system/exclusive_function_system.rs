@@ -1,6 +1,5 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    change_detection::MAX_CHANGE_AGE,
     component::{ComponentId, Tick},
     query::Access,
     system::{
@@ -134,9 +133,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta
-            .last_run
-            .set(world.change_tick().tick.wrapping_sub(MAX_CHANGE_AGE));
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 

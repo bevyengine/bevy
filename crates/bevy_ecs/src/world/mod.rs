@@ -65,7 +65,7 @@ pub struct World {
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
-    pub(crate) last_check_tick: u32,
+    pub(crate) last_check_tick: Tick,
 }
 
 impl Default for World {
@@ -83,7 +83,7 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
-            last_check_tick: 0,
+            last_check_tick: Tick::new(0),
         }
     }
 }
@@ -1507,7 +1507,7 @@ impl World {
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
         let change_tick = self.change_tick();
-        if change_tick.tick.wrapping_sub(self.last_check_tick) < CHECK_TICK_THRESHOLD {
+        if change_tick.relative_to(self.last_check_tick).tick < CHECK_TICK_THRESHOLD {
             return;
         }
 
@@ -1529,7 +1529,7 @@ impl World {
             schedules.check_change_ticks(change_tick);
         }
 
-        self.last_check_tick = change_tick.tick;
+        self.last_check_tick = change_tick;
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
