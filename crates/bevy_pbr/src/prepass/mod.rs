@@ -411,7 +411,6 @@ where
                     write_mask: ColorWrites::ALL,
                 }),
         );
-
         targets.push(
             key.mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
@@ -421,7 +420,6 @@ where
                     write_mask: ColorWrites::ALL,
                 }),
         );
-
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
             // (though one may still be used for discarding depth buffer writes)
