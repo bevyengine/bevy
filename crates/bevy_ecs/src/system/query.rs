@@ -1,5 +1,5 @@
 use crate::{
-    component::Component,
+    component::{Component, Tick},
     entity::Entity,
     query::{
         BatchingStrategy, QueryCombinationIter, QueryEntityError, QueryIter, QueryManyIter,
@@ -276,8 +276,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     world: &'world World,
     state: &'state QueryState<Q, F>,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
     // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
     // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
     // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
@@ -288,7 +288,7 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_change_tick: {}, change_tick: {} }}", self.iter().count(), self.world, self.state, self.last_change_tick, self.change_tick)
+        write!(f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_change_tick: {:?}, change_tick: {:?} }}", self.iter().count(), self.world, self.state, self.last_change_tick, self.change_tick)
     }
 }
 
@@ -307,8 +307,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
         force_read_only_component_access: bool,
     ) -> Self {
         state.validate_world(world);
@@ -317,8 +317,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             force_read_only_component_access,
             world,
             state,
-            last_change_tick,
-            change_tick,
+            last_change_tick: last_run,
+            change_tick: this_run,
         }
     }
 

@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components},
+    component::{ComponentId, Components, Tick},
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -99,7 +99,7 @@ impl Schedules {
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
@@ -283,7 +283,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
             system.check_change_tick(change_tick);
         }

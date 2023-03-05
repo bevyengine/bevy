@@ -333,8 +333,8 @@ pub unsafe trait WorldQuery {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self::Fetch<'w>;
 
     /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
@@ -464,8 +464,8 @@ unsafe impl WorldQuery for Entity {
     unsafe fn init_fetch<'w>(
         _world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) -> Self::Fetch<'w> {
     }
 
@@ -546,8 +546,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
@@ -664,8 +664,8 @@ pub struct RefFetch<'w, T> {
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -691,8 +691,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> RefFetch<'w, T> {
         RefFetch {
             table_data: None,
@@ -825,8 +825,8 @@ pub struct WriteFetch<'w, T> {
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
@@ -852,8 +852,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
             table_data: None,
@@ -1000,8 +1000,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &T::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> OptionFetch<'w, T> {
         OptionFetch {
             fetch: T::init_fetch(world, state, last_change_tick, change_tick),
@@ -1118,8 +1118,8 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 #[deprecated = "`ChangeTrackers<T>` will be removed in bevy 0.11. Use `bevy_ecs::prelude::Ref<T>` instead."]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
     marker: PhantomData<T>,
 }
 
@@ -1138,8 +1138,8 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChangeTrackers")
             .field("component_ticks", &self.component_ticks)
-            .field("last_change_tick", &self.last_change_tick)
-            .field("change_tick", &self.change_tick)
+            .field("last_run", &self.last_run)
+            .field("this_run", &self.this_run)
             .finish()
     }
 }
@@ -1148,14 +1148,13 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
-        self.component_ticks
-            .is_added(self.last_change_tick, self.change_tick)
+        self.component_ticks.is_added(self.last_run, self.this_run)
     }
 
     /// Returns true if this component has been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+            .is_changed(self.last_run, self.this_run)
     }
 }
 
@@ -1168,8 +1167,8 @@ pub struct ChangeTrackersFetch<'w, T> {
     sparse_set: Option<&'w ComponentSparseSet>,
 
     marker: PhantomData<T>,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 #[allow(deprecated)]
@@ -1196,8 +1195,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
             table_added: None,
@@ -1210,8 +1209,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                     .debug_checked_unwrap()
             }),
             marker: PhantomData,
-            last_change_tick,
-            change_tick,
+            last_run: last_change_tick,
+            this_run: change_tick,
         }
     }
 
@@ -1221,8 +1220,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
             table_changed: fetch.table_changed,
             sparse_set: fetch.sparse_set,
             marker: fetch.marker,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -1272,8 +1271,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                     }
                 },
                 marker: PhantomData,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
+                last_run: fetch.last_run,
+                this_run: fetch.this_run,
             },
             StorageType::SparseSet => ChangeTrackers {
                 component_ticks: fetch
@@ -1282,8 +1281,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                     .get_ticks(entity)
                     .debug_checked_unwrap(),
                 marker: PhantomData,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
+                last_run: fetch.last_run,
+                this_run: fetch.this_run,
             },
         }
     }
@@ -1342,7 +1341,7 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: Tick, _change_tick: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($($name::init_fetch(_world, $name, _last_change_tick, _change_tick),)*)
             }
@@ -1451,7 +1450,7 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: Tick, _change_tick: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($(($name::init_fetch(_world, $name, _last_change_tick, _change_tick), false),)*)
             }
@@ -1592,8 +1591,8 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     unsafe fn init_fetch(
         _world: &World,
         _state: &Q::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) {
     }
 

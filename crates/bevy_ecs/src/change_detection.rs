@@ -186,9 +186,7 @@ macro_rules! change_detection_mut_impl {
 
             #[inline]
             fn set_changed(&mut self) {
-                self.ticks
-                    .changed
-                    .set_changed(self.ticks.change_tick);
+                *self.ticks.changed = self.ticks.change_tick;
             }
 
             #[inline]
@@ -299,8 +297,8 @@ macro_rules! impl_debug {
 pub(crate) struct Ticks<'a> {
     pub(crate) added: &'a Tick,
     pub(crate) changed: &'a Tick,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) change_tick: Tick,
 }
 
 impl<'a> Ticks<'a> {
@@ -309,8 +307,8 @@ impl<'a> Ticks<'a> {
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
         cells: TickCells<'a>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         Self {
             added: cells.added.deref(),
@@ -324,8 +322,8 @@ impl<'a> Ticks<'a> {
 pub(crate) struct TicksMut<'a> {
     pub(crate) added: &'a mut Tick,
     pub(crate) changed: &'a mut Tick,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) change_tick: Tick,
 }
 
 impl<'a> TicksMut<'a> {
@@ -334,8 +332,8 @@ impl<'a> TicksMut<'a> {
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
         cells: TickCells<'a>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         Self {
             added: cells.added.deref_mut(),
@@ -667,7 +665,7 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks.changed.set_changed(self.ticks.change_tick);
+        *self.ticks.changed = self.ticks.change_tick;
     }
 
     #[inline]
@@ -757,7 +755,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.last_change_tick = u32::MAX;
+        world.last_change_tick = Tick::new(u32::MAX);
         *world.change_tick.get_mut() = 0;
 
         // component added: 0, changed: 0
@@ -781,7 +779,7 @@ mod tests {
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
-        let change_tick = world.change_tick();
+        let change_tick = world.change_tick().tick;
 
         let mut query = world.query::<Ref<C>>();
         for tracker in query.iter(&world) {
@@ -811,8 +809,8 @@ mod tests {
         let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
-            last_change_tick: 3,
-            change_tick: 4,
+            last_change_tick: Tick::new(3),
+            change_tick: Tick::new(4),
         };
         let mut res = R {};
         let res_mut = ResMut {
@@ -823,8 +821,8 @@ mod tests {
         let into_mut: Mut<R> = res_mut.into();
         assert_eq!(1, into_mut.ticks.added.tick);
         assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_change_tick);
-        assert_eq!(4, into_mut.ticks.change_tick);
+        assert_eq!(3, into_mut.ticks.last_change_tick.tick);
+        assert_eq!(4, into_mut.ticks.change_tick.tick);
     }
 
     #[test]
@@ -836,8 +834,8 @@ mod tests {
         let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
-            last_change_tick: 3,
-            change_tick: 4,
+            last_change_tick: Tick::new(3),
+            change_tick: Tick::new(4),
         };
         let mut res = R {};
         let non_send_mut = NonSendMut {
@@ -848,8 +846,8 @@ mod tests {
         let into_mut: Mut<R> = non_send_mut.into();
         assert_eq!(1, into_mut.ticks.added.tick);
         assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_change_tick);
-        assert_eq!(4, into_mut.ticks.change_tick);
+        assert_eq!(3, into_mut.ticks.last_change_tick.tick);
+        assert_eq!(4, into_mut.ticks.change_tick.tick);
     }
 
     #[test]
@@ -857,7 +855,8 @@ mod tests {
         use super::*;
         struct Outer(i64);
 
-        let (last_change_tick, change_tick) = (2, 3);
+        let last_change_tick = Tick::new(2);
+        let change_tick = Tick::new(3);
         let mut component_ticks = ComponentTicks {
             added: Tick::new(1),
             changed: Tick::new(2),

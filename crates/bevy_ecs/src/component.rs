@@ -598,29 +598,30 @@ impl Tick {
     }
 
     #[inline]
-    /// Returns `true` if this `Tick` occurred since the system's `last_change_tick`.
+    /// Returns `true` if this `Tick` occurred since the system's `last_run`.
     ///
-    /// `change_tick` is the current tick of the system, used as a reference to help deal with wraparound.
-    pub fn is_newer_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
-        // `last_change_tick` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
+    /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
+    pub fn is_newer_than(&self, last_run: Tick, this_run: Tick) -> bool {
+        // This works even with wraparound because the world tick (`this_run`) is always "newer" than
+        // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_insert = change_tick.wrapping_sub(self.tick).min(MAX_CHANGE_AGE);
-        let ticks_since_system = change_tick
-            .wrapping_sub(last_change_tick)
+        let ticks_since_insert = this_run.tick.wrapping_sub(self.tick).min(MAX_CHANGE_AGE);
+        let ticks_since_system = this_run
+            .tick
+            .wrapping_sub(last_run.tick)
             .min(MAX_CHANGE_AGE);
 
         ticks_since_system > ticks_since_insert
     }
 
-    pub(crate) fn check_tick(&mut self, change_tick: u32) {
-        let age = change_tick.wrapping_sub(self.tick);
+    pub(crate) fn check_tick(&mut self, Tick { tick }: Tick) {
+        let age = tick.wrapping_sub(self.tick);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age > MAX_CHANGE_AGE {
-            self.tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+            self.tick = tick.wrapping_sub(MAX_CHANGE_AGE);
         }
     }
 
@@ -673,20 +674,20 @@ pub struct ComponentTicks {
 impl ComponentTicks {
     #[inline]
     /// Returns `true` if the component was added after the system last ran.
-    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.added.is_newer_than(last_change_tick, change_tick)
+    pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
+        self.added.is_newer_than(last_run, this_run)
     }
 
     #[inline]
     /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.changed.is_newer_than(last_change_tick, change_tick)
+    pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
+        self.changed.is_newer_than(last_run, this_run)
     }
 
-    pub(crate) fn new(change_tick: u32) -> Self {
+    pub(crate) fn new(change_tick: Tick) -> Self {
         Self {
-            added: Tick::new(change_tick),
-            changed: Tick::new(change_tick),
+            added: change_tick,
+            changed: change_tick,
         }
     }
 

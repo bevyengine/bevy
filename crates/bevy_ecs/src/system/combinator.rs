@@ -3,7 +3,7 @@ use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
 use bevy_ptr::UnsafeCellDeref;
 
 use crate::{
-    archetype::ArchetypeComponentId, component::ComponentId, prelude::World, query::Access,
+    archetype::ArchetypeComponentId, component::{ComponentId, Tick}, prelude::World, query::Access,
 };
 
 use super::{ReadOnlySystem, System};
@@ -203,16 +203,16 @@ where
             .extend(self.b.archetype_component_access());
     }
 
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         self.a.check_change_tick(change_tick);
         self.b.check_change_tick(change_tick);
     }
 
-    fn get_last_change_tick(&self) -> u32 {
+    fn get_last_change_tick(&self) -> Tick {
         self.a.get_last_change_tick()
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+    fn set_last_change_tick(&mut self, last_change_tick: Tick) {
         self.a.set_last_change_tick(last_change_tick);
         self.b.set_last_change_tick(last_change_tick);
     }
