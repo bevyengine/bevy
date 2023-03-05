@@ -1507,7 +1507,7 @@ impl World {
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
         let change_tick = self.change_tick();
-        if change_tick.relative_to(self.last_check_tick).tick < CHECK_TICK_THRESHOLD {
+        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
             return;
         }
 

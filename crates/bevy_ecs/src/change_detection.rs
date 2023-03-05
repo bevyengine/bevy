@@ -777,12 +777,12 @@ mod tests {
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
-        let change_tick = world.change_tick().tick;
+        let change_tick = world.change_tick();
 
         let mut query = world.query::<Ref<C>>();
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.ticks.changed.tick);
+            let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
+            let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();
             assert!(ticks_since_insert > MAX_CHANGE_AGE);
             assert!(ticks_since_change > MAX_CHANGE_AGE);
         }
@@ -791,8 +791,8 @@ mod tests {
         world.check_change_ticks();
 
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.ticks.changed.tick);
+            let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
+            let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }
@@ -817,10 +817,10 @@ mod tests {
         };
 
         let into_mut: Mut<R> = res_mut.into();
-        assert_eq!(1, into_mut.ticks.added.tick);
-        assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_run.tick);
-        assert_eq!(4, into_mut.ticks.this_run.tick);
+        assert_eq!(1, into_mut.ticks.added.get());
+        assert_eq!(2, into_mut.ticks.changed.get());
+        assert_eq!(3, into_mut.ticks.last_run.get());
+        assert_eq!(4, into_mut.ticks.this_run.get());
     }
 
     #[test]
@@ -842,10 +842,10 @@ mod tests {
         };
 
         let into_mut: Mut<R> = non_send_mut.into();
-        assert_eq!(1, into_mut.ticks.added.tick);
-        assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_run.tick);
-        assert_eq!(4, into_mut.ticks.this_run.tick);
+        assert_eq!(1, into_mut.ticks.added.get());
+        assert_eq!(2, into_mut.ticks.changed.get());
+        assert_eq!(3, into_mut.ticks.last_run.get());
+        assert_eq!(4, into_mut.ticks.this_run.get());
     }
 
     #[test]

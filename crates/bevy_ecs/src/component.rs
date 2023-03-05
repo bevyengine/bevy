@@ -590,17 +590,29 @@ impl Components {
 /// This is used to power change detection.
 #[derive(Copy, Clone, Debug)]
 pub struct Tick {
-    pub(crate) tick: u32,
+    tick: u32,
 }
 
 impl Tick {
     /// The maximum age for a change tick.
     /// Since change detection will not work for any ticks older than this,
     /// ticks are periodically scanned to ensure their relative values are below this.
-    pub const MAX: Self = Tick::new(MAX_CHANGE_AGE);
+    pub const MAX: Self = Self::new(MAX_CHANGE_AGE);
 
     pub const fn new(tick: u32) -> Self {
         Self { tick }
+    }
+
+    /// Gets the value of this change tick.
+    #[inline]
+    pub const fn get(self) -> u32 {
+        self.tick
+    }
+
+    /// Sets the value of this change tick.
+    #[inline]
+    pub fn set(&mut self, tick: u32) {
+        self.tick = tick;
     }
 
     #[inline]
@@ -632,12 +644,6 @@ impl Tick {
         if age > MAX_CHANGE_AGE {
             self.tick = tick.wrapping_sub(MAX_CHANGE_AGE);
         }
-    }
-
-    /// Manually set the value of this change tick.
-    #[inline]
-    pub fn set(&mut self, tick: u32) {
-        self.tick = tick;
     }
 }
 
