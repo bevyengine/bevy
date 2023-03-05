@@ -333,8 +333,8 @@ pub unsafe trait WorldQuery {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &Self::State,
-        last_change_tick: Tick,
-        change_tick: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w>;
 
     /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
@@ -464,8 +464,8 @@ unsafe impl WorldQuery for Entity {
     unsafe fn init_fetch<'w>(
         _world: &'w World,
         _state: &Self::State,
-        _last_change_tick: Tick,
-        _change_tick: Tick,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> Self::Fetch<'w> {
     }
 

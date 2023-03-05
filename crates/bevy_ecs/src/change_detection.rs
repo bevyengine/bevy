@@ -109,7 +109,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
     /// If you merely want to flag this data as changed, use [`set_changed`](DetectChangesMut::set_changed) instead.
     /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) instead.
-    fn set_last_changed(&mut self, last_change_tick: u32);
+    fn set_last_changed(&mut self, last_changed: Tick);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
@@ -190,10 +190,8 @@ macro_rules! change_detection_mut_impl {
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_changed: u32) {
-                self.ticks
-                    .changed
-                    .set_changed(last_changed);
+            fn set_last_changed(&mut self, last_changed: Tick) {
+                *self.ticks.changed = last_changed;
             }
 
             #[inline]
@@ -669,8 +667,8 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_changed: u32) {
-        self.ticks.changed.set_changed(last_changed);
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        *self.ticks.changed = last_changed;
     }
 
     #[inline]
