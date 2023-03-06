@@ -1,12 +1,12 @@
 name: validation jobs
 
 on:
+  merge_group:
   push:
     branches:
       - staging
       - trying
       - main
-  merge_group:
 
 env:
   CARGO_TERM_COLOR: always
