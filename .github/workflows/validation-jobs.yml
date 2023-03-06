@@ -1,6 +1,7 @@
 name: validation jobs
 
 on:
+  merge_group:
   push:
     branches:
       - staging
