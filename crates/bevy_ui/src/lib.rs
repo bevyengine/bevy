@@ -16,8 +16,6 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use std::sync::Arc;
-
 use bevy_hierarchy::Children;
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
