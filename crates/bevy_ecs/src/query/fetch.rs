@@ -918,8 +918,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     table_components.get(table_row.index()).deref_mut(),
                     added_ticks.get(table_row.index()).deref_mut(),
                     changed_ticks.get(table_row.index()).deref_mut(),
-                    fetch.change_tick,
                     fetch.last_change_tick,
+                    fetch.change_tick,
                 )
             }
             StorageType::SparseSet => {
