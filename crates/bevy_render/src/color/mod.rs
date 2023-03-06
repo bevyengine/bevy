@@ -566,28 +566,35 @@ impl Color {
 
     /// Get the lightness in lch colorspace.
     pub fn lch_lightness(&self) -> f32 {
-        self.as_lch_f32()[0]
+        match self.as_lcha() {
+            Color::Lcha { lightness, .. } => lightness,
+            _ => unreachable!(),
+        }
     }
 
     /// Get the chroma in hsl colorspace.
     pub fn lch_chroma(&self) -> f32 {
-        self.as_lch_f32()[1]
+        match self.as_lcha() {
+            Color::Lcha { chroma, .. } => chroma,
+            _ => unreachable!(),
+        }
     }
 
     /// Get the hue in lch colorspace.
     pub fn lch_hue(&self) -> f32 {
-        self.as_lch_f32()[2]
+        match self.as_lcha() {
+            Color::Lcha { hue, .. } => hue,
+            _ => unreachable!(),
+        }
     }
 
     /// Set the lightness in lch colorspace.
     pub fn set_lch_lightness(&mut self, lightness: f32) -> &mut Self {
-        let [_, chroma, hue, alpha] = self.as_lch_f32();
-        *self = Color::Lcha {
-            lightness,
-            chroma,
-            hue,
-            alpha,
-        };
+        *self = self.as_lcha();
+        match self {
+            Color::Lcha { lightness: l, .. } => *l = lightness,
+            _ => unreachable!(),
+        }
         self
     }
 
@@ -600,13 +607,11 @@ impl Color {
 
     /// Set the chroma in lch colorspace.
     pub fn set_lch_chroma(&mut self, chroma: f32) -> &mut Self {
-        let [lightness, _, hue, alpha] = self.as_lch_f32();
-        *self = Color::Lcha {
-            lightness,
-            chroma,
-            hue,
-            alpha,
-        };
+        *self = self.as_lcha();
+        match self {
+            Color::Lcha { chroma: c, .. } => *c = chroma,
+            _ => unreachable!(),
+        }
         self
     }
 
@@ -619,13 +624,11 @@ impl Color {
 
     /// Set the hue in hsl colorspace.
     pub fn set_lch_hue(&mut self, hue: f32) -> &mut Self {
-        let [lightness, chroma, _, alpha] = self.as_lch_f32();
-        *self = Color::Lcha {
-            lightness,
-            chroma,
-            hue,
-            alpha,
-        };
+        *self = self.as_lcha();
+        match self {
+            Color::Lcha { hue: h, .. } => *h = hue,
+            _ => unreachable!(),
+        }
         self
     }
 
