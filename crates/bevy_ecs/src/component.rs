@@ -634,7 +634,7 @@ impl Tick {
     }
 
     /// Returns a change tick representing the relationship between `self` and `other`.
-    pub fn relative_to(self, other: Self) -> Self {
+    pub(crate) fn relative_to(self, other: Self) -> Self {
         let tick = self.tick.wrapping_sub(other.tick);
         Self { tick }
     }
