@@ -288,18 +288,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // bevy logo (image)
                     parent
-                        .spawn((
-                            NodeBundle {
-                                style: Style {
-                                    min_size: Size::new(Val::Px(500.0), Val::Px(125.0)),
-                                    max_size: Size::new(Val::Px(500.0), Val::Px(125.0)),
-                                    ..default()
-                                },
-                                background_color: Color::WHITE.into(),
+                        .spawn(ImageBundle {
+                            style: Style {
+                                size: Size::width(Val::Px(500.0)),
                                 ..default()
                             },
-                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
-                        ))
+                            ..default()
+                        })
                         .with_children(|parent| {
                             // alt text
                             parent
