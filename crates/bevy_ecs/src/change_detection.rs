@@ -546,17 +546,17 @@ impl<'a, T: ?Sized> Mut<'a, T> {
     /// or [`Mut::reborrow`].
     ///
     /// - `value` - The value wrapped by this smart pointer.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
     /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     ///   This will be updated to the value of `change_tick` if the returned smart pointer
     ///   is modified.
-    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
     /// - `last_change_tick` - A [`Tick`], occurring before `change_tick`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `change_tick` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'a mut T,
-        last_changed: &'a mut Tick,
         added: &'a mut Tick,
+        last_changed: &'a mut Tick,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
