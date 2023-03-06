@@ -16,6 +16,9 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
+use std::sync::Arc;
+
+use bevy_hierarchy::Children;
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::extract_component::ExtractComponentPlugin;
@@ -151,8 +154,29 @@ impl Plugin for UiPlugin {
             update_clipping_system
                 .after(TransformSystem::TransformPropagate)
                 .in_base_set(CoreSet::PostUpdate),
-        );
+        )
+        .add_system(detect_calculated_size_conflict.in_base_set(CoreSet::PostUpdate));
 
         crate::render::build_ui_render(app);
+    }
+}
+
+pub fn detect_calculated_size_conflict(
+    #[cfg(feature = "bevy_text")]
+    text_and_image: Query<Entity, (With<Node>, With<UiImage>, With<bevy_text::Text>, With<CalculatedSize>)>,
+    parent_query: Query<&Children, (With<CalculatedSize>, With<Node>)>,
+    child_query: Query<&Node>,
+) {
+    #[cfg(feature = "bevy_text")]
+    if !text_and_image.is_empty() {
+        panic!("UiImage and Text components cannot both be used the same UI node with a calculated size.");
+    }
+
+    for children in parent_query.iter() {
+        for &child in children.iter() {
+            if child_query.get(child).is_ok() {
+                panic!("Ui nodes with a calculated size must not have child nodes.");
+            }
+        }
     }
 }

@@ -626,7 +626,7 @@ impl Default for FlexWrap {
 
 /// The calculated size of the node
 /// 
-/// UI Nodes with a `CalculatedSize` component should not be given child UI nodes.
+/// UI Nodes with a `CalculatedSize` component must not be given child UI nodes.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CalculatedSize {
