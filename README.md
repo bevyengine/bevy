@@ -13,7 +13,7 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 ## WARNING
 
-Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes on a roughly quarterly basis.
+Bevy is still in the early stages of development. Important features are missing. Documentation is sparse. And minor versions of Bevy containing breaking changes to the API are released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule). Use at your own risk.
 
 **MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
 As a result, the Minimum Supported Rust Version (MSRV) is "the latest stable release" of Rust.
