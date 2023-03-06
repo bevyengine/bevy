@@ -161,7 +161,7 @@ impl Plugin for UiPlugin {
 
 pub fn detect_calculated_size_conflict(
     #[cfg(feature = "bevy_text")] text_and_image: Query<
-        Entity,
+        (),
         (
             With<Node>,
             With<UiImage>,
