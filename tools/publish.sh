@@ -51,8 +51,8 @@ pushd crates
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  cp ../docs/LICENSE-MIT "$crate"
-  cp ../docs/LICENSE-APACHE "$crate"
+  cp ../LICENSE-MIT "$crate"
+  cp ../LICENSE-APACHE "$crate"
   pushd "$crate"
   git add LICENSE-MIT LICENSE-APACHE
   cargo publish --no-verify --allow-dirty
