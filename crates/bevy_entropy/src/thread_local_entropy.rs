@@ -4,13 +4,13 @@ use crate::{RngCore, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
 thread_local! {
-    // We require `Rc` to avoid premature freeing when `EntropySource` is used within thread-local destructors.
+    // We require `Rc` to avoid premature freeing when `ThreadLocalEntropy` is used within thread-local destructors.
     static SOURCE: Rc<UnsafeCell<ChaCha12Rng>> = Rc::new(UnsafeCell::new(ChaCha12Rng::from_entropy()));
 }
 
-pub(crate) struct EntropySource;
+pub(crate) struct ThreadLocalEntropy;
 
-impl EntropySource {
+impl ThreadLocalEntropy {
     /// Inspired by `rand`'s approach to `ThreadRng` as well as `turborand`'s instantiation methods. The `Rc`
     /// prevents the Rng instance from being cleaned up, giving it a `'static` lifetime. However, it does not
     /// allow mutable access without a cell, so using `UnsafeCell` to bypass overheads associated with
@@ -28,7 +28,7 @@ impl EntropySource {
     }
 }
 
-impl RngCore for EntropySource {
+impl RngCore for ThreadLocalEntropy {
     #[inline]
     fn next_u32(&mut self) -> u32 {
         self.get_rng().next_u32()

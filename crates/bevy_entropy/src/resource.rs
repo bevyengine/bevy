@@ -1,36 +1,18 @@
 use std::fmt::Debug;
 
-use crate::{Deserialize, RngCore, SeedableRng, Serialize};
+use crate::{
+    traits::{EntropySource, SeedableEntropySource},
+    Deserialize, RngCore, SeedableRng, Serialize,
+};
 use bevy_ecs::prelude::Resource;
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Resource, Reflect, FromReflect, Serialize, Deserialize)]
 #[serde(bound(deserialize = "R: for<'a> Deserialize<'a>"))]
 #[reflect_value(Debug, PartialEq, Serialize, Deserialize)]
-pub struct GlobalEntropy<
-    R: RngCore
-        + Clone
-        + Debug
-        + PartialEq
-        + Sync
-        + Send
-        + Serialize
-        + for<'a> Deserialize<'a>
-        + 'static,
->(R);
+pub struct GlobalEntropy<R: EntropySource + 'static>(R);
 
-impl<
-        R: RngCore
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > GlobalEntropy<R>
-{
+impl<R: EntropySource + 'static> GlobalEntropy<R> {
     #[inline]
     #[must_use]
     pub fn new(rng: R) -> Self {
@@ -38,19 +20,7 @@ impl<
     }
 }
 
-impl<
-        R: RngCore
-            + SeedableRng
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > GlobalEntropy<R>
-{
+impl<R: SeedableEntropySource + 'static> GlobalEntropy<R> {
     #[inline]
     #[must_use]
     pub fn from_entropy() -> Self {
@@ -65,53 +35,13 @@ impl<
     }
 }
 
-impl<
-        R: RngCore
-            + SeedableRng
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > Default for GlobalEntropy<R>
-{
+impl<R: SeedableEntropySource + 'static> Default for GlobalEntropy<R> {
     fn default() -> Self {
         Self::from_entropy()
     }
 }
 
-impl<
-        R: RngCore
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > From<R> for GlobalEntropy<R>
-{
-    fn from(value: R) -> Self {
-        Self::new(value)
-    }
-}
-
-impl<
-        R: RngCore
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > RngCore for GlobalEntropy<R>
-{
+impl<R: EntropySource + 'static> RngCore for GlobalEntropy<R> {
     #[inline]
     fn next_u32(&mut self) -> u32 {
         self.0.next_u32()
@@ -133,22 +63,22 @@ impl<
     }
 }
 
-impl<
-        R: RngCore
-            + SeedableRng
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > SeedableRng for GlobalEntropy<R>
-{
+impl<R: SeedableEntropySource + 'static> SeedableRng for GlobalEntropy<R> {
     type Seed = R::Seed;
 
     fn from_seed(seed: Self::Seed) -> Self {
         Self::new(R::from_seed(seed))
+    }
+}
+
+impl<R: EntropySource + 'static> From<R> for GlobalEntropy<R> {
+    fn from(value: R) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<R: SeedableEntropySource + 'static> From<&mut R> for GlobalEntropy<R> {
+    fn from(value: &mut R) -> Self {
+        Self::from_rng(value).unwrap()
     }
 }

@@ -2,17 +2,19 @@
 #![doc = include_str!("../README.md")]
 
 pub mod component;
-mod entropy_source;
 pub mod prelude;
 pub mod resource;
+mod thread_local_entropy;
+mod traits;
 
-use std::{fmt::Debug, marker::PhantomData};
+use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use component::EntropyComponent;
 use rand_core::{RngCore, SeedableRng};
 use resource::GlobalEntropy;
 use serde::{Deserialize, Serialize};
+use traits::SeedableEntropySource;
 
 /// Plugin for integrating a PRNG that implements `RngCore` into
 /// the bevy engine, registering types for a global resource and
@@ -36,34 +38,12 @@ use serde::{Deserialize, Serialize};
 ///   println!("Random value: {}", rng.next_u32());
 /// }
 /// ```
-pub struct EntropyPlugin<
-    R: RngCore
-        + SeedableRng
-        + Clone
-        + Debug
-        + PartialEq
-        + Sync
-        + Send
-        + Serialize
-        + for<'a> Deserialize<'a>
-        + 'static,
-> {
+pub struct EntropyPlugin<R: SeedableEntropySource + 'static> {
     seed: Option<R::Seed>,
     _marker: PhantomData<&'static mut R>,
 }
 
-impl<
-        R: RngCore
-            + SeedableRng
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > EntropyPlugin<R>
+impl<R: SeedableEntropySource + 'static> EntropyPlugin<R>
 where
     R::Seed: Send + Sync + Copy,
 {
@@ -83,18 +63,7 @@ where
     }
 }
 
-impl<
-        R: RngCore
-            + SeedableRng
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > Default for EntropyPlugin<R>
+impl<R: SeedableEntropySource + 'static> Default for EntropyPlugin<R>
 where
     R::Seed: Send + Sync + Copy,
 {
@@ -103,18 +72,7 @@ where
     }
 }
 
-impl<
-        R: RngCore
-            + SeedableRng
-            + Clone
-            + Debug
-            + PartialEq
-            + Sync
-            + Send
-            + Serialize
-            + for<'a> Deserialize<'a>
-            + 'static,
-    > Plugin for EntropyPlugin<R>
+impl<R: SeedableEntropySource + 'static> Plugin for EntropyPlugin<R>
 where
     R::Seed: Send + Sync + Copy,
 {
