@@ -8,6 +8,7 @@ mod geometry;
 mod render;
 mod stack;
 mod ui_node;
+pub mod helpers;
 
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -29,7 +30,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,        
     };
 }
 
