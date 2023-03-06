@@ -11,7 +11,7 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
-    change_detection::{MutUntyped, TicksMut},
+    change_detection::MutUntyped,
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
@@ -1301,15 +1301,13 @@ impl World {
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: pointer is of type R
         let mut value = unsafe { ptr.read::<R>() };
-        let value_mut = Mut {
-            value: &mut value,
-            ticks: TicksMut {
-                added: &mut ticks.added,
-                changed: &mut ticks.changed,
-                last_change_tick,
-                change_tick,
-            },
-        };
+        let value_mut = Mut::new(
+            &mut value,
+            &mut ticks.added,
+            &mut ticks.changed,
+            last_change_tick,
+            change_tick,
+        );
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\

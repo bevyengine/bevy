@@ -914,15 +914,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
                     fetch.table_data.debug_checked_unwrap();
-                Mut {
-                    value: table_components.get(table_row.index()).deref_mut(),
-                    ticks: TicksMut {
-                        added: added_ticks.get(table_row.index()).deref_mut(),
-                        changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
-                }
+                Mut::new(
+                    table_components.get(table_row.index()).deref_mut(),
+                    added_ticks.get(table_row.index()).deref_mut(),
+                    changed_ticks.get(table_row.index()).deref_mut(),
+                    fetch.change_tick,
+                    fetch.last_change_tick,
+                )
             }
             StorageType::SparseSet => {
                 let (component, ticks) = fetch
