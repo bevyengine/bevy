@@ -3,14 +3,20 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 pub use bevy_ecs_macros::Event;
-use bevy_utils::tracing::trace;
+use bevy_utils::tracing::{trace, warn};
 use std::ops::{Deref, DerefMut};
 use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
-pub trait Event: Send + Sync + 'static {}
+pub trait Event: Send + Sync + 'static {
+    /// Whether a warning is emitted if an event is sent but never read
+    #[cfg(debug_assertions)]
+    const WARN_MISSED: bool = true;
+    #[cfg(not(debug_assertions))]
+    const WARN_MISSED: bool = false;
+}
 
 /// An `EventId` uniquely identifies an event.
 ///
@@ -124,6 +130,30 @@ struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
+/// # Missed events
+///
+/// Obscure bugs may arise if an [`EventReader`] does not read all events before they are cleared.
+/// By default, a warning will be emitted in debug mode, but will be silently ignored in release mode.
+///
+/// This behaviour can be overridden with an additional attribute.
+/// ```
+/// # use bevy_ecs::event::{Event, Events};
+/// #
+/// // This event will not emit warnings when one is missed.
+/// #[derive(Event)]
+/// #[event(missed = "ignore")]
+/// struct EventA;
+///
+/// // This event will emit only emit warnings if one is missed in debug mode.
+/// #[derive(Event)]
+/// #[event(missed = "debug_warn")]
+/// struct EventB;
+///
+/// // This event will always emit warnings when one is missed.
+/// #[derive(Event)]
+/// #[event(missed = "warn")]
+/// struct EventC;
+/// ```
 #[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
@@ -347,6 +377,17 @@ impl<E: Event> ManualEventReader<E> {
         &'a mut self,
         events: &'a Events<E>,
     ) -> ManualEventIteratorWithId<'a, E> {
+        if E::WARN_MISSED {
+            // if the reader has seen some of the events in a buffer, find the proper index offset.
+            // otherwise read all events in the buffer
+            let missed = self.missed_events(events);
+            if missed > 0 {
+                let event_noun = if missed == 1 { "event" } else { "events" };
+                let type_name = std::any::type_name::<E>();
+                warn!("Missed {missed} `{type_name}` {event_noun}.");
+            }
+        }
+
         ManualEventIteratorWithId::new(self, events)
     }
 
