@@ -8,7 +8,6 @@ mod geometry;
 mod render;
 mod stack;
 mod ui_node;
-pub mod helpers;
 
 #[cfg(feature = "bevy_text")]
 mod accessibility;
