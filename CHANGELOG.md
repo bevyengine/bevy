@@ -396,7 +396,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Rendering: You can now set up the rendering code of a `RenderPhase` directly using the `RenderPhase::render` method, instead of implementing it manually in your render graph node.][7013]
 - [Scenes: `SceneSpawner::spawn_dynamic` now returns `InstanceId` instead of `()`.][6663]
 - [Shape: Change `From<Icosphere>` to `TryFrom<Icosphere>`][6484]
-- [Tasks: `Scope` now uses FallibleTask` to await the cancellation of all remaining tasks when it’s dropped.][6696]
+- [Tasks: `Scope` now uses `FallibleTask` to await the cancellation of all remaining tasks when it’s dropped.][6696]
 - [Time: `Time::set_relative_speed_fXX` now allows a relative speed of -0.0.][7740]
 - [UI: `FocusPolicy` default has changed from `FocusPolicy::Block` to `FocusPolicy::Pass`][7161]
 - [UI: `TextPipeline::queue_text` and `GlyphBrush::compute_glyphs` now need a TextLineBreakBehaviour argument, in order to pass through the new field.][7283]
