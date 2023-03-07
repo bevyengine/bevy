@@ -99,8 +99,10 @@ impl<R: SeedableEntropySource + 'static> From<&mut R> for EntropyComponent<R> {
     }
 }
 
-impl<R: SeedableEntropySource + 'static> From<&mut Mut<'_, R>> for EntropyComponent<R> {
-    fn from(rng: &mut Mut<'_, R>) -> Self {
+impl<R: SeedableEntropySource + 'static> From<&mut Mut<'_, EntropyComponent<R>>>
+    for EntropyComponent<R>
+{
+    fn from(rng: &mut Mut<'_, EntropyComponent<R>>) -> Self {
         Self::from_rng(rng.as_mut()).unwrap()
     }
 }
