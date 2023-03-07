@@ -422,7 +422,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(q.#ignored_field_idents;)*
                 #(q2.#field_idents;)*
                 #(q2.#ignored_field_idents;)*
-
             }
         };
     })
