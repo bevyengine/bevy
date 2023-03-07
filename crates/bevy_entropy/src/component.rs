@@ -93,8 +93,8 @@ impl<R: EntropySource + 'static> From<R> for EntropyComponent<R> {
     }
 }
 
-impl<R: SeedableEntropySource + 'static> From<&mut R> for EntropyComponent<R> {
-    fn from(rng: &mut R) -> Self {
+impl<R: SeedableEntropySource + 'static> From<&mut EntropyComponent<R>> for EntropyComponent<R> {
+    fn from(rng: &mut EntropyComponent<R>) -> Self {
         Self::from_rng(rng).unwrap()
     }
 }
@@ -103,7 +103,7 @@ impl<R: SeedableEntropySource + 'static> From<&mut Mut<'_, EntropyComponent<R>>>
     for EntropyComponent<R>
 {
     fn from(rng: &mut Mut<'_, EntropyComponent<R>>) -> Self {
-        Self::from_rng(rng.as_mut()).unwrap()
+        Self::from(rng.as_mut())
     }
 }
 
@@ -112,5 +112,21 @@ impl<R: SeedableEntropySource + 'static> From<&mut ResMut<'_, GlobalEntropy<R>>>
 {
     fn from(rng: &mut ResMut<'_, GlobalEntropy<R>>) -> Self {
         Self::from_rng(rng.as_mut()).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand_chacha::ChaCha8Rng;
+
+    use super::*;
+
+    #[test]
+    fn forking() {
+        let mut rng1 = EntropyComponent::<ChaCha8Rng>::default();
+
+        let rng2 = EntropyComponent::from(&mut rng1);
+
+        assert_ne!(rng1, rng2, "forked EntropyComponents should not match each other");
     }
 }
