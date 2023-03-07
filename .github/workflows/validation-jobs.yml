@@ -172,7 +172,9 @@ jobs:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   build-without-default-features-status:
-    if: ${{ always() }}
+    if: |
+      always() &&
+      github.event_name == 'merge_group'
     needs: build-without-default-features
     runs-on: ubuntu-latest
     steps:
