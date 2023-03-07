@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::Resource,
 };
 
-/// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
+/// Event wrapper struct for [`accesskit::ActionRequest`].
 #[derive(Event, Deref, DerefMut)]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 
