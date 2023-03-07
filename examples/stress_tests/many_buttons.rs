@@ -106,13 +106,17 @@ fn spawn_button(
             IdleColor(color),
         ))
         .with_children(|commands| {
-            commands.spawn(TextBundle::from_section(
-                format!("{i}, {j}"),
-                TextStyle {
-                    font,
-                    font_size: FONT_SIZE,
-                    color: Color::rgb(0.2, 0.2, 0.2),
-                },
-            ));
+            commands.spawn(TextBundle {
+                text: Text::from_section(
+                    format!("{i}, {j}"),
+                    TextStyle {
+                        font,
+                        font_size: FONT_SIZE,
+                        color: Color::rgb(0.2, 0.2, 0.2),
+                    },
+                ),
+                z_index: ZIndex::Global(1_000_000),
+                ..default()
+            });
         });
 }
