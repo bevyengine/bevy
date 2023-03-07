@@ -32,10 +32,12 @@ fn main() {
     App::new()
         .add_plugin(EntropyPlugin::<ChaCha8Rng>::new().with_seed([2; 32]))
         .add_startup_system(setup_sources)
-        .add_system(random_output_a)
-        .add_system(random_output_b)
-        .add_system(random_output_c)
-        .add_system(random_output_d)
+        .add_systems((
+            random_output_a,
+            random_output_b,
+            random_output_c,
+            random_output_d,
+        ))
         .run();
 }
 

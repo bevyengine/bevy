@@ -4,7 +4,7 @@ use bevy_app::App;
 use bevy_ecs::{
     prelude::{Component, Entity, ResMut},
     query::With,
-    schedule::IntoSystemConfig,
+    schedule::IntoSystemConfigs,
     system::{Commands, In, IntoPipeSystem, Query},
 };
 use bevy_entropy::prelude::*;
@@ -52,9 +52,8 @@ struct Health {
 fn main() {
     App::new()
         .add_plugin(EntropyPlugin::<ChaCha8Rng>::new().with_seed([1; 32]))
-        .add_startup_systems((setup_player, setup_enemies.after(setup_player)))
-        .add_system(determine_attack_order.pipe(attack_turn))
-        .add_system(buff_entities.after(attack_turn))
+        .add_startup_systems((setup_player, setup_enemies).chain())
+        .add_systems((determine_attack_order.pipe(attack_turn), buff_entities).chain())
         .run();
 }
 
