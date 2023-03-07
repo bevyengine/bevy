@@ -2,8 +2,8 @@
 #![doc = include_str!("../README.md")]
 
 pub mod component;
+pub mod plugin;
 pub mod prelude;
 pub mod resource;
-pub mod plugin;
 mod thread_local_entropy;
 mod traits;
