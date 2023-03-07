@@ -190,7 +190,10 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
 
     /// Adds the systems to the provided `schedule`.
     ///
+    /// If a schedule with specified label does not exist, it will be created.
+    ///
     /// If a schedule is not specified, they will be added to the [`App`]'s default schedule.
+    ///
     ///
     /// [`App`]: crate::App
     ///
