@@ -1,4 +1,4 @@
-//! Renders a 2D scene containing a single, moving sprite.
+//! Renders a 2D scene in which the *Bevy* logo is rendered as a sprite, moving up and down.
 
 use bevy::prelude::*;
 
@@ -6,41 +6,50 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(sprite_movement)
+        .add_system(update_bird_velocity)
+        .add_system(apply_velocity.after(update_bird_velocity))
         .run();
 }
 
+/// A component for any moving entity.
+#[derive(Component, Deref, DerefMut)]
+struct Velocity(Vec2);
+
+/// A marker component for our particular sprite.
 #[derive(Component)]
-enum Direction {
-    Up,
-    Down,
-}
+struct Bird;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
+        Bird,
         SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()
         },
-        Direction::Up,
+        Velocity(Vec2 { x: 0., y: 150. }),
     ));
 }
 
-/// The sprite is animated by changing its translation depending on the time that has passed since
-/// the last frame.
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
-    for (mut logo, mut transform) in &mut sprite_position {
-        match *logo {
-            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
-            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
-        }
+/// Update all moving entities: those with a velocity and a transform.
+fn apply_velocity(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+    let delta = time.delta_seconds();
+    for (velocity, mut transform) in &mut query {
+        transform.translation += velocity.extend(0.) * delta;
+    }
+}
 
-        if transform.translation.y > 200. {
-            *logo = Direction::Down;
-        } else if transform.translation.y < -200. {
-            *logo = Direction::Up;
+/// Update bird sprites according to our specific rules.
+///
+/// Many components are widely used and few are as ubiquitous as `Transform`;
+/// component reuse is one of the core tenets of Entity Component Systems (ECS).
+///
+/// This system uses a filter – `With<Bird>` – to restrict updates to bird sprites, only.
+fn update_bird_velocity(mut query: Query<(&mut Velocity, &Transform), With<Bird>>) {
+    for (mut velocity, transform) in &mut query {
+        if transform.translation.y.abs() > 200. {
+            velocity.0 *= -1.;
         }
     }
 }
