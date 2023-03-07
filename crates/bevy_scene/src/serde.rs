@@ -19,6 +19,7 @@ pub const SCENE_ENTITIES: &str = "entities";
 
 pub const ENTITY_STRUCT: &str = "Entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
+pub const ENTITY_FIELD_BUNDLES: &str = "bundles";
 
 pub struct SceneSerializer<'a> {
     pub scene: &'a DynamicScene,
@@ -125,6 +126,7 @@ enum SceneField {
 #[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
     Components,
+    Bundles,
 }
 
 pub struct SceneDeserializer<'a> {
@@ -286,9 +288,16 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
             })?
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
 
+        let bundles = seq
+            .next_element_seed(BundleDeserializer {
+                registry: self.registry,
+            })?
+            .unwrap_or_default();
+
         Ok(DynamicEntity {
             entity: self.id,
             components,
+            bundles,
         })
     }
 
@@ -297,6 +306,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut components = None;
+        let mut bundles = None;
         while let Some(key) = map.next_key()? {
             match key {
                 EntityField::Components => {
@@ -308,15 +318,28 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
                         registry: self.registry,
                     })?);
                 }
+                EntityField::Bundles => {
+                    if bundles.is_some() {
+                        return Err(Error::duplicate_field(ENTITY_FIELD_BUNDLES));
+                    }
+
+                    bundles = Some(map.next_value_seed(BundleDeserializer {
+                        registry: self.registry,
+                    })?);
+                }
             }
         }
 
         let components = components
             .take()
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
+
+        let bundles = bundles.unwrap_or_default();
+
         Ok(DynamicEntity {
             entity: self.id,
             components,
+            bundles,
         })
     }
 }
@@ -388,6 +411,59 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
     }
 }
 
+pub struct BundleDeserializer<'a> {
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for BundleDeserializer<'a> {
+    type Value = Vec<Box<dyn Reflect>>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(BundleVisitor {
+            registry: self.registry,
+        })
+    }
+}
+
+struct BundleVisitor<'a> {
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for BundleVisitor<'a> {
+    type Value = Vec<Box<dyn Reflect>>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("map of bundles")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut added_keys = HashSet::new();
+        let mut bundles = Vec::new();
+        while let Some(key) = map.next_key::<&str>()? {
+            if !added_keys.insert(key) {
+                return Err(Error::custom(format!("duplicate bundle: `{}`", key)));
+            }
+
+            let registration = self
+                .registry
+                .get_with_name(key)
+                .ok_or_else(|| Error::custom(format!("no registration found for `{}`", key)))?;
+
+            bundles.push(
+                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
+            );
+        }
+
+        Ok(bundles)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::serde::{SceneDeserializer, SceneSerializer};
@@ -404,9 +480,11 @@ mod tests {
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
     struct Foo(i32);
+
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
     struct Bar(i32);
+
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
     struct Baz(i32);

@@ -30,7 +30,7 @@ pub mod prelude {
     pub use crate::query::ChangeTrackers;
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{ReflectComponent, ReflectResource};
+    pub use crate::reflect::{ReflectBundle, ReflectComponent, ReflectResource};
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,

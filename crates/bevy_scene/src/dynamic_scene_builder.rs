@@ -122,6 +122,7 @@ impl<'w> DynamicSceneBuilder<'w> {
             let mut entry = DynamicEntity {
                 entity: index,
                 components: Vec::new(),
+                bundles: Vec::new(),
             };
 
             let entity = self.original_world.entity(entity);

@@ -25,12 +25,17 @@
       },
     ),
     1: (
-      components: {
-        "scene::ComponentA": (
-          x: 3.0,
-          y: 4.0,
-        ),
-      },
+      components: {},
+      // Note: The `bundles` map is optional, but allows entire bundles to be spawned (if registered)
+      bundles: {
+        "scene::SomeBundle": (
+          // You may optionally override specific components of a bundle
+          a: (
+            x: 3.14,
+            y: 2.72,
+          ),
+        )
+      }
     ),
   }
 )
