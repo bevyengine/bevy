@@ -197,7 +197,7 @@ pub struct EventInstance<E: Event> {
 /// // Allow for 10 events per buffer before moving to the heap
 /// #[derive(Event)]
 /// #[event(storage = "smallvec(10)")]
-/// `struct EventA;
+/// struct EventA;
 /// ```
 ///
 /// [`Vec`]: std::vec::Vec
