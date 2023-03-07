@@ -17,8 +17,7 @@ pub trait Event: Sized + Send + Sync + 'static {
         + 'static
         + std::ops::DerefMut<Target = [EventInstance<Self>]>
         + Extend<EventInstance<Self>>
-        + Default
-        + std::fmt::Debug;
+        + Default;
 }
 
 pub trait Storage<'a> {
@@ -181,7 +180,7 @@ pub struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
-#[derive(Debug, Resource)]
+#[derive(Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.
@@ -189,6 +188,19 @@ pub struct Events<E: Event> {
     /// Holds the newer events.
     events_b: EventSequence<E>,
     event_count: usize,
+}
+
+impl<E: Event> fmt::Debug for Events<E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("events_a", &self.events_a)
+            .field("events_b", &self.events_b)
+            .field("event_count", &self.event_count)
+            .finish()
+    }
 }
 
 // Derived Default impl would incorrectly require E: Default
@@ -210,10 +222,21 @@ impl<E: Event> Events<E> {
     }
 }
 
-#[derive(Debug)]
 struct EventSequence<E: Event> {
     events: E::Storage,
     start_event_count: usize,
+}
+
+impl<E: Event> fmt::Debug for EventSequence<E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EventSequence")
+            .field("events", &self.events)
+            .field("start_event_count", &self.start_event_count)
+            .finish()
+    }
 }
 
 // Derived Default impl would incorrectly require E: Default
@@ -241,10 +264,22 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam, Debug)]
+#[derive(SystemParam)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
+}
+
+impl<'w, 's, E: Event> fmt::Debug for EventReader<'w, 's, E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("reader", &self.reader)
+            .field("events", &self.events)
+            .finish()
+    }
 }
 
 impl<'w, 's, E: Event> EventReader<'w, 's, E> {
@@ -377,10 +412,20 @@ impl<'w, E: Event> EventWriter<'w, E> {
     }
 }
 
-#[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,
     _marker: PhantomData<E>,
+}
+
+impl<E: Event> fmt::Debug for ManualEventReader<E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("last_event_count", &self.last_event_count)
+            .finish()
+    }
 }
 
 impl<E: Event> Default for ManualEventReader<E> {
@@ -473,11 +518,23 @@ impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
     }
 }
 
-#[derive(Debug)]
 pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
+}
+
+impl<'a, E: Event + fmt::Debug> fmt::Debug for ManualEventIteratorWithId<'a, E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("last_event_count", &self.reader)
+            .field("chain", &self.chain)
+            .field("unread", &self.unread)
+            .finish()
+    }
 }
 
 fn event_trace<E: Event>(id: EventId<E>) {
