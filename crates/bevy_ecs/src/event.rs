@@ -11,7 +11,7 @@ use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 ///
 /// Events must be thread-safe.
 pub trait Event: Sized + Send + Sync + 'static {
-    type Storage: for<'a> Storage<'a, Item = EventInstance<Self>>
+    type Storage: for<'a> EventStorage<'a, Item = EventInstance<Self>>
         + Send
         + Sync
         + 'static
@@ -20,7 +20,7 @@ pub trait Event: Sized + Send + Sync + 'static {
         + Default;
 }
 
-pub trait Storage<'a> {
+pub trait EventStorage<'a> {
     type Item: 'a;
     type DrainIter: DoubleEndedIterator<Item = Self::Item> + 'a;
     fn push(&mut self, v: Self::Item);
@@ -30,7 +30,7 @@ pub trait Storage<'a> {
     fn clear(&mut self);
 }
 
-impl<'a, T: 'a> Storage<'a> for Vec<T> {
+impl<'a, T: 'a> EventStorage<'a> for Vec<T> {
     type Item = T;
     type DrainIter = std::vec::Drain<'a, T>;
 
@@ -49,7 +49,7 @@ impl<'a, T: 'a> Storage<'a> for Vec<T> {
         self.clear();
     }
 }
-impl<'a, T: 'a, const N: usize> Storage<'a> for smallvec::SmallVec<[T; N]> {
+impl<'a, T: 'a, const N: usize> EventStorage<'a> for smallvec::SmallVec<[T; N]> {
     type Item = T;
     type DrainIter = smallvec::Drain<'a, [T; N]>;
 
