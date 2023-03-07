@@ -156,6 +156,7 @@ jobs:
     if: ${{ github.event_name == 'merge_group' }}
     timeout-minutes: 30
     strategy:
+      max-parallel: 1
       matrix:
         crate: [bevy_ecs, bevy_reflect, bevy]
     runs-on: ubuntu-latest
