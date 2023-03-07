@@ -9,9 +9,8 @@ on:
     paths:
       - '**/Cargo.toml'
       - 'deny.toml'
-    branches-ignore:
-      - 'dependabot/**'
-      - staging-squash-merge.tmp
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
