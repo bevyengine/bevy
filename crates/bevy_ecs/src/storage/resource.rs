@@ -1,8 +1,10 @@
 use crate::archetype::ArchetypeComponentId;
 use crate::change_detection::{MutUntyped, TicksMut};
-use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
-use crate::storage::{Column, SparseSet, TableRow};
+use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
+use crate::query::DebugCheckedUnwrap;
+use crate::storage::{blob_vec::BlobBox, SparseArray};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use std::cell::UnsafeCell;
 use std::{mem::ManuallyDrop, thread::ThreadId};
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
@@ -11,7 +13,9 @@ use std::{mem::ManuallyDrop, thread::ThreadId};
 ///
 /// [`World`]: crate::world::World
 pub struct ResourceData<const SEND: bool> {
-    column: ManuallyDrop<Column>,
+    data: ManuallyDrop<BlobBox>,
+    added_tick: UnsafeCell<Tick>,
+    changed_tick: UnsafeCell<Tick>,
     type_name: String,
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
@@ -33,15 +37,12 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
         // been dropped. The validate_access call above will check that the
         // data is dropped on the thread it was inserted from.
         unsafe {
-            ManuallyDrop::drop(&mut self.column);
+            ManuallyDrop::drop(&mut self.data);
         }
     }
 }
 
 impl<const SEND: bool> ResourceData<SEND> {
-    /// The only row in the underlying column.
-    const ROW: TableRow = TableRow::new(0);
-
     #[inline]
     fn validate_access(&self) {
         if SEND {
@@ -61,7 +62,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
-        !self.column.is_empty()
+        self.data.is_present()
     }
 
     /// Gets the [`ArchetypeComponentId`] for the resource.
@@ -77,7 +78,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted from.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
-        self.column.get_data(Self::ROW).map(|res| {
+        self.data.get_ptr().map(|res| {
             self.validate_access();
             res
         })
@@ -86,7 +87,13 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
-        self.column.get_ticks(Self::ROW)
+        // SAFETY: If the data is present, the ticks have been written to with valid values
+        self.is_present().then(|| unsafe {
+            ComponentTicks {
+                added: self.added_tick.read(),
+                changed: self.changed_tick.read(),
+            }
+        })
     }
 
     /// # Panics
@@ -94,9 +101,15 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.column.get(Self::ROW).map(|res| {
+        self.data.get_ptr().map(|res| {
             self.validate_access();
-            res
+            (
+                res,
+                TickCells {
+                    added: &self.added_tick,
+                    changed: &self.changed_tick,
+                },
+            )
         })
     }
 
@@ -127,13 +140,16 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
             self.validate_access();
-            self.column.replace(Self::ROW, value, change_tick);
+            self.data.replace(value);
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.column.push(value, ComponentTicks::new(change_tick));
+            self.data.initialize(value);
         }
+        let tick = Tick::new(change_tick);
+        *self.added_tick.get_mut() = tick;
+        *self.changed_tick.get_mut() = tick;
     }
 
     /// Inserts a value into the resource with a pre-existing change tick. If a
@@ -153,18 +169,15 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) {
         if self.is_present() {
             self.validate_access();
-            self.column.replace_untracked(Self::ROW, value);
-            *self.column.get_added_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.added;
-            *self
-                .column
-                .get_changed_ticks_unchecked(Self::ROW)
-                .deref_mut() = change_ticks.changed;
+            self.data.replace(value);
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.column.push(value, change_ticks);
+            self.data.initialize(value);
         }
+        *self.added_tick.get_mut() = change_ticks.added;
+        *self.changed_tick.get_mut() = change_ticks.changed;
     }
 
     /// Removes a value from the resource, if present.
@@ -175,13 +188,22 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        if SEND {
-            self.column.swap_remove_and_forget(Self::ROW)
+        let res = if SEND {
+            self.data.remove_and_forget()
         } else {
             self.is_present()
                 .then(|| self.validate_access())
-                .and_then(|_| self.column.swap_remove_and_forget(Self::ROW))
-        }
+                .and_then(|_| self.data.remove_and_forget())
+        };
+        res.map(|ptr| {
+            (
+                ptr,
+                ComponentTicks {
+                    added: *self.added_tick.get_mut(),
+                    changed: *self.changed_tick.get_mut(),
+                },
+            )
+        })
     }
 
     /// Removes a value from the resource, if present, and drops it.
@@ -193,8 +215,13 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
-            self.column.clear();
+            self.data.clear();
         }
+    }
+
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+        self.added_tick.get_mut().check_tick(change_tick);
+        self.changed_tick.get_mut().check_tick(change_tick);
     }
 }
 
@@ -204,7 +231,8 @@ impl<const SEND: bool> ResourceData<SEND> {
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources<const SEND: bool> {
-    resources: SparseSet<ComponentId, ResourceData<SEND>>,
+    component_ids: Vec<ComponentId>,
+    resources: SparseArray<ComponentId, ResourceData<SEND>>,
 }
 
 impl<const SEND: bool> Resources<SEND> {
@@ -213,12 +241,17 @@ impl<const SEND: bool> Resources<SEND> {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn len(&self) -> usize {
-        self.resources.len()
+        self.component_ids.len()
     }
 
     /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
     pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData<SEND>)> {
-        self.resources.iter().map(|(id, data)| (*id, data))
+        self.component_ids.iter().copied().map(|component_id| {
+            // SAFETY: If a component ID is in component_ids, it's populated in the sparse array.
+            (component_id, unsafe {
+                self.resources.get(component_id).debug_checked_unwrap()
+            })
+        })
     }
 
     /// Returns true if there are no resources stored in the [`World`],
@@ -227,7 +260,7 @@ impl<const SEND: bool> Resources<SEND> {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.resources.is_empty()
+        self.component_ids.is_empty()
     }
 
     /// Gets read-only access to a resource, if it exists.
@@ -261,11 +294,16 @@ impl<const SEND: bool> Resources<SEND> {
     ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
+            self.component_ids.push(component_id);
             if SEND {
                 assert!(component_info.is_send_and_sync());
             }
+            // SAFETY: component_info.drop() is valid for the types that will be inserted.
+            let data = unsafe { BlobBox::new(component_info.layout(), component_info.drop()) };
             ResourceData {
-                column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
+                data: ManuallyDrop::new(data),
+                added_tick: UnsafeCell::new(Tick::new(0)),
+                changed_tick: UnsafeCell::new(Tick::new(0)),
                 type_name: String::from(component_info.name()),
                 id: f(),
                 origin_thread_id: None,
@@ -274,8 +312,14 @@ impl<const SEND: bool> Resources<SEND> {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for info in self.resources.values_mut() {
-            info.column.check_change_ticks(change_tick);
+        for component_id in &self.component_ids {
+            // SAFETY: If a component ID is in component_ids, it's populated in the sparse array.
+            unsafe {
+                self.resources
+                    .get_mut(*component_id)
+                    .debug_checked_unwrap()
+                    .check_change_ticks(change_tick);
+            }
         }
     }
 }
