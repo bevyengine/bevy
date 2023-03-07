@@ -55,11 +55,16 @@ pub struct OnEnter<S: States>(pub S);
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
-/// exits the first given state, AND enters the second given state.
+/// exits the `from` state, AND enters the `to` state.
 ///
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnTransition<S: States>(pub S, pub S);
+pub struct OnTransition<S: States> {
+    /// The state being exited.
+    pub from: S,
+    /// The state being entered.
+    pub to: S,
+}
 
 /// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
 ///
@@ -113,7 +118,10 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 
         let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
         world.run_schedule(OnExit(exited.clone()));
-        world.run_schedule(OnTransition(exited, entered.clone()));
+        world.run_schedule(OnTransition {
+            from: exited,
+            to: entered.clone(),
+        });
         world.run_schedule(OnEnter(entered));
     }
 }
