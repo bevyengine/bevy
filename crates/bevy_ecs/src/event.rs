@@ -2,15 +2,21 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
-use bevy_utils::tracing::trace;
+pub use bevy_ecs_macros::Event;
+use bevy_utils::tracing::{trace, warn};
 use std::ops::{Deref, DerefMut};
 use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
-pub trait Event: Send + Sync + 'static {}
-impl<T> Event for T where T: Send + Sync + 'static {}
+pub trait Event: Send + Sync + 'static {
+    /// Whether a warning is emitted if an event is sent but never read
+    #[cfg(debug_assertions)]
+    const WARN_MISSED: bool = true;
+    #[cfg(not(debug_assertions))]
+    const WARN_MISSED: bool = false;
+}
 
 /// An `EventId` uniquely identifies an event.
 ///
@@ -77,8 +83,9 @@ struct EventInstance<E: Event> {
 ///
 /// # Example
 /// ```
-/// use bevy_ecs::event::Events;
+/// use bevy_ecs::event::{Event, Events};
 ///
+/// #[derive(Event)]
 /// struct MyEvent {
 ///     value: usize
 /// }
@@ -123,6 +130,30 @@ struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
+/// # Missed events
+///
+/// Obscure bugs may arise if an [`EventReader`] does not read all events before they are cleared.
+/// By default, a warning will be emitted in debug mode, but will be silently ignored in release mode.
+///
+/// This behaviour can be overridden with an additional attribute.
+/// ```
+/// # use bevy_ecs::event::{Event, Events};
+/// #
+/// // This event will not emit warnings when one is missed.
+/// #[derive(Event)]
+/// #[event(missed = "ignore")]
+/// struct EventA;
+///
+/// // This event will emit only emit warnings if one is missed in debug mode.
+/// #[derive(Event)]
+/// #[event(missed = "debug_warn")]
+/// struct EventB;
+///
+/// // This event will always emit warnings when one is missed.
+/// #[derive(Event)]
+/// #[event(missed = "warn")]
+/// struct EventC;
+/// ```
 #[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
@@ -216,6 +247,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
@@ -257,6 +290,7 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
+/// #[derive(Event)]
 /// pub struct MyEvent; // Custom event type.
 /// fn my_system(mut writer: EventWriter<MyEvent>) {
 ///     writer.send(MyEvent);
@@ -273,7 +307,7 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
-///
+/// # #[derive(Event)]
 /// # pub struct MyEvent;
 /// fn send_untyped(mut commands: Commands) {
 ///     // Send an event of a specific type without having to declare that
@@ -343,6 +377,17 @@ impl<E: Event> ManualEventReader<E> {
         &'a mut self,
         events: &'a Events<E>,
     ) -> ManualEventIteratorWithId<'a, E> {
+        if E::WARN_MISSED {
+            // if the reader has seen some of the events in a buffer, find the proper index offset.
+            // otherwise read all events in the buffer
+            let missed = self.missed_events(events);
+            if missed > 0 {
+                let event_noun = if missed == 1 { "event" } else { "events" };
+                let type_name = std::any::type_name::<E>();
+                warn!("Missed {missed} `{type_name}` {event_noun}.");
+            }
+        }
+
         ManualEventIteratorWithId::new(self, events)
     }
 
@@ -671,7 +716,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
@@ -774,7 +819,7 @@ mod tests {
         reader.iter(events).cloned().collect::<Vec<E>>()
     }
 
-    #[derive(PartialEq, Eq, Debug)]
+    #[derive(Event, PartialEq, Eq, Debug)]
     struct E(usize);
 
     fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
@@ -981,7 +1026,7 @@ mod tests {
         assert!(last.is_none(), "EventReader should be empty");
     }
 
-    #[derive(Clone, PartialEq, Debug, Default)]
+    #[derive(Event, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
     #[test]

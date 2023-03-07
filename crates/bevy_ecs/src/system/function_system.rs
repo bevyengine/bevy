@@ -86,6 +86,7 @@ impl SystemMeta {
 /// use bevy_ecs::{system::SystemState};
 /// use bevy_ecs::event::Events;
 ///
+/// #[derive(Event)]
 /// struct MyEvent;
 /// #[derive(Resource)]
 /// struct MyResource(u32);
@@ -118,6 +119,7 @@ impl SystemMeta {
 /// use bevy_ecs::{system::SystemState};
 /// use bevy_ecs::event::Events;
 ///
+/// #[derive(Event)]
 /// struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {

@@ -340,6 +340,7 @@ fn assert_component_access_compatibility(
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }

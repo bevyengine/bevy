@@ -1,4 +1,4 @@
-use bevy_ecs::event::EventReader;
+use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect};
@@ -30,7 +30,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

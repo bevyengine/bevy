@@ -19,6 +19,8 @@ fn main() {
 
 #[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
+
+#[derive(Event)]
 struct StreamEvent(u32);
 
 #[derive(Resource, Deref)]
