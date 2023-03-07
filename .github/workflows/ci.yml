@@ -146,7 +146,7 @@ jobs:
   markdownlint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: check-missing-examples-in-docs
+    needs: check-missing-features-in-docs
     if: always()
     steps:
       - uses: actions/checkout@v3
@@ -286,6 +286,7 @@ jobs:
   check-missing-features-in-docs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v3
       - name: check for missing features
