@@ -2,6 +2,7 @@ name: validation jobs
 
 on:
   merge_group:
+  pull_request:
   push:
     branches:
       - staging
@@ -13,6 +14,7 @@ env:
 
 jobs:
   build-and-install-on-iOS:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -33,6 +35,7 @@ jobs:
         run: cd examples/mobile && make install
 
   build-android:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -60,6 +63,7 @@ jobs:
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
 
   run-examples-on-windows-dx12:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -94,6 +98,7 @@ jobs:
           done
 
   run-examples-on-wasm:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -150,6 +155,7 @@ jobs:
           path: .github/start-wasm-example/screenshot-*.png
 
   build-without-default-features:
+    if: ${{ github.event_name == 'merge_group' }}
     timeout-minutes: 30
     strategy:
       matrix:
