@@ -25,9 +25,9 @@ struct SourceD;
 /// Entities having their own sources side-steps issues with parallel execution and scheduling
 /// not ensuring that certain systems run before others. With an entity having its own RNG source,
 /// no matter when the systems that query that entity run, it will always result in a deterministic
-/// output. The order of execution will not just the RNG output, as long as the entities are
-/// seeded deterministically and any systems that query a specific entity or group of entities are
-/// assured to be in order.
+/// output. The order of execution will not affect the RNG output, as long as the entities are
+/// seeded deterministically and any systems that query a specific entity or group of entities that
+/// share the same RNG source are assured to be in order.
 fn main() {
     App::new()
         .add_plugin(EntropyPlugin::<ChaCha8Rng>::new().with_seed([2; 32]))

@@ -17,7 +17,7 @@ impl ThreadLocalEntropy {
     /// `RefCell`. There's no direct access to the pointer or mutable reference, so we control how long it
     /// lives and can ensure no multiple mutable references exist.
     #[inline]
-    fn get_rng(&mut self) -> &'static mut ChaCha12Rng {
+    fn get_rng(&'_ mut self) -> &'_ mut ChaCha12Rng {
         // Obtain pointer to thread local instance of PRNG which with Rc, should be !Send & !Sync as well
         // as 'static.
         let rng = SOURCE.with(|source| source.get());
