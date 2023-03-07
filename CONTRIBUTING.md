@@ -292,11 +292,10 @@ There are three main places you can check for things to review:
 2. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
 3. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
-Official focus areas and work done by @cart go through this review process as well.
-Not even our project lead is exempt from reviews and RFCs!
+Not even our Project Leads and Maintainers are exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
-Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
+Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message the Project Lead (currently @cart) for a Bevy org role to help us keep things tidy.
 As discussed in our [*Bevy Organization doc*](/docs/the_bevy_organization.md), this role only requires good faith and a basic understanding of our development process.
 
 ### How to adopt pull requests
@@ -340,8 +339,8 @@ To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
 5. Push your changes to your fork on Github and open a Pull Request.
-6. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
-7. When your PR is ready to merge, @cart will review it and suggest final changes. If those changes are minimal he may even apply them directly to speed up merging.
+6. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to a Maintainer or Project Lead's final judgement.
+7. When your PR is ready to merge, a Maintainer or Project Lead will review it and suggest final changes. If those changes are minimal they may even apply them directly to speed up merging.
 
 If you end up adding a new official Bevy crate to the `bevy` repo:
 
