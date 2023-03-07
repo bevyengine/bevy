@@ -180,6 +180,27 @@ pub struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
+/// # Storage types
+///
+/// Events can be stored in different types of buffers, which have different performance
+/// implications. By default, events are stored in [`Vec`]s, which are entirely
+/// heap-allocated. 
+///
+/// Alternatively, events can be stored in `SmallVecs` with an additional attribute. 
+/// `SmallVecs` are stack-allocated up to a specified length before being moved onto the 
+/// heap. Generally, these will perform better for events with a smaller memory footprint that
+/// also come in lesser quantities.
+///
+/// ```
+/// # use bevy_ecs::event::Event;
+/// #
+/// // Allow for 10 events per buffer before moving to the heap
+/// #[derive(Event)]
+/// #[event(storage = "smallvec(10)")]
+/// `struct EventA;
+/// ```
+///
+/// [`Vec`]: std::vec::Vec
 #[derive(Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
