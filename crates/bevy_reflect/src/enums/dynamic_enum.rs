@@ -10,6 +10,7 @@ use std::fmt::Formatter;
 /// A dynamic representation of an enum variant.
 #[derive(Debug, Default)]
 pub enum DynamicVariant {
+    #[default]
     Unit,
     Tuple(DynamicTuple),
     Struct(DynamicStruct),
