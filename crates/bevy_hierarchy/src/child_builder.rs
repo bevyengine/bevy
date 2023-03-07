@@ -283,17 +283,21 @@ pub trait BuildChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
-    fn push_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn push_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
     /// Inserts children at the given index
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
-    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
+    fn insert_children(
+        &mut self,
+        index: usize,
+        children: impl IntoIterator<Item = Entity>,
+    ) -> &mut Self;
     /// Removes the given children
     ///
     /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
-    fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn remove_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
     /// Adds a single child
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
@@ -327,29 +331,33 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         self
     }
 
-    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+    fn push_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
         let parent = self.id();
         self.commands().add(PushChildren {
-            children: SmallVec::from(children),
+            children: SmallVec::from_iter(children),
             parent,
         });
         self
     }
 
-    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+    fn insert_children(
+        &mut self,
+        index: usize,
+        children: impl IntoIterator<Item = Entity>,
+    ) -> &mut Self {
         let parent = self.id();
         self.commands().add(InsertChildren {
-            children: SmallVec::from(children),
+            children: SmallVec::from_iter(children),
             index,
             parent,
         });
         self
     }
 
-    fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+    fn remove_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
         let parent = self.id();
         self.commands().add(RemoveChildren {
-            children: SmallVec::from(children),
+            children: SmallVec::from_iter(children),
             parent,
         });
         self
@@ -370,7 +378,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn replace_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
         let parent = self.id();
         self.commands().add(ReplaceChildren {
-            children: SmallVec::from(children),
+            children: SmallVec::from_iter(children),
             parent,
         });
         self
@@ -728,7 +736,9 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(entities[0]).push_children(&entities[1..3]);
+            commands
+                .entity(entities[0])
+                .push_children(Vec::from(&entities[1..3]));
         }
         queue.apply(&mut world);
 
@@ -751,7 +761,8 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent).insert_children(1, &entities[3..]);
+            let entities = Vec::from(&entities[3..]);
+            commands.entity(parent).insert_children(1, entities);
         }
         queue.apply(&mut world);
 
@@ -766,7 +777,7 @@ mod tests {
         let remove_children = [child1, child4];
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent).remove_children(&remove_children);
+            commands.entity(parent).remove_children(remove_children);
         }
         queue.apply(&mut world);
 
@@ -789,7 +800,9 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(entities[0]).push_children(&entities[1..3]);
+            commands
+                .entity(entities[0])
+                .push_children(Vec::from(&entities[1..3]));
         }
         queue.apply(&mut world);
 
@@ -827,7 +840,9 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(entities[0]).push_children(&entities[1..3]);
+            commands
+                .entity(entities[0])
+                .push_children(Vec::from(&entities[1..3]));
         }
         queue.apply(&mut world);
 
@@ -847,7 +862,7 @@ mod tests {
         let replace_children = [child1, child4];
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent).replace_children(&replace_children);
+            commands.entity(parent).replace_children(replace_children);
         }
         queue.apply(&mut world);
 
@@ -953,7 +968,7 @@ mod tests {
         // push child into parent1
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent1).push_children(&[child]);
+            commands.entity(parent1).push_children([child]);
             queue.apply(&mut world);
         }
         assert_eq!(
@@ -964,7 +979,7 @@ mod tests {
         // move only child from parent1 with `push_children`
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent2).push_children(&[child]);
+            commands.entity(parent2).push_children([child]);
             queue.apply(&mut world);
         }
         assert!(world.get::<Children>(parent1).is_none());
@@ -972,7 +987,7 @@ mod tests {
         // move only child from parent2 with `insert_children`
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent1).insert_children(0, &[child]);
+            commands.entity(parent1).insert_children(0, [child]);
             queue.apply(&mut world);
         }
         assert!(world.get::<Children>(parent2).is_none());
@@ -988,7 +1003,7 @@ mod tests {
         // remove only child from parent2 with `remove_children`
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(parent2).remove_children(&[child]);
+            commands.entity(parent2).remove_children([child]);
             queue.apply(&mut world);
         }
         assert!(world.get::<Children>(parent2).is_none());
