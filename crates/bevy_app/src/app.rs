@@ -1024,7 +1024,7 @@ mod tests {
         system::Commands,
     };
 
-    use crate::{App, IntoSystemAppConfig, Plugin};
+    use crate::{App, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1084,17 +1084,51 @@ mod tests {
         #[default]
         MainMenu,
     }
-    fn on_enter(mut commands: Commands) {
+    fn bar(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    fn foo(mut commands: Commands) {
         commands.spawn_empty();
     }
 
     #[test]
     fn add_system_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.add_system(on_enter.in_schedule(OnEnter(AppState::MainMenu)))
+        app.add_system(foo.in_schedule(OnEnter(AppState::MainMenu)))
             .add_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_system(foo.in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
     }
 }
