@@ -184,10 +184,10 @@ pub struct EventInstance<E: Event> {
 ///
 /// Events can be stored in different types of buffers, which have different performance
 /// implications. By default, events are stored in [`Vec`]s, which are entirely
-/// heap-allocated. 
+/// heap-allocated.
 ///
-/// Alternatively, events can be stored in `SmallVecs` with an additional attribute. 
-/// `SmallVecs` are stack-allocated up to a specified length before being moved onto the 
+/// Alternatively, events can be stored in `SmallVecs` with an additional attribute.
+/// `SmallVecs` are stack-allocated up to a specified length before being moved onto the
 /// heap. Generally, these will perform better for events with a smaller memory footprint that
 /// also come in lesser quantities.
 ///
