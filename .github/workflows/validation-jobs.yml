@@ -170,6 +170,17 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
+  build-without-default-features-status:
+    if: ${{ github.event_name == 'merge_group' }}
+    needs: build-without-default-features
+    steps:
+      - name: Successful
+        if: ${{ !(contains(needs.*.result, 'failure')) }}
+        run: exit 0
+      - name: Failing
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+
   check-unused-dependencies:
     if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
