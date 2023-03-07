@@ -8,7 +8,7 @@ use std::any::Any;
 use std::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum DynamicVariant {
     Unit,
     Tuple(DynamicTuple),
@@ -22,12 +22,6 @@ impl Clone for DynamicVariant {
             DynamicVariant::Tuple(data) => DynamicVariant::Tuple(data.clone_dynamic()),
             DynamicVariant::Struct(data) => DynamicVariant::Struct(data.clone_dynamic()),
         }
-    }
-}
-
-impl Default for DynamicVariant {
-    fn default() -> Self {
-        DynamicVariant::Unit
     }
 }
 
