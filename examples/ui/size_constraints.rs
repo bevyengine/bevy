@@ -170,7 +170,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                                 "Auto".to_string(),
                                 text_style.clone(),
                             );
-                            for &percent in [0., 25., 50., 75., 100., 125.].iter() {
+                            for percent in [0., 25., 50., 75., 100., 125.] {
                                 spawn_button(
                                     parent,
                                     constraint,
