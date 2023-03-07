@@ -10,7 +10,64 @@ use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
-pub trait Event: Send + Sync + 'static {}
+pub trait Event: Sized + Send + Sync + 'static {
+    type Storage: for<'a> Storage<'a, Item = EventInstance<Self>>
+        + Send
+        + Sync
+        + 'static
+        + std::ops::DerefMut<Target = [EventInstance<Self>]>
+        + Extend<EventInstance<Self>>
+        + Default
+        + std::fmt::Debug;
+}
+
+pub trait Storage<'a> {
+    type Item: 'a;
+    type DrainIter: DoubleEndedIterator<Item = Self::Item> + 'a;
+    fn push(&mut self, v: Self::Item);
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>;
+    fn clear(&mut self);
+}
+
+impl<'a, T: 'a> Storage<'a> for Vec<T> {
+    type Item = T;
+    type DrainIter = std::vec::Drain<'a, T>;
+
+    fn push(&mut self, v: T) {
+        self.push(v);
+    }
+
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.drain(range)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
+impl<'a, T: 'a, const N: usize> Storage<'a> for smallvec::SmallVec<[T; N]> {
+    type Item = T;
+    type DrainIter = smallvec::Drain<'a, [T; N]>;
+
+    fn push(&mut self, v: T) {
+        self.push(v);
+    }
+
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.drain(range)
+    }
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
 
 /// An `EventId` uniquely identifies an event.
 ///
@@ -47,7 +104,7 @@ impl<E: Event> fmt::Debug for EventId<E> {
 }
 
 #[derive(Debug)]
-struct EventInstance<E: Event> {
+pub struct EventInstance<E: Event> {
     pub event_id: EventId<E>,
     pub event: E,
 }
@@ -155,7 +212,7 @@ impl<E: Event> Events<E> {
 
 #[derive(Debug)]
 struct EventSequence<E: Event> {
-    events: Vec<EventInstance<E>>,
+    events: E::Storage,
     start_event_count: usize,
 }
 
@@ -170,7 +227,7 @@ impl<E: Event> Default for EventSequence<E> {
 }
 
 impl<E: Event> Deref for EventSequence<E> {
-    type Target = Vec<EventInstance<E>>;
+    type Target = E::Storage;
 
     fn deref(&self) -> &Self::Target {
         &self.events

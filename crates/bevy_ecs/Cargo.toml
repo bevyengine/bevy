@@ -27,6 +27,7 @@ fixedbitset = "0.4.2"
 rustc-hash = "1.1"
 downcast-rs = "1.2"
 serde = { version = "1", features = ["derive"] }
+smallvec = { version = "1.10", features = ["union", "const_generics"] }
 
 [dev-dependencies]
 rand = "0.8"
