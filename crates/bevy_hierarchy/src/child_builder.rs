@@ -498,7 +498,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         let children = children.into_iter().collect::<Vec<_>>();
         let parent = self.id();
         self.world_scope(|world| {
-            update_old_parents(world, parent, &children[..]);
+            update_old_parents(world, parent, &children);
         });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
