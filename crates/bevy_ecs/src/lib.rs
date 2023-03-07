@@ -8,6 +8,7 @@ pub mod archetype;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
+pub mod component_refs;
 pub mod entity;
 pub mod event;
 pub mod query;
@@ -36,6 +37,7 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
+        component_refs::{ChangeDetectionRefs, UnwrappedRefs},
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
