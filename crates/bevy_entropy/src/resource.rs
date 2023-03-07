@@ -1,15 +1,26 @@
 use std::fmt::Debug;
 
-use crate::{
-    traits::{EntropySource, SeedableEntropySource},
-    Deserialize, RngCore, SeedableRng, Serialize,
-};
+use crate::traits::{EntropySource, SeedableEntropySource};
 use bevy_ecs::prelude::Resource;
+use rand_core::{RngCore, SeedableRng};
+
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Resource, Reflect, FromReflect, Serialize, Deserialize)]
-#[serde(bound(deserialize = "R: for<'a> Deserialize<'a>"))]
-#[reflect_value(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect, FromReflect))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    serde(bound(deserialize = "R: for<'a> Deserialize<'a>"))
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect_value(Debug, PartialEq, Serialize, Deserialize)
+)]
 pub struct GlobalEntropy<R: EntropySource + 'static>(R);
 
 impl<R: EntropySource + 'static> GlobalEntropy<R> {

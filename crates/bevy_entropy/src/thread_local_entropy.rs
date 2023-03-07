@@ -1,7 +1,7 @@
 use std::{cell::UnsafeCell, rc::Rc};
 
-use crate::{RngCore, SeedableRng};
 use rand_chacha::ChaCha12Rng;
+use rand_core::{RngCore, SeedableRng};
 
 thread_local! {
     // We require `Rc` to avoid premature freeing when `ThreadLocalEntropy` is used within thread-local destructors.
