@@ -138,7 +138,7 @@ impl DynamicScene {
         // Updates references to entities in the scene to entities in the world
         for (type_id, entities) in scene_mappings.into_iter() {
             let registration = type_registry.get(type_id).expect(
-                "We should be getting TypeId from this TypeRegistration in the first place",
+                "we should be getting TypeId from this TypeRegistration in the first place",
             );
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
@@ -263,7 +263,7 @@ mod tests {
                 .get_entity(from_scene_child_entity)
                 .unwrap()
                 .get::<Parent>()
-                .expect("Something is wrong with this test, and the scene components don't have a parent/child relationship")
+                .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
                 .get(),
             "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
         );
