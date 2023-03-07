@@ -245,7 +245,7 @@ mod tests {
                 .get::<Parent>()
                 .unwrap()
                 .get(),
-            "Something about reloading the scene is touching entities with the same scene Ids"
+            "something about reloading the scene is touching entities with the same scene Ids"
         );
         assert_eq!(
             original_child_entity,
@@ -255,7 +255,7 @@ mod tests {
                 .get::<Parent>()
                 .unwrap()
                 .get(),
-            "Something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
+            "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
         );
         assert_eq!(
             from_scene_parent_entity,
@@ -265,7 +265,7 @@ mod tests {
                 .get::<Parent>()
                 .expect("Something is wrong with this test, and the scene components don't have a parent/child relationship")
                 .get(),
-            "Something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
+            "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }
 }
