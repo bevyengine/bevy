@@ -390,8 +390,9 @@ impl App {
             if let Some(schedule) = schedules.get_mut(&*schedule_label) {
                 schedule.add_system(system);
             } else {
-                self.add_schedule(schedule_label, Schedule::new())
-                    .add_system(system);
+                let mut schedule = Schedule::new();
+                schedule.add_system(system);
+                schedules.insert(schedule_label, schedule);
             }
         } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
@@ -1015,7 +1016,12 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
-    use crate::{App, Plugin};
+    use bevy_ecs::{
+        schedule::{OnEnter, States},
+        system::Commands,
+    };
+
+    use crate::{App, IntoSystemAppConfig, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1068,5 +1074,24 @@ mod tests {
             }
         }
         App::new().add_plugin(PluginRun);
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum AppState {
+        #[default]
+        MainMenu,
+    }
+    fn on_enter(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_system(on_enter.in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
     }
 }
