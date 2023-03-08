@@ -52,7 +52,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_direction: FlexDirection::Column,
                 flex_basis: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -62,37 +61,49 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(
-                TextBundle::from_section("Size Constraints Example", text_style.clone())
-                    .with_style(Style {
-                        margin: UiRect::bottom(Val::Px(25.)),
-                        ..Default::default()
-                    }),
-            );
-
-            spawn_bar(parent);
-
             parent
                 .spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Stretch,
-                        padding: UiRect::all(Val::Px(10.)),
-                        margin: UiRect::top(Val::Px(50.)),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
-                    background_color: Color::YELLOW.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    for constaint in [
-                        Constraint::MinWidth,
-                        Constraint::FlexBasis,
-                        Constraint::Width,
-                        Constraint::MaxWidth,
-                    ] {
-                        spawn_button_row(parent, constaint, text_style.clone());
-                    }
+                    parent.spawn(
+                        TextBundle::from_section("Size Constraints Example", text_style.clone())
+                            .with_style(Style {
+                                margin: UiRect::bottom(Val::Px(25.)),
+                                ..Default::default()
+                            }),
+                    );
+
+                    spawn_bar(parent);
+
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                flex_direction: FlexDirection::Column,
+                                align_items: AlignItems::Stretch,
+                                padding: UiRect::all(Val::Px(10.)),
+                                margin: UiRect::top(Val::Px(50.)),
+                                ..Default::default()
+                            },
+                            background_color: Color::YELLOW.into(),
+                            ..Default::default()
+                        })
+                        .with_children(|parent| {
+                            for constaint in [
+                                Constraint::MinWidth,
+                                Constraint::FlexBasis,
+                                Constraint::Width,
+                                Constraint::MaxWidth,
+                            ] {
+                                spawn_button_row(parent, constaint, text_style.clone());
+                            }
+                        });
                 });
         });
 }
@@ -101,6 +112,8 @@ fn spawn_bar(parent: &mut ChildBuilder) {
     parent
         .spawn(NodeBundle {
             style: Style {
+                flex_basis: Val::Percent(100.0),
+                align_self: AlignSelf::Stretch,
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
@@ -112,7 +125,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Stretch,
-                        size: Size::new(Val::Px(1000.), Val::Px(100.)),
+                        size: Size::new(Val::Percent(100.), Val::Px(100.)),
                         padding: UiRect::all(Val::Px(2.)),
                         ..Default::default()
                     },
