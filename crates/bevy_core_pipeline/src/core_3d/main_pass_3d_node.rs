@@ -8,14 +8,16 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
+    render_resource::{
+        Extent3d, LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+    },
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::Camera3dDepthLoadOp;
+use super::{Camera3dDepthLoadOp, ViewTransmissionTexture};
 
 pub struct MainPass3dNode {
     query: QueryState<
@@ -26,6 +28,7 @@ pub struct MainPass3dNode {
             &'static RenderPhase<Transparent3d>,
             &'static Camera3d,
             &'static ViewTarget,
+            &'static ViewTransmissionTexture,
             &'static ViewDepthTexture,
             Option<&'static DepthPrepass>,
             Option<&'static NormalPrepass>,
@@ -67,6 +70,7 @@ impl Node for MainPass3dNode {
             transparent_phase,
             camera_3d,
             target,
+            transmission,
             depth,
             depth_prepass,
             normal_prepass,
@@ -152,6 +156,17 @@ impl Node for MainPass3dNode {
 
             alpha_mask_phase.render(&mut render_pass, world, view_entity);
         }
+
+        let physical_target_size = camera.physical_target_size.unwrap();
+        render_context.command_encoder().copy_texture_to_texture(
+            target.main_texture().as_image_copy(),
+            transmission.texture.as_image_copy(),
+            Extent3d {
+                width: physical_target_size.x,
+                height: physical_target_size.y,
+                depth_or_array_layers: 1,
+            },
+        );
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
