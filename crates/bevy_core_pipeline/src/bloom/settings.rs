@@ -49,7 +49,7 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a proportionate amount of scattered light is added
+    /// * \> 0.0 means a proportionate amount of scattered light is added
     pub intensity: f32,
 
     /// Low frequency contribution boost.
@@ -69,7 +69,7 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a proportionate amount of scattered light is added
+    /// * \> 0.0 means a proportionate amount of scattered light is added
     pub low_frequency_boost: f32,
 
     /// Low frequency contribution boost curve.
