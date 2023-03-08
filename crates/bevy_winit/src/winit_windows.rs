@@ -166,6 +166,12 @@ impl WinitWindows {
         }
 
         winit_window.set_cursor_visible(window.cursor.visible);
+        if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+            warn!(
+                "Could not set cursor hit test for window {:?}: {:?}",
+                window.title, err
+            );
+        }
 
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
