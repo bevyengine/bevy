@@ -11,7 +11,7 @@ mod ray;
 mod rect;
 
 pub use ray::Ray;
-pub use rect::Rect;
+pub use rect::{IRect, Rect, URect};
 
 /// The `bevy_math` prelude.
 pub mod prelude {
