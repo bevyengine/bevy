@@ -1604,11 +1604,11 @@ category = "UI (User Interface)"
 wasm = false
 
 [[example]]
-name = "text_wrap"
-path = "examples/ui/text_wrap.rs"
+name = "text_wrap_debug"
+path = "examples/ui/text_wrap_debug.rs"
 
-[package.metadata.example.text_wrap]
-name = "Text Wrap"
+[package.metadata.example.text_wrap_debug]
+name = "Text Wrap Debug"
 description = "Demonstrates text wrapping"
 category = "UI (User Interface)"
 wasm = true
