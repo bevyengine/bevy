@@ -276,7 +276,8 @@ impl Window {
 
     /// Set the cursor position in this window
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
-        self.internal.physical_cursor_position = position.map(|p| p.as_dvec2() * self.scale_factor());
+        self.internal.physical_cursor_position =
+            position.map(|p| p.as_dvec2() * self.scale_factor());
     }
 
     /// Set the physical cursor position in this window
