@@ -3,13 +3,14 @@ mod render_layers;
 pub use render_layers::*;
 
 use bevy_app::{CoreSet, Plugin};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
+use bevy_utils::{HashMap, HashSet};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -224,6 +225,7 @@ impl Plugin for VisibilityPlugin {
             .configure_set(CheckVisibility.in_base_set(CoreSet::PostUpdate))
             .configure_set(VisibilityPropagate.in_base_set(CoreSet::PostUpdate))
             .add_system(calculate_bounds.in_set(CalculateBounds))
+            .add_system(update_bounds.in_set(CalculateBounds))
             .add_system(
                 update_frusta::<OrthographicProjection>
                     .in_set(UpdateOrthographicFrusta)
@@ -269,12 +271,52 @@ pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    without_handle: Query<Entity, (With<Aabb>, Without<Handle<Mesh>>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
+        let Some(mesh) = meshes.get(mesh_handle) else { continue };
+        let Some(aabb) = mesh.compute_aabb() else { continue };
+        commands.entity(entity).insert(aabb);
+    }
+    for entity in &without_handle {
+        commands.entity(entity).remove::<Aabb>();
+    }
+}
+
+pub fn update_bounds(
+    mut commands: Commands,
+    meshes: Res<Assets<Mesh>>,
+    mut events: EventReader<AssetEvent<Mesh>>,
+    mut with_aabb: Query<(Entity, &Handle<Mesh>, &mut Aabb), Without<NoFrustumCulling>>,
+    mut changed: Local<HashMap<HandleId, Aabb>>,
+    mut removed: Local<HashSet<HandleId>>,
+) {
+    changed.clear();
+    removed.clear();
+
+    for mesh_event in &mut events {
+        match mesh_event {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
+                let Some(mesh) = meshes.get(&handle) else { continue };
+                let Some(aabb) = mesh.compute_aabb() else { continue };
+                changed.insert(handle.id(), aabb);
             }
+            AssetEvent::Removed { handle } => {
+                removed.insert(handle.id());
+            }
+        };
+    }
+
+    if changed.is_empty() && removed.is_empty() {
+        return;
+    }
+
+    // FIXME: Include entities that have changed their Handle<Mesh> component
+    for (entity, mesh_handle, mut entity_aabb) in &mut with_aabb {
+        if let Some(aabb) = changed.get(&mesh_handle.id()) {
+            *entity_aabb = *aabb;
+        } else if removed.contains(&mesh_handle.id()) {
+            commands.entity(entity).remove::<Aabb>();
         }
     }
 }
