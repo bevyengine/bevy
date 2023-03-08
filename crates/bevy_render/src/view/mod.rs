@@ -198,13 +198,13 @@ pub struct PostProcessWrite<'a> {
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
-    /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture`] and resolve to [`Self::main_texture`] if
+    /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture_view`] and resolve to [`Self::main_texture`] if
     /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        match &self.main_textures.sampled {
-            Some(sampled_texture) => RenderPassColorAttachment {
-                view: sampled_texture,
-                resolve_target: Some(self.main_texture()),
+        match &self.main_textures.sampled_view {
+            Some(sampled_texture_view) => RenderPassColorAttachment {
+                view: sampled_texture_view,
+                resolve_target: Some(self.main_texture_view()),
                 ops,
             },
             None => self.get_unsampled_color_attachment(ops),
@@ -217,14 +217,14 @@ impl ViewTarget {
         ops: Operations<Color>,
     ) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
-            view: self.main_texture(),
+            view: self.main_texture_view(),
             resolve_target: None,
             ops,
         }
     }
 
     /// The "main" unsampled texture.
-    pub fn main_texture(&self) -> &TextureView {
+    pub fn main_texture(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a
         } else {
@@ -238,7 +238,7 @@ impl ViewTarget {
     ///
     /// A use case for this is to be able to prepare a bind group for all main textures
     /// ahead of time.
-    pub fn main_texture_other(&self) -> &TextureView {
+    pub fn main_texture_other(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.b
         } else {
@@ -246,9 +246,37 @@ impl ViewTarget {
         }
     }
 
+    /// The "main" unsampled texture.
+    pub fn main_texture_view(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.a_view
+        } else {
+            &self.main_textures.b_view
+        }
+    }
+
+    /// The _other_ "main" unsampled texture view.
+    /// In most cases you should use [`Self::main_texture_view`] instead and never this.
+    /// The textures will naturally be swapped when [`Self::post_process_write`] is called.
+    ///
+    /// A use case for this is to be able to prepare a bind group for all main textures
+    /// ahead of time.
+    pub fn main_texture_other_view(&self) -> &TextureView {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            &self.main_textures.b_view
+        } else {
+            &self.main_textures.a_view
+        }
+    }
+
     /// The "main" sampled texture.
-    pub fn sampled_main_texture(&self) -> Option<&TextureView> {
+    pub fn sampled_main_texture(&self) -> Option<&Texture> {
         self.main_textures.sampled.as_ref()
+    }
+
+    /// The "main" sampled texture view.
+    pub fn sampled_main_texture_view(&self) -> Option<&TextureView> {
+        self.main_textures.sampled_view.as_ref()
     }
 
     #[inline]
@@ -286,13 +314,13 @@ impl ViewTarget {
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
             PostProcessWrite {
-                source: &self.main_textures.a,
-                destination: &self.main_textures.b,
+                source: &self.main_textures.a_view,
+                destination: &self.main_textures.b_view,
             }
         } else {
             PostProcessWrite {
-                source: &self.main_textures.b,
-                destination: &self.main_textures.a,
+                source: &self.main_textures.b_view,
+                destination: &self.main_textures.a_view,
             }
         }
     }
@@ -343,9 +371,12 @@ fn prepare_view_uniforms(
 
 #[derive(Clone)]
 struct MainTargetTextures {
-    a: TextureView,
-    b: TextureView,
-    sampled: Option<TextureView>,
+    a: Texture,
+    a_view: TextureView,
+    b: Texture,
+    b_view: TextureView,
+    sampled: Option<Texture>,
+    sampled_view: Option<TextureView>,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -391,46 +422,50 @@ fn prepare_view_targets(
                             dimension: TextureDimension::D2,
                             format: main_texture_format,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                                | TextureUsages::TEXTURE_BINDING
+                                | TextureUsages::COPY_SRC,
                             // TODO: Consider changing this if main_texture_format is not sRGB
                             view_formats: &[],
                         };
+                        let a = texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture_a"),
+                                ..descriptor
+                            },
+                        );
+                        let b = texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture_b"),
+                                ..descriptor
+                            },
+                        );
+                        let (sampled_texture, sampled_view) = if msaa.samples() > 1 {
+                            let sampled = texture_cache.get(
+                                &render_device,
+                                TextureDescriptor {
+                                    label: Some("main_texture_sampled"),
+                                    size,
+                                    mip_level_count: 1,
+                                    sample_count: msaa.samples(),
+                                    dimension: TextureDimension::D2,
+                                    format: main_texture_format,
+                                    usage: TextureUsages::RENDER_ATTACHMENT,
+                                    view_formats: &[],
+                                },
+                            );
+                            (Some(sampled.texture), Some(sampled.default_view))
+                        } else {
+                            (None, None)
+                        };
                         MainTargetTextures {
-                            a: texture_cache
-                                .get(
-                                    &render_device,
-                                    TextureDescriptor {
-                                        label: Some("main_texture_a"),
-                                        ..descriptor
-                                    },
-                                )
-                                .default_view,
-                            b: texture_cache
-                                .get(
-                                    &render_device,
-                                    TextureDescriptor {
-                                        label: Some("main_texture_b"),
-                                        ..descriptor
-                                    },
-                                )
-                                .default_view,
-                            sampled: (msaa.samples() > 1).then(|| {
-                                texture_cache
-                                    .get(
-                                        &render_device,
-                                        TextureDescriptor {
-                                            label: Some("main_texture_sampled"),
-                                            size,
-                                            mip_level_count: 1,
-                                            sample_count: msaa.samples(),
-                                            dimension: TextureDimension::D2,
-                                            format: main_texture_format,
-                                            usage: TextureUsages::RENDER_ATTACHMENT,
-                                            view_formats: &[],
-                                        },
-                                    )
-                                    .default_view
-                            }),
+                            a: a.texture,
+                            a_view: a.default_view,
+                            b: b.texture,
+                            b_view: b.default_view,
+                            sampled: sampled_texture,
+                            sampled_view,
                             main_texture: Arc::new(AtomicUsize::new(0)),
                         }
                     });
