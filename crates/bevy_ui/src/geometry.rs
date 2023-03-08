@@ -477,7 +477,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn Frame_default_equals_const_default() {
+    fn frame_default_equals_const_default() {
         assert_eq!(
             Frame::default(),
             Frame {
