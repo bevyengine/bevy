@@ -8,7 +8,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<ButtonActivatedEvent>()
         .add_startup_system(setup)
-        .add_system(check_buttons)
+        .add_system(update_buttons)
         .add_system(update_radio_buttons_colors)
         .run();
 }
@@ -126,7 +126,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                     style: Style {
                         align_items: AlignItems::Stretch,
                         size: Size::new(Val::Percent(100.), Val::Px(100.)),
-                        padding: UiRect::all(Val::Px(2.)),
+                        padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
                     background_color: Color::BLACK.into(),
@@ -293,7 +293,7 @@ fn spawn_button(
         });
 }
 
-fn check_buttons(
+fn update_buttons(
     mut button_query: Query<
         (Entity, &Interaction, &Constraint, &ButtonValue),
         Changed<Interaction>,
