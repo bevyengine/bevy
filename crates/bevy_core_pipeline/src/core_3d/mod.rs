@@ -74,6 +74,11 @@ impl Plugin for Core3dPlugin {
                     .in_set(RenderSet::Prepare)
                     .after(bevy_render::view::prepare_windows),
             )
+            .add_system(
+                prepare_core_3d_transmission_textures
+                    .in_set(RenderSet::Prepare)
+                    .after(bevy_render::view::prepare_windows),
+            )
             .add_system(sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort));
@@ -323,6 +328,78 @@ pub fn prepare_core_3d_depth_textures(
         commands.entity(entity).insert(ViewDepthTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
+        });
+    }
+}
+
+#[derive(Component)]
+pub struct ViewTransmissionTexture {
+    pub texture: Texture,
+    pub view: TextureView,
+    pub sampler: Sampler,
+}
+
+pub fn prepare_core_3d_transmission_textures(
+    mut commands: Commands,
+    mut texture_cache: ResMut<TextureCache>,
+    render_device: Res<RenderDevice>,
+    views_3d: Query<
+        (Entity, &ExtractedCamera, &ExtractedView),
+        (
+            With<RenderPhase<Opaque3d>>,
+            With<RenderPhase<AlphaMask3d>>,
+            With<RenderPhase<Transparent3d>>,
+        ),
+    >,
+) {
+    let mut textures = HashMap::default();
+    for (entity, camera, view) in &views_3d {
+        let Some(physical_target_size) = camera.physical_target_size else {
+            continue;
+        };
+
+        let cached_texture = textures
+            .entry(camera.target.clone())
+            .or_insert_with(|| {
+                let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
+
+                // The size of the depth texture
+                let size = Extent3d {
+                    depth_or_array_layers: 1,
+                    width: physical_target_size.x,
+                    height: physical_target_size.y,
+                };
+
+                let format = if view.hdr {
+                    ViewTarget::TEXTURE_FORMAT_HDR
+                } else {
+                    TextureFormat::bevy_default()
+                };
+
+                let descriptor = TextureDescriptor {
+                    label: Some("view_transmission_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1, // msaa.samples(),
+                    dimension: TextureDimension::D2,
+                    format,
+                    usage,
+                    view_formats: &[],
+                };
+
+                texture_cache.get(&render_device, descriptor)
+            })
+            .clone();
+
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("view_transmission_sampler"),
+            ..Default::default()
+        });
+
+        commands.entity(entity).insert(ViewTransmissionTexture {
+            texture: cached_texture.texture,
+            view: cached_texture.default_view,
+            sampler,
         });
     }
 }
