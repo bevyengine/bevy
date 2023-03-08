@@ -240,7 +240,7 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
+            position: Frame {
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
                 ..default()

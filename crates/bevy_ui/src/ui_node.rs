@@ -1,4 +1,4 @@
-use crate::{Size, UiRect};
+use crate::{Frame, Size};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -236,16 +236,16 @@ pub struct Style {
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
     /// The position of the node as described by its Rect
-    pub position: UiRect,
+    pub position: Frame,
     /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, Frame, Val};
     /// let style = Style {
-    ///     margin: UiRect {
+    ///     margin: Frame {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
     ///         top: Val::Percent(15.),
@@ -255,16 +255,16 @@ pub struct Style {
     /// };
     /// ```
     /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom egdes.
-    pub margin: UiRect,
+    pub margin: Frame,
     /// The amount of space between the edges of a node and its contents.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, Frame, Val};
     /// let style = Style {
-    ///     padding: UiRect {
+    ///     padding: Frame {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
     ///         top: Val::Percent(3.),
@@ -274,7 +274,7 @@ pub struct Style {
     /// };
     /// ```
     /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
-    pub padding: UiRect,
+    pub padding: Frame,
     /// The amount of space between the margins of a node and its padding.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -282,7 +282,7 @@ pub struct Style {
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
     ///
     /// Rendering for borders is not yet implemented.
-    pub border: UiRect,
+    pub border: Frame,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -327,10 +327,10 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        position: UiRect::DEFAULT,
-        margin: UiRect::DEFAULT,
-        padding: UiRect::DEFAULT,
-        border: UiRect::DEFAULT,
+        position: Frame::DEFAULT,
+        margin: Frame::DEFAULT,
+        padding: Frame::DEFAULT,
+        border: Frame::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,

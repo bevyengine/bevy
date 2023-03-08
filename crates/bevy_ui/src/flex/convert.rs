@@ -1,8 +1,8 @@
 use taffy::style::LengthPercentageAuto;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, Frame, JustifyContent,
+    PositionType, Size, Style, Val,
 };
 
 impl Val {
@@ -24,7 +24,7 @@ impl Val {
     }
 }
 
-impl UiRect {
+impl Frame {
     fn scaled(self, scale_factor: f64) -> Self {
         Self {
             left: self.left.scaled(scale_factor),
@@ -44,8 +44,8 @@ impl Size {
     }
 }
 
-impl<T: From<Val>> From<UiRect> for taffy::prelude::Rect<T> {
-    fn from(value: UiRect) -> Self {
+impl<T: From<Val>> From<Frame> for taffy::prelude::Rect<T> {
+    fn from(value: Frame) -> Self {
         Self {
             left: value.left.into(),
             right: value.right.into(),
