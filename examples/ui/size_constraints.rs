@@ -282,8 +282,7 @@ fn spawn_button(
                                     ACTIVE_TEXT_COLOR
                                 } else {
                                     UNHOVERED_TEXT_COLOR
-                                }
-                                .into(),
+                                },
                                 ..text_style
                             },
                         )
