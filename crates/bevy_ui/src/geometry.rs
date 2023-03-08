@@ -11,10 +11,10 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A position is used to determine where to place a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Frame, Val};
 /// # use bevy_utils::default;
 /// #
-/// let position = UiRect {
+/// let position = Frame {
 ///     left: Val::Px(100.0),
 ///     top: Val::Px(50.0),
 ///     ..default()
@@ -26,9 +26,9 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// as a width and height, the size would be determined by the window size and the values specified in the position.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Frame, Val};
 /// #
-/// let position = UiRect {
+/// let position = Frame {
 ///     left: Val::Px(100.0),
 ///     right: Val::Px(200.0),
 ///     top: Val::Px(300.0),
@@ -65,11 +65,11 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// right values of the position because the size of the UI element is already explicitly specified.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Size, Val, Style};
+/// # use bevy_ui::{Frame, Size, Val, Style};
 /// # use bevy_utils::default;
 /// #
 /// let style = Style {
-///     position: UiRect { // Defining all four sides
+///     position: Frame { // Defining all four sides
 ///         left: Val::Px(100.0),
 ///         right: Val::Px(200.0),
 ///         top: Val::Px(300.0),
@@ -85,9 +85,9 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Frame, Val};
 /// #
-/// let margin = UiRect::all(Val::Auto); // Centers the UI element
+/// let margin = Frame::all(Val::Auto); // Centers the UI element
 /// ```
 ///
 /// ## Padding
@@ -95,9 +95,9 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Frame, Val};
 /// #
-/// let padding = UiRect {
+/// let padding = Frame {
 ///     left: Val::Px(10.0),
 ///     right: Val::Px(20.0),
 ///     top: Val::Px(30.0),
@@ -110,9 +110,9 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A border is used to define the width of the border of a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Frame, Val};
 /// #
-/// let border = UiRect {
+/// let border = Frame {
 ///     left: Val::Px(10.0),
 ///     right: Val::Px(20.0),
 ///     top: Val::Px(30.0),
@@ -121,7 +121,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect {
+pub struct Frame {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,
     /// The value corresponding to the right side of the UI rect.
@@ -132,7 +132,7 @@ pub struct UiRect {
     pub bottom: Val,
 }
 
-impl UiRect {
+impl Frame {
     pub const DEFAULT: Self = Self {
         left: Val::DEFAULT,
         right: Val::DEFAULT,
@@ -140,14 +140,14 @@ impl UiRect {
         bottom: Val::DEFAULT,
     };
 
-    /// Creates a new [`UiRect`] from the values specified.
+    /// Creates a new [`Frame`] from the values specified.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::new(
+    /// let ui_rect = Frame::new(
     ///     Val::Px(10.0),
     ///     Val::Px(20.0),
     ///     Val::Px(30.0),
@@ -160,7 +160,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
     pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        UiRect {
+        Frame {
             left,
             right,
             top,
@@ -168,14 +168,14 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where all sides have the same value.
+    /// Creates a new [`Frame`] where all sides have the same value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::all(Val::Px(10.0));
+    /// let ui_rect = Frame::all(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
@@ -183,7 +183,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub const fn all(value: Val) -> Self {
-        UiRect {
+        Frame {
             left: value,
             right: value,
             top: value,
@@ -191,14 +191,14 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `left` and `right` take the given value.
+    /// Creates a new [`Frame`] where `left` and `right` take the given value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::horizontal(Val::Px(10.0));
+    /// let ui_rect = Frame::horizontal(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
@@ -206,21 +206,21 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn horizontal(value: Val) -> Self {
-        UiRect {
+        Frame {
             left: value,
             right: value,
             ..Default::default()
         }
     }
 
-    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value.
+    /// Creates a new [`Frame`] where `top` and `bottom` take the given value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::vertical(Val::Px(10.0));
+    /// let ui_rect = Frame::vertical(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Undefined);
     /// assert_eq!(ui_rect.right, Val::Undefined);
@@ -228,21 +228,21 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn vertical(value: Val) -> Self {
-        UiRect {
+        Frame {
             top: value,
             bottom: value,
             ..Default::default()
         }
     }
 
-    /// Creates a new [`UiRect`] where `left` takes the given value.
+    /// Creates a new [`Frame`] where `left` takes the given value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::left(Val::Px(10.0));
+    /// let ui_rect = Frame::left(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Undefined);
@@ -250,20 +250,20 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn left(value: Val) -> Self {
-        UiRect {
+        Frame {
             left: value,
             ..Default::default()
         }
     }
 
-    /// Creates a new [`UiRect`] where `right` takes the given value.
+    /// Creates a new [`Frame`] where `right` takes the given value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::right(Val::Px(10.0));
+    /// let ui_rect = Frame::right(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Undefined);
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
@@ -271,20 +271,20 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn right(value: Val) -> Self {
-        UiRect {
+        Frame {
             right: value,
             ..Default::default()
         }
     }
 
-    /// Creates a new [`UiRect`] where `top` takes the given value.
+    /// Creates a new [`Frame`] where `top` takes the given value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::top(Val::Px(10.0));
+    /// let ui_rect = Frame::top(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Undefined);
     /// assert_eq!(ui_rect.right, Val::Undefined);
@@ -292,20 +292,20 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Undefined);
     /// ```
     pub fn top(value: Val) -> Self {
-        UiRect {
+        Frame {
             top: value,
             ..Default::default()
         }
     }
 
-    /// Creates a new [`UiRect`] where `bottom` takes the given value.
+    /// Creates a new [`Frame`] where `bottom` takes the given value.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{Frame, Val};
     /// #
-    /// let ui_rect = UiRect::bottom(Val::Px(10.0));
+    /// let ui_rect = Frame::bottom(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Undefined);
     /// assert_eq!(ui_rect.right, Val::Undefined);
@@ -313,14 +313,14 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
-        UiRect {
+        Frame {
             bottom: value,
             ..Default::default()
         }
     }
 }
 
-impl Default for UiRect {
+impl Default for Frame {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -477,17 +477,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn uirect_default_equals_const_default() {
+    fn Frame_default_equals_const_default() {
         assert_eq!(
-            UiRect::default(),
-            UiRect {
+            Frame::default(),
+            Frame {
                 left: Val::Undefined,
                 right: Val::Undefined,
                 top: Val::Undefined,
                 bottom: Val::Undefined
             }
         );
-        assert_eq!(UiRect::default(), UiRect::DEFAULT);
+        assert_eq!(Frame::default(), Frame::DEFAULT);
     }
 
     #[test]
