@@ -399,7 +399,7 @@ pub struct Cursor {
     pub hit_test: bool,
 
     /// The position of this window's cursor.
-    physical_position: Option<DVec2>,
+    pub physical_position: Option<DVec2>,
 }
 
 impl Default for Cursor {
@@ -408,7 +408,7 @@ impl Default for Cursor {
             icon: CursorIcon::Default,
             visible: true,
             grab_mode: CursorGrabMode::None,
-            hit_test: true,
+            hit_test: false,
             physical_position: None,
         }
     }
