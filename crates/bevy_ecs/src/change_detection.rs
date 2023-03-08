@@ -863,6 +863,26 @@ mod tests {
     }
 
     #[test]
+    fn mut_new() {
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(3),
+        };
+        let mut res = R {};
+
+        let val = Mut::new(
+            &mut res,
+            &mut component_ticks.added,
+            &mut component_ticks.changed,
+            2, // last_change_tick
+            4, // current change_tick
+        );
+
+        assert!(!val.is_added());
+        assert!(val.is_changed());
+    }
+
+    #[test]
     fn mut_from_non_send_mut() {
         let mut component_ticks = ComponentTicks {
             added: Tick::new(1),
