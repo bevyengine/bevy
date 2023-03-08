@@ -92,7 +92,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare three or six additional structs, depending on whether or not the struct is marked as mutable.
+/// Expanding the macro will declare one or three additional structs, depending on whether or not the struct is marked as mutable.
 /// For a struct named `X`, the additional structs will be:
 ///
 /// |Struct name|`mutable` only|Description|
