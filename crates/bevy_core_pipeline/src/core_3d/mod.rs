@@ -35,12 +35,12 @@ use bevy_render::{
         RenderPhase,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        CachedRenderPipelineId, Extent3d, Sampler, SamplerDescriptor, Texture, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::TextureCache,
-    view::ViewDepthTexture,
+    texture::{BevyDefault, TextureCache},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{FloatOrd, HashMap};
