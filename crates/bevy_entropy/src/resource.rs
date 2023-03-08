@@ -10,6 +10,22 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 
+/// A Global [`RngCore`] instance, meant for use as a Resource. Gets
+/// created automatically with [`crate::plugin::EntropyPlugin`], or
+/// can be created and added manually.
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::ResMut;
+/// use bevy_entropy::prelude::*;
+/// use rand_core::RngCore;
+/// use rand_chacha::ChaCha8Rng;
+///
+/// fn print_random_value(mut rng: ResMut<GlobalEntropy<ChaCha8Rng>>) {
+///   println!("Random value: {}", rng.next_u32());
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect, FromReflect))]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -24,6 +40,7 @@ use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 pub struct GlobalEntropy<R: EntropySource + 'static>(R);
 
 impl<R: EntropySource + 'static> GlobalEntropy<R> {
+    /// Create a new resource from a `RngCore` instance.
     #[inline]
     #[must_use]
     pub fn new(rng: R) -> Self {
@@ -32,6 +49,9 @@ impl<R: EntropySource + 'static> GlobalEntropy<R> {
 }
 
 impl<R: SeedableEntropySource + 'static> GlobalEntropy<R> {
+    /// Create a new resource with an `RngCore` instance seeded
+    /// from a local entropy source. Generates a randomised,
+    /// non-deterministic seed for the resource.
     #[inline]
     #[must_use]
     pub fn from_entropy() -> Self {
@@ -40,6 +60,7 @@ impl<R: SeedableEntropySource + 'static> GlobalEntropy<R> {
         Self(R::from_entropy())
     }
 
+    /// Reseeds the internal `RngCore` instance with a new seed.
     #[inline]
     pub fn reseed(&mut self, seed: R::Seed) {
         self.0 = R::from_seed(seed);

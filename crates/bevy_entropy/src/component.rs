@@ -14,6 +14,88 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 
+/// An [`EntropyComponent`] that wraps a random number generator that implements
+/// [`RngCore`] & [`SeedableRng`].
+///
+/// ## Creating new [`EntropyComponent`]s.
+///
+/// You can creates a new [`EntropyComponent`] directly from anything that implements
+/// [`RngCore`] or provides a mut reference to [`RngCore`], such as [`ResMut`] or a
+/// [`Component`], or from a [`RngCore`] source directly.
+///
+/// ## Examples
+///
+/// Randomised Component:
+/// ```
+/// use bevy_ecs::{
+///     prelude::Component,
+///     system::Commands,
+/// };
+/// use bevy_entropy::prelude::*;
+/// use rand_chacha::ChaCha8Rng;
+///
+/// #[derive(Component)]
+/// struct Source;
+///
+/// fn setup_source(mut commands: Commands) {
+///     commands
+///         .spawn((
+///             Source,
+///             EntropyComponent::<ChaCha8Rng>::default(),
+///         ));
+/// }
+/// ```
+///
+/// Seeded from a resource:
+/// ```
+/// use bevy_ecs::{
+///     prelude::{Component, ResMut},
+///     system::Commands,
+/// };
+/// use bevy_entropy::prelude::*;
+/// use rand_chacha::ChaCha8Rng;
+///
+/// #[derive(Component)]
+/// struct Source;
+///
+/// fn setup_source(mut commands: Commands, mut global: ResMut<GlobalEntropy<ChaCha8Rng>>) {
+///     commands
+///         .spawn((
+///             Source,
+///             EntropyComponent::from(&mut global),
+///         ));
+/// }
+/// ```
+///
+/// Seeded from a component:
+/// ```
+/// use bevy_ecs::{
+///     prelude::{Component, Query, With, Without},
+///     system::Commands,
+/// };
+/// use bevy_entropy::prelude::*;
+/// use rand_chacha::ChaCha8Rng;
+///
+/// #[derive(Component)]
+/// struct Npc;
+/// #[derive(Component)]
+/// struct Source;
+///
+/// fn setup_npc_from_source(
+///    mut commands: Commands,
+///    mut q_source: Query<&mut EntropyComponent<ChaCha8Rng>, (With<Source>, Without<Npc>)>,
+/// ) {
+///    let mut source = q_source.single_mut();
+///
+///    for _ in 0..2 {
+///        commands
+///            .spawn((
+///                Npc,
+///                EntropyComponent::from(&mut source)
+///            ));
+///    }
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect, FromReflect))]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -28,6 +110,7 @@ use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 pub struct EntropyComponent<R: EntropySource + 'static>(R);
 
 impl<R: EntropySource + 'static> EntropyComponent<R> {
+    /// Create a new component from an `RngCore` instance.
     #[inline]
     #[must_use]
     pub fn new(rng: R) -> Self {
@@ -36,15 +119,19 @@ impl<R: EntropySource + 'static> EntropyComponent<R> {
 }
 
 impl<R: SeedableEntropySource + 'static> EntropyComponent<R> {
+    /// Create a new component with an `RngCore` instance seeded
+    /// from a local entropy source. Generates a randomised,
+    /// non-deterministic seed for the component.
     #[inline]
     #[must_use]
     pub fn from_entropy() -> Self {
         // Source entropy from thread local user-space RNG instead of
         // system entropy source to reduce overhead when creating many
         // rng instances for many entities at once.
-        Self(R::from_rng(ThreadLocalEntropy).unwrap())
+        Self::new(R::from_rng(ThreadLocalEntropy).unwrap())
     }
 
+    /// Reseeds the internal `RngCore` instance with a new seed.
     #[inline]
     pub fn reseed(&mut self, seed: R::Seed) {
         self.0 = R::from_seed(seed);
@@ -127,6 +214,9 @@ mod tests {
 
         let rng2 = EntropyComponent::from(&mut rng1);
 
-        assert_ne!(rng1, rng2, "forked EntropyComponents should not match each other");
+        assert_ne!(
+            rng1, rng2,
+            "forked EntropyComponents should not match each other"
+        );
     }
 }

@@ -38,6 +38,8 @@ impl<R: SeedableEntropySource + 'static> EntropyPlugin<R>
 where
     R::Seed: Send + Sync + Copy,
 {
+    /// Creates a new plugin instance configured for randomised,
+    /// non-deterministic seeding of the global entropy resource.
     #[inline]
     #[must_use]
     pub fn new() -> Self {
@@ -47,6 +49,8 @@ where
         }
     }
 
+    /// Configures the plugin instance to have a set seed for the
+    /// global entropy resource.
     #[inline]
     pub fn with_seed(mut self, seed: R::Seed) -> Self {
         self.seed = Some(seed);

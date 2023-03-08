@@ -5,6 +5,9 @@ use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
+/// A wrapper trait to encapsulate the required trait bounds for a PRNG to
+/// integrate into [`crate::component::EntropyComponent`] or
+/// [`crate::resource::GlobalEntropy`]. This is a sealed trait.
 #[cfg(feature = "serialize")]
 pub trait EntropySource:
     RngCore
@@ -25,6 +28,9 @@ impl<T> EntropySource for T where
 {
 }
 
+/// A wrapper trait to encapsulate the required trait bounds for a PRNG to
+/// integrate into [`crate::component::EntropyComponent`] or
+/// [`crate::resource::GlobalEntropy`]. This is a sealed trait.
 #[cfg(not(feature = "serialize"))]
 pub trait EntropySource:
     RngCore + Clone + Debug + PartialEq + Sync + Send + private::SealedEntropy
@@ -34,6 +40,9 @@ pub trait EntropySource:
 #[cfg(not(feature = "serialize"))]
 impl<T> EntropySource for T where T: RngCore + Clone + Debug + PartialEq + Sync + Send {}
 
+/// A wrapper trait to encapsulate the required trait bounds for a seedable PRNG to
+/// integrate into [`crate::component::EntropyComponent`] or
+/// [`crate::resource::GlobalEntropy`]. This is a sealed trait.
 #[cfg(feature = "serialize")]
 pub trait SeedableEntropySource:
     RngCore
@@ -63,6 +72,9 @@ impl<T> SeedableEntropySource for T where
 {
 }
 
+/// A wrapper trait to encapsulate the required trait bounds for a seedable PRNG to
+/// integrate into [`crate::component::EntropyComponent`] or
+/// [`crate::resource::GlobalEntropy`]. This is a sealed trait.
 #[cfg(not(feature = "serialize"))]
 pub trait SeedableEntropySource:
     RngCore + SeedableRng + Clone + Debug + PartialEq + Sync + Send + private::SealedSeedable
