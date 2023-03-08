@@ -55,7 +55,7 @@ use bevy_ecs::prelude::*;
 #[derive(Default)]
 pub struct AudioPlugin {
     /// The global volume for all audio sources with a [`Volume::Relative`] volume.
-    global_volume: GlobalVolume,
+    pub global_volume: GlobalVolume,
 }
 
 impl Plugin for AudioPlugin {

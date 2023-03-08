@@ -214,14 +214,14 @@ where
     /// ```
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
+    /// # use bevy_audio::{Audio, Volume};
     /// # use bevy_audio::PlaybackSettings;
     /// # use bevy_math::Vec3;
     /// # use bevy_transform::prelude::Transform;
     /// fn play_spatial_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     ///     audio.play_spatial_with_settings(
     ///         asset_server.load("my_sound.ogg"),
-    ///         PlaybackSettings::LOOP.with_volume(0.75),
+    ///         PlaybackSettings::LOOP.with_volume(Volume::new_relative(0.75)),
     ///         Transform::IDENTITY,
     ///         1.0,
     ///         Vec3::new(-2.0, 0.0, 1.0),
