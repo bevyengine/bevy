@@ -297,7 +297,7 @@ pub fn update_bounds(
     for mesh_event in &mut events {
         match mesh_event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                let Some(mesh) = meshes.get(&handle) else { continue };
+                let Some(mesh) = meshes.get(handle) else { continue };
                 let Some(aabb) = mesh.compute_aabb() else { continue };
                 changed.insert(handle.id(), aabb);
             }
