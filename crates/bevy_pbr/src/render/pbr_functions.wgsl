@@ -188,6 +188,7 @@ fn pbr(
     let diffuse_color = output_color.rgb * (1.0 - metallic);
 
     let R = reflect(-in.V, in.N);
+    let R2 = refract(-in.V, in.N, 0.6);
 
     let f_ab = F_AB(perceptual_roughness, NdotV);
 
@@ -252,9 +253,16 @@ fn pbr(
 
     let emissive_light = emissive.rgb * output_color.a;
 
+    var transmitted_light: vec3<f32> = vec3<f32>(0.0);
+    let alpha_mode = in.material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
+        transmitted_light = transmissive_light(in.frag_coord.xy, R2).rgb * in.material.base_color.rgb;
+        direct_light = vec3<f32>(0.0);
+    }
+
     // Total light
     output_color = vec4<f32>(
-        direct_light + indirect_light + emissive_light,
+        transmitted_light + direct_light + indirect_light + emissive_light,
         output_color.a
     );
 
@@ -269,6 +277,14 @@ fn pbr(
     return output_color;
 }
 #endif // NORMAL_PREPASS
+
+fn transmissive_light(frag_coord: vec2<f32>, N: vec3<f32>) -> vec3<f32> {
+    return textureSample(
+        view_main_texture,
+        view_main_sampler,
+        frag_coord.xy / view.viewport.zw + N.xy * 0.05,
+    ).rgb;
+}
 
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
