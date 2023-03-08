@@ -36,6 +36,23 @@ Bevy Entropy approaches forking via `From` implementations of the various compon
 
 Usage of Bevy Entropy can range from very simple to quite complex use-cases, all depending on whether one cares about deterministic output or not.
 
+### Registering a PRNG for use with Bevy Entropy
+
+Before a PRNG can be used via `GlobalEntropy` or `EntropyComponent`, it must be registered via the plugin.
+
+```rust
+use bevy_app::App;
+use bevy_entropy::prelude::*;
+use rand_core::RngCore;
+use rand_chacha::ChaCha8Rng;
+
+fn main() {
+    App::new()
+        .add_plugin(EntropyPlugin::<ChaCha8Rng>::default())
+        .run();
+}
+```
+
 ### Basic Usage
 
 At the simplest case, using `GlobalEntropy` directly for all random number generation, though this does limit how well systems using `GlobalEntropy` can be parallelised. All systems that access `GlobalEntropy` will run serially to each other.
