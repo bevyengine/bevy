@@ -7,6 +7,7 @@ use crate::{
 use bevy_app::{IntoSystemAppConfigs, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::{
+    core_3d::ViewTransmissionTexture,
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -433,6 +434,25 @@ impl FromWorld for MeshPipeline {
                     multisampled,
                 ));
             }
+
+            entries.extend_from_slice(&[
+                BindGroupLayoutEntry {
+                    binding: 18,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        multisampled: false,
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 19,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ]);
 
             entries
         }
@@ -947,6 +967,7 @@ pub fn queue_mesh_view_bind_groups(
         Option<&ViewPrepassTextures>,
         Option<&EnvironmentMapLight>,
         &Tonemapping,
+        &ViewTransmissionTexture,
     )>,
     images: Res<RenderAssets<Image>>,
     mut fallback_images: FallbackImagesMsaa,
@@ -976,6 +997,7 @@ pub fn queue_mesh_view_bind_groups(
             prepass_textures,
             environment_map,
             tonemapping,
+            transmission,
         ) in &views
         {
             let layout = if msaa.samples() > 1 {
@@ -1057,6 +1079,17 @@ pub fn queue_mesh_view_bind_groups(
                     [16, 17],
                 ));
             }
+
+            entries.extend_from_slice(&[
+                BindGroupEntry {
+                    binding: 18,
+                    resource: BindingResource::TextureView(&transmission.view),
+                },
+                BindGroupEntry {
+                    binding: 19,
+                    resource: BindingResource::Sampler(&transmission.sampler),
+                },
+            ]);
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &entries,
