@@ -85,6 +85,13 @@ pub struct OnUpdate<S: States>(pub S);
 #[derive(Resource, Default, Debug)]
 pub struct State<S: States>(pub S);
 
+impl<S: States> std::ops::Deref for State<S> {
+    type Target = S;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
