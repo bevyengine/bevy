@@ -9,6 +9,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
+use bevy::reflect::WhereClauseOptions;
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
