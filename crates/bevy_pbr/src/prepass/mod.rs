@@ -21,8 +21,8 @@ use bevy_render::{
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
+        sort_phase_system, AddRenderCommand, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderCommands, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -138,8 +138,8 @@ where
             .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
             .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
-            .init_resource::<DrawFunctions<Opaque3dPrepass>>()
-            .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
+            .init_resource::<RenderCommands<Opaque3dPrepass>>()
+            .init_resource::<RenderCommands<AlphaMask3dPrepass>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }
@@ -590,8 +590,8 @@ pub fn queue_prepass_view_bind_group<M: Material>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_prepass_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
+    opaque_render_commands: Res<RenderCommands<Opaque3dPrepass>>,
+    alpha_mask_render_commands: Res<RenderCommands<AlphaMask3dPrepass>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -610,14 +610,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let opaque_draw_prepass = opaque_draw_functions
-        .read()
-        .get_id::<DrawPrepass<M>>()
-        .unwrap();
-    let alpha_mask_draw_prepass = alpha_mask_draw_functions
-        .read()
-        .get_id::<DrawPrepass<M>>()
-        .unwrap();
+    let opaque_draw_prepass = opaque_render_commands.id::<DrawPrepass<M>>();
+    let alpha_mask_draw_prepass = alpha_mask_render_commands.id::<DrawPrepass<M>>();
+
     for (
         view,
         visible_entities,
@@ -684,7 +679,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 AlphaMode::Opaque => {
                     opaque_phase.add(Opaque3dPrepass {
                         entity: *visible_entity,
-                        draw_function: opaque_draw_prepass,
+                        render_command_id: opaque_draw_prepass,
                         pipeline_id,
                         distance,
                     });
@@ -692,7 +687,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 AlphaMode::Mask(_) => {
                     alpha_mask_phase.add(AlphaMask3dPrepass {
                         entity: *visible_entity,
-                        draw_function: alpha_mask_draw_prepass,
+                        render_command_id: alpha_mask_draw_prepass,
                         pipeline_id,
                         distance,
                     });

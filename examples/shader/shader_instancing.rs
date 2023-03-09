@@ -13,7 +13,7 @@ use bevy::{
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+            AddRenderCommand, PhaseItem, RenderCommand, RenderCommandResult, RenderCommands,
             RenderPhase, SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
@@ -100,7 +100,7 @@ struct InstanceData {
 
 #[allow(clippy::too_many_arguments)]
 fn queue_custom(
-    transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    transparent_3d_render_commands: Res<RenderCommands<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
@@ -109,7 +109,7 @@ fn queue_custom(
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
-    let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
+    let draw_custom = transparent_3d_render_commands.id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
 
@@ -126,7 +126,7 @@ fn queue_custom(
                 transparent_phase.add(Transparent3d {
                     entity,
                     pipeline,
-                    draw_function: draw_custom,
+                    render_command_id: draw_custom,
                     distance: rangefinder.distance(&mesh_uniform.transform),
                 });
             }

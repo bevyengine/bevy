@@ -10,15 +10,14 @@ use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::render_phase::{RenderCommandId, RenderCommands};
 use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
-    },
+    render_phase::{CachedRenderPipelinePhaseItem, PhaseItem, RenderPhase},
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
@@ -1545,7 +1544,7 @@ pub fn prepare_clusters(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_shadows<M: Material>(
-    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+    shadow_render_commands: Res<RenderCommands<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     casting_meshes: Query<(&Handle<Mesh>, &Handle<M>), Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -1561,7 +1560,7 @@ pub fn queue_shadows<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (entity, view_lights) in &view_lights {
-        let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
+        let draw_shadow_mesh = shadow_render_commands.id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
@@ -1632,7 +1631,7 @@ pub fn queue_shadows<M: Material>(
                         };
 
                         shadow_phase.add(Shadow {
-                            draw_function: draw_shadow_mesh,
+                            render_command_id: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
                             distance: 0.0, // TODO: sort back-to-front
@@ -1648,7 +1647,7 @@ pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for Shadow {
@@ -1665,8 +1664,8 @@ impl PhaseItem for Shadow {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command_id
     }
 
     #[inline]
