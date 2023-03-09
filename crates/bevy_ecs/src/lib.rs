@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(world.get::<SparseStored>(e2).unwrap().0, 42);
 
         assert_eq!(
-            world.entity_mut(e1).remove::<FooBundle>().unwrap(),
+            world.entity_mut(e1).take::<FooBundle>().unwrap(),
             FooBundle {
                 x: TableStored("xyz"),
                 y: SparseStored(123),
@@ -240,7 +240,7 @@ mod tests {
         assert_eq!(world.get::<A>(e3).unwrap().0, 1);
         assert_eq!(world.get::<B>(e3).unwrap().0, 2);
         assert_eq!(
-            world.entity_mut(e3).remove::<NestedBundle>().unwrap(),
+            world.entity_mut(e3).take::<NestedBundle>().unwrap(),
             NestedBundle {
                 a: A(1),
                 foo: FooBundle {
@@ -283,7 +283,7 @@ mod tests {
         assert_eq!(world.get::<Ignored>(e4), None);
 
         assert_eq!(
-            world.entity_mut(e4).remove::<BundleWithIgnored>().unwrap(),
+            world.entity_mut(e4).take::<BundleWithIgnored>().unwrap(),
             BundleWithIgnored {
                 c: C,
                 ignored: Ignored,
@@ -596,7 +596,7 @@ mod tests {
             &[(e1, A(1), B(3)), (e2, A(2), B(4))]
         );
 
-        assert_eq!(world.entity_mut(e1).remove::<A>(), Some(A(1)));
+        assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world
                 .query::<(Entity, &A, &B)>()
@@ -656,7 +656,7 @@ mod tests {
         }
 
         for (i, entity) in entities.iter().cloned().enumerate() {
-            assert_eq!(world.entity_mut(entity).remove::<A>(), Some(A(i)));
+            assert_eq!(world.entity_mut(entity).take::<A>(), Some(A(i)));
         }
     }
 
@@ -675,7 +675,7 @@ mod tests {
 
         for (i, entity) in entities.iter().cloned().enumerate() {
             assert_eq!(
-                world.entity_mut(entity).remove::<SparseStored>(),
+                world.entity_mut(entity).take::<SparseStored>(),
                 Some(SparseStored(i as u32))
             );
         }
@@ -685,7 +685,7 @@ mod tests {
     fn remove_missing() {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
-        assert!(world.entity_mut(e).remove::<B>().is_none());
+        assert!(world.entity_mut(e).take::<B>().is_none());
     }
 
     #[test]
@@ -1187,7 +1187,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_intersection() {
+    fn remove() {
         let mut world = World::default();
         let e1 = world.spawn((A(1), B(1), TableStored("a"))).id();
 
@@ -1201,7 +1201,7 @@ mod tests {
             "C is not in the entity, so it should not exist"
         );
 
-        e.remove_intersection::<(A, B, C)>();
+        e.remove::<(A, B, C)>();
         assert_eq!(
             e.get::<TableStored>(),
             Some(&TableStored("a")),
@@ -1225,7 +1225,7 @@ mod tests {
     }
 
     #[test]
-    fn remove() {
+    fn take() {
         let mut world = World::default();
         world.spawn((A(1), B(1), TableStored("1")));
         let e2 = world.spawn((A(2), B(2), TableStored("2"))).id();
@@ -1238,7 +1238,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1, "1"), (2, "2"), (3, "3"),]);
 
-        let removed_bundle = world.entity_mut(e2).remove::<(B, TableStored)>().unwrap();
+        let removed_bundle = world.entity_mut(e2).take::<(B, TableStored)>().unwrap();
         assert_eq!(removed_bundle, (B(2), TableStored("2")));
 
         let results = query

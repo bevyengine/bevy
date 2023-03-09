@@ -121,6 +121,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
 
+        let (tx, rx) = async_channel::bounded(sys_count.max(1));
+
+        self.sender = tx;
+        self.receiver = rx;
         self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
         self.ready_systems_copy = FixedBitSet::with_capacity(sys_count);
@@ -465,8 +469,7 @@ impl MultiThreadedExecutor {
                 sender.close();
             } else {
                 sender
-                    .send(system_index)
-                    .await
+                    .try_send(system_index)
                     .unwrap_or_else(|error| unreachable!("{}", error));
             }
         };
@@ -522,8 +525,7 @@ impl MultiThreadedExecutor {
                     sender.close();
                 } else {
                     sender
-                        .send(system_index)
-                        .await
+                        .try_send(system_index)
                         .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
@@ -546,8 +548,7 @@ impl MultiThreadedExecutor {
                     sender.close();
                 } else {
                     sender
-                        .send(system_index)
-                        .await
+                        .try_send(system_index)
                         .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
@@ -637,11 +638,17 @@ unsafe fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world:
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Clone)]
 pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+
+impl Default for MainThreadExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MainThreadExecutor {
     pub fn new() -> Self {
-        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+        MainThreadExecutor(TaskPool::get_thread_executor())
     }
 }

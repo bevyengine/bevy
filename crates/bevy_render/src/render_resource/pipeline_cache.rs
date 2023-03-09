@@ -56,6 +56,11 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
@@ -65,6 +70,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 pub struct CachedPipeline {

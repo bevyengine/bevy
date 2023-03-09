@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components},
+    component::{ComponentId, Components, Tick},
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -99,7 +99,7 @@ impl Schedules {
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
@@ -124,6 +124,41 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
+///
+/// # Example
+/// Here is an example of a `Schedule` running a "Hello world" system:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn hello_world() { println!("Hello world!") }
+///
+/// fn main() {
+///     let mut world = World::new();
+///     let mut schedule = Schedule::default();
+///     schedule.add_system(hello_world);
+///
+///     schedule.run(&mut world);
+/// }
+/// ```
+///
+/// A schedule can also run several systems in an ordered way:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn system_one() { println!("System 1 works!") }
+/// fn system_two() { println!("System 2 works!") }
+/// fn system_three() { println!("System 3 works!") }
+///    
+/// fn main() {
+///     let mut world = World::new();
+///     let mut schedule = Schedule::default();
+///     schedule.add_systems((
+///         system_two,
+///         system_one.before(system_two),
+///         system_three.after(system_two),
+///     ));
+///
+///     schedule.run(&mut world);
+/// }
+/// ```
 pub struct Schedule {
     graph: ScheduleGraph,
     executable: SystemSchedule,
@@ -155,13 +190,13 @@ impl Schedule {
     }
 
     /// Add a system to the schedule.
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         self.graph.add_system(system);
         self
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.add_systems(systems);
         self
     }
@@ -210,7 +245,7 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
-        self.initialize(world).unwrap();
+        self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -248,7 +283,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
             system.check_change_tick(change_tick);
         }
@@ -521,7 +556,7 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
+    fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) {
         let SystemConfigs { systems, chained } = systems.into_configs();
         let mut system_iter = systems.into_iter();
         if chained {
@@ -539,13 +574,13 @@ impl ScheduleGraph {
         }
     }
 
-    fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) {
+    fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) {
         self.add_system_inner(system).unwrap();
     }
 
-    fn add_system_inner<P>(
+    fn add_system_inner<M>(
         &mut self,
-        system: impl IntoSystemConfig<P>,
+        system: impl IntoSystemConfig<M>,
     ) -> Result<NodeId, ScheduleBuildError> {
         let SystemConfig {
             system,

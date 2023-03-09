@@ -1,4 +1,7 @@
-use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
+use crate::{
+    CoreSchedule, CoreSet, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin, PluginGroup,
+    StartupSet, SystemAppConfig,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -310,7 +313,7 @@ impl App {
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant, an instance of [`apply_state_transition::<S>`] in
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
@@ -352,11 +355,14 @@ impl App {
                     .run_if(in_state(variant)),
             );
         }
-
         // These are different for loops to avoid conflicting access to self
         for variant in S::variants() {
-            self.add_schedule(OnEnter(variant.clone()), Schedule::new());
-            self.add_schedule(OnExit(variant), Schedule::new());
+            if self.get_schedule(OnEnter(variant.clone())).is_none() {
+                self.add_schedule(OnEnter(variant.clone()), Schedule::new());
+            }
+            if self.get_schedule(OnExit(variant.clone())).is_none() {
+                self.add_schedule(OnExit(variant), Schedule::new());
+            }
         }
 
         self
@@ -378,10 +384,20 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemAppConfig<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
+        let SystemAppConfig { system, schedule } = system.into_app_config();
+
+        if let Some(schedule_label) = schedule {
+            if let Some(schedule) = schedules.get_mut(&*schedule_label) {
+                schedule.add_system(system);
+            } else {
+                let mut schedule = Schedule::new();
+                schedule.add_system(system);
+                schedules.insert(schedule_label, schedule);
+            }
+        } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
         } else {
             let schedule_label = &self.default_schedule_label;
@@ -406,48 +422,28 @@ impl App {
     /// #
     /// app.add_systems((system_a, system_b, system_c));
     /// ```
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSystemAppConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
-            default_schedule.add_systems(systems);
-        } else {
-            let schedule_label = &self.default_schedule_label;
-            panic!("Default schedule {schedule_label:?} does not exist.")
-        }
-
-        self
-    }
-
-    /// Adds a system to the provided [`Schedule`].
-    pub fn add_system_to_schedule<P>(
-        &mut self,
-        schedule_label: impl ScheduleLabel,
-        system: impl IntoSystemConfig<P>,
-    ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(&schedule_label) {
-            schedule.add_system(system);
-        } else {
-            panic!("Provided schedule {schedule_label:?} does not exist.")
-        }
-
-        self
-    }
-
-    /// Adds a collection of system to the provided [`Schedule`].
-    pub fn add_systems_to_schedule<P>(
-        &mut self,
-        schedule_label: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<P>,
-    ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(&schedule_label) {
-            schedule.add_systems(systems);
-        } else {
-            panic!("Provided schedule {schedule_label:?} does not exist.")
+        match systems.into_app_configs().0 {
+            crate::InnerConfigs::Blanket { systems, schedule } => {
+                let schedule = if let Some(label) = schedule {
+                    schedules
+                        .get_mut(&*label)
+                        .unwrap_or_else(|| panic!("Schedule '{label:?}' does not exist."))
+                } else {
+                    let label = &*self.default_schedule_label;
+                    schedules
+                        .get_mut(label)
+                        .unwrap_or_else(|| panic!("Default schedule '{label:?}' does not exist."))
+                };
+                schedule.add_systems(systems);
+            }
+            crate::InnerConfigs::Granular(systems) => {
+                for system in systems {
+                    self.add_system(system);
+                }
+            }
         }
 
         self
@@ -471,8 +467,8 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
-        self.add_system_to_schedule(CoreSchedule::Startup, system)
+    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
+        self.add_system(system.in_schedule(CoreSchedule::Startup))
     }
 
     /// Adds a collection of systems to [`CoreSchedule::Startup`].
@@ -488,16 +484,14 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_systems(
-    ///     (
-    ///         startup_system_a,
-    ///         startup_system_b,
-    ///         startup_system_c,
-    ///     )
-    /// );
+    /// app.add_startup_systems((
+    ///     startup_system_a,
+    ///     startup_system_b,
+    ///     startup_system_c,
+    /// ));
     /// ```
-    pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
-        self.add_systems_to_schedule(CoreSchedule::Startup, systems)
+    pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
+        self.add_systems(systems.into_configs().in_schedule(CoreSchedule::Startup))
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
@@ -858,10 +852,8 @@ impl App {
     /// See [`bevy_reflect::TypeRegistry::register`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
-        {
-            let registry = self.world.resource_mut::<AppTypeRegistry>();
-            registry.write().register::<T>();
-        }
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register::<T>();
         self
     }
 
@@ -891,10 +883,8 @@ impl App {
     >(
         &mut self,
     ) -> &mut Self {
-        {
-            let registry = self.world.resource_mut::<AppTypeRegistry>();
-            registry.write().register_type_data::<T, D>();
-        }
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_type_data::<T, D>();
         self
     }
 
@@ -1029,7 +1019,12 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
-    use crate::{App, Plugin};
+    use bevy_ecs::{
+        schedule::{OnEnter, States},
+        system::Commands,
+    };
+
+    use crate::{App, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1082,5 +1077,58 @@ mod tests {
             }
         }
         App::new().add_plugin(PluginRun);
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum AppState {
+        #[default]
+        MainMenu,
+    }
+    fn bar(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    fn foo(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_system(foo.in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_system(foo.in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
     }
 }

@@ -105,7 +105,7 @@ fn setup(
                             })),
                             material: materials.add(StandardMaterial {
                                 base_color: Color::MAROON,
-                                emissive: Color::rgba_linear(0.125, 0.0, 0.0, 0.0),
+                                emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
                                 ..default()
                             }),
                             ..default()

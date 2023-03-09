@@ -1,9 +1,10 @@
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query},
+    system::{Commands, NonSendMut, Query, ResMut},
     world::Mut,
 };
 use bevy_utils::{
@@ -21,22 +22,25 @@ use winit::{
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
+    accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{self, convert_window_level},
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
-#[cfg(target_arch = "wasm32")]
-use bevy_ecs::system::ResMut;
 
 /// System responsible for creating new windows whenever a `Window` component is added
 /// to an entity.
 ///
 /// This will default any necessary components if they are not already added.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn create_window<'a>(
     mut commands: Commands,
     event_loop: &EventLoopWindowTarget<()>,
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
+    mut adapters: NonSendMut<AccessKitAdapters>,
+    mut handlers: ResMut<WinitActionHandlers>,
+    mut accessibility_requested: ResMut<AccessibilityRequested>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut window) in created_windows {
@@ -50,7 +54,14 @@ pub(crate) fn create_window<'a>(
             entity
         );
 
-        let winit_window = winit_windows.create_window(event_loop, entity, &window);
+        let winit_window = winit_windows.create_window(
+            event_loop,
+            entity,
+            &window,
+            &mut adapters,
+            &mut handlers,
+            &mut accessibility_requested,
+        );
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());

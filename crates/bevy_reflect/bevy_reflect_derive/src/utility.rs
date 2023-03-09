@@ -92,7 +92,7 @@ impl Default for WhereClauseOptions {
 /// # Arguments
 ///
 /// * `where_clause`: existing `where` clause present on the object to be derived
-/// * `where_clause_options`: additional paramters defining which trait bounds to add to the `where` clause
+/// * `where_clause_options`: additional parameters defining which trait bounds to add to the `where` clause
 ///
 /// # Example
 ///
