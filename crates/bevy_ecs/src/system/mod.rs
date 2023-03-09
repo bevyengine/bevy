@@ -57,12 +57,11 @@
 //! # use bevy_ecs::prelude::*;
 //! # let mut app = Schedule::new();
 //! // Prints "Hello, World!" each frame.
-//! app
-//!     .add_systems((
-//!         print_first.before(print_mid),
-//!         print_mid,
-//!         print_last.after(print_mid),
-//!     ));
+//! app.add_systems((
+//!     print_first.before(print_mid),
+//!     print_mid,
+//!     print_last.after(print_mid),
+//! ));
 //! # let mut world = World::new();
 //! # app.run(&mut world);
 //!
