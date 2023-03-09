@@ -33,7 +33,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_Systems((
+        .add_systems((
             test_setup::setup.on_startup(),
             test_setup::cycle_modes,
             test_setup::rotate_cube,
