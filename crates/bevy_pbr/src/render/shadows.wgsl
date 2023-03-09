@@ -1,5 +1,9 @@
 #define_import_path bevy_pbr::shadows
 
+// TODO: Allow user configuration
+const STOCHASTIC_PCF_SAMPLES = 4u;
+const STOCHASTIC_PCF_RADIUS = 9u;
+
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = &point_lights.data[light_id];
 
@@ -135,25 +139,45 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
     let light_local = offset_position_ndc.xy * flip_correction + vec2<f32>(0.5, 0.5);
 
     let depth = offset_position_ndc.z;
-    // do the lookup, using HW PCF and comparison
+
+    let sample_offset_scale = f32(STOCHASTIC_PCF_RADIUS) / vec2<f32>(textureDimensions(directional_shadow_textures, cascade_index));
+
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
+    var sum = 0.0;
+    for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
+        // Calculate sampling offset from light_local
+        let r2 = fract(vec2(f32(sample_i)) * vec2(0.754877666247, 0.569840290998) + 0.5);
+        let noise_offset = r2 / vec2(64.0); // TODO: Unsure if correct
+        var noise = textureSampleLevel(
+            stochastic_noise,
+            dt_lut_sampler,
+            light_local + noise_offset,
+            globals.frame_count % 64u,
+            0u,
+        ).rg;
+        noise = (noise * 2.0) - 1.0;
+        let sample_offset = noise * sample_offset_scale;
+
+        // Do the lookup, using HW PCF and comparison
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompareLevel(
-        directional_shadow_textures,
-        directional_shadow_textures_sampler,
-        light_local,
-        depth
-    );
+        sum += textureSampleCompareLevel(
+            directional_shadow_textures,
+            directional_shadow_textures_sampler,
+            light_local + sample_offset,
+            depth
+        );
 #else
-    return textureSampleCompareLevel(
-        directional_shadow_textures,
-        directional_shadow_textures_sampler,
-        light_local,
-        i32((*light).depth_texture_base_index + cascade_index),
-        depth
-    );
+        sum += textureSampleCompareLevel(
+            directional_shadow_textures,
+            directional_shadow_textures_sampler,
+            light_local + sample_offset,
+            i32((*light).depth_texture_base_index + cascade_index),
+            depth
+        );
 #endif
+    }
+    return sum / f32(STOCHASTIC_PCF_SAMPLES);
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {
