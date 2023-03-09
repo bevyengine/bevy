@@ -115,6 +115,47 @@ fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
     return (*light).num_cascades;
 }
 
+fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, cascade_index: u32, array_index: i32) -> f32 {
+    // Do the lookup, using HW PCF and comparison
+    // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
+    // sampler to avoid use of implicit derivatives causing possible undefined behavior.
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    return textureSampleCompareLevel(
+        directional_shadow_textures,
+        directional_shadow_textures_sampler,
+        light_local,
+        depth
+    );
+#else
+    return textureSampleCompareLevel(
+        directional_shadow_textures,
+        directional_shadow_textures_sampler,
+        light_local,
+        array_index,
+        depth
+    );
+#endif
+}
+
+fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, cascade_index: u32, array_index: i32) -> f32 {
+    var sum = 0.0;
+    let cascade_size = textureDimensions(directional_shadow_textures, cascade_index);
+
+    for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
+        let sample_uv = stochastic_uv(light_local, sample_i, f32(STOCHASTIC_PCF_RADIUS), cascade_size);
+
+        sum += textureSampleCompareLevel(
+            directional_shadow_textures,
+            directional_shadow_textures_sampler,
+            sample_uv,
+            array_index,
+            depth
+        );
+    }
+
+    return sum / f32(STOCHASTIC_PCF_SAMPLES);
+}
+
 fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = &lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
@@ -142,32 +183,12 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
 
     let depth = offset_position_ndc.z;
 
-    var sum = 0.0;
-    let cascade_size = textureDimensions(directional_shadow_textures, cascade_index);
-    for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
-        let sample_uv = stochastic_uv(light_local, sample_i, f32(STOCHASTIC_PCF_RADIUS), cascade_size);
-
-        // Do the lookup, using HW PCF and comparison
-        // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
-        // sampler to avoid use of implicit derivatives causing possible undefined behavior.
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
-        sum += textureSampleCompareLevel(
-            directional_shadow_textures,
-            directional_shadow_textures_sampler,
-            sample_uv,
-            depth
-        );
+    let array_index = i32((*light).depth_texture_base_index + cascade_index);
+#ifdef STOCHASTIC_SAMPLING
+    return sample_cascade_stochastic(light_local, depth, cascade_index, array_index);
 #else
-        sum += textureSampleCompareLevel(
-            directional_shadow_textures,
-            directional_shadow_textures_sampler,
-            sample_uv,
-            i32((*light).depth_texture_base_index + cascade_index),
-            depth
-        );
-#endif
-    }
-    return sum / f32(STOCHASTIC_PCF_SAMPLES);
+    return sample_cascade_simple(light_local, depth, cascade_index, array_index);
+#endif // STOCHASTIC_SAMPLING
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {

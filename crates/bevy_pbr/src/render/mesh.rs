@@ -622,7 +622,7 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = (1 << 2);
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
-        const MOTION_VECTOR_PREPASS            = (1 << 5);
+        const MOTION_VECTOR_PREPASS             = (1 << 5);
         const ALPHA_MASK                        = (1 << 6);
         const ENVIRONMENT_MAP                   = (1 << 7);
         const DEPTH_CLAMP_ORTHO                 = (1 << 8);
@@ -801,6 +801,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
+        }
+
+        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            shader_defs.push("STOCHASTIC_SAMPLING".into());
         }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
