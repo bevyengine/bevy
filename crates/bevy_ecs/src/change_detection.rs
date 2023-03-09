@@ -870,8 +870,8 @@ mod tests {
             &mut res,
             &mut component_ticks.added,
             &mut component_ticks.changed,
-            2, // last_change_tick
-            4, // current change_tick
+            Tick::new(2), // last_run
+            Tick::new(4), // this_run
         );
 
         assert!(!val.is_added());
