@@ -65,7 +65,7 @@ use bevy_ecs_macros::{Component, Resource};
 ///
 /// fn spawn_7_entities(mut commands: Commands) {
 ///     for _ in 0..7 {
-///         commands.spawn().insert(Marker);
+///         commands.spawn(Marker);
 ///     }
 /// }
 ///
