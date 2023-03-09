@@ -349,7 +349,7 @@ pub fn queue_colored_mesh2d(
                 let mesh_z = mesh2d_uniform.transform.w_axis.z;
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
-                    render_command: draw_colored_mesh2d,
+                    render_command_id: draw_colored_mesh2d,
                     pipeline: pipeline_id,
                     // The 2d render items are sorted according to their z value before rendering,
                     // in order to get correct transparency

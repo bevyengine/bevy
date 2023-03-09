@@ -109,7 +109,7 @@ pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
-    pub render_command: RenderCommandId,
+    pub render_command_id: RenderCommandId,
     /// Range in the vertex buffer of this item
     pub batch_range: Option<Range<u32>>,
 }
@@ -129,7 +129,7 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn render_command_id(&self) -> RenderCommandId {
-        self.render_command
+        self.render_command_id
     }
 
     #[inline]

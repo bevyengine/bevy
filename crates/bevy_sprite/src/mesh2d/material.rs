@@ -399,7 +399,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         let mesh_z = mesh2d_uniform.transform.w_axis.z;
                         transparent_phase.add(Transparent2d {
                             entity: *visible_entity,
-                            render_command: draw_transparent_pbr,
+                            render_command_id: draw_transparent_pbr,
                             pipeline: pipeline_id,
                             // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
                             // lowest sort key and getting closer should increase. As we have

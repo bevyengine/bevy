@@ -706,7 +706,7 @@ pub fn queue_sprites(
                     let item_end = colored_index;
 
                     transparent_phase.add(Transparent2d {
-                        render_command: draw_sprite_function,
+                        render_command_id: draw_sprite_function,
                         pipeline: colored_pipeline,
                         entity: current_batch_entity,
                         sort_key,
@@ -724,7 +724,7 @@ pub fn queue_sprites(
                     let item_end = index;
 
                     transparent_phase.add(Transparent2d {
-                        render_command: draw_sprite_function,
+                        render_command_id: draw_sprite_function,
                         pipeline,
                         entity: current_batch_entity,
                         sort_key,

@@ -10,15 +10,14 @@ use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::render_phase::{RenderCommandId, RenderCommands};
 use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
-    },
+    render_phase::{CachedRenderPipelinePhaseItem, PhaseItem, RenderPhase},
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
@@ -1632,7 +1631,7 @@ pub fn queue_shadows<M: Material>(
                         };
 
                         shadow_phase.add(Shadow {
-                            render_command: draw_shadow_mesh,
+                            render_command_id: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
                             distance: 0.0, // TODO: sort back-to-front
@@ -1648,7 +1647,7 @@ pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
-    pub render_command: RenderCommandId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for Shadow {
@@ -1666,7 +1665,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn render_command_id(&self) -> RenderCommandId {
-        self.render_command
+        self.render_command_id
     }
 
     #[inline]

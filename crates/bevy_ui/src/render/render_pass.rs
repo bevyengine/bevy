@@ -95,7 +95,7 @@ pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
-    pub render_command: RenderCommandId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for TransparentUi {
@@ -113,7 +113,7 @@ impl PhaseItem for TransparentUi {
 
     #[inline]
     fn render_command_id(&self) -> RenderCommandId {
-        self.render_command
+        self.render_command_id
     }
 }
 

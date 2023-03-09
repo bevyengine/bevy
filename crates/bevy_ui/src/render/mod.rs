@@ -618,7 +618,7 @@ pub fn queue_uinodes(
                         })
                     });
                 transparent_phase.add(TransparentUi {
-                    render_command: draw_ui_function,
+                    render_command_id: draw_ui_function,
                     pipeline,
                     entity,
                     sort_key: FloatOrd(batch.z),
