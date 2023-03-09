@@ -5,7 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfigs, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
@@ -26,7 +26,7 @@ impl Plugin for GlobalsPlugin {
             render_app
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
-                .add_systems_to_schedule(ExtractSchedule, (extract_frame_count, extract_time))
+                .add_systems((extract_frame_count, extract_time).in_schedule(ExtractSchedule))
                 .add_system(prepare_globals_buffer.in_set(RenderSet::Prepare));
         }
     }

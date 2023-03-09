@@ -740,7 +740,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
-    pub fn par_iter(&mut self) -> QueryParIter<'_, '_, Q::ReadOnly, F::ReadOnly> {
+    pub fn par_iter(&self) -> QueryParIter<'_, '_, Q::ReadOnly, F::ReadOnly> {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),

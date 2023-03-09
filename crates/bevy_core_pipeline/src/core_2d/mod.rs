@@ -7,6 +7,7 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
+        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const MAIN_PASS: &str = "main_pass";
         pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
@@ -19,7 +20,7 @@ pub mod graph {
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
@@ -51,7 +52,7 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system_to_schedule(ExtractSchedule, extract_core_2d_camera_phases)
+            .add_system(extract_core_2d_camera_phases.in_schedule(ExtractSchedule))
             .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
             .add_system(
                 batch_phase_system::<Transparent2d>

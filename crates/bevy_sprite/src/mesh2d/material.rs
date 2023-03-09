@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -161,7 +161,7 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system_to_schedule(ExtractSchedule, extract_materials_2d::<M>)
+                .add_system(extract_materials_2d::<M>.in_schedule(ExtractSchedule))
                 .add_system(
                     prepare_materials_2d::<M>
                         .in_set(RenderSet::Prepare)

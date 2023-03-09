@@ -48,7 +48,7 @@ fn main() {
         .add_system(movement_system)
         .add_system(collision_system)
         .add_system(counter_system)
-        .add_system_to_schedule(CoreSchedule::FixedUpdate, scheduled_spawner)
+        .add_system(scheduled_spawner.in_schedule(CoreSchedule::FixedUpdate))
         .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }
