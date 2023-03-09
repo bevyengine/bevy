@@ -2,13 +2,9 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor,
-    },
+    render_resource::LoadOp,
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture},
 };
@@ -69,50 +65,37 @@ impl Node for PrepassNode {
             return Ok(());
         };
 
-        let mut color_attachments = vec![];
-        if let Some(view_normals_texture) = &view_prepass_textures.normal {
-            color_attachments.push(Some(RenderPassColorAttachment {
-                view: &view_normals_texture.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
-                    store: true,
-                },
-            }));
-        }
-
         {
             // Set up the pass descriptor with the depth attachment and optional color attachments
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("prepass"),
-                color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &view_depth_texture.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Clear(0.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
-            }
+            let render_pass = render_context.render_pass(view_entity).set_label("prepass");
+
+            let render_pass = if let Some(view_normals_texture) = &view_prepass_textures.normal {
+                render_pass.add_color_attachment(&view_normals_texture.default_view)
+            } else {
+                render_pass
+            };
+
+            let mut render_pass = render_pass
+                .set_depth_stencil_attachment(&view_depth_texture.view)
+                .set_depth_ops(LoadOp::Clear(0.0), true)
+                .begin();
+
+            render_pass.set_camera_viewport(camera);
 
             // Always run opaque pass to ensure screen is cleared
             {
                 // Run the prepass, sorted front-to-back
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-                opaque_prepass_phase.render(&mut render_pass, world, view_entity);
+                render_pass.render_phase(opaque_prepass_phase, world);
             }
 
             if !alpha_mask_prepass_phase.items.is_empty() {
                 // Run the prepass, sorted front-to-back
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-                alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
+                render_pass.render_phase(opaque_prepass_phase, world);
             }
         }
 
