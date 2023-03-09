@@ -152,13 +152,10 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         debug_assert!(row.index() < self.len());
         self.data.replace_unchecked(row.index(), data);
-        self.changed_ticks
-            .get_unchecked_mut(row.index())
-            .get_mut()
-            .set_changed(change_tick);
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
     }
 
     /// Writes component data to the column at given row.
@@ -495,7 +492,7 @@ impl Column {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for component_ticks in &mut self.added_ticks {
             component_ticks.get_mut().check_tick(change_tick);
         }
@@ -770,7 +767,7 @@ impl Table {
         self.entities.is_empty()
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for column in self.columns.values_mut() {
             column.check_change_ticks(change_tick);
         }
@@ -889,7 +886,7 @@ impl Tables {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }

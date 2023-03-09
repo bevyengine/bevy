@@ -224,16 +224,16 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 unsafe fn init_fetch<'__w>(
                     _world: &'__w #path::world::World,
                     state: &Self::State,
-                    _last_change_tick: u32,
-                    _change_tick: u32
+                    _last_run: #path::component::Tick,
+                    _this_run: #path::component::Tick,
                 ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(#field_idents:
                             <#field_types>::init_fetch(
                                 _world,
                                 &state.#field_idents,
-                                _last_change_tick,
-                                _change_tick
+                                _last_run,
+                                _this_run,
                             ),
                         )*
                         #(#ignored_field_idents: Default::default(),)*
