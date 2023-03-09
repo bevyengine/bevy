@@ -119,6 +119,26 @@ impl RenderGraph {
         id
     }
 
+    /// Adds the `node` with the `name` to the graph.
+    /// If the name is already present replaces it instead.
+    /// Also adds `node_edge` based on the order of the given `edges`.
+    pub fn add_node_with_edges<T>(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+        node: T,
+        edges: &[&'static str],
+    ) -> NodeId
+    where
+        T: Node,
+    {
+        let id = self.add_node(name, node);
+        for window in edges.windows(2) {
+            let [a, b] = window else { break; };
+            self.add_node_edge(*a, *b);
+        }
+        id
+    }
+
     /// Removes the `node` with the `name` from the graph.
     /// If the name is does not exist, nothing happens.
     pub fn remove_node(
@@ -582,6 +602,36 @@ impl RenderGraph {
     /// Retrieves the sub graph corresponding to the `name` mutably.
     pub fn get_sub_graph_mut(&mut self, name: impl AsRef<str>) -> Option<&mut RenderGraph> {
         self.sub_graphs.get_mut(name.as_ref())
+    }
+
+    /// Retrieves the sub graph corresponding to the `name`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any invalid node name is given.
+    ///
+    /// # See also
+    ///
+    /// - [`get_sub_graph`](Self::get_sub_graph) for a fallible version.
+    pub fn sub_graph(&self, name: impl AsRef<str>) -> &RenderGraph {
+        self.sub_graphs
+            .get(name.as_ref())
+            .unwrap_or_else(|| panic!("Node {} not found in sub_graph", name.as_ref()))
+    }
+
+    /// Retrieves the sub graph corresponding to the `name` mutably.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any invalid node name is given.
+    ///
+    /// # See also
+    ///
+    /// - [`get_sub_graph_mut`](Self::get_sub_graph_mut) for a fallible version.
+    pub fn sub_graph_mut(&mut self, name: impl AsRef<str>) -> &mut RenderGraph {
+        self.sub_graphs
+            .get_mut(name.as_ref())
+            .unwrap_or_else(|| panic!("Node {} not found in sub_graph", name.as_ref()))
     }
 }
 

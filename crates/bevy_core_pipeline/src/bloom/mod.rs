@@ -4,7 +4,7 @@ mod upsampling_pipeline;
 
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
-use crate::{core_2d, core_3d};
+use crate::{add_node, core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::{QueryState, With},
     schedule::IntoSystemConfig,
     system::{Commands, Query, Res, ResMut},
-    world::World,
+    world::{FromWorld, World},
 };
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
@@ -22,7 +22,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -79,54 +79,32 @@ impl Plugin for BloomPlugin {
             ));
 
         // Add bloom to the 3d render graph
-        {
-            let bloom_node = BloomNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            let draw_3d_graph = graph
-                .get_sub_graph_mut(crate::core_3d::graph::NAME)
-                .unwrap();
-            draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
-            draw_3d_graph.add_slot_edge(
-                draw_3d_graph.input_node().id,
-                crate::core_3d::graph::input::VIEW_ENTITY,
+        add_node::<BloomNode>(
+            render_app,
+            core_3d::graph::NAME,
+            core_3d::graph::node::BLOOM,
+            core_3d::graph::input::VIEW_ENTITY,
+            BloomNode::IN_VIEW,
+            &[
+                core_3d::graph::node::MAIN_PASS,
                 core_3d::graph::node::BLOOM,
-                BloomNode::IN_VIEW,
-            );
-            // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_3d_graph.add_node_edge(
-                crate::core_3d::graph::node::MAIN_PASS,
-                core_3d::graph::node::BLOOM,
-            );
-            draw_3d_graph.add_node_edge(
-                core_3d::graph::node::BLOOM,
-                crate::core_3d::graph::node::TONEMAPPING,
-            );
-        }
+                core_3d::graph::node::TONEMAPPING,
+            ],
+        );
 
         // Add bloom to the 2d render graph
-        {
-            let bloom_node = BloomNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            let draw_2d_graph = graph
-                .get_sub_graph_mut(crate::core_2d::graph::NAME)
-                .unwrap();
-            draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
-            draw_2d_graph.add_slot_edge(
-                draw_2d_graph.input_node().id,
-                crate::core_2d::graph::input::VIEW_ENTITY,
+        add_node::<BloomNode>(
+            render_app,
+            core_2d::graph::NAME,
+            core_2d::graph::node::BLOOM,
+            core_2d::graph::input::VIEW_ENTITY,
+            BloomNode::IN_VIEW,
+            &[
+                core_2d::graph::node::MAIN_PASS,
                 core_2d::graph::node::BLOOM,
-                BloomNode::IN_VIEW,
-            );
-            // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_2d_graph.add_node_edge(
-                crate::core_2d::graph::node::MAIN_PASS,
-                core_2d::graph::node::BLOOM,
-            );
-            draw_2d_graph.add_node_edge(
-                core_2d::graph::node::BLOOM,
-                crate::core_2d::graph::node::TONEMAPPING,
-            );
-        }
+                core_2d::graph::node::TONEMAPPING,
+            ],
+        );
     }
 }
 
@@ -145,8 +123,10 @@ pub struct BloomNode {
 
 impl BloomNode {
     pub const IN_VIEW: &'static str = "view";
+}
 
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for BloomNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }
