@@ -3,8 +3,8 @@
 #import bevy_pbr::stochastic_sampling
 
 // TODO: Allow user configuration
-const STOCHASTIC_PCF_SAMPLES = 4u;
-const STOCHASTIC_PCF_RADIUS = 9u;
+const STOCHASTIC_PCF_SAMPLES = 9u;
+const STOCHASTIC_PCF_RADIUS = 2u;
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = &point_lights.data[light_id];
