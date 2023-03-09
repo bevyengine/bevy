@@ -421,7 +421,7 @@ impl FromWorld for MeshPipeline {
                     binding: 9,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
+                        sample_type: TextureSampleType::Float { filterable: true },
                         view_dimension: TextureViewDimension::D2Array, // TODO: Not available on webgl
                         multisampled: false,
                     },

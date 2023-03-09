@@ -153,8 +153,8 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
             stochastic_noise,
             dt_lut_sampler,
             light_local + noise_offset,
-            globals.frame_count % 64u,
-            0u,
+            i32(globals.frame_count % 64u),
+            0.0,
         ).rg;
         noise = (noise * 2.0) - 1.0;
         let sample_offset = noise * sample_offset_scale;
