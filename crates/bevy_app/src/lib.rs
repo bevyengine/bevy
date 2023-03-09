@@ -7,6 +7,7 @@ mod config;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
+mod system_registry;
 
 #[cfg(feature = "bevy_ci_testing")]
 mod ci_testing;

@@ -5,6 +5,8 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
+    schedule::SystemSet,
+    system::{Callback, IntoSystem, RunSystemCommand, RunSystemsBySetCommand},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -502,6 +504,36 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R> {
             phantom: PhantomData,
         });
+    }
+
+    /// Adds a command directly to the command queue.
+    /// Runs the supplied system on the [`World`] a single time.
+    ///
+    /// Calls [`SystemRegistry::run_system`](crate::SystemRegistry::run_system).
+    pub fn run_system<
+        Params: Send + Sync + 'static,
+        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) {
+        self.queue.push(RunSystemCommand::new(system));
+    }
+
+    /// Runs the systems corresponding to the supplied [`SystemSet`] on the [`World`] a single time.
+    ///
+    /// Calls [`SystemRegistry::run_systems_by_set`](crate::SystemRegistry::run_systems_by_set).
+    pub fn run_systems_by_label(&mut self, set: impl SystemSet) {
+        self.queue.push(RunSystemsBySetCommand {
+            callback: Callback { set: Box::new(set) },
+        });
+    }
+
+    /// Run the systems corresponding to the label stored in the provided [`Callback`]
+    ///
+    /// Calls [`SystemRegistry::run_callback`](crate::SystemRegistry::run_callback).
+    pub fn run_callback(&mut self, callback: Callback) {
+        self.queue.push(RunSystemsBySetCommand { callback });
     }
 
     /// Pushes a generic [`Command`] to the command queue.

@@ -108,6 +108,7 @@ mod query;
 mod system;
 mod system_param;
 mod system_piping;
+mod system_registry;
 
 pub use combinator::*;
 pub use commands::*;
@@ -118,6 +119,7 @@ pub use query::*;
 pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
+pub use system_registry::*;
 
 /// Ensure that a given function is a [system](System).
 ///
