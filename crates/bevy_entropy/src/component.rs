@@ -255,8 +255,15 @@ mod tests {
         let mut dynamic = value.take::<EntropyComponent<ChaCha8Rng>>().unwrap();
 
         // The two instances should be the same
-        assert_eq!(val, dynamic, "The deserialized EntropyComponent should equal the original");
+        assert_eq!(
+            val, dynamic,
+            "The deserialized EntropyComponent should equal the original"
+        );
         // They should output the same numbers, as no state is lost between serialization and deserialization.
-        assert_eq!(val.next_u32(), dynamic.next_u32(), "The deserialized EntropyComponent should have the same output as original");
+        assert_eq!(
+            val.next_u32(),
+            dynamic.next_u32(),
+            "The deserialized EntropyComponent should have the same output as original"
+        );
     }
 }
