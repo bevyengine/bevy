@@ -596,7 +596,7 @@ impl_tick_filter!(
     /// Bevy does not compare components to their previous values.
     ///
     /// To retain all results without filtering but still check whether they were changed after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///
