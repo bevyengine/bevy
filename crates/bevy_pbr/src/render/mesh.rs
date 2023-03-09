@@ -574,7 +574,7 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = (1 << 2);
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
-        const MOTION_VECTOR_PREPASS            = (1 << 5);
+        const MOTION_VECTOR_PREPASS             = (1 << 5);
         const ALPHA_MASK                        = (1 << 6);
         const ENVIRONMENT_MAP                   = (1 << 7);
         const DEPTH_CLAMP_ORTHO                 = (1 << 8);
