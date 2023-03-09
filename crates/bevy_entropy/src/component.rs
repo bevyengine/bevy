@@ -219,4 +219,44 @@ mod tests {
             "forked EntropyComponents should not match each other"
         );
     }
+
+    #[test]
+    fn rng_reflection() {
+        use bevy_reflect::{
+            serde::{ReflectSerializer, UntypedReflectDeserializer},
+            TypeRegistry,
+        };
+        use ron::ser::to_string;
+        use serde::de::DeserializeSeed;
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<EntropyComponent<ChaCha8Rng>>();
+
+        let mut val = EntropyComponent::<ChaCha8Rng>::from_seed([7; 32]);
+
+        // Modify the state of the RNG instance
+        val.next_u32();
+
+        let ser = ReflectSerializer::new(&val, &registry);
+
+        let serialized = to_string(&ser).unwrap();
+
+        assert_eq!(
+            &serialized,
+            "{\"bevy_entropy::component::EntropyComponent<rand_chacha::chacha::ChaCha8Rng>\":((seed:(7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7),stream:0,word_pos:1))}"
+        );
+
+        let mut deserializer = ron::Deserializer::from_str(&serialized).unwrap();
+
+        let de = UntypedReflectDeserializer::new(&registry);
+
+        let value = de.deserialize(&mut deserializer).unwrap();
+
+        let mut dynamic = value.take::<EntropyComponent<ChaCha8Rng>>().unwrap();
+
+        // The two instances should be the same
+        assert_eq!(val, dynamic, "The deserialized EntropyComponent should equal the original");
+        // They should output the same numbers, as no state is lost between serialization and deserialization.
+        assert_eq!(val.next_u32(), dynamic.next_u32(), "The deserialized EntropyComponent should have the same output as original");
+    }
 }
