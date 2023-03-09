@@ -313,7 +313,7 @@ impl App {
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant, an instance of [`apply_state_transition::<S>`] in
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
