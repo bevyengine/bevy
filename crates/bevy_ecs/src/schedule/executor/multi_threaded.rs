@@ -295,7 +295,7 @@ impl MultiThreadedExecutor {
 
             self.ready_systems.set(system_index, false);
 
-            // SAFETY: Since `self.can_run` returned true, it must have called
+            // SAFETY: Since `self.can_run` returned true earlier, it must have called
             // `update_archetype_component_access` for each run condition.
             if !self.should_run(system_index, system, conditions, world) {
                 self.skip_system_and_signal_dependents(system_index);
