@@ -118,18 +118,16 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     };
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    // Add FromReflect bound for each active field
-    let mut where_from_reflect_clause = if where_clause.is_some() {
-        quote! {#where_clause}
-    } else if !active_members.is_empty() {
-        quote! {where}
-    } else {
-        quote! {}
-    };
-    where_from_reflect_clause.extend(quote! {
-        #(#field_types: #bevy_reflect_path::FromReflect,)*
-    });
+    
+    let where_from_reflect_clause = extend_where_clause(
+        where_clause,
+        &WhereClauseOptions {
+            active_types: reflect_struct.active_types().into_boxed_slice(),
+            ignored_types: reflect_struct.ignored_types().into_boxed_slice(),
+            active_trait_bounds: quote!(#bevy_reflect_path::FromReflect),
+            ignored_trait_bounds: quote!(#FQDefault),
+        },
+    );
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
