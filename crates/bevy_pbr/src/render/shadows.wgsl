@@ -3,7 +3,7 @@
 #import bevy_pbr::stochastic_sampling
 
 // TODO: Allow user configuration
-const STOCHASTIC_PCF_SAMPLES = 9u;
+const STOCHASTIC_PCF_SAMPLES = 6u;
 const STOCHASTIC_PCF_RADIUS = 2u;
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -143,9 +143,9 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
     let depth = offset_position_ndc.z;
 
     var sum = 0.0;
-    let sample_offset_scale = f32(STOCHASTIC_PCF_RADIUS) / vec2<f32>(textureDimensions(directional_shadow_textures, cascade_index));
+    let cascade_size = textureDimensions(directional_shadow_textures, cascade_index);
     for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
-        let sample_uv = stochastic_uv(light_local, sample_i, sample_offset_scale);
+        let sample_uv = stochastic_uv(light_local, sample_i, f32(STOCHASTIC_PCF_RADIUS), cascade_size);
 
         // Do the lookup, using HW PCF and comparison
         // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
