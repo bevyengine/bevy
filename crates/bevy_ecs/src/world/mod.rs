@@ -1538,7 +1538,7 @@ impl World {
     /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
-        self.storages.sparse_sets.clear();
+        self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
     }
@@ -1742,7 +1742,7 @@ impl World {
             .remove_entry(label)
             .unwrap_or_else(|| panic!("The schedule with the label {label:?} was not found."));
 
-        // TODO: move this span to Schdule::run
+        // TODO: move this span to Schedule::run
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
         schedule.run(self);
@@ -1763,8 +1763,6 @@ impl fmt::Debug for World {
     }
 }
 
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
 unsafe impl Send for World {}
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread

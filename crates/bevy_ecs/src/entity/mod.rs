@@ -2,6 +2,11 @@
 //!
 //! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
 //!
+//! **empty entity**: Entity with zero components.
+//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
+//! **reserved entity**: same as **pending entity**.
+//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
+//!
 //! See [`Entity`] to learn more.
 //!
 //! [component]: crate::component::Component
@@ -498,7 +503,7 @@ impl Entities {
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else {
-            let current_meta = &mut self.meta[entity.index as usize];
+            let current_meta = &self.meta[entity.index as usize];
             if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
@@ -563,7 +568,8 @@ impl Entities {
         self.len = 0;
     }
 
-    /// Returns `Ok(Location { archetype: Archetype::invalid(), index: undefined })` for pending entities.
+    /// Returns the location of an [`Entity`].
+    /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.index as usize) < self.meta.len() {
             let meta = &self.meta[entity.index as usize];
@@ -731,14 +737,10 @@ struct EntityMeta {
 }
 
 impl EntityMeta {
+    /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
-        location: EntityLocation {
-            archetype_id: ArchetypeId::INVALID,
-            archetype_row: ArchetypeRow::INVALID, // dummy value, to be filled in
-            table_id: TableId::INVALID,
-            table_row: TableRow::INVALID, // dummy value, to be filled in
-        },
+        location: EntityLocation::INVALID,
     };
 }
 
@@ -769,6 +771,16 @@ pub struct EntityLocation {
     ///
     /// [`Table`]: crate::storage::Table
     pub table_row: TableRow,
+}
+
+impl EntityLocation {
+    /// location for **pending entity** and **invalid entity**
+    const INVALID: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::INVALID,
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
 }
 
 #[cfg(test)]

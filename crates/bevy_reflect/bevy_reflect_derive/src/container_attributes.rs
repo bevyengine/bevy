@@ -5,7 +5,7 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::fq_std::{FQAny, FQDefault, FQOption};
+use crate::fq_std::{FQAny, FQOption};
 use crate::utility;
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
@@ -225,7 +225,7 @@ impl ReflectTraits {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn reflect_hash(&self) -> #FQOption<u64> {
                     use ::core::hash::{Hash, Hasher};
-                    let mut hasher: #bevy_reflect_path::ReflectHasher = #FQDefault::default();
+                    let mut hasher = #bevy_reflect_path::utility::reflect_hasher();
                     Hash::hash(&#FQAny::type_id(self), &mut hasher);
                     Hash::hash(self, &mut hasher);
                     #FQOption::Some(Hasher::finish(&hasher))

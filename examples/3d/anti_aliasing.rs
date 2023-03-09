@@ -1,4 +1,4 @@
-//! This example compares MSAA (Multi-Sample Anti-Aliasing), FXAA (Fast Approximate Anti-Aliasing), and TAA (Temporal Anti-Aliasing).
+//! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
 use std::f32::consts::PI;
 
@@ -51,12 +51,25 @@ fn modify_aa(
         camera.remove::<TemporalAntialiasBundle>();
     }
 
-    // MSAA 4x
-    if keys.just_pressed(KeyCode::Key2) {
+    // MSAA
+    if keys.just_pressed(KeyCode::Key2) && *msaa == Msaa::Off {
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntialiasBundle>();
 
         *msaa = Msaa::Sample4;
+    }
+
+    // MSAA Sample Count
+    if *msaa != Msaa::Off {
+        if keys.just_pressed(KeyCode::Q) {
+            *msaa = Msaa::Sample2;
+        }
+        if keys.just_pressed(KeyCode::W) {
+            *msaa = Msaa::Sample4;
+        }
+        if keys.just_pressed(KeyCode::E) {
+            *msaa = Msaa::Sample8;
+        }
     }
 
     // FXAA
@@ -136,6 +149,26 @@ fn update_ui(
         ui.push_str("(4) TAA");
     }
 
+    if *msaa != Msaa::Off {
+        ui.push_str("\n\n----------\n\nSample Count\n");
+
+        if *msaa == Msaa::Sample2 {
+            ui.push_str("(Q) *2*\n");
+        } else {
+            ui.push_str("(Q) 2\n");
+        }
+        if *msaa == Msaa::Sample4 {
+            ui.push_str("(W) *4*\n");
+        } else {
+            ui.push_str("(W) 4\n");
+        }
+        if *msaa == Msaa::Sample8 {
+            ui.push_str("(E) *8*");
+        } else {
+            ui.push_str("(E) 8");
+        }
+    }
+
     if let Some(fxaa) = fxaa {
         ui.push_str("\n\n----------\n\nSensitivity\n");
 
@@ -181,7 +214,7 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

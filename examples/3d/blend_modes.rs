@@ -24,7 +24,7 @@ fn main() {
     // Since this example uses HDR, we must disable MSAA for WASM builds, at least
     // until WebGPU is ready and no longer behind a feature flag in Web browsers.
     #[cfg(target_arch = "wasm32")]
-    app.insert_resource(Msaa { samples: 1 }); // Default is 4 samples (MSAA on)
+    app.insert_resource(Msaa::Off);
 
     app.run();
 }
@@ -148,7 +148,8 @@ fn setup(
     // Chessboard Plane
     let black_material = materials.add(Color::BLACK.into());
     let white_material = materials.add(Color::WHITE.into());
-    let plane_mesh = meshes.add(shape::Plane { size: 2.0 }.into());
+
+    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
 
     for x in -3..4 {
         for z in -3..4 {

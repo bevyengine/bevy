@@ -1,6 +1,8 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
+#ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
+#endif // NORMAL_PREPASS
 
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
@@ -16,15 +18,31 @@ struct FragmentInput {
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
 
-#ifdef VELOCITY_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
-#endif // VELOCITY_PREPASS
+#endif // MOTION_VECTOR_PREPASS
 };
+
+// Cutoff used for the premultiplied alpha modes BLEND and ADD.
+const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
 fn prepass_alpha_discard(in: FragmentInput) {
-#ifdef ALPHA_MASK
+
+// This is a workaround since the preprocessor does not support
+// #if defined(ALPHA_MASK) || defined(BLEND_PREMULTIPLIED_ALPHA)
+#ifndef ALPHA_MASK
+#ifndef BLEND_PREMULTIPLIED_ALPHA
+#ifndef BLEND_ALPHA
+
+#define EMPTY_PREPASS_ALPHA_DISCARD
+
+#endif // BLEND_ALPHA
+#endif // BLEND_PREMULTIPLIED_ALPHA not defined
+#endif // ALPHA_MASK not defined
+
+#ifndef EMPTY_PREPASS_ALPHA_DISCARD
     var output_color: vec4<f32> = material.base_color;
 
 #ifdef VERTEX_UVS
@@ -33,20 +51,33 @@ fn prepass_alpha_discard(in: FragmentInput) {
     }
 #endif // VERTEX_UVS
 
+#ifdef ALPHA_MASK
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) && output_color.a < material.alpha_cutoff {
         discard;
     }
-#endif // ALPHA_MASK
+#else // BLEND_PREMULTIPLIED_ALPHA || BLEND_ALPHA
+    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD)
+        && output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
+        discard;
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
+        && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
+        discard;
+    }
+#endif // !ALPHA_MASK
+
+#endif // EMPTY_PREPASS_ALPHA_DISCARD not defined
 }
 
+#ifdef PREPASS_FRAGMENT
 struct FragmentOutput {
 #ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
 #endif // NORMAL_PREPASS
 
-#ifdef VELOCITY_PREPASS
-    @location(1) velocity: vec2<f32>,
-#endif // VELOCITY_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
+    @location(1) motion_vector: vec2<f32>,
+#endif // MOTION_VECTOR_PREPASS
 }
 
 @fragment
@@ -83,13 +114,19 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     }
 #endif // NORMAL_PREPASS
 
-#ifdef VELOCITY_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
-    out.velocity = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
-#endif // VELOCITY_PREPASS
+    out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
+#endif // MOTION_VECTOR_PREPASS
 
     return out;
 }
+#else
+@fragment
+fn fragment(in: FragmentInput) {
+    prepass_alpha_discard(in);
+}
+#endif // PREPASS_FRAGMENT

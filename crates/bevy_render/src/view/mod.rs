@@ -22,7 +22,10 @@ use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages,
@@ -43,6 +46,7 @@ impl Plugin for ViewPlugin {
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
+            .register_type::<ColorGrading>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
@@ -56,7 +60,8 @@ impl Plugin for ViewPlugin {
                 .add_system(
                     prepare_view_targets
                         .after(WindowSystem::Prepare)
-                        .in_set(RenderSet::Prepare),
+                        .in_set(RenderSet::Prepare)
+                        .after(crate::render_asset::prepare_assets::<Image>),
                 );
         }
     }
@@ -66,11 +71,9 @@ impl Plugin for ViewPlugin {
 ///
 /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
 /// smoother edges.
-/// Defaults to 4.
+/// Defaults to 4 samples.
 ///
-/// Note that WGPU currently only supports 1 or 4 samples.
-/// Ultimately we plan on supporting whatever is natively supported on a given device.
-/// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+/// Note that web currently only supports 1 or 4 samples.
 ///
 /// # Example
 /// ```
@@ -84,8 +87,10 @@ impl Plugin for ViewPlugin {
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,
+    Sample2 = 2,
     #[default]
     Sample4 = 4,
+    Sample8 = 8,
 }
 
 impl Msaa {
@@ -106,12 +111,47 @@ pub struct ExtractedView {
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
+    pub color_grading: ColorGrading,
 }
 
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
         ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+    }
+}
+
+/// Configures basic color grading parameters to adjust the image appearance. Grading is applied just before/after tonemapping for a given [`Camera`](crate::camera::Camera) entity.
+#[derive(Component, Reflect, Debug, Copy, Clone, ShaderType)]
+#[reflect(Component)]
+pub struct ColorGrading {
+    /// Exposure value (EV) offset, measured in stops.
+    pub exposure: f32,
+
+    /// Non-linear luminance adjustment applied before tonemapping. y = pow(x, gamma)
+    pub gamma: f32,
+
+    /// Saturation adjustment applied before tonemapping.
+    /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
+    /// with luminance defined by ITU-R BT.709.
+    /// Values above 1.0 increase saturation.
+    pub pre_saturation: f32,
+
+    /// Saturation adjustment applied after tonemapping.
+    /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
+    /// with luminance defined by ITU-R BT.709
+    /// Values above 1.0 increase saturation.
+    pub post_saturation: f32,
+}
+
+impl Default for ColorGrading {
+    fn default() -> Self {
+        Self {
+            exposure: 0.0,
+            gamma: 1.0,
+            pre_saturation: 1.0,
+            post_saturation: 1.0,
+        }
     }
 }
 
@@ -127,6 +167,7 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    color_grading: ColorGrading,
 }
 
 #[derive(Resource, Default)]
@@ -144,7 +185,8 @@ pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
-    main_texture: AtomicUsize,
+    /// This is shared across view targets with the same render target
+    main_texture: Arc<AtomicUsize>,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
 }
@@ -298,6 +340,7 @@ pub fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport,
+                color_grading: camera.color_grading,
             }),
         };
 
@@ -314,6 +357,9 @@ struct MainTargetTextures {
     a: TextureView,
     b: TextureView,
     sampled: Option<TextureView>,
+    /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
+    /// This is shared across view targets with the same render target
+    main_texture: Arc<AtomicUsize>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -396,13 +442,14 @@ fn prepare_view_targets(
                                     )
                                     .default_view
                             }),
+                            main_texture: Arc::new(AtomicUsize::new(0)),
                         }
                     });
 
                 commands.entity(entity).insert(ViewTarget {
                     main_textures: main_textures.clone(),
                     main_texture_format,
-                    main_texture: AtomicUsize::new(0),
+                    main_texture: main_textures.main_texture.clone(),
                     out_texture: out_texture_view.clone(),
                     out_texture_format,
                 });

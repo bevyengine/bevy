@@ -1,5 +1,5 @@
 use crate::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -15,6 +15,7 @@ use bevy_ecs::{
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
+    extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
@@ -103,7 +104,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         render_app
             .init_resource::<SSAOPipelines>()
             .init_resource::<SpecializedComputePipelines<SSAOPipelines>>()
-            .add_system_to_schedule(ExtractSchedule, extract_ssao_settings)
+            .add_system(extract_ssao_settings.in_schedule(ExtractSchedule))
             .add_system(prepare_ssao_textures.in_set(RenderSet::Prepare))
             .add_system(prepare_ssao_pipelines.in_set(RenderSet::Prepare))
             .add_system(queue_ssao_bind_groups.in_set(RenderSet::Queue));
@@ -160,10 +161,11 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// It strongly recommended that you use SSAO in conjunction with
 /// TAA ([`bevy_core_pipeline::taa::TemporalAntialiasSettings`]).
 /// Doing so greatly reduces SSAO noise.
-#[derive(Component, Reflect, PartialEq, Eq, Hash, Clone)]
+#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
 pub enum ScreenSpaceAmbientOcclusionSettings {
     Low,
     Medium,
+    #[default]
     High,
     Ultra,
     Custom {
@@ -172,12 +174,6 @@ pub enum ScreenSpaceAmbientOcclusionSettings {
         /// Samples per slice side is also tweakable, but recommended to be left at 2 or 3.
         samples_per_slice_side: u32,
     },
-}
-
-impl Default for ScreenSpaceAmbientOcclusionSettings {
-    fn default() -> Self {
-        Self::High
-    }
 }
 
 impl ScreenSpaceAmbientOcclusionSettings {
@@ -536,10 +532,11 @@ impl FromWorld for SSAOPipelines {
         let preprocess_depth_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("ssao_preprocess_depth_pipeline".into()),
-                layout: Some(vec![
+                layout: vec![
                     preprocess_depth_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
-                ]),
+                ],
+                push_constant_ranges: vec![],
                 shader: PREPROCESS_DEPTH_SHADER_HANDLE.typed(),
                 shader_defs: vec![
                     // TODO: Remove this hack
@@ -558,10 +555,11 @@ impl FromWorld for SSAOPipelines {
         let spatial_denoise_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("ssao_spatial_denoise_pipeline".into()),
-                layout: Some(vec![
+                layout: vec![
                     spatial_denoise_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
-                ]),
+                ],
+                push_constant_ranges: vec![],
                 shader: SPATIAL_DENOISE_SHADER_HANDLE.typed(),
                 shader_defs: vec![
                     // TODO: Remove this hack
@@ -627,10 +625,11 @@ impl SpecializedComputePipeline for SSAOPipelines {
 
         ComputePipelineDescriptor {
             label: Some("ssao_gtao_pipeline".into()),
-            layout: Some(vec![
+            layout: vec![
                 self.gtao_bind_group_layout.clone(),
                 self.common_bind_group_layout.clone(),
-            ]),
+            ],
+            push_constant_ranges: vec![],
             shader: GTAO_SHADER_HANDLE.typed(),
             shader_defs,
             entry_point: "gtao".into(),

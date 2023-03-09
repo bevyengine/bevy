@@ -21,6 +21,7 @@ mod default;
 mod float_ord;
 
 pub use ahash::AHasher;
+pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
@@ -290,5 +291,15 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
+    }
+}
+
+/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
+#[macro_export]
+macro_rules! detailed_trace {
+    ($($tts:tt)*) => {
+        if cfg!(detailed_trace) {
+            bevy_utils::tracing::trace!($($tts)*);
+        }
     }
 }

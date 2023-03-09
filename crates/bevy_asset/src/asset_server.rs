@@ -286,7 +286,7 @@ impl AssetServer {
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
     /// setting the `"BEVY_ASSET_ROOT"` or `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
-    /// to another directory. When the application  is run through Cargo, then
+    /// to another directory. When the application is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
@@ -422,7 +422,7 @@ impl AssetServer {
         }
 
         self.asset_io()
-            .watch_path_for_changes(asset_path.path())
+            .watch_path_for_changes(asset_path.path(), None)
             .unwrap();
         self.create_assets_in_load_context(&mut load_context);
         Ok(asset_path_id)

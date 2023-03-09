@@ -6,8 +6,8 @@ use crate::{
     storage::{Column, ComponentSparseSet, Table, TableRow},
     world::World,
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyWorldQuery;
@@ -572,7 +572,7 @@ impl_tick_filter!(
     /// A common use for this filter is one-time initialization.
     ///
     /// To retain all results without filtering but still check whether they were added after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///

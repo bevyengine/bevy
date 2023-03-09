@@ -200,6 +200,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let StorageAttrs {
                         visibility,
                         read_only,
+                        buffer,
                     } = get_storage_binding_attr(nested_meta_items)?;
                     let visibility =
                         visibility.hygenic_quote(&quote! { #render_path::render_resource });
@@ -207,18 +208,32 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let field_name = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
 
-                    binding_impls.push(quote! {{
-                        use #render_path::render_resource::AsBindGroupShaderType;
-                        let mut buffer = #render_path::render_resource::encase::StorageBuffer::new(Vec::new());
-                        buffer.write(&self.#field_name).unwrap();
-                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                            &#render_path::render_resource::BufferInitDescriptor {
-                                label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
-                                contents: buffer.as_ref(),
-                            },
-                        ))
-                    }});
+                    let min_binding_size = if buffer {
+                        quote! {None}
+                    } else {
+                        quote! {Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size())}
+                    };
+
+                    if buffer {
+                        binding_impls.push(quote! {
+                            #render_path::render_resource::OwnedBindingResource::Buffer({
+                                self.#field_name.clone()
+                            })
+                        });
+                    } else {
+                        binding_impls.push(quote! {{
+                            use #render_path::render_resource::AsBindGroupShaderType;
+                            let mut buffer = #render_path::render_resource::encase::StorageBuffer::new(Vec::new());
+                            buffer.write(&self.#field_name).unwrap();
+                            #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                                &#render_path::render_resource::BufferInitDescriptor {
+                                    label: None,
+                                    usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
+                                    contents: buffer.as_ref(),
+                                },
+                            ))
+                        }});
+                    }
 
                     binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
@@ -227,7 +242,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
                                 has_dynamic_offset: false,
-                                min_binding_size: Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
+                                min_binding_size: #min_binding_size,
                             },
                             count: None,
                         }
@@ -907,13 +922,16 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
 struct StorageAttrs {
     visibility: ShaderStageVisibility,
     read_only: bool,
+    buffer: bool,
 }
 
 const READ_ONLY: Symbol = Symbol("read_only");
+const BUFFER: Symbol = Symbol("buffer");
 
 fn get_storage_binding_attr(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
     let mut read_only = false;
+    let mut buffer = false;
 
     for meta in metas {
         use syn::{Meta::List, Meta::Path, NestedMeta::Meta};
@@ -924,6 +942,9 @@ fn get_storage_binding_attr(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
             }
             Meta(Path(path)) if path == READ_ONLY => {
                 read_only = true;
+            }
+            Meta(Path(path)) if path == BUFFER => {
+                buffer = true;
             }
             _ => {
                 return Err(Error::new_spanned(
@@ -937,5 +958,6 @@ fn get_storage_binding_attr(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
     Ok(StorageAttrs {
         visibility,
         read_only,
+        buffer,
     })
 }

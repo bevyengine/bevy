@@ -7,9 +7,9 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{Mut, Ref, World},
 };
-use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -1115,6 +1115,7 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
+#[deprecated = "`ChangeTrackers<T>` will be removed in bevy 0.11. Use `bevy_ecs::prelude::Ref<T>` instead."]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
@@ -1122,18 +1123,17 @@ pub struct ChangeTrackers<T: Component> {
     marker: PhantomData<T>,
 }
 
+#[allow(deprecated)]
 impl<T: Component> Clone for ChangeTrackers<T> {
     fn clone(&self) -> Self {
-        Self {
-            component_ticks: self.component_ticks,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
-            marker: PhantomData,
-        }
+        *self
     }
 }
+
+#[allow(deprecated)]
 impl<T: Component> Copy for ChangeTrackers<T> {}
 
+#[allow(deprecated)]
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChangeTrackers")
@@ -1144,6 +1144,7 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
@@ -1171,6 +1172,7 @@ pub struct ChangeTrackersFetch<'w, T> {
     change_tick: u32,
 }
 
+#[allow(deprecated)]
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type Fetch<'w> = ChangeTrackersFetch<'w, T>;
@@ -1317,6 +1319,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     }
 }
 
+#[allow(deprecated)]
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyWorldQuery for ChangeTrackers<T> {}
 

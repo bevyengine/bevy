@@ -29,7 +29,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
         material: materials.add(StandardMaterial {
             base_color: Color::GREEN,
             perceptual_roughness: 1.0,
@@ -105,7 +105,7 @@ fn setup(
                             })),
                             material: materials.add(StandardMaterial {
                                 base_color: Color::MAROON,
-                                emissive: Color::rgba_linear(0.125, 0.0, 0.0, 0.0),
+                                emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
                                 ..default()
                             }),
                             ..default()

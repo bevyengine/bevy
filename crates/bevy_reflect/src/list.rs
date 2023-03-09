@@ -1,24 +1,57 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 
-use crate::utility::NonGenericTypeInfoCell;
+use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, Typed,
+    DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 
-/// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
+/// A trait used to power [list-like] operations via [reflection].
 ///
-/// This is a sub-trait of [`Array`], however as it implements [insertion](List::insert) and [removal](List::remove),
-/// it's internal size may change.
+/// This corresponds to types, like [`Vec`], which contain an ordered sequence
+/// of elements that implement [`Reflect`].
 ///
-/// This trait expects index 0 to contain the _front_ element.
-/// The _back_ element must refer to the element with the largest index.
-/// These two rules above should be upheld by manual implementors.
+/// Unlike the [`Array`](crate::Array) trait, implementors of this trait are not expected to
+/// maintain a constant length.
+/// Methods like [insertion](List::insert) and [removal](List::remove) explicitly allow for their
+/// internal size to change.
 ///
 /// [`push`](List::push) and [`pop`](List::pop) have default implementations,
-/// however it may be faster to implement them manually.
-pub trait List: Reflect + Array {
+/// however it will generally be more performant to implement them manually
+/// as the default implementation uses a very naive approach to find the correct position.
+///
+/// This trait expects its elements to be ordered linearly from front to back.
+/// The _front_ element starts at index 0 with the _back_ element ending at the largest index.
+/// This contract above should be upheld by any manual implementors.
+///
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogenous (i.e. all the same type).
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, List};
+///
+/// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+///
+/// let last_field: Box<dyn Reflect> = foo.pop().unwrap();
+/// assert_eq!(last_field.downcast_ref::<u32>(), Some(&789));
+/// ```
+///
+/// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
+/// [reflection]: crate
+/// [`Vec`]: std::vec::Vec
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
+pub trait List: Reflect {
+    /// Returns a reference to the element at `index`, or `None` if out of bounds.
+    fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///
@@ -46,6 +79,20 @@ pub trait List: Reflect + Array {
             Some(self.remove(self.len() - 1))
         }
     }
+
+    /// Returns the number of elements in the list.
+    fn len(&self) -> usize;
+
+    /// Returns `true` if the collection contains no elements.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns an iterator over the list.
+    fn iter(&self) -> ListIter;
+
+    /// Drain the elements of this list to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
@@ -162,7 +209,7 @@ impl DynamicList {
     }
 }
 
-impl Array for DynamicList {
+impl List for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.values.get(index).map(|value| &**value)
     }
@@ -171,31 +218,6 @@ impl Array for DynamicList {
         self.values.get_mut(index).map(|value| &mut **value)
     }
 
-    fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    fn iter(&self) -> ArrayIter {
-        ArrayIter::new(self)
-    }
-
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        self.values
-    }
-
-    fn clone_dynamic(&self) -> DynamicArray {
-        DynamicArray {
-            name: self.name.clone(),
-            values: self
-                .values
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
-    }
-}
-
-impl List for DynamicList {
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         self.values.insert(index, element);
     }
@@ -210,6 +232,18 @@ impl List for DynamicList {
 
     fn pop(&mut self) -> Option<Box<dyn Reflect>> {
         self.values.pop()
+    }
+
+    fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values
     }
 
     fn clone_dynamic(&self) -> DynamicList {
@@ -292,12 +326,12 @@ impl Reflect for DynamicList {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(List::clone_dynamic(self))
+        Box::new(self.clone_dynamic())
     }
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        list_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -333,6 +367,51 @@ impl IntoIterator for DynamicList {
     }
 }
 
+/// An iterator over an [`List`].
+pub struct ListIter<'a> {
+    list: &'a dyn List,
+    index: usize,
+}
+
+impl<'a> ListIter<'a> {
+    /// Creates a new [`ListIter`].
+    #[inline]
+    pub const fn new(list: &'a dyn List) -> ListIter {
+        ListIter { list, index: 0 }
+    }
+}
+
+impl<'a> Iterator for ListIter<'a> {
+    type Item = &'a dyn Reflect;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let value = self.list.get(self.index);
+        self.index += 1;
+        value
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.list.len();
+        (size, Some(size))
+    }
+}
+
+impl<'a> ExactSizeIterator for ListIter<'a> {}
+
+/// Returns the `u64` hash of the given [list](List).
+#[inline]
+pub fn list_hash<L: List>(list: &L) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+    std::any::Any::type_id(list).hash(&mut hasher);
+    list.len().hash(&mut hasher);
+    for value in list.iter() {
+        hasher.write_u64(value.reflect_hash()?);
+    }
+    Some(hasher.finish())
+}
+
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
 /// If the length of `b` is greater than that of `a`, the excess elements of `b`
@@ -350,7 +429,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
                     v.apply(value);
                 }
             } else {
-                List::push(a, value.clone_value());
+                a.push(value.clone_value());
             }
         }
     } else {

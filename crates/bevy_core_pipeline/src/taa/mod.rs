@@ -1,9 +1,9 @@
 use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
+    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
@@ -46,7 +46,7 @@ mod draw_3d_graph {
 const TAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
 
-/// Plugin for temporal antialiasing. Disables multisample antialiasing (MSAA).
+/// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
 pub struct TemporalAntialiasPlugin;
 
 impl Plugin for TemporalAntialiasPlugin {
@@ -61,7 +61,7 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_system_to_schedule(ExtractSchedule, extract_taa_settings)
+            .add_system(extract_taa_settings.in_schedule(ExtractSchedule))
             .add_system(
                 prepare_taa_jitter
                     .before(prepare_view_uniforms)
@@ -95,19 +95,19 @@ impl Plugin for TemporalAntialiasPlugin {
     }
 }
 
-/// Bundle to apply temporal antialiasing.
+/// Bundle to apply temporal anti-aliasing.
 #[derive(Bundle, Default)]
 pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
     pub jitter: TemporalJitter,
     pub depth_prepass: DepthPrepass,
-    pub velocity_prepass: VelocityPrepass,
+    pub motion_vector_prepass: MotionVectorPrepass,
 }
 
-/// Component to apply temporal antialiasing to a 3d perspective camera.
+/// Component to apply temporal anti-aliasing to a 3D perspective camera.
 ///
-/// Temporal antialiasing (TAA) is a form of image smoothing/filtering, like
-/// multisample antialiasing (MSAA), or fast approximate antialiasing (FXAA).
+/// Temporal anti-aliasing (TAA) is a form of image smoothing/filtering, like
+/// multisample anti-aliasing (MSAA), or fast approximate anti-aliasing (FXAA).
 /// TAA works by blending (averaging) each frame with the past few frames.
 ///
 /// # Tradeoffs
@@ -115,7 +115,7 @@ pub struct TemporalAntialiasBundle {
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
 /// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO and SSR
+/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO, SSR, and shadow mapping (WIP)
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
@@ -130,17 +130,18 @@ pub struct TemporalAntialiasBundle {
 /// # Usage Notes
 ///
 /// Requires that you add [`TemporalAntialiasPlugin`] to your app,
-/// and add the [`DepthPrepass`], [`VelocityPrepass`], and [`TemporalJitter`]
+/// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently not compatible with skinned meshes. There will probably be ghosting artifacts.
+/// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
+/// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
-/// It is very important that correct velocity vectors are written for everything on screen.
+/// It is very important that correct motion vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
 /// are added using a third party library, the library must either:
-/// 1. Write particle velocity to the velocity prepass texture
+/// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntialiasSettings {
@@ -212,11 +213,11 @@ impl Node for TAANode {
         };
         let (
             Some(taa_pipeline),
-            Some(prepass_velocity_texture),
+            Some(prepass_motion_vectors_texture),
             Some(prepass_depth_texture),
         ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
-            &prepass_textures.velocity,
+            &prepass_textures.motion_vectors,
             &prepass_textures.depth,
         ) else {
             return Ok(());
@@ -243,7 +244,7 @@ impl Node for TAANode {
                         BindGroupEntry {
                             binding: 2,
                             resource: BindingResource::TextureView(
-                                &prepass_velocity_texture.default_view,
+                                &prepass_motion_vectors_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
@@ -342,7 +343,7 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Velocity
+                    // Motion Vectors
                     BindGroupLayoutEntry {
                         binding: 2,
                         visibility: ShaderStages::FRAGMENT,
@@ -414,7 +415,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
-            layout: Some(vec![self.taa_bind_group_layout.clone()]),
+            layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TAA_SHADER_HANDLE.typed::<Shader>(),
@@ -436,6 +437,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }
@@ -446,7 +448,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
             With<Camera3d>,
             With<TemporalJitter>,
             With<DepthPrepass>,
-            With<VelocityPrepass>,
+            With<MotionVectorPrepass>,
         )>();
 
     for (entity, camera, camera_projection, mut taa_settings) in
@@ -464,20 +466,16 @@ fn prepare_taa_jitter(
     frame_count: Res<FrameCount>,
     mut query: Query<&mut TemporalJitter, With<TemporalAntialiasSettings>>,
 ) {
-    // Halton sequence (2, 3)
+    // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
-        vec2(0.5, 0.33333334),
-        vec2(0.25, 0.6666667),
-        vec2(0.75, 0.111111104),
-        vec2(0.125, 0.44444445),
-        vec2(0.625, 0.7777778),
-        vec2(0.375, 0.22222221),
-        vec2(0.875, 0.5555556),
-        vec2(0.0625, 0.8888889),
-        vec2(0.5625, 0.037037045),
-        vec2(0.3125, 0.3703704),
-        vec2(0.8125, 0.7037037),
-        vec2(0.1875, 0.14814815),
+        vec2(0.0, -0.16666666),
+        vec2(-0.25, 0.16666669),
+        vec2(0.25, -0.3888889),
+        vec2(-0.375, -0.055555552),
+        vec2(0.125, 0.2777778),
+        vec2(-0.125, -0.2777778),
+        vec2(0.375, 0.055555582),
+        vec2(-0.4375, 0.3888889),
     ];
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];

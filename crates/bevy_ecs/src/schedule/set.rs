@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -7,8 +8,7 @@ use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    ExclusiveSystemParam, ExclusiveSystemParamFunction, IsExclusiveFunctionSystem,
-    IsFunctionSystem, SystemParam, SystemParamFunction,
+    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
 define_boxed_label!(ScheduleLabel);
@@ -18,9 +18,9 @@ pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
-    /// Returns `true` if this system set is a [`SystemTypeSet`].
-    fn is_system_type(&self) -> bool {
-        false
+    /// Returns `Some` if this system set is a [`SystemTypeSet`].
+    fn system_type(&self) -> Option<TypeId> {
+        None
     }
 
     /// Returns `true` if this set is a "base system set". Systems
@@ -36,6 +36,20 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
+
+/// A marker trait for `SystemSet` types where [`is_base`] returns `true`.
+/// This should only be implemented for types that satisfy this requirement.
+/// It is automatically implemented for base set types by `#[derive(SystemSet)]`.
+///
+/// [`is_base`]: SystemSet::is_base
+pub trait BaseSystemSet: SystemSet {}
+
+/// A marker trait for `SystemSet` types where [`is_base`] returns `false`.
+/// This should only be implemented for types that satisfy this requirement.
+/// It is automatically implemented for non-base set types by `#[derive(SystemSet)]`.
+///
+/// [`is_base`]: SystemSet::is_base
+pub trait FreeSystemSet: SystemSet {}
 
 impl PartialEq for dyn SystemSet {
     fn eq(&self, other: &Self) -> bool {
@@ -103,8 +117,8 @@ impl<T> PartialEq for SystemTypeSet<T> {
 impl<T> Eq for SystemTypeSet<T> {}
 
 impl<T> SystemSet for SystemTypeSet<T> {
-    fn is_system_type(&self) -> bool {
-        true
+    fn system_type(&self) -> Option<TypeId> {
+        Some(TypeId::of::<T>())
     }
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
@@ -130,10 +144,9 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 }
 
 // systems
-impl<In, Out, Param, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Out, Param, Marker)> for F
+impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
-    Param: SystemParam,
-    F: SystemParamFunction<In, Out, Param, Marker>,
+    F: SystemParamFunction<Marker>,
 {
     type Set = SystemTypeSet<Self>;
 
@@ -144,11 +157,9 @@ where
 }
 
 // exclusive systems
-impl<In, Out, Param, Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, In, Out, Param, Marker)>
-    for F
+impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
-    Param: ExclusiveSystemParam,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
     type Set = SystemTypeSet<Self>;
 

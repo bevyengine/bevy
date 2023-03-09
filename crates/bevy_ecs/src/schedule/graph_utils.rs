@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use bevy_utils::{
-    petgraph::{graphmap::NodeTrait, prelude::*},
+    petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
     HashMap, HashSet,
 };
 use fixedbitset::FixedBitSet;
@@ -10,14 +10,14 @@ use crate::schedule::set::*;
 
 /// Unique identifier for a system or system set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum NodeId {
+pub enum NodeId {
     System(usize),
     Set(usize),
 }
 
 impl NodeId {
     /// Returns the internal integer value.
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         match self {
             NodeId::System(index) | NodeId::Set(index) => *index,
         }
@@ -135,7 +135,7 @@ pub(crate) struct CheckGraphResults<V> {
     /// Pairs of nodes that have a path connecting them.
     pub(crate) connected: HashSet<(V, V)>,
     /// Pairs of nodes that don't have a path connecting them.
-    pub(crate) disconnected: HashSet<(V, V)>,
+    pub(crate) disconnected: Vec<(V, V)>,
     /// Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(V, V)>,
     /// Variant of the graph with no transitive edges.
@@ -151,7 +151,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
         Self {
             reachable: FixedBitSet::new(),
             connected: HashSet::new(),
-            disconnected: HashSet::new(),
+            disconnected: Vec::new(),
             transitive_edges: Vec::new(),
             transitive_reduction: DiGraphMap::new(),
             transitive_closure: DiGraphMap::new(),
@@ -198,7 +198,7 @@ where
 
     let mut reachable = FixedBitSet::with_capacity(n * n);
     let mut connected = HashSet::new();
-    let mut disconnected = HashSet::new();
+    let mut disconnected = Vec::new();
 
     let mut transitive_edges = Vec::new();
     let mut transitive_reduction = DiGraphMap::<V, ()>::new();
@@ -255,7 +255,7 @@ where
             if reachable[index] {
                 connected.insert(pair);
             } else {
-                disconnected.insert(pair);
+                disconnected.push(pair);
             }
         }
     }
@@ -273,4 +273,120 @@ where
         transitive_reduction,
         transitive_closure,
     }
+}
+
+/// Returns the simple cycles in a strongly-connected component of a directed graph.
+///
+/// The algorithm implemented comes from
+/// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
+///
+/// [1]: https://doi.org/10.1137/0204007
+pub fn simple_cycles_in_component<N>(graph: &DiGraphMap<N, ()>, scc: &[N]) -> Vec<Vec<N>>
+where
+    N: NodeTrait + Debug,
+{
+    let mut cycles = vec![];
+    let mut sccs = vec![scc.to_vec()];
+
+    while let Some(mut scc) = sccs.pop() {
+        // only look at nodes and edges in this strongly-connected component
+        let mut subgraph = DiGraphMap::new();
+        for &node in &scc {
+            subgraph.add_node(node);
+        }
+
+        for &node in &scc {
+            for successor in graph.neighbors(node) {
+                if subgraph.contains_node(successor) {
+                    subgraph.add_edge(node, successor, ());
+                }
+            }
+        }
+
+        // path of nodes that may form a cycle
+        let mut path = Vec::with_capacity(subgraph.node_count());
+        // we mark nodes as "blocked" to avoid finding permutations of the same cycles
+        let mut blocked = HashSet::with_capacity(subgraph.node_count());
+        // connects nodes along path segments that can't be part of a cycle (given current root)
+        // those nodes can be unblocked at the same time
+        let mut unblock_together: HashMap<N, HashSet<N>> =
+            HashMap::with_capacity(subgraph.node_count());
+        // stack for unblocking nodes
+        let mut unblock_stack = Vec::with_capacity(subgraph.node_count());
+        // nodes can be involved in multiple cycles
+        let mut maybe_in_more_cycles: HashSet<N> = HashSet::with_capacity(subgraph.node_count());
+        // stack for DFS
+        let mut stack = Vec::with_capacity(subgraph.node_count());
+
+        // we're going to look for all cycles that begin and end at this node
+        let root = scc.pop().unwrap();
+        // start a path at the root
+        path.clear();
+        path.push(root);
+        // mark this node as blocked
+        blocked.insert(root);
+
+        // DFS
+        stack.clear();
+        stack.push((root, subgraph.neighbors(root)));
+        while !stack.is_empty() {
+            let (ref node, successors) = stack.last_mut().unwrap();
+            if let Some(next) = successors.next() {
+                if next == root {
+                    // found a cycle
+                    maybe_in_more_cycles.extend(path.iter());
+                    cycles.push(path.clone());
+                } else if !blocked.contains(&next) {
+                    // first time seeing `next` on this path
+                    maybe_in_more_cycles.remove(&next);
+                    path.push(next);
+                    blocked.insert(next);
+                    stack.push((next, subgraph.neighbors(next)));
+                    continue;
+                } else {
+                    // not first time seeing `next` on this path
+                }
+            }
+
+            if successors.peekable().peek().is_none() {
+                if maybe_in_more_cycles.contains(node) {
+                    unblock_stack.push(*node);
+                    // unblock this node's ancestors
+                    while let Some(n) = unblock_stack.pop() {
+                        if blocked.remove(&n) {
+                            let unblock_predecessors =
+                                unblock_together.entry(n).or_insert_with(HashSet::new);
+                            unblock_stack.extend(unblock_predecessors.iter());
+                            unblock_predecessors.clear();
+                        }
+                    }
+                } else {
+                    // if its descendants can be unblocked later, this node will be too
+                    for successor in subgraph.neighbors(*node) {
+                        unblock_together
+                            .entry(successor)
+                            .or_insert_with(HashSet::new)
+                            .insert(*node);
+                    }
+                }
+
+                // remove node from path and DFS stack
+                path.pop();
+                stack.pop();
+            }
+        }
+
+        // remove node from subgraph
+        subgraph.remove_node(root);
+
+        // divide remainder into smaller SCCs
+        let mut tarjan_scc = TarjanScc::new();
+        tarjan_scc.run(&subgraph, |scc| {
+            if scc.len() > 1 {
+                sccs.push(scc.to_vec());
+            }
+        });
+    }
+
+    cycles
 }
