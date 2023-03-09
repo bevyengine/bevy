@@ -83,7 +83,7 @@ pub struct OnUpdate<S: States>(pub S);
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
 #[derive(Resource, Default, Debug)]
-pub struct State<S: States>(pub S);
+pub struct State<S: States>(S);
 
 impl<S: States> std::ops::Deref for State<S> {
     type Target = S;
