@@ -537,6 +537,41 @@ pub struct Mut<'a, T: ?Sized> {
     pub(crate) ticks: TicksMut<'a>,
 }
 
+impl<'a, T: ?Sized> Mut<'a, T> {
+    /// Creates a new change-detection enabled smart pointer.
+    /// In almost all cases you do not need to call this method manually,
+    /// as instances of `Mut` will be created by engine-internal code.
+    ///
+    /// Many use-cases of this method would be better served by [`Mut::map_unchanged`]
+    /// or [`Mut::reborrow`].
+    ///
+    /// - `value` - The value wrapped by this smart pointer.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
+    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    ///   This will be updated to the value of `change_tick` if the returned smart pointer
+    ///   is modified.
+    /// - `last_change_tick` - A [`Tick`], occurring before `change_tick`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `change_tick` - A [`Tick`] corresponding to the current point in time -- "now".
+    pub fn new(
+        value: &'a mut T,
+        added: &'a mut Tick,
+        last_changed: &'a mut Tick,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        Self {
+            value,
+            ticks: TicksMut {
+                added,
+                changed: last_changed,
+                last_change_tick,
+                change_tick,
+            },
+        }
+    }
+}
+
 impl<'a, T: ?Sized> From<Mut<'a, T>> for Ref<'a, T> {
     fn from(mut_ref: Mut<'a, T>) -> Self {
         Self {
@@ -825,6 +860,26 @@ mod tests {
         assert_eq!(2, into_mut.ticks.changed.tick);
         assert_eq!(3, into_mut.ticks.last_change_tick);
         assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn mut_new() {
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(3),
+        };
+        let mut res = R {};
+
+        let val = Mut::new(
+            &mut res,
+            &mut component_ticks.added,
+            &mut component_ticks.changed,
+            2, // last_change_tick
+            4, // current change_tick
+        );
+
+        assert!(!val.is_added());
+        assert!(val.is_changed());
     }
 
     #[test]
