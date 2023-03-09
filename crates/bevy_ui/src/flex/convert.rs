@@ -404,7 +404,7 @@ mod tests {
             taffy::style::LengthPercentage::Points(0.)
         );
         assert_eq!(
-            taffy_style.gap.width,
+            taffy_style.gap.height,
             taffy::style::LengthPercentage::Percent(0.)
         );
     }
