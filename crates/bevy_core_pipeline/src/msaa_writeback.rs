@@ -145,7 +145,7 @@ impl Node for MsaaWritebackNode {
 }
 
 #[derive(Component)]
-pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
+pub struct MsaaWritebackBlitPipeline(RenderPipelineId);
 
 fn queue_msaa_writeback_pipelines(
     mut commands: Commands,
@@ -166,10 +166,10 @@ fn queue_msaa_writeback_pipelines(
                 blend_state: None,
             };
 
-            let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
+            let pipeline_id = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
             commands
                 .entity(entity)
-                .insert(MsaaWritebackBlitPipeline(pipeline));
+                .insert(MsaaWritebackBlitPipeline(pipeline_id));
         } else {
             // This isn't strictly necessary now, but if we move to retained render entity state I don't
             // want this to silently break

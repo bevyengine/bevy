@@ -12,8 +12,8 @@ use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
-    pub id_main: CachedRenderPipelineId,
-    pub id_final: CachedRenderPipelineId,
+    pub main_pipeline_id: RenderPipelineId,
+    pub first_pipeline_id: RenderPipelineId,
 }
 
 #[derive(Resource)]
@@ -150,7 +150,7 @@ pub fn prepare_upsampling_pipeline(
     views: Query<(Entity, &BloomSettings)>,
 ) {
     for (entity, settings) in &views {
-        let pipeline_id = pipelines.specialize(
+        let main_pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
@@ -159,7 +159,7 @@ pub fn prepare_upsampling_pipeline(
             },
         );
 
-        let pipeline_final_id = pipelines.specialize(
+        let first_pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
@@ -169,8 +169,8 @@ pub fn prepare_upsampling_pipeline(
         );
 
         commands.entity(entity).insert(UpsamplingPipelineIds {
-            id_main: pipeline_id,
-            id_final: pipeline_final_id,
+            main_pipeline_id,
+            first_pipeline_id,
         });
     }
 }

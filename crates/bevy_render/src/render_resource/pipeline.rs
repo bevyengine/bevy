@@ -2,7 +2,7 @@ use crate::{render_resource::*, render_resource_wrapper, renderer::RenderDevice}
 use bevy_asset::Handle;
 use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroU32, ops::Deref};
 
-pub(crate) trait PipelineId: Copy + Clone + Hash + Eq + PartialEq + Debug {
+pub trait PipelineId: Copy + Clone + Hash + Eq + PartialEq + Debug {
     fn new(id: u32) -> Self;
     fn index(&self) -> usize;
 }

@@ -10,8 +10,8 @@ use bevy_render::{render_resource::*, renderer::RenderDevice};
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
-    pub main: CachedRenderPipelineId,
-    pub first: CachedRenderPipelineId,
+    pub main_pipeline_id: RenderPipelineId,
+    pub first_pipeline_id: RenderPipelineId,
 }
 
 #[derive(Resource)]
@@ -157,7 +157,7 @@ pub fn prepare_downsampling_pipeline(
     for (entity, settings) in &views {
         let prefilter = settings.prefilter_settings.threshold > 0.0;
 
-        let pipeline_id = pipelines.specialize(
+        let main_pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomDownsamplingPipelineKeys {
@@ -166,7 +166,7 @@ pub fn prepare_downsampling_pipeline(
             },
         );
 
-        let pipeline_first_id = pipelines.specialize(
+        let first_pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomDownsamplingPipelineKeys {
@@ -178,8 +178,8 @@ pub fn prepare_downsampling_pipeline(
         commands
             .entity(entity)
             .insert(BloomDownsamplingPipelineIds {
-                first: pipeline_first_id,
-                main: pipeline_id,
+                main_pipeline_id,
+                first_pipeline_id,
             });
     }
 }
