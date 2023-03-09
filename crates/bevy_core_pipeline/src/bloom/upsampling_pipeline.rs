@@ -13,7 +13,7 @@ use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
     pub main_pipeline_id: RenderPipelineId,
-    pub first_pipeline_id: RenderPipelineId,
+    pub final_pipeline_id: RenderPipelineId,
 }
 
 #[derive(Resource)]
@@ -159,7 +159,7 @@ pub fn prepare_upsampling_pipeline(
             },
         );
 
-        let first_pipeline_id = pipelines.specialize(
+        let final_pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
@@ -170,7 +170,7 @@ pub fn prepare_upsampling_pipeline(
 
         commands.entity(entity).insert(UpsamplingPipelineIds {
             main_pipeline_id,
-            first_pipeline_id,
+            final_pipeline_id,
         });
     }
 }
