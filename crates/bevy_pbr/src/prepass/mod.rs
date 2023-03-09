@@ -129,15 +129,15 @@ where
         };
 
         render_app
-            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
-            .add_system(
+            .add_systems((
+                extract_camera_prepass_phase.in_schedule(ExtractSchedule),
                 prepare_prepass_textures
                     .in_set(RenderSet::Prepare)
                     .after(bevy_render::view::prepare_windows),
-            )
-            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
-            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
+                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+            ))
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()

@@ -58,9 +58,11 @@
 //! # let mut app = Schedule::new();
 //! // Prints "Hello, World!" each frame.
 //! app
-//!     .add_system(print_first.before(print_mid))
-//!     .add_system(print_mid)
-//!     .add_system(print_last.after(print_mid));
+//!     .add_systems((
+//!         print_first.before(print_mid),
+//!         print_mid,
+//!         print_last.after(print_mid),
+//!     ));
 //! # let mut world = World::new();
 //! # app.run(&mut world);
 //!
@@ -334,9 +336,11 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_system(incr_e_on_flip);
-        schedule.add_system(apply_system_buffers.after(incr_e_on_flip));
-        schedule.add_system(World::clear_trackers.after(apply_system_buffers));
+        schedule.add_systems((
+            incr_e_on_flip,
+            apply_system_buffers.after(incr_e_on_flip),
+            World::clear_trackers.after(apply_system_buffers),
+        ));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);

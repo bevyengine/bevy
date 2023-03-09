@@ -112,18 +112,22 @@ impl RenderSet {
         let mut schedule = Schedule::new();
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_set(PrepareFlush));
-        schedule.add_system(apply_system_buffers.in_set(QueueFlush));
-        schedule.add_system(apply_system_buffers.in_set(PhaseSortFlush));
-        schedule.add_system(apply_system_buffers.in_set(RenderFlush));
-        schedule.add_system(apply_system_buffers.in_set(CleanupFlush));
+        schedule.add_systems((
+            apply_system_buffers.in_set(PrepareFlush),
+            apply_system_buffers.in_set(QueueFlush),
+            apply_system_buffers.in_set(PhaseSortFlush),
+            apply_system_buffers.in_set(RenderFlush),
+            apply_system_buffers.in_set(CleanupFlush),
+        ));
 
-        schedule.configure_set(ExtractCommands.before(Prepare));
-        schedule.configure_set(Prepare.after(ExtractCommands).before(PrepareFlush));
-        schedule.configure_set(Queue.after(PrepareFlush).before(QueueFlush));
-        schedule.configure_set(PhaseSort.after(QueueFlush).before(PhaseSortFlush));
-        schedule.configure_set(Render.after(PhaseSortFlush).before(RenderFlush));
-        schedule.configure_set(Cleanup.after(RenderFlush).before(CleanupFlush));
+        schedule.configure_sets((
+            ExtractCommands.before(Prepare),
+            Prepare.after(ExtractCommands).before(PrepareFlush),
+            Queue.after(PrepareFlush).before(QueueFlush),
+            PhaseSort.after(QueueFlush).before(PhaseSortFlush),
+            Render.after(PhaseSortFlush).before(RenderFlush),
+            Cleanup.after(RenderFlush).before(CleanupFlush),
+        ));
 
         schedule
     }
