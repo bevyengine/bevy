@@ -66,6 +66,8 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 pub const SKINNING_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
+pub const STOCHASTIC_SAMPLING_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9421526659426591543);
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -102,6 +104,12 @@ impl Plugin for MeshRenderPlugin {
         );
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            STOCHASTIC_SAMPLING_HANDLE,
+            "stochastic_sampling.wgsl",
+            Shader::from_wgsl
+        );
 
         let mut images = app.world.resource_mut::<Assets<Image>>();
         let stochastic_noise = Image::from_buffer(
