@@ -21,13 +21,7 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
         let mut schedule = Schedule::new();
         schedule.add_system(empty.run_if(yes));
         for _ in 0..amount {
-            schedule.add_systems((
-                empty.run_if(yes),
-                empty.run_if(yes),
-                empty.run_if(yes),
-                empty.run_if(yes),
-                empty.run_if(yes),
-            ));
+            schedule.add_systems((empty, empty, empty, empty, empty).distributive_run_if(yes));
         }
         // run once to initialize systems
         schedule.run(&mut world);
