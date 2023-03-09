@@ -12,7 +12,7 @@
 fn stochastic_uv(sample_uv: vec2<f32>, sample_i: u32, sample_offset_scale: vec2<f32>) -> vec2<f32> {
     var noise = textureSampleLevel(
         stochastic_noise,
-        dt_lut_sampler, // TODO
+        stochastic_noise_sampler,
         sample_uv + r2(sample_i),
         i32(globals.frame_count % 64u), // Naga bug: need to use i32
         0.0,
