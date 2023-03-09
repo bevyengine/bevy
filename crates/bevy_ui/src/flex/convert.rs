@@ -243,22 +243,22 @@ mod tests {
             align_self: AlignSelf::Start,
             align_content: AlignContent::SpaceAround,
             justify_content: JustifyContent::SpaceEvenly,
-            margin: UiRect { 
-                left: Val::Percent(0.), 
-                right: Val::Px(0.), 
-                top: Val::Auto, 
+            margin: UiRect {
+                left: Val::Percent(0.),
+                right: Val::Px(0.),
+                top: Val::Auto,
                 bottom: Val::Auto,
             },
-            padding: UiRect { 
-                left: Val::Percent(0.), 
-                right: Val::Px(0.), 
-                top: Val::Percent(0.), 
+            padding: UiRect {
+                left: Val::Percent(0.),
+                right: Val::Px(0.),
+                top: Val::Percent(0.),
                 bottom: Val::Percent(0.),
             },
-            border: UiRect { 
-                left: Val::Px(0.), 
-                right: Val::Px(0.), 
-                top: Val::Auto, 
+            border: UiRect {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Auto,
                 bottom: Val::Px(0.),
             },
             flex_grow: 1.,
@@ -286,40 +286,126 @@ mod tests {
         let taffy_style = from_style(1.0, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
-        assert!(matches!(taffy_style.inset.left, taffy::style::LengthPercentageAuto::Points(_)));
-        assert!(matches!(taffy_style.inset.right, taffy::style::LengthPercentageAuto::Percent(_)));
-        assert!(matches!(taffy_style.inset.top, taffy::style::LengthPercentageAuto::Auto));
-        assert!(matches!(taffy_style.inset.bottom, taffy::style::LengthPercentageAuto::Auto));
-        assert_eq!(taffy_style.flex_direction, taffy::style::FlexDirection::ColumnReverse);
+        assert!(matches!(
+            taffy_style.inset.left,
+            taffy::style::LengthPercentageAuto::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.inset.right,
+            taffy::style::LengthPercentageAuto::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.inset.top,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert!(matches!(
+            taffy_style.inset.bottom,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert_eq!(
+            taffy_style.flex_direction,
+            taffy::style::FlexDirection::ColumnReverse
+        );
         assert_eq!(taffy_style.flex_wrap, taffy::style::FlexWrap::WrapReverse);
-        assert_eq!(taffy_style.align_items, Some(taffy::style::AlignItems::Baseline));
+        assert_eq!(
+            taffy_style.align_items,
+            Some(taffy::style::AlignItems::Baseline)
+        );
         assert_eq!(taffy_style.align_self, Some(taffy::style::AlignSelf::Start));
-        assert_eq!(taffy_style.align_content, Some(taffy::style::AlignContent::SpaceAround));
-        assert_eq!(taffy_style.justify_content, Some(taffy::style::JustifyContent::SpaceEvenly));
-        assert!(matches!(taffy_style.margin.left, taffy::style::LengthPercentageAuto::Percent(_)));
-        assert!(matches!(taffy_style.margin.right, taffy::style::LengthPercentageAuto::Points(_)));
-        assert!(matches!(taffy_style.margin.top, taffy::style::LengthPercentageAuto::Auto));
-        assert!(matches!(taffy_style.margin.bottom, taffy::style::LengthPercentageAuto::Auto));
-        assert!(matches!(taffy_style.padding.left, taffy::style::LengthPercentage::Percent(_)));
-        assert!(matches!(taffy_style.padding.right, taffy::style::LengthPercentage::Points(_)));
-        assert!(matches!(taffy_style.padding.top, taffy::style::LengthPercentage::Percent(_)));
-        assert!(matches!(taffy_style.padding.bottom, taffy::style::LengthPercentage::Percent(_)));
-        assert!(matches!(taffy_style.border.left, taffy::style::LengthPercentage::Points(_)));
-        assert!(matches!(taffy_style.border.right, taffy::style::LengthPercentage::Points(_)));
-        assert!(matches!(taffy_style.border.top, taffy::style::LengthPercentage::Points(_)));
-        assert!(matches!(taffy_style.border.bottom, taffy::style::LengthPercentage::Points(_)));
+        assert_eq!(
+            taffy_style.align_content,
+            Some(taffy::style::AlignContent::SpaceAround)
+        );
+        assert_eq!(
+            taffy_style.justify_content,
+            Some(taffy::style::JustifyContent::SpaceEvenly)
+        );
+        assert!(matches!(
+            taffy_style.margin.left,
+            taffy::style::LengthPercentageAuto::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.margin.right,
+            taffy::style::LengthPercentageAuto::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.margin.top,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert!(matches!(
+            taffy_style.margin.bottom,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert!(matches!(
+            taffy_style.padding.left,
+            taffy::style::LengthPercentage::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.padding.right,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.padding.top,
+            taffy::style::LengthPercentage::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.padding.bottom,
+            taffy::style::LengthPercentage::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.left,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.right,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.top,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.bottom,
+            taffy::style::LengthPercentage::Points(_)
+        ));
         assert_eq!(taffy_style.flex_grow, 1.);
         assert_eq!(taffy_style.flex_shrink, 0.);
-        assert!(matches!(taffy_style.flex_basis, taffy::style::Dimension::Points(_)));
-        assert!(matches!(taffy_style.size.width, taffy::style::Dimension::Points(_)));
-        assert!(matches!(taffy_style.size.height, taffy::style::Dimension::Auto));
-        assert!(matches!(taffy_style.min_size.width, taffy::style::Dimension::Points(_)));
-        assert!(matches!(taffy_style.min_size.height, taffy::style::Dimension::Percent(_)));
-        assert!(matches!(taffy_style.max_size.width, taffy::style::Dimension::Auto));
-        assert!(matches!(taffy_style.max_size.height, taffy::style::Dimension::Points(_)));
+        assert!(matches!(
+            taffy_style.flex_basis,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.size.width,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.size.height,
+            taffy::style::Dimension::Auto
+        ));
+        assert!(matches!(
+            taffy_style.min_size.width,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.min_size.height,
+            taffy::style::Dimension::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.max_size.width,
+            taffy::style::Dimension::Auto
+        ));
+        assert!(matches!(
+            taffy_style.max_size.height,
+            taffy::style::Dimension::Points(_)
+        ));
         assert_eq!(taffy_style.aspect_ratio, None);
-        assert_eq!(taffy_style.gap.width, taffy::style::LengthPercentage::Points(0.));
-        assert_eq!(taffy_style.gap.width, taffy::style::LengthPercentage::Percent(0.));
+        assert_eq!(
+            taffy_style.gap.width,
+            taffy::style::LengthPercentage::Points(0.)
+        );
+        assert_eq!(
+            taffy_style.gap.width,
+            taffy::style::LengthPercentage::Percent(0.)
+        );
     }
 }
-
