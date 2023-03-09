@@ -28,10 +28,14 @@ impl Node {
         self.calculated_size
     }
 
+    /// Returns the logical pixel coordinates of the UI node, based on its GlobalTransform.
+    #[inline]
     pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
         Rect::from_center_size(transform.translation().truncate(), self.size())
     }
 
+    /// Returns the physical pixel coordinates of the UI node, based on its GlobalTransform and the scale factor.
+    #[inline]
     pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
