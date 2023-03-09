@@ -92,16 +92,13 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare three or six additional structs, depending on whether or not the struct is marked as mutable.
+/// Expanding the macro will declare one or three additional structs, depending on whether or not the struct is marked as mutable.
 /// For a struct named `X`, the additional structs will be:
 ///
 /// |Struct name|`mutable` only|Description|
 /// |:---:|:---:|---|
-/// |`XState`|---|Used as the [`State`] type for `X` and `XReadOnly`|
 /// |`XItem`|---|The type of the query item for `X`|
-/// |`XFetch`|---|Used as the [`Fetch`] type for `X`|
 /// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
-/// |`XReadOnlyFetch`|✓|Used as the [`Fetch`] type for `XReadOnly`|
 /// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
 ///
 /// ## Adding mutable references
@@ -296,7 +293,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`Added`]: crate::query::Added
 /// [`fetch`]: Self::fetch
 /// [`Changed`]: crate::query::Changed
-/// [`Fetch`]: crate::query::WorldQuery::Fetch
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Or`]: crate::query::Or
 /// [`Query`]: crate::system::Query
@@ -333,8 +329,8 @@ pub unsafe trait WorldQuery {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w>;
 
     /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
@@ -464,8 +460,8 @@ unsafe impl WorldQuery for Entity {
     unsafe fn init_fetch<'w>(
         _world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> Self::Fetch<'w> {
     }
 
@@ -546,8 +542,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
@@ -664,8 +660,8 @@ pub struct RefFetch<'w, T> {
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -691,8 +687,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> RefFetch<'w, T> {
         RefFetch {
             table_data: None,
@@ -703,8 +699,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     .get(component_id)
                     .debug_checked_unwrap()
             }),
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -712,8 +708,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         RefFetch {
             table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -758,8 +754,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     ticks: Ticks {
                         added: added_ticks.get(table_row.index()).deref(),
                         changed: changed_ticks.get(table_row.index()).deref(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
+                        this_run: fetch.this_run,
+                        last_run: fetch.last_run,
                     },
                 }
             }
@@ -771,7 +767,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     .debug_checked_unwrap();
                 Ref {
                     value: component.deref(),
-                    ticks: Ticks::from_tick_cells(ticks, fetch.last_change_tick, fetch.change_tick),
+                    ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                 }
             }
         }
@@ -825,8 +821,8 @@ pub struct WriteFetch<'w, T> {
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
@@ -852,8 +848,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
             table_data: None,
@@ -864,8 +860,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     .get(component_id)
                     .debug_checked_unwrap()
             }),
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -873,8 +869,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         WriteFetch {
             table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -919,8 +915,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     ticks: TicksMut {
                         added: added_ticks.get(table_row.index()).deref_mut(),
                         changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
+                        this_run: fetch.this_run,
+                        last_run: fetch.last_run,
                     },
                 }
             }
@@ -932,11 +928,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     .debug_checked_unwrap();
                 Mut {
                     value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(
-                        ticks,
-                        fetch.last_change_tick,
-                        fetch.change_tick,
-                    ),
+                    ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                 }
             }
         }
@@ -1000,11 +992,11 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &T::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> OptionFetch<'w, T> {
         OptionFetch {
-            fetch: T::init_fetch(world, state, last_change_tick, change_tick),
+            fetch: T::init_fetch(world, state, last_run, this_run),
             matches: false,
         }
     }
@@ -1102,9 +1094,9 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($($name::init_fetch(_world, $name, _last_change_tick, _change_tick),)*)
+                ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
             }
 
             unsafe fn clone_fetch<'w>(
@@ -1211,9 +1203,9 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($(($name::init_fetch(_world, $name, _last_change_tick, _change_tick), false),)*)
+                ($(($name::init_fetch(_world, $name, _last_run, _this_run), false),)*)
             }
 
             unsafe fn clone_fetch<'w>(
@@ -1349,13 +1341,7 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
-    unsafe fn init_fetch(
-        _world: &World,
-        _state: &Q::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
-    ) {
-    }
+    unsafe fn init_fetch(_world: &World, _state: &Q::State, _last_run: Tick, _this_run: Tick) {}
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
