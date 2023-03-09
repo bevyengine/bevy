@@ -123,7 +123,7 @@ pub(crate) fn extend_where_clause(
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
 
     let mut generic_where_clause = if where_clause.is_some() {
-        quote! {#where_clause}
+        quote! {#where_clause,}
     } else if !(active_types.is_empty() && ignored_types.is_empty()) {
         quote! {where}
     } else {
