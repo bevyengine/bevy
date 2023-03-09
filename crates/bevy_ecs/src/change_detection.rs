@@ -546,23 +546,23 @@ impl<'a, T: ?Sized> Mut<'a, T> {
     /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     ///   This will be updated to the value of `change_tick` if the returned smart pointer
     ///   is modified.
-    /// - `last_change_tick` - A [`Tick`], occurring before `change_tick`, which is used
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
-    /// - `change_tick` - A [`Tick`] corresponding to the current point in time -- "now".
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'a mut T,
         added: &'a mut Tick,
         last_changed: &'a mut Tick,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         Self {
             value,
             ticks: TicksMut {
                 added,
                 changed: last_changed,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             },
         }
     }
