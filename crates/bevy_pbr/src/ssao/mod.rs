@@ -748,7 +748,7 @@ struct SSAOPipelineId(CachedComputePipelineId);
 
 fn prepare_ssao_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedComputePipelines<SSAOPipelines>>,
     pipeline: Res<SSAOPipelines>,
     views: Query<(
@@ -759,7 +759,7 @@ fn prepare_ssao_pipelines(
 ) {
     for (entity, ssao_settings, temporal_jitter) in &views {
         let pipeline_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &pipeline,
             AmbientOcclusionPipelineKey {
                 ssao_quality: ssao_settings.clone(),
