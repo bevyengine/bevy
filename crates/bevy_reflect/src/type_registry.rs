@@ -466,7 +466,6 @@ impl ReflectSerialize {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
-    #[allow(clippy::type_complexity)]
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
