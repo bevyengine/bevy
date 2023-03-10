@@ -325,6 +325,7 @@ Example | Description
 Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
+[CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
