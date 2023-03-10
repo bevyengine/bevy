@@ -5,8 +5,8 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    schedule::SystemLabel,
-    system::{Callback, IntoSystem, RunSystemCommand, RunSystemsByLabelCommand},
+    schedule::SystemSet,
+    system::{Callback, IntoSystem, RunCallback, RunSystemCommand},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -527,8 +527,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Calls [`SystemRegistry::run_system`](crate::SystemRegistry::run_system).
     pub fn run_system<
-        Params: Send + Sync + 'static,
-        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+        M: Send + Sync + 'static,
+        S: IntoSystem<(), (), M> + Send + Sync + 'static,
     >(
         &mut self,
         system: S,
@@ -536,22 +536,11 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RunSystemCommand::new(system));
     }
 
-    /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
-    ///
-    /// Calls [`SystemRegistry::run_systems_by_label`](crate::SystemRegistry::run_systems_by_label).
-    pub fn run_systems_by_label(&mut self, label: impl SystemLabel) {
-        self.queue.push(RunSystemsByLabelCommand {
-            callback: Callback {
-                label: Box::new(label),
-            },
-        });
-    }
-
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
     /// Calls [`SystemRegistry::run_callback`](crate::SystemRegistry::run_callback).
     pub fn run_callback(&mut self, callback: Callback) {
-        self.queue.push(RunSystemsByLabelCommand { callback });
+        self.queue.push(RunCallback { callback });
     }
 
     /// Pushes a generic [`Command`] to the command queue.

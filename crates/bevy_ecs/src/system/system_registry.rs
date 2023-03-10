@@ -233,11 +233,11 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 
 /// The [`Command`] type for [`SystemRegistry::run_systems_by_label`]
 #[derive(Debug, Clone)]
-pub struct RunSystemsByLabelCommand {
+pub struct RunCallback {
     pub callback: Callback,
 }
 
-impl Command for RunSystemsByLabelCommand {
+impl Command for RunCallback {
     #[inline]
     fn write(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
