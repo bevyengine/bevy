@@ -120,10 +120,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         _ => panic!("Expected a struct with named fields"),
     };
 
-    let mut ignored_field_attrs = Vec::new();
-    let mut ignored_field_visibilities = Vec::new();
-    let mut ignored_field_idents = Vec::new();
-    let mut ignored_field_types = Vec::new();
     let mut field_attrs = Vec::new();
     let mut field_visibilities = Vec::new();
     let mut field_idents = Vec::new();
@@ -131,22 +127,15 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let mut read_only_field_types = Vec::new();
 
     for field in fields {
-        let WorldQueryFieldInfo { is_ignored, attrs } = read_world_query_field_info(field);
+        let WorldQueryFieldInfo { attrs } = read_world_query_field_info(field);
 
         let field_ident = field.ident.as_ref().unwrap().clone();
-        if is_ignored {
-            ignored_field_attrs.push(attrs);
-            ignored_field_visibilities.push(field.vis.clone());
-            ignored_field_idents.push(field_ident.clone());
-            ignored_field_types.push(field.ty.clone());
-        } else {
-            field_attrs.push(attrs);
-            field_visibilities.push(field.vis.clone());
-            field_idents.push(field_ident.clone());
-            let field_ty = field.ty.clone();
-            field_types.push(quote!(#field_ty));
-            read_only_field_types.push(quote!(<#field_ty as #path::query::WorldQuery>::ReadOnly));
-        }
+        field_attrs.push(attrs);
+        field_visibilities.push(field.vis.clone());
+        field_idents.push(field_ident.clone());
+        let field_ty = field.ty.clone();
+        field_types.push(quote!(#field_ty));
+        read_only_field_types.push(quote!(<#field_ty as #path::query::WorldQuery>::ReadOnly));
     }
 
     let derive_args = &fetch_struct_attributes.derive_args;
@@ -184,7 +173,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQuery>::Item<'__w>,)*
-                #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
         };
 
@@ -196,7 +184,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #[automatically_derived]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
-                #(#ignored_field_idents: #ignored_field_types,)*
             }
 
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
@@ -214,9 +201,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     #item_struct_name {
                         #(
                             #field_idents: <#field_types>::shrink(item.#field_idents),
-                        )*
-                        #(
-                            #ignored_field_idents: item.#ignored_field_idents,
                         )*
                     }
                 }
@@ -236,7 +220,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                                 _this_run,
                             ),
                         )*
-                        #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
@@ -246,9 +229,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     #fetch_struct_name {
                         #(
                             #field_idents: <#field_types>::clone_fetch(& _fetch. #field_idents),
-                        )*
-                        #(
-                            #ignored_field_idents: Default::default(),
                         )*
                     }
                 }
@@ -287,7 +267,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 ) -> <Self as #path::query::WorldQuery>::Item<'__w> {
                     Self::Item {
                         #(#field_idents: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
-                        #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
@@ -318,7 +297,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
                     #state_struct_name {
                         #(#field_idents: <#field_types>::init_state(world),)*
-                        #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
@@ -340,7 +318,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #( #field_idents: #read_only_field_types, )*
-                #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
 
             #readonly_state
@@ -387,7 +364,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
-                #(#ignored_field_idents: #ignored_field_types,)*
             }
 
             #mutable_impl
@@ -419,46 +395,18 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 q2: #read_only_struct_name #user_ty_generics
             ) #user_where_clauses {
                 #(q.#field_idents;)*
-                #(q.#ignored_field_idents;)*
                 #(q2.#field_idents;)*
-                #(q2.#ignored_field_idents;)*
             }
         };
     })
 }
 
 struct WorldQueryFieldInfo {
-    /// Has `#[fetch(ignore)]` or `#[filter_fetch(ignore)]` attribute.
-    is_ignored: bool,
     /// All field attributes except for `world_query` ones.
     attrs: Vec<Attribute>,
 }
 
 fn read_world_query_field_info(field: &Field) -> WorldQueryFieldInfo {
-    let is_ignored = field
-        .attrs
-        .iter()
-        .find(|attr| {
-            attr.path
-                .get_ident()
-                .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
-        })
-        .map_or(false, |attr| {
-            let mut is_ignored = false;
-            attr.parse_args_with(|input: ParseStream| {
-                if input
-                    .parse::<Option<field_attr_keywords::ignore>>()?
-                    .is_some()
-                {
-                    is_ignored = true;
-                }
-                Ok(())
-            })
-            .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_ATTRIBUTE_NAME}` attribute format"));
-
-            is_ignored
-        });
-
     let attrs = field
         .attrs
         .iter()
@@ -470,5 +418,5 @@ fn read_world_query_field_info(field: &Field) -> WorldQueryFieldInfo {
         .cloned()
         .collect();
 
-    WorldQueryFieldInfo { is_ignored, attrs }
+    WorldQueryFieldInfo { attrs }
 }
