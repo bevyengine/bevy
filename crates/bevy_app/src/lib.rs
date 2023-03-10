@@ -205,11 +205,17 @@ impl StartupSet {
             apply_system_buffers.in_base_set(PostStartupFlush),
         ));
 
-        schedule.configure_sets((
-            PreStartup.before(PreStartupFlush),
-            Startup.after(PreStartupFlush).before(StartupFlush),
-            PostStartup.after(StartupFlush).before(PostStartupFlush),
-        ));
+        schedule.configure_sets(
+            (
+                PreStartup,
+                PreStartupFlush,
+                Startup,
+                StartupFlush,
+                PostStartup,
+                PostStartupFlush,
+            )
+                .chain(),
+        );
 
         schedule
     }

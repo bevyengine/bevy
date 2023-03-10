@@ -120,14 +120,22 @@ impl RenderSet {
             apply_system_buffers.in_set(CleanupFlush),
         ));
 
-        schedule.configure_sets((
-            ExtractCommands.before(Prepare),
-            Prepare.after(ExtractCommands).before(PrepareFlush),
-            Queue.after(PrepareFlush).before(QueueFlush),
-            PhaseSort.after(QueueFlush).before(PhaseSortFlush),
-            Render.after(PhaseSortFlush).before(RenderFlush),
-            Cleanup.after(RenderFlush).before(CleanupFlush),
-        ));
+        schedule.configure_sets(
+            (
+                ExtractCommands,
+                Prepare,
+                PrepareFlush,
+                Queue,
+                QueueFlush,
+                PhaseSort,
+                PhaseSortFlush,
+                Render,
+                RenderFlush,
+                Cleanup,
+                CleanupFlush,
+            )
+                .chain(),
+        );
 
         schedule
     }
