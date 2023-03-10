@@ -1,10 +1,10 @@
 use bevy_utils::tracing::warn;
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::schedule::{IntoSystemDescriptor, SystemLabel};
-use crate::system::{Command, IntoSystem, System, SystemTypeIdLabel};
+use crate::schedule::{BoxedSystemSet, IntoSystemConfig, SystemTypeSet};
+use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::{Mut, World};
 // Needed for derive(Component) macro
 use crate as bevy_ecs;
@@ -79,13 +79,7 @@ use bevy_ecs_macros::Component;
 /// ```
 #[derive(Default)]
 pub struct SystemRegistry {
-    systems: Vec<StoredSystem>,
-    // Stores the index of all systems that match the key's label
-    labels: HashMap<Box<dyn SystemLabel>, Vec<usize>>,
-}
-
-struct StoredSystem {
-    system: Box<dyn System<In = (), Out = ()>>,
+    systems: HashMap<BoxedSystemSet, BoxedSystem>,
 }
 
 impl SystemRegistry {
@@ -99,139 +93,50 @@ impl SystemRegistry {
     ///
     /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    fn register_system_with_type_label<Params, S: IntoSystem<(), (), Params> + 'static>(
+    fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
     ) {
-        let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
-
+        let boxed_set: BoxedSystemSet = Box::new(SystemTypeSet::<S>::new());
         // This avoids nasty surprising behavior in case systems are registered twice
-        if !self.is_label_registered(automatic_system_label) {
-            let boxed_system: Box<dyn System<In = (), Out = ()>> =
-                Box::new(IntoSystem::into_system(system));
-            self.register_boxed_system(world, boxed_system, vec![Box::new(automatic_system_label)]);
+        if !self.systems.contains_key(&boxed_set) {
+            // Initialize the system's state
+            let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
+            boxed_system.initialize(world);
+            // Insert they system keyed by its set
+            self.systems.insert(boxed_set, boxed_system);
         } else {
             let type_name = std::any::type_name::<S>();
             warn!("A system of type {type_name} was registered more than once!");
         };
     }
 
-    /// Register a system so that it may be run by any of their [`SystemLabel`]s.
+    /// Runs the supplied system on the [`World`] a single time.
     ///
-    /// This is only needed if you want to run a system by a particular label;
-    /// the `run_system` label will automatically register systems under their [`SystemTypeIdLabel`] when first used.
+    /// You do not need to register systems before they are run in this way.
+    /// Instead, systems will be automatically registered according to their [`SystemTypeSet`] the first time this method is called on them.
     ///
-    /// # Warning
+    /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
     ///
-    /// Duplicate systems may be added if this method is called repeatedly.
-    /// Each copy will be called seperately if they share a label.
-    pub fn register_system<
-        Params,
-        S: IntoSystem<(), (), Params> + 'static,
-        LI: IntoIterator<Item = L>,
-        L: SystemLabel,
-    >(
+    /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeSet`],
+    /// only the first will be run.
+    pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
-        labels: LI,
     ) {
-        let boxed_system: Box<dyn System<In = (), Out = ()>> =
-            Box::new(IntoSystem::into_system(system));
-
-        let collected_labels = labels
-            .into_iter()
-            .map(|label| {
-                let boxed_label: Box<dyn SystemLabel> = Box::new(label);
-                boxed_label
-            })
-            .collect();
-
-        self.register_boxed_system(world, boxed_system, collected_labels);
-    }
-
-    /// A less generic version of [`register_system`](Self::register_system_with_labels).
-    ///
-    /// Returns the index in the vector of systems that this new system is stored at.
-    /// This is only useful for debugging as an external user of this method.
-    ///
-    /// This can be useful when you have a boxed system or boxed labels,
-    /// as the corresponding traits are not implemented for boxed trait objects
-    /// to avoid indefinite nesting.
-    pub fn register_boxed_system(
-        &mut self,
-        world: &mut World,
-        mut boxed_system: Box<dyn System<In = (), Out = ()>>,
-        labels: Vec<Box<dyn SystemLabel>>,
-    ) -> usize {
-        // Intialize the system's state
-        boxed_system.initialize(world);
-
-        let stored_system = StoredSystem {
-            system: boxed_system,
+        let boxed_set = Box::new(SystemTypeSet::<S>::new());
+        let matching_system = match self.systems.entry(boxed_set) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => {
+                let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
+                boxed_system.initialize(world);
+                v.insert(boxed_system)
+            }
         };
-
-        // Add the system to the end of the vec
-        let system_index = self.systems.len();
-        self.systems.push(stored_system);
-
-        // For each label that the system has
-        for label in labels {
-            let maybe_label_indexes = self.labels.get_mut(&label);
-
-            // Add the index of the system in the vec to the lookup hashmap
-            // under the corresponding label key
-            if let Some(label_indexes) = maybe_label_indexes {
-                label_indexes.push(system_index);
-            } else {
-                self.labels.insert(label, vec![system_index]);
-            };
-        }
-
-        system_index
-    }
-
-    /// Runs the system at the supplied `index` a single time.
-    #[inline]
-    fn run_system_at_index(&mut self, world: &mut World, index: usize) {
-        let stored_system = &mut self.systems[index];
-
-        // Run the system
-        stored_system.system.run((), world);
-        // Apply any generated commands
-        stored_system.system.apply_buffers(world);
-    }
-
-    /// Is at least one system in the [`SystemRegistry`] associated with the provided [`SystemLabel`]?
-    #[inline]
-    pub fn is_label_registered<L: SystemLabel>(&self, label: L) -> bool {
-        let boxed_label: Box<dyn SystemLabel> = Box::new(label);
-        self.labels.get(&boxed_label).is_some()
-    }
-
-    /// Returns the first matching index for systems with this label if any.
-    #[inline]
-    fn first_registered_index<L: SystemLabel>(&self, label: L) -> Option<usize> {
-        let boxed_label: Box<dyn SystemLabel> = Box::new(label);
-        let vec_of_indexes = self.labels.get(&boxed_label)?;
-        vec_of_indexes.iter().next().copied()
-    }
-
-    /// Runs the set of systems corresponding to the provided [`SystemLabel`] on the [`World`] a single time.
-    ///
-    /// Systems will be run sequentially in registration order if more than one registered system matches the provided label.
-    pub fn run_systems_by_label<L: SystemLabel>(
-        &mut self,
-        world: &mut World,
-        label: L,
-    ) -> Result<(), SystemRegistryError> {
-        self.run_callback(
-            world,
-            Callback {
-                label: label.dyn_clone(),
-            },
-        )
+        matching_system.run((), world);
+        matching_system.apply_buffers(world);
     }
 
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
@@ -246,65 +151,25 @@ impl SystemRegistry {
         world: &mut World,
         callback: Callback,
     ) -> Result<(), SystemRegistryError> {
-        let boxed_label = callback.label;
-
-        match self.labels.get(&boxed_label) {
-            Some(matching_indexes) => {
-                // Loop over the system in registration order
-                for index in matching_indexes.clone() {
-                    self.run_system_at_index(world, index);
-                }
-
+        let boxed_set = callback.set;
+        match self.systems.get_mut(&boxed_set) {
+            Some(matching_system) => {
+                matching_system.run((), world);
+                matching_system.apply_buffers(world);
                 Ok(())
             }
             None => Err(SystemRegistryError::LabelNotFound(boxed_label)),
         }
     }
-
-    /// Runs the supplied system on the [`World`] a single time.
-    ///
-    /// You do not need to register systems before they are run in this way.
-    /// Instead, systems will be automatically registered according to their [`SystemTypeIdLabel`] the first time this method is called on them.
-    ///
-    /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
-    ///
-    /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeIdLabel`],
-    /// only the first will be run.
-    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
-        &mut self,
-        world: &mut World,
-        system: S,
-    ) {
-        let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
-        let index = if self.is_label_registered(automatic_system_label) {
-            self.first_registered_index(automatic_system_label).unwrap()
-        } else {
-            let boxed_system: Box<dyn System<In = (), Out = ()>> =
-                Box::new(IntoSystem::into_system(system));
-            let labels = boxed_system.default_labels();
-            self.register_boxed_system(world, boxed_system, labels)
-        };
-
-        self.run_system_at_index(world, index);
-    }
 }
 
 impl World {
-    /// Register system a system with any number of [`SystemLabel`]s.
+    /// Register a system with its [`SystemTypeSet`].
     ///
-    /// Calls [`SystemRegistry::register_system`].
-    pub fn register_system<
-        Params,
-        S: IntoSystem<(), (), Params> + 'static,
-        LI: IntoIterator<Item = L>,
-        L: SystemLabel,
-    >(
-        &mut self,
-        system: S,
-        labels: LI,
-    ) {
+    /// Calls [`SystemRegistry::register_system_with_type_set`].
+    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system(world, system, labels);
+            registry.register_system(world, system);
         });
     }
 
@@ -312,26 +177,13 @@ impl World {
     ///
     /// Calls [`SystemRegistry::run_system`].
     #[inline]
-    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
+    pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_system(world, system);
         });
     }
 
-    /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
-    ///
-    /// Calls [`SystemRegistry::run_systems_by_label`].
-    #[inline]
-    pub fn run_systems_by_label<L: SystemLabel>(
-        &mut self,
-        label: L,
-    ) -> Result<(), SystemRegistryError> {
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_systems_by_label(world, label)
-        })
-    }
-
-    /// Run the systems corresponding to the label stored in the provided [`Callback`]
+    /// Run the systems corresponding to the set stored in the provided [`Callback`]
     ///
     /// Calls [`SystemRegistry::run_callback`].
     #[inline]
@@ -345,15 +197,15 @@ impl World {
 /// The [`Command`] type for [`SystemRegistry::run_system`]
 #[derive(Debug, Clone)]
 pub struct RunSystemCommand<
-    Params: Send + Sync + 'static,
-    S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    M: Send + Sync + 'static,
+    S: IntoSystem<(), (), M> + Send + Sync + 'static,
 > {
-    _phantom_params: PhantomData<Params>,
+    _phantom_params: PhantomData<M>,
     system: S,
 }
 
-impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static>
-    RunSystemCommand<Params, S>
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
+    RunSystemCommand<M, S>
 {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     #[inline]
@@ -366,8 +218,8 @@ impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync 
     }
 }
 
-impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static> Command
-    for RunSystemCommand<Params, S>
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
+    for RunSystemCommand<M, S>
 {
     #[inline]
     fn apply(self, world: &mut World) {
@@ -419,7 +271,7 @@ impl Callback {
     /// Creates a new callback from a function that can be used as a system.
     ///
     /// Remember that you must register your systems with the `App` / [`World`] before they can be run as callbacks!
-    pub fn new<S: IntoSystemDescriptor<Params> + 'static, Params>(_system: S) -> Self {
+    pub fn new<S: IntoSystemConfig<M> + 'static, M>(_system: S) -> Self {
         Callback {
             label: Box::new(SystemTypeIdLabel::<S>::new()),
         }
@@ -477,18 +329,6 @@ mod tests {
         world.run_system(count_up);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         world.run_system(count_up);
-        assert_eq!(*world.resource::<Counter>(), Counter(2));
-    }
-
-    #[test]
-    fn run_system_by_label() {
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.register_system(count_up, ["count"]);
-        world.register_system(count_up, ["count"]);
-        world.run_systems_by_label("count").unwrap();
-        // All systems matching the label will be run.
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
