@@ -137,6 +137,55 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
+    /// The amount of light transmitted through the material (via refraction)
+    ///
+    /// - When set to `0.0` (the default) no light is transmitted.
+    /// - When set to `1.0` all light is transmitted through the material.
+    ///
+    /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
+    ///
+    /// **Important:** For transmission to have any effect, you must also set `alpha_mode` to [`AlphaMode::Blend`].
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`] and [`StandardMaterial::ior`].
+    pub transmission: f32,
+
+    /// Thickness of the volume beneath the material surface.
+    ///
+    /// When set to `0.0` (the default) the material appears as an infinitely-thin film,
+    /// transmitting light without distorting it.
+    ///
+    /// When set to any other value, the material distorts light like a volumetric lens.
+    ///
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`].
+    pub thickness: f32,
+
+    /// The index of refraction of the material
+    ///
+    /// | Material        | Index of Refraction  |
+    /// |:----------------|:---------------------|
+    /// | Vacuum          | 1                    |
+    /// | Air             | 1.00                 |
+    /// | Ice             | 1.31                 |
+    /// | Water           | 1.33                 |
+    /// | Eyes            | 1.38                 |
+    /// | Quartz          | 1.46                 |
+    /// | Olive Oil       | 1.47                 |
+    /// | Honey           | 1.49                 |
+    /// | Acrylic         | 1.49                 |
+    /// | Window Glass    | 1.52                 |
+    /// | Polycarbonate   | 1.58                 |
+    /// | Flint Glass     | 1.69                 |
+    /// | Ruby            | 1.71                 |
+    /// | Glycerine       | 1.74                 |
+    /// | Saphire         | 1.77                 |
+    /// | Cubic Zirconia  | 2.15                 |
+    /// | Diamond         | 2.42                 |
+    /// | Moissanite      | 2.65                 |
+    ///
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::thickness`].
+    #[doc(alias = "index_of_refraction")]
+    #[doc(alias = "refraction_index")]
+    pub ior: f32,
+
     /// Used to fake the lighting of bumps and dents on a material.
     ///
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
@@ -251,6 +300,9 @@ impl Default for StandardMaterial {
             // Expressed in a linear scale and equivalent to 4% reflectance see
             // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
+            transmission: 0.0,
+            thickness: 0.0,
+            ior: 1.5,
             occlusion_texture: None,
             normal_map_texture: None,
             flip_normal_map_y: false,
@@ -336,6 +388,12 @@ pub struct StandardMaterialUniform {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
+    /// Amount of light transmitted through the material
+    pub transmission: f32,
+    /// Thickness of the volume underneath the material surface
+    pub thickness: f32,
+    /// Index of Refraction
+    pub ior: f32,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -405,6 +463,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
+            transmission: self.transmission,
+            thickness: self.thickness,
+            ior: self.ior,
             flags: flags.bits(),
             alpha_cutoff,
         }

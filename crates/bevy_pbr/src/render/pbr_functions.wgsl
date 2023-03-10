@@ -171,13 +171,9 @@ fn pbr(
     let metallic = in.material.metallic;
     let perceptual_roughness = in.material.perceptual_roughness;
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
-    let ior = 1.5;
-    let thickness = 1.0;
-    var transmission = 0.0;
-    let alpha_mode = in.material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) {
-        transmission = 1.0;
-    }
+    let ior = in.material.ior;
+    let thickness = in.material.thickness;
+    let transmission = in.material.transmission;
 
     let transmissive_color = transmission * in.material.base_color.rgb;
 
