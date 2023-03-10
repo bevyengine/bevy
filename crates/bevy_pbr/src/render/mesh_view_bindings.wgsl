@@ -71,6 +71,6 @@ var normal_prepass_texture: texture_2d<f32>;
 #endif
 
 @group(0) @binding(18)
-var view_main_texture: texture_2d<f32>;
+var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(19)
-var view_main_sampler: sampler;
+var view_transmission_sampler: sampler;
