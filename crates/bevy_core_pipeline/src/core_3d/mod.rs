@@ -35,8 +35,8 @@ use bevy_render::{
         RenderPhase,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, Sampler, SamplerDescriptor, Texture, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, TextureCache},
@@ -393,6 +393,7 @@ pub fn prepare_core_3d_transmission_textures(
 
         let sampler = render_device.create_sampler(&SamplerDescriptor {
             label: Some("view_transmission_sampler"),
+            mag_filter: FilterMode::Linear,
             ..Default::default()
         });
 
