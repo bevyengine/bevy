@@ -304,7 +304,7 @@ fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f3
     let offset_position = frag_coord.xy / view.viewport.zw + view_T.xy * thickness * vec2<f32>(1.0, -aspect);
 
     // Sample the view transmission texture at the offset position, to get the background color
-    // TODO: use depth prepass data to reject values that are in front of the current fragment
+    // TODO: Use depth prepass data to reject values that are in front of the current fragment
     let background_sample = textureSample(
         view_transmission_texture,
         view_transmission_sampler,
