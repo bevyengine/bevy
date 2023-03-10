@@ -336,6 +336,10 @@ pub struct Style {
     ///
     /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
     pub gap: Size,
+    /// Controls whether grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
+    ///
+    /// Only affect Grid layouts
+    pub grid_auto_flow: GridAutoFlow
 }
 
 impl Style {
@@ -364,6 +368,7 @@ impl Style {
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         gap: Size::UNDEFINED,
+        grid_auto_flow: GridAutoFlow::DEFAULT,
     };
 }
 
@@ -719,6 +724,36 @@ impl FlexWrap {
 }
 
 impl Default for FlexWrap {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Controls whether grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
+///
+/// The "dense" packing algorithm attempts to fill in holes earlier in the grid, if smaller items come up later. This may cause items to appear out-of-order, when doing so would fill in holes left by larger items.
+///
+/// Defaults to [`GridAutoFlow::Row`]
+///
+/// [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow)
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum GridAutoFlow {
+    /// Items are placed by filling each row in turn, adding new rows as necessary
+    Row,
+    /// Items are placed by filling each column in turn, adding new columns as necessary.
+    Column,
+    /// Combines `Row` with the dense packing algorithm.
+    RowDense,
+    /// Combines `Column` with the dense packing algorithm.
+    ColumnDense,
+}
+
+impl GridAutoFlow {
+    const DEFAULT: Self = Self::Row;
+}
+
+impl Default for GridAutoFlow {
     fn default() -> Self {
         Self::DEFAULT
     }

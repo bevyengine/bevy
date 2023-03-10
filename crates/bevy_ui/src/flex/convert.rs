@@ -2,7 +2,7 @@ use taffy::style::LengthPercentageAuto;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    JustifyItems, JustifySelf, PositionType, Size, Style, UiRect, Val,
+    JustifyItems, JustifySelf, PositionType, Size, Style, UiRect, Val, GridAutoFlow,
 };
 
 impl Val {
@@ -124,11 +124,11 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         max_size: style.max_size.scaled(scale_factor).into(),
         aspect_ratio: style.aspect_ratio,
         gap: style.gap.scaled(scale_factor).into(),
+        grid_auto_flow: style.grid_auto_flow.into(),
         grid_template_rows: todo!(),
         grid_template_columns: todo!(),
         grid_auto_rows: todo!(),
         grid_auto_columns: todo!(),
-        grid_auto_flow: todo!(),
         grid_row: todo!(),
         grid_column: todo!(),
     }
@@ -262,6 +262,17 @@ impl From<FlexWrap> for taffy::style::FlexWrap {
             FlexWrap::NoWrap => taffy::style::FlexWrap::NoWrap,
             FlexWrap::Wrap => taffy::style::FlexWrap::Wrap,
             FlexWrap::WrapReverse => taffy::style::FlexWrap::WrapReverse,
+        }
+    }
+}
+
+impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
+    fn from(value: GridAutoFlow) -> Self {
+        match value {
+            GridAutoFlow::Row => taffy::style::GridAutoFlow::Row,
+            GridAutoFlow::RowDense => taffy::style::GridAutoFlow::RowDense,
+            GridAutoFlow::Column => taffy::style::GridAutoFlow::Column,
+            GridAutoFlow::ColumnDense => taffy::style::GridAutoFlow::ColumnDense,
         }
     }
 }
