@@ -43,7 +43,7 @@ fn stochastic_uv(
     let sampling_offset_pixels = ((noise * 2.0) - 1.0) * f32(sampling_radius);
 
     // Convert sampling offset to UV coordinates
-    let sample_offset = noise / texture_size;
+    let sample_offset = sampling_offset_pixels / texture_size;
 
     // Offset the initial sampling point
     return sample_uv + sample_offset;
