@@ -1396,8 +1396,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type ReadOnly = Self;
     type State = ();
 
-    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-    }
+    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     unsafe fn init_fetch<'w>(
         _world: &'w World,
@@ -1451,3 +1450,15 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
 /// SAFETY: `PhantomData` never accesses any world data.
 unsafe impl<T: ?Sized> ReadOnlyWorldQuery for PhantomData<T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as bevy_ecs;
+
+    // Compile test for [insert this PR].
+    #[derive(WorldQuery)]
+    pub struct IgnoredQuery<Marker> {
+        _marker: PhantomData<Marker>,
+    }
+}
