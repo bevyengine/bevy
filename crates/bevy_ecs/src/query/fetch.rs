@@ -1388,3 +1388,22 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as bevy_ecs;
+
+    // regression test for https://github.com/bevyengine/bevy/issues/8010.
+
+    #[derive(WorldQuery)]
+    pub struct Client<S: ClientState> {
+        pub state: &'static S,
+        pub fetch: &'static ClientFetch,
+    }
+
+    pub trait ClientState: Component {}
+
+    #[derive(Component)]
+    pub struct ClientFetch;
+}
