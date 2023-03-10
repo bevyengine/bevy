@@ -33,8 +33,8 @@ pub mod prelude {
 
 use bevy_ecs::{
     schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs,
-        Schedule, ScheduleLabel, SystemSet,
+        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        SystemSet,
     },
     system::Local,
     world::World,
