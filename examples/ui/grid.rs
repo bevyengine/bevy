@@ -44,12 +44,12 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn(rect(Color::BLACK));
             builder.spawn(NodeBundle {
-                        style: Style {
-                            display: Display::Grid,
-                            ..default()
-                        },
+                    style: Style {
+                        display: Display::Grid,
                         ..default()
-                    })
+                    },
+                    ..default()
+                })
                 .with_children(|builder| {
 
                     spawn_nested_text_bundle(
