@@ -62,7 +62,7 @@ pub struct Text2dBundle {
     ///
     /// With `Text2dBundle` the alignment field of `Text` only affects the internal alignment of a block of text and not its
     /// relative position which is controlled by the `Anchor` component.
-    /// This means that for a block of text consisting of only one line that doesn't, the `alignment` field will have no effect.
+    /// This means that for a block of text consisting of only one line that doesn't wrap, the `alignment` field will have no effect.
     pub text: Text,
     /// How the text is positioned relative to its transform.
     ///
