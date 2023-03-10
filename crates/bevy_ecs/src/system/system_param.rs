@@ -1636,4 +1636,10 @@ mod tests {
     {
         _q: Query<'w, 's, Q, ()>,
     }
+
+    pub trait FetchState {}
+
+    // regression test for https://github.com/bevyengine/bevy/issues/8010.
+    #[derive(SystemParam)]
+    pub struct Collide<T: FetchState>(T);
 }
