@@ -155,7 +155,7 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
 impl From<AlignItems> for Option<taffy::style::AlignItems> {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Normal => None,
+            AlignItems::Default => None,
             AlignItems::Start => taffy::style::AlignItems::Start.into(),
             AlignItems::End => taffy::style::AlignItems::End.into(),
             AlignItems::FlexStart => taffy::style::AlignItems::FlexStart.into(),
@@ -170,7 +170,7 @@ impl From<AlignItems> for Option<taffy::style::AlignItems> {
 impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
     fn from(value: JustifyItems) -> Self {
         match value {
-            JustifyItems::Normal => None,
+            JustifyItems::Default => None,
             JustifyItems::Start => taffy::style::JustifyItems::Start.into(),
             JustifyItems::End => taffy::style::JustifyItems::End.into(),
             JustifyItems::FlexStart => taffy::style::JustifyItems::FlexStart.into(),
@@ -215,7 +215,7 @@ impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
 impl From<AlignContent> for Option<taffy::style::AlignContent> {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::Normal => None,
+            AlignContent::Default => None,
             AlignContent::Start => taffy::style::AlignContent::Start.into(),
             AlignContent::End => taffy::style::AlignContent::End.into(),
             AlignContent::FlexStart => taffy::style::AlignContent::FlexStart.into(),
@@ -232,7 +232,7 @@ impl From<AlignContent> for Option<taffy::style::AlignContent> {
 impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
     fn from(value: JustifyContent) -> Self {
         match value {
-            JustifyContent::Normal => None,
+            JustifyContent::Default => None,
             JustifyContent::Start => taffy::style::JustifyContent::Start.into(),
             JustifyContent::End => taffy::style::JustifyContent::End.into(),
             JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart.into(),

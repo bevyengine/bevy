@@ -401,7 +401,7 @@ impl Default for Style {
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied
-    Normal,
+    Default,
     /// Items are packed towards the start of the axis.
     Start,
     /// Items are packed towards the end of the axis.
@@ -421,7 +421,7 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Normal;
+    pub const DEFAULT: Self = Self::Default;
 }
 
 impl Default for AlignItems {
@@ -435,7 +435,7 @@ impl Default for AlignItems {
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied
-    Normal,
+    Default,
     /// Items are packed towards the start of the axis.
     Start,
     /// Items are packed towards the end of the axis.
@@ -455,7 +455,7 @@ pub enum JustifyItems {
 }
 
 impl JustifyItems {
-    pub const DEFAULT: Self = Self::Normal;
+    pub const DEFAULT: Self = Self::Default;
 }
 
 impl Default for JustifyItems {
@@ -541,7 +541,7 @@ impl Default for JustifySelf {
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied
-    Normal,
+    Default,
     /// Each line moves towards the start of the cross axis.
     Start,
     /// Each line moves towards the end of the cross axis.
@@ -566,7 +566,7 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Normal;
+    pub const DEFAULT: Self = Self::Default;
 }
 
 impl Default for AlignContent {
@@ -580,7 +580,7 @@ impl Default for AlignContent {
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied
-    Normal,
+    Default,
     /// Items are packed toward the start of the axis.
     Start,
     /// Items are packed toward the end of the axis.
@@ -600,7 +600,7 @@ pub enum JustifyContent {
 }
 
 impl JustifyContent {
-    pub const DEFAULT: Self = Self::Normal;
+    pub const DEFAULT: Self = Self::Default;
 }
 
 impl Default for JustifyContent {
