@@ -4,7 +4,7 @@ use std::mem;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
-use crate::schedule::{ScheduleLabel, SystemSet, Schedules};
+use crate::schedule::{ScheduleLabel, Schedules, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
