@@ -71,10 +71,12 @@ impl Plugin for BloomPlugin {
             .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
-            .add_system(prepare_bloom_textures.in_set(RenderSet::Prepare))
-            .add_system(prepare_downsampling_pipeline.in_set(RenderSet::Prepare))
-            .add_system(prepare_upsampling_pipeline.in_set(RenderSet::Prepare))
-            .add_system(queue_bloom_bind_groups.in_set(RenderSet::Queue));
+            .add_systems((
+                prepare_bloom_textures.in_set(RenderSet::Prepare),
+                prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
+                prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
+                queue_bloom_bind_groups.in_set(RenderSet::Queue),
+            ));
 
         // Add bloom to the 3d render graph
         {

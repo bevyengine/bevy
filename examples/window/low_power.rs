@@ -33,11 +33,13 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(test_setup::setup)
-        .add_system(test_setup::cycle_modes)
-        .add_system(test_setup::rotate_cube)
-        .add_system(test_setup::update_text)
-        .add_system(update_winit)
+        .add_systems((
+            test_setup::setup.on_startup(),
+            test_setup::cycle_modes,
+            test_setup::rotate_cube,
+            test_setup::update_text,
+            update_winit,
+        ))
         .run();
 }
 

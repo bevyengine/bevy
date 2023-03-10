@@ -55,14 +55,18 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut app = Schedule::new();
-//! // Prints "Hello, World!" each frame.
-//! app
-//!     .add_system(print_first.before(print_mid))
-//!     .add_system(print_mid)
-//!     .add_system(print_last.after(print_mid));
+//! # let mut schedule = Schedule::new();
 //! # let mut world = World::new();
-//! # app.run(&mut world);
+//! // Configure these systems to run in order using `chain()`.
+//! schedule.add_systems((print_first, print_last).chain());
+//! // Prints "HelloWorld!"
+//! schedule.run(&mut world);
+//!
+//! // Configure this system to run in between the other two systems
+//! // using explicit dependencies.
+//! schedule.add_system(print_mid.after(print_first).before(print_last));
+//! // Prints "Hello, World!"
+//! schedule.run(&mut world);
 //!
 //! fn print_first() {
 //!     print!("Hello");
@@ -162,7 +166,7 @@ mod tests {
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule::{apply_system_buffers, IntoSystemConfig, Schedule},
+        schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             Res, ResMut, Resource, System, SystemState,
@@ -334,9 +338,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_system(incr_e_on_flip);
-        schedule.add_system(apply_system_buffers.after(incr_e_on_flip));
-        schedule.add_system(World::clear_trackers.after(apply_system_buffers));
+        schedule.add_systems((incr_e_on_flip, apply_system_buffers, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);

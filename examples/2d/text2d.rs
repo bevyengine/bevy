@@ -14,10 +14,12 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(animate_translation)
-        .add_system(animate_rotation)
-        .add_system(animate_scale)
+        .add_systems((
+            setup.on_startup(),
+            animate_translation,
+            animate_rotation,
+            animate_scale,
+        ))
         .run();
 }
 

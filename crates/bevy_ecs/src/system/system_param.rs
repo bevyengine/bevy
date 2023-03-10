@@ -396,8 +396,7 @@ impl_param_set!();
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
 /// }
-/// # schedule.add_system(read_resource_system);
-/// # schedule.add_system(write_resource_system.after(read_resource_system));
+/// # schedule.add_systems((read_resource_system, write_resource_system).chain());
 /// # schedule.run(&mut world);
 /// ```
 pub trait Resource: Send + Sync + 'static {}
@@ -861,10 +860,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// });
 ///
 /// let mut schedule = Schedule::new();
-/// schedule
-///     // These two systems have no conflicts and will run in parallel.
-///     .add_system(alert_criminal)
-///     .add_system(alert_monster);
+/// // These two systems have no conflicts and will run in parallel.
+/// schedule.add_systems((alert_criminal, alert_monster));
 ///
 /// // There are no criminals or monsters, so the alarm is not sounded.
 /// schedule.run(&mut world);
