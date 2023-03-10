@@ -797,7 +797,7 @@ pub(crate) enum MinTrackSizingFunction {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
-pub (crate) enum MaxTrackSizingFunction {
+pub(crate) enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed points or percentage value
     Fixed(Val),
     /// Track maximum size should be content sized under a min-content constraint
@@ -894,12 +894,18 @@ impl GridPlacement {
 
     /// Place the grid item automatically and make it span 1 track
     pub fn auto() -> Self {
-        Self { start: None, span: 1}
+        Self {
+            start: None,
+            span: 1,
+        }
     }
 
     /// Place the grid item starting in the specified track
     pub fn start(start: u16) -> Self {
-        Self { start: Some(start), span: 1}
+        Self {
+            start: Some(start),
+            span: 1,
+        }
     }
 
     /// Place the grid item automatically and make it span the specified number of tracks
