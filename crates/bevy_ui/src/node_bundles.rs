@@ -179,7 +179,7 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`Style`].
-    pub const fn with_style(mut self, style: Style) -> Self {
+    pub fn with_style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
