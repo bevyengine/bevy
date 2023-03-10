@@ -2,7 +2,7 @@ use taffy::style::LengthPercentageAuto;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, Val,
+    JustifyItems, JustifySelf, PositionType, Size, Style, UiRect, Val,
 };
 
 impl Val {
@@ -101,10 +101,12 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         position: style.position_type.into(),
         flex_direction: style.flex_direction.into(),
         flex_wrap: style.flex_wrap.into(),
-        align_items: Some(style.align_items.into()),
+        align_items: style.align_items.into(),
+        justify_items: style.justify_items.into(),
         align_self: style.align_self.into(),
-        align_content: Some(style.align_content.into()),
-        justify_content: Some(style.justify_content.into()),
+        justify_self: style.justify_self.into(),
+        align_content: style.align_content.into(),
+        justify_content: style.justify_content.into(),
         inset: taffy::prelude::Rect {
             left: style.position.left.scaled(scale_factor).to_inset(),
             right: style.position.right.scaled(scale_factor).to_inset(),
@@ -122,20 +124,42 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         max_size: style.max_size.scaled(scale_factor).into(),
         aspect_ratio: style.aspect_ratio,
         gap: style.gap.scaled(scale_factor).into(),
-        justify_self: None,
+        grid_template_rows: todo!(),
+        grid_template_columns: todo!(),
+        grid_auto_rows: todo!(),
+        grid_auto_columns: todo!(),
+        grid_auto_flow: todo!(),
+        grid_row: todo!(),
+        grid_column: todo!(),
     }
 }
 
-impl From<AlignItems> for taffy::style::AlignItems {
+impl From<AlignItems> for Option<taffy::style::AlignItems> {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Start => taffy::style::AlignItems::Start,
-            AlignItems::End => taffy::style::AlignItems::End,
-            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
-            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
-            AlignItems::Center => taffy::style::AlignItems::Center,
-            AlignItems::Baseline => taffy::style::AlignItems::Baseline,
-            AlignItems::Stretch => taffy::style::AlignItems::Stretch,
+            AlignItems::Normal => None,
+            AlignItems::Start => taffy::style::AlignItems::Start.into(),
+            AlignItems::End => taffy::style::AlignItems::End.into(),
+            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart.into(),
+            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd.into(),
+            AlignItems::Center => taffy::style::AlignItems::Center.into(),
+            AlignItems::Baseline => taffy::style::AlignItems::Baseline.into(),
+            AlignItems::Stretch => taffy::style::AlignItems::Stretch.into(),
+        }
+    }
+}
+
+impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
+    fn from(value: JustifyItems) -> Self {
+        match value {
+            JustifyItems::Normal => None,
+            JustifyItems::Start => taffy::style::JustifyItems::Start.into(),
+            JustifyItems::End => taffy::style::JustifyItems::End.into(),
+            JustifyItems::FlexStart => taffy::style::JustifyItems::FlexStart.into(),
+            JustifyItems::FlexEnd => taffy::style::JustifyItems::FlexEnd.into(),
+            JustifyItems::Center => taffy::style::JustifyItems::Center.into(),
+            JustifyItems::Baseline => taffy::style::JustifyItems::Baseline.into(),
+            JustifyItems::Stretch => taffy::style::JustifyItems::Stretch.into(),
         }
     }
 }
@@ -155,18 +179,50 @@ impl From<AlignSelf> for Option<taffy::style::AlignSelf> {
     }
 }
 
-impl From<AlignContent> for taffy::style::AlignContent {
+impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
+    fn from(value: JustifySelf) -> Self {
+        match value {
+            JustifySelf::Auto => None,
+            JustifySelf::Start => taffy::style::JustifySelf::Start.into(),
+            JustifySelf::End => taffy::style::JustifySelf::End.into(),
+            JustifySelf::FlexStart => taffy::style::JustifySelf::FlexStart.into(),
+            JustifySelf::FlexEnd => taffy::style::JustifySelf::FlexEnd.into(),
+            JustifySelf::Center => taffy::style::JustifySelf::Center.into(),
+            JustifySelf::Baseline => taffy::style::JustifySelf::Baseline.into(),
+            JustifySelf::Stretch => taffy::style::JustifySelf::Stretch.into(),
+        }
+    }
+}
+
+impl From<AlignContent> for Option<taffy::style::AlignContent> {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::Start => taffy::style::AlignContent::Start,
-            AlignContent::End => taffy::style::AlignContent::End,
-            AlignContent::FlexStart => taffy::style::AlignContent::FlexStart,
-            AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd,
-            AlignContent::Center => taffy::style::AlignContent::Center,
-            AlignContent::Stretch => taffy::style::AlignContent::Stretch,
-            AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween,
-            AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround,
-            AlignContent::SpaceEvenly => taffy::style::AlignContent::SpaceEvenly,
+            AlignContent::Normal => None,
+            AlignContent::Start => taffy::style::AlignContent::Start.into(),
+            AlignContent::End => taffy::style::AlignContent::End.into(),
+            AlignContent::FlexStart => taffy::style::AlignContent::FlexStart.into(),
+            AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd.into(),
+            AlignContent::Center => taffy::style::AlignContent::Center.into(),
+            AlignContent::Stretch => taffy::style::AlignContent::Stretch.into(),
+            AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween.into(),
+            AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround.into(),
+            AlignContent::SpaceEvenly => taffy::style::AlignContent::SpaceEvenly.into(),
+        }
+    }
+}
+
+impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
+    fn from(value: JustifyContent) -> Self {
+        match value {
+            JustifyContent::Normal => None,
+            JustifyContent::Start => taffy::style::JustifyContent::Start.into(),
+            JustifyContent::End => taffy::style::JustifyContent::End.into(),
+            JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart.into(),
+            JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd.into(),
+            JustifyContent::Center => taffy::style::JustifyContent::Center.into(),
+            JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
+            JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
+            JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
         }
     }
 }
@@ -187,21 +243,6 @@ impl From<FlexDirection> for taffy::style::FlexDirection {
             FlexDirection::Column => taffy::style::FlexDirection::Column,
             FlexDirection::RowReverse => taffy::style::FlexDirection::RowReverse,
             FlexDirection::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
-        }
-    }
-}
-
-impl From<JustifyContent> for taffy::style::JustifyContent {
-    fn from(value: JustifyContent) -> Self {
-        match value {
-            JustifyContent::Start => taffy::style::JustifyContent::Start,
-            JustifyContent::End => taffy::style::JustifyContent::End,
-            JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart,
-            JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd,
-            JustifyContent::Center => taffy::style::JustifyContent::Center,
-            JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
-            JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
-            JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,
         }
     }
 }

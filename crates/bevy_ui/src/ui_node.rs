@@ -244,9 +244,14 @@ pub struct Style {
     pub flex_wrap: FlexWrap,
     /// How items are aligned according to the cross axis
     pub align_items: AlignItems,
+    /// How items are aligned according to the inline axis
+    pub justify_items: JustifyItems,
     /// How this item is aligned according to the cross axis.
     /// Overrides [`AlignItems`].
     pub align_self: AlignSelf,
+    /// How this item is aligned according to the inline axis.
+    /// Overrides [`JustifyItems`].
+    pub justify_self: JustifySelf,
     /// How to align each line, only applies if flex_wrap is set to
     /// [`FlexWrap::Wrap`] and there are multiple lines of items
     pub align_content: AlignContent,
@@ -341,7 +346,9 @@ impl Style {
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
         align_items: AlignItems::DEFAULT,
+        justify_items: JustifyItems::DEFAULT,
         align_self: AlignSelf::DEFAULT,
+        justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
         position: UiRect::DEFAULT,
@@ -370,6 +377,8 @@ impl Default for Style {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
+    /// The items are packed in their default position as is no alignment was applied
+    Normal,
     /// Items are packed towards the start of the axis.
     Start,
     /// Items are packed towards the end of the axis.
@@ -389,10 +398,44 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Stretch;
+    pub const DEFAULT: Self = Self::Normal;
 }
 
 impl Default for AlignItems {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// How items are aligned according to the cross axis
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum JustifyItems {
+    /// The items are packed in their default position as is no alignment was applied
+    Normal,
+    /// Items are packed towards the start of the axis.
+    Start,
+    /// Items are packed towards the end of the axis.
+    End,
+    /// Items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then they are packed towards the end of the axis.
+    FlexStart,
+    /// Items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then they are packed towards the end of the axis.
+    FlexEnd,
+    /// Items are aligned at the center.
+    Center,
+    /// Items are aligned at the baseline.
+    Baseline,
+    /// Items are stretched across the whole cross axis.
+    Stretch,
+}
+
+impl JustifyItems {
+    pub const DEFAULT: Self = Self::Normal;
+}
+
+impl Default for JustifyItems {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -433,12 +476,50 @@ impl Default for AlignSelf {
     }
 }
 
+/// How this item is aligned according to the cross axis.
+/// Overrides [`AlignItems`].
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum JustifySelf {
+    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
+    Auto,
+    /// This item will be aligned with the start of the axis.
+    Start,
+    /// This item will be aligned with the end of the axis.
+    End,
+    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the end of the axis.
+    FlexStart,
+    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the end of the axis.
+    FlexEnd,
+    /// This item will be aligned at the center.
+    Center,
+    /// This item will be aligned at the baseline.
+    Baseline,
+    /// This item will be stretched across the whole cross axis.
+    Stretch,
+}
+
+impl JustifySelf {
+    pub const DEFAULT: Self = Self::Auto;
+}
+
+impl Default for JustifySelf {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+
 /// Defines how each line is aligned within the flexbox.
 ///
 /// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
+    /// The items are packed in their default position as is no alignment was applied
+    Normal,
     /// Each line moves towards the start of the cross axis.
     Start,
     /// Each line moves towards the end of the cross axis.
@@ -463,10 +544,44 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Stretch;
+    pub const DEFAULT: Self = Self::Normal;
 }
 
 impl Default for AlignContent {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Defines how items are aligned according to the main axis
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum JustifyContent {
+    /// The items are packed in their default position as is no alignment was applied
+    Normal,
+    /// Items are packed toward the start of the axis.
+    Start,
+    /// Items are packed toward the end of the axis.
+    End,
+    /// Pushed towards the start, unless the flex direction is reversed; then pushed towards the end.
+    FlexStart,
+    /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
+    FlexEnd,
+    /// Centered along the main axis.
+    Center,
+    /// Remaining space is distributed between the items.
+    SpaceBetween,
+    /// Remaining space is distributed around the items.
+    SpaceAround,
+    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items.
+    SpaceEvenly,
+}
+
+impl JustifyContent {
+    pub const DEFAULT: Self = Self::Normal;
+}
+
+impl Default for JustifyContent {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -540,38 +655,6 @@ impl FlexDirection {
 }
 
 impl Default for FlexDirection {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-/// Defines how items are aligned according to the main axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub enum JustifyContent {
-    /// Items are packed toward the start of the axis.
-    Start,
-    /// Items are packed toward the end of the axis.
-    End,
-    /// Pushed towards the start, unless the flex direction is reversed; then pushed towards the end.
-    FlexStart,
-    /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
-    FlexEnd,
-    /// Centered along the main axis.
-    Center,
-    /// Remaining space is distributed between the items.
-    SpaceBetween,
-    /// Remaining space is distributed around the items.
-    SpaceAround,
-    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items.
-    SpaceEvenly,
-}
-
-impl JustifyContent {
-    pub const DEFAULT: Self = Self::FlexStart;
-}
-
-impl Default for JustifyContent {
     fn default() -> Self {
         Self::DEFAULT
     }
