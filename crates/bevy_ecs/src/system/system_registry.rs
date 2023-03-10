@@ -200,7 +200,7 @@ pub struct RunSystemCommand<
     M: Send + Sync + 'static,
     S: IntoSystem<(), (), M> + Send + Sync + 'static,
 > {
-    _phantom_params: PhantomData<M>,
+    _phantom_marker: PhantomData<M>,
     system: S,
 }
 
@@ -212,7 +212,7 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
     #[must_use]
     pub fn new(system: S) -> Self {
         Self {
-            _phantom_params: PhantomData::default(),
+            _phantom_marker: PhantomData::default(),
             system,
         }
     }
