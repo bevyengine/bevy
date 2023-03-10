@@ -1731,7 +1731,10 @@ path = "examples/ui/text_layout.rs"
 
 [[example]]
 name = "grid"
+description = "An example for CSS Grid layout"
+category = "UI (User Interface)"
 path = "examples/ui/grid.rs"
+wasm=false
 
 [package.metadata.example.text_layout]
 name = "Text Layout"
