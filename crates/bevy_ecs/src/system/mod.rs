@@ -157,7 +157,7 @@ mod tests {
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components},
+        component::{Component, Components, Tick},
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
@@ -1227,7 +1227,7 @@ mod tests {
         let world2 = World::new();
         let qstate = world1.query::<()>();
         // SAFETY: doesnt access anything
-        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
+        let query = unsafe { Query::new(&world2, &qstate, Tick::new(0), Tick::new(0), false) };
         query.iter();
     }
 
