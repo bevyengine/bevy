@@ -341,12 +341,16 @@ pub struct Style {
     /// Only affect Grid layouts
     pub grid_auto_flow: GridAutoFlow,
     /// Defines the track sizing functions (widths) of the grid rows
+    #[reflect(ignore)]
     pub grid_template_rows: Vec<GridTrack>,
     /// Defines the track sizing functions (heights) of the grid columns
+    #[reflect(ignore)]
     pub grid_template_columns: Vec<GridTrack>,
     /// Defines the size of implicitly created rows
+    #[reflect(ignore)]
     pub grid_auto_rows: Vec<GridTrack>,
     /// Defined the size of implicitly created columns
+    #[reflect(ignore)]
     pub grid_auto_columns: Vec<GridTrack>,
     /// The column in which a grid item starts and how many columns it span
     pub grid_column: GridPlacement,
