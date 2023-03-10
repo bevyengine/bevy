@@ -281,7 +281,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     return (specular_light + diffuse) * (*light).color.rgb * NoL;
 }
 
-fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
+fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
     // Calculate view aspect ratio, used later to scale offset so that it's proportionate
     let aspect = view.viewport.z / view.viewport.w;
 
@@ -301,17 +301,36 @@ fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f3
 
     // Calculate an offset position, by multiplying the refracted direction by the thickness and adding it to
     // the fragment position scaled by viewport size. Use the aspect ratio calculated earlier stay proportionate
-    let offset_position = frag_coord.xy / view.viewport.zw + view_T.xy * thickness * vec2<f32>(1.0, -aspect);
+    let offset_position = frag_coord.xy / view.viewport.zw + view_T.xy * thickness * vec2<f32>(1.0, -aspect) ;
 
-    // Sample the view transmission texture at the offset position, to get the background color
-    // TODO: Use depth prepass data to reject values that are in front of the current fragment
-    let background_sample = textureSample(
-        view_transmission_texture,
-        view_transmission_sampler,
-        offset_position,
-    ).rgb;
+    // Fetch background color
+    let background_color = fetch_transmissive_background(offset_position, frag_coord, aspect, perceptual_roughness);
 
-    // Calculate final color by applying transmissive color to background sample
+    // Calculate final color by applying transmissive color to background
     // TODO: Add support for attenuationColor and attenuationDistance
-    return transmissive_color * background_sample;
+    return transmissive_color * background_color;
+}
+
+fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, aspect: f32, perceptual_roughness: f32) -> vec3<f32> {
+    // Number of taps scale with perceptual roughness
+    // Minimum: 1, Maximum: 9
+    let num_taps = i32(max(perceptual_roughness * 40.0, 8.0)) + 1;
+    var result = vec3<f32>(0.0, 0.0, 0.0);
+    for (var i: i32 = 0; i < num_taps; i = i + 1) {
+        // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
+        let dither = screen_space_dither(frag_coord.xy + vec2<f32>(f32(i) * 4773.0, f32(i) * 1472.0));
+        let dither_offset = perceptual_roughness * (30.0 * dither.yz + 0.03 * normalize(dither).xy) * vec2<f32>(1.0, -aspect);
+
+        // Sample the view transmission texture at the offset position + dither offset, to get the background color
+        // TODO: Use depth prepass data to reject values that are in front of the current fragment
+        result += textureSample(
+            view_transmission_texture,
+            view_transmission_sampler,
+            offset_position + dither_offset,
+        ).rgb;
+    }
+
+    result /= f32(num_taps);
+
+    return result;
 }
