@@ -4,13 +4,11 @@ use std::mem;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
-use crate::schedule::{ScheduleLabel, SystemSet};
+use crate::schedule::{ScheduleLabel, SystemSet, Schedules};
 use crate::system::Resource;
 use crate::world::World;
 
 pub use bevy_ecs_macros::States;
-
-use super::Schedules;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -128,7 +126,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         if world.resource::<Schedules>().contains(&transition_schedule) {
             world.run_schedule(transition_schedule);
         }
-        
+
         world.run_schedule(OnEnter(entered));
     }
 }
