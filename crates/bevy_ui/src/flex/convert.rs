@@ -2,8 +2,9 @@ use taffy::style::LengthPercentageAuto;
 use taffy::style_helpers;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    JustifyItems, JustifySelf, PositionType, Size, Style, UiRect, Val, GridAutoFlow, GridPlacement,
+    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    GridPlacement, GridTrack, JustifyContent, JustifyItems, JustifySelf, MaxTrackSizingFunction,
+    MinTrackSizingFunction, PositionType, Size, Style, UiRect, Val,
 };
 
 impl Val {
@@ -126,10 +127,10 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         aspect_ratio: style.aspect_ratio,
         gap: style.gap.scaled(scale_factor).into(),
         grid_auto_flow: style.grid_auto_flow.into(),
-        grid_template_rows: todo!(),
-        grid_template_columns: todo!(),
-        grid_auto_rows: todo!(),
-        grid_auto_columns: todo!(),
+        grid_template_rows: style.grid_template_rows.into(),
+        grid_template_columns: style.grid_template_columns.into(),
+        grid_auto_rows: style.grid_auto_rows.into(),
+        grid_auto_columns: style.grid_auto_columns.into(),
         grid_row: style.grid_row.into(),
         grid_column: style.grid_column.into(),
     }
@@ -283,9 +284,57 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
     fn from(value: GridPlacement) -> Self {
         let start = match value.start {
             None => taffy::style::GridPlacement::Auto,
-            Some(start) => style_helpers::line(start as i16)
+            Some(start) => style_helpers::line(start as i16),
         };
         let span = taffy::style::GridPlacement::Span(value.span);
         taffy::geometry::Line { start, end: span }
+    }
+}
+
+impl From<MinTrackSizingFunction> for taffy::style::MinTrackSizingFunction {
+    fn from(value: MinTrackSizingFunction) -> Self {
+        match value {
+            MinTrackSizingFunction::Fixed(val) => {
+                taffy::style::MinTrackSizingFunction::Fixed(val.into())
+            }
+            MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::Auto,
+            MinTrackSizingFunction::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
+            MinTrackSizingFunction::MaxContent => taffy::style::MinTrackSizingFunction::MaxContent,
+        }
+    }
+}
+
+impl From<MaxTrackSizingFunction> for taffy::style::MaxTrackSizingFunction {
+    fn from(value: MaxTrackSizingFunction) -> Self {
+        match value {
+            MaxTrackSizingFunction::Fixed(val) => {
+                taffy::style::MaxTrackSizingFunction::Fixed(val.into())
+            }
+            MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::Auto,
+            MaxTrackSizingFunction::MinContent => taffy::style::MaxTrackSizingFunction::MinContent,
+            MaxTrackSizingFunction::MaxContent => taffy::style::MaxTrackSizingFunction::MaxContent,
+            MaxTrackSizingFunction::FitContent(val) => {
+                taffy::style::MaxTrackSizingFunction::FitContent(val.into())
+            }
+            MaxTrackSizingFunction::Fraction(fraction) => {
+                taffy::style::MaxTrackSizingFunction::Fraction(fraction)
+            }
+        }
+    }
+}
+
+impl From<GridTrack> for taffy::style::NonRepeatedTrackSizingFunction {
+    fn from(value: GridTrack) -> Self {
+        let min = value.min_sizing_function.into();
+        let max = value.max_sizing_function.into();
+        taffy::style_helpers::minmax(min, max)
+    }
+}
+
+impl From<GridTrack> for taffy::style::TrackSizingFunction {
+    fn from(value: GridTrack) -> Self {
+        let min = value.min_sizing_function.into();
+        let max = value.max_sizing_function.into();
+        taffy::style_helpers::minmax(min, max)
     }
 }

@@ -340,6 +340,14 @@ pub struct Style {
     ///
     /// Only affect Grid layouts
     pub grid_auto_flow: GridAutoFlow,
+    /// Defines the track sizing functions (widths) of the grid rows
+    pub grid_template_rows: Vec<GridTrack>,
+    /// Defines the track sizing functions (heights) of the grid columns
+    pub grid_template_columns: Vec<GridTrack>,
+    /// Defines the size of implicitly created rows
+    pub grid_auto_rows: Vec<GridTrack>,
+    /// Defined the size of implicitly created columns
+    pub grid_auto_columns: Vec<GridTrack>,
     /// The column in which a grid item starts and how many columns it span
     pub grid_column: GridPlacement,
     /// The row in which a grid item starts and how many rows it span
@@ -373,6 +381,10 @@ impl Style {
         overflow: Overflow::DEFAULT,
         gap: Size::UNDEFINED,
         grid_auto_flow: GridAutoFlow::DEFAULT,
+        grid_template_rows: Vec::new(),
+        grid_template_columns: Vec::new(),
+        grid_auto_rows: Vec::new(),
+        grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
     };
@@ -761,6 +773,100 @@ impl GridAutoFlow {
 }
 
 impl Default for GridAutoFlow {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
+pub(crate) enum MinTrackSizingFunction {
+    /// Track minimum size should be a fixed points or percentage value
+    Fixed(Val),
+    /// Track minimum size should be content sized under a min-content constraint
+    MinContent,
+    /// Track minimum size should be content sized under a max-content constraint
+    MaxContent,
+    /// Track minimum size should be automatically sized
+    Auto,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
+pub (crate) enum MaxTrackSizingFunction {
+    /// Track maximum size should be a fixed points or percentage value
+    Fixed(Val),
+    /// Track maximum size should be content sized under a min-content constraint
+    MinContent,
+    /// Track maximum size should be content sized under a max-content constraint
+    MaxContent,
+    /// Track maximum size should be sized according to the fit-content formula
+    FitContent(Val),
+    /// Track maximum size should be automatically sized
+    Auto,
+    /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
+    /// Specified value is the numerator of the fraction. Denominator is the sum of all fraction specified in that grid dimension
+    /// Spec: <https://www.w3.org/TR/css3-grid-layout/#fr-unit>
+    Fraction(f32),
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub struct GridTrack {
+    pub(crate) min_sizing_function: MinTrackSizingFunction,
+    pub(crate) max_sizing_function: MaxTrackSizingFunction,
+}
+
+impl GridTrack {
+    const DEFAULT: Self = Self {
+        min_sizing_function: MinTrackSizingFunction::Auto,
+        max_sizing_function: MaxTrackSizingFunction::Auto,
+    };
+
+    /// Create a grid track with automatic size
+    pub fn auto() -> Self {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::Auto,
+        }
+    }
+
+    /// Create a grid track with a fixed pixel size
+    pub fn px(value: f32) -> Self {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(value)),
+            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Px(value)),
+        }
+    }
+
+    /// Create a grid track with a percentage size
+    pub fn percent(value: f32) -> Self {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Percent(value)),
+            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Percent(value)),
+        }
+    }
+
+    /// Create a grid track with an `fr` size.
+    /// Note that this will give the track a content-based minimum size.
+    /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size
+    pub fn fr(value: f32) -> Self {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+        }
+    }
+
+    /// Create a grid track with an `minmax(0, Nfr)` size.
+    pub fn flex(value: f32) -> Self {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(0.0)),
+            max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+        }
+    }
+}
+
+impl Default for GridTrack {
     fn default() -> Self {
         Self::DEFAULT
     }
