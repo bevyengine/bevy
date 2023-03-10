@@ -16,11 +16,12 @@ use crate::component::EntropyComponent;
 /// use bevy_app::App;
 /// use bevy_entropy::prelude::*;
 /// use rand_core::RngCore;
-/// use rand_chacha::ChaCha8Rng;
+/// use rand_chacha::{ChaCha8Rng, ChaCha12Rng};
 ///
 /// fn main() {
 ///  App::new()
 ///    .add_plugin(EntropyPlugin::<ChaCha8Rng>::default())
+///    .add_plugin(EntropyPlugin::<ChaCha12Rng>::default())
 ///    .add_system(print_random_value)
 ///    .run();
 /// }
@@ -81,9 +82,5 @@ where
         } else {
             app.init_resource::<GlobalEntropy<R>>();
         }
-    }
-
-    fn is_unique(&self) -> bool {
-        false
     }
 }
