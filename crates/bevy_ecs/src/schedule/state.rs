@@ -10,6 +10,8 @@ use crate::world::World;
 
 pub use bevy_ecs_macros::States;
 
+use super::Schedules;
+
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
@@ -118,10 +120,15 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 
         let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
         world.run_schedule(OnExit(exited.clone()));
-        world.run_schedule(OnTransition {
+
+        let transition_schedule = OnTransition {
             from: exited,
             to: entered.clone(),
-        });
+        };
+        if world.resource::<Schedules>().contains(&transition_schedule) {
+            world.run_schedule(transition_schedule);
+        }
+        
         world.run_schedule(OnEnter(entered));
     }
 }
