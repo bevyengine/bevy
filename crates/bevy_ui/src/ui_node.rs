@@ -400,7 +400,7 @@ impl Default for Style {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
-    /// The items are packed in their default position as is no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied
     Normal,
     /// Items are packed towards the start of the axis.
     Start,
@@ -434,7 +434,7 @@ impl Default for AlignItems {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
-    /// The items are packed in their default position as is no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied
     Normal,
     /// Items are packed towards the start of the axis.
     Start,
@@ -444,7 +444,7 @@ pub enum JustifyItems {
     /// then they are packed towards the end of the axis.
     FlexStart,
     /// Items are packed towards the end of the axis, unless the flex direction is reversed;
-    /// then they are packed towards the end of the axis.
+    /// then they are packed towards the start of the axis.
     FlexEnd,
     /// Items are aligned at the center.
     Center,
@@ -513,8 +513,8 @@ pub enum JustifySelf {
     /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the end of the axis.
     FlexStart,
-    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
-    /// then it will be aligned with the end of the axis.
+    /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the start of the axis.
     FlexEnd,
     /// This item will be aligned at the center.
     Center,
@@ -540,7 +540,7 @@ impl Default for JustifySelf {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
-    /// The items are packed in their default position as is no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied
     Normal,
     /// Each line moves towards the start of the cross axis.
     Start,
@@ -579,7 +579,7 @@ impl Default for AlignContent {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
-    /// The items are packed in their default position as is no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied
     Normal,
     /// Items are packed toward the start of the axis.
     Start,
