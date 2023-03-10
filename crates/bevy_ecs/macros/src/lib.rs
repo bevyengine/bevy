@@ -387,6 +387,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    let punctuated_generic_defs: Punctuated<_, Token![,]> = lifetimeless_generics
+        .iter()
+        .map(|&g| match g.clone() {
+            GenericParam::Type(mut g) => {
+                g.bounds.clear();
+                GenericParam::Type(g)
+            }
+            g @ GenericParam::Const(_) => g,
+            _ => unreachable!(),
+        })
+        .collect();
+
     let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
     let mut tuple_patterns: Vec<_> = field_locals.iter().map(|x| quote! { #x }).collect();
 
@@ -412,7 +424,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
-    let state_struct_name = ensure_no_collision(token_stream, format_ident!("FetchState"));
+    let state_struct_name = ensure_no_collision(token_stream.clone(), format_ident!("FetchState"));
+    let fields_alias = ensure_no_collision(token_stream, format_ident!("FieldsAlias"));
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
@@ -429,23 +442,25 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 )>,
             }
 
+            type #fields_alias <'w, 's, #punctuated_generic_defs> = (#(#tuple_types,)*);
+
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
                 type State = #state_struct_name<'static, 'static, #punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
-                        state: <(#(#tuple_types,)*) as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
                         marker: std::marker::PhantomData,
                     }
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
+                    <#fields_alias::<'w, 's, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                    <#fields_alias::<'w, 's, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
                 unsafe fn get_param<'w2, 's2>(
@@ -455,7 +470,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     change_tick: #path::component::Tick,
                 ) -> Self::Item<'w2, 's2> {
                     let (#(#tuple_patterns,)*) = <
-                        (#(#tuple_types,)*) as #path::system::SystemParam
+                        #fields_alias::<'w2, 's2, #punctuated_generic_idents> as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
