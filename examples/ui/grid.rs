@@ -1,4 +1,4 @@
-//! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
+//! Demonstrates how CSS Grid layout can be used to lay items out in a 2D grid
 use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::rgb(1., 0.066, 0.349);
@@ -38,7 +38,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 gap: Size::all(Val::Px(20.)),
                 ..default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(Color::WHITE),
             ..default()
         })
         .with_children(|builder| {
@@ -113,8 +113,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 top: Val::Px(10.),
                                 ..default()
                             },
+                            size: Size::all(Val::Px(40.)),
                             ..default()
                         },
+                        background_color: BackgroundColor(Color::BLACK),
                         ..default()
                     });
                 });
