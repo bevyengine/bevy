@@ -1641,5 +1641,8 @@ mod tests {
 
     // regression test for https://github.com/bevyengine/bevy/issues/8010.
     #[derive(SystemParam)]
-    pub struct Collide<T: FetchState>(T);
+    pub struct Collide<T: FetchState + 'static> {
+        #[system_param(ignore)]
+        _marker: PhantomData<T>,
+    }
 }
