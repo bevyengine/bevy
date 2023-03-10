@@ -1785,7 +1785,7 @@ impl World {
     /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
         self.try_run_schedule_ref(label)
-            .unwrap_or_else(|e| panic!("{}", e))
+            .unwrap_or_else(|e| panic!("{}", e));
     }
 }
 
