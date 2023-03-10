@@ -33,8 +33,8 @@ pub mod prelude {
 
 use bevy_ecs::{
     schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs,
-        Schedule, ScheduleLabel, SystemSet,
+        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        SystemSet,
     },
     system::Local,
     world::World,
@@ -201,9 +201,17 @@ impl StartupSet {
         schedule.add_system(apply_system_buffers.in_base_set(StartupFlush));
         schedule.add_system(apply_system_buffers.in_base_set(PostStartupFlush));
 
-        schedule.configure_set(PreStartup.before(PreStartupFlush));
-        schedule.configure_set(Startup.after(PreStartupFlush).before(StartupFlush));
-        schedule.configure_set(PostStartup.after(StartupFlush).before(PostStartupFlush));
+        schedule.configure_sets(
+            (
+                PreStartup,
+                PreStartupFlush,
+                Startup,
+                StartupFlush,
+                PostStartup,
+                PostStartupFlush,
+            )
+                .chain(),
+        );
 
         schedule
     }
