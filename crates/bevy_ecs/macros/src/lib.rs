@@ -248,10 +248,9 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
+#[allow(unused)]
 #[derive(Default)]
-struct SystemParamFieldAttributes {
-    pub ignore: bool,
-}
+struct SystemParamFieldAttributes {}
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
@@ -286,7 +285,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     };
     let path = bevy_ecs_path();
 
-    let field_attributes = field_definitions
+    let _field_attributes = field_definitions
         .iter()
         .map(|field| {
             (
@@ -297,14 +296,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
                     .map_or_else(SystemParamFieldAttributes::default, |a| {
                         syn::custom_keyword!(ignore);
-                        let mut attributes = SystemParamFieldAttributes::default();
-                        a.parse_args_with(|input: ParseStream| {
-                            if input.parse::<Option<ignore>>()?.is_some() {
-                                attributes.ignore = true;
-                            }
-                            Ok(())
-                        })
-                        .expect("Invalid 'system_param' attribute format.");
+                        let attributes = SystemParamFieldAttributes::default();
+                        let _: () = a
+                            .parse_args_with(|_input: ParseStream| {
+                                panic!("#[derive(SystemParam)] does not support attributes");
+                            })
+                            .expect("Invalid 'system_param' attribute format.");
 
                         attributes
                     }),
@@ -314,24 +311,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let mut field_locals = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
-    let mut ignored_fields = Vec::new();
-    let mut ignored_field_types = Vec::new();
-    for (i, (field, attrs)) in field_attributes.iter().enumerate() {
-        if attrs.ignore {
-            ignored_fields.push(field.ident.as_ref().unwrap());
-            ignored_field_types.push(&field.ty);
-        } else {
-            field_locals.push(format_ident!("f{i}"));
-            let i = Index::from(i);
-            fields.push(
-                field
-                    .ident
-                    .as_ref()
-                    .map(|f| quote! { #f })
-                    .unwrap_or_else(|| quote! { #i }),
-            );
-            field_types.push(&field.ty);
-        }
+    for (i, field) in field_definitions.iter().enumerate() {
+        field_locals.push(format_ident!("f{i}"));
+        let i = Index::from(i);
+        fields.push(
+            field
+                .ident
+                .as_ref()
+                .map(|f| quote! { #f })
+                .unwrap_or_else(|| quote! { #i }),
+        );
+        field_types.push(&field.ty);
     }
 
     let generics = ast.generics;
@@ -438,7 +428,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
                     <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
-                    #(fn() -> #ignored_field_types,)*
                 )>,
             }
 
@@ -474,7 +463,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
-                        #(#ignored_fields: std::default::Default::default(),)*
                     }
                 }
             }
