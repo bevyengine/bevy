@@ -1404,7 +1404,10 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
+    // `PhantomData` does not match any components, so all components it matches
+    // are stored in a Table (vacuous truth).
     const IS_DENSE: bool = true;
+    // `PhantomData` matches every entity in each archetype.
     const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w>(
