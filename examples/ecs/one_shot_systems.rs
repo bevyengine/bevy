@@ -19,8 +19,8 @@ fn main() {
         // Registered systems can be called dynamically by their label.
         // These must be registered in advance, or commands.run_system will panic
         // as no matching system was found.
-        .register_system_with_type_set(button_pressed)
-        .register_system_with_type_set(slider_toggled)
+        .register_system(button_pressed)
+        .register_system(slider_toggled)
         // One-shot systems can be used to build complex abstractions
         // to match the needs of your design.
         // Here, we model a very simple component-linked callback architecture.

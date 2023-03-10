@@ -1,9 +1,9 @@
 use bevy_utils::tracing::warn;
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::schedule::{BoxedSystemSet, IntoSystemConfig, SystemSet, SystemTypeSet};
+use crate::schedule::{BoxedSystemSet, IntoSystemConfig, SystemTypeSet};
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::{Mut, World};
 // Needed for derive(Component) macro
@@ -79,13 +79,7 @@ use bevy_ecs_macros::{Component, Resource};
 /// ```
 #[derive(Resource, Default)]
 pub struct SystemRegistry {
-    systems: Vec<StoredSystem>,
-    // Stores the index of all systems that match the key's set
-    sets: HashMap<BoxedSystemSet, Vec<usize>>,
-}
-
-struct StoredSystem {
-    system: BoxedSystem,
+    systems: HashMap<BoxedSystemSet, BoxedSystem>,
 }
 
 impl SystemRegistry {
@@ -99,137 +93,50 @@ impl SystemRegistry {
     ///
     /// To provide explicit set(s), use [`register_system_with_sets`](SystemRegistry::register_system_with_sets).
     #[inline]
-    fn register_system_with_type_set<Params, S: IntoSystem<(), (), Params> + 'static>(
+    fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
     ) {
-        let automatic_system_set: SystemTypeSet<S> = SystemTypeSet::new();
-
+        let boxed_set: BoxedSystemSet = Box::new(SystemTypeSet::<S>::new());
         // This avoids nasty surprising behavior in case systems are registered twice
-        if !self.is_set_registered(automatic_system_set) {
-            let boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
-            self.register_boxed_system(world, boxed_system, vec![Box::new(automatic_system_set)]);
+        if !self.systems.contains_key(&boxed_set) {
+            // Initialize the system's state
+            let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
+            boxed_system.initialize(world);
+            // Insert they system keyed by its set
+            self.systems.insert(boxed_set, boxed_system);
         } else {
             let type_name = std::any::type_name::<S>();
             warn!("A system of type {type_name} was registered more than once!");
         };
     }
 
-    /// Register a system so that it may be run by any of their [`SystemSet`]s.
+    /// Runs the supplied system on the [`World`] a single time.
     ///
-    /// This is only needed if you want to run a system by a particular set;
-    /// the `run_system` set will automatically register systems under their [`SystemTypeSet`] when first used.
+    /// You do not need to register systems before they are run in this way.
+    /// Instead, systems will be automatically registered according to their [`SystemTypeSet`] the first time this method is called on them.
     ///
-    /// # Warning
+    /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
     ///
-    /// Duplicate systems may be added if this method is called repeatedly.
-    /// Each copy will be called seperately if they share a set.
-    pub fn register_system<
-        Params,
-        S: IntoSystem<(), (), Params> + 'static,
-        SSI: IntoIterator<Item = SS>,
-        SS: SystemSet,
-    >(
+    /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeSet`],
+    /// only the first will be run.
+    pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
-        sets: SSI,
     ) {
-        let boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
-
-        let collected_sets = sets
-            .into_iter()
-            .map(|set| {
-                let boxed_set: BoxedSystemSet = Box::new(set);
-                boxed_set
-            })
-            .collect();
-
-        self.register_boxed_system(world, boxed_system, collected_sets);
-    }
-
-    /// A less generic version of [`register_system`](Self::register_system_with_sets).
-    ///
-    /// Returns the index in the vector of systems that this new system is stored at.
-    /// This is only useful for debugging as an external user of this method.
-    ///
-    /// This can be useful when you have a boxed system or boxed sets,
-    /// as the corresponding traits are not implemented for boxed trait objects
-    /// to avoid indefinite nesting.
-    pub fn register_boxed_system(
-        &mut self,
-        world: &mut World,
-        mut boxed_system: BoxedSystem,
-        sets: Vec<BoxedSystemSet>,
-    ) -> usize {
-        // Intialize the system's state
-        boxed_system.initialize(world);
-
-        let stored_system = StoredSystem {
-            system: boxed_system,
+        let boxed_set = Box::new(SystemTypeSet::<S>::new());
+        let matching_system = match self.systems.entry(boxed_set) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => {
+                let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
+                boxed_system.initialize(world);
+                v.insert(boxed_system)
+            }
         };
-
-        // Add the system to the end of the vec
-        let system_index = self.systems.len();
-        self.systems.push(stored_system);
-
-        // For each set that the system has
-        for set in sets {
-            let maybe_set_indexes = self.sets.get_mut(&set);
-
-            // Add the index of the system in the vec to the lookup hashmap
-            // under the corresponding set key
-            if let Some(set_indexes) = maybe_set_indexes {
-                set_indexes.push(system_index);
-            } else {
-                self.sets.insert(set, vec![system_index]);
-            };
-        }
-
-        system_index
-    }
-
-    /// Runs the system at the supplied `index` a single time.
-    #[inline]
-    fn run_system_at_index(&mut self, world: &mut World, index: usize) {
-        let stored_system = &mut self.systems[index];
-
-        // Run the system
-        stored_system.system.run((), world);
-        // Apply any generated commands
-        stored_system.system.apply_buffers(world);
-    }
-
-    /// Is at least one system in the [`SystemRegistry`] associated with the provided [`SystemSet`]?
-    #[inline]
-    pub fn is_set_registered<S: SystemSet>(&self, set: S) -> bool {
-        let boxed_set: BoxedSystemSet = Box::new(set);
-        self.sets.get(&boxed_set).is_some()
-    }
-
-    /// Returns the first matching index for systems with this set if any.
-    #[inline]
-    fn first_registered_index<S: SystemSet>(&self, set: S) -> Option<usize> {
-        let boxed_set: BoxedSystemSet = Box::new(set);
-        let vec_of_indexes = self.sets.get(&boxed_set)?;
-        vec_of_indexes.iter().next().copied()
-    }
-
-    /// Runs the set of systems corresponding to the provided [`SystemSet`] on the [`World`] a single time.
-    ///
-    /// Systems will be run sequentially in registration order if more than one registered system matches the provided set.
-    pub fn run_systems_by_set<S: SystemSet>(
-        &mut self,
-        world: &mut World,
-        set: S,
-    ) -> Result<(), SystemRegistryError> {
-        self.run_callback(
-            world,
-            Callback {
-                set: set.dyn_clone(),
-            },
-        )
+        matching_system.run((), world);
+        matching_system.apply_buffers(world);
     }
 
     /// Run the systems corresponding to the set stored in the provided [`Callback`]
@@ -245,44 +152,14 @@ impl SystemRegistry {
         callback: Callback,
     ) -> Result<(), SystemRegistryError> {
         let boxed_set = callback.set;
-
-        match self.sets.get(&boxed_set) {
-            Some(matching_indexes) => {
-                // Loop over the system in registration order
-                for index in matching_indexes.clone() {
-                    self.run_system_at_index(world, index);
-                }
-
+        match self.systems.get_mut(&boxed_set) {
+            Some(matching_system) => {
+                matching_system.run((), world);
+                matching_system.apply_buffers(world);
                 Ok(())
             }
             None => Err(SystemRegistryError::SetNotFound(boxed_set)),
         }
-    }
-
-    /// Runs the supplied system on the [`World`] a single time.
-    ///
-    /// You do not need to register systems before they are run in this way.
-    /// Instead, systems will be automatically registered according to their [`SystemTypeSet`] the first time this method is called on them.
-    ///
-    /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
-    ///
-    /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeSet`],
-    /// only the first will be run.
-    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
-        &mut self,
-        world: &mut World,
-        system: S,
-    ) {
-        let automatic_system_set: SystemTypeSet<S> = SystemTypeSet::new();
-        let index = if self.is_set_registered(automatic_system_set) {
-            self.first_registered_index(automatic_system_set).unwrap()
-        } else {
-            let boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
-            let sets = boxed_system.default_system_sets();
-            self.register_boxed_system(world, boxed_system, sets)
-        };
-
-        self.run_system_at_index(world, index);
     }
 }
 
@@ -290,30 +167,9 @@ impl World {
     /// Register a system with its [`SystemTypeSet`].
     ///
     /// Calls [`SystemRegistry::register_system_with_type_set`].
-    pub fn register_system_with_type_set<Params, S: IntoSystem<(), (), Params> + 'static>(
-        &mut self,
-        system: S,
-    ) {
+    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system_with_type_set(world, system);
-        });
-    }
-
-    /// Register a system with any number of [`SystemSet`]s.
-    ///
-    /// Calls [`SystemRegistry::register_system`].
-    pub fn register_system<
-        Params,
-        S: IntoSystem<(), (), Params> + 'static,
-        SSI: IntoIterator<Item = SS>,
-        SS: SystemSet,
-    >(
-        &mut self,
-        system: S,
-        sets: SSI,
-    ) {
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system(world, system, sets);
+            registry.register_system(world, system);
         });
     }
 
@@ -321,20 +177,10 @@ impl World {
     ///
     /// Calls [`SystemRegistry::run_system`].
     #[inline]
-    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
+    pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_system(world, system);
         });
-    }
-
-    /// Runs the systems corresponding to the supplied [`SystemSet`] on the [`World`] a single time.
-    ///
-    /// Calls [`SystemRegistry::run_systems_by_set`].
-    #[inline]
-    pub fn run_systems_by_set<L: SystemSet>(&mut self, set: L) -> Result<(), SystemRegistryError> {
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_systems_by_set(world, set)
-        })
     }
 
     /// Run the systems corresponding to the set stored in the provided [`Callback`]
@@ -351,15 +197,15 @@ impl World {
 /// The [`Command`] type for [`SystemRegistry::run_system`]
 #[derive(Debug, Clone)]
 pub struct RunSystemCommand<
-    Params: Send + Sync + 'static,
-    S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    M: Send + Sync + 'static,
+    S: IntoSystem<(), (), M> + Send + Sync + 'static,
 > {
-    _phantom_params: PhantomData<Params>,
+    _phantom_params: PhantomData<M>,
     system: S,
 }
 
-impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static>
-    RunSystemCommand<Params, S>
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
+    RunSystemCommand<M, S>
 {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     #[inline]
@@ -372,8 +218,8 @@ impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync 
     }
 }
 
-impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static> Command
-    for RunSystemCommand<Params, S>
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
+    for RunSystemCommand<M, S>
 {
     #[inline]
     fn write(self, world: &mut World) {
@@ -421,7 +267,7 @@ impl Callback {
     /// Creates a new callback from a function that can be used as a system.
     ///
     /// Remember that you must register your systems with the `App` / [`World`] before they can be run as callbacks!
-    pub fn new<S: IntoSystemConfig<Params> + 'static, Params>(_system: S) -> Self {
+    pub fn new<S: IntoSystemConfig<M> + 'static, M>(_system: S) -> Self {
         Callback {
             set: Box::new(SystemTypeSet::<S>::new()),
         }
@@ -483,18 +329,6 @@ mod tests {
         world.run_system(count_up);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         world.run_system(count_up);
-        assert_eq!(*world.resource::<Counter>(), Counter(2));
-    }
-
-    #[test]
-    fn run_system_by_set() {
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.register_system(count_up, [CountSet]);
-        world.register_system(count_up, [CountSet]);
-        world.run_systems_by_set(CountSet).unwrap();
-        // All systems matching the set will be run.
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
