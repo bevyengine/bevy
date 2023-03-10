@@ -15,12 +15,14 @@ fn main() {
             level: Level::TRACE,
             filter: "".to_string(),
         })
-        .add_system(parse_message_system.pipe(handler_system))
-        .add_system(data_pipe_system.pipe(info))
-        .add_system(parse_message_system.pipe(dbg))
-        .add_system(warning_pipe_system.pipe(warn))
-        .add_system(parse_error_message_system.pipe(error))
-        .add_system(parse_message_system.pipe(ignore))
+        .add_systems((
+            parse_message_system.pipe(handler_system),
+            data_pipe_system.pipe(info),
+            parse_message_system.pipe(dbg),
+            warning_pipe_system.pipe(warn),
+            parse_error_message_system.pipe(error),
+            parse_message_system.pipe(ignore),
+        ))
         .run();
 }
 

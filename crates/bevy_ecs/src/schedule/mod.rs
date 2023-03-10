@@ -127,13 +127,13 @@ mod tests {
 
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(named_system);
-            schedule.add_system(make_function_system(1).before(named_system));
-            schedule.add_system(
+            schedule.add_systems((
+                named_system,
+                make_function_system(1).before(named_system),
                 make_function_system(0)
                     .after(named_system)
                     .in_set(TestSet::A),
-            );
+            ));
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, u32::MAX, 0]);
@@ -144,12 +144,12 @@ mod tests {
 
             // modify the schedule after it's been initialized and test ordering with sets
             schedule.configure_set(TestSet::A.after(named_system));
-            schedule.add_system(
+            schedule.add_systems((
                 make_function_system(3)
                     .before(TestSet::A)
                     .after(named_system),
-            );
-            schedule.add_system(make_function_system(4).after(TestSet::A));
+                make_function_system(4).after(TestSet::A),
+            ));
             schedule.run(&mut world);
 
             assert_eq!(
@@ -275,10 +275,12 @@ mod tests {
 
             world.init_resource::<Counter>();
 
-            schedule.add_system(counting_system.run_if(|| false).run_if(|| false));
-            schedule.add_system(counting_system.run_if(|| true).run_if(|| false));
-            schedule.add_system(counting_system.run_if(|| false).run_if(|| true));
-            schedule.add_system(counting_system.run_if(|| true).run_if(|| true));
+            schedule.add_systems((
+                counting_system.run_if(|| false).run_if(|| false),
+                counting_system.run_if(|| true).run_if(|| false),
+                counting_system.run_if(|| false).run_if(|| true),
+                counting_system.run_if(|| true).run_if(|| true),
+            ));
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
@@ -535,8 +537,7 @@ mod tests {
             let mut schedule = Schedule::new();
 
             // Schedule `bar` to run after `foo`.
-            schedule.add_system(foo);
-            schedule.add_system(bar.after(foo));
+            schedule.add_systems((foo, bar.after(foo)));
 
             // There's only one `foo`, so it's fine.
             let result = schedule.initialize(&mut world);
@@ -790,8 +791,10 @@ mod tests {
             schedule
                 .set_default_base_set(Base::A)
                 .configure_set(Base::A.before(Base::B))
-                .add_system(make_function_system(0).in_base_set(Base::B))
-                .add_system(make_function_system(1));
+                .add_systems((
+                    make_function_system(0).in_base_set(Base::B),
+                    make_function_system(1),
+                ));
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, 0]);

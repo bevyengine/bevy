@@ -32,10 +32,12 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
-        .add_system(animate_sprite)
-        .add_system(print_sprite_count)
-        .add_system(move_camera.after(print_sprite_count))
+        .add_systems((
+            setup.on_startup(),
+            animate_sprite,
+            print_sprite_count,
+            move_camera.after(print_sprite_count),
+        ))
         .run();
 }
 
