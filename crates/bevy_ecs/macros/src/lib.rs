@@ -11,9 +11,8 @@ use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
-    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
-    TypeParam,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, ConstParam,
+    DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -248,10 +247,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
-#[allow(unused)]
-#[derive(Default)]
-struct SystemParamFieldAttributes {}
-
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
 /// Checks if the specified identifier occurs in the specified [`TokenStream`].
@@ -285,29 +280,20 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     };
     let path = bevy_ecs_path();
 
-    let _field_attributes = field_definitions
-        .iter()
-        .map(|field| {
-            (
-                field,
-                field
-                    .attrs
-                    .iter()
-                    .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
-                    .map_or_else(SystemParamFieldAttributes::default, |a| {
-                        syn::custom_keyword!(ignore);
-                        let attributes = SystemParamFieldAttributes::default();
-                        let _: () = a
-                            .parse_args_with(|_input: ParseStream| {
-                                panic!("#[derive(SystemParam)] does not support attributes");
-                            })
-                            .expect("Invalid 'system_param' attribute format.");
-
-                        attributes
-                    }),
+    for field in &field_definitions {
+        if let Some(attr) = field
+            .attrs
+            .iter()
+            .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
+        {
+            return syn::Error::new_spanned(
+                attr,
+                "#[derive(SystemParam)] does not support attributes.",
             )
-        })
-        .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
+            .into_compile_error()
+            .into();
+        }
+    }
     let mut field_locals = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
