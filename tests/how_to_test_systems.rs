@@ -57,8 +57,7 @@ fn did_hurt_enemy() {
     app.add_event::<EnemyDied>();
 
     // Add our two systems
-    app.add_system(hurt_enemies.before(despawn_dead_enemies));
-    app.add_system(despawn_dead_enemies);
+    app.add_systems((hurt_enemies, despawn_dead_enemies).chain());
 
     // Setup test entities
     let enemy_id = app
@@ -89,8 +88,7 @@ fn did_despawn_enemy() {
     app.add_event::<EnemyDied>();
 
     // Add our two systems
-    app.add_system(hurt_enemies.before(despawn_dead_enemies));
-    app.add_system(despawn_dead_enemies);
+    app.add_systems((hurt_enemies, despawn_dead_enemies).chain());
 
     // Setup test entities
     let enemy_id = app

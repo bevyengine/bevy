@@ -33,8 +33,8 @@ pub mod prelude {
 
 use bevy_ecs::{
     schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs,
-        Schedule, ScheduleLabel, SystemSet,
+        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        SystemSet,
     },
     system::Local,
     world::World,
@@ -136,11 +136,13 @@ impl CoreSet {
         // Create "stage-like" structure using buffer flushes + ordering
         schedule
             .set_default_base_set(Update)
-            .add_system(apply_system_buffers.in_base_set(FirstFlush))
-            .add_system(apply_system_buffers.in_base_set(PreUpdateFlush))
-            .add_system(apply_system_buffers.in_base_set(UpdateFlush))
-            .add_system(apply_system_buffers.in_base_set(PostUpdateFlush))
-            .add_system(apply_system_buffers.in_base_set(LastFlush))
+            .add_systems((
+                apply_system_buffers.in_base_set(FirstFlush),
+                apply_system_buffers.in_base_set(PreUpdateFlush),
+                apply_system_buffers.in_base_set(UpdateFlush),
+                apply_system_buffers.in_base_set(PostUpdateFlush),
+                apply_system_buffers.in_base_set(LastFlush),
+            ))
             .configure_sets(
                 (
                     First,
@@ -197,13 +199,23 @@ impl StartupSet {
         schedule.set_default_base_set(Startup);
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_base_set(PreStartupFlush));
-        schedule.add_system(apply_system_buffers.in_base_set(StartupFlush));
-        schedule.add_system(apply_system_buffers.in_base_set(PostStartupFlush));
+        schedule.add_systems((
+            apply_system_buffers.in_base_set(PreStartupFlush),
+            apply_system_buffers.in_base_set(StartupFlush),
+            apply_system_buffers.in_base_set(PostStartupFlush),
+        ));
 
-        schedule.configure_set(PreStartup.before(PreStartupFlush));
-        schedule.configure_set(Startup.after(PreStartupFlush).before(StartupFlush));
-        schedule.configure_set(PostStartup.after(StartupFlush).before(PostStartupFlush));
+        schedule.configure_sets(
+            (
+                PreStartup,
+                PreStartupFlush,
+                Startup,
+                StartupFlush,
+                PostStartup,
+                PostStartupFlush,
+            )
+                .chain(),
+        );
 
         schedule
     }

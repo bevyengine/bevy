@@ -46,11 +46,13 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CubemapMaterial>::default())
-        .add_startup_system(setup)
-        .add_system(cycle_cubemap_asset)
-        .add_system(asset_loaded.after(cycle_cubemap_asset))
-        .add_system(camera_controller)
-        .add_system(animate_light_direction)
+        .add_systems((
+            setup.on_startup(),
+            cycle_cubemap_asset,
+            asset_loaded.after(cycle_cubemap_asset),
+            camera_controller,
+            animate_light_direction,
+        ))
         .run();
 }
 

@@ -129,15 +129,15 @@ where
         };
 
         render_app
-            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
-            .add_system(
+            .add_systems((
+                extract_camera_prepass_phase.in_schedule(ExtractSchedule),
                 prepare_prepass_textures
                     .in_set(RenderSet::Prepare)
                     .after(bevy_render::view::prepare_windows),
-            )
-            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
-            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
+                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+            ))
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
@@ -235,6 +235,9 @@ where
         if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
         }
+        if blend_key == MeshPipelineKey::BLEND_ALPHA {
+            shader_defs.push("BLEND_ALPHA".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
@@ -285,7 +288,8 @@ where
         // or the material uses alpha cutoff values and doesn't rely on the standard prepass shader
         let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
             || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA)
+                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+                || blend_key == MeshPipelineKey::BLEND_ALPHA)
                 && self.material_fragment_shader.is_some())
         {
             // Use the fragment shader from the material if present

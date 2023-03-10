@@ -16,9 +16,11 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(update_bloom_settings)
-        .add_system(bounce_spheres)
+        .add_systems((
+            setup_scene.on_startup(),
+            update_bloom_settings,
+            bounce_spheres,
+        ))
         .run();
 }
 
@@ -42,15 +44,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5000.0, 500.0, 50.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: Color::rgb_linear(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(50.0, 5000.0, 500.0),
+        emissive: Color::rgb_linear(2.0, 13.99, 5.32),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(500.0, 50.0, 5000.0),
+        emissive: Color::rgb_linear(5.32, 2.0, 13.99),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
