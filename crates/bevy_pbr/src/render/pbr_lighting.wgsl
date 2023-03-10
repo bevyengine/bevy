@@ -314,7 +314,7 @@ fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f3
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, aspect: f32, perceptual_roughness: f32) -> vec3<f32> {
     // Number of taps scale with perceptual roughness
     // Minimum: 1, Maximum: 9
-    let num_taps = i32(max(perceptual_roughness * 40.0, 8.0)) + 1;
+    let num_taps = i32(max(perceptual_roughness * 80.0, 8.0)) + 1;
     var result = vec3<f32>(0.0, 0.0, 0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
         // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
