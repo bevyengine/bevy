@@ -820,6 +820,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -835,6 +837,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
         }
     }
