@@ -586,9 +586,9 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>().add_system(
-                Events::<T>::update_system
+                bevy_ecs::events::update_system::<T>
                     .in_base_set(CoreSet::First)
-                    .run_if(Events::<T>::update_condition),
+                    .run_if(bevy_ecs::events::update_condition::<T>),
             );
         }
         self

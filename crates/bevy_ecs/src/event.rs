@@ -555,17 +555,6 @@ impl<E: Event> Events<E> {
         );
     }
 
-    /// A system that calls [`Events::update`] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
-    }
-
-    /// A [`Condition`] that checks if the event's [`update_system`](Self::update_system)
-    /// needs to run or not.
-    pub fn update_condition(events: Res<Self>) -> bool {
-        !events.events_a.is_empty() || !events.events_b.is_empty()
-    }
-
     #[inline]
     fn reset_start_event_count(&mut self) {
         self.events_a.start_event_count = self.event_count;
@@ -669,6 +658,17 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
         self.event_count = event_count;
     }
+}
+
+/// A system that calls [`Events::update`] once per frame.
+pub fn update_system<T: Send + Sync + 'static>(mut events: ResMut<Events<T>>) {
+    events.update();
+}
+
+/// A run condition that checks if the event's [`update_system`]
+/// needs to run or not.
+pub fn update_condition<T: Send + Sync + 'static>(events: Res<Events<T>>) -> bool {
+    !events.events_a.is_empty() || !events.events_b.is_empty()
 }
 
 #[cfg(test)]
