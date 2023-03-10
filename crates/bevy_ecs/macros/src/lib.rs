@@ -255,6 +255,7 @@ struct SystemParamFieldAttributes {
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
+/// Checks if the specified identifier occurs in the specified [`TokenStream`].
 #[allow(clippy::cmp_owned)]
 fn check_for_collision(haystack: TokenStream, value: &Ident) -> bool {
     haystack.into_iter().any(|t| match t {
@@ -262,6 +263,13 @@ fn check_for_collision(haystack: TokenStream, value: &Ident) -> bool {
         TokenTree::Ident(ident) => ident.to_string() == value.to_string(),
         TokenTree::Punct(_) | TokenTree::Literal(_) => false,
     })
+}
+
+fn ensure_no_collision(haystack: TokenStream, mut value: Ident) -> Ident {
+    while check_for_collision(haystack.clone(), &value) {
+        value = format_ident!("{value}X");
+    }
+    value
 }
 
 /// Implement `SystemParam` to use a struct as a parameter in a system
@@ -402,10 +410,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
-    let mut state_struct_name = format_ident!("FetchState");
-    while check_for_collision(token_stream.clone(), &state_struct_name) {
-        state_struct_name = format_ident!("{state_struct_name}A");
-    }
+    let state_struct_name = ensure_no_collision(token_stream, format_ident!("FetchState"));
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
