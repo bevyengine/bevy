@@ -3,6 +3,7 @@
 #![warn(missing_docs)]
 
 mod app;
+mod config;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
@@ -12,6 +13,7 @@ mod ci_testing;
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
+pub use config::*;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
@@ -23,7 +25,9 @@ pub mod prelude {
     pub use crate::AppTypeRegistry;
     #[doc(hidden)]
     pub use crate::{
-        app::App, CoreSchedule, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet,
+        app::App,
+        config::{IntoSystemAppConfig, IntoSystemAppConfigs},
+        CoreSchedule, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet,
     };
 }
 
@@ -166,6 +170,7 @@ impl CoreSet {
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[system_set(base)]
 pub enum StartupSet {
     /// Runs once before [`StartupSet::Startup`].
     PreStartup,
@@ -189,11 +194,12 @@ impl StartupSet {
     pub fn base_schedule() -> Schedule {
         use StartupSet::*;
         let mut schedule = Schedule::new();
+        schedule.set_default_base_set(Startup);
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_system(apply_system_buffers.in_set(PreStartupFlush));
-        schedule.add_system(apply_system_buffers.in_set(StartupFlush));
-        schedule.add_system(apply_system_buffers.in_set(PostStartupFlush));
+        schedule.add_system(apply_system_buffers.in_base_set(PreStartupFlush));
+        schedule.add_system(apply_system_buffers.in_base_set(StartupFlush));
+        schedule.add_system(apply_system_buffers.in_base_set(PostStartupFlush));
 
         schedule.configure_set(PreStartup.before(PreStartupFlush));
         schedule.configure_set(Startup.after(PreStartupFlush).before(StartupFlush));

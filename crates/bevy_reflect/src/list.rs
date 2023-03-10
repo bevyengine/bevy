@@ -2,24 +2,49 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use crate::utility::NonGenericTypeInfoCell;
+use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
 use crate::{
     DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 
-/// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
+/// A trait used to power [list-like] operations via [reflection].
 ///
-/// Unlike the [`Array`](crate::Array) trait, implementors of this type are not expected to
+/// This corresponds to types, like [`Vec`], which contain an ordered sequence
+/// of elements that implement [`Reflect`].
+///
+/// Unlike the [`Array`](crate::Array) trait, implementors of this trait are not expected to
 /// maintain a constant length.
 /// Methods like [insertion](List::insert) and [removal](List::remove) explicitly allow for their
 /// internal size to change.
 ///
-/// This trait expects index 0 to contain the _front_ element.
-/// The _back_ element must refer to the element with the largest index.
-/// These two rules above should be upheld by manual implementors.
-///
 /// [`push`](List::push) and [`pop`](List::pop) have default implementations,
-/// however it may be faster to implement them manually.
+/// however it will generally be more performant to implement them manually
+/// as the default implementation uses a very naive approach to find the correct position.
+///
+/// This trait expects its elements to be ordered linearly from front to back.
+/// The _front_ element starts at index 0 with the _back_ element ending at the largest index.
+/// This contract above should be upheld by any manual implementors.
+///
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogenous (i.e. all the same type).
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, List};
+///
+/// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+///
+/// let last_field: Box<dyn Reflect> = foo.pop().unwrap();
+/// assert_eq!(last_field.downcast_ref::<u32>(), Some(&789));
+/// ```
+///
+/// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
+/// [reflection]: crate
+/// [`Vec`]: std::vec::Vec
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 pub trait List: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
@@ -378,7 +403,7 @@ impl<'a> ExactSizeIterator for ListIter<'a> {}
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
 pub fn list_hash<L: List>(list: &L) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
+    let mut hasher = reflect_hasher();
     std::any::Any::type_id(list).hash(&mut hasher);
     list.len().hash(&mut hasher);
     for value in list.iter() {

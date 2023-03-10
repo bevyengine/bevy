@@ -1,6 +1,6 @@
 //! This example illustrates how to react to component change.
 
-use bevy::prelude::*;
+use bevy::{ecs::world::Ref, prelude::*};
 use rand::Rng;
 
 fn main() {
@@ -43,15 +43,15 @@ fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) 
     }
 }
 
-// By looking at trackers, the query is not filtered but the information is available
-fn tracker_monitoring(
-    query: Query<(
-        Entity,
-        Option<&MyComponent>,
-        Option<ChangeTrackers<MyComponent>>,
-    )>,
-) {
-    for (entity, component, trackers) in &query {
-        info!("{:?}: {:?} -> {:?}", entity, component, trackers);
+// By using `Ref`, the query is not filtered but the information is available
+fn tracker_monitoring(query: Query<(Entity, Ref<MyComponent>)>) {
+    for (entity, component) in &query {
+        info!(
+            "{:?}: {:?} -> {{is_added: {}, is_changed: {}}}",
+            entity,
+            component,
+            component.is_added(),
+            component.is_changed()
+        );
     }
 }

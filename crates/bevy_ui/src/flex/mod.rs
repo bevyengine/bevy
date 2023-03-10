@@ -18,6 +18,7 @@ use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChan
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},
+    style_helpers::TaffyMaxContent,
     Taffy,
 };
 
@@ -29,16 +30,13 @@ pub struct FlexSurface {
 }
 
 // SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
-    // FIXME https://github.com/DioxusLabs/taffy/issues/146
-    // _assert_send_sync::<Taffy>();
+    _assert_send_sync::<Taffy>();
 }
 
 impl fmt::Debug for FlexSurface {
@@ -64,14 +62,17 @@ impl FlexSurface {
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
         let mut added = false;
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, style);
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy.new_leaf(taffy_style).unwrap()
+            taffy
+                .new_leaf(convert::from_style(scale_factor, style))
+                .unwrap()
         });
 
         if !added {
-            self.taffy.set_style(*taffy_node, taffy_style).unwrap();
+            self.taffy
+                .set_style(*taffy_node, convert::from_style(scale_factor, style))
+                .unwrap();
         }
     }
 

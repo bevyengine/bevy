@@ -99,10 +99,6 @@ impl ReflectComponent {
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
-    ///
-    /// # Panics
-    ///
-    /// Panics if there is no [`Component`] of the given type.
     pub fn remove(&self, entity: &mut EntityMut) {
         (self.0.remove)(entity);
     }
