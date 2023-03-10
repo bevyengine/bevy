@@ -363,7 +363,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
-    let punctuated_generic_defs: Punctuated<_, Token![,]> = lifetimeless_generics
+    let punctuated_generics_no_bounds: Punctuated<_, Token![,]> = lifetimeless_generics
         .iter()
         .map(|&g| match g.clone() {
             GenericParam::Type(mut g) => {
@@ -409,7 +409,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             // Allows rebinding the lifetimes of each field type.
-            type #fields_alias <'w, 's, #punctuated_generic_defs> = (#(#tuple_types,)*);
+            type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
 
             #[doc(hidden)]
             #state_struct_visibility struct #state_struct_name <#(#lifetimeless_generics,)*>
