@@ -231,6 +231,7 @@ impl From<Display> for taffy::style::Display {
     fn from(value: Display) -> Self {
         match value {
             Display::Flex => taffy::style::Display::Flex,
+            Display::Grid => taffy::style::Display::Grid,
             Display::None => taffy::style::Display::None,
         }
     }

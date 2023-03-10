@@ -624,6 +624,8 @@ impl Default for Direction {
 pub enum Display {
     /// Use Flexbox layout model to determine the position of this [`Node`].
     Flex,
+    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    Grid,
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
