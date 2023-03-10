@@ -13,6 +13,10 @@ use crate::system::{
 
 define_boxed_label!(ScheduleLabel);
 
+mod sealed {
+    pub trait SystemSetKind {}
+}
+
 pub type BoxedSystemSet = Box<dyn SystemSet>;
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
@@ -37,19 +41,35 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
 
+pub trait KindedSystemSet: SystemSet {
+    type Kind: sealed::SystemSetKind;
+}
+
+pub struct Base;
+
+impl sealed::SystemSetKind for Base {}
+
 /// A marker trait for `SystemSet` types where [`is_base`] returns `true`.
 /// This should only be implemented for types that satisfy this requirement.
 /// It is automatically implemented for base set types by `#[derive(SystemSet)]`.
 ///
 /// [`is_base`]: SystemSet::is_base
-pub trait BaseSystemSet: SystemSet {}
+pub trait BaseSystemSet: KindedSystemSet<Kind = Base> {}
+
+impl<T: KindedSystemSet<Kind = Base>> BaseSystemSet for T {}
+
+pub struct Free;
+
+impl sealed::SystemSetKind for Free {}
 
 /// A marker trait for `SystemSet` types where [`is_base`] returns `false`.
 /// This should only be implemented for types that satisfy this requirement.
 /// It is automatically implemented for non-base set types by `#[derive(SystemSet)]`.
 ///
 /// [`is_base`]: SystemSet::is_base
-pub trait FreeSystemSet: SystemSet {}
+pub trait FreeSystemSet: KindedSystemSet<Kind = Free> {}
+
+impl<T: KindedSystemSet<Kind = Free>> FreeSystemSet for T {}
 
 impl PartialEq for dyn SystemSet {
     fn eq(&self, other: &Self) -> bool {

@@ -2,6 +2,8 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 
+use crate::bevy_ecs_path;
+
 pub static SYSTEM_SET_ATTRIBUTE_NAME: &str = "system_set";
 pub static BASE_ATTRIBUTE_NAME: &str = "base";
 
@@ -12,6 +14,8 @@ pub static BASE_ATTRIBUTE_NAME: &str = "base";
 /// - `input`: The [`syn::DeriveInput`] for the struct that we want to derive the set trait for
 /// - `trait_path`: The [`syn::Path`] to the set trait
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+    let path = bevy_ecs_path();
+
     let mut base_trait_path = trait_path.clone();
     let ident = &mut base_trait_path.segments.last_mut().unwrap().ident;
     *ident = format_ident!("Base{ident}");
@@ -73,14 +77,10 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
         .unwrap(),
     );
 
-    let marker_impl = if is_base {
-        quote! {
-            impl #impl_generics #base_trait_path for #ident #ty_generics #where_clause {}
-        }
+    let kind = if is_base {
+        quote! { #path::schedule::Base }
     } else {
-        quote! {
-            impl #impl_generics #free_trait_path for #ident #ty_generics #where_clause {}
-        }
+        quote! { #path::schedule::Free }
     };
 
     (quote! {
@@ -94,7 +94,9 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
             }
         }
 
-        #marker_impl
+        impl #impl_generics #path::schedule::KindedSystemSet for #ident #ty_generics #where_clause {
+            type Kind = #kind;
+        }
     })
     .into()
 }
