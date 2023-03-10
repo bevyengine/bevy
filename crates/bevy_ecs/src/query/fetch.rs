@@ -1455,7 +1455,7 @@ mod tests {
     use super::*;
     use crate as bevy_ecs;
 
-    // Compile test for [insert this PR].
+    // Compile test for https://github.com/bevyengine/bevy/pull/8030.
     #[derive(WorldQuery)]
     pub struct IgnoredQuery<Marker> {
         _marker: PhantomData<Marker>,
