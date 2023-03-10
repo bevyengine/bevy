@@ -266,6 +266,8 @@ fn check_for_collision(haystack: TokenStream, value: &Ident) -> bool {
 }
 
 fn ensure_no_collision(haystack: TokenStream, mut value: Ident) -> Ident {
+    // If there's a collision, add more characters to the identifier
+    // until it doesn't collide with anything anymore.
     while check_for_collision(haystack.clone(), &value) {
         value = format_ident!("{value}X");
     }
