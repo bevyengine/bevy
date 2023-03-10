@@ -21,6 +21,10 @@ struct Vertex {
     @location(4) joint_indices: vec4<u32>,
     @location(5) joint_weights: vec4<f32>,
 #endif // SKINNED
+
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif // MORPH_TARGETS
 }
 
 struct VertexOutput {
@@ -43,9 +47,34 @@ struct VertexOutput {
 #endif // MOTION_VECTOR_PREPASS
 }
 
+#ifdef MORPH_TARGETS
+fn morph_vertex(vertex: Vertex) -> Vertex {
+    var vertex = vertex;
+    let weight_count = layer_count();
+    for (var i: u32 = 0u; i < weight_count; i ++) {
+        let weight = weight_at(i);
+        if weight == 0.0 {
+            continue;
+        }
+        vertex.position += weight * morph(vertex.index, position_offset, i);
+#ifdef VERTEX_NORMALS
+        vertex.normal += weight * morph(vertex.index, normal_offset, i);
+#endif
+#ifdef VERTEX_TANGENTS
+        vertex.tangent += vec4(weight * morph(vertex.index, tangent_offset, i), 0.0);
+#endif
+    }
+    return vertex;
+}
+#endif
+
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
+
+#ifdef MORPH_TARGETS
+    var vertex = morph_vertex(vertex);
+#endif
 
 #ifdef SKINNED
     var model = skin_model(vertex.joint_indices, vertex.joint_weights);

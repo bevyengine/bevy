@@ -32,7 +32,7 @@ pub mod prelude {
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
-        mesh::{shape, Mesh},
+        mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -43,6 +43,7 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+use mesh::morph::MorphPlugin;
 pub use once_cell;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
@@ -334,10 +335,12 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin);
+            .add_plugin(GlobalsPlugin)
+            .add_plugin(MorphPlugin);
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
+            .register_type::<mesh::morph::MorphWeights>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();

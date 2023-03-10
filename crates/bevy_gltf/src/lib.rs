@@ -50,6 +50,7 @@ impl Plugin for GltfPlugin {
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
         })
         .register_type::<GltfExtras>()
+        .register_type::<GltfMeshExtras>()
         .add_asset::<Gltf>()
         .add_asset::<GltfNode>()
         .add_asset::<GltfPrimitive>()
@@ -109,5 +110,13 @@ pub struct GltfPrimitive {
 #[derive(Clone, Debug, Reflect, Default, Component)]
 #[reflect(Component)]
 pub struct GltfExtras {
+    pub value: String,
+}
+/// Gltf `extras` field present in the gltf `mesh` of this node.
+///
+/// This allows accessing the `extras` field of a mesh as a component.
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfMeshExtras {
     pub value: String,
 }

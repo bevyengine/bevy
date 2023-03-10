@@ -1,6 +1,6 @@
 mod fog;
 mod light;
-mod mesh;
+pub(crate) mod mesh;
 
 pub use fog::*;
 pub use light::*;

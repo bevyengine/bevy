@@ -3,11 +3,13 @@ pub mod skinning;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Buffer, VertexBufferLayout},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+    render_resource::{BindGroup, Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
+use bevy_asset::Handle;
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -20,6 +22,8 @@ use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
     VertexStepMode,
 };
+
+use super::morph::{MorphAttributesImage, MorphBuildError, MorphTargetImage, VisitMorphTargets};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -35,6 +39,7 @@ pub struct Mesh {
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
+    morph_targets: Option<MorphAttributesImage>,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -91,12 +96,40 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            morph_targets: None,
         }
+    }
+
+    /// Whether this mesh has skeletal skinning vertex attributes.
+    pub fn is_skinned(&self) -> bool {
+        let weight_id = &Self::ATTRIBUTE_JOINT_WEIGHT.id;
+        let index_id = &Self::ATTRIBUTE_JOINT_INDEX.id;
+        self.attributes.contains_key(weight_id) && self.attributes.contains_key(index_id)
     }
 
     /// Returns the topology of the mesh.
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
+    }
+
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] for this mesh using [`VisitMorphTargets`].
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets<Visit: VisitMorphTargets>(
+        &mut self,
+        visitor: Visit,
+        store_image: impl FnOnce(Image) -> Handle<Image>,
+    ) -> Result<(), MorphBuildError> {
+        let vertex_count = self.count_vertices();
+        let image = MorphTargetImage::new(visitor, vertex_count as u32)?;
+        let handle = store_image(image.image);
+        self.morph_targets = Some(MorphAttributesImage(handle));
+        Ok(())
     }
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
@@ -816,14 +849,24 @@ impl From<&Indices> for IndexFormat {
 
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
     pub vertex_count: u32,
+    pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
+    pub bind_group: Option<BindGroup>,
+}
+impl GpuMesh {
+    /// Whether this mesh has skeletal skinning vertex attributes.
+    pub fn is_skinned(&self) -> bool {
+        let weight_id = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
+        let index_id = Mesh::ATTRIBUTE_JOINT_INDEX.id;
+        self.layout.contains(weight_id) && self.layout.contains(index_id)
+    }
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -841,7 +884,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -851,7 +894,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        (render_device, images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -882,6 +925,8 @@ impl RenderAsset for Mesh {
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
+            morph_targets: mesh.morph_targets.and_then(|mt| mt.binding(images)),
+            bind_group: None,
         })
     }
 }

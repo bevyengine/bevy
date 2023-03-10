@@ -14,10 +14,14 @@ use bevy::{
     window::WindowPlugin,
 };
 
+#[cfg(feature = "animation")]
+mod animation_plugin;
 mod camera_controller_plugin;
+mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
 use camera_controller_plugin::{CameraController, CameraControllerPlugin};
+use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
@@ -43,8 +47,12 @@ fn main() {
     )
     .add_plugin(CameraControllerPlugin)
     .add_plugin(SceneViewerPlugin)
+    .add_plugin(MorphViewerPlugin)
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
+
+    #[cfg(feature = "animation")]
+    app.add_plugin(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
 }
