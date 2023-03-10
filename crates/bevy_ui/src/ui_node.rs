@@ -805,7 +805,7 @@ pub(crate) enum MaxTrackSizingFunction {
     /// Track maximum size should be automatically sized
     Auto,
     /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
-    /// Specified value is the numerator of the fraction. Denominator is the sum of all fraction specified in that grid dimension
+    /// Specified value is the numerator of the fraction. Denominator is the sum of all fractions specified in that grid dimension
     /// Spec: <https://www.w3.org/TR/css3-grid-layout/#fr-unit>
     Fraction(f32),
 }
