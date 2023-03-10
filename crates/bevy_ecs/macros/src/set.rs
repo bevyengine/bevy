@@ -78,9 +78,9 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
     );
 
     let kind = if is_base {
-        quote! { #path::schedule::Base }
+        quote! { #path::schedule::BaseSystemSetMarker }
     } else {
-        quote! { #path::schedule::Free }
+        quote! { #path::schedule::FreeSystemSetMarker }
     };
 
     (quote! {

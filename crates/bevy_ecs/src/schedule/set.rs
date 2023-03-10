@@ -13,10 +13,6 @@ use crate::system::{
 
 define_boxed_label!(ScheduleLabel);
 
-mod sealed {
-    pub trait SystemSetKind {}
-}
-
 pub type BoxedSystemSet = Box<dyn SystemSet>;
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
@@ -41,35 +37,42 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
 
+/// Supertrait for [`BaseSystemSet`] and [`FreeSystemSet`].
 pub trait KindedSystemSet: SystemSet {
+    /// Whether this is a [`BaseSystemSet`] or [`FreeSystemSet`].
+    ///
+    /// If [`SystemSet::is_base`] returns true, this should be `BaseSystemSetMarker`.
+    /// If it returns `false`, this should be `FreeSystemSetMarker`.
     type Kind: sealed::SystemSetKind;
 }
 
-pub struct Base;
+mod sealed {
+    pub trait SystemSetKind {}
+}
 
-impl sealed::SystemSetKind for Base {}
+/// Marker for [`BaseSystemSet`] when using [`KindedSystemSet`].
+pub struct BaseSystemSetMarker;
 
-/// A marker trait for `SystemSet` types where [`is_base`] returns `true`.
-/// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implemented for base set types by `#[derive(SystemSet)]`.
+/// Marker for [`FreeSystemSet`] when using [`KindedSystemSet`].
+pub struct FreeSystemSetMarker;
+
+impl sealed::SystemSetKind for BaseSystemSetMarker {}
+impl sealed::SystemSetKind for FreeSystemSetMarker {}
+
+/// A system set that is never contained in another set.
+/// Systems and other system sets may only belong to one base set.
 ///
-/// [`is_base`]: SystemSet::is_base
-pub trait BaseSystemSet: KindedSystemSet<Kind = Base> {}
+/// [`SystemSet::is_base`] always returns `true` for these types.
+pub trait BaseSystemSet: KindedSystemSet<Kind = BaseSystemSetMarker> {}
 
-impl<T: KindedSystemSet<Kind = Base>> BaseSystemSet for T {}
-
-pub struct Free;
-
-impl sealed::SystemSetKind for Free {}
-
-/// A marker trait for `SystemSet` types where [`is_base`] returns `false`.
-/// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implemented for non-base set types by `#[derive(SystemSet)]`.
+/// System sets that are not base sets.
+/// They have no extra restrictions on ordering in the schedule.
 ///
-/// [`is_base`]: SystemSet::is_base
-pub trait FreeSystemSet: KindedSystemSet<Kind = Free> {}
+/// [`SystemSet::is_base`] always returns `false` for these types.
+pub trait FreeSystemSet: KindedSystemSet<Kind = FreeSystemSetMarker> {}
 
-impl<T: KindedSystemSet<Kind = Free>> FreeSystemSet for T {}
+impl<T: KindedSystemSet<Kind = BaseSystemSetMarker>> BaseSystemSet for T {}
+impl<T: KindedSystemSet<Kind = FreeSystemSetMarker>> FreeSystemSet for T {}
 
 impl PartialEq for dyn SystemSet {
     fn eq(&self, other: &Self) -> bool {
