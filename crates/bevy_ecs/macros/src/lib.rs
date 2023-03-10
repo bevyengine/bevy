@@ -422,25 +422,22 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            #[doc(hidden)]
-            #state_struct_visibility struct #state_struct_name <'w, 's, #(#lifetimeless_generics,)*>
-            #where_clause {
-                state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
-                marker: std::marker::PhantomData<(
-                    <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
-                )>,
-            }
-
+            // Allows rebinding the lifetimes of each field type.
             type #fields_alias <'w, 's, #punctuated_generic_defs> = (#(#tuple_types,)*);
 
+            #[doc(hidden)]
+            #state_struct_visibility struct #state_struct_name <#(#lifetimeless_generics,)*>
+            #where_clause {
+                state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
+            }
+
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = #state_struct_name<'static, 'static, #punctuated_generic_idents>;
+                type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
                         state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
-                        marker: std::marker::PhantomData,
                     }
                 }
 
