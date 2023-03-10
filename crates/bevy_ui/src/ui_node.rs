@@ -339,7 +339,11 @@ pub struct Style {
     /// Controls whether grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
     ///
     /// Only affect Grid layouts
-    pub grid_auto_flow: GridAutoFlow
+    pub grid_auto_flow: GridAutoFlow,
+    /// The column in which a grid item starts and how many columns it span
+    pub grid_column: GridPlacement,
+    /// The row in which a grid item starts and how many rows it span
+    pub grid_row: GridPlacement,
 }
 
 impl Style {
@@ -369,6 +373,8 @@ impl Style {
         overflow: Overflow::DEFAULT,
         gap: Size::UNDEFINED,
         grid_auto_flow: GridAutoFlow::DEFAULT,
+        grid_column: GridPlacement::DEFAULT,
+        grid_row: GridPlacement::DEFAULT,
     };
 }
 
@@ -515,7 +521,6 @@ impl Default for JustifySelf {
         Self::DEFAULT
     }
 }
-
 
 /// Defines how each line is aligned within the flexbox.
 ///
@@ -756,6 +761,56 @@ impl GridAutoFlow {
 }
 
 impl Default for GridAutoFlow {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub struct GridPlacement {
+    /// The grid line at which the node should start. Lines are 1-indexed.
+    /// None indicates automatic placement.
+    pub start: Option<u16>,
+    /// How many grid tracks the node should span. Defaults to 1.
+    pub span: u16,
+}
+
+impl GridPlacement {
+    const DEFAULT: Self = Self {
+        start: None,
+        span: 1,
+    };
+
+    /// Place the grid item automatically and make it span 1 track
+    pub fn auto() -> Self {
+        Self { start: None, span: 1}
+    }
+
+    /// Place the grid item starting in the specified track
+    pub fn start(start: u16) -> Self {
+        Self { start: Some(start), span: 1}
+    }
+
+    /// Place the grid item automatically and make it span the specified number of tracks
+    pub fn span(span: u16) -> Self {
+        Self { start: None, span }
+    }
+
+    /// Place the grid item starting in the specified track
+    pub fn set_start(mut self, start: u16) -> Self {
+        self.start = Some(start);
+        self
+    }
+
+    /// Place the grid item automatically and make it span the specified number of tracks
+    pub fn set_span(mut self, span: u16) -> Self {
+        self.span = span;
+        self
+    }
+}
+
+impl Default for GridPlacement {
     fn default() -> Self {
         Self::DEFAULT
     }

@@ -1,8 +1,9 @@
 use taffy::style::LengthPercentageAuto;
+use taffy::style_helpers;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    JustifyItems, JustifySelf, PositionType, Size, Style, UiRect, Val, GridAutoFlow,
+    JustifyItems, JustifySelf, PositionType, Size, Style, UiRect, Val, GridAutoFlow, GridPlacement,
 };
 
 impl Val {
@@ -129,8 +130,8 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         grid_template_columns: todo!(),
         grid_auto_rows: todo!(),
         grid_auto_columns: todo!(),
-        grid_row: todo!(),
-        grid_column: todo!(),
+        grid_row: style.grid_row.into(),
+        grid_column: style.grid_column.into(),
     }
 }
 
@@ -275,5 +276,16 @@ impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
             GridAutoFlow::Column => taffy::style::GridAutoFlow::Column,
             GridAutoFlow::ColumnDense => taffy::style::GridAutoFlow::ColumnDense,
         }
+    }
+}
+
+impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> {
+    fn from(value: GridPlacement) -> Self {
+        let start = match value.start {
+            None => taffy::style::GridPlacement::Auto,
+            Some(start) => style_helpers::line(start as i16)
+        };
+        let span = taffy::style::GridPlacement::Span(value.span);
+        taffy::geometry::Line { start, end: span }
     }
 }
