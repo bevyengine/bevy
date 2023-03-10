@@ -622,6 +622,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "transmission"
+path = "examples/3d/transmission.rs"
+
+[package.metadata.example.transmission]
+name = "Transmission"
+description = "Showcases light transmission in the PBR material"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "two_passes"
 path = "examples/3d/two_passes.rs"
 
