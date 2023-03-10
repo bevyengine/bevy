@@ -287,41 +287,6 @@ fn pbr(
 }
 #endif // NORMAL_PREPASS
 
-fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
-    // Calculate view aspect ratio, used later to scale offset so that it's proportionate
-    let aspect = view.viewport.z / view.viewport.w;
-
-    // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
-    let eta = 1.0 / ior;
-
-    // Calculate incidence vector (opposite to view vector) and its dot product with the mesh normal
-    let I = -V;
-    let NdotI = dot(N, I);
-
-    // Calculate refracted direction using Snell's law
-    let k = 1.0 - eta * eta * (1.0 - NdotI * NdotI);
-    let T = eta * I - (eta * NdotI + sqrt(k)) * N;
-
-    // Transform refracted direction into view space
-    let view_T = (view.inverse_view * vec4<f32>(T.xyz, 0.0)).xyz;
-
-    // Calculate an offset position, by multiplying the refracted direction by the thickness and adding it to
-    // the fragment position scaled by viewport size. Use the aspect ratio calculated earlier stay proportionate
-    let offset_position = frag_coord.xy / view.viewport.zw + view_T.xy * thickness * vec2<f32>(1.0, -aspect);
-
-    // Sample the view main texture at the offset position, to get the background color
-    // TODO: use depth prepass data to reject values that are in front of the current fragment
-    let background_sample = textureSample(
-        view_main_texture,
-        view_main_sampler,
-        offset_position,
-    ).rgb;
-
-    // Calculate final color by applying transmissive color to background sample
-    // TODO: Add support for attenuationColor and attenuationDistance
-    return transmissive_color * background_sample;
-}
-
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
