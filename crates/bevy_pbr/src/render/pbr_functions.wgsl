@@ -1,8 +1,5 @@
 #define_import_path bevy_pbr::pbr_functions
-
-#ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
-#endif
 
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
