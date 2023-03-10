@@ -7,7 +7,8 @@
 
 use bevy::{
     prelude::*,
-    text::{BreakLineOn, Text2dBounds}, sprite::Anchor,
+    sprite::Anchor,
+    text::{BreakLineOn, Text2dBounds},
 };
 
 fn main() {
@@ -134,7 +135,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             });
         });
 
-    
     for (text_anchor, color) in [
         (Anchor::TopLeft, Color::RED),
         (Anchor::TopRight, Color::GREEN),
@@ -146,7 +146,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 sections: vec![TextSection::new(
                     format!(" Anchor::{text_anchor:?} "),
                     TextStyle {
-                        color, 
+                        color,
                         ..slightly_smaller_text_style.clone()
                     },
                 )],
@@ -156,7 +156,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             text_anchor,
             ..default()
         });
-    }    
+    }
 }
 
 fn animate_translation(
