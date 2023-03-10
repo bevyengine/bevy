@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 
 use crate::bevy_ecs_path;
@@ -15,14 +15,6 @@ pub static BASE_ATTRIBUTE_NAME: &str = "base";
 /// - `trait_path`: The [`syn::Path`] to the set trait
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
     let path = bevy_ecs_path();
-
-    let mut base_trait_path = trait_path.clone();
-    let ident = &mut base_trait_path.segments.last_mut().unwrap().ident;
-    *ident = format_ident!("Base{ident}");
-
-    let mut free_trait_path = trait_path.clone();
-    let ident = &mut free_trait_path.segments.last_mut().unwrap().ident;
-    *ident = format_ident!("Free{ident}");
 
     let ident = input.ident;
 
