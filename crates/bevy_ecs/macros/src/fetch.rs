@@ -127,10 +127,12 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let mut read_only_field_types = Vec::new();
 
     for field in fields {
-        let WorldQueryFieldInfo { attrs } = read_world_query_field_info(field);
+        match read_world_query_field_info(field) {
+            Ok(WorldQueryFieldInfo { attrs }) => field_attrs.push(attrs),
+            Err(e) => return e.into_compile_error().into(),
+        }
 
         let field_ident = field.ident.as_ref().unwrap().clone();
-        field_attrs.push(attrs);
         field_visibilities.push(field.vis.clone());
         field_idents.push(field_ident.clone());
         let field_ty = field.ty.clone();
@@ -406,17 +408,22 @@ struct WorldQueryFieldInfo {
     attrs: Vec<Attribute>,
 }
 
-fn read_world_query_field_info(field: &Field) -> WorldQueryFieldInfo {
-    let attrs = field
-        .attrs
-        .iter()
-        .filter(|attr| {
-            attr.path
-                .get_ident()
-                .map_or(true, |ident| ident != WORLD_QUERY_ATTRIBUTE_NAME)
-        })
-        .cloned()
-        .collect();
+fn read_world_query_field_info(field: &Field) -> syn::Result<WorldQueryFieldInfo> {
+    let mut attrs = Vec::new();
+    for attr in &field.attrs {
+        if attr
+            .path
+            .get_ident()
+            .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
+        {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "#[derive(WorldQuery)] does not support field attributes.",
+            ));
+        }
 
-    WorldQueryFieldInfo { attrs }
+        attrs.push(attr.clone());
+    }
+
+    Ok(WorldQueryFieldInfo { attrs })
 }
