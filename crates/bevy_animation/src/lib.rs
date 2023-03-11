@@ -319,14 +319,14 @@ fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
 ) -> bool {
-    let Some(mut current) = player_parent.map(Parent::get) else { return true };
+    let Some(mut current) = player_parent.and_then(Parent::try_get) else { return true };
     loop {
         let Ok((maybe_player, parent)) = parents.get(current) else { return true };
         if maybe_player.is_some() {
             return false;
         }
-        if let Some(parent) = parent {
-            current = parent.get();
+        if let Some(parent) = parent.and_then(|v| v.try_get()) {
+            current = parent;
         } else {
             return true;
         }

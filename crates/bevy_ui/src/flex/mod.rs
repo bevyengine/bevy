@@ -320,8 +320,8 @@ pub fn flex_node_system(
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
+        if let Some(parent) = parent.and_then(|v| v.try_get()) {
+            if let Ok(parent_layout) = flex_surface.get_layout(parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }

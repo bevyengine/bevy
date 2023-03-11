@@ -42,7 +42,7 @@ pub fn propagate_transforms(
 
             for (child, actual_parent) in parent_query.iter_many(children) {
                 assert_eq!(
-                    actual_parent.get(), entity,
+                    actual_parent.try_get(), Some(entity),
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
                 // SAFETY:
@@ -132,7 +132,7 @@ unsafe fn propagate_recursive(
     let Some(children) = children else { return };
     for (child, actual_parent) in parent_query.iter_many(children) {
         assert_eq!(
-            actual_parent.get(), entity,
+            actual_parent.try_get(), Some(entity),
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         // SAFETY: The caller guarantees that `transform_query` will not be fetched

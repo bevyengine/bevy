@@ -150,7 +150,7 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next = self.parent_query.get(self.next?).ok().map(|p| p.get());
+        self.next = self.parent_query.get(self.next?).ok().and_then(|p| p.try_get());
         self.next
     }
 }

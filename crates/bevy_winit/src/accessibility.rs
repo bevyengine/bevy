@@ -117,8 +117,8 @@ fn update_accessibility_nodes(
                     let mut root_children = vec![];
                     for (entity, node, children, parent) in &nodes {
                         let mut node = (**node).clone();
-                        if let Some(parent) = parent {
-                            if node_entities.get(**parent).is_err() {
+                        if let Some(parent) = parent.and_then(|v| v.try_get()) {
+                            if node_entities.get(parent).is_err() {
                                 root_children.push(entity.to_node_id());
                             }
                         } else {
