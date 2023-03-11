@@ -61,14 +61,14 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_system(extract_taa_settings.in_schedule(ExtractSchedule))
-            .add_system(
+            .add_systems((
+                extract_taa_settings.in_schedule(ExtractSchedule),
                 prepare_taa_jitter
                     .before(prepare_view_uniforms)
                     .in_set(RenderSet::Prepare),
-            )
-            .add_system(prepare_taa_history_textures.in_set(RenderSet::Prepare))
-            .add_system(prepare_taa_pipelines.in_set(RenderSet::Prepare));
+                prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                prepare_taa_pipelines.in_set(RenderSet::Prepare),
+            ));
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();

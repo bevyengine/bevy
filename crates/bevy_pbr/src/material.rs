@@ -199,14 +199,14 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system(extract_materials::<M>.in_schedule(ExtractSchedule))
-                .add_system(
+                .add_systems((
+                    extract_materials::<M>.in_schedule(ExtractSchedule),
                     prepare_materials::<M>
                         .in_set(RenderSet::Prepare)
                         .after(PrepareAssetSet::PreAssetPrepare),
-                )
-                .add_system(render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows))
-                .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
+                    render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
+                    queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                ));
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin

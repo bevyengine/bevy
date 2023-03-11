@@ -27,15 +27,19 @@ fn main() {
         .init_resource::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
         .insert_resource(SelectedParameter { value: 0, max: 4 })
-        .add_startup_system(setup)
-        .add_startup_system(setup_basic_scene)
-        .add_startup_system(setup_color_gradient_scene)
-        .add_startup_system(setup_image_viewer_scene)
-        .add_system(update_image_viewer)
-        .add_system(toggle_scene)
-        .add_system(toggle_tonemapping_method)
-        .add_system(update_color_grading_settings)
-        .add_system(update_ui)
+        .add_startup_systems((
+            setup,
+            setup_basic_scene,
+            setup_color_gradient_scene,
+            setup_image_viewer_scene,
+        ))
+        .add_systems((
+            update_image_viewer,
+            toggle_scene,
+            toggle_tonemapping_method,
+            update_color_grading_settings,
+            update_ui,
+        ))
         .run();
 }
 

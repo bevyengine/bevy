@@ -23,8 +23,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntialiasPlugin)
         .add_startup_system(setup)
-        .add_system(modify_aa)
-        .add_system(update_ui)
+        .add_systesm((modify_aa, update_ui))
         .run();
 }
 
