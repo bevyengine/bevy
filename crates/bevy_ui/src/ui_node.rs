@@ -881,13 +881,13 @@ impl GridTrack {
     ///
     /// Integer repetitions are just shorthand for writing out N tracks longhand and are not subject to the same limitations.
     pub fn repeat<Repetition: Into<GridTrackRepetition>>(
+        self,
         repetition: Repetition,
-        track: GridTrack,
     ) -> RepeatedGridTrack {
         RepeatedGridTrack {
             repetition: repetition.into(),
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
+            min_sizing_function: self.min_sizing_function,
+            max_sizing_function: self.max_sizing_function,
         }
     }
 }
