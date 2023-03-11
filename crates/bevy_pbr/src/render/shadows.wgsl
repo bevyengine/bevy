@@ -3,7 +3,7 @@
 #import bevy_pbr::stochastic_sampling
 
 // TODO: Allow user configuration
-const STOCHASTIC_PCF_SAMPLES = 6u;
+const STOCHASTIC_PCF_SAMPLES = 3u;
 const STOCHASTIC_PCF_RADIUS = 2u;
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -139,7 +139,7 @@ fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -
 
 fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     var sum = 0.0;
-    let cascade_size = textureDimensions(directional_shadow_textures, array_index);
+    let cascade_size = textureDimensions(directional_shadow_textures);
 
     for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
         let sample_uv = stochastic_uv(light_local, sample_i, f32(STOCHASTIC_PCF_RADIUS), cascade_size);
