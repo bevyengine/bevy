@@ -797,4 +797,156 @@ mod tests {
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, 0]);
         }
     }
+
+    mod system_stepping {
+        use super::*;
+
+        fn first_system(mut order: ResMut<SystemOrder>) {
+            order.0.push(1);
+        }
+
+        fn second_system(mut order: ResMut<SystemOrder>) {
+            order.0.push(2);
+        }
+
+        #[test]
+        fn stepping_systems() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            // build a schedule and enable stepping mode
+            schedule
+                .set_executor_kind(ExecutorKind::SingleThreaded)
+                .add_system(first_system)
+                .add_system(second_system.after(first_system))
+                .set_stepping(true);
+
+            // nothing should run until we call Schedule::step_*()
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+
+            // now step a single system; only first_system should run
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+
+            // run again, but don't step; system order should remain unchanged
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+
+            // step & run again; the second system should run
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2]);
+
+            // run without stepping; system order should remain unchanged
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2]);
+
+            // step & run again; the frame finished, so we should see first
+            // system again
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1]);
+        }
+
+        #[test]
+        fn stepping_frames() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            // build a schedule and enable stepping mode
+            schedule
+                .set_executor_kind(ExecutorKind::SingleThreaded)
+                .add_system(first_system)
+                .add_system(second_system.after(first_system))
+                .set_stepping(true);
+
+            // nothing should run until we call Schedule::step_*()
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+
+            // now step the whole frame; all systems should run
+            schedule.step_frame();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2]);
+
+            // do it again and see the systems run again
+            schedule.step_frame();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1, 2]);
+
+            // step a single system
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1, 2, 1]);
+
+            // step the rest of the frame, and we should finish the frame, not
+            // run an entirely new frame.
+            schedule.step_frame();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1, 2, 1, 2]);
+        }
+
+        #[test]
+        fn ignore_stepping() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            // build a schedule and enable stepping mode
+            schedule
+                .set_executor_kind(ExecutorKind::SingleThreaded)
+                .add_system(first_system.ignore_stepping())
+                .add_system(second_system.after(first_system))
+                .set_stepping(true);
+
+            // first system should run even though we're not stepping
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+
+            // now step a single system; both first & second systems should run
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 1, 2]);
+        }
+
+        #[test]
+        fn avoid_conditional_deadlock() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            // build a schedule with a system that will never run due to a
+            // condition.
+            schedule
+                .set_executor_kind(ExecutorKind::SingleThreaded)
+                .add_system(first_system)
+                .add_system(second_system.after(first_system).run_if(|| false))
+                .set_stepping(true);
+
+            // step the first system
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+
+            // step again, second system will not run due to condition, but the
+            // attempt should count, causing our system tracking in the executor
+            // to start over in the next call to run()
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+
+            // frame should start fresh here, and run the first system
+            schedule.step_system();
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 1]);
+        }
+    }
 }

@@ -231,6 +231,18 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.skipped_systems.clear();
         self.completed_systems.clear();
     }
+
+    fn set_stepping(&mut self, _: bool) {
+        todo!();
+    }
+
+    fn step_system(&mut self) {
+        todo!();
+    }
+
+    fn step_frame(&mut self) {
+        todo!();
+    }
 }
 
 impl MultiThreadedExecutor {

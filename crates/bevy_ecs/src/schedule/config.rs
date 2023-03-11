@@ -40,6 +40,7 @@ pub struct SystemConfig {
     pub(super) system: BoxedSystem,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
+    pub(super) ignore_stepping: bool,
 }
 
 impl SystemConfig {
@@ -52,6 +53,7 @@ impl SystemConfig {
             system,
             graph_info,
             conditions: Vec::new(),
+            ignore_stepping: false,
         }
     }
 }
@@ -267,6 +269,10 @@ where
     fn ambiguous_with_all(self) -> Config {
         self.into_config().ambiguous_with_all()
     }
+    /// Always run this system when the schedule is running in system step mode.
+    fn ignore_stepping(self) -> Config {
+        self.into_config().ignore_stepping()
+    }
 }
 
 impl<Marker, F> IntoSystemConfig<Marker> for F
@@ -350,6 +356,11 @@ impl IntoSystemConfig<()> for SystemConfig {
 
     fn ambiguous_with_all(mut self) -> Self {
         self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
+        self
+    }
+
+    fn ignore_stepping(mut self) -> Self {
+        self.ignore_stepping = true;
         self
     }
 }

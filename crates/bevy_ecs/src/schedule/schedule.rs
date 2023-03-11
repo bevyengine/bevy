@@ -314,6 +314,26 @@ impl Schedule {
             system.apply_buffers(world);
         }
     }
+
+    /// Enable or disable system-stepping mode
+    pub fn set_stepping(&mut self, value: bool) {
+        self.executor.set_stepping(value);
+    }
+
+    /// Run the next system when in stepping-mode
+    pub fn step_system(&mut self) {
+        self.executor.step_system();
+    }
+
+    /// Run any remaining systems for this frame, then stop before running any systems for the next
+    /// frame.
+    ///
+    /// If some of the systems for this frame have already been run by calling
+    /// [`step_system`](crate::Schedule::step_system), they will not be run a second time when this
+    /// method is called.
+    pub fn step_frame(&mut self) {
+        self.executor.step_frame();
+    }
 }
 
 /// A directed acyclic graph structure.
@@ -415,6 +435,7 @@ pub struct ScheduleGraph {
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
+    system_ignore_stepping: Vec<bool>,
     uninit: Vec<(NodeId, usize)>,
     maybe_default_base_set: Vec<NodeId>,
     hierarchy: Dag,
@@ -437,6 +458,7 @@ impl ScheduleGraph {
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
             system_set_ids: HashMap::new(),
+            system_ignore_stepping: Vec::new(),
             maybe_default_base_set: Vec::new(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
@@ -586,6 +608,7 @@ impl ScheduleGraph {
             system,
             graph_info,
             conditions,
+            ignore_stepping,
         } = system.into_config();
 
         let id = NodeId::System(self.systems.len());
@@ -597,6 +620,7 @@ impl ScheduleGraph {
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(system));
         self.system_conditions.push(Some(conditions));
+        self.system_ignore_stepping.push(ignore_stepping);
 
         Ok(id)
     }
@@ -1292,6 +1316,7 @@ impl ScheduleGraph {
             system_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
+            system_ignore_stepping: Vec::with_capacity(sys_count),
         })
     }
 
@@ -1331,6 +1356,9 @@ impl ScheduleGraph {
             let conditions = self.system_conditions[id.index()].take().unwrap();
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
+            schedule
+                .system_ignore_stepping
+                .push(self.system_ignore_stepping[id.index()]);
         }
 
         for &id in &schedule.set_ids {

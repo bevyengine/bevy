@@ -88,6 +88,18 @@ impl SystemExecutor for SimpleExecutor {
         self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
+
+    fn set_stepping(&mut self, _: bool) {
+        todo!();
+    }
+
+    fn step_system(&mut self) {
+        todo!();
+    }
+
+    fn step_frame(&mut self) {
+        todo!();
+    }
 }
 
 impl SimpleExecutor {
