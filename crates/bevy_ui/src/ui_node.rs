@@ -780,7 +780,7 @@ impl Default for GridAutoFlow {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
-pub(crate) enum MinTrackSizingFunction {
+pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed points or percentage value
     Fixed(Val),
     /// Track minimum size should be content sized under a min-content constraint
@@ -793,7 +793,7 @@ pub(crate) enum MinTrackSizingFunction {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
-pub(crate) enum MaxTrackSizingFunction {
+pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed points or percentage value
     Fixed(Val),
     /// Track maximum size should be content sized under a min-content constraint
@@ -902,6 +902,15 @@ impl GridTrack {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Percent(limit)),
+        }
+        .into()
+    }
+
+    /// Create a minmax() grid track
+    pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
+        Self {
+            min_sizing_function: min,
+            max_sizing_function: max,
         }
         .into()
     }
