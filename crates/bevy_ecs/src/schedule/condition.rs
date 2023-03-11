@@ -970,15 +970,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::Condition;
     use crate as bevy_ecs;
     use crate::schedule::common_conditions::not;
     use crate::schedule::IntoSystemConfig;
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
     use bevy_ecs_macros::Resource;
-
-    use super::common_conditions::resource_exists;
-    use super::Condition;
 
     #[derive(Resource, Default)]
     struct Counter(usize);
