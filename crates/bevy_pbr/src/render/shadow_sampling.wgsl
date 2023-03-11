@@ -31,19 +31,11 @@ fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -
 fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     var sum = 0.0;
     let cascade_size = textureDimensions(directional_shadow_textures);
-
     for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
         let sample_uv = stochastic_uv(light_local, sample_i, f32(STOCHASTIC_PCF_RADIUS), cascade_size);
 
-        sum += textureSampleCompareLevel(
-            directional_shadow_textures,
-            directional_shadow_textures_sampler,
-            sample_uv,
-            array_index,
-            depth
-        );
+        sum += sample_cascade_simple(sample_uv, depth, array_index);
     }
-
     return sum / f32(STOCHASTIC_PCF_SAMPLES);
 }
 
