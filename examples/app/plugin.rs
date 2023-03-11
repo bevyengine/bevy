@@ -1,8 +1,11 @@
+//! Demonstrates the creation and registration of a custom plugin.
+//!
+//! Plugins are the foundation of Bevy. They are scoped sets of components, resources, and systems
+//! that provide a specific piece of functionality (generally the smaller the scope, the better).
+//! This example illustrates how to create a simple plugin that prints out a message.
+
 use bevy::{prelude::*, utils::Duration};
 
-/// Plugins are the foundation of Bevy. They are scoped sets of components, resources, and systems
-/// that provide a specific piece of functionality (generally the smaller the scope, the better).
-/// This example illustrates how to create a simple plugin that prints out a message.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -26,12 +29,13 @@ impl Plugin for PrintMessagePlugin {
     fn build(&self, app: &mut App) {
         let state = PrintMessageState {
             message: self.message.clone(),
-            timer: Timer::new(self.wait_duration, true),
+            timer: Timer::new(self.wait_duration, TimerMode::Repeating),
         };
         app.insert_resource(state).add_system(print_message_system);
     }
 }
 
+#[derive(Resource)]
 struct PrintMessageState {
     message: String,
     timer: Timer,

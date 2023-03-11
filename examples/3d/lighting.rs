@@ -1,4 +1,9 @@
-use bevy::prelude::*;
+//! Illustrates different lights of various types and colors, some static, some moving over
+//! a simple scene.
+
+use std::f32::consts::PI;
+
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -17,72 +22,94 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // ground plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::from_size(10.0).into()),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            ..Default::default()
+            ..default()
         }),
-        ..Default::default()
+        ..default()
     });
 
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
-    transform.rotate(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2));
-    commands.spawn_bundle(PbrBundle {
+    transform.rotate_z(PI / 2.);
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
         material: materials.add(StandardMaterial {
             base_color: Color::INDIGO,
             perceptual_roughness: 1.0,
-            ..Default::default()
+            ..default()
         }),
-        ..Default::default()
+        ..default()
     });
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
-    transform.rotate(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
-    commands.spawn_bundle(PbrBundle {
+    transform.rotate_x(PI / 2.);
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
         material: materials.add(StandardMaterial {
             base_color: Color::INDIGO,
             perceptual_roughness: 1.0,
-            ..Default::default()
+            ..default()
         }),
-        ..Default::default()
+        ..default()
     });
 
+    // Bevy logo to demonstrate alpha mask shadows
+    let mut transform = Transform::from_xyz(-2.2, 0.5, 1.0);
+    transform.rotate_y(PI / 8.);
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(2.0, 0.5)))),
+            transform,
+            material: materials.add(StandardMaterial {
+                base_color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
+                perceptual_roughness: 1.0,
+                alpha_mode: AlphaMode::Mask(0.5),
+                cull_mode: None,
+                ..default()
+            }),
+            ..default()
+        },
+        Movable,
+    ));
+
     // cube
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(StandardMaterial {
                 base_color: Color::PINK,
-                ..Default::default()
+                ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..Default::default()
-        })
-        .insert(Movable);
+            ..default()
+        },
+        Movable,
+    ));
     // sphere
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.5,
-                ..Default::default()
+                ..default()
             })),
             material: materials.add(StandardMaterial {
                 base_color: Color::LIME_GREEN,
-                ..Default::default()
+                ..default()
             }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
-            ..Default::default()
-        })
-        .insert(Movable);
+            ..default()
+        },
+        Movable,
+    ));
 
     // ambient light
     commands.insert_resource(AmbientLight {
@@ -92,117 +119,119 @@ fn setup(
 
     // red point light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::RED,
                 shadows_enabled: true,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
+            builder.spawn(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere {
                     radius: 0.1,
-                    ..Default::default()
+                    ..default()
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::RED,
-                    emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
-                    ..Default::default()
+                    emissive: Color::rgba_linear(7.13, 0.0, 0.0, 0.0),
+                    ..default()
                 }),
-                ..Default::default()
+                ..default()
             });
         });
 
-    // green point light
+    // green spot light
     commands
-        .spawn_bundle(PointLightBundle {
-            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
-            transform: Transform::from_xyz(-1.0, 2.0, 0.0),
-            point_light: PointLight {
+        .spawn(SpotLightBundle {
+            transform: Transform::from_xyz(-1.0, 2.0, 0.0)
+                .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+            spot_light: SpotLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
-                ..Default::default()
+                inner_angle: 0.6,
+                outer_angle: 0.8,
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
+            builder.spawn(PbrBundle {
+                transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
+                mesh: meshes.add(Mesh::from(shape::Capsule {
+                    depth: 0.125,
                     radius: 0.1,
-                    ..Default::default()
+                    ..default()
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::GREEN,
-                    emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
-                    ..Default::default()
+                    emissive: Color::rgba_linear(0.0, 7.13, 0.0, 0.0),
+                    ..default()
                 }),
-                ..Default::default()
+                ..default()
             });
         });
 
     // blue point light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::BLUE,
                 shadows_enabled: true,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
+            builder.spawn(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere {
                     radius: 0.1,
-                    ..Default::default()
+                    ..default()
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLUE,
-                    emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
-                    ..Default::default()
+                    emissive: Color::rgba_linear(0.0, 0.0, 7.13, 0.0),
+                    ..default()
                 }),
-                ..Default::default()
+                ..default()
             });
         });
 
     // directional 'sun' light
-    const HALF_SIZE: f32 = 10.0;
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            // Configure the projection to better fit the scene
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..Default::default()
-            },
             shadows_enabled: true,
-            ..Default::default()
+            ..default()
         },
         transform: Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
-            ..Default::default()
+            rotation: Quat::from_rotation_x(-PI / 4.),
+            ..default()
         },
-        ..Default::default()
+        // The default cascade config is designed to handle large scenes.
+        // As this example has a much smaller world, we can tighten the shadow
+        // bounds for better visual quality.
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 4.0,
+            maximum_distance: 10.0,
+            ..default()
+        }
+        .into(),
+        ..default()
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -210,8 +239,8 @@ fn animate_light_direction(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
-    for mut transform in query.iter_mut() {
-        transform.rotate(Quat::from_rotation_y(time.delta_seconds() * 0.5));
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_seconds() * 0.5);
     }
 }
 
@@ -220,7 +249,7 @@ fn movement(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Up) {
             direction.y += 1.0;

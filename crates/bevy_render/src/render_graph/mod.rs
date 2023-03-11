@@ -31,6 +31,8 @@ pub enum RenderGraphError {
     },
     #[error("attempted to add an edge that already exists")]
     EdgeAlreadyExists(Edge),
+    #[error("attempted to remove an edge that does not exist")]
+    EdgeDoesNotExist(Edge),
     #[error("node has an unconnected input slot")]
     UnconnectedNodeInputSlot { node: NodeId, input_slot: usize },
     #[error("node has an unconnected output slot")]

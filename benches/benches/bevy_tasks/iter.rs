@@ -1,4 +1,4 @@
-use bevy::tasks::{ParallelIterator, TaskPoolBuilder};
+use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 struct ParChunks<'a, T>(std::slice::Chunks<'a, T>);
@@ -6,8 +6,6 @@ impl<'a, T> ParallelIterator<std::slice::Iter<'a, T>> for ParChunks<'a, T>
 where
     T: 'a + Send + Sync,
 {
-    type Item = &'a T;
-
     fn next_batch(&mut self) -> Option<std::slice::Iter<'a, T>> {
         self.0.next().map(|s| s.iter())
     }
@@ -18,8 +16,6 @@ impl<'a, T> ParallelIterator<std::slice::IterMut<'a, T>> for ParChunksMut<'a, T>
 where
     T: 'a + Send + Sync,
 {
-    type Item = &'a mut T;
-
     fn next_batch(&mut self) -> Option<std::slice::IterMut<'a, T>> {
         self.0.next().map(|s| s.iter_mut())
     }
@@ -32,7 +28,7 @@ fn bench_overhead(c: &mut Criterion) {
     c.bench_function("overhead_iter", |b| {
         b.iter(|| {
             v.iter_mut().for_each(noop);
-        })
+        });
     });
 
     let mut v = (0..10000).collect::<Vec<usize>>();
@@ -45,7 +41,7 @@ fn bench_overhead(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     ParChunksMut(v.chunks_mut(100)).for_each(&pool, noop);
-                })
+                });
             },
         );
     }
@@ -67,7 +63,7 @@ fn bench_for_each(c: &mut Criterion) {
                 busy_work(10000);
                 *x *= *x;
             });
-        })
+        });
     });
 
     let mut v = (0..10000).collect::<Vec<usize>>();
@@ -83,7 +79,7 @@ fn bench_for_each(c: &mut Criterion) {
                         busy_work(10000);
                         *x *= *x;
                     });
-                })
+                });
             },
         );
     }
@@ -113,7 +109,7 @@ fn bench_many_maps(c: &mut Criterion) {
                 .map(|x| busy_doubles(x, 1000))
                 .map(|x| busy_doubles(x, 1000))
                 .for_each(drop);
-        })
+        });
     });
 
     let v = (0..10000).collect::<Vec<usize>>();
@@ -137,7 +133,7 @@ fn bench_many_maps(c: &mut Criterion) {
                         .map(|x| busy_doubles(x, 1000))
                         .map(|x| busy_doubles(x, 1000))
                         .for_each(&pool, drop);
-                })
+                });
             },
         );
     }

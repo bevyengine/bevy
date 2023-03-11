@@ -1,3 +1,5 @@
+//! Displays a single [`Sprite`], created from an image.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -8,9 +10,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..Default::default()
+        ..default()
     });
 }

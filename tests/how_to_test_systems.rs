@@ -1,97 +1,172 @@
-use bevy::prelude::*;
+use bevy::{ecs::event::Events, prelude::*};
 
 #[derive(Component, Default)]
 struct Enemy {
     hit_points: u32,
+    score_value: u32,
 }
 
-fn despawn_dead_enemies(mut commands: Commands, enemies: Query<(Entity, &Enemy)>) {
-    for (entity, enemy) in enemies.iter() {
+struct EnemyDied(u32);
+
+#[derive(Resource)]
+struct Score(u32);
+
+fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {
+    for value in dead_enemies.iter() {
+        score.0 += value.0;
+    }
+}
+
+fn despawn_dead_enemies(
+    mut commands: Commands,
+    mut dead_enemies: EventWriter<EnemyDied>,
+    enemies: Query<(Entity, &Enemy)>,
+) {
+    for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
             commands.entity(entity).despawn_recursive();
+            dead_enemies.send(EnemyDied(enemy.score_value));
         }
     }
 }
 
 fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
-    for mut enemy in enemies.iter_mut() {
+    for mut enemy in &mut enemies {
         enemy.hit_points -= 1;
     }
 }
 
 fn spawn_enemy(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        commands.spawn().insert(Enemy { hit_points: 5 });
+        commands.spawn(Enemy {
+            hit_points: 5,
+            score_value: 3,
+        });
     }
 }
 
 #[test]
 fn did_hurt_enemy() {
-    // Setup world
-    let mut world = World::default();
+    // Setup app
+    let mut app = App::new();
 
-    // Setup stage with our two systems
-    let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(hurt_enemies.before("death"));
-    update_stage.add_system(despawn_dead_enemies.label("death"));
+    // Add Score resource
+    app.insert_resource(Score(0));
+
+    // Add `EnemyDied` event
+    app.add_event::<EnemyDied>();
+
+    // Add our two systems
+    app.add_system(hurt_enemies.before(despawn_dead_enemies));
+    app.add_system(despawn_dead_enemies);
 
     // Setup test entities
-    let enemy_id = world.spawn().insert(Enemy { hit_points: 5 }).id();
+    let enemy_id = app
+        .world
+        .spawn(Enemy {
+            hit_points: 5,
+            score_value: 3,
+        })
+        .id();
 
     // Run systems
-    update_stage.run(&mut world);
+    app.update();
 
     // Check resulting changes
-    assert!(world.get::<Enemy>(enemy_id).is_some());
-    assert_eq!(world.get::<Enemy>(enemy_id).unwrap().hit_points, 4);
+    assert!(app.world.get::<Enemy>(enemy_id).is_some());
+    assert_eq!(app.world.get::<Enemy>(enemy_id).unwrap().hit_points, 4);
 }
 
 #[test]
 fn did_despawn_enemy() {
-    // Setup world
-    let mut world = World::default();
+    // Setup app
+    let mut app = App::new();
 
-    // Setup stage with our two systems
-    let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(hurt_enemies.before("death"));
-    update_stage.add_system(despawn_dead_enemies.label("death"));
+    // Add Score resource
+    app.insert_resource(Score(0));
+
+    // Add `EnemyDied` event
+    app.add_event::<EnemyDied>();
+
+    // Add our two systems
+    app.add_system(hurt_enemies.before(despawn_dead_enemies));
+    app.add_system(despawn_dead_enemies);
 
     // Setup test entities
-    let enemy_id = world.spawn().insert(Enemy { hit_points: 1 }).id();
+    let enemy_id = app
+        .world
+        .spawn(Enemy {
+            hit_points: 1,
+            score_value: 1,
+        })
+        .id();
 
     // Run systems
-    update_stage.run(&mut world);
+    app.update();
 
-    // Check resulting changes
-    assert!(world.get::<Enemy>(enemy_id).is_none());
+    // Check enemy was despawned
+    assert!(app.world.get::<Enemy>(enemy_id).is_none());
+
+    // Get `EnemyDied` event reader
+    let enemy_died_events = app.world.resource::<Events<EnemyDied>>();
+    let mut enemy_died_reader = enemy_died_events.get_reader();
+    let enemy_died = enemy_died_reader.iter(enemy_died_events).next().unwrap();
+
+    // Check the event has been sent
+    assert_eq!(enemy_died.0, 1);
 }
 
 #[test]
 fn spawn_enemy_using_input_resource() {
-    // Setup world
-    let mut world = World::default();
+    // Setup app
+    let mut app = App::new();
 
-    // Setup stage with a system
-    let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(spawn_enemy);
+    // Add our systems
+    app.add_system(spawn_enemy);
 
     // Setup test resource
     let mut input = Input::<KeyCode>::default();
     input.press(KeyCode::Space);
-    world.insert_resource(input);
+    app.insert_resource(input);
 
     // Run systems
-    update_stage.run(&mut world);
+    app.update();
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
-    assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
+    assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
 
     // Clear the `just_pressed` status for all `KeyCode`s
-    world.get_resource_mut::<Input<KeyCode>>().unwrap().clear();
+    app.world.resource_mut::<Input<KeyCode>>().clear();
 
     // Run systems
-    update_stage.run(&mut world);
+    app.update();
 
     // Check resulting changes, no new entity has been spawned
-    assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
+    assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
+}
+
+#[test]
+fn update_score_on_event() {
+    // Setup app
+    let mut app = App::new();
+
+    // Add Score resource
+    app.insert_resource(Score(0));
+
+    // Add `EnemyDied` event
+    app.add_event::<EnemyDied>();
+
+    // Add our systems
+    app.add_system(update_score);
+
+    // Send an `EnemyDied` event
+    app.world
+        .resource_mut::<Events<EnemyDied>>()
+        .send(EnemyDied(3));
+
+    // Run systems
+    app.update();
+
+    // Check resulting changes
+    assert_eq!(app.world.resource::<Score>().0, 3);
 }

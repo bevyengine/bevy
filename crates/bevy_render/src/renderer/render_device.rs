@@ -2,19 +2,26 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use futures_lite::future;
-use std::sync::Arc;
-use wgpu::util::DeviceExt;
+use bevy_ecs::system::Resource;
+use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
+
+use super::RenderQueue;
+
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: Arc<wgpu::Device>,
+    device: ErasedRenderDevice,
 }
 
-impl From<Arc<wgpu::Device>> for RenderDevice {
-    fn from(device: Arc<wgpu::Device>) -> Self {
-        Self { device }
+impl From<wgpu::Device> for RenderDevice {
+    fn from(device: wgpu::Device) -> Self {
+        Self {
+            device: ErasedRenderDevice::new(device),
+        }
     }
 }
 
@@ -35,9 +42,9 @@ impl RenderDevice {
         self.device.limits()
     }
 
-    /// Creates a [ShaderModule](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
-    pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
         self.device.create_shader_module(desc)
     }
 
@@ -46,7 +53,7 @@ impl RenderDevice {
     /// no-op on the web, device is automatically polled.
     #[inline]
     pub fn poll(&self, maintain: wgpu::Maintain) {
-        self.device.poll(maintain)
+        self.device.poll(maintain);
     }
 
     /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
@@ -121,6 +128,22 @@ impl RenderDevice {
         Buffer::from(wgpu_buffer)
     }
 
+    /// Creates a new [`Texture`] and initializes it with the specified data.
+    ///
+    /// `desc` specifies the general format of the texture.
+    /// `data` is the raw data.
+    pub fn create_texture_with_data(
+        &self,
+        render_queue: &RenderQueue,
+        desc: &wgpu::TextureDescriptor,
+        data: &[u8],
+    ) -> Texture {
+        let wgpu_texture = self
+            .device
+            .create_texture_with_data(render_queue.as_ref(), desc, data);
+        Texture::from(wgpu_texture)
+    }
+
     /// Creates a new [`Texture`].
     ///
     /// `desc` specifies the general format of the texture.
@@ -144,7 +167,7 @@ impl RenderDevice {
     /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
     /// - Texture format requested is unsupported on the surface.
     pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
-        surface.configure(&self.device, config)
+        surface.configure(&self.device, config);
     }
 
     /// Returns the wgpu [`Device`](wgpu::Device).
@@ -152,17 +175,29 @@ impl RenderDevice {
         &self.device
     }
 
-    pub fn map_buffer(&self, buffer: &wgpu::BufferSlice, map_mode: wgpu::MapMode) {
-        let data = buffer.map_async(map_mode);
-        self.poll(wgpu::Maintain::Wait);
-        if future::block_on(data).is_err() {
-            panic!("Failed to map buffer to host.");
-        }
+    pub fn map_buffer(
+        &self,
+        buffer: &wgpu::BufferSlice,
+        map_mode: wgpu::MapMode,
+        callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
+    ) {
+        buffer.map_async(map_mode, callback);
     }
 
     pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
         let padded_bytes_per_row_padding = (align - row_bytes % align) % align;
         row_bytes + padded_bytes_per_row_padding
+    }
+
+    pub fn get_supported_read_only_binding_type(
+        &self,
+        buffers_per_shader_stage: u32,
+    ) -> BufferBindingType {
+        if self.limits().max_storage_buffers_per_shader_stage >= buffers_per_shader_stage {
+            BufferBindingType::Storage { read_only: true }
+        } else {
+            BufferBindingType::Uniform
+        }
     }
 }
