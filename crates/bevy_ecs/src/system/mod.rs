@@ -302,13 +302,13 @@ mod tests {
         fn query_system_mut(
             mut ran: ResMut<SystemRan>,
             entities_array: Res<EntitiesArray>,
-            q: Query<&mut W<usize>>,
+            mut q: Query<&mut W<usize>>,
         ) {
             let entities_array: [Entity; ENTITIES_COUNT] =
                 entities_array.0.clone().try_into().unwrap();
 
             #[allow(unused_mut)]
-            for (i, mut w) in (0..ENTITIES_COUNT).zip(q.get_many(entities_array).unwrap()) {
+            for (i, mut w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
                 assert_eq!(i, w.0);
             }
 
