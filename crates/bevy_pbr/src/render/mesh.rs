@@ -33,15 +33,13 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, CompressedImageFormats, DefaultImageSampler, FallbackImageCubemap,
-        FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image, ImageSampler, ImageType,
-        TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
+        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::default;
 use std::num::NonZeroU64;
 
 #[derive(Default)]
@@ -67,8 +65,6 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 pub const SKINNING_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
-pub const STOCHASTIC_SAMPLING_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9421526659426591543);
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -105,28 +101,6 @@ impl Plugin for MeshRenderPlugin {
         );
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            STOCHASTIC_SAMPLING_HANDLE,
-            "stochastic_sampling.wgsl",
-            Shader::from_wgsl
-        );
-
-        let mut images = app.world.resource_mut::<Assets<Image>>();
-        let mut stochastic_noise = Image::from_buffer(
-            include_bytes!("stochastic_noise.ktx2"),
-            ImageType::Extension("ktx2"),
-            CompressedImageFormats::NONE,
-            false,
-        )
-        .unwrap();
-        stochastic_noise.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
-            label: Some("stochastic_noise_sampler"),
-            address_mode_u: AddressMode::Repeat,
-            address_mode_v: AddressMode::Repeat,
-            ..default()
-        });
-        let stochastic_noise = StochasticNoise(images.add(stochastic_noise));
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
@@ -134,7 +108,6 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .insert_resource(stochastic_noise)
                 .add_systems((extract_meshes, extract_skinned_meshes).in_schedule(ExtractSchedule))
                 .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
                 .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
@@ -142,9 +115,6 @@ impl Plugin for MeshRenderPlugin {
         }
     }
 }
-
-#[derive(Resource)]
-pub struct StochasticNoise(pub Handle<Image>);
 
 #[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
@@ -431,27 +401,9 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
-                // Stochastic Noise
-                BindGroupLayoutEntry {
-                    binding: 9,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2Array, // TODO: Not available on webgl
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                // Stochastic Noise Sampler
-                BindGroupLayoutEntry {
-                    binding: 10,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
                 // Globals
                 BindGroupLayoutEntry {
-                    binding: 11,
+                    binding: 9,
                     visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
@@ -462,7 +414,7 @@ impl FromWorld for MeshPipeline {
                 },
                 // Fog
                 BindGroupLayoutEntry {
-                    binding: 12,
+                    binding: 10,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
@@ -475,16 +427,16 @@ impl FromWorld for MeshPipeline {
 
             // EnvironmentMapLight
             let environment_map_entries =
-                environment_map::get_bind_group_layout_entries([13, 14, 15]);
+                environment_map::get_bind_group_layout_entries([11, 12, 13]);
             entries.extend_from_slice(&environment_map_entries);
 
             // Tonemapping
-            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([16, 17]);
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [18, 19, 20],
+                    [16, 17, 18],
                     multisampled,
                 ));
             }
@@ -1015,7 +967,6 @@ pub fn queue_mesh_view_bind_groups(
         Res<FallbackImageCubemap>,
     ),
     msaa: Res<Msaa>,
-    stochastic_noise: Res<StochasticNoise>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
 ) {
@@ -1046,8 +997,6 @@ pub fn queue_mesh_view_bind_groups(
             } else {
                 &mesh_pipeline.view_layout
             };
-
-            let fallback_sample1 = fallback_images.image_for_samplecount(1).clone();
 
             let mut entries = vec![
                 BindGroupEntry {
@@ -1092,28 +1041,10 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 9,
-                    resource: BindingResource::TextureView(
-                        images
-                            .get(&stochastic_noise.0)
-                            .map(|t| &t.texture_view)
-                            .unwrap_or(&fallback_sample1.texture_view),
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 10,
-                    resource: BindingResource::Sampler(
-                        images
-                            .get(&stochastic_noise.0)
-                            .map(|t| &t.sampler)
-                            .unwrap_or(&fallback_sample1.sampler),
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 11,
                     resource: globals.clone(),
                 },
                 BindGroupEntry {
-                    binding: 12,
+                    binding: 10,
                     resource: fog_binding.clone(),
                 },
             ];
@@ -1122,12 +1053,12 @@ pub fn queue_mesh_view_bind_groups(
                 environment_map,
                 &images,
                 &fallback_cubemap,
-                [13, 14, 15],
+                [11, 12, 13],
             );
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [16, 17]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
@@ -1137,7 +1068,7 @@ pub fn queue_mesh_view_bind_groups(
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
-                    [18, 19, 20],
+                    [16, 17, 18],
                 ));
             }
 
