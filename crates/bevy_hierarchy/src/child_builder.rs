@@ -711,11 +711,23 @@ mod tests {
             world.get::<Children>(parent).unwrap().0.as_slice(),
             children.as_slice(),
         );
-        assert_eq!(*world.get::<Parent>(children[0]).unwrap(), Parent::new(parent));
-        assert_eq!(*world.get::<Parent>(children[1]).unwrap(), Parent::new(parent));
+        assert_eq!(
+            *world.get::<Parent>(children[0]).unwrap(),
+            Parent::new(parent)
+        );
+        assert_eq!(
+            *world.get::<Parent>(children[1]).unwrap(),
+            Parent::new(parent)
+        );
 
-        assert_eq!(*world.get::<Parent>(children[0]).unwrap(), Parent::new(parent));
-        assert_eq!(*world.get::<Parent>(children[1]).unwrap(), Parent::new(parent));
+        assert_eq!(
+            *world.get::<Parent>(children[0]).unwrap(),
+            Parent::new(parent)
+        );
+        assert_eq!(
+            *world.get::<Parent>(children[1]).unwrap(),
+            Parent::new(parent)
+        );
     }
 
     #[test]

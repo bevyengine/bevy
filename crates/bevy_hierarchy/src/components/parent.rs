@@ -18,7 +18,6 @@ use std::ops::Deref;
 pub struct Parent(Option<Entity>);
 
 impl Parent {
-
     pub(crate) fn new(entity: Entity) -> Self {
         Self(Some(entity))
     }

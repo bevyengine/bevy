@@ -45,7 +45,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering, num::NonZeroU32};
+use std::{convert::TryFrom, fmt, mem, num::NonZeroU32, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -503,7 +503,7 @@ impl Entities {
         // will be converted to None, marking the entity slot as retired and taking
         // it out of circulation for re-allocation.
         meta.generation = NonZeroU32::new(meta.generation.unwrap().get().wrapping_add(1));
-        
+
         if meta.generation.is_some() {
             self.pending.push(entity.index);
 
@@ -826,7 +826,9 @@ mod tests {
         const C3: u32 = Entity::from_raw(33).index();
         assert_eq!(33, C3);
 
-        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).unwrap().generation();
+        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000)
+            .unwrap()
+            .generation();
         assert_eq!(0x00dd_00ff, C4);
     }
 
