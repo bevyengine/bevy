@@ -232,7 +232,7 @@ impl Plugin for RenderPlugin {
 
             // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
-            render_schedule.add_system(apply_extract_commands.in_set(RenderSet::Prepare));
+            render_schedule.add_system(apply_extract_commands.in_set(RenderSet::ExtractCommands));
 
             render_schedule.add_system(
                 PipelineCache::process_pipeline_queue_system
