@@ -870,6 +870,42 @@ impl GridTrack {
         .into()
     }
 
+    /// Create a grid track with min-content size
+    pub fn min_content<T: From<Self>>() -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::MinContent,
+            max_sizing_function: MaxTrackSizingFunction::MinContent,
+        }
+        .into()
+    }
+
+    /// Create a grid track with max-content size
+    pub fn max_content<T: From<Self>>() -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::MaxContent,
+            max_sizing_function: MaxTrackSizingFunction::MaxContent,
+        }
+        .into()
+    }
+
+    /// Create a fit-content() grid track with fixed pixel limit
+    pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Px(limit)),
+        }
+        .into()
+    }
+
+    /// Create a fit-content() grid track with percentage limit
+    pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Percent(limit)),
+        }
+        .into()
+    }
+
     /// Created a repeated set of grid tracks.
     ///
     /// The repetition parameter can either be:
