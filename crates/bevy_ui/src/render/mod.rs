@@ -86,9 +86,11 @@ pub fn build_ui_render(app: &mut App) {
             )
                 .in_schedule(ExtractSchedule),
         )
-        .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
-        .add_system(queue_uinodes.in_set(RenderSet::Queue))
-        .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));
+        .add_systems((
+            prepare_uinodes.in_set(RenderSet::Prepare),
+            queue_uinodes.in_set(RenderSet::Queue),
+            sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+        ));
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);

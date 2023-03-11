@@ -1,7 +1,6 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    change_detection::MAX_CHANGE_AGE,
-    component::ComponentId,
+    component::{ComponentId, Tick},
     query::Access,
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
@@ -95,7 +94,7 @@ where
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         let saved_last_tick = world.last_change_tick;
-        world.last_change_tick = self.system_meta.last_change_tick;
+        world.last_change_tick = self.system_meta.last_run;
 
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
@@ -104,7 +103,7 @@ where
         let out = self.func.run(world, input, params);
 
         let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_change_tick = *change_tick;
+        self.system_meta.last_run.set(*change_tick);
         *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
 
@@ -116,12 +115,12 @@ where
         true
     }
 
-    fn get_last_change_tick(&self) -> u32 {
-        self.system_meta.last_change_tick
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.system_meta.last_change_tick = last_change_tick;
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 
     #[inline]
@@ -134,16 +133,16 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, _world: &World) {}
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
+            &mut self.system_meta.last_run,
             change_tick,
             self.system_meta.name.as_ref(),
         );

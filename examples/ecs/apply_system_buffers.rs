@@ -15,12 +15,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Timers>()
-        .add_startup_system(setup)
-        .add_system(despawn_old_and_spawn_new_fruits.before(CustomFlush))
-        .add_system(apply_system_buffers.in_set(CustomFlush))
-        .add_system(count_apple.after(CustomFlush))
-        .add_system(count_orange)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems((
+            setup.on_startup(),
+            despawn_old_and_spawn_new_fruits.before(CustomFlush),
+            apply_system_buffers.in_set(CustomFlush),
+            count_apple.after(CustomFlush),
+            count_orange,
+            bevy::window::close_on_esc,
+        ))
         .run();
 }
 

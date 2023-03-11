@@ -47,9 +47,7 @@ pub fn schedule(c: &mut Criterion) {
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
         let mut schedule = Schedule::new();
-        schedule.add_system(ab);
-        schedule.add_system(cd);
-        schedule.add_system(ce);
+        schedule.add_systems((ab, cd, ce));
         schedule.run(&mut world);
 
         b.iter(move || schedule.run(&mut world));

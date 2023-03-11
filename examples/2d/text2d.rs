@@ -7,16 +7,19 @@
 
 use bevy::{
     prelude::*,
+    sprite::Anchor,
     text::{BreakLineOn, Text2dBounds},
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(animate_translation)
-        .add_system(animate_rotation)
-        .add_system(animate_scale)
+        .add_systems((
+            setup.on_startup(),
+            animate_translation,
+            animate_rotation,
+            animate_scale,
+        ))
         .run();
 }
 
@@ -133,6 +136,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
         });
+
+    for (text_anchor, color) in [
+        (Anchor::TopLeft, Color::RED),
+        (Anchor::TopRight, Color::GREEN),
+        (Anchor::BottomRight, Color::BLUE),
+        (Anchor::BottomLeft, Color::YELLOW),
+    ] {
+        commands.spawn(Text2dBundle {
+            text: Text {
+                sections: vec![TextSection::new(
+                    format!(" Anchor::{text_anchor:?} "),
+                    TextStyle {
+                        color,
+                        ..slightly_smaller_text_style.clone()
+                    },
+                )],
+                ..Default::default()
+            },
+            transform: Transform::from_translation(250. * Vec3::Y),
+            text_anchor,
+            ..default()
+        });
+    }
 }
 
 fn animate_translation(

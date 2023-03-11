@@ -10,8 +10,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(set_camera_viewports)
+        .add_systems((setup.on_startup(), set_camera_viewports))
         .run();
 }
 
