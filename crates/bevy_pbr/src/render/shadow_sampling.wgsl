@@ -28,6 +28,53 @@ fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -
 #endif
 }
 
+// https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
+fn sample_cascade_the_witness(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+    // TODO: Configurable filter radius (currently 5x5)
+
+    let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
+    let inv_cascade_size = 1.0 / cascade_size;
+
+    let uv = light_local * cascade_size;
+    var base_uv = floor(uv + 0.5);
+    let s = (uv.x + 0.5 - base_uv.x);
+    let t = (uv.y + 0.5 - base_uv.y);
+    base_uv -= 0.5;
+    base_uv *= inv_cascade_size;
+
+    let uw0 = (4.0 - 3.0 * s);
+    let uw1 = 7.0;
+    let uw2 = (1.0 + 3.0 * s);
+
+    let u0 = (3.0 - 2.0 * s) / uw0 - 2.0;
+    let u1 = (3.0 + s) / uw1;
+    let u2 = s / uw2 + 2.0;
+
+    let vw0 = (4.0 - 3.0 * t);
+    let vw1 = 7.0;
+    let vw2 = (1.0 + 3.0 * t);
+
+    let v0 = (3.0 - 2.0 * t) / vw0 - 2.0;
+    let v1 = (3.0 + t) / vw1;
+    let v2 = t / vw2 + 2.0;
+
+    var sum = 0.0;
+
+    sum += uw0 * vw0 * sample_cascade_simple(base_uv + (vec2(u0, v0) * inv_cascade_size), depth, array_index);
+    sum += uw1 * vw0 * sample_cascade_simple(base_uv + (vec2(u1, v0) * inv_cascade_size), depth, array_index);
+    sum += uw2 * vw0 * sample_cascade_simple(base_uv + (vec2(u2, v0) * inv_cascade_size), depth, array_index);
+
+    sum += uw0 * vw1 * sample_cascade_simple(base_uv + (vec2(u0, v1) * inv_cascade_size), depth, array_index);
+    sum += uw1 * vw1 * sample_cascade_simple(base_uv + (vec2(u1, v1) * inv_cascade_size), depth, array_index);
+    sum += uw2 * vw1 * sample_cascade_simple(base_uv + (vec2(u2, v1) * inv_cascade_size), depth, array_index);
+
+    sum += uw0 * vw2 * sample_cascade_simple(base_uv + (vec2(u0, v2) * inv_cascade_size), depth, array_index);
+    sum += uw1 * vw2 * sample_cascade_simple(base_uv + (vec2(u1, v2) * inv_cascade_size), depth, array_index);
+    sum += uw2 * vw2 * sample_cascade_simple(base_uv + (vec2(u2, v2) * inv_cascade_size), depth, array_index);
+
+    return sum / 144.0;
+}
+
 fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     var sum = 0.0;
     let cascade_size = textureDimensions(directional_shadow_textures);
@@ -70,6 +117,6 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
 #ifdef STOCHASTIC_SAMPLING
     return sample_cascade_stochastic(light_local, depth, array_index);
 #else
-    return sample_cascade_simple(light_local, depth, array_index);
+    return sample_cascade_the_witness(light_local, depth, array_index);
 #endif // STOCHASTIC_SAMPLING
 }
