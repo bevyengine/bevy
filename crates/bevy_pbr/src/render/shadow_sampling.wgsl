@@ -1,11 +1,5 @@
 #define_import_path bevy_pbr::shadow_sampling
 
-#import bevy_pbr::stochastic_sampling
-
-// TODO: Allow user configuration
-const STOCHASTIC_PCF_SAMPLES = 3u;
-const STOCHASTIC_PCF_RADIUS = 2u;
-
 fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     // Do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
@@ -30,8 +24,6 @@ fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
 fn sample_cascade_the_witness(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    // TODO: Configurable filter radius (currently 5x5)
-
     let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
     let inv_cascade_size = 1.0 / cascade_size;
 
@@ -75,15 +67,51 @@ fn sample_cascade_the_witness(light_local: vec2<f32>, depth: f32, array_index: i
     return sum / 144.0;
 }
 
-fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    var sum = 0.0;
-    let cascade_size = textureDimensions(directional_shadow_textures);
-    for (var sample_i = 0u; sample_i < STOCHASTIC_PCF_SAMPLES; sample_i += 1u) {
-        let sample_uv = stochastic_uv(light_local, sample_i, f32(STOCHASTIC_PCF_RADIUS), cascade_size);
+// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
+fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
+    let frame = f32(globals.frame_count % 64u);
+    let xy = pixel_coordinates + 5.588238 * frame;
+    return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
+}
 
-        sum += sample_cascade_simple(sample_uv, depth, array_index);
-    }
-    return sum / f32(STOCHASTIC_PCF_SAMPLES);
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
+fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+    let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
+    let sample_offsets = array(
+        vec2(-0.7071,  0.7071),
+        vec2(-0.0000, -0.8750),
+        vec2( 0.5303,  0.5303),
+        vec2(-0.6250, -0.0000),
+        vec2( 0.3536, -0.3536),
+        vec2(-0.0000,  0.3750),
+        vec2(-0.1768, -0.1768),
+        vec2( 0.1250,  0.0000),
+    );
+
+    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * cascade_size);
+    let m = vec2(sin(random_angle), cos(random_angle));
+    let rotation_matrix = mat2x2(m.y, -m.x, m.x, m.y);
+    let scale = 4.0 / cascade_size;
+
+    let sample_offset1 = (rotation_matrix * sample_offsets[0]) * scale;
+    let sample_offset2 = (rotation_matrix * sample_offsets[1]) * scale;
+    let sample_offset3 = (rotation_matrix * sample_offsets[2]) * scale;
+    let sample_offset4 = (rotation_matrix * sample_offsets[3]) * scale;
+    let sample_offset5 = (rotation_matrix * sample_offsets[4]) * scale;
+    let sample_offset6 = (rotation_matrix * sample_offsets[5]) * scale;
+    let sample_offset7 = (rotation_matrix * sample_offsets[6]) * scale;
+    let sample_offset8 = (rotation_matrix * sample_offsets[7]) * scale;
+
+    var sum = 0.0;
+    sum += sample_cascade_simple(light_local + sample_offset1, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset2, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset3, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset4, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset5, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset6, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset7, depth, array_index);
+    sum += sample_cascade_simple(light_local + sample_offset8, depth, array_index);
+    return sum / 8.0;
 }
 
 fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
