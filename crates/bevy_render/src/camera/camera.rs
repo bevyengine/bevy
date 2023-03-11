@@ -22,6 +22,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
+use bevy_render_macros::ExtractResource;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
@@ -370,7 +371,7 @@ impl CameraRenderGraph {
 }
 
 /// Stores Texture Views used as render targets.
-#[derive(Default, Clone, Resource)]
+#[derive(Default, Clone, Resource, ExtractResource)]
 pub struct ManualTextureViews(HashMap<u32, (TextureView, UVec2)>);
 
 impl std::ops::Deref for ManualTextureViews {

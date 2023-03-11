@@ -23,7 +23,6 @@ pub mod texture;
 pub mod view;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
-use camera::ManualTextureViews;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -214,7 +213,6 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
                 .init_resource::<ScratchMainWorld>();
-            app.init_resource::<ManualTextureViews>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -253,7 +251,6 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
-            render_app.add_system(extract_manual_texture_views.in_set(RenderSet::ExtractCommands));
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
@@ -326,13 +323,6 @@ fn extract(main_world: &mut World, render_app: &mut App) {
     let inserted_world = render_app.world.remove_resource::<MainWorld>().unwrap();
     let scratch_world = std::mem::replace(main_world, inserted_world.0);
     main_world.insert_resource(ScratchMainWorld(scratch_world));
-}
-
-fn extract_manual_texture_views(
-    manual_texture_views: Extract<Res<ManualTextureViews>>,
-    mut commands: Commands,
-) {
-    commands.insert_resource(manual_texture_views.clone());
 }
 
 /// Applies the commands from the extract schedule. This happens during

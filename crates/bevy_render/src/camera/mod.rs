@@ -7,7 +7,10 @@ pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
 
-use crate::{render_graph::RenderGraph, ExtractSchedule, RenderApp, RenderSet};
+use crate::{
+    extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, ExtractSchedule, RenderApp,
+    RenderSet,
+};
 use bevy_app::{App, IntoSystemAppConfig, Plugin};
 use bevy_ecs::schedule::IntoSystemConfig;
 
@@ -22,9 +25,11 @@ impl Plugin for CameraPlugin {
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
+            .init_resource::<ManualTextureViews>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
             .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
-            .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
+            .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default())
+            .add_plugin(ExtractResourcePlugin::<ManualTextureViews>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
