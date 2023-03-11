@@ -4,7 +4,7 @@ use crate::UVec2;
 ///
 /// The rectangle is axis aligned, and defined by its minimum and maximum coordinates,
 /// stored in `URect::min` and `URect::max`, respectively. The minimum/maximum invariant
-/// must be upheld by the user when dURectly assigning the fields, otherwise some methods
+/// must be upheld by the user when directly assigning the fields, otherwise some methods
 /// produce invalid results. It is generally recommended to use one of the constructor
 /// methods instead, which will ensure this invariant is met, unless you already have
 /// the minimum and maximum corners.
