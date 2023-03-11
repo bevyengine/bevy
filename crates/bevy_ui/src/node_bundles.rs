@@ -237,7 +237,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: Default::default(),
+            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
