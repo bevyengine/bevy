@@ -253,6 +253,43 @@ impl Color {
         }
     }
 
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    ///
+    /// See also [`Color::lcha`].
+    pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha: 1.0,
+        }
+    }
+
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::lch`].
+    pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        }
+    }
+
     /// New `Color` from sRGB colorspace.
     ///
     /// # Examples
@@ -1865,12 +1902,7 @@ mod tests {
         let rgba = Color::rgba(0., 0., 0., 0.);
         let rgba_l = Color::rgba_linear(0., 0., 0., 0.);
         let hsla = Color::hsla(0., 0., 0., 0.);
-        let lcha = Color::Lcha {
-            lightness: 0.0,
-            chroma: 0.0,
-            hue: 0.0,
-            alpha: 0.0,
-        };
+        let lcha = Color::lcha(0., 0., 0., 0.);
         assert_eq!(rgba_l, rgba_l.as_rgba_linear());
         let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else { panic!("from Rgba") };
         let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else { panic!("from Hsla") };
