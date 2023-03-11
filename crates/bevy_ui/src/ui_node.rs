@@ -341,9 +341,9 @@ pub struct Style {
     /// Only affect Grid layouts
     pub grid_auto_flow: GridAutoFlow,
     /// Defines the track sizing functions (widths) of the grid rows
-    pub grid_template_rows: Vec<GridTrack>,
+    pub grid_template_rows: Vec<RepeatedGridTrack>,
     /// Defines the track sizing functions (heights) of the grid columns
-    pub grid_template_columns: Vec<GridTrack>,
+    pub grid_template_columns: Vec<RepeatedGridTrack>,
     /// Defines the size of implicitly created rows
     pub grid_auto_rows: Vec<GridTrack>,
     /// Defined the size of implicitly created columns
@@ -824,44 +824,70 @@ impl GridTrack {
     };
 
     /// Create a grid track with automatic size
-    pub fn auto() -> Self {
+    pub fn auto<T: From<Self>>() -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::Auto,
         }
+        .into()
     }
 
     /// Create a grid track with a fixed pixel size
-    pub fn px(value: f32) -> Self {
+    pub fn px<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(value)),
             max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Px(value)),
         }
+        .into()
     }
 
     /// Create a grid track with a percentage size
-    pub fn percent(value: f32) -> Self {
+    pub fn percent<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Fixed(Val::Percent(value)),
             max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Percent(value)),
         }
+        .into()
     }
 
     /// Create a grid track with an `fr` size.
     /// Note that this will give the track a content-based minimum size.
     /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size
-    pub fn fr(value: f32) -> Self {
+    pub fn fr<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
+        .into()
     }
 
     /// Create a grid track with an `minmax(0, Nfr)` size.
-    pub fn flex(value: f32) -> Self {
+    pub fn flex<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(0.0)),
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+        }
+        .into()
+    }
+
+    /// Created a repeated set of grid tracks.
+    ///
+    /// The repetition parameter can either be:
+    ///   - a `u16` count to repeat the track N times
+    ///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`
+    ///
+    /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
+    /// then all track (in and outside of the repetition) must be fixed size (px or percent).
+    ///
+    /// Integer repetitions are just shorthand for writing out N tracks longhand and are not subject to the same limitations.
+    pub fn repeat<Repetition: Into<GridTrackRepetition>>(
+        repetition: Repetition,
+        track: GridTrack,
+    ) -> RepeatedGridTrack {
+        RepeatedGridTrack {
+            repetition: repetition.into(),
+            min_sizing_function: track.min_sizing_function,
+            max_sizing_function: track.max_sizing_function,
         }
     }
 }
@@ -869,6 +895,38 @@ impl GridTrack {
 impl Default for GridTrack {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum GridTrackRepetition {
+    AutoFit,
+    AutoFill,
+    Count(u16),
+}
+
+impl From<u16> for GridTrackRepetition {
+    fn from(count: u16) -> Self {
+        Self::Count(count)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub struct RepeatedGridTrack {
+    pub(crate) repetition: GridTrackRepetition,
+    pub(crate) min_sizing_function: MinTrackSizingFunction,
+    pub(crate) max_sizing_function: MaxTrackSizingFunction,
+}
+
+impl From<GridTrack> for RepeatedGridTrack {
+    fn from(track: GridTrack) -> Self {
+        Self {
+            repetition: GridTrackRepetition::Count(1),
+            min_sizing_function: track.min_sizing_function,
+            max_sizing_function: track.max_sizing_function,
+        }
     }
 }
 

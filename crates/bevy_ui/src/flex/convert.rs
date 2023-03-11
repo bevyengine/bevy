@@ -2,8 +2,9 @@ use taffy::style_helpers;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
-    GridPlacement, GridTrack, JustifyContent, JustifyItems, JustifySelf, MaxTrackSizingFunction,
-    MinTrackSizingFunction, PositionType, Size, Style, UiRect, Val,
+    GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
+    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Size, Style,
+    UiRect, Val,
 };
 
 impl Val {
@@ -114,22 +115,22 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         grid_template_rows: style
             .grid_template_rows
             .iter()
-            .map(|track| track.into_track_sizing_function(scale_factor))
+            .map(|track| track.into_repeated_taffy_track(scale_factor))
             .collect::<Vec<_>>(),
         grid_template_columns: style
             .grid_template_columns
             .iter()
-            .map(|track| track.into_track_sizing_function(scale_factor))
+            .map(|track| track.into_repeated_taffy_track(scale_factor))
             .collect::<Vec<_>>(),
         grid_auto_rows: style
             .grid_auto_rows
             .iter()
-            .map(|track| track.into_non_repeating_track_sizing_function(scale_factor))
+            .map(|track| track.into_taffy_track(scale_factor))
             .collect::<Vec<_>>(),
         grid_auto_columns: style
             .grid_auto_columns
             .iter()
-            .map(|track| track.into_non_repeating_track_sizing_function(scale_factor))
+            .map(|track| track.into_taffy_track(scale_factor))
             .collect::<Vec<_>>(),
         grid_row: style.grid_row.into(),
         grid_column: style.grid_column.into(),
@@ -326,20 +327,35 @@ impl MaxTrackSizingFunction {
 }
 
 impl GridTrack {
-    fn into_non_repeating_track_sizing_function(
-        self,
-        scale_factor: f64,
-    ) -> taffy::style::NonRepeatedTrackSizingFunction {
+    fn into_taffy_track(self, scale_factor: f64) -> taffy::style::NonRepeatedTrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(scale_factor);
         let max = self.max_sizing_function.into_taffy(scale_factor);
         taffy::style_helpers::minmax(min, max)
     }
 }
 
-impl GridTrack {
-    fn into_track_sizing_function(self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
+impl RepeatedGridTrack {
+    fn into_repeated_taffy_track(self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(scale_factor);
         let max = self.max_sizing_function.into_taffy(scale_factor);
-        taffy::style_helpers::minmax(min, max)
+        let taffy_track: taffy::style::NonRepeatedTrackSizingFunction =
+            taffy::style_helpers::minmax(min, max);
+        match self.repetition {
+            GridTrackRepetition::Count(count) => {
+                if count == 1 {
+                    taffy::style::TrackSizingFunction::Single(taffy_track)
+                } else {
+                    taffy::style_helpers::repeat(count, vec![taffy_track])
+                }
+            }
+            GridTrackRepetition::AutoFit => taffy::style_helpers::repeat(
+                taffy::style::GridTrackRepetition::AutoFit,
+                vec![taffy_track],
+            ),
+            GridTrackRepetition::AutoFill => taffy::style_helpers::repeat(
+                taffy::style::GridTrackRepetition::AutoFill,
+                vec![taffy_track],
+            ),
+        }
     }
 }
