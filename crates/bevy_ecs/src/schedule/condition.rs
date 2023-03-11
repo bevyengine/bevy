@@ -994,7 +994,6 @@ mod tests {
     fn run_condition() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-
         let mut schedule = Schedule::new();
 
         // Run every other cycle
@@ -1022,7 +1021,6 @@ mod tests {
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-
         let mut schedule = Schedule::new();
 
         // Always run
@@ -1040,7 +1038,6 @@ mod tests {
     fn multiple_run_conditions() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-
         let mut schedule = Schedule::new();
 
         // Run every other cycle
@@ -1052,5 +1049,26 @@ mod tests {
         assert_eq!(world.resource::<Counter>().0, 1);
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 1);
+    }
+
+    #[test]
+    fn multiple_run_conditions_is_and_operation() {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+
+        let mut schedule = Schedule::new();
+
+        // This should never run, if multiple run conditions worked
+        // like an OR condition then it would always run
+        schedule.add_system(
+            increment_counter
+                .run_if(every_other_time)
+                .run_if(not(every_other_time)),
+        );
+
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 0);
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 0);
     }
 }
