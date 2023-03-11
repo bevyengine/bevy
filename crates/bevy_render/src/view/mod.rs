@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ManualTextureViews},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -360,12 +360,13 @@ fn prepare_view_targets(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    manual_texture_views: Res<ManualTextureViews>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
-                target.get_texture_view(&windows, &images),
+                target.get_texture_view(&windows, &images, &manual_texture_views),
                 target.get_texture_format(&windows, &images),
             ) {
                 let size = Extent3d {

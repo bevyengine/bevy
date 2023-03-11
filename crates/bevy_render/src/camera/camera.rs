@@ -3,6 +3,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
+    texture::BevyDefault,
     view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
     Extract,
 };
@@ -368,6 +369,24 @@ impl CameraRenderGraph {
     }
 }
 
+/// Stores Texture Views used as render targets.
+#[derive(Default, Clone, Resource)]
+pub struct ManualTextureViews(HashMap<u32, (TextureView, UVec2)>);
+
+impl std::ops::Deref for ManualTextureViews {
+    type Target = HashMap<u32, (TextureView, UVec2)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ManualTextureViews {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect)]
@@ -376,6 +395,8 @@ pub enum RenderTarget {
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
+    /// Texture View to which the camera's view is rendered.
+    TextureView(u32),
 }
 
 /// Normalized version of the render target.
@@ -387,6 +408,8 @@ pub enum NormalizedRenderTarget {
     Window(NormalizedWindowRef),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
+    /// Texture View to which the camera's view is rendered.
+    TextureView(u32),
 }
 
 impl Default for RenderTarget {
@@ -403,6 +426,7 @@ impl RenderTarget {
                 .normalize(primary_window)
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
+            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
         }
     }
 }
@@ -412,6 +436,7 @@ impl NormalizedRenderTarget {
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<Image>,
+        manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
@@ -419,6 +444,9 @@ impl NormalizedRenderTarget {
                 .and_then(|window| window.swap_chain_texture.as_ref()),
             NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
+            }
+            NormalizedRenderTarget::TextureView(id) => {
+                manual_texture_views.get(id).map(|(tex, _)| tex)
             }
         }
     }
@@ -436,6 +464,7 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| image.texture_format)
             }
+            NormalizedRenderTarget::TextureView(_) => Some(TextureFormat::bevy_default()),
         }
     }
 
@@ -443,6 +472,7 @@ impl NormalizedRenderTarget {
         &self,
         resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
+        manual_texture_views: &ManualTextureViews,
     ) -> Option<RenderTargetInfo> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => resolutions
@@ -463,6 +493,14 @@ impl NormalizedRenderTarget {
                     scale_factor: 1.0,
                 })
             }
+            NormalizedRenderTarget::TextureView(id) => {
+                manual_texture_views
+                    .get(id)
+                    .map(|(_, size)| RenderTargetInfo {
+                        physical_size: *size,
+                        scale_factor: 1.0,
+                    })
+            }
         }
     }
 
@@ -479,6 +517,7 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_handle) => {
                 changed_image_handles.contains(&image_handle)
             }
+            NormalizedRenderTarget::TextureView(_) => true,
         }
     }
 }
@@ -510,6 +549,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
+    manual_texture_views: Res<ManualTextureViews>,
     mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
     let primary_window = primary_window.iter().next();
@@ -541,8 +581,11 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
             {
-                camera.computed.target_info =
-                    normalized_target.get_render_target_info(&windows, &images);
+                camera.computed.target_info = normalized_target.get_render_target_info(
+                    &windows,
+                    &images,
+                    &manual_texture_views,
+                );
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
                     camera.computed.projection_matrix = camera_projection.get_projection_matrix();
