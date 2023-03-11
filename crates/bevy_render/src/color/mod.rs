@@ -262,7 +262,6 @@ impl Color {
     /// * `hue` - Hue channel. [0.0, 360.0]
     ///
     /// See also [`Color::lcha`].
-    ///
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
         Color::Lcha {
             lightness,
@@ -282,7 +281,6 @@ impl Color {
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::lch`].
-    ///
     pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
         Color::Lcha {
             lightness,
