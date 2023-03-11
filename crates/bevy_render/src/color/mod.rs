@@ -1859,6 +1859,7 @@ mod tests {
         assert_eq!(starting_color * transformation, mutated_color,);
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/8040
     #[test]
     fn convert_to_rgba_linear() {
         let rgba = Color::rgba(0., 0., 0., 0.);
