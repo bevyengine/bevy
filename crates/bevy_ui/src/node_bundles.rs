@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    borders::CalculatedBorder, widget::Button, BackgroundColor, BorderColor, CalculatedSize,
+    widget::Button, BackgroundColor, BorderColor, CalculatedSize,
     FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -25,8 +25,6 @@ pub struct NodeBundle {
     pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
-    /// Stores the border's calculated geometry
-    pub calculated_border: CalculatedBorder,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -53,7 +51,6 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             border_color: Color::NONE.into(),
-            calculated_border: Default::default(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -198,10 +195,7 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// The color of the Node's border
-    pub border_color: BorderColor,
-    /// Stores the border's calculated geometry
-    pub calculated_border: CalculatedBorder,
+    
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Describes the style including flexbox settings
@@ -214,6 +208,8 @@ pub struct ButtonBundle {
     ///
     /// When combined with `UiImage`, tints the provided image.
     pub background_color: BackgroundColor,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -242,7 +238,6 @@ impl Default for ButtonBundle {
             button: Default::default(),
             style: Default::default(),
             border_color: Default::default(),
-            calculated_border: Default::default(),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),

@@ -165,6 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.0)),
                         ..default()
                     },
+                    border_color: Color::GREEN.into(),
                     background_color: Color::rgb(0.4, 0.4, 1.0).into(),
                     ..default()
                 })

@@ -9,7 +9,6 @@ mod render;
 mod stack;
 mod ui_node;
 
-pub mod borders;
 pub mod camera_config;
 pub mod node_bundles;
 pub mod update;
@@ -26,7 +25,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        borders::CalculatedBorder, camera_config::*, geometry::*, node_bundles::*, ui_node::*,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*,
         widget::Button, Interaction, UiScale,
     };
 }
@@ -102,7 +101,6 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<BorderColor>()
-            .register_type::<borders::CalculatedBorder>()
             .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
             .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
             .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
@@ -143,13 +141,7 @@ impl Plugin for UiPlugin {
                 update_clipping_system
                     .after(TransformSystem::TransformPropagate)
                     .in_base_set(CoreSet::PostUpdate),
-            )
-            .add_system(
-                borders::calculate_borders_system
-                    .in_base_set(CoreSet::PostUpdate)
-                    .after(UiSystem::Flex),
-            );
-
+            );           
         crate::render::build_ui_render(app);
     }
 }

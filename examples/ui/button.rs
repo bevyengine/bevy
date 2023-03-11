@@ -35,7 +35,7 @@ fn button_system(
             Interaction::Clicked => {
                 text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = Color::YELLOW;
+                border_color.0 = Color::RED;
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
