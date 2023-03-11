@@ -525,7 +525,7 @@ impl Color {
                 let [red, green, blue] =
                     LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
 
-                Color::Rgba {
+                Color::RgbaLinear {
                     red: red.nonlinear_to_linear_srgb(),
                     green: green.nonlinear_to_linear_srgb(),
                     blue: blue.nonlinear_to_linear_srgb(),
@@ -1857,5 +1857,23 @@ mod tests {
         mutated_color *= transformation;
 
         assert_eq!(starting_color * transformation, mutated_color,);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8040
+    #[test]
+    fn convert_to_rgba_linear() {
+        let rgba = Color::rgba(0., 0., 0., 0.);
+        let rgba_l = Color::rgba_linear(0., 0., 0., 0.);
+        let hsla = Color::hsla(0., 0., 0., 0.);
+        let lcha = Color::Lcha {
+            lightness: 0.0,
+            chroma: 0.0,
+            hue: 0.0,
+            alpha: 0.0,
+        };
+        assert_eq!(rgba_l, rgba_l.as_rgba_linear());
+        let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else { panic!("from Rgba") };
+        let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else { panic!("from Hsla") };
+        let Color::RgbaLinear { .. } = lcha.as_rgba_linear() else { panic!("from Lcha") };
     }
 }
