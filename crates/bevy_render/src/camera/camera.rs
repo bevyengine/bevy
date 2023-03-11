@@ -543,6 +543,7 @@ impl NormalizedRenderTarget {
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
 /// [`CoreSet::PostUpdate`]: bevy_app::CoreSet::PostUpdate
+#[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
