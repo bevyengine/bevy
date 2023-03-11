@@ -9,12 +9,14 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(toggle_ime)
-        .add_system(listen_ime_events)
-        .add_system(listen_received_character_events)
-        .add_system(listen_keyboard_input_events)
-        .add_system(bubbling_text)
+        .add_systems((
+            setup_scene.on_startup(),
+            toggle_ime,
+            listen_ime_events,
+            listen_received_character_events,
+            listen_keyboard_input_events,
+            bubbling_text,
+        ))
         .run();
 }
 

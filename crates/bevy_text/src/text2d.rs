@@ -103,7 +103,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_glyphs = &text_layout_info.glyphs;
-        let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
+        let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_offset = text_layout_info.size * text_anchor;
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
@@ -168,7 +168,7 @@ pub fn update_text2d_layout(
     mut text_query: Query<(
         Entity,
         Ref<Text>,
-        &Text2dBounds,
+        Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
 ) {
@@ -182,7 +182,7 @@ pub fn update_text2d_layout(
         .unwrap_or(1.0);
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || queue.remove(&entity) {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),

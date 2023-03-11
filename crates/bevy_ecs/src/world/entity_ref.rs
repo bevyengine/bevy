@@ -371,8 +371,19 @@ impl<'w> EntityMut<'w> {
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.archetype_row);
+        // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.set(swapped_entity.index(), old_location);
+            let swapped_location = entities.get(swapped_entity).unwrap();
+
+            entities.set(
+                swapped_entity.index(),
+                EntityLocation {
+                    archetype_id: swapped_location.archetype_id,
+                    archetype_row: old_location.archetype_row,
+                    table_id: swapped_location.table_id,
+                    table_row: swapped_location.table_row,
+                },
+            );
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -395,9 +406,19 @@ impl<'w> EntityMut<'w> {
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
             let new_location = new_archetype.allocate(entity, move_result.new_row);
 
-            // if an entity was moved into this entity's table spot, update its table row
+            // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
+
+                entities.set(
+                    swapped_entity.index(),
+                    EntityLocation {
+                        archetype_id: swapped_location.archetype_id,
+                        archetype_row: swapped_location.archetype_row,
+                        table_id: swapped_location.table_id,
+                        table_row: old_location.table_row,
+                    },
+                );
                 archetypes[swapped_location.archetype_id]
                     .set_entity_table_row(swapped_location.archetype_row, old_table_row);
             }
@@ -493,10 +514,19 @@ impl<'w> EntityMut<'w> {
             }
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
+                let swapped_location = world.entities.get(swapped_entity).unwrap();
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set(swapped_entity.index(), location);
+                    world.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: swapped_location.table_row,
+                        },
+                    );
                 }
             }
             table_row = remove_result.table_row;
@@ -513,6 +543,19 @@ impl<'w> EntityMut<'w> {
 
         if let Some(moved_entity) = moved_entity {
             let moved_location = world.entities.get(moved_entity).unwrap();
+            // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
+            //         the current location of the entity and its component data.
+            unsafe {
+                world.entities.set(
+                    moved_entity.index(),
+                    EntityLocation {
+                        archetype_id: moved_location.archetype_id,
+                        archetype_row: moved_location.archetype_row,
+                        table_id: moved_location.table_id,
+                        table_row,
+                    },
+                );
+            }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
@@ -906,5 +949,160 @@ mod tests {
 
         // Ensure that the location has been properly updated.
         assert!(entity.location() != old_location);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
+    #[test]
+    fn removing_sparse_updates_archetype_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn((Dense(0), Sparse)).id();
+        let e2 = world.spawn((Dense(1), Sparse)).id();
+
+        world.entity_mut(e1).remove::<Sparse>();
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
+    #[test]
+    fn removing_dense_updates_table_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn((Dense(0), Sparse)).id();
+        let e2 = world.spawn((Dense(1), Sparse)).id();
+
+        world.entity_mut(e1).remove::<Dense>();
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
+    #[test]
+    fn inserting_sparse_updates_archetype_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse);
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
+    #[test]
+    fn inserting_dense_updates_archetype_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        struct Dense2;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse).remove::<Sparse>();
+
+        // archetype with [e2, e1]
+        // table with [e1, e2]
+
+        world.entity_mut(e2).insert(Dense2);
+
+        assert_eq!(world.entity(e1).get::<Dense>().unwrap(), &Dense(0));
+    }
+
+    #[test]
+    fn inserting_dense_updates_table_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        struct Dense2;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse).remove::<Sparse>();
+
+        // archetype with [e2, e1]
+        // table with [e1, e2]
+
+        world.entity_mut(e1).insert(Dense2);
+
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
+    #[test]
+    fn despawning_entity_updates_archetype_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse).remove::<Sparse>();
+
+        // archetype with [e2, e1]
+        // table with [e1, e2]
+
+        world.entity_mut(e2).despawn();
+
+        assert_eq!(world.entity(e1).get::<Dense>().unwrap(), &Dense(0));
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/7805
+    #[test]
+    fn despawning_entity_updates_table_row() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Dense(u8);
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        let e1 = world.spawn(Dense(0)).id();
+        let e2 = world.spawn(Dense(1)).id();
+
+        world.entity_mut(e1).insert(Sparse).remove::<Sparse>();
+
+        // archetype with [e2, e1]
+        // table with [e1, e2]
+
+        world.entity_mut(e1).despawn();
+
+        assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
     }
 }

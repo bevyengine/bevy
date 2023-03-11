@@ -16,9 +16,7 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(toggle_light)
-        .add_system(toggle_shadows)
+        .add_systems((setup.on_startup(), toggle_light, toggle_shadows))
         .run();
 }
 

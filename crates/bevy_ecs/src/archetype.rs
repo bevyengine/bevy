@@ -404,7 +404,7 @@ impl Archetype {
     /// Fetches the row in the [`Table`] where the components for the entity at `index`
     /// is stored.
     ///
-    /// An entity's archetype row  can be fetched from [`EntityLocation::archetype_row`], which
+    /// An entity's archetype row can be fetched from [`EntityLocation::archetype_row`], which
     /// can be retrieved from [`Entities::get`].
     ///
     /// # Panics
@@ -648,6 +648,9 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
+    /// # Panics
+    ///
+    /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(
         &mut self,

@@ -327,19 +327,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     //
     //     result = 1 * src_color + (1 - src_alpha) * dst_color
     let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
-        // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
-        //
-        //     src_color *= src_alpha
-        //
-        // We end up with:
-        //
-        //     result = 1 * (src_alpha * src_color) + (1 - src_alpha) * dst_color
-        //     result = src_alpha * src_color + (1 - src_alpha) * dst_color
-        //
-        // Which is the blend operation for regular alpha blending `BlendState::ALPHA_BLENDING`
-        return vec4<f32>(color.rgb * color.a, color.a);
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
         //
         //     src_color *= src_alpha

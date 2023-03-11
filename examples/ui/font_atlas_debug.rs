@@ -8,9 +8,7 @@ fn main() {
         .init_resource::<State>()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(text_update_system)
-        .add_system(atlas_render_system)
+        .add_systems((setup.on_startup(), text_update_system, atlas_render_system))
         .run();
 }
 

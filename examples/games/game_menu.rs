@@ -58,15 +58,14 @@ mod splash {
     impl Plugin for SplashPlugin {
         fn build(&self, app: &mut App) {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
-            app
+            app.add_systems((
                 // When entering the state, spawn everything needed for this screen
-                .add_system(splash_setup.in_schedule(OnEnter(GameState::Splash)))
+                splash_setup.in_schedule(OnEnter(GameState::Splash)),
                 // While in this state, run the `countdown` system
-                .add_system(countdown.in_set(OnUpdate(GameState::Splash)))
+                countdown.in_set(OnUpdate(GameState::Splash)),
                 // When exiting the state, despawn everything that was spawned for this screen
-                .add_system(
-                    despawn_screen::<OnSplashScreen>.in_schedule(OnExit(GameState::Splash)),
-                );
+                despawn_screen::<OnSplashScreen>.in_schedule(OnExit(GameState::Splash)),
+            ));
         }
     }
 

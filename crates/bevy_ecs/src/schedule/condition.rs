@@ -349,7 +349,7 @@ pub mod common_conditions {
         move |query: Query<(), With<T>>| !query.is_empty()
     }
 
-    /// Generates a  [`Condition`](super::Condition) that inverses the result of passed one.
+    /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
     ///
     /// # Examples
     ///
