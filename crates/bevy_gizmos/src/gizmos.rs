@@ -333,7 +333,7 @@ impl Drop for Circle2dBuilder<'_> {
 }
 
 fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
-    (0..segments + 1).into_iter().map(move |i| {
+    (0..segments + 1).map(move |i| {
         let angle = i as f32 * TAU / segments as f32;
         Vec2::from(angle.sin_cos()) * radius
     })
