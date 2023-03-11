@@ -33,8 +33,6 @@ use bevy_render::{
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, RenderApp, RenderSet,
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 
 mod draw_3d_graph {
     pub mod node {
@@ -196,9 +194,6 @@ impl Node for TAANode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        #[cfg(feature = "trace")]
-        let _taa_span = info_span!("taa").entered();
-
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
