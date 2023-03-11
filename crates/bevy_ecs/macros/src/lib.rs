@@ -247,8 +247,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
-static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
-
 /// Checks if the specified identifier occurs in the specified [`TokenStream`].
 #[allow(clippy::cmp_owned)]
 fn check_for_collision(haystack: TokenStream, value: &Ident) -> bool {
@@ -279,7 +277,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .into();
     };
     let path = bevy_ecs_path();
-    
+
     let mut field_locals = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
