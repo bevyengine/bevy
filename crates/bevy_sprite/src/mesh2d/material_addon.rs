@@ -117,8 +117,8 @@ impl<A: MaterialAddon, B: MaterialAddon, const GROUP_INDEX: usize> MaterialAddon
 impl<const GROUP_A: usize, const GROUP_B: usize, const GROUP_C: usize> MaterialAddonCollection<GROUP_A, GROUP_B, GROUP_C> for () {
     type AddonRenderCommandGroups = ();
     type Meta = ();
-    fn create_bind_group_layouts(asset_server: &AssetServer, render_device: &RenderDevice) -> Self::Meta { () }
-    fn build_addon_collection<P: DataHolder<Self::Meta> + Resource>(app: &mut App) {}
+    fn create_bind_group_layouts(_asset_server: &AssetServer, _render_device: &RenderDevice) -> Self::Meta { () }
+    fn build_addon_collection<P: DataHolder<Self::Meta> + Resource>(_app: &mut App) {}
 }
 
 impl<A: MaterialAddonGroup<GROUP_A>, const GROUP_A: usize, const GROUP_B: usize, const GROUP_C: usize> MaterialAddonCollection<GROUP_A, GROUP_B, GROUP_C> for (A, ()) {
@@ -169,9 +169,9 @@ impl<P: PhaseItem, G: Send + Sync + 'static, const GROUP: usize> RenderCommand<P
     type ItemWorldQuery = ();
 
     fn render<'w>(
-        item: &P,
-        view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        _entity: ROQueryItem<'w, Self::ItemWorldQuery>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>
     ) -> RenderCommandResult {
