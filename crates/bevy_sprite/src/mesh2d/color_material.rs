@@ -112,6 +112,8 @@ impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
         COLOR_MATERIAL_SHADER_HANDLE.typed().into()
     }
+
+    type Addons = ();
 }
 
 /// A component bundle for entities with a [`Mesh2dHandle`](crate::Mesh2dHandle) and a [`ColorMaterial`].

@@ -38,11 +38,13 @@ use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
+use bevy_ecs::system::ReadOnlySystemParam;
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,
     SetMesh2dViewBindGroup,
 };
+use crate::mesh2d::material_addon::{DataHolder, MaterialAddonCollection};
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
@@ -84,6 +86,8 @@ use crate::{
 ///     fn fragment_shader() -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
+///
+///     type Addons = ();
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
@@ -134,6 +138,9 @@ pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'st
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+
+    /// composable material addons
+    type Addons: MaterialAddonCollection<ADDON_GROUP_A, ADDON_GROUP_B, ADDON_GROUP_C>;
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
@@ -149,8 +156,10 @@ impl<M: Material2d> Default for Material2dPlugin<M> {
 impl<M: Material2d> Plugin for Material2dPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
+    <<<M as Material2d>::Addons as MaterialAddonCollection<ADDON_GROUP_A,ADDON_GROUP_B,ADDON_GROUP_C>>::AddonRenderCommandGroups as RenderCommand<Transparent2d>>::Param: ReadOnlySystemParam,
 {
     fn build(&self, app: &mut App) {
+        M::Addons::build_addon_collection::<Material2dPipeline<M>>(app);
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
@@ -179,7 +188,14 @@ pub struct Material2dPipeline<M: Material2d> {
     pub material2d_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
+    addon_meta: <M::Addons as MaterialAddonCollection<ADDON_GROUP_A, ADDON_GROUP_B, ADDON_GROUP_C>>::Meta,
     marker: PhantomData<M>,
+}
+
+impl<M: Material2d> DataHolder<<M::Addons as MaterialAddonCollection<ADDON_GROUP_A, ADDON_GROUP_B, ADDON_GROUP_C>>::Meta> for Material2dPipeline<M> {
+    fn get(&self) -> &<M::Addons as MaterialAddonCollection<ADDON_GROUP_A, ADDON_GROUP_B, ADDON_GROUP_C>>::Meta {
+        &self.addon_meta
+    }
 }
 
 pub struct Material2dKey<M: Material2d> {
@@ -227,6 +243,7 @@ impl<M: Material2d> Clone for Material2dPipeline<M> {
             material2d_layout: self.material2d_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
+            addon_meta: self.addon_meta.clone(),
             marker: PhantomData,
         }
     }
@@ -258,6 +275,7 @@ where
         ];
 
         M::specialize(&mut descriptor, layout, key)?;
+        M::Addons::specialize(&mut descriptor, layout, &self.addon_meta)?;
         Ok(descriptor)
     }
 }
@@ -281,16 +299,23 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
+            addon_meta: M::Addons::create_bind_group_layouts(asset_server, render_device),
             marker: PhantomData,
         }
     }
 }
+
+
+const ADDON_GROUP_A: usize = 3;
+const ADDON_GROUP_B: usize = 4;
+const ADDON_GROUP_C: usize = 5;
 
 type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetMaterial2dBindGroup<M, 1>,
     SetMesh2dBindGroup<2>,
+    <<M as Material2d>::Addons as MaterialAddonCollection<ADDON_GROUP_A, ADDON_GROUP_B, ADDON_GROUP_C>>::AddonRenderCommandGroups,
     DrawMesh2d,
 );
 
