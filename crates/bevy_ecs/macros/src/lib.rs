@@ -269,7 +269,7 @@ fn ensure_no_collision(haystack: TokenStream, mut value: Ident) -> Ident {
 }
 
 /// Implement `SystemParam` to use a struct as a parameter in a system
-#[proc_macro_derive(SystemParam, attributes(system_param))]
+#[proc_macro_derive(SystemParam)]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
@@ -279,21 +279,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .into();
     };
     let path = bevy_ecs_path();
-
-    for field in &field_definitions {
-        if let Some(attr) = field
-            .attrs
-            .iter()
-            .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
-        {
-            return syn::Error::new_spanned(
-                attr,
-                "#[derive(SystemParam)] does not support attributes.",
-            )
-            .into_compile_error()
-            .into();
-        }
-    }
+    
     let mut field_locals = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
