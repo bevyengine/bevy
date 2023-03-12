@@ -20,7 +20,8 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{
-        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
+        ComputedVisibility, ExtractedView, ViewSet, ViewTarget, ViewUniform, ViewUniformOffset,
+        ViewUniforms,
     },
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
@@ -105,8 +106,12 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems((
                     extract_mesh2d.in_schedule(ExtractSchedule),
-                    queue_mesh2d_bind_group.in_set(RenderSet::Queue),
-                    queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                    prepare_mesh2d_bind_group
+                        .in_set(RenderSet::Prepare)
+                        .after(ViewSet::PrepareUniforms),
+                    prepare_mesh2d_view_bind_groups
+                        .in_set(RenderSet::Prepare)
+                        .after(ViewSet::PrepareUniforms),
                 ));
         }
     }
@@ -468,7 +473,7 @@ pub struct Mesh2dBindGroup {
     pub value: BindGroup,
 }
 
-pub fn queue_mesh2d_bind_group(
+pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
@@ -493,7 +498,7 @@ pub struct Mesh2dViewBindGroup {
     pub value: BindGroup,
 }
 
-pub fn queue_mesh2d_view_bind_groups(
+pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
