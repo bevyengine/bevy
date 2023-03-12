@@ -1138,17 +1138,17 @@ impl ScheduleGraph {
                     ambiguous_with_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in set_systems.get(&lhs).unwrap_or(&vec![]) {
+                    for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
                         ambiguous_with_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in set_systems.get(&rhs).unwrap_or(&vec![]) {
+                    for &rhs_ in set_systems.get(&rhs).unwrap_or(&Vec::new()) {
                         ambiguous_with_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in set_systems.get(&lhs).unwrap_or(&vec![]) {
+                    for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
                         for &rhs_ in set_systems.get(&rhs).unwrap_or(&vec![]) {
                             ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
                         }
