@@ -247,8 +247,8 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
+            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::ManageViews))
+            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::ManageViews))
             .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
             .add_systems(
                 (
