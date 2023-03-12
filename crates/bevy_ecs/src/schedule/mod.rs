@@ -917,7 +917,7 @@ mod tests {
         }
 
         #[test]
-        fn avoid_conditional_deadlock() {
+        fn conditional_deadlock() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
@@ -947,6 +947,26 @@ mod tests {
             schedule.step_system();
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, 1]);
+        }
+
+        #[test]
+        fn call_step_within_system() {
+            fn handle_step_input() {
+                panic!("no mechanism to notify schedule of stepping request");
+            }
+
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+            world.init_resource::<SystemOrder>();
+
+            schedule
+                .set_executor_kind(ExecutorKind::SingleThreaded)
+                .add_system(handle_step_input.ignore_stepping())
+                .add_system(first_system)
+                .set_stepping(true);
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
         }
     }
 }

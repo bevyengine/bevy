@@ -20,6 +20,8 @@ pub(super) trait SystemExecutor: Send + Sync {
     fn init(&mut self, schedule: &SystemSchedule);
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
     fn set_apply_final_buffers(&mut self, value: bool);
+    /// get stepping state
+    fn stepping(&self) -> bool;
     /// enable or disable stepping mode in SystemExecutor
     fn set_stepping(&mut self, value: bool);
     /// run the next stepable system during the next call to run()
@@ -65,7 +67,7 @@ pub struct SystemSchedule {
     pub(super) system_dependents: Vec<Vec<usize>>,
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
-    pub(super) system_ignore_stepping: Vec<bool>,
+    pub(super) systems_with_stepping: FixedBitSet,
 }
 
 impl SystemSchedule {
@@ -80,7 +82,7 @@ impl SystemSchedule {
             system_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
-            system_ignore_stepping: Vec::new(),
+            systems_with_stepping: FixedBitSet::new(),
         }
     }
 }

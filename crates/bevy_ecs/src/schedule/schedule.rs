@@ -315,6 +315,11 @@ impl Schedule {
         }
     }
 
+    /// Get the state of system-stepping
+    pub fn stepping(&self) -> bool {
+        self.executor.stepping()
+    }
+
     /// Enable or disable system-stepping mode
     pub fn set_stepping(&mut self, value: bool) {
         self.executor.set_stepping(value);
@@ -1316,7 +1321,7 @@ impl ScheduleGraph {
             system_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
-            system_ignore_stepping: Vec::with_capacity(sys_count),
+            systems_with_stepping: FixedBitSet::with_capacity(sys_count),
         })
     }
 
@@ -1356,9 +1361,9 @@ impl ScheduleGraph {
             let conditions = self.system_conditions[id.index()].take().unwrap();
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
-            schedule
-                .system_ignore_stepping
-                .push(self.system_ignore_stepping[id.index()]);
+            if !self.system_ignore_stepping[id.index()] {
+                schedule.systems_with_stepping.insert(id.index());
+            }
         }
 
         for &id in &schedule.set_ids {
@@ -1710,4 +1715,38 @@ impl ScheduleBuildSettings {
             report_sets: true,
         }
     }
+}
+
+/// Event used to request changes to [`Schedule`]s
+pub enum ScheduleEvent {
+    /// Enable step mode for the specified [`Schedule`].
+    /// Will take affect at the end of [`App::update`].
+    EnableStepping(BoxedScheduleLabel),
+
+    /// Disable step mode for the specified [`Schedule`].
+    /// Will take affect at the end of [`App::update`].
+    DisableStepping(BoxedScheduleLabel),
+
+    /// Toggle step mode for the specified [`Schedule`].
+    /// Will take affect at the end of [`App::update`].
+    ToggleStepping(BoxedScheduleLabel),
+
+    /// Run the next system in the schedule the next time [`App::update`] is
+    /// called.  If all systems in the schedule have been run since step-mode
+    /// was enabled, the schedule will start over at the first system in the
+    /// schedule.
+    //
+    /// If step-mode has not been enabled using [`EnableStepping`] or
+    /// [`ToggleStepping`], this event will have no effect.
+    StepSystem(BoxedScheduleLabel),
+
+    /// Run all remaining systems in the [`Schedule`] the next time
+    /// [`App::update`] is called.  If [`StepSystem`] has been used to step
+    /// some of the systems in the schedule, only the systems that haven't been
+    /// run will be run.  If no systems within the schedule have been stepped,
+    /// all systems in the schedule will be run.
+    ///
+    /// If step-mode has not been enabled using [`EnableStepping`] or
+    /// [`ToggleStepping`], this event will have no effect.
+    StepFrame(BoxedScheduleLabel),
 }

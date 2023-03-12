@@ -4,11 +4,12 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::ManualEventReader,
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
-        ScheduleLabel,
+        ScheduleEvent, ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -82,6 +83,9 @@ pub struct App {
     plugin_name_added: HashSet<String>,
     /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
     is_building_plugin: bool,
+
+    /// used in [`App::update`] to handle stepping events
+    schedule_event_reader: ManualEventReader<ScheduleEvent>,
 }
 
 impl Debug for App {
@@ -195,6 +199,7 @@ impl Default for App {
         app.add_default_schedules();
 
         app.add_event::<AppExit>();
+        app.add_event::<ScheduleEvent>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -229,6 +234,7 @@ impl App {
             default_schedule_label: Box::new(CoreSchedule::Main),
             outer_schedule_label: Box::new(CoreSchedule::Outer),
             is_building_plugin: false,
+            schedule_event_reader: ManualEventReader::<ScheduleEvent>::default(),
         }
     }
 
@@ -257,6 +263,29 @@ impl App {
             sub_app.run();
         }
 
+        let mut schedules = self
+            .world
+            .remove_resource::<Schedules>()
+            .expect("No Schedules resource in world");
+
+        if let Some(sched_events) = self.world.get_resource::<Events<ScheduleEvent>>() {
+            use ScheduleEvent::*;
+
+            for event in self.schedule_event_reader.iter(sched_events) {
+                match event {
+                    EnableStepping(label) => {
+                        println!("label #{:?}", label);
+                        schedules
+                            .get_mut(&**label)
+                            .expect("unknown system label")
+                            .set_stepping(true);
+                    }
+                    _ => todo!(),
+                }
+            }
+        }
+
+        self.world.insert_resource::<Schedules>(schedules);
         self.world.clear_trackers();
     }
 
@@ -1067,5 +1096,39 @@ mod tests {
             }
         }
         App::new().add_plugin(PluginRun);
+    }
+
+    mod system_stepping {
+        use super::*;
+        use crate::app::{EventWriter, ScheduleEvent};
+        use crate::CoreSchedule;
+
+        fn enable_stepping(mut ev: EventWriter<ScheduleEvent>) {
+            ev.send(ScheduleEvent::EnableStepping(Box::new(CoreSchedule::Main)));
+        }
+
+        fn get_stepping(app: &App) -> bool {
+            app.get_schedule(CoreSchedule::Main)
+                .expect("missing CoreSchedule::Main")
+                .stepping()
+        }
+
+        #[test]
+        fn set_schedule_stepping() {
+            let mut app = App::new();
+            app.add_system(enable_stepping);
+
+            // for now, only the single-threaded executor supports stepping,
+            // so let's change the CoreSchedule::Main schedule to use it
+            app.get_schedule_mut(CoreSchedule::Main)
+                .expect("missing CoreSchedule::Main")
+                .set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+
+            assert_eq!(Box::new(CoreSchedule::Main), Box::new(CoreSchedule::Main));
+            assert!(!get_stepping(&app));
+
+            app.update();
+            assert!(get_stepping(&app));
+        }
     }
 }

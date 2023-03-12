@@ -232,6 +232,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.completed_systems.clear();
     }
 
+    fn stepping(&self) -> bool {
+        todo!()
+    }
+
     fn set_stepping(&mut self, _: bool) {
         todo!();
     }
