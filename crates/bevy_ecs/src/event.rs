@@ -3,8 +3,14 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
-use std::ops::{Deref, DerefMut};
-use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
+use std::{
+    fmt,
+    hash::Hash,
+    iter::Chain,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    slice::{Iter, IterMut},
+};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -20,6 +26,15 @@ impl<T> Event for T where T: Send + Sync + 'static {}
 pub struct EventId<E: Event> {
     pub id: usize,
     _marker: PhantomData<E>,
+}
+
+impl<E: Event> EventId<E> {
+    pub fn new(id: usize) -> Self {
+        EventId {
+            id,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<E: Event> Copy for EventId<E> {}
@@ -130,6 +145,7 @@ pub struct Events<E: Event> {
     events_a: EventSequence<E>,
     /// Holds the newer events.
     events_b: EventSequence<E>,
+    /// Used as an incrementing id for the events.
     event_count: usize,
 }
 
@@ -197,7 +213,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.iter(&self.events)
     }
 
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    /// Like [`iter`](Self::iter), except it also returns the [`EventId`] with the events.
     pub fn iter_with_id(&mut self) -> ManualEventIteratorWithId<'_, E> {
         self.reader.iter_with_id(&self.events)
     }
@@ -246,6 +262,45 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
     type IntoIter = ManualEventIterator<'a, E>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+/// Processes events of type `T` in order and tracks which events have already been processed.
+#[derive(SystemParam, Debug)]
+pub struct EventProcessor<'w, 's, E: Event> {
+    reader: Local<'s, ManualEventReader<E>>,
+    events: ResMut<'w, Events<E>>,
+}
+
+impl<'w, 's, E: Event> EventProcessor<'w, 's, E> {
+    /// Iterates over this [`EventProcessor`]'s unprocessed events.
+    ///
+    /// Events are marked as processed when returned by the iterator.
+    pub fn iter(&mut self) -> ManualEventIteratorMut<'_, E> {
+        self.reader.iter_mut(&mut self.events)
+    }
+
+    /// Like [`iter`](Self::iter), except it also returns the [`EventId`] with the events.
+    pub fn iter_with_id(&mut self) -> ManualEventIteratorMutWithId<'_, E> {
+        self.reader.iter_mut_with_id(&mut self.events)
+    }
+
+    /// Determines the number of events available to be processed from this [`EventProcessor`] without consuming any.
+    pub fn len(&self) -> usize {
+        self.reader.len(&self.events)
+    }
+
+    /// Returns `true` if there are no events available to process.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Consumes all available events.
+    ///
+    /// This means these events will not appear in calls to [`EventProcessor::iter()`] or
+    /// [`EventProcessor::iter_with_id()`] and [`EventProcessor::is_empty()`] will return `true`.
+    pub fn clear(&mut self) {
+        self.reader.last_event_count = self.events.event_count;
     }
 }
 
@@ -344,6 +399,19 @@ impl<E: Event> ManualEventReader<E> {
         events: &'a Events<E>,
     ) -> ManualEventIteratorWithId<'a, E> {
         ManualEventIteratorWithId::new(self, events)
+    }
+
+    /// See [`EventProcessor::iter`]
+    pub fn iter_mut<'a>(&'a mut self, events: &'a mut Events<E>) -> ManualEventIteratorMut<'a, E> {
+        self.iter_mut_with_id(events).without_id()
+    }
+
+    /// See [`EventProcessor::iter_with_id`]
+    pub fn iter_mut_with_id<'a>(
+        &'a mut self,
+        events: &'a mut Events<E>,
+    ) -> ManualEventIteratorMutWithId<'a, E> {
+        ManualEventIteratorMutWithId::new(self, events)
     }
 
     /// See [`EventReader::len`]
@@ -453,19 +521,11 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
 impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
     type Item = (&'a E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
-        match self
-            .chain
-            .next()
-            .map(|instance| (&instance.event, instance.event_id))
-        {
-            Some(item) => {
-                event_trace(item.1);
-                self.reader.last_event_count += 1;
-                self.unread -= 1;
-                Some(item)
-            }
-            None => None,
-        }
+        let instance = self.chain.next()?;
+        event_trace(instance.event_id);
+        self.reader.last_event_count += 1;
+        self.unread -= 1;
+        return Some((&instance.event, instance.event_id));
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
@@ -505,14 +565,130 @@ impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
     }
 }
 
+pub struct ManualEventIteratorMut<'a, E: Event> {
+    iter: ManualEventIteratorMutWithId<'a, E>,
+}
+
+impl<'a, E: Event> Iterator for ManualEventIteratorMut<'a, E> {
+    type Item = &'a mut E;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(event, _)| event)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.iter.last().map(|(event, _)| event)
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorMut<'a, E> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+#[derive(Debug)]
+pub struct ManualEventIteratorMutWithId<'a, E: Event> {
+    reader: &'a mut ManualEventReader<E>,
+    chain: Chain<IterMut<'a, EventInstance<E>>, IterMut<'a, EventInstance<E>>>,
+    unread: usize,
+}
+
+impl<'a, E: Event> ManualEventIteratorMutWithId<'a, E> {
+    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a mut Events<E>) -> Self {
+        let len = reader.len(events);
+
+        let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
+        let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a = events.events_a.get_mut(a_index..).unwrap_or_default();
+        let b = events.events_b.get_mut(b_index..).unwrap_or_default();
+
+        let unread_count = a.len() + b.len();
+        // Ensure `len` is implemented correctly
+        debug_assert_eq!(unread_count, len);
+        reader.last_event_count = events.event_count - unread_count;
+        // Iterate the oldest first, then the newer events
+        let chain = a.iter_mut().chain(b.iter_mut());
+
+        Self {
+            reader,
+            chain,
+            unread: unread_count,
+        }
+    }
+
+    /// Iterate over only the events.
+    pub fn without_id(self) -> ManualEventIteratorMut<'a, E> {
+        ManualEventIteratorMut { iter: self }
+    }
+}
+
+impl<'a, E: Event> Iterator for ManualEventIteratorMutWithId<'a, E> {
+    type Item = (&'a mut E, EventId<E>);
+    fn next(&mut self) -> Option<Self::Item> {
+        let instance = self.chain.next()?;
+        event_trace(instance.event_id);
+        self.reader.last_event_count += 1;
+        self.unread -= 1;
+        return Some((&mut instance.event, instance.event_id));
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
+            self.reader.last_event_count += n + 1;
+            self.unread -= n + 1;
+            Some((event, *event_id))
+        } else {
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
+            None
+        }
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        let EventInstance { event_id, event } = self.chain.last()?;
+        self.reader.last_event_count += self.unread;
+        Some((event, *event_id))
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.chain.size_hint()
+    }
+}
+
+impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorMutWithId<'a, E> {
+    fn len(&self) -> usize {
+        self.unread
+    }
+}
+
 impl<E: Event> Events<E> {
-    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
-    /// the event.
+    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s
+    /// and [`EventProcessor`]s can then read the event.
     pub fn send(&mut self, event: E) {
-        let event_id = EventId {
-            id: self.event_count,
-            _marker: PhantomData,
-        };
+        let event_id = EventId::new(self.event_count);
         trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
@@ -643,10 +819,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
         let old_count = self.event_count;
         let mut event_count = self.event_count;
         let events = iter.into_iter().map(|event| {
-            let event_id = EventId {
-                id: event_count,
-                _marker: PhantomData,
-            };
+            let event_id = EventId::new(event_count);
             event_count += 1;
             EventInstance { event_id, event }
         });
@@ -1006,5 +1179,27 @@ mod tests {
             let _reader = state.get(&world);
         }
         read_for::<EmptyTestEvent>();
+    }
+
+    #[test]
+    fn process_events() {
+        let mut events = Events::<TestEvent>::default();
+        events.extend([TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]);
+
+        let mut reader = events.get_reader();
+        for event in reader.iter_mut(&mut events) {
+            if event.i == 1 {
+                event.i += 10;
+            }
+        }
+        assert_eq!(reader.len(&events), 0);
+
+        reader.last_event_count = 0;
+        assert_eq!(reader.len(&events), 3);
+
+        assert_eq!(
+            get_events(&events, &mut reader),
+            vec![TestEvent { i: 0 }, TestEvent { i: 11 }, TestEvent { i: 2 }]
+        );
     }
 }
