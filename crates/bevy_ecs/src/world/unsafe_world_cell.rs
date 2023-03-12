@@ -299,7 +299,7 @@ impl<'w> UnsafeWorldCell<'w> {
         //  caller ensures that no mutable reference exists to `R`
         unsafe {
             self.get_non_send_resource_by_id(component_id)
-                // SAEFTY: `component_id` was obtained from `TypeId::of::<R>()`
+                // SAFETY: `component_id` was obtained from `TypeId::of::<R>()`
                 .map(|ptr| ptr.deref::<R>())
         }
     }
@@ -592,7 +592,7 @@ impl<'w> UnsafeEntityCell<'w> {
 
         // SAFETY:
         // - entity location is valid
-        // - proper world acess is promised by caller
+        // - proper world access is promised by caller
         unsafe {
             get_ticks(
                 self.world,

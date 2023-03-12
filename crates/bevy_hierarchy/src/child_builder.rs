@@ -141,7 +141,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
 }
 
 fn clear_children(parent: Entity, world: &mut World) {
-    if let Some(children) = world.entity_mut(parent).remove::<Children>() {
+    if let Some(children) = world.entity_mut(parent).take::<Children>() {
         for &child in &children.0 {
             world.entity_mut(child).remove::<Parent>();
         }
@@ -532,7 +532,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
-        if let Some(parent) = self.remove::<Parent>().map(|p| p.get()) {
+        if let Some(parent) = self.take::<Parent>().map(|p| p.get()) {
             self.world_scope(|world| {
                 remove_from_children(world, parent, child);
                 push_events(world, [HierarchyEvent::ChildRemoved { child, parent }]);

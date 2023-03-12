@@ -572,7 +572,7 @@ impl_tick_filter!(
     /// A common use for this filter is one-time initialization.
     ///
     /// To retain all results without filtering but still check whether they were added after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///

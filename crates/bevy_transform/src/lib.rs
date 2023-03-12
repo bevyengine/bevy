@@ -90,11 +90,17 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
+        // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
+        // Used instead of the `SystemTypeSet` as that would not allow multiple instances of the system.
+        #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+        struct PropagateTransformsSet;
+
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
             .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
+            .configure_set(PropagateTransformsSet.in_set(TransformSystem::TransformPropagate))
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(
                     TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
@@ -106,14 +112,14 @@ impl Plugin for TransformPlugin {
             .add_startup_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+                    .ambiguous_with(PropagateTransformsSet),
             )
-            .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
+            .add_startup_system(propagate_transforms.in_set(PropagateTransformsSet))
             .add_system(
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+                    .ambiguous_with(PropagateTransformsSet),
             )
-            .add_system(propagate_transforms.in_set(TransformSystem::TransformPropagate));
+            .add_system(propagate_transforms.in_set(PropagateTransformsSet));
     }
 }

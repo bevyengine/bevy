@@ -951,9 +951,7 @@ where
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            // remove intersection to gracefully handle components that were removed before running
-            // this command
-            entity_mut.remove_intersection::<T>();
+            entity_mut.remove::<T>();
         }
     }
 }
