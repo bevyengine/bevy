@@ -263,26 +263,32 @@ impl App {
             sub_app.run();
         }
 
+        // move schedules out of the world so we can modify it as we iterate
+        // through the schedule events
         let mut schedules = self
             .world
             .remove_resource::<Schedules>()
             .expect("No Schedules resource in world");
 
-        if let Some(sched_events) = self.world.get_resource::<Events<ScheduleEvent>>() {
+        if let Some(mut sched_events) = self.world.get_resource_mut::<Events<ScheduleEvent>>() {
             use ScheduleEvent::*;
 
-            for event in self.schedule_event_reader.iter(sched_events) {
+            for event in self.schedule_event_reader.iter(&sched_events) {
                 match event {
-                    EnableStepping(label) => {
-                        println!("label #{:?}", label);
-                        schedules
-                            .get_mut(&**label)
-                            .expect("unknown system label")
-                            .set_stepping(true);
+                    EnableStepping(label)
+                    | DisableStepping(label)
+                    | ToggleStepping(label)
+                    | StepFrame(label)
+                    | StepSystem(label) => {
+                        if let Some(sched) = schedules.get_mut(&**label) {
+                            sched.handle_event(event);
+                        } else {
+                            panic!("unknown Schedule label: #{:?}", label);
+                        }
                     }
-                    _ => todo!(),
                 }
             }
+            sched_events.clear();
         }
 
         self.world.insert_resource::<Schedules>(schedules);
@@ -1102,9 +1108,27 @@ mod tests {
         use super::*;
         use crate::app::{EventWriter, ScheduleEvent};
         use crate::CoreSchedule;
+        use bevy_ecs::prelude::*;
+        use bevy_ecs::schedule::ExecutorKind;
 
-        fn enable_stepping(mut ev: EventWriter<ScheduleEvent>) {
-            ev.send(ScheduleEvent::EnableStepping(Box::new(CoreSchedule::Main)));
+        #[derive(Resource, Default)]
+        struct ScheduleEvents(Vec<ScheduleEvent>);
+
+        fn send_schedule_event(
+            mut events: ResMut<ScheduleEvents>,
+            mut writer: EventWriter<ScheduleEvent>,
+        ) {
+            for event in events.0.drain(..) {
+                writer.send(event);
+            }
+        }
+
+        fn push_event(app: &mut App, event: ScheduleEvent) {
+            let mut events = app
+                .world
+                .get_resource_mut::<ScheduleEvents>()
+                .expect("ScheduleEvents resource not found in world");
+            events.0.push(event);
         }
 
         fn get_stepping(app: &App) -> bool {
@@ -1114,19 +1138,23 @@ mod tests {
         }
 
         #[test]
-        fn set_schedule_stepping() {
+        fn modify_stepping() {
             let mut app = App::new();
-            app.add_system(enable_stepping);
+            let label = Box::new(CoreSchedule::Main);
+
+            app.add_system(send_schedule_event);
+            app.init_resource::<ScheduleEvents>();
 
             // for now, only the single-threaded executor supports stepping,
             // so let's change the CoreSchedule::Main schedule to use it
             app.get_schedule_mut(CoreSchedule::Main)
                 .expect("missing CoreSchedule::Main")
-                .set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+                .set_executor_kind(ExecutorKind::SingleThreaded);
 
-            assert_eq!(Box::new(CoreSchedule::Main), Box::new(CoreSchedule::Main));
+            // ensure stepping isn't on by default
             assert!(!get_stepping(&app));
 
+            push_event(&mut app, ScheduleEvent::EnableStepping(label));
             app.update();
             assert!(get_stepping(&app));
         }

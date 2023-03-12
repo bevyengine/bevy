@@ -236,6 +236,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         todo!()
     }
 
+    fn next_system(&self) -> Option<usize> {
+        None
+    }
+
     fn set_stepping(&mut self, _: bool) {
         todo!();
     }

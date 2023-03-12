@@ -51,8 +51,8 @@ const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
 const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
@@ -72,8 +72,22 @@ fn main() {
         // Configure how frequently our gameplay systems are run
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(update_scoreboard)
-        .add_system(bevy::window::close_on_esc)
-        .run();
+        .add_system(bevy::window::close_on_esc);
+
+    // stepping is only implemented in the single-threaded executor for the
+    // moment, so let's force Main and FixedUpdate to use it.
+    // XXX temporary, for proof-of-concept
+    app.get_schedule_mut(CoreSchedule::FixedUpdate)
+        .expect("CoreSchedule::FixedUpdate to be present in app")
+        .set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    app.get_schedule_mut(CoreSchedule::Main)
+        .expect("CoreSchedule::Main to be present in app")
+        .set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    app.add_startup_system(setup_stepping)
+        .add_system(stepping_input.ignore_stepping())
+        .add_system(stepping_ui.ignore_stepping());
+
+    app.run();
 }
 
 #[derive(Component)]
@@ -348,7 +362,10 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
     }
 }
 
-fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+fn update_scoreboard(
+    scoreboard: Res<Scoreboard>,
+    mut query: Query<&mut Text, Without<SteppingUi>>,
+) {
     let mut text = query.single_mut();
     text.sections[1].value = scoreboard.score.to_string();
 }
@@ -419,4 +436,112 @@ fn play_collision_sound(
         collision_events.clear();
         audio.play(sound.0.clone());
     }
+}
+
+#[derive(Component)]
+struct SteppingUi;
+
+fn stepping_input(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut schedule_events: EventWriter<bevy::ecs::schedule::ScheduleEvent>,
+) {
+    use bevy::ecs::schedule::ScheduleEvent::*;
+
+    // grave key to toggle stepping mode for the FixedUpdate schedule
+    if keyboard_input.just_pressed(KeyCode::Grave) {
+        schedule_events.send(ToggleStepping(Box::new(CoreSchedule::FixedUpdate)));
+    }
+
+    // Space will advance all systems in FixedUpdate, S will advance one system
+    // at a time in FixedUpdate
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        schedule_events.send(StepFrame(Box::new(CoreSchedule::FixedUpdate)));
+    } else if keyboard_input.just_pressed(KeyCode::S) {
+        schedule_events.send(StepSystem(Box::new(CoreSchedule::FixedUpdate)));
+    }
+}
+
+fn stepping_ui(
+    mut commands: Commands,
+    schedules: Res<Schedules>,
+    mut ui: Query<(Entity, &mut Text, &Visibility), With<SteppingUi>>,
+    mut schedule_events: EventReader<bevy::ecs::schedule::ScheduleEvent>,
+) {
+    let label = Box::new(CoreSchedule::FixedUpdate);
+    let fixed = schedules
+        .get(&*label)
+        .expect("Schedules resource should contain CoreSchedule::FixedUpdate");
+    let (entity, mut text, vis) = ui.single_mut();
+
+    if !fixed.stepping() {
+        if vis == Visibility::Inherited {
+            commands.entity(entity).insert(Visibility::Hidden);
+        }
+        return;
+    }
+
+    if vis == Visibility::Hidden {
+        commands.entity(entity).insert(Visibility::Inherited);
+    }
+    text.sections[3].value = fixed.next_system().unwrap_or("unknown".to_string());
+
+    for ev in schedule_events.iter() {
+        use bevy::ecs::schedule::ScheduleEvent::*;
+        match ev {
+            StepFrame(_) => text.sections[1].value = "stepped frame".to_string(),
+            StepSystem(_) => {
+                text.sections[1].value = format!(
+                    "ran {}",
+                    fixed.next_system().unwrap_or("unknown".to_string())
+                )
+            }
+            _ => text.sections[1].value = "enabled stepping".to_string(),
+        }
+    }
+}
+
+const STEPPING_FONT_SIZE: f32 = 24.0;
+const STEPPING_FONT_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
+
+fn setup_stepping(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        SteppingUi,
+        TextBundle::from_sections([
+            TextSection::new(
+                "Stepping: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: STEPPING_FONT_SIZE,
+                    color: STEPPING_FONT_COLOR,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: STEPPING_FONT_SIZE,
+                color: STEPPING_FONT_COLOR,
+            }),
+            TextSection::new(
+                "\nNext system: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: STEPPING_FONT_SIZE,
+                    color: STEPPING_FONT_COLOR,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: STEPPING_FONT_SIZE,
+                color: STEPPING_FONT_COLOR,
+            }),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(5.0),
+                right: Val::Px(200.0),
+                ..default()
+            },
+            ..default()
+        }),
+    ));
 }

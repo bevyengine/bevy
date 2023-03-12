@@ -22,6 +22,9 @@ pub(super) trait SystemExecutor: Send + Sync {
     fn set_apply_final_buffers(&mut self, value: bool);
     /// get stepping state
     fn stepping(&self) -> bool;
+    /// return the index of the the next system in the schedule to be run if
+    /// stepping is enabled
+    fn next_system(&self) -> Option<usize>;
     /// enable or disable stepping mode in SystemExecutor
     fn set_stepping(&mut self, value: bool);
     /// run the next stepable system during the next call to run()

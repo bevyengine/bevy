@@ -320,6 +320,14 @@ impl Schedule {
         self.executor.stepping()
     }
 
+    /// Get the name of the next system that will be run in the
+    /// schedule if stepping is enabled
+    pub fn next_system(&self) -> Option<String> {
+        self.executor
+            .next_system()
+            .map(|idx| self.executable.systems[idx].name().to_string())
+    }
+
     /// Enable or disable system-stepping mode
     pub fn set_stepping(&mut self, value: bool) {
         self.executor.set_stepping(value);
@@ -338,6 +346,18 @@ impl Schedule {
     /// method is called.
     pub fn step_frame(&mut self) {
         self.executor.step_frame();
+    }
+
+    /// apply ScheduleEvent to the schedule & executor
+    pub fn handle_event(&mut self, event: &ScheduleEvent) {
+        use ScheduleEvent::*;
+        match event {
+            EnableStepping(_) => self.executor.set_stepping(true),
+            DisableStepping(_) => self.executor.set_stepping(false),
+            ToggleStepping(_) => self.executor.set_stepping(!self.executor.stepping()),
+            StepFrame(_) => self.executor.step_frame(),
+            StepSystem(_) => self.executor.step_system(),
+        }
     }
 }
 
