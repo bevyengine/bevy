@@ -13,7 +13,7 @@ use crate::{
         Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
         SlotType, SlotValue,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GpuTimerScopeResult, RenderContext, RenderDevice},
 };
 
 pub(crate) struct RenderGraphRunner;
@@ -57,15 +57,12 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         queue: &wgpu::Queue,
         world: &World,
-    ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device);
+    ) -> Result<Vec<GpuTimerScopeResult>, RenderGraphRunnerError> {
+        let mut render_context = RenderContext::new(render_device, queue);
+
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
-        {
-            #[cfg(feature = "trace")]
-            let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(render_context.finish());
-        }
-        Ok(())
+
+        Ok(render_context.finish(queue))
     }
 
     fn run_graph(
@@ -175,12 +172,15 @@ impl RenderGraphRunner {
                 smallvec![None; node_state.output_slots.len()];
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
+
+                render_context.begin_debug_scope(node_state.type_name);
                 {
                     #[cfg(feature = "trace")]
                     let _span = info_span!("node", name = node_state.type_name).entered();
 
                     node_state.node.run(&mut context, render_context, world)?;
                 }
+                render_context.end_debug_scope();
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph

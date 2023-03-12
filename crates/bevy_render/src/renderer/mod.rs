@@ -1,10 +1,9 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_derive::{Deref, DerefMut};
-use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
+pub use wgpu_profiler::GpuTimerScopeResult;
 
 use crate::{
     render_graph::RenderGraph,
@@ -13,13 +12,17 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
+use bevy_utils::tracing::{error, info, info_span};
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Queue,
+    RequestAdapterOptions,
 };
+use wgpu_profiler::GpuProfiler;
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -30,6 +33,7 @@ pub fn render_system(world: &mut World) {
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
 
+    // TODO: Take gpu timers and put in a resource that the main world can access
     if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
@@ -150,6 +154,11 @@ pub async fn initialize_renderer(
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
         limits = adapter.limits();
+    }
+
+    #[cfg(feature = "trace")]
+    {
+        features |= wgpu::Features::TIMESTAMP_QUERY;
     }
 
     // Enforce the disabled features
@@ -286,15 +295,27 @@ pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
+    gpu_profiler: Option<GpuProfiler>,
 }
 
 impl RenderContext {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
+    pub fn new(render_device: RenderDevice, render_queue: &Queue) -> Self {
+        let mut gpu_profiler = None;
+        let usable_features = render_device.features();
+        if usable_features.contains(Features::TIMESTAMP_QUERY) {
+            gpu_profiler = Some(GpuProfiler::new(
+                4,
+                render_queue.get_timestamp_period(),
+                usable_features,
+            ))
+        }
+
         Self {
             render_device,
             command_encoder: None,
             command_buffers: Vec::new(),
+            gpu_profiler,
         }
     }
 
@@ -332,19 +353,52 @@ impl RenderContext {
     /// into a [`CommandBuffer`] into the queue before append the provided
     /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.flush_encoder();
+        self.flush_command_encoder();
         self.command_buffers.push(command_buffer);
     }
 
-    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
-    pub fn finish(mut self) -> Vec<CommandBuffer> {
-        self.flush_encoder();
-        self.command_buffers
+    pub fn begin_debug_scope(&mut self, label: &str) {
+        if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+            let command_encoder = self.command_encoder.get_or_insert_with(|| {
+                self.render_device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+            });
+
+            gpu_profiler.begin_scope(label, command_encoder, self.render_device.wgpu_device());
+        }
     }
 
-    fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers.push(encoder.finish());
+    pub fn end_debug_scope(&mut self) {
+        if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+            gpu_profiler.end_scope(self.command_encoder.as_mut().unwrap());
+        }
+    }
+
+    pub fn finish(mut self, queue: &Queue) -> Vec<GpuTimerScopeResult> {
+        self.flush_command_encoder();
+
+        {
+            #[cfg(feature = "trace")]
+            let _span = info_span!("submit_graph_commands").entered();
+            queue.submit(self.command_buffers);
+        }
+
+        if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+            gpu_profiler.end_frame().unwrap();
+            if let Some(gpu_timers) = gpu_profiler.process_finished_frame() {
+                return gpu_timers;
+            }
+        }
+        Vec::new()
+    }
+
+    fn flush_command_encoder(&mut self) {
+        if let Some(mut command_encoder) = self.command_encoder.take() {
+            if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+                gpu_profiler.resolve_queries(&mut command_encoder);
+            }
+
+            self.command_buffers.push(command_encoder.finish());
         }
     }
 }
