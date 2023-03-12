@@ -155,6 +155,8 @@ pub async fn initialize_renderer(
             // integrated GPUs.
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
+        // TIMESTAMP_QUERY indicates to time GPU passes, which affects performance. Don't enable by default.
+        features -= wgpu::Features::TIMESTAMP_QUERY;
         limits = adapter.limits();
     }
 
