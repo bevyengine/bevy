@@ -36,16 +36,9 @@ mod tests {
         X,
     }
 
-    #[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
-    enum TestState {
-        #[default]
-        A,
-        B,
-    }
-
     #[derive(Resource, Default)]
-
     struct SystemOrder(Vec<u32>);
+
     #[derive(Resource, Default)]
     struct RunConditionBool(pub bool);
 
@@ -205,8 +198,6 @@ mod tests {
     }
 
     mod conditions {
-        use condition::common_conditions::{in_state, resource_added, resource_changed};
-
         use crate::change_detection::DetectChanges;
 
         use super::*;
@@ -218,7 +209,6 @@ mod tests {
 
             world.init_resource::<RunConditionBool>();
             world.init_resource::<SystemOrder>();
-            world.init_resource::<State<TestState>>();
 
             schedule.add_system(
                 make_function_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
@@ -256,24 +246,6 @@ mod tests {
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
-        }
-
-        #[test]
-        fn distribute_common_conditions() {
-            let mut world = World::default();
-            let mut schedule = Schedule::default();
-
-            world.init_resource::<RunConditionBool>();
-            world.init_resource::<SystemOrder>();
-            world.init_resource::<State<TestState>>();
-
-            // Ensure [`distributive_run_if`] compiles with usage of common conditions
-            schedule.add_systems(
-                (make_function_system(0), make_function_system(1))
-                    .distributive_run_if(resource_added::<SystemOrder>())
-                    .distributive_run_if(resource_changed::<SystemOrder>())
-                    .distributive_run_if(in_state(TestState::A)),
-            );
         }
 
         #[test]
