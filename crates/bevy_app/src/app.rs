@@ -313,7 +313,7 @@ impl App {
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant, an instance of [`apply_state_transition::<S>`] in
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
@@ -355,11 +355,14 @@ impl App {
                     .run_if(in_state(variant)),
             );
         }
-
         // These are different for loops to avoid conflicting access to self
         for variant in S::variants() {
-            self.add_schedule(OnEnter(variant.clone()), Schedule::new());
-            self.add_schedule(OnExit(variant), Schedule::new());
+            if self.get_schedule(OnEnter(variant.clone())).is_none() {
+                self.add_schedule(OnEnter(variant.clone()), Schedule::new());
+            }
+            if self.get_schedule(OnExit(variant.clone())).is_none() {
+                self.add_schedule(OnExit(variant), Schedule::new());
+            }
         }
 
         self
@@ -390,7 +393,9 @@ impl App {
             if let Some(schedule) = schedules.get_mut(&*schedule_label) {
                 schedule.add_system(system);
             } else {
-                panic!("Schedule {schedule_label:?} does not exist.")
+                let mut schedule = Schedule::new();
+                schedule.add_system(system);
+                schedules.insert(schedule_label, schedule);
             }
         } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
@@ -1014,7 +1019,12 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
-    use crate::{App, Plugin};
+    use bevy_ecs::{
+        schedule::{OnEnter, States},
+        system::Commands,
+    };
+
+    use crate::{App, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1067,5 +1077,58 @@ mod tests {
             }
         }
         App::new().add_plugin(PluginRun);
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum AppState {
+        #[default]
+        MainMenu,
+    }
+    fn bar(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    fn foo(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_system(foo.in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_system(foo.in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
     }
 }

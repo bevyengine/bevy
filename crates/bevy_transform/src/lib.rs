@@ -106,20 +106,20 @@ impl Plugin for TransformPlugin {
                     TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
                 );
             })
-            // FIXME: https://github.com/bevyengine/bevy/issues/4381
-            // These systems cannot access the same entities,
-            // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-            .add_startup_system(
+            .add_startup_systems((
+                sync_simple_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                    // These systems cannot access the same entities,
+                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                    .ambiguous_with(PropagateTransformsSet),
+                propagate_transforms.in_set(PropagateTransformsSet),
+            ))
+            .add_systems((
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .ambiguous_with(PropagateTransformsSet),
-            )
-            .add_startup_system(propagate_transforms.in_set(PropagateTransformsSet))
-            .add_system(
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(PropagateTransformsSet),
-            )
-            .add_system(propagate_transforms.in_set(PropagateTransformsSet));
+                propagate_transforms.in_set(PropagateTransformsSet),
+            ));
     }
 }

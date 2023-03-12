@@ -103,7 +103,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_glyphs = &text_layout_info.glyphs;
-        let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
+        let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_offset = text_layout_info.size * text_anchor;
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;

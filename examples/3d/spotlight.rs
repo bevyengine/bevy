@@ -12,9 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(light_sway)
-        .add_system(movement)
+        .add_systems((setup.on_startup(), light_sway, movement))
         .run();
 }
 

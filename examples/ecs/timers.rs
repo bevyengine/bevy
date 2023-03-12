@@ -6,9 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Countdown>()
-        .add_startup_system(setup)
-        .add_system(countdown)
-        .add_system(print_when_completed)
+        .add_systems((setup.on_startup(), countdown, print_when_completed))
         .run();
 }
 
