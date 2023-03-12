@@ -1,22 +1,49 @@
-use super::ShaderDefVal;
-use crate::{
-    define_atomic_id,
-    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
-};
+use crate::{render_resource::*, render_resource_wrapper, renderer::RenderDevice};
 use bevy_asset::Handle;
-use std::{borrow::Cow, ops::Deref};
-use wgpu::{
-    BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    PushConstantRange, VertexAttribute, VertexFormat, VertexStepMode,
-};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroU32, ops::Deref};
 
-define_atomic_id!(RenderPipelineId);
+pub trait PipelineId: Copy + Clone + Hash + Eq + PartialEq + Debug {
+    fn new(id: u32) -> Self;
+    fn index(&self) -> usize;
+}
+
+pub(crate) trait Pipeline<I, D, P> {
+    fn process_pipeline(
+        id: I,
+        descriptor: &D,
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) -> PipelineState<P>;
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct RenderPipelineId(pub(crate) NonZeroU32);
+
+impl PipelineId for RenderPipelineId {
+    fn new(id: u32) -> Self {
+        // offset the id by one, for the non-zero optimisation
+        Self(NonZeroU32::new(id + 1).unwrap_or_else(|| {
+            panic!(
+                "The system ran out of unique `{}`s.",
+                stringify!(RenderPipelineId)
+            );
+        }))
+    }
+
+    #[inline]
+    fn index(&self) -> usize {
+        // offset the id by one, for the non-zero optimisation
+        self.0.get() as usize - 1
+    }
+}
+
 render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
-/// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
+/// Can be created via the [`PipelineCache`](crate::render_resource::PipelineCache).
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
@@ -25,17 +52,16 @@ pub struct RenderPipeline {
 
 impl RenderPipeline {
     #[inline]
-    pub fn id(&self) -> RenderPipelineId {
-        self.id
-    }
-}
-
-impl From<wgpu::RenderPipeline> for RenderPipeline {
-    fn from(value: wgpu::RenderPipeline) -> Self {
-        RenderPipeline {
-            id: RenderPipelineId::new(),
+    pub(crate) fn new(id: RenderPipelineId, value: wgpu::RenderPipeline) -> Self {
+        Self {
+            id,
             value: ErasedRenderPipeline::new(value),
         }
+    }
+
+    #[inline]
+    pub fn id(&self) -> RenderPipelineId {
+        self.id
     }
 }
 
@@ -48,13 +74,122 @@ impl Deref for RenderPipeline {
     }
 }
 
-define_atomic_id!(ComputePipelineId);
+impl Pipeline<RenderPipelineId, RenderPipelineDescriptor, RenderPipeline> for RenderPipeline {
+    fn process_pipeline(
+        id: RenderPipelineId,
+        descriptor: &RenderPipelineDescriptor,
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) -> PipelineState<RenderPipeline> {
+        let vertex_module = match shader_cache.get(
+            device,
+            id.into(),
+            &descriptor.vertex.shader,
+            &descriptor.vertex.shader_defs,
+        ) {
+            Ok(module) => module,
+            Err(err) => {
+                return PipelineState::Err(err);
+            }
+        };
+
+        let fragment_data = if let Some(fragment) = &descriptor.fragment {
+            let fragment_module = match shader_cache.get(
+                device,
+                id.into(),
+                &fragment.shader,
+                &fragment.shader_defs,
+            ) {
+                Ok(module) => module,
+                Err(err) => {
+                    return PipelineState::Err(err);
+                }
+            };
+            Some((
+                fragment_module,
+                fragment.entry_point.deref(),
+                fragment.targets.as_slice(),
+            ))
+        } else {
+            None
+        };
+
+        let vertex_buffer_layouts = descriptor
+            .vertex
+            .buffers
+            .iter()
+            .map(|layout| RawVertexBufferLayout {
+                array_stride: layout.array_stride,
+                attributes: &layout.attributes,
+                step_mode: layout.step_mode,
+            })
+            .collect::<Vec<_>>();
+
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+            None
+        } else {
+            Some(layout_cache.get(
+                device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
+        };
+
+        let descriptor = RawRenderPipelineDescriptor {
+            multiview: None,
+            depth_stencil: descriptor.depth_stencil.clone(),
+            label: descriptor.label.as_deref(),
+            layout,
+            multisample: descriptor.multisample,
+            primitive: descriptor.primitive,
+            vertex: RawVertexState {
+                buffers: &vertex_buffer_layouts,
+                entry_point: descriptor.vertex.entry_point.deref(),
+                module: &vertex_module,
+            },
+            fragment: fragment_data
+                .as_ref()
+                .map(|(module, entry_point, targets)| RawFragmentState {
+                    entry_point,
+                    module,
+                    targets,
+                }),
+        };
+
+        let pipeline = device.create_render_pipeline(id, &descriptor);
+
+        PipelineState::Ok(pipeline)
+    }
+}
+
 render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct ComputePipelineId(pub(crate) NonZeroU32);
+
+impl PipelineId for ComputePipelineId {
+    fn new(id: u32) -> Self {
+        Self(NonZeroU32::new(id + 1).unwrap_or_else(|| {
+            // offset the id by one, for the non-zero optimisation
+            panic!(
+                "The system ran out of unique `{}`s.",
+                stringify!(ComputePipelineId)
+            );
+        }))
+    }
+
+    #[inline]
+    fn index(&self) -> usize {
+        // offset the id by one, for the non-zero optimisation
+        self.0.get() as usize - 1
+    }
+}
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
-/// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
+/// Can be created via the [`PipelineCache`](crate::render_resource::PipelineCache).
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
@@ -62,19 +197,18 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
+    #[inline]
+    pub(crate) fn new(id: ComputePipelineId, value: wgpu::ComputePipeline) -> Self {
+        Self {
+            id,
+            value: ErasedComputePipeline::new(value),
+        }
+    }
+
     /// Returns the [`ComputePipelineId`].
     #[inline]
     pub fn id(&self) -> ComputePipelineId {
         self.id
-    }
-}
-
-impl From<wgpu::ComputePipeline> for ComputePipeline {
-    fn from(value: wgpu::ComputePipeline) -> Self {
-        ComputePipeline {
-            id: ComputePipelineId::new(),
-            value: ErasedComputePipeline::new(value),
-        }
     }
 }
 
@@ -84,6 +218,49 @@ impl Deref for ComputePipeline {
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.value
+    }
+}
+
+impl Pipeline<ComputePipelineId, ComputePipelineDescriptor, ComputePipeline> for ComputePipeline {
+    fn process_pipeline(
+        id: ComputePipelineId,
+        descriptor: &ComputePipelineDescriptor,
+        device: &RenderDevice,
+        shader_cache: &mut ShaderCache,
+        layout_cache: &mut LayoutCache,
+    ) -> PipelineState<ComputePipeline> {
+        let compute_module = match shader_cache.get(
+            device,
+            id.into(),
+            &descriptor.shader,
+            &descriptor.shader_defs,
+        ) {
+            Ok(module) => module,
+            Err(err) => {
+                return PipelineState::Err(err);
+            }
+        };
+
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+            None
+        } else {
+            Some(layout_cache.get(
+                device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
+        };
+
+        let descriptor = RawComputePipelineDescriptor {
+            label: descriptor.label.as_deref(),
+            layout,
+            module: &compute_module,
+            entry_point: descriptor.entry_point.as_ref(),
+        };
+
+        let pipeline = device.create_compute_pipeline(id, &descriptor);
+
+        PipelineState::Ok(pipeline)
     }
 }
 

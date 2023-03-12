@@ -352,7 +352,7 @@ pub fn queue_colored_mesh2d(
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
                     draw_function: draw_colored_mesh2d,
-                    pipeline: pipeline_id,
+                    pipeline_id,
                     // The 2d render items are sorted according to their z value before rendering,
                     // in order to get correct transparency
                     sort_key: FloatOrd(mesh_z),

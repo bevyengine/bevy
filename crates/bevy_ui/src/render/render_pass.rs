@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
+    render_resource::{LoadOp, Operations, RenderPassDescriptor, RenderPipelineId},
     renderer::*,
     view::*,
 };
@@ -94,7 +94,7 @@ impl Node for UiPassNode {
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline: RenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -117,9 +117,9 @@ impl PhaseItem for TransparentUi {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for TransparentUi {
+impl RenderPipelinePhaseItem for TransparentUi {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+    fn pipeline_id(&self) -> RenderPipelineId {
         self.pipeline
     }
 }

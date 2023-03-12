@@ -137,5 +137,3 @@ macro_rules! define_atomic_id {
         }
     };
 }
-
-pub use render_resource_wrapper;

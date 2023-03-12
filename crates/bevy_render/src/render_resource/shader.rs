@@ -1,5 +1,4 @@
-use super::ShaderDefVal;
-use crate::define_atomic_id;
+use crate::{define_atomic_id, render_resource::ShaderDefVal};
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
@@ -10,6 +9,7 @@ use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
 
+// Todo: this is never used
 define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]

@@ -17,7 +17,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, RenderPipelinePhaseItem,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -1633,7 +1633,7 @@ pub fn queue_shadows<M: Material>(
 
                         shadow_phase.add(Shadow {
                             draw_function: draw_shadow_mesh,
-                            pipeline: pipeline_id,
+                            pipeline_id,
                             entity,
                             distance: 0.0, // TODO: sort back-to-front
                         });
@@ -1647,7 +1647,7 @@ pub fn queue_shadows<M: Material>(
 pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: RenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -1661,7 +1661,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.pipeline.id()
+        self.pipeline_id.index()
     }
 
     #[inline]
@@ -1674,14 +1674,14 @@ impl PhaseItem for Shadow {
         // The shadow phase is sorted by pipeline id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.pipeline.id());
+        radsort::sort_by_key(items, |item| item.pipeline_id.index());
     }
 }
 
-impl CachedRenderPipelinePhaseItem for Shadow {
+impl RenderPipelinePhaseItem for Shadow {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> RenderPipelineId {
+        self.pipeline_id
     }
 }
 

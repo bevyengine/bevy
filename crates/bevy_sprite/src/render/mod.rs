@@ -707,7 +707,7 @@ pub fn queue_sprites(
 
                     transparent_phase.add(Transparent2d {
                         draw_function: draw_sprite_function,
-                        pipeline: colored_pipeline,
+                        pipeline_id: colored_pipeline,
                         entity: current_batch_entity,
                         sort_key,
                         batch_range: Some(item_start..item_end),
@@ -725,7 +725,7 @@ pub fn queue_sprites(
 
                     transparent_phase.add(Transparent2d {
                         draw_function: draw_sprite_function,
-                        pipeline,
+                        pipeline_id: pipeline,
                         entity: current_batch_entity,
                         sort_key,
                         batch_range: Some(item_start..item_end),
