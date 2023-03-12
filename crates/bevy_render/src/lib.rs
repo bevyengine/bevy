@@ -134,7 +134,6 @@ impl RenderSet {
         schedule.configure_sets(
             (
                 ExtractCommands,
-                PrepareAssets,
                 ManageViews,
                 ManageViewsFlush,
                 Queue,
@@ -150,6 +149,7 @@ impl RenderSet {
             )
                 .chain(),
         );
+        schedule.configure_sets((ExtractCommands, PrepareAssets).chain());
         schedule.configure_set(
             QueueMeshes
                 .in_set(RenderSet::Queue)
