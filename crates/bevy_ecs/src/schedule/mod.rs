@@ -10,7 +10,7 @@ mod state;
 pub use self::condition::*;
 pub use self::config::*;
 pub use self::executor::*;
-use self::graph_utils::*;
+pub use self::graph_utils::*;
 pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;

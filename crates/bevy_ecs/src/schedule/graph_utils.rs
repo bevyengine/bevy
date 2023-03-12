@@ -281,7 +281,7 @@ where
 /// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
 ///
 /// [1]: https://doi.org/10.1137/0204007
-pub fn simple_cycles_in_component<N>(graph: &DiGraphMap<N, ()>, scc: &[N]) -> Vec<Vec<N>>
+pub fn simple_cycles_in_component<N, E>(graph: &DiGraphMap<N, E>, scc: &[N]) -> Vec<Vec<N>>
 where
     N: NodeTrait + Debug,
 {
@@ -297,7 +297,7 @@ where
 
         for &node in &scc {
             for successor in graph.neighbors(node) {
-                if subgraph.contains_node(successor) {
+                if successor != node && subgraph.contains_node(successor) {
                     subgraph.add_edge(node, successor, ());
                 }
             }
