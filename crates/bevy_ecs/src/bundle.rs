@@ -394,9 +394,9 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
-                    // SAFETY: If component_id is in self.component_ids, the caller guarentees that
-                    // the target table contains the component.
                     let column =
+                        // SAFETY: If component_id is in self.component_ids, the caller guarentees that
+                        // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     match bundle_component_status.get_status(bundle_component) {
@@ -409,9 +409,9 @@ impl BundleInfo {
                     }
                 }
                 StorageType::SparseSet => {
-                    // SAFETY: If component_id is in self.component_ids, the caller guarentees that
-                    // a sparse set exists for the component.
                     let sparse_set =
+                        // SAFETY: If component_id is in self.component_ids, the caller guarentees that
+                        // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
                     sparse_set.insert(entity, component_ptr, change_tick);
                 }
@@ -562,8 +562,8 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    // SAFETY: If the swap was successful, swapped_entity must be valid.
                     let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     self.entities.set(
                         swapped_entity.index(),
@@ -603,8 +603,8 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    // SAFETY: If the swap was successful, swapped_entity must be valid.
                     let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     self.entities.set(
                         swapped_entity.index(),
@@ -626,8 +626,8 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
-                    // SAFETY: If the swap was successful, swapped_entity must be valid.
                     let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     let swapped_archetype = if self.archetype.id() == swapped_location.archetype_id
                     {
