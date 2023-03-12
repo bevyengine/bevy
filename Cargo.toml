@@ -1490,6 +1490,16 @@ description = "A shader that shows how to bind and sample multiple textures as a
 category = "Shaders"
 wasm = false
 
+[[example]]
+name = "material_addon"
+path = "examples/shader/material_addon.rs"
+
+[package.metadata.example.material_addon]
+name = "Material Addon"
+description = "A shader with composable addons"
+category = "Shaders"
+wasm = false
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"

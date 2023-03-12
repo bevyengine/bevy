@@ -6,3 +6,4 @@ mod material_addon;
 pub use color_material::*;
 pub use material::*;
 pub use mesh::*;
+pub use material_addon::*;

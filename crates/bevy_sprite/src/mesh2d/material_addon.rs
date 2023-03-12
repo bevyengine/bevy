@@ -184,7 +184,7 @@ impl<P: PhaseItem, G: Send + Sync + 'static, const GROUP: usize> RenderCommand<P
 #[derive(Resource)]
 pub struct AddonMeta<G> {
     data: PhantomData<G>,
-    pub(crate) buffers: Vec<Buffer>,
+    pub buffers: Vec<Buffer>,
     pub(crate) bind_group: Option<BindGroup>,
 }
 
