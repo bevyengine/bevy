@@ -142,7 +142,7 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the first time the condition is run and false every time after
-    pub fn run_once() -> impl FnMut() -> bool {
+    pub fn run_once() -> impl Clone + FnMut() -> bool {
         let mut has_run = false;
         move || {
             if !has_run {
@@ -156,7 +156,7 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists.
-    pub fn resource_exists<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_exists<T>() -> impl Clone + FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
@@ -192,7 +192,7 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
-    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_added<T>() -> impl Clone + FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
@@ -213,7 +213,7 @@ pub mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool
+    pub fn resource_changed<T>() -> impl Clone + FnMut(Res<T>) -> bool
     where
         T: Resource,
     {
@@ -231,7 +231,7 @@ pub mod common_conditions {
     /// This run condition does not detect when the resource is removed.
     ///
     /// The condition will return `false` if the resource does not exist.
-    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_exists_and_changed<T>() -> impl Clone + FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
@@ -253,7 +253,7 @@ pub mod common_conditions {
     /// has been removed since the run condition was last checked.
     ///
     /// The condition will return `false` if the resource does not exist.
-    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_changed_or_removed<T>() -> impl Clone + FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
@@ -273,7 +273,7 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
-    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_removed<T>() -> impl Clone + FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
@@ -293,7 +293,7 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
-    pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
+    pub fn state_exists<S: States>() -> impl Clone + FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
     }
 
@@ -303,7 +303,7 @@ pub mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn in_state<S: States>(state: S) -> impl Clone + FnMut(Res<State<S>>) -> bool {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
@@ -313,7 +313,7 @@ pub mod common_conditions {
     /// The condition will return `false` if the state does not exist.
     pub fn state_exists_and_equals<S: States>(
         state: S,
-    ) -> impl FnMut(Option<Res<State<S>>>) -> bool {
+    ) -> impl Clone + FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => current_state.0 == state,
             None => false,
@@ -329,13 +329,13 @@ pub mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn state_changed<S: States>() -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn state_changed<S: States>() -> impl Clone + FnMut(Res<State<S>>) -> bool {
         move |current_state: Res<State<S>>| current_state.is_changed()
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any new events of the given type since it was last called.
-    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool {
+    pub fn on_event<T: Event>() -> impl Clone + FnMut(EventReader<T>) -> bool {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
@@ -345,7 +345,7 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entities with the given component type.
-    pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool {
+    pub fn any_with_component<T: Component>() -> impl Clone + FnMut(Query<(), With<T>>) -> bool {
         move |query: Query<(), With<T>>| !query.is_empty()
     }
 
