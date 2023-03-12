@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::ExtractedCamera,
+    camera::{sort_cameras, ExtractedCamera},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -61,7 +61,8 @@ impl Plugin for ViewPlugin {
                     prepare_view_targets
                         .after(WindowSystem::Prepare)
                         .in_set(RenderSet::ManageViews)
-                        .after(crate::render_asset::prepare_assets::<Image>),
+                        .after(crate::render_asset::prepare_assets::<Image>)
+                        .after(sort_cameras),
                 ));
         }
     }
