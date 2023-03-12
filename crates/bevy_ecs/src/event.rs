@@ -525,7 +525,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
         event_trace(instance.event_id);
         self.reader.last_event_count += 1;
         self.unread -= 1;
-        return Some((&instance.event, instance.event_id));
+        Some((&instance.event, instance.event_id))
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
@@ -644,7 +644,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorMutWithId<'a, E> {
         event_trace(instance.event_id);
         self.reader.last_event_count += 1;
         self.unread -= 1;
-        return Some((&mut instance.event, instance.event_id));
+        Some((&mut instance.event, instance.event_id))
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
