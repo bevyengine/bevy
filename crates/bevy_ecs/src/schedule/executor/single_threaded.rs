@@ -70,7 +70,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                     return i;
                 }
             }
-            for i in 0..schedule.systems_with_stepping.len() {
+            for i in 0..i{
                 if schedule.systems_with_stepping[i] {
                     return i;
                 }

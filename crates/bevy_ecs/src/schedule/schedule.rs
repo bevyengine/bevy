@@ -1744,7 +1744,7 @@ pub enum ScheduleEvent {
     EnableStepping(BoxedScheduleLabel),
 
     /// Disable step mode for the specified [`Schedule`].
-    /// Will take affect at the end of [`App::update`].
+    /// Will take affect at the end of the current [`App::update`].
     DisableStepping(BoxedScheduleLabel),
 
     /// Toggle step mode for the specified [`Schedule`].

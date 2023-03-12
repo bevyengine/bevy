@@ -84,7 +84,7 @@ pub struct App {
     /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
     is_building_plugin: bool,
 
-    /// used in [`App::update`] to handle stepping events
+    /// Tracks which system stepping events have been processed
     schedule_event_reader: ManualEventReader<ScheduleEvent>,
 }
 
@@ -268,7 +268,7 @@ impl App {
         let mut schedules = self
             .world
             .remove_resource::<Schedules>()
-            .expect("No Schedules resource in world");
+            .unwrap();
 
         if let Some(mut sched_events) = self.world.get_resource_mut::<Events<ScheduleEvent>>() {
             use ScheduleEvent::*;
@@ -291,7 +291,8 @@ impl App {
             sched_events.clear();
         }
 
-        self.world.insert_resource::<Schedules>(schedules);
+        // Reinsert the Schedules resource, as we're now done with it
+        self.world.insert_resource(schedules);
         self.world.clear_trackers();
     }
 
