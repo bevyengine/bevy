@@ -13,6 +13,7 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    query::DebugCheckedUnwrap,
     TypeIdMap,
 };
 use bevy_ptr::OwningPtr;
@@ -393,7 +394,9 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
-                    let column = table.get_column_mut(component_id).unwrap();
+                    // SAFETY: If component_id is in self.component_is, the caller guarentees that
+                    // the target table contains the ID.
+                    let column = unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     match bundle_component_status.get_status(bundle_component) {
                         ComponentStatus::Added => {
@@ -405,7 +408,7 @@ impl BundleInfo {
                     }
                 }
                 StorageType::SparseSet => {
-                    sparse_sets.get_mut(component_id).unwrap().insert(
+                    sparse_sets.get_mut(component_id).debug_checked_unwrap().insert(
                         entity,
                         component_ptr,
                         change_tick,
@@ -540,7 +543,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .archetype
                     .edges()
                     .get_add_bundle_internal(self.bundle_info.id)
-                    .unwrap();
+                    .debug_checked_unwrap();
                 self.bundle_info.write_components(
                     self.table,
                     self.sparse_sets,
@@ -555,7 +558,8 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    // SAFETY: If the swap was successful, swapped_entity must be valid.
+                    let swapped_location = unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     self.entities.set(
                         swapped_entity.index(),
                         EntityLocation {
@@ -574,7 +578,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .archetype
                     .edges()
                     .get_add_bundle_internal(self.bundle_info.id)
-                    .unwrap();
+                    .debug_checked_unwrap();
                 self.bundle_info.write_components(
                     self.table,
                     self.sparse_sets,
@@ -592,7 +596,8 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    // SAFETY: If the swap was successful, swapped_entity must be valid.
+                    let swapped_location = unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     self.entities.set(
                         swapped_entity.index(),
                         EntityLocation {
@@ -613,7 +618,8 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
-                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    // SAFETY: If the swap was successful, swapped_entity must be valid.
+                    let swapped_location = unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     let swapped_archetype = if self.archetype.id() == swapped_location.archetype_id
                     {
                         &mut *self.archetype
@@ -644,7 +650,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .archetype
                     .edges()
                     .get_add_bundle_internal(self.bundle_info.id)
-                    .unwrap();
+                    .debug_checked_unwrap();
                 self.bundle_info.write_components(
                     new_table,
                     self.sparse_sets,
