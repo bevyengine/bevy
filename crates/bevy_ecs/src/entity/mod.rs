@@ -570,6 +570,7 @@ impl Entities {
 
     /// Returns the location of an [`Entity`].
     /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.index as usize) < self.meta.len() {
             let meta = &self.meta[entity.index as usize];
@@ -591,6 +592,7 @@ impl Entities {
     ///  - `index` must be a valid entity index.
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
+    #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
