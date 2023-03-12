@@ -817,19 +817,25 @@ mod tests {
     fn entity_const() {
         const C1: Entity = Entity::from_raw(42);
         assert_eq!(42, C1.index);
-        assert_eq!(0, C1.generation());
+        assert_eq!(1, C1.generation());
 
-        const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc).unwrap();
-        assert_eq!(0x0000_00cc, C2.index);
-        assert_eq!(0x0000_00ff, C2.generation());
+        const TMP_1: Option<Entity> = Entity::from_bits(0x0000_00ff_0000_00cc);
+        if let Some(c2) = TMP_1 {
+            assert_eq!(0x0000_00cc, c2.index);
+            assert_eq!(0x0000_00ff, c2.generation.get());
+        } else {
+            panic!("Entity not constructed from bit pattern: 0x0000_00ff_0000_00cc")
+        }
 
         const C3: u32 = Entity::from_raw(33).index();
         assert_eq!(33, C3);
 
-        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000)
-            .unwrap()
-            .generation();
-        assert_eq!(0x00dd_00ff, C4);
+        const TMP_2: Option<Entity> = Entity::from_bits(0x00dd_00ff_0000_0000);
+        if let Some(c4) = TMP_2 {
+            assert_eq!(0x00dd_00ff, c4.generation.get());
+        } else {
+            panic!("Entity not constructed from bit pattern: 0x00dd_00ff_0000_0000")
+        }
     }
 
     #[test]
@@ -848,29 +854,29 @@ mod tests {
 
     #[test]
     fn entities_generation_increment() {
-        let mut entities = Entities::default();
+        let mut entities = Entities::new();
 
         let entity_old = entities.alloc();
         entities.free(entity_old);
         let entity_new = entities.alloc();
 
-        assert_eq!(entity_old.id, entity_new.id);
+        assert_eq!(entity_old.index, entity_new.index);
         assert_eq!(entity_old.generation() + 1, entity_new.generation());
     }
 
     #[test]
     fn entities_generation_overflow() {
-        let mut entities = Entities::default();
+        let mut entities = Entities::new();
         let mut entity_old = entities.alloc();
 
         // Modify generation on entity and entities to cause overflow on free
         entity_old.generation = NonZeroU32::new(u32::MAX).unwrap();
-        entities.meta[entity_old.id as usize].generation = Some(entity_old.generation);
+        entities.meta[entity_old.index as usize].generation = Some(entity_old.generation);
         entities.free(entity_old);
 
         // Request new entity, we shouldn't get the one we just freed since it overflowed
         let entity_new = entities.alloc();
-        assert!(entity_old.id != entity_new.id);
+        assert!(entity_old.index != entity_new.index);
         assert_eq!(entity_new.generation(), 1);
     }
 }
