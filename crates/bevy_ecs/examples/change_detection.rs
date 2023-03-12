@@ -21,11 +21,13 @@ fn main() {
 
     // Add systems to the Schedule to execute our app logic
     // We can label our systems to force a specific run-order between some of them
-    schedule.add_system(spawn_entities.in_set(SimulationSystem::Spawn));
-    schedule.add_system(print_counter_when_changed.after(SimulationSystem::Spawn));
-    schedule.add_system(age_all_entities.in_set(SimulationSystem::Age));
-    schedule.add_system(remove_old_entities.after(SimulationSystem::Age));
-    schedule.add_system(print_changed_entities.after(SimulationSystem::Age));
+    schedule.add_systems((
+        spawn_entities.in_set(SimulationSet::Spawn),
+        print_counter_when_changed.after(SimulationSet::Spawn),
+        age_all_entities.in_set(SimulationSet::Age),
+        remove_old_entities.after(SimulationSet::Age),
+        print_changed_entities.after(SimulationSet::Age),
+    ));
 
     // Simulate 10 frames in our world
     for iteration in 1..=10 {
@@ -48,7 +50,7 @@ struct Age {
 
 // System sets can be used to group systems and configured to control relative ordering
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-enum SimulationSystem {
+enum SimulationSet {
     Spawn,
     Age,
 }

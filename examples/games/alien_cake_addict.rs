@@ -43,8 +43,8 @@ fn main() {
             display_score.in_schedule(OnEnter(GameState::GameOver)),
             gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
             teardown.in_schedule(OnExit(GameState::GameOver)),
+            bevy::window::close_on_esc,
         ))
-        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
