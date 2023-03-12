@@ -35,7 +35,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewSet, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
@@ -110,8 +110,12 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems((extract_meshes, extract_skinned_meshes).in_schedule(ExtractSchedule))
                 .add_systems((
                     prepare_skinned_meshes.in_set(RenderSet::Prepare),
-                    queue_mesh_bind_group.in_set(RenderSet::Queue),
-                    queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
+                    prepare_mesh_bind_group
+                        .in_set(RenderSet::Prepare)
+                        .after(ViewSet::PrepareUniforms),
+                    prepare_mesh_view_bind_groups
+                        .in_set(RenderSet::Prepare)
+                        .after(ViewSet::PrepareUniforms),
                 ));
         }
     }
@@ -848,7 +852,7 @@ pub struct MeshBindGroup {
     pub skinned: Option<BindGroup>,
 }
 
-pub fn queue_mesh_bind_group(
+pub fn prepare_mesh_bind_group(
     mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -933,7 +937,7 @@ pub struct MeshViewBindGroup {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_mesh_view_bind_groups(
+pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
