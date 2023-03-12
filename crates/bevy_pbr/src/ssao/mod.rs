@@ -34,8 +34,6 @@ use bevy_render::{
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use bevy_utils::{prelude::default, tracing::warn};
 use std::{mem, num::NonZeroU32};
 
@@ -225,9 +223,6 @@ impl Node for SSAONode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        #[cfg(feature = "trace")]
-        let _ssao_span = info_span!("screen_space_ambient_occlusion").entered();
-
         let pipelines = world.resource::<SSAOPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
