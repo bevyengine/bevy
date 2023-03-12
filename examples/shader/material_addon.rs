@@ -28,17 +28,12 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(CustomMaterial {
-            color: Color::BLUE,
-            color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Blend,
-        }),
+        material: materials.add(CustomMaterial {}),
         ..default()
     });
 }
@@ -56,14 +51,7 @@ impl Material2d for CustomMaterial {
 // This is the struct that will be passed to your shader
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "c595e853-ddbc-446e-a0a6-54d62671a5fe"]
-pub struct CustomMaterial {
-    #[uniform(0)]
-    color: Color,
-    #[texture(1)]
-    #[sampler(2)]
-    color_texture: Option<Handle<Image>>,
-    alpha_mode: AlphaMode,
-}
+pub struct CustomMaterial {}
 
 #[derive(Clone)]
 pub struct CursorAddon;
