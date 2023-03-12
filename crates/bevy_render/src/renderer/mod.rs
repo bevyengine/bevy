@@ -3,7 +3,6 @@ mod render_device;
 
 pub use graph_runner::*;
 pub use render_device::*;
-pub use wgpu_profiler::GpuTimerScopeResult;
 
 use crate::{
     render_graph::RenderGraph,
@@ -22,7 +21,7 @@ use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Queue,
     RequestAdapterOptions,
 };
-use wgpu_profiler::GpuProfiler;
+use wgpu_profiler::{GpuProfiler, GpuTimerScopeResult};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -33,26 +32,29 @@ pub fn render_system(world: &mut World) {
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
 
-    // TODO: Take gpu timers and put in a resource that the main world can access
-    if let Err(e) = RenderGraphRunner::run(
+    match RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
         world,
     ) {
-        error!("Error running render graph:");
-        {
-            let mut src: &dyn std::error::Error = &e;
-            loop {
-                error!("> {}", src);
-                match src.source() {
-                    Some(s) => src = s,
-                    None => break,
+        Ok(gpu_timers) => world.resource_mut::<GpuTimerScopes>().0 = gpu_timers,
+
+        Err(e) => {
+            error!("Error running render graph:");
+            {
+                let mut src: &dyn std::error::Error = &e;
+                loop {
+                    error!("> {}", src);
+                    match src.source() {
+                        Some(s) => src = s,
+                        None => break,
+                    }
                 }
             }
-        }
 
-        panic!("Error running render graph: {e}");
+            panic!("Error running render graph: {e}");
+        }
     }
 
     {
@@ -402,3 +404,6 @@ impl RenderContext {
         }
     }
 }
+
+#[derive(Resource, Default)]
+pub struct GpuTimerScopes(pub Vec<GpuTimerScopeResult>);
