@@ -852,8 +852,10 @@ mod test {
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(free_unused_assets_system.in_set(FreeUnusedAssets));
-        app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
+        app.add_systems((
+            free_unused_assets_system.in_set(FreeUnusedAssets),
+            update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets),
+        ));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.resource::<AssetServer>();

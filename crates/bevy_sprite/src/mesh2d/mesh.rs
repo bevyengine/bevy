@@ -103,9 +103,11 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system(extract_mesh2d.in_schedule(ExtractSchedule))
-                .add_system(queue_mesh2d_bind_group.in_set(RenderSet::Queue))
-                .add_system(queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue));
+                .add_systems((
+                    extract_mesh2d.in_schedule(ExtractSchedule),
+                    queue_mesh2d_bind_group.in_set(RenderSet::Queue),
+                    queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                ));
         }
     }
 }

@@ -16,9 +16,11 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(update_bloom_settings)
-        .add_system(bounce_spheres)
+        .add_systems((
+            setup_scene.on_startup(),
+            update_bloom_settings,
+            bounce_spheres,
+        ))
         .run();
 }
 

@@ -1,7 +1,6 @@
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::MAX_CHANGE_AGE,
-    component::ComponentId,
+    component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
@@ -22,7 +21,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) last_change_tick: u32,
+    pub(crate) last_run: Tick,
 }
 
 impl SystemMeta {
@@ -32,7 +31,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
-            last_change_tick: 0,
+            last_run: Tick::new(0),
         }
     }
 
@@ -151,7 +150,7 @@ pub struct SystemState<Param: SystemParam + 'static> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
@@ -288,10 +287,10 @@ impl<Param: SystemParam> SystemState<Param> {
     unsafe fn fetch<'w, 's>(
         &'s mut self,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
         let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
-        self.meta.last_change_tick = change_tick;
+        self.meta.last_run = change_tick;
         param
     }
 }
@@ -464,16 +463,16 @@ where
             change_tick,
         );
         let out = self.func.run(input, params);
-        self.system_meta.last_change_tick = change_tick;
+        self.system_meta.last_run = change_tick;
         out
     }
 
-    fn get_last_change_tick(&self) -> u32 {
-        self.system_meta.last_change_tick
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.system_meta.last_change_tick = last_change_tick;
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 
     #[inline]
@@ -485,7 +484,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
@@ -507,9 +506,9 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
+            &mut self.system_meta.last_run,
             change_tick,
             self.system_meta.name.as_ref(),
         );

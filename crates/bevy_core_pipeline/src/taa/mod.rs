@@ -33,8 +33,6 @@ use bevy_render::{
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, RenderApp, RenderSet,
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 
 mod draw_3d_graph {
     pub mod node {
@@ -61,14 +59,14 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_system(extract_taa_settings.in_schedule(ExtractSchedule))
-            .add_system(
+            .add_systems((
+                extract_taa_settings.in_schedule(ExtractSchedule),
                 prepare_taa_jitter
                     .before(prepare_view_uniforms)
                     .in_set(RenderSet::Prepare),
-            )
-            .add_system(prepare_taa_history_textures.in_set(RenderSet::Prepare))
-            .add_system(prepare_taa_pipelines.in_set(RenderSet::Prepare));
+                prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                prepare_taa_pipelines.in_set(RenderSet::Prepare),
+            ));
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -196,9 +194,6 @@ impl Node for TAANode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        #[cfg(feature = "trace")]
-        let _taa_span = info_span!("taa").entered();
-
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),

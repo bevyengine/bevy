@@ -7,6 +7,7 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
+use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
@@ -25,6 +26,22 @@ impl Node {
     /// automatically calculated by [`super::flex::flex_node_system`]
     pub fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// Returns the logical pixel coordinates of the UI node, based on its `GlobalTransform`.
+    #[inline]
+    pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
+        Rect::from_center_size(transform.translation().truncate(), self.size())
+    }
+
+    /// Returns the physical pixel coordinates of the UI node, based on its `GlobalTransform` and the scale factor.
+    #[inline]
+    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
+        let rect = self.logical_rect(transform);
+        Rect {
+            min: rect.min / scale_factor,
+            max: rect.max / scale_factor,
+        }
     }
 }
 

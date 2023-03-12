@@ -130,11 +130,11 @@ where
         let no_prepass_plugin_loaded = app.world.get_resource::<AnyPrepassPluginLoaded>().is_none();
 
         if no_prepass_plugin_loaded {
-            app.insert_resource(AnyPrepassPluginLoaded)
-                .add_system(update_previous_view_projections);
-
-            // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
-            app.add_system(update_mesh_previous_global_transforms.in_base_set(CoreSet::PreUpdate));
+            app.insert_resource(AnyPrepassPluginLoaded).add_systems((
+                update_previous_view_projections,
+                // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
+                update_mesh_previous_global_transforms.in_base_set(CoreSet::PreUpdate),
+            ));
         }
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -145,25 +145,21 @@ where
             render_app
                 .init_resource::<DrawFunctions<Opaque3dPrepass>>()
                 .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-                .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
-                .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
-                .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
-                .add_system(
+                .add_systems((
+                    extract_camera_prepass_phase.in_schedule(ExtractSchedule),
                     prepare_prepass_textures
                         .in_set(RenderSet::Prepare)
                         .after(bevy_render::view::prepare_windows),
-                )
-                .add_system(
+                    prepare_previous_view_projection_uniforms
+                        .in_set(RenderSet::Prepare)
+                        .after(PrepassLightsViewFlush),
                     apply_system_buffers
                         .in_set(RenderSet::Prepare)
                         .in_set(PrepassLightsViewFlush)
                         .after(prepare_lights),
-                )
-                .add_system(
-                    prepare_previous_view_projection_uniforms
-                        .in_set(RenderSet::Prepare)
-                        .after(PrepassLightsViewFlush),
-                );
+                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                ));
         }
 
         render_app
