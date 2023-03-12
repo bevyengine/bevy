@@ -158,11 +158,6 @@ pub async fn initialize_renderer(
         limits = adapter.limits();
     }
 
-    #[cfg(feature = "trace")]
-    {
-        features |= wgpu::Features::TIMESTAMP_QUERY;
-    }
-
     // Enforce the disabled features
     if let Some(disabled_features) = options.disabled_features {
         features -= disabled_features;
