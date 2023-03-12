@@ -99,6 +99,8 @@ impl TextureAtlasLayout {
     /// # Arguments
     ///
     /// * `rect` - The section of the texture to be added
+    ///
+    /// [`TextureAtlas`]: crate::TextureAtlas
     pub fn add_texture(&mut self, rect: Rect) -> usize {
         self.textures.push(rect);
         self.textures.len() - 1

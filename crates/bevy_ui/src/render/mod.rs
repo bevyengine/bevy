@@ -29,7 +29,7 @@ use bevy_render::{
 };
 use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
+use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;

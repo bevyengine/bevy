@@ -22,11 +22,7 @@ struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    mut query: Query<(
-        &AnimationIndices,
-        &mut AnimationTimer,
-        &mut TextureAtlas,
-    )>,
+    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut TextureAtlas)>,
 ) {
     for (indices, mut timer, mut atlas) in &mut query {
         timer.tick(time.delta());
@@ -50,13 +46,13 @@ fn setup(
     let texture_atlas = texture_atlases.add(atlas);
     // Use only the subset of sprites in the sheet that make up the run animation
     let animation_indices = AnimationIndices { first: 1, last: 6 };
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands
-        .spawn_bundle(SpriteSheetBundle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        SpriteSheetBundle {
             texture,
             atlas: TextureAtlas {
                 layout: texture_atlas,
-                index: 0,
+                index: animation_indices.first,
             },
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
