@@ -223,8 +223,8 @@ impl Plugin for VisibilityPlugin {
             .configure_set(UpdateProjectionFrusta.in_base_set(CoreSet::PostUpdate))
             .configure_set(CheckVisibility.in_base_set(CoreSet::PostUpdate))
             .configure_set(VisibilityPropagate.in_base_set(CoreSet::PostUpdate))
-            .add_system(calculate_bounds.in_set(CalculateBounds))
-            .add_system(
+            .add_systems((
+                calculate_bounds.in_set(CalculateBounds),
                 update_frusta::<OrthographicProjection>
                     .in_set(UpdateOrthographicFrusta)
                     .after(camera_system::<OrthographicProjection>)
@@ -234,8 +234,6 @@ impl Plugin for VisibilityPlugin {
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(update_frusta::<PerspectiveProjection>)
                     .ambiguous_with(update_frusta::<Projection>),
-            )
-            .add_system(
                 update_frusta::<PerspectiveProjection>
                     .in_set(UpdatePerspectiveFrusta)
                     .after(camera_system::<PerspectiveProjection>)
@@ -244,15 +242,11 @@ impl Plugin for VisibilityPlugin {
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(update_frusta::<Projection>),
-            )
-            .add_system(
                 update_frusta::<Projection>
                     .in_set(UpdateProjectionFrusta)
                     .after(camera_system::<Projection>)
                     .after(TransformSystem::TransformPropagate),
-            )
-            .add_system(visibility_propagate_system.in_set(VisibilityPropagate))
-            .add_system(
+                visibility_propagate_system.in_set(VisibilityPropagate),
                 check_visibility
                     .in_set(CheckVisibility)
                     .after(CalculateBoundsFlush)
@@ -261,7 +255,7 @@ impl Plugin for VisibilityPlugin {
                     .after(UpdateProjectionFrusta)
                     .after(VisibilityPropagate)
                     .after(TransformSystem::TransformPropagate),
-            );
+            ));
     }
 }
 

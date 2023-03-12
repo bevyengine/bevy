@@ -22,9 +22,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_camera_fog)
-        .add_startup_system(setup_pyramid_scene)
-        .add_startup_system(setup_instructions)
+        .add_startup_systems((setup_camera_fog, setup_pyramid_scene, setup_instructions))
         .add_system(update_system)
         .run();
 }
