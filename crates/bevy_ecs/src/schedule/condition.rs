@@ -425,3 +425,55 @@ where
         a(input) || b(input)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::common_conditions::*;
+    use crate::{
+        component::TableStorage,
+        prelude::{Component, State},
+        schedule::{config::IntoSystemConfigs, Schedule, States},
+    };
+
+    #[derive(PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+    }
+    impl States for TestState {
+        type Iter = core::array::IntoIter<Self, 2>;
+
+        fn variants() -> Self::Iter {
+            [Self::A, Self::B].into_iter()
+        }
+    }
+
+    struct TestComponent;
+
+    impl Component for TestComponent {
+        type Storage = TableStorage;
+    }
+
+    fn test_system() {}
+
+    // Ensure distributive_run_if compiles with the common conditions.
+    #[test]
+    fn distributive_run_if_compiles() {
+        Schedule::default().add_systems(
+            (test_system, test_system)
+                .distributive_run_if(run_once())
+                .distributive_run_if(resource_exists::<State<TestState>>())
+                .distributive_run_if(resource_added::<State<TestState>>())
+                .distributive_run_if(resource_changed::<State<TestState>>())
+                .distributive_run_if(resource_exists_and_changed::<State<TestState>>())
+                .distributive_run_if(resource_changed_or_removed::<State<TestState>>())
+                .distributive_run_if(resource_removed::<State<TestState>>())
+                .distributive_run_if(state_exists::<TestState>())
+                .distributive_run_if(in_state(TestState::A))
+                .distributive_run_if(state_changed::<TestState>())
+                .distributive_run_if(on_event::<u8>())
+                .distributive_run_if(any_with_component::<TestComponent>()),
+        );
+    }
+}

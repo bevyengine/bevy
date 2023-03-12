@@ -95,3 +95,23 @@ where
 {
     move |inputs: Res<Input<T>>| inputs.just_released(input)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::{IntoSystemConfigs, KeyCode, Schedule};
+
+    fn test_system() {}
+
+    // Ensure distributive_run_if compiles with the common conditions.
+    #[test]
+    fn distributive_run_if_compiles() {
+        Schedule::default().add_systems(
+            (test_system, test_system)
+                .distributive_run_if(input_toggle_active(false, KeyCode::Escape))
+                .distributive_run_if(input_pressed(KeyCode::Escape))
+                .distributive_run_if(input_just_pressed(KeyCode::Escape))
+                .distributive_run_if(input_just_released(KeyCode::Escape)),
+        );
+    }
+}

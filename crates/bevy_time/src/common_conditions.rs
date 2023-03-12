@@ -74,3 +74,21 @@ pub fn on_fixed_timer(duration: Duration) -> impl Clone + FnMut(Res<FixedTime>) 
         timer.just_finished()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+
+    fn test_system() {}
+
+    // Ensure distributive_run_if compiles with the common conditions.
+    #[test]
+    fn distributive_run_if_compiles() {
+        Schedule::default().add_systems(
+            (test_system, test_system)
+                .distributive_run_if(on_timer(Duration::new(1, 0)))
+                .distributive_run_if(on_fixed_timer(Duration::new(1, 0))),
+        );
+    }
+}
