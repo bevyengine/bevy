@@ -129,7 +129,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         style: Style {
                                             flex_direction: FlexDirection::Column,
                                             flex_grow: 1.0,
-                                            max_size: Size::UNDEFINED,
+                                            size: Size::height(Val::Px(0.)),
                                             align_items: AlignItems::Center,
                                             ..default()
                                         },
