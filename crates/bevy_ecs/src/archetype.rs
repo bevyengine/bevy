@@ -47,6 +47,7 @@ impl ArchetypeRow {
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
 
     /// Creates a `ArchetypeRow`.
+    #[inline]
     pub const fn new(index: usize) -> Self {
         Self(index as u32)
     }
