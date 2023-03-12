@@ -1,11 +1,16 @@
+use bevy_a11y::{
+    accesskit::{NodeBuilder, Role},
+    AccessibilityNode,
+};
 use bevy_app::{App, CoreSet, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
-    prelude::Bundle,
-    query::Without,
+    prelude::{Bundle, Entity},
+    query::{Changed, Without},
     schedule::IntoSystemConfig,
-    system::{Query, Res},
+    system::{Commands, Query, Res},
 };
+use bevy_hierarchy::Children;
 use bevy_math::Vec2;
 use bevy_render::{
     texture::Image,
@@ -17,12 +22,13 @@ use bevy_ui::{
     BackgroundColor, CalculatedSize, FocusPolicy, Node, Style, UiImage, UiSystem, ZIndex,
 };
 
-use super::text_system;
+use crate::{calc_name, Button};
 
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
+    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
+    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage)>,
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
@@ -39,23 +45,57 @@ pub fn update_image_calculated_size_system(
     }
 }
 
+fn image_changed(
+    mut commands: Commands,
+    mut query: Query<
+        (Entity, &Children, Option<&mut AccessibilityNode>),
+        (Changed<UiImage>, Without<Button>),
+    >,
+    texts: Query<&Text>,
+) {
+    for (entity, children, accessible) in &mut query {
+        let name = calc_name(&texts, children);
+        if let Some(mut accessible) = accessible {
+            accessible.set_role(Role::Image);
+            if let Some(name) = name {
+                accessible.set_name(name);
+            } else {
+                accessible.clear_name();
+            }
+        } else {
+            let mut node = NodeBuilder::new(Role::Image);
+            if let Some(name) = name {
+                node.set_name(name);
+            }
+            commands
+                .entity(entity)
+                .insert(AccessibilityNode::from(node));
+        }
+    }
+}
+
 /// A plugin for image widgets
 #[derive(Default)]
 pub struct ImagePlugin;
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(
-            update_image_calculated_size_system
+        app.add_system({
+            let system = update_image_calculated_size_system
                 .in_base_set(CoreSet::PostUpdate)
-                .before(UiSystem::Flex)
-                // Potential conflicts: `Assets<Image>`
-                // They run independently since `widget::image_node_system` will only ever observe
-                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-                // will never modify a pre-existing `Image` asset.
+                .before(UiSystem::Flex);
+            // Potential conflicts: `Assets<Image>`
+            // They run independently since `widget::image_node_system` will only ever observe
+            // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+            // will never modify a pre-existing `Image` asset.
+            #[cfg(feature = "bevy_text")]
+            let system = system
                 .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(text_system),
-        );
+                .ambiguous_with(text_system);
+
+            system
+        })
+        .add_system(image_changed);
     }
 }
 

@@ -14,6 +14,8 @@ use bevy_render::{
     view::{ComputedVisibility, Visibility},
 };
 use bevy_sprite::TextureAtlas;
+use bevy_text::{Font, TextSettings, FontAtlasWarning, FontAtlasSet, TextPipeline, Text, TextLayoutInfo, YAxisOrientation, TextError, TextStyle, TextAlignment, TextSection};
+#[cfg(feature = "bevy_text")]
 use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextAlignment, TextError, TextLayoutInfo,
     TextPipeline, TextSection, TextSettings, TextStyle, YAxisOrientation,

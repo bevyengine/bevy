@@ -1,16 +1,50 @@
+use bevy_a11y::AccessibilityNode;
+use bevy_a11y::accesskit::{Role, NodeBuilder};
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::{Bundle, Component};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
+use bevy_ecs::query::Changed;
 use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::system::{Commands, Query};
+use bevy_hierarchy::Children;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::view::{ComputedVisibility, Visibility};
+use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_ui::{BackgroundColor, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex};
+
+use crate::calc_name;
 
 /// Marker struct for buttons
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct Button;
+
+fn button_changed(
+    mut commands: Commands,
+    mut query: Query<(Entity, &Children, Option<&mut AccessibilityNode>), Changed<Button>>,
+    texts: Query<&Text>,
+) {
+    for (entity, children, accessible) in &mut query {
+        let name = calc_name(&texts, children);
+        if let Some(mut accessible) = accessible {
+            accessible.set_role(Role::Button);
+            if let Some(name) = name {
+                accessible.set_name(name);
+            } else {
+                accessible.clear_name();
+            }
+        } else {
+            let mut node = NodeBuilder::new(Role::Button);
+            if let Some(name) = name {
+                node.set_name(name);
+            }
+            commands
+                .entity(entity)
+                .insert(AccessibilityNode::from(node));
+        }
+    }
+}
 
 /// A plugin for button widgets
 #[derive(Default)]
@@ -18,7 +52,8 @@ pub struct ButtonPlugin;
 
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Button>();
+        app.register_type::<Button>()
+            .add_system(button_changed);
     }
 }
 
