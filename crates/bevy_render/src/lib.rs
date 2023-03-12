@@ -42,10 +42,12 @@ pub mod prelude {
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 pub use once_cell;
+use prelude::Mesh;
 
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
+    render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
@@ -84,6 +86,8 @@ pub enum RenderSet {
     /// Queue drawable entities to phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
+    /// A sub-set within Queue where mesh entity queue systems are executed
+    QueueMeshes,
     /// The copy of [`apply_system_buffers`] that runs immediately after `Queue`.
     QueueFlush,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
@@ -145,6 +149,11 @@ impl RenderSet {
                 CleanupFlush,
             )
                 .chain(),
+        );
+        schedule.configure_set(
+            QueueMeshes
+                .in_set(RenderSet::Queue)
+                .after(prepare_assets::<Mesh>),
         );
 
         schedule

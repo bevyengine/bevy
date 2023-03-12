@@ -249,7 +249,7 @@ impl Plugin for PbrPlugin {
         render_app
             .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::ManageViews))
             .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::ManageViews))
-            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
+            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::QueueMeshes))
             .add_systems(
                 (
                     render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),

@@ -115,7 +115,7 @@ pub struct Camera {
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.  
+    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
 }
 

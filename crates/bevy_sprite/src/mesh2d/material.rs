@@ -166,7 +166,7 @@ where
                     prepare_materials_2d::<M>
                         .in_set(RenderSet::Prepare)
                         .after(PrepareAssetSet::PreAssetPrepare),
-                    queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
+                    queue_material2d_meshes::<M>.in_set(RenderSet::QueueMeshes),
                 ));
         }
     }

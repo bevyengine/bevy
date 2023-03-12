@@ -134,7 +134,7 @@ where
                 prepare_prepass_textures
                     .in_set(RenderSet::Prepare)
                     .after(bevy_render::view::prepare_windows),
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                queue_prepass_material_meshes::<M>.in_set(RenderSet::QueueMeshes),
                 sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
                 sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
             ))
