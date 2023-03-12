@@ -7,6 +7,7 @@ use bevy_ecs::{
     world::{EntityMut, World},
 };
 use smallvec::SmallVec;
+use std::borrow::Borrow;
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -283,7 +284,10 @@ pub trait BuildChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
-    fn push_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
+    fn push_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self;
     /// Inserts children at the given index
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
@@ -292,12 +296,15 @@ pub trait BuildChildren {
     fn insert_children(
         &mut self,
         index: usize,
-        children: impl IntoIterator<Item = Entity>,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
     ) -> &mut Self;
     /// Removes the given children
     ///
     /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
-    fn remove_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
+    fn remove_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self;
     /// Adds a single child
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
@@ -307,7 +314,10 @@ pub trait BuildChildren {
     /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
     fn clear_children(&mut self) -> &mut Self;
     /// Removes all current children from this entity, replacing them with the specified list of entities.
-    fn replace_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
+    fn replace_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self;
     /// Sets the parent of this entity.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
     /// Removes the parent of this entity.
@@ -331,10 +341,13 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         self
     }
 
-    fn push_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
+    fn push_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self {
         let parent = self.id();
         self.commands().add(PushChildren {
-            children: SmallVec::from_iter(children),
+            children: SmallVec::from_iter(children.into_iter().map(|e| *e.borrow())),
             parent,
         });
         self
@@ -343,21 +356,24 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn insert_children(
         &mut self,
         index: usize,
-        children: impl IntoIterator<Item = Entity>,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
     ) -> &mut Self {
         let parent = self.id();
         self.commands().add(InsertChildren {
-            children: SmallVec::from_iter(children),
+            children: SmallVec::from_iter(children.into_iter().map(|e| *e.borrow())),
             index,
             parent,
         });
         self
     }
 
-    fn remove_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
+    fn remove_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self {
         let parent = self.id();
         self.commands().add(RemoveChildren {
-            children: SmallVec::from_iter(children),
+            children: SmallVec::from_iter(children.into_iter().map(|e| *e.borrow())),
             parent,
         });
         self
@@ -375,10 +391,13 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         self
     }
 
-    fn replace_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
+    fn replace_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self {
         let parent = self.id();
         self.commands().add(ReplaceChildren {
-            children: SmallVec::from_iter(children),
+            children: SmallVec::from_iter(children.into_iter().map(|e| *e.borrow())),
             parent,
         });
         self
@@ -452,15 +471,21 @@ pub trait BuildWorldChildren {
     fn add_child(&mut self, child: Entity) -> &mut Self;
 
     /// Pushes children to the back of the builder's children
-    fn push_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
+    fn push_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self;
     /// Inserts children at the given index
     fn insert_children(
         &mut self,
         index: usize,
-        children: impl IntoIterator<Item = Entity>,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
     ) -> &mut Self;
     /// Removes the given children
-    fn remove_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
+    fn remove_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self;
 
     /// Set the `parent` of this entity. This entity will be added to the end of the `parent`'s list of children.
     ///
@@ -494,8 +519,14 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         self
     }
 
-    fn push_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
-        let children = children.into_iter().collect::<Vec<_>>();
+    fn push_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self {
+        let children = children
+            .into_iter()
+            .map(|e| *e.borrow())
+            .collect::<Vec<_>>();
         let parent = self.id();
         self.world_scope(|world| {
             update_old_parents(world, parent, &children);
@@ -514,9 +545,12 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn insert_children(
         &mut self,
         index: usize,
-        children: impl IntoIterator<Item = Entity>,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
     ) -> &mut Self {
-        let children = children.into_iter().collect::<Vec<_>>();
+        let children = children
+            .into_iter()
+            .map(|e| *e.borrow())
+            .collect::<Vec<_>>();
         let parent = self.id();
         self.world_scope(|world| {
             update_old_parents(world, parent, &children);
@@ -532,8 +566,14 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         self
     }
 
-    fn remove_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
-        let children = children.into_iter().collect::<Vec<_>>();
+    fn remove_children(
+        &mut self,
+        children: impl IntoIterator<Item = impl Borrow<Entity>>,
+    ) -> &mut Self {
+        let children = children
+            .into_iter()
+            .map(|e| *e.borrow())
+            .collect::<Vec<_>>();
         let parent = self.id();
         self.world_scope(|world| {
             remove_children(parent, &children, world);
