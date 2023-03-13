@@ -11,12 +11,13 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_contributor_selection)
-        .add_startup_system(setup)
-        .add_system(velocity_system)
-        .add_system(move_system)
-        .add_system(collision_system)
-        .add_system(select_system)
+        .add_startup_systems((setup_contributor_selection, setup))
+        .add_systems((
+            velocity_system,
+            move_system,
+            collision_system,
+            select_system,
+        ))
         .init_resource::<SelectionState>()
         .run();
 }

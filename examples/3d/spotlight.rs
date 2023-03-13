@@ -12,9 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(light_sway)
-        .add_system(movement)
+        .add_systems((setup.on_startup(), light_sway, movement))
         .run();
 }
 
@@ -105,7 +103,7 @@ fn setup(
                             })),
                             material: materials.add(StandardMaterial {
                                 base_color: Color::MAROON,
-                                emissive: Color::rgba_linear(0.125, 0.0, 0.0, 0.0),
+                                emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
                                 ..default()
                             }),
                             ..default()

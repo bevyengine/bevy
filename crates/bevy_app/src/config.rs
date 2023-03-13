@@ -1,8 +1,8 @@
 use bevy_ecs::{
     all_tuples,
     schedule::{
-        BoxedScheduleLabel, Condition, IntoSystemConfig, IntoSystemSet, ScheduleLabel,
-        SystemConfig, SystemConfigs, SystemSet,
+        BaseSystemSet, BoxedScheduleLabel, Condition, FreeSystemSet, IntoSystemConfig,
+        IntoSystemSet, ScheduleLabel, SystemConfig, SystemConfigs,
     },
 };
 
@@ -84,7 +84,7 @@ impl IntoSystemConfig<(), Self> for SystemAppConfig {
     }
 
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> Self {
+    fn in_set(self, set: impl FreeSystemSet) -> Self {
         let Self { system, schedule } = self;
         Self {
             system: system.in_set(set),
@@ -93,7 +93,7 @@ impl IntoSystemConfig<(), Self> for SystemAppConfig {
     }
 
     #[track_caller]
-    fn in_base_set(self, set: impl SystemSet) -> Self {
+    fn in_base_set(self, set: impl BaseSystemSet) -> Self {
         let Self { system, schedule } = self;
         Self {
             system: system.in_base_set(set),
@@ -190,7 +190,10 @@ pub trait IntoSystemAppConfigs<Marker>: Sized {
 
     /// Adds the systems to the provided `schedule`.
     ///
-    /// If a schedule is not specified, they will be added to the [`App`]'s default schedule.
+    /// If a schedule with specified label does not exist, it will be created.
+    ///
+    /// If a schedule with the specified label does not exist, an empty one will be created.
+    ///
     ///
     /// [`App`]: crate::App
     ///

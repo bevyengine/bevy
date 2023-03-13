@@ -94,6 +94,7 @@ pub fn extract_text2d_sprite(
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
+    let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
     for (entity, computed_visibility, text, text_layout_info, anchor, global_transform) in
         text2d_query.iter()
@@ -102,12 +103,11 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
-        let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
+        let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
-            * Transform::from_scale(Vec3::splat(scale_factor.recip()))
-            * Transform::from_translation(alignment_translation.extend(0.));
-
+            * scaling
+            * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
@@ -125,11 +125,11 @@ pub fn extract_text2d_sprite(
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
-                transform: transform * Transform::from_translation(position.extend(0.)),
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                 color,
                 rect: Some(atlas.textures[atlas_info.glyph_index]),
                 custom_size: None,
-                image_handle_id: atlas.texture.clone_weak().id(),
+                image_handle_id: atlas.texture.id(),
                 flip_x: false,
                 flip_y: false,
                 anchor: Anchor::Center.as_vec(),
@@ -162,7 +162,7 @@ pub fn update_text2d_layout(
     mut text_query: Query<(
         Entity,
         Ref<Text>,
-        &Text2dBounds,
+        Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
 ) {
@@ -176,7 +176,7 @@ pub fn update_text2d_layout(
         .unwrap_or(1.0);
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || queue.remove(&entity) {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),

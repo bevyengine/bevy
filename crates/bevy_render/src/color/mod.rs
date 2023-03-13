@@ -253,6 +253,43 @@ impl Color {
         }
     }
 
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    ///
+    /// See also [`Color::lcha`].
+    pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha: 1.0,
+        }
+    }
+
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::lch`].
+    pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        }
+    }
+
     /// New `Color` from sRGB colorspace.
     ///
     /// # Examples
@@ -525,7 +562,7 @@ impl Color {
                 let [red, green, blue] =
                     LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
 
-                Color::Rgba {
+                Color::RgbaLinear {
                     red: red.nonlinear_to_linear_srgb(),
                     green: green.nonlinear_to_linear_srgb(),
                     blue: blue.nonlinear_to_linear_srgb(),
@@ -588,6 +625,61 @@ impl Color {
                     alpha: *alpha,
                 }
             }
+        }
+    }
+
+    /// Converts a `Color` to variant `Color::Lcha`
+    pub fn as_lcha(self: &Color) -> Color {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let (lightness, chroma, hue) =
+                    LchRepresentation::nonlinear_srgb_to_lch([*red, *green, *blue]);
+                Color::Lcha {
+                    lightness,
+                    chroma,
+                    hue,
+                    alpha: *alpha,
+                }
+            }
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([
+                    red.linear_to_nonlinear_srgb(),
+                    green.linear_to_nonlinear_srgb(),
+                    blue.linear_to_nonlinear_srgb(),
+                ]);
+                Color::Lcha {
+                    lightness,
+                    chroma,
+                    hue,
+                    alpha: *alpha,
+                }
+            }
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let rgb = HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
+                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch(rgb);
+                Color::Lcha {
+                    lightness,
+                    chroma,
+                    hue,
+                    alpha: *alpha,
+                }
+            }
+            Color::Lcha { .. } => *self,
         }
     }
 
@@ -737,7 +829,7 @@ impl Color {
     }
 
     /// Converts a `Color` to a `[f32; 4]` from LCH colorspace
-    pub fn as_lch_f32(self: Color) -> [f32; 4] {
+    pub fn as_lcha_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -958,7 +1050,7 @@ impl AddAssign<Color> for Color {
                 hue,
                 alpha,
             } => {
-                let rhs = rhs.as_lch_f32();
+                let rhs = rhs.as_lcha_f32();
                 *lightness += rhs[0];
                 *chroma += rhs[1];
                 *hue += rhs[2];
@@ -1021,7 +1113,7 @@ impl Add<Color> for Color {
                 hue,
                 alpha,
             } => {
-                let rhs = rhs.as_lch_f32();
+                let rhs = rhs.as_lcha_f32();
 
                 Color::Lcha {
                     lightness: lightness + rhs[0],
@@ -1617,6 +1709,7 @@ impl encase::private::ReadFrom for Color {
         }
     }
 }
+
 impl encase::private::CreateFrom for Color {
     fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
     where
@@ -1801,5 +1894,18 @@ mod tests {
         mutated_color *= transformation;
 
         assert_eq!(starting_color * transformation, mutated_color,);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8040
+    #[test]
+    fn convert_to_rgba_linear() {
+        let rgba = Color::rgba(0., 0., 0., 0.);
+        let rgba_l = Color::rgba_linear(0., 0., 0., 0.);
+        let hsla = Color::hsla(0., 0., 0., 0.);
+        let lcha = Color::lcha(0., 0., 0., 0.);
+        assert_eq!(rgba_l, rgba_l.as_rgba_linear());
+        let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else { panic!("from Rgba") };
+        let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else { panic!("from Hsla") };
+        let Color::RgbaLinear { .. } = lcha.as_rgba_linear() else { panic!("from Lcha") };
     }
 }

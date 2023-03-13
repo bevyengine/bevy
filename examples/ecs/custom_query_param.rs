@@ -18,10 +18,15 @@ use std::fmt::Debug;
 fn main() {
     App::new()
         .add_startup_system(spawn)
-        .add_system(print_components_read_only)
-        .add_system(print_components_iter_mut.after(print_components_read_only))
-        .add_system(print_components_iter.after(print_components_iter_mut))
-        .add_system(print_components_tuple.after(print_components_iter))
+        .add_systems(
+            (
+                print_components_read_only,
+                print_components_iter_mut,
+                print_components_iter,
+                print_components_tuple,
+            )
+                .chain(),
+        )
         .run();
 }
 

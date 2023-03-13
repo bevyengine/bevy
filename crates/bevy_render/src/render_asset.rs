@@ -92,8 +92,10 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_system(extract_render_asset::<A>.in_schedule(ExtractSchedule))
-                .add_system(prepare_assets::<A>.in_set(self.prepare_asset_set.clone()));
+                .add_systems((
+                    extract_render_asset::<A>.in_schedule(ExtractSchedule),
+                    prepare_assets::<A>.in_set(self.prepare_asset_set.clone()),
+                ));
         }
     }
 }
