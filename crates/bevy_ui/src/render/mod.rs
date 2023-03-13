@@ -35,7 +35,7 @@ use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
-use bytemuck::{Pod, Zeroable};
+use bytemuck_derive::{Pod, Zeroable};
 use std::ops::Range;
 
 pub mod node {

@@ -15,7 +15,7 @@ use bevy_reflect::{
 };
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
 /// A unique, stable asset id.
 #[derive(

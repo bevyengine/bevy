@@ -9,9 +9,11 @@ use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
+    ser::Serialize,
     ser::SerializeStruct,
-    Deserialize, Deserializer, Serialize, Serializer,
+    Deserializer, Serializer,
 };
+use serde_derive::Deserialize;
 use std::fmt::Formatter;
 
 pub const SCENE_STRUCT: &str = "Scene";

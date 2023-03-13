@@ -133,7 +133,7 @@ impl Plugin for InputPlugin {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum ButtonState {

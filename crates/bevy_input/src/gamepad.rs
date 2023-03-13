@@ -75,7 +75,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct Gamepad {
@@ -95,7 +95,7 @@ impl Gamepad {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
@@ -156,7 +156,7 @@ impl Gamepads {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadButtonType {
@@ -221,7 +221,7 @@ pub enum GamepadButtonType {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButton {
@@ -263,7 +263,7 @@ impl GamepadButton {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadAxisType {
@@ -299,7 +299,7 @@ pub enum GamepadAxisType {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxis {
@@ -1027,7 +1027,7 @@ pub fn gamepad_connection_system(
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadConnection {
@@ -1041,7 +1041,7 @@ pub enum GamepadConnection {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadConnectionEvent {
@@ -1072,7 +1072,7 @@ impl GamepadConnectionEvent {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxisChangedEvent {
@@ -1097,7 +1097,7 @@ impl GamepadAxisChangedEvent {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonChangedEvent {
@@ -1160,7 +1160,7 @@ pub fn gamepad_button_event_system(
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadEvent {

@@ -10,7 +10,8 @@ keywords = ["bevy"]
 
 [features]
 default = ["serialize"]
-serialize = ["dep:serde", "uuid/serde"]
+serialize = ["serde", "uuid/serde"]
+serde = ["dep:serde", "dep:serde_derive"]
 
 [dependencies]
 # bevy
@@ -25,7 +26,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.11.0-dev" }
 
 # other
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", optional = true }
+serde_derive = { version = "1.0", optional = true }
 ron = "0.8.0"
 uuid = { version = "1.1", features = ["v4"] }
 anyhow = "1.0.4"

@@ -12,7 +12,7 @@ use bevy_render::{
     view::{ColorGrading, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
 #[derive(Component, Reflect, Clone, Default, ExtractComponent)]

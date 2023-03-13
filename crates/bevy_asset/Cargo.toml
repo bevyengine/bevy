@@ -24,7 +24,8 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 
 # other
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1" }
+serde_derive = { version = "1" }
 crossbeam-channel = "0.5.0"
 anyhow = "1.0.4"
 thiserror = "1.0"

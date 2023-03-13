@@ -7,7 +7,7 @@ use bevy::{
     reflect::{DynamicList, ReflectRef},
     utils::HashMap,
 };
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
 fn main() {
     App::new()

@@ -8,7 +8,7 @@ use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
 use bevy_transform::prelude::GlobalTransform;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 

@@ -25,7 +25,7 @@ pub struct PrimaryWindow;
 #[derive(Default, Copy, Clone, Debug, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum WindowRef {
@@ -73,7 +73,7 @@ impl MapEntities for WindowRef {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct NormalizedWindowRef(Entity);
@@ -89,7 +89,7 @@ impl NormalizedWindowRef {
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Component, Default)]
@@ -296,7 +296,7 @@ impl Window {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]
@@ -363,7 +363,7 @@ impl WindowResizeConstraints {
 #[derive(Debug, Copy, Clone, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, Default)]
@@ -415,7 +415,7 @@ impl Default for Cursor {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq)]
@@ -466,7 +466,7 @@ impl WindowPosition {
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]
@@ -630,7 +630,7 @@ impl From<bevy_math::DVec2> for WindowResolution {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]
@@ -648,7 +648,7 @@ pub enum CursorGrabMode {
 #[derive(Default, Debug, Copy, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]
@@ -677,7 +677,7 @@ impl InternalWindowState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq)]
@@ -708,7 +708,7 @@ pub enum MonitorSelection {
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Hash)]
@@ -748,7 +748,7 @@ pub enum PresentMode {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Hash)]
@@ -783,7 +783,7 @@ pub enum CompositeAlphaMode {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq)]
@@ -811,7 +811,7 @@ pub enum WindowMode {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq)]

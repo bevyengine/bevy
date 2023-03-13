@@ -25,7 +25,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.11.0-dev" }
 
 # other
-bytemuck = { version = "1.5", features = ["derive"] }
+bytemuck = "1.5"
+bytemuck_derive = "1.4"
 fixedbitset = "0.4"
 guillotiere = "0.6.0"
 thiserror = "1.0"

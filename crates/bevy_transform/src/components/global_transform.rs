@@ -34,7 +34,10 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde_derive::Serialize, serde_derive::Deserialize)
+)]
 #[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform(Affine3A);
 

@@ -11,7 +11,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]

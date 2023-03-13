@@ -3,7 +3,7 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
 use bevy_utils::default;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
 use crate::Font;
 

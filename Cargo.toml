@@ -229,8 +229,10 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default
 anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.8.0"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1"  }
+serde_derive = { version = "1"  }
 bytemuck = "1.7"
+bytemuck_derive = "1.4"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"

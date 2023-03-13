@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 trace = []
 bevy_ci_testing = ["serde", "ron"]
+serde = ["dep:serde", "dep:serde_derive"]
 default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
 
@@ -22,7 +23,8 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", optional = tr
 bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 
 # other
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", optional = true }
+serde_derive = { version = "1.0", optional = true }
 ron = { version = "0.8.0", optional = true }
 downcast-rs = "1.2.0"
 

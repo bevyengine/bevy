@@ -10,7 +10,10 @@ use crate::Vec2;
 /// the minimum and maximum corners.
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde_derive::Serialize, serde_derive::Deserialize)
+)]
 pub struct Rect {
     /// The minimum corner point of the rect.
     pub min: Vec2,

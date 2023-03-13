@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = []
 serialize = ["serde"]
+serde = ["dep:serde", "dep:serde_derive"]
 
 [dependencies]
 # bevy
@@ -21,7 +22,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = ["glam"] }
 
 # other
-serde = { version = "1", features = ["derive"], optional = true }
+serde = { version = "1", optional = true }
+serde_derive = { version = "1", optional = true }
 thiserror = "1.0"
 
 [dev-dependencies]

@@ -34,7 +34,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct TouchInput {
@@ -56,7 +56,7 @@ pub struct TouchInput {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum ForceTouch {
@@ -102,7 +102,7 @@ pub enum ForceTouch {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum TouchPhase {

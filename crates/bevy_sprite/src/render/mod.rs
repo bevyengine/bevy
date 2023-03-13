@@ -36,7 +36,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
-use bytemuck::{Pod, Zeroable};
+use bytemuck_derive::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]

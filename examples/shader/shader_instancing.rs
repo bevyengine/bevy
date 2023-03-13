@@ -22,7 +22,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bytemuck::{Pod, Zeroable};
+use bytemuck_derive::{Pod, Zeroable};
 
 fn main() {
     App::new()

@@ -7,7 +7,7 @@ use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
     ReflectSerialize,
 };
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
 pub struct CameraProjectionPlugin<T: CameraProjection>(PhantomData<T>);

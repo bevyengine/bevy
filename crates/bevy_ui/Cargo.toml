@@ -32,7 +32,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 
 # other
 taffy = { version = "0.3.5", default-features = false, features = ["std"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1"  }
+serde_derive = { version = "1"  }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
-bytemuck = { version = "1.5", features = ["derive"] }
+bytemuck = "1.5"
+bytemuck_derive = "1.4"
 thiserror = "1.0.0"

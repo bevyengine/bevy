@@ -1,6 +1,6 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_utils::AHasher;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     hash::{Hash, Hasher},

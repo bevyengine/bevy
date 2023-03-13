@@ -12,7 +12,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowResized {
@@ -31,7 +31,7 @@ pub struct WindowResized {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct RequestRedraw;
@@ -43,7 +43,7 @@ pub struct RequestRedraw;
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowCreated {
@@ -65,7 +65,7 @@ pub struct WindowCreated {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowCloseRequested {
@@ -79,7 +79,7 @@ pub struct WindowCloseRequested {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowClosed {
@@ -102,7 +102,7 @@ pub struct WindowClosed {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct CursorMoved {
@@ -117,7 +117,7 @@ pub struct CursorMoved {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct CursorEntered {
@@ -130,7 +130,7 @@ pub struct CursorEntered {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct CursorLeft {
@@ -143,7 +143,7 @@ pub struct CursorLeft {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct ReceivedCharacter {
@@ -162,7 +162,7 @@ pub struct ReceivedCharacter {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum Ime {
@@ -204,7 +204,7 @@ pub enum Ime {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowFocused {
@@ -219,7 +219,7 @@ pub struct WindowFocused {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowScaleFactorChanged {
@@ -234,7 +234,7 @@ pub struct WindowScaleFactorChanged {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowBackendScaleFactorChanged {
@@ -249,7 +249,7 @@ pub struct WindowBackendScaleFactorChanged {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum FileDragAndDrop {
@@ -281,7 +281,7 @@ pub enum FileDragAndDrop {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowMoved {

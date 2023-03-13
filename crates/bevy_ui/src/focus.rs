@@ -15,7 +15,7 @@ use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::Compute
 use bevy_transform::components::GlobalTransform;
 
 use bevy_window::{PrimaryWindow, Window};
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 /// Describes what type of input interaction has occurred for a UI node.

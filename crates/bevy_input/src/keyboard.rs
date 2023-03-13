@@ -18,7 +18,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct KeyboardInput {
@@ -75,7 +75,7 @@ pub fn keyboard_input_system(
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[repr(u32)]
@@ -442,7 +442,7 @@ pub enum KeyCode {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct ScanCode(pub u32);

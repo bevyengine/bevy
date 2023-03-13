@@ -43,7 +43,7 @@ use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]

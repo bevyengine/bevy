@@ -18,7 +18,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct MouseButtonInput {
@@ -42,7 +42,7 @@ pub struct MouseButtonInput {
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum MouseButton {
@@ -69,7 +69,7 @@ pub enum MouseButton {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct MouseMotion {
@@ -87,7 +87,7 @@ pub struct MouseMotion {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum MouseScrollUnit {
@@ -110,7 +110,7 @@ pub enum MouseScrollUnit {
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    derive(serde_derive::Serialize, serde_derive::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct MouseWheel {
