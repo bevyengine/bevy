@@ -17,6 +17,7 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -38,7 +39,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet, globals::{GlobalsBuffer, GlobalsUniform},
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
@@ -598,8 +599,8 @@ pub fn queue_prepass_view_bind_group<M: Material>(
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: globals_binding
-                }
+                    resource: globals_binding,
+                },
             ],
             label: Some("prepass_view_bind_group"),
             layout: &prepass_pipeline.view_layout,
