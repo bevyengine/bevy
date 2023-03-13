@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
-    prelude::{Component, Entity},
+    prelude::Component,
     query::With,
     schedule::{IntoSystemConfig, IntoSystemConfigs},
     system::{Commands, Query, Res, ResMut, Resource},
@@ -12,11 +12,11 @@ use bevy_render::{
     render_resource::WgpuFeatures,
     renderer::{GpuTimerScopes, RenderDevice},
 };
-use bevy_text::TextStyle;
+use bevy_text::{Text, TextSection, TextStyle};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     prelude::{NodeBundle, TextBundle},
-    FlexDirection, Size, Style, Val,
+    Size, Style, UiRect, Val,
 };
 use bevy_utils::{default, Duration, HashMap};
 
@@ -42,7 +42,7 @@ impl Plugin for DebugOverlaysPlugin {
 }
 
 #[derive(Component)]
-struct ListMarker;
+struct GpuTimerOverlayUIMarker;
 
 fn setup_ui(mut commands: Commands) {
     commands
@@ -54,18 +54,18 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                NodeBundle {
+            parent
+                .spawn(NodeBundle {
+                    background_color: Color::rgba(0.10, 0.10, 0.10, 0.8).into(),
                     style: Style {
-                        size: Size::width(Val::Percent(15.0)),
-                        flex_direction: FlexDirection::Column,
+                        padding: UiRect::all(Val::Px(8.0)),
                         ..default()
                     },
-                    background_color: Color::rgba(0.10, 0.10, 0.10, 0.8).into(),
                     ..default()
-                },
-                ListMarker,
-            ));
+                })
+                .with_children(|parent| {
+                    parent.spawn((GpuTimerOverlayUIMarker, TextBundle::default()));
+                });
         });
 }
 
@@ -91,9 +91,8 @@ fn aggregate_gpu_timers(
 
 fn draw_node_gpu_time_overlay(
     aggregated_gpu_timers: Res<AggregatedGpuTimers>,
-    mut commands: Commands,
     asset_server: Res<AssetServer>,
-    list: Query<Entity, With<ListMarker>>,
+    mut ui: Query<&mut Text, With<GpuTimerOverlayUIMarker>>,
 ) {
     let mut gpu_timers = aggregated_gpu_timers.0.iter().collect::<Vec<_>>();
     gpu_timers.sort_unstable_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap().reverse());
@@ -104,23 +103,23 @@ fn draw_node_gpu_time_overlay(
         color: Color::WHITE,
     };
 
-    let mut commands = commands.entity(list.single());
-    commands.clear_children();
+    let mut ui = ui.single_mut();
+    ui.sections.clear();
+    ui.sections.push(TextSection::new(
+        "GPU Time\n",
+        TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 16.0,
+            color: Color::WHITE,
+        },
+    ));
 
     for (label, duration) in gpu_timers {
-        let duration = *duration / 1000.0;
-        if duration < 0.001 {
-            continue;
-        }
-
         let label = match label.rsplit_once("::") {
             Some((_, label)) => label,
             None => label,
         };
-        let text = format!("{label}: {}ms", duration);
-
-        commands.with_children(|parent| {
-            parent.spawn(TextBundle::from_section(text, text_style.clone()));
-        });
+        let text = format!("{label}: {}ms\n", *duration * 1000.0);
+        ui.sections.push(TextSection::new(text, text_style.clone()));
     }
 }
