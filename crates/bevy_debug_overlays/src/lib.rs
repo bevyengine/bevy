@@ -120,6 +120,7 @@ fn draw_node_gpu_time_overlay(
             Some((_, label)) => label,
             None => label,
         };
+        let label = label.strip_suffix("Node").unwrap_or(label);
         let text = format!("{label}: {:.3}ms\n", *duration * 1000.0);
         ui.sections.push(TextSection::new(text, text_style.clone()));
     }
