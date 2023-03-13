@@ -41,7 +41,7 @@ fn main() {
     )
     .add_plugin(CameraControllerPlugin)
     .add_plugin(SceneViewerPlugin)
-    .add_startup_system(setup)
+    .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
 
     app.run();

@@ -43,7 +43,7 @@ fn main() {
                 bevy::window::close_on_esc,
             ),
         )
-        .add_startup_systems((setup_3d, setup_2d))
+        .add_systems(Startup, (setup_3d, setup_2d))
         .run();
 }
 

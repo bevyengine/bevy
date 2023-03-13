@@ -14,7 +14,7 @@ use bevy_app::prelude::*;
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(internal::setup_system)
+        app.add_systems(Startup, internal::setup_system)
             .add_systems(Update, internal::diagnostic_system);
     }
 }

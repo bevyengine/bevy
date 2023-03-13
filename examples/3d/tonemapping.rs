@@ -27,12 +27,15 @@ fn main() {
         .init_resource::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
         .insert_resource(SelectedParameter { value: 0, max: 4 })
-        .add_startup_systems((
-            setup,
-            setup_basic_scene,
-            setup_color_gradient_scene,
-            setup_image_viewer_scene,
-        ))
+        .add_systems(
+            Startup,
+            (
+                setup,
+                setup_basic_scene,
+                setup_color_gradient_scene,
+                setup_image_viewer_scene,
+            ),
+        )
         .add_systems(
             Update,
             (

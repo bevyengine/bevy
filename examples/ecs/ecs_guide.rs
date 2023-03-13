@@ -140,7 +140,7 @@ fn game_over_system(
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
 // "startup" system from a "normal" system is how it is registered:      Startup:
-// app.add_startup_system(startup_system)      Normal:  app.add_systems(Update, normal_system)
+// app.add_systems(Startup, startup_system)      Normal:  app.add_systems(Update, normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
@@ -261,7 +261,7 @@ fn main() {
         .add_plugin(ScheduleRunnerPlugin::default())
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
+        .add_systems(Startup, startup_system)
         .add_systems(Update, print_message_system)
         // SYSTEM EXECUTION ORDER
         //

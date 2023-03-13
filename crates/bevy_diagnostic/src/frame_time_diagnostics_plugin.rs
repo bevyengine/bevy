@@ -10,7 +10,7 @@ pub struct FrameTimeDiagnosticsPlugin;
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_startup_system(Self::setup_system)
+        app.add_systems(Startup, Self::setup_system)
             .add_systems(Update, Self::diagnostic_system);
     }
 }

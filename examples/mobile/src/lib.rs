@@ -12,7 +12,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_systems((setup_scene, setup_music))
+        .add_systems(Startup, (setup_scene, setup_music))
         .add_systems(Update, (touch_camera, button_handler))
         .run();
 }

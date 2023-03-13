@@ -441,8 +441,9 @@ impl App {
     /// }
     ///
     /// App::new()
-    ///     .add_startup_system(my_startup_system);
+    ///     .add_systems(Startup, my_startup_system);
     /// ```
+    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems(Startup, system)
     }
@@ -460,12 +461,13 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_systems((
+    /// app.add_systems(Startup, (
     ///     startup_system_a,
     ///     startup_system_b,
     ///     startup_system_c,
     /// ));
     /// ```
+    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems(Startup, systems.into_configs())
     }

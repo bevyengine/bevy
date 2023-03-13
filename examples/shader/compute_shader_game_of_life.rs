@@ -32,7 +32,7 @@ fn main() {
             ..default()
         }))
         .add_plugin(GameOfLifeComputePlugin)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 

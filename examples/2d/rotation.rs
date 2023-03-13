@@ -8,7 +8,7 @@ const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .add_systems(
             FixedUpdate,
             (

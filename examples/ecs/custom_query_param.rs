@@ -17,7 +17,7 @@ use std::fmt::Debug;
 
 fn main() {
     App::new()
-        .add_startup_system(spawn)
+        .add_systems(Startup, spawn)
         .add_systems(
             Update,
             (

@@ -17,7 +17,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .add_systems(Update, toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
         .run();
 }
