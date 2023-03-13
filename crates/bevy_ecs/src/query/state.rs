@@ -820,6 +820,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -832,9 +834,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
+        let this_run = world.change_tick();
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
