@@ -33,7 +33,7 @@ fn main() {
             setup_color_gradient_scene,
             setup_image_viewer_scene,
         ))
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 update_image_viewer,

@@ -9,8 +9,8 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems_to(Startup, setup_scene)
-        .add_systems_to(
+        .add_systems(Startup, setup_scene)
+        .add_systems(
             Update,
             (
                 toggle_ime,

@@ -40,8 +40,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems_to(Startup, setup)
-        .add_systems_to(
+        .add_systems(Startup, setup)
+        .add_systems(
             Update,
             (print_sprite_count, move_camera.after(print_sprite_count)),
         )

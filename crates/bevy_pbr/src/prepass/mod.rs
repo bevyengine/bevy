@@ -101,7 +101,7 @@ where
             };
 
         render_app
-            .add_systems_to(
+            .add_systems(
                 Main,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
@@ -132,8 +132,8 @@ where
         };
 
         render_app
-            .add_systems_to(ExtractSchedule, extract_camera_prepass_phase)
-            .add_systems_to(
+            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems(
                 Main,
                 (
                     prepare_prepass_textures

@@ -11,8 +11,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<ArrayTextureMaterial>::default())
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, create_array_texture)
+        .add_systems(Startup, setup)
+        .add_systems(Update, create_array_texture)
         .run();
 }
 

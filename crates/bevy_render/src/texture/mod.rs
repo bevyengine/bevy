@@ -115,7 +115,7 @@ impl Plugin for ImagePlugin {
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>()
-                .add_systems_to(Main, update_texture_cache_system.in_set(RenderSet::Cleanup));
+                .add_systems(Main, update_texture_cache_system.in_set(RenderSet::Cleanup));
         }
     }
 }

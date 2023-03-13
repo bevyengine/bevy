@@ -331,8 +331,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_systems_to(LoadAssets, update_asset_storage_system::<T>)
-            .add_systems_to(AssetEvents, Assets::<T>::asset_event_system)
+            .add_systems(LoadAssets, update_asset_storage_system::<T>)
+            .add_systems(AssetEvents, Assets::<T>::asset_event_system)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
@@ -360,7 +360,7 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_systems_to(
+            self.add_systems(
                 bevy_app::Update,
                 crate::debug_asset_server::sync_debug_assets::<T>,
             );

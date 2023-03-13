@@ -852,7 +852,7 @@ mod test {
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_systems_to(
+        app.add_systems(
             Update,
             (
                 free_unused_assets_system.in_set(FreeUnusedAssets),

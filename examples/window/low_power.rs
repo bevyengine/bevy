@@ -33,8 +33,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems_to(Startup, test_setup::setup)
-        .add_systems_to(
+        .add_systems(Startup, test_setup::setup)
+        .add_systems(
             Update,
             (
                 test_setup::cycle_modes,

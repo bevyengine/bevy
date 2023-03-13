@@ -11,7 +11,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<InputCounter>()
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 increment_input_counter

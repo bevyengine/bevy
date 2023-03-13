@@ -181,7 +181,7 @@ impl Plugin for PbrPlugin {
                     .before(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_plugin(FogPlugin)
-            .add_systems_to(
+            .add_systems(
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
@@ -246,14 +246,14 @@ impl Plugin for PbrPlugin {
             .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
             .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
             .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
-            .add_systems_to(
+            .add_systems(
                 ExtractSchedule,
                 (
                     render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
                     render::extract_lights.in_set(RenderLightSystems::ExtractLights),
                 ),
             )
-            .add_systems_to(
+            .add_systems(
                 Main,
                 (
                     render::prepare_lights

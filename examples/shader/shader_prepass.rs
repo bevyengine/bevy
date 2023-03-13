@@ -28,8 +28,8 @@ fn main() {
             prepass_enabled: false,
             ..default()
         })
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, (rotate, toggle_prepass_view))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (rotate, toggle_prepass_view))
         .run();
 }
 

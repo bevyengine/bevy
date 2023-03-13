@@ -212,12 +212,12 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems_to(
+            .add_systems(
                 PostUpdate,
                 apply_system_buffers.in_set(CalculateBoundsFlush),
             )
             .configure_set_in(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
-            .add_systems_to(
+            .add_systems(
                 PostUpdate,
                 (
                     calculate_bounds.in_set(CalculateBounds),
@@ -573,7 +573,7 @@ mod test {
     #[test]
     fn visibility_propagation_unconditional_visible() {
         let mut app = App::new();
-        app.add_system(visibility_propagate_system);
+        app.add_systems(Update, visibility_propagate_system);
 
         let root1 = app
             .world

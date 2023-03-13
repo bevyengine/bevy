@@ -15,7 +15,7 @@ fn main() {
             level: Level::TRACE,
             filter: "".to_string(),
         })
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 parse_message_system.pipe(handler_system),

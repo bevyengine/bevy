@@ -8,8 +8,8 @@ fn main() {
         .init_resource::<State>()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, (text_update_system, atlas_render_system))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (text_update_system, atlas_render_system))
         .run();
 }
 

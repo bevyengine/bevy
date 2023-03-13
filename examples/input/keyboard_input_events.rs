@@ -5,7 +5,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems_to(Update, print_keyboard_event_system)
+        .add_systems(Update, print_keyboard_event_system)
         .run();
 }
 

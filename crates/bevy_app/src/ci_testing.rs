@@ -47,7 +47,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     };
 
     app.insert_resource(config)
-        .add_systems_to(Update, ci_testing_exit_after);
+        .add_systems(Update, ci_testing_exit_after);
 
     app
 }

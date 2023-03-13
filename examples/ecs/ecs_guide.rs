@@ -140,7 +140,7 @@ fn game_over_system(
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
 // "startup" system from a "normal" system is how it is registered:      Startup:
-// app.add_startup_system(startup_system)      Normal:  app.add_systems_to(Update, normal_system)
+// app.add_startup_system(startup_system)      Normal:  app.add_systems(Update, normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
@@ -262,7 +262,7 @@ fn main() {
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_startup_system(startup_system)
-        .add_systems_to(Update, print_message_system)
+        .add_systems(Update, print_message_system)
         // SYSTEM EXECUTION ORDER
         //
         // Each system belongs to a `Schedule`, which controls the execution strategy and broad order
@@ -281,9 +281,9 @@ fn main() {
         // add_system(system) adds systems to the Update system set by default
         // However we can manually specify the set if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_systems_to(Update, score_system.in_set(MySet::Round))
+        .add_systems(Update, score_system.in_set(MySet::Round))
         // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
-        .add_systems_to(Last, print_at_end_round)
+        .add_systems(Last, print_at_end_round)
         // We can also create new system sets, and order them relative to other system sets.
         // Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
@@ -291,16 +291,16 @@ fn main() {
         // "after_round": score_check_system, game_over_system
         .configure_set(MySet::BeforeRound.before(MySet::Round))
         .configure_set(MySet::AfterRound.after(MySet::Round))
-        .add_systems_to(Update, new_round_system.in_set(MySet::BeforeRound))
-        .add_systems_to(
+        .add_systems(Update, new_round_system.in_set(MySet::BeforeRound))
+        .add_systems(
             Update,
             new_player_system
                 .after(new_round_system)
                 .in_set(MySet::BeforeRound),
         )
-        .add_systems_to(Update, exclusive_player_system.in_set(MySet::BeforeRound))
-        .add_systems_to(Update, score_check_system.in_set(MySet::AfterRound))
-        .add_systems_to(
+        .add_systems(Update, exclusive_player_system.in_set(MySet::BeforeRound))
+        .add_systems(Update, score_check_system.in_set(MySet::AfterRound))
+        .add_systems(
             Update,
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
             // To do this we use either `.before` or `.after` to describe the order we want the relationship

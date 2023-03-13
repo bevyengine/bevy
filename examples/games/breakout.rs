@@ -58,7 +58,7 @@ fn main() {
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
         // Add our gameplay simulation systems to the fixed timestep schedule
-        .add_systems_to(
+        .add_systems(
             FixedUpdate,
             (
                 check_for_collisions,
@@ -71,8 +71,8 @@ fn main() {
         )
         // Configure how frequently our gameplay systems are run
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .add_systems_to(Update, update_scoreboard)
-        .add_systems_to(Update, bevy::window::close_on_esc)
+        .add_systems(Update, update_scoreboard)
+        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 

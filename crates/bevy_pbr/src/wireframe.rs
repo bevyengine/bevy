@@ -47,7 +47,7 @@ impl Plugin for WireframePlugin {
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_systems_to(Main, queue_wireframes.in_set(RenderSet::Queue));
+                .add_systems(Main, queue_wireframes.in_set(RenderSet::Queue));
         }
     }
 }

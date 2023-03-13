@@ -43,9 +43,9 @@ fn main() {
             count: 0,
             color: Color::WHITE,
         })
-        .add_systems_to(Startup, setup)
-        .add_systems_to(FixedUpdate, scheduled_spawner)
-        .add_systems_to(
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, scheduled_spawner)
+        .add_systems(
             Update,
             (
                 mouse_handler,

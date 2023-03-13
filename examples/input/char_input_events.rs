@@ -5,7 +5,7 @@ use bevy::{prelude::*, window::ReceivedCharacter};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems_to(Update, print_char_event_system)
+        .add_systems(Update, print_char_event_system)
         .run();
 }
 

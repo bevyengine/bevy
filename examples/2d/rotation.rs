@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_systems_to(
+        .add_systems(
             FixedUpdate,
             (
                 player_movement_system,
@@ -18,7 +18,7 @@ fn main() {
             ),
         )
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .add_systems_to(Update, bevy::window::close_on_esc)
+        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 

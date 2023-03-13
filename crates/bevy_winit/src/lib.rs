@@ -75,7 +75,7 @@ impl Plugin for WinitPlugin {
             .set_runner(winit_runner)
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
-            .add_systems_to(
+            .add_systems(
                 Last,
                 (
                     changed_window.ambiguous_with(exit_on_all_closed),

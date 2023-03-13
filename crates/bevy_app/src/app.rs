@@ -47,7 +47,7 @@ pub(crate) enum AppError {
 /// #
 /// fn main() {
 ///    App::new()
-///        .add_systems_to(Update, hello_world_system)
+///        .add_systems(Update, hello_world_system)
 ///        .run();
 /// }
 ///
@@ -121,7 +121,7 @@ impl Debug for App {
 ///
 /// // initialize main schedule
 /// sub_app.init_schedule(CoreSchedule::Main);
-/// sub_app.add_systems_to(Update, |counter: Res<Val>| {
+/// sub_app.add_systems(Update, |counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
@@ -378,7 +378,7 @@ impl App {
     /// # fn my_system() {}
     /// # let mut app = App::new();
     /// #
-    /// app.add_systems_to(Update, my_system);
+    /// app.add_systems(Update, my_system);
     /// ```
     #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
@@ -394,40 +394,7 @@ impl App {
         self
     }
 
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
-    ///
-    /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
-    /// can be defined.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # fn my_system() {}
-    /// # let mut app = App::new();
-    /// #
-    /// app.add_systems_to(Update, my_system);
-    /// ```
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
-    pub fn add_system_to<M>(
-        &mut self,
-        schedule: impl ScheduleLabel,
-        system: impl IntoSystemConfigs<M>,
-    ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(&schedule) {
-            schedule.add_systems(system);
-        } else {
-            panic!("Schedule {schedule:?} does not exist.")
-        }
-
-        self
-    }
-
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
+    /// Adds a system to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
     ///
@@ -440,34 +407,9 @@ impl App {
     /// # fn system_b() {}
     /// # fn system_c() {}
     /// #
-    /// app.add_systems_to(Update, (system_a, system_b, system_c));
+    /// app.add_systems(Update, (system_a, system_b, system_c));
     /// ```
-    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        let label = &*self.default_schedule_label;
-        let schedule = schedules
-            .get_mut(label)
-            .unwrap_or_else(|| panic!("Default schedule '{label:?}' does not exist."));
-        schedule.add_systems(systems);
-        self
-    }
-
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn system_a() {}
-    /// # fn system_b() {}
-    /// # fn system_c() {}
-    /// #
-    /// app.add_systems_to(Update, (system_a, system_b, system_c));
-    /// ```
-    pub fn add_systems_to<M>(
+    pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
@@ -502,7 +444,7 @@ impl App {
     ///     .add_startup_system(my_startup_system);
     /// ```
     pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems_to(Startup, system)
+        self.add_systems(Startup, system)
     }
 
     /// Adds a collection of systems to [`CoreSchedule::Startup`].
@@ -525,7 +467,7 @@ impl App {
     /// ));
     /// ```
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems_to(Startup, systems.into_configs())
+        self.add_systems(Startup, systems.into_configs())
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
@@ -586,7 +528,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_systems_to(First, Events::<T>::update_system);
+                .add_systems(First, Events::<T>::update_system);
         }
         self
     }
@@ -1095,7 +1037,7 @@ mod tests {
     #[test]
     fn add_system_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.add_systems_to(OnEnter(AppState::MainMenu), foo)
+        app.add_systems(OnEnter(AppState::MainMenu), foo)
             .add_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
@@ -1106,7 +1048,7 @@ mod tests {
     fn add_system_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
         app.add_state::<AppState>()
-            .add_systems_to(OnEnter(AppState::MainMenu), foo);
+            .add_systems(OnEnter(AppState::MainMenu), foo);
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 1);
@@ -1116,7 +1058,7 @@ mod tests {
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
         app.add_state::<AppState>()
-            .add_systems_to(OnEnter(AppState::MainMenu), (foo, bar));
+            .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
@@ -1125,7 +1067,7 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
-        app.add_systems_to(OnEnter(AppState::MainMenu), (foo, bar))
+        app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
             .add_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));

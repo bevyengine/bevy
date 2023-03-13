@@ -65,7 +65,7 @@ impl Plugin for BloomPlugin {
             .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
-            .add_systems_to(
+            .add_systems(
                 Main,
                 (
                     prepare_bloom_textures.in_set(RenderSet::Prepare),

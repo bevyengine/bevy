@@ -35,7 +35,7 @@ fn main() {
             }),
         )
         .insert_resource(Phase::ContractingY)
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 change_window_size,

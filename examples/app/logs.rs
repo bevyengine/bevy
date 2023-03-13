@@ -10,7 +10,7 @@ fn main() {
             // filter: "wgpu=warn,bevy_ecs=info".to_string(),
             ..default()
         }))
-        .add_systems_to(Update, log_system)
+        .add_systems(Update, log_system)
         .run();
 }
 

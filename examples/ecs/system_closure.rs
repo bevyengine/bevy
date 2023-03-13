@@ -27,15 +27,15 @@ fn main() {
     App::new()
         .add_plugin(LogPlugin::default())
         // we can use a closure as a system
-        .add_systems_to(Update, simple_closure)
+        .add_systems(Update, simple_closure)
         // or we can use a more complex closure, and pass an argument to initialize a Local variable.
-        .add_systems_to(Update, complex_closure("foo".into()))
+        .add_systems(Update, complex_closure("foo".into()))
         // we can also inline a closure
-        .add_systems_to(Update, || {
+        .add_systems(Update, || {
             info!("Hello from an inlined closure!");
         })
         // or use variables outside a closure
-        .add_systems_to(Update, move || {
+        .add_systems(Update, move || {
             info!(
                 "Hello from an inlined closure that captured the 'outside_variable'! {:?}",
                 outside_variable

@@ -57,11 +57,11 @@ pub struct SceneViewerPlugin;
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraTracker>()
-            .add_systems_to(PreUpdate, scene_load_check)
-            .add_systems_to(Update, (update_lights, camera_tracker));
+            .add_systems(PreUpdate, scene_load_check)
+            .add_systems(Update, (update_lights, camera_tracker));
 
         #[cfg(feature = "animation")]
-        app.add_systems_to(Update, (start_animation, keyboard_animation_control));
+        app.add_systems(Update, (start_animation, keyboard_animation_control));
     }
 }
 

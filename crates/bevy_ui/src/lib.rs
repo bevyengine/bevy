@@ -104,13 +104,13 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
-            .add_systems_to(
+            .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
-        app.add_systems_to(
+        app.add_systems(
             PostUpdate,
             widget::text_system
                 .before(UiSystem::Flex)
@@ -126,7 +126,7 @@ impl Plugin for UiPlugin {
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
-        app.add_systems_to(PostUpdate, {
+        app.add_systems(PostUpdate, {
             let system = widget::update_image_calculated_size_system.before(UiSystem::Flex);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
@@ -139,7 +139,7 @@ impl Plugin for UiPlugin {
 
             system
         })
-        .add_systems_to(
+        .add_systems(
             PostUpdate,
             (
                 flex_node_system

@@ -20,7 +20,7 @@ impl Plugin for MsaaWritebackPlugin {
             return
         };
 
-        render_app.add_systems_to(
+        render_app.add_systems(
             Main,
             queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
         );

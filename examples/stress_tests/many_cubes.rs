@@ -30,8 +30,8 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, (move_camera, print_mesh_count))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, print_mesh_count))
         .run();
 }
 

@@ -15,8 +15,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Timers>()
-        .add_systems_to(Startup, setup)
-        .add_systems_to(
+        .add_systems(Startup, setup)
+        .add_systems(
             Update,
             (
                 despawn_old_and_spawn_new_fruits.before(CustomFlush),

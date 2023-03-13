@@ -199,8 +199,8 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems_to(ExtractSchedule, extract_materials::<M>)
-                .add_systems_to(
+                .add_systems(ExtractSchedule, extract_materials::<M>)
+                .add_systems(
                     Main,
                     (
                         prepare_materials::<M>

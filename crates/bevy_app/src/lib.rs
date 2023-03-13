@@ -64,6 +64,7 @@ pub struct PreUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
+/// Runs the [`FixedUpdate`] schedule in a loop according until all relevant elapsed time has been "consumed".
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdateLoop;
 
@@ -85,6 +86,8 @@ pub struct PostUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
 
+/// Defines the schedules to be run for the [`Main`] schedule, including
+/// their order.
 #[derive(Resource, Debug)]
 pub struct MainScheduleOrder {
     labels: Vec<Box<dyn ScheduleLabel>>,
@@ -107,6 +110,7 @@ impl Default for MainScheduleOrder {
 }
 
 impl MainScheduleOrder {
+    /// Adds the given `schedule` after the `after` schedule
     pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
         let index = self
             .labels
@@ -118,6 +122,7 @@ impl MainScheduleOrder {
 }
 
 impl Main {
+    /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
             world.run_schedule(PreStartup);
@@ -172,6 +177,6 @@ impl Main {
             .init_schedule(PostUpdate)
             .init_schedule(Last)
             .init_resource::<MainScheduleOrder>()
-            .add_systems_to(Main, Self::run_main);
+            .add_systems(Main, Self::run_main);
     }
 }

@@ -24,9 +24,9 @@ fn main() {
         )))
         .add_plugins(DefaultPlugins)
         .add_state::<GameState>()
-        .add_systems_to(Startup, setup_cameras)
-        .add_systems_to(OnEnter(GameState::Playing), setup)
-        .add_systems_to(
+        .add_systems(Startup, setup_cameras)
+        .add_systems(OnEnter(GameState::Playing), setup)
+        .add_systems(
             Update,
             (
                 move_player,
@@ -37,16 +37,16 @@ fn main() {
             )
                 .in_set(OnUpdate(GameState::Playing)),
         )
-        .add_systems_to(OnExit(GameState::GameOver), teardown)
-        .add_systems_to(OnEnter(GameState::GameOver), display_score)
-        .add_systems_to(
+        .add_systems(OnExit(GameState::GameOver), teardown)
+        .add_systems(OnEnter(GameState::GameOver), display_score)
+        .add_systems(
             Update,
             (
                 gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
                 bevy::window::close_on_esc,
             ),
         )
-        .add_systems_to(OnExit(GameState::Playing), teardown)
+        .add_systems(OnExit(GameState::Playing), teardown)
         .run();
 }
 

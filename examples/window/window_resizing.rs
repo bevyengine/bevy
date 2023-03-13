@@ -10,7 +10,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_startup_systems((setup_camera, setup_ui))
-        .add_systems_to(Update, (on_resize_system, toggle_resolution))
+        .add_systems(Update, (on_resize_system, toggle_resolution))
         .run();
 }
 

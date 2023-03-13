@@ -28,7 +28,7 @@ fn main() {
         })
         .init_resource::<A>()
         .init_resource::<B>()
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 // This pair of systems has an ambiguous order,

@@ -163,7 +163,7 @@ impl Plugin for AccessibilityPlugin {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
-            .add_systems_to(
+            .add_systems(
                 Update,
                 (
                     handle_window_focus,

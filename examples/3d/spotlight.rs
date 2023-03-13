@@ -12,8 +12,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, (light_sway, movement))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (light_sway, movement))
         .run();
 }
 

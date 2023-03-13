@@ -146,7 +146,7 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems_to(
+        app.add_systems(
             Update,
             (calc_bounds, button_changed, image_changed, label_changed),
         );

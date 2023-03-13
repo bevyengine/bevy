@@ -24,7 +24,7 @@ fn main() {
         }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 change_title,

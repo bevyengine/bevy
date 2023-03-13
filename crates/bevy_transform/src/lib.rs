@@ -100,7 +100,7 @@ impl Plugin for TransformPlugin {
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             .configure_set(PropagateTransformsSet.in_set(TransformSystem::TransformPropagate))
             // add transform systems to startup so the first update is "correct"
-            .add_systems_to(
+            .add_systems(
                 PostStartup,
                 (
                     sync_simple_transforms
@@ -112,7 +112,7 @@ impl Plugin for TransformPlugin {
                     propagate_transforms.in_set(PropagateTransformsSet),
                 ),
             )
-            .add_systems_to(
+            .add_systems(
                 PostUpdate,
                 (
                     sync_simple_transforms

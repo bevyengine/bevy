@@ -76,7 +76,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_systems_to(
+        .add_systems(
             ExtractSchedule,
             (
                 extract_default_ui_camera_view::<Camera2d>,
@@ -86,7 +86,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
         )
-        .add_systems_to(
+        .add_systems(
             Main,
             (
                 prepare_uinodes.in_set(RenderSet::Prepare),

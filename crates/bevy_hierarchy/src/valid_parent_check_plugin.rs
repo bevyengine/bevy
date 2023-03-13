@@ -96,11 +96,10 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ReportHierarchyIssue<T>>()
-            .add_systems_to(
-                Last,
-                check_hierarchy_component_has_valid_parent::<T>
-                    .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true))),
-            );
+        app.init_resource::<ReportHierarchyIssue<T>>().add_systems(
+            Last,
+            check_hierarchy_component_has_valid_parent::<T>
+                .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true))),
+        );
     }
 }

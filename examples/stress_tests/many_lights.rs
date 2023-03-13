@@ -26,8 +26,8 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, (move_camera, print_light_count))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, print_light_count))
         .add_plugin(LogVisibleLights)
         .run();
 }
@@ -155,7 +155,7 @@ impl Plugin for LogVisibleLights {
             Err(_) => return,
         };
 
-        render_app.add_systems_to(Update, print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app.add_systems(Update, print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 

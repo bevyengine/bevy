@@ -8,8 +8,8 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.9)))
         .add_plugins(DefaultPlugins)
-        .add_systems_to(Startup, setup)
-        .add_systems_to(Update, change_clear_color)
+        .add_systems(Startup, setup)
+        .add_systems(Update, change_clear_color)
         .run();
 }
 

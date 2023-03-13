@@ -42,8 +42,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
-        .add_systems_to(Startup, setup_system)
-        .add_systems_to(
+        .add_systems(Startup, setup_system)
+        .add_systems(
             Update,
             (
                 print_text_system,
@@ -52,8 +52,8 @@ fn main() {
         )
         // Cleanup systems.
         // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
-        .add_systems_to(OnExit(AppState::MainMenu), cleanup_system::<MenuClose>)
-        .add_systems_to(OnExit(AppState::InGame), cleanup_system::<LevelUnload>)
+        .add_systems(OnExit(AppState::MainMenu), cleanup_system::<MenuClose>)
+        .add_systems(OnExit(AppState::InGame), cleanup_system::<LevelUnload>)
         .run();
 }
 

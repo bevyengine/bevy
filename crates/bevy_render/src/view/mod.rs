@@ -56,7 +56,7 @@ impl Plugin for ViewPlugin {
             render_app
                 .init_resource::<ViewUniforms>()
                 .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
-                .add_systems_to(
+                .add_systems(
                     Main,
                     (
                         prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),

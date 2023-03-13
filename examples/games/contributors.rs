@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_systems((setup_contributor_selection, setup))
-        .add_systems_to(
+        .add_systems(
             Update,
             (
                 velocity_system,
