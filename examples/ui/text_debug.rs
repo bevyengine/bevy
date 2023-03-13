@@ -17,7 +17,7 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_systems_to(Startup, infotext_system)
-        .add_systems(change_text_system)
+        .add_systems_to(Update, change_text_system)
         .run();
 }
 

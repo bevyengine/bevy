@@ -47,7 +47,7 @@ pub(crate) enum AppError {
 /// #
 /// fn main() {
 ///    App::new()
-///        .add_systems(hello_world_system)
+///        .add_systems_to(Update, hello_world_system)
 ///        .run();
 /// }
 ///
@@ -121,7 +121,7 @@ impl Debug for App {
 ///
 /// // initialize main schedule
 /// sub_app.init_schedule(CoreSchedule::Main);
-/// sub_app.add_systems(|counter: Res<Val>| {
+/// sub_app.add_systems_to(Update, |counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
@@ -378,7 +378,7 @@ impl App {
     /// # fn my_system() {}
     /// # let mut app = App::new();
     /// #
-    /// app.add_systems(my_system);
+    /// app.add_systems_to(Update, my_system);
     /// ```
     #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
@@ -408,7 +408,7 @@ impl App {
     /// # fn my_system() {}
     /// # let mut app = App::new();
     /// #
-    /// app.add_systems(my_system);
+    /// app.add_systems_to(Update, my_system);
     /// ```
     #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_system_to<M>(
@@ -440,7 +440,7 @@ impl App {
     /// # fn system_b() {}
     /// # fn system_c() {}
     /// #
-    /// app.add_systems((system_a, system_b, system_c));
+    /// app.add_systems_to(Update, (system_a, system_b, system_c));
     /// ```
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
@@ -465,7 +465,7 @@ impl App {
     /// # fn system_b() {}
     /// # fn system_c() {}
     /// #
-    /// app.add_systems((system_a, system_b, system_c));
+    /// app.add_systems_to(Update, (system_a, system_b, system_c));
     /// ```
     pub fn add_systems_to<M>(
         &mut self,

@@ -21,7 +21,7 @@ fn main() {
             ..default()
         })
         .add_systems_to(Startup, setup)
-        .add_systems(joint_animation)
+        .add_systems_to(Update, joint_animation)
         .run();
 }
 

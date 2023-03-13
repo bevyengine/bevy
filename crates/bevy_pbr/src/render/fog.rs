@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Main, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
@@ -142,7 +142,7 @@ impl Plugin for FogPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<FogMeta>()
-                .add_systems(prepare_fog.in_set(RenderFogSystems::PrepareFog))
+                .add_systems_to(Main, prepare_fog.in_set(RenderFogSystems::PrepareFog))
                 .configure_set(RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare));
         }
     }

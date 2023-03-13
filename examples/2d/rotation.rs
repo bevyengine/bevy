@@ -18,7 +18,7 @@ fn main() {
             ),
         )
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .add_systems(bevy::window::close_on_esc)
+        .add_systems_to(Update, bevy::window::close_on_esc)
         .run();
 }
 

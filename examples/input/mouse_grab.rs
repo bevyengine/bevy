@@ -5,7 +5,7 @@ use bevy::{prelude::*, window::CursorGrabMode};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(grab_mouse)
+        .add_systems_to(Update, grab_mouse)
         .run();
 }
 

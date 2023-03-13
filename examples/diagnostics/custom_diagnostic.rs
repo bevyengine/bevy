@@ -12,7 +12,7 @@ fn main() {
         // It just visualizes our diagnostics in the console.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_systems_to(Startup, setup_diagnostic_system)
-        .add_systems(my_system)
+        .add_systems_to(Update, my_system)
         .run();
 }
 

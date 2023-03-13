@@ -42,7 +42,7 @@ fn main() {
         .add_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()
         .add_systems_to(Startup, setup)
-        .add_systems(print_on_load)
+        .add_systems_to(Update, print_on_load)
         .run();
 }
 

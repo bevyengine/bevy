@@ -91,7 +91,7 @@ pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(camera_controller);
+        app.add_systems_to(Update, camera_controller);
     }
 }
 

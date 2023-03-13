@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Main, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
@@ -34,7 +34,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_non_send_resource::<NonSendMarker>()
                 .add_systems_to(ExtractSchedule, extract_windows)
                 .configure_set(WindowSystem::Prepare.in_set(RenderSet::Prepare))
-                .add_systems(prepare_windows.in_set(WindowSystem::Prepare));
+                .add_systems_to(Main, prepare_windows.in_set(WindowSystem::Prepare));
         }
     }
 }

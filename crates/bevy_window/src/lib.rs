@@ -102,7 +102,7 @@ impl Plugin for WindowPlugin {
 
         if self.close_when_requested {
             // Need to run before `exit_on_*` systems
-            app.add_systems(close_when_requested);
+            app.add_systems_to(Update, close_when_requested);
         }
 
         // Register event types

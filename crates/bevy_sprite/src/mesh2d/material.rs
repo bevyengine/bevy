@@ -162,12 +162,15 @@ where
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .add_systems_to(ExtractSchedule, extract_materials_2d::<M>)
-                .add_systems((
-                    prepare_materials_2d::<M>
-                        .in_set(RenderSet::Prepare)
-                        .after(PrepareAssetSet::PreAssetPrepare),
-                    queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
-                ));
+                .add_systems_to(
+                    Main,
+                    (
+                        prepare_materials_2d::<M>
+                            .in_set(RenderSet::Prepare)
+                            .after(PrepareAssetSet::PreAssetPrepare),
+                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
+                    ),
+                );
         }
     }
 }

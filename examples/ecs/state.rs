@@ -18,7 +18,7 @@ fn main() {
         .add_systems_to(OnEnter(AppState::Menu), setup_menu)
         // By contrast, on_update systems are stored in the main schedule, during CoreSet::Update,
         // and simply check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems(menu.in_set(OnUpdate(AppState::Menu)))
+        .add_systems_to(Update, menu.in_set(OnUpdate(AppState::Menu)))
         .add_systems_to(OnExit(AppState::Menu), cleanup_menu)
         .add_systems_to(OnEnter(AppState::InGame), setup_game)
         .add_systems_to(

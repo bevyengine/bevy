@@ -22,7 +22,7 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .init_resource::<UiFont>()
         .add_systems_to(Startup, setup)
-        .add_systems(button_system)
+        .add_systems_to(Update, button_system)
         .run();
 }
 

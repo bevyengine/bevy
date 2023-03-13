@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems_to(Startup, setup)
-        .add_systems(rotate)
+        .add_systems_to(Update, rotate)
         .run();
 }
 

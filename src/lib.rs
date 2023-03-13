@@ -17,7 +17,7 @@
 //!
 //! fn main() {
 //!    App::new()
-//!        .add_systems(hello_world_system)
+//!        .add_systems_to(Update, hello_world_system)
 //!        .run();
 //! }
 //!

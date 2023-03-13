@@ -62,7 +62,7 @@ mod splash {
                 // When entering the state, spawn everything needed for this screen
                 .add_systems_to(OnEnter(GameState::Splash), splash_setup)
                 // While in this state, run the `countdown` system
-                .add_systems(countdown.in_set(OnUpdate(GameState::Splash)))
+                .add_systems_to(Update, countdown.in_set(OnUpdate(GameState::Splash)))
                 // When exiting the state, despawn everything that was spawned for this screen
                 .add_systems_to(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
         }
@@ -131,7 +131,7 @@ mod game {
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
             app.add_systems_to(OnEnter(GameState::Game), game_setup)
-                .add_systems(game.in_set(OnUpdate(GameState::Game)))
+                .add_systems_to(Update, game.in_set(OnUpdate(GameState::Game)))
                 .add_systems_to(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
@@ -293,7 +293,10 @@ mod menu {
                 )
                 // Systems to handle the sound settings screen
                 .add_systems_to(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
-                .add_systems(setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)))
+                .add_systems_to(
+                    Update,
+                    setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)),
+                )
                 .add_systems_to(
                     OnExit(MenuState::SettingsSound),
                     despawn_screen::<OnSoundSettingsMenuScreen>,

@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems_to(Startup, setup)
-        .add_systems(sprite_movement)
+        .add_systems_to(Update, sprite_movement)
         .run();
 }
 

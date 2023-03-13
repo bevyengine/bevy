@@ -23,7 +23,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_systems((setup_camera_fog, setup_pyramid_scene, setup_instructions))
-        .add_systems(update_system)
+        .add_systems_to(Update, update_system)
         .run();
 }
 

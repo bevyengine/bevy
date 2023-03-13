@@ -9,7 +9,7 @@ fn main() {
         .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_systems(fade_transparency)
+        .add_systems_to(Update, fade_transparency)
         .run();
 }
 

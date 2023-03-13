@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
         .add_systems_to(Startup, setup)
-        .add_systems(rotate_camera)
+        .add_systems_to(Update, rotate_camera)
         .run();
 }
 

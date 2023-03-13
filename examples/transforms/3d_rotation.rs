@@ -14,7 +14,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_systems(rotate_cube)
+        .add_systems_to(Update, rotate_cube)
         .run();
 }
 

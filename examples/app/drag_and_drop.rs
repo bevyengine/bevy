@@ -5,7 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(file_drag_and_drop_system)
+        .add_systems_to(Update, file_drag_and_drop_system)
         .run();
 }
 

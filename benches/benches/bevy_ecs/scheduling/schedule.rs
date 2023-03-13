@@ -47,7 +47,7 @@ pub fn schedule(c: &mut Criterion) {
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
         let mut schedule = Schedule::new();
-        schedule.add_systems((ab, cd, ce));
+        schedule.add_systems_to(Update, (ab, cd, ce));
         schedule.run(&mut world);
 
         b.iter(move || schedule.run(&mut world));
@@ -93,7 +93,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_systems(empty_system.in_set(DummySet));
+                app.add_systems_to(Update, empty_system.in_set(DummySet));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
@@ -105,7 +105,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                     for label in &labels[i + 1..graph_size] {
                         sys = sys.before(*label);
                     }
-                    app.add_systems(sys);
+                    app.add_systems_to(Update, sys);
                 }
                 // Run the app for a single frame.
                 // This is necessary since dependency resolution does not occur until the game runs.

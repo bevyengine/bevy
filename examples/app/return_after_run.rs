@@ -27,7 +27,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems(system)
+        .add_systems_to(Update, system)
         .run();
     println!("Bevy App has exited. We are back in our main function.");
 }

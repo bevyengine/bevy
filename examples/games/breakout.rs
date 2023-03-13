@@ -71,8 +71,8 @@ fn main() {
         )
         // Configure how frequently our gameplay systems are run
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .add_systems(update_scoreboard)
-        .add_systems(bevy::window::close_on_esc)
+        .add_systems_to(Update, update_scoreboard)
+        .add_systems_to(Update, bevy::window::close_on_esc)
         .run();
 }
 

@@ -360,9 +360,9 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_systems(
-                crate::debug_asset_server::sync_debug_assets::<T>
-                    .in_base_set(bevy_app::CoreSet::Update),
+            self.add_systems_to(
+                bevy_app::Update,
+                crate::debug_asset_server::sync_debug_assets::<T>,
             );
             let mut app = self
                 .world

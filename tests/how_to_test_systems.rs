@@ -120,7 +120,7 @@ fn spawn_enemy_using_input_resource() {
     let mut app = App::new();
 
     // Add our systems
-    app.add_systems(spawn_enemy);
+    app.add_systems_to(Update, spawn_enemy);
 
     // Setup test resource
     let mut input = Input::<KeyCode>::default();
@@ -155,7 +155,7 @@ fn update_score_on_event() {
     app.add_event::<EnemyDied>();
 
     // Add our systems
-    app.add_systems(update_score);
+    app.add_systems_to(Update, update_score);
 
     // Send an `EnemyDied` event
     app.world

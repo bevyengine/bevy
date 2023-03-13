@@ -4,7 +4,7 @@ use crate::{
     view::ComputedVisibility,
     Extract, ExtractSchedule, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Main, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -83,7 +83,10 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
-                .add_systems(prepare_uniform_components::<C>.in_set(RenderSet::Prepare));
+                .add_systems_to(
+                    Main,
+                    prepare_uniform_components::<C>.in_set(RenderSet::Prepare),
+                );
         }
     }
 }

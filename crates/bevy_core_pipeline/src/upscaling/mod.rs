@@ -14,7 +14,10 @@ pub struct UpscalingPlugin;
 impl Plugin for UpscalingPlugin {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(queue_view_upscaling_pipelines.in_set(RenderSet::Queue));
+            render_app.add_systems_to(
+                Main,
+                queue_view_upscaling_pipelines.in_set(RenderSet::Queue),
+            );
         }
     }
 }
