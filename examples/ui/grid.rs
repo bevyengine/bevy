@@ -207,22 +207,12 @@ fn item_rect(builder: &mut ChildBuilder, color: Color) {
 }
 
 fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
-    builder
-        .spawn(NodeBundle {
-            style: Style {
-                min_size: Size::width(Val::Px(0.)),
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                text,
-                TextStyle {
-                    font,
-                    font_size: 24.0,
-                    color: Color::BLACK,
-                },
-            ));
-        });
+    builder.spawn(TextBundle::from_section(
+        text,
+        TextStyle {
+            font,
+            font_size: 24.0,
+            color: Color::BLACK,
+        },
+    ));
 }
