@@ -34,7 +34,7 @@ impl Plugin for DebugOverlaysPlugin {
             .add_startup_system(setup_ui)
             .add_systems(
                 (
-                    aggregate_gpu_timers.run_if(on_timer(Duration::from_secs(1))),
+                    aggregate_gpu_timers.run_if(on_timer(Duration::from_millis(300))),
                     draw_node_gpu_time_overlay,
                 )
                     .chain(),
