@@ -266,8 +266,8 @@ fn main() {
         // SYSTEM EXECUTION ORDER
         //
         // Each system belongs to a `Schedule`, which controls the execution strategy and broad order
-        // of the systems within each tick. The [`CoreSchedule::Startup`] schedule holds
-        // startup systems, which are run a single time before the [`CoreSchedule::Main`] runs.
+        // of the systems within each tick. The `Startup` schedule holds
+        // startup systems, which are run a single time before `Main` runs.
         //
         // By default, all systems run in parallel, except when they require mutable access to a
         // piece of data. This is efficient, but sometimes order matters.
@@ -289,8 +289,8 @@ fn main() {
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .configure_set(MySet::BeforeRound.before(MySet::Round))
-        .configure_set(MySet::AfterRound.after(MySet::Round))
+        .configure_set(Update, MySet::BeforeRound.before(MySet::Round))
+        .configure_set(Update, MySet::AfterRound.after(MySet::Round))
         .add_systems(Update, new_round_system.in_set(MySet::BeforeRound))
         .add_systems(
             Update,

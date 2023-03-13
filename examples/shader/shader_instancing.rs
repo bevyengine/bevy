@@ -19,7 +19,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         view::{ExtractedView, NoFrustumCulling},
-        RenderApp, RenderSet,
+        Render, RenderApp, RenderSet,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -86,7 +86,7 @@ impl Plugin for CustomMaterialPlugin {
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_systems(
-                Main,
+                Render,
                 (
                     queue_custom.in_set(RenderSet::Queue),
                     prepare_instance_buffers.in_set(RenderSet::Prepare),

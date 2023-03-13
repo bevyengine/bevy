@@ -21,7 +21,7 @@ use bevy::{
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
@@ -284,7 +284,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_systems(ExtractSchedule, extract_colored_mesh2d)
-            .add_systems(Main, queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::Queue));
     }
 }
 

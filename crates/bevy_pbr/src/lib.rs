@@ -55,7 +55,7 @@ use bevy_render::{
     render_phase::sort_phase_system,
     render_resource::Shader,
     view::{ViewSet, VisibilitySystems},
-    ExtractSchedule, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -174,7 +174,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .configure_set_in(
+            .configure_set(
                 PostUpdate,
                 SimulationLightSystems::AddClustersFlush
                     .after(SimulationLightSystems::AddClusters)
@@ -243,9 +243,14 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
+            .configure_sets(
+                Render,
+                (
+                    RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare),
+                    RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare),
+                    RenderLightSystems::QueueShadows.in_set(RenderSet::Queue),
+                ),
+            )
             .add_systems(
                 ExtractSchedule,
                 (
@@ -254,7 +259,7 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .add_systems(
-                Main,
+                Render,
                 (
                     render::prepare_lights
                         .before(ViewSet::PrepareUniforms)

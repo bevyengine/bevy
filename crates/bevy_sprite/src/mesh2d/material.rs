@@ -1,4 +1,4 @@
-use bevy_app::{App, Main, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -163,7 +163,7 @@ where
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .add_systems(ExtractSchedule, extract_materials_2d::<M>)
                 .add_systems(
-                    Main,
+                    Render,
                     (
                         prepare_materials_2d::<M>
                             .in_set(RenderSet::Prepare)

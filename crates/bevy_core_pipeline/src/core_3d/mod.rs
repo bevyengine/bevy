@@ -23,7 +23,7 @@ use std::cmp::Reverse;
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;
 
-use bevy_app::{App, Main, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -41,7 +41,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{FloatOrd, HashMap};
 
@@ -70,7 +70,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(
-                Main,
+                Render,
                 (
                     prepare_core_3d_depth_textures
                         .in_set(RenderSet::Prepare)

@@ -1,4 +1,4 @@
-use bevy_app::{Main, Plugin};
+use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -38,7 +38,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
@@ -102,7 +102,7 @@ where
 
         render_app
             .add_systems(
-                Main,
+                Render,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
             .init_resource::<PrepassPipeline<M>>()
@@ -134,7 +134,7 @@ where
         render_app
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
-                Main,
+                Render,
                 (
                     prepare_prepass_textures
                         .in_set(RenderSet::Prepare)

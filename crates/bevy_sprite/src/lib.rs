@@ -34,7 +34,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    ExtractSchedule, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 #[derive(Default)]
@@ -78,7 +78,7 @@ impl Plugin for SpritePlugin {
                     ),
                 )
                 .add_systems(
-                    Main,
+                    Render,
                     queue_sprites
                         .in_set(RenderSet::Queue)
                         .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),

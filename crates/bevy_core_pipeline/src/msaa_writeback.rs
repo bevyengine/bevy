@@ -1,12 +1,12 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
-use bevy_app::{App, Main, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    RenderSet,
+    Render, RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
 
@@ -21,7 +21,7 @@ impl Plugin for MsaaWritebackPlugin {
         };
 
         render_app.add_systems(
-            Main,
+            Render,
             queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
         );
         let msaa_writeback_2d = MsaaWritebackNode::new(&mut render_app.world);

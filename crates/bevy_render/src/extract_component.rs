@@ -2,9 +2,9 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Main, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -84,7 +84,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
                 .add_systems(
-                    Main,
+                    Render,
                     prepare_uniform_components::<C>.in_set(RenderSet::Prepare),
                 );
         }

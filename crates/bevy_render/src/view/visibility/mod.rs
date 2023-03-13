@@ -216,7 +216,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 apply_system_buffers.in_set(CalculateBoundsFlush),
             )
-            .configure_set_in(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
+            .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,
                 (

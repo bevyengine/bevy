@@ -68,8 +68,6 @@ pub struct App {
     pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
     /// The schedule that systems are added to by default.
     ///
-    /// This is initially set to [`CoreSchedule::Main`].
-    pub default_schedule_label: BoxedScheduleLabel,
     /// The schedule that runs the main loop of schedule execution.
     ///
     /// This is initially set to [`Main`].
@@ -120,7 +118,7 @@ impl Debug for App {
 /// sub_app.insert_resource(Val(100));
 ///
 /// // initialize main schedule
-/// sub_app.init_schedule(CoreSchedule::Main);
+/// sub_app.init_schedule(Main);
 /// sub_app.add_systems(Update, |counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
@@ -223,8 +221,6 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            default_schedule_label: Box::new(Update),
-            // TODO: change this to Update?
             main_schedule_label: Box::new(Main),
             is_building_plugin: false,
         }
@@ -235,9 +231,8 @@ impl App {
     /// This method also updates sub apps.
     /// See [`insert_sub_app`](Self::insert_sub_app) for more details.
     ///
-    /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
-    /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]
-    /// the first time the app is run, then [`CoreSchedule::Main`] on every call of this method.
+    /// The schedule run by this method is determined by the [`main_schedule_label`](App) field.
+    /// By default this is [`Main`].
     ///
     /// # Panics
     ///
@@ -344,13 +339,12 @@ impl App {
             panic!("{:?} schedule does not exist.", StateTransition)
         }
 
-        let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) else {
-            panic!("Default schedule {:?} does not exist.", self.default_schedule_label);
+        if let Some(update_schedule) = schedules.get_mut(&Update) {
+            for variant in S::variants() {
+                update_schedule.configure_set(OnUpdate(variant.clone()).run_if(in_state(variant)));
+            }
         };
 
-        for variant in S::variants() {
-            default_schedule.configure_set(OnUpdate(variant.clone()).run_if(in_state(variant)));
-        }
         // These are different for loops to avoid conflicting access to self
         for variant in S::variants() {
             if self.get_schedule(OnEnter(variant.clone())).is_none() {
@@ -384,11 +378,10 @@ impl App {
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
-            default_schedule.add_systems(system);
+        if let Some(update_schedule) = schedules.get_mut(&Update) {
+            update_schedule.add_systems(system);
         } else {
-            let schedule_label = &self.default_schedule_label;
-            panic!("Default schedule {schedule_label:?} does not exist.")
+            panic!("Default schedule {:?} does not exist.", Update)
         }
 
         self
@@ -473,17 +466,7 @@ impl App {
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
-        self.world
-            .resource_mut::<Schedules>()
-            .get_mut(&*self.default_schedule_label)
-            .unwrap()
-            .configure_set(set);
-        self
-    }
-
-    /// Configures a system set in the given schedule, adding the set if it does not exist.
-    pub fn configure_set_in(
+    pub fn configure_set(
         &mut self,
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSetConfig,
@@ -497,10 +480,14 @@ impl App {
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
-    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
+    pub fn configure_sets(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        sets: impl IntoSystemSetConfigs,
+    ) -> &mut Self {
         self.world
             .resource_mut::<Schedules>()
-            .get_mut(&*self.default_schedule_label)
+            .get_mut(&schedule)
             .unwrap()
             .configure_sets(sets);
         self

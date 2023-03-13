@@ -1,5 +1,5 @@
-use crate::{Extract, ExtractSchedule, RenderApp, RenderSet};
-use bevy_app::{App, Main, Plugin};
+use crate::{Extract, ExtractSchedule, Render, RenderApp, RenderSet};
+use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -81,6 +81,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .configure_sets(
+                    Render,
                     (
                         PrepareAssetSet::PreAssetPrepare,
                         PrepareAssetSet::AssetPrepare,
@@ -94,7 +95,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(ExtractSchedule, extract_render_asset::<A>)
                 .add_systems(
-                    Main,
+                    Render,
                     prepare_assets::<A>.in_set(self.prepare_asset_set.clone()),
                 );
         }
