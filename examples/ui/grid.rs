@@ -1,9 +1,6 @@
 //! Demonstrates how CSS Grid layout can be used to lay items out in a 2D grid
 use bevy::prelude::*;
 
-const ALIGN_ITEMS_COLOR: Color = Color::rgb(1., 0.066, 0.349);
-const MARGIN: Val = Val::Px(5.);
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -80,7 +77,6 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         gap: Size::all(Val::Px(12.0)),
                         aspect_ratio: Some(1.0),
                         size: Size::height(Val::Percent(100.0)),
-                        max_size: Size::all(Val::Percent(100.0)),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::DARK_GRAY),
@@ -183,13 +179,6 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Create a coloured rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with AlignItems::Stretch and JustifyItems::Stretch
 /// which will allow it to take it's size from the size of the grid area it occupies.
-fn rect(color: Color) -> NodeBundle {
-    NodeBundle {
-        background_color: BackgroundColor(color),
-        ..default()
-    }
-}
-
 fn item_rect(builder: &mut ChildBuilder, color: Color) {
     builder
         .spawn(NodeBundle {
