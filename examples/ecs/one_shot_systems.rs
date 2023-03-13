@@ -43,11 +43,11 @@ fn setup(mut system_registry: ResMut<SystemRegistry>, mut commands: Commands) {
         // The Callback component is defined in bevy_ecs,
         // but wrapping this (or making your own customized variant) is easy.
         // Just stored a boxed SystemLabel!
-        Callback(system_registry.register_system(button_pressed)),
+        Callback(system_registry.register(button_pressed)),
         Triggered,
     ));
     // This entity does not have a Triggered component, so its callback won't run.
-    commands.spawn(Callback(system_registry.register_system(slider_toggled)));
+    commands.spawn(Callback(system_registry.register(slider_toggled)));
     commands.run_system(count_entities);
 }
 
