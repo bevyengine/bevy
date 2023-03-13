@@ -7,8 +7,8 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferId, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -25,7 +25,7 @@ pub struct CASNode {
         ),
         With<ExtractedView>,
     >,
-    cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
+    cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
 }
 
 impl CASNode {
@@ -34,7 +34,7 @@ impl CASNode {
     pub fn new(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
-            cached_texture_bind_group: Mutex::new(None),
+            cached_bind_group: Mutex::new(None),
         }
     }
 }
@@ -61,17 +61,22 @@ impl Node for CASNode {
 
         let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
 
+        let uniforms_id = uniforms.buffer().unwrap().id();
         let Some(uniforms) = uniforms.binding() else { return Ok(()) };
 
         let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
 
         let view_target = target.post_process_write();
-
         let source = view_target.source;
         let destination = view_target.destination;
-        let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
+
+        let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if source.id() == *id => bind_group,
+            Some((buffer_id, texture_id, bind_group))
+                if source.id() == *texture_id && uniforms_id == *buffer_id =>
+            {
+                bind_group
+            }
             cached_bind_group => {
                 let bind_group =
                     render_context
@@ -97,7 +102,7 @@ impl Node for CASNode {
                             ],
                         });
 
-                let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
+                let (_, _, bind_group) = cached_bind_group.insert((uniforms_id, source.id(), bind_group));
                 bind_group
             }
         };
