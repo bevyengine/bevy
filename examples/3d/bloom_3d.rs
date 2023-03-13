@@ -106,11 +106,8 @@ fn setup_scene(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
