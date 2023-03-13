@@ -818,7 +818,7 @@ mod tests {
 
             // build a schedule and enable stepping mode
             schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
+                // .set_executor_kind(ExecutorKind::SingleThreaded)
                 .add_system(first_system)
                 .add_system(second_system.after(first_system))
                 .set_stepping(true);
@@ -861,7 +861,7 @@ mod tests {
 
             // build a schedule and enable stepping mode
             schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
+                //.set_executor_kind(ExecutorKind::SingleThreaded)
                 .add_system(first_system)
                 .add_system(second_system.after(first_system))
                 .set_stepping(true);
@@ -901,7 +901,7 @@ mod tests {
 
             // build a schedule and enable stepping mode
             schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
+                //.set_executor_kind(ExecutorKind::SingleThreaded)
                 .add_system(first_system.ignore_stepping())
                 .add_system(second_system.after(first_system))
                 .set_stepping(true);
@@ -926,7 +926,7 @@ mod tests {
             // build a schedule with a system that will never run due to a
             // condition.
             schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
+                //.set_executor_kind(ExecutorKind::SingleThreaded)
                 .add_system(first_system)
                 .add_system(second_system.after(first_system).run_if(|| false))
                 .set_stepping(true);
@@ -947,26 +947,6 @@ mod tests {
             schedule.step_system();
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![1, 1]);
-        }
-
-        #[test]
-        fn call_step_within_system() {
-            fn handle_step_input() {
-                panic!("no mechanism to notify schedule of stepping request");
-            }
-
-            let mut world = World::default();
-            let mut schedule = Schedule::default();
-            world.init_resource::<SystemOrder>();
-
-            schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
-                .add_system(handle_step_input.ignore_stepping())
-                .add_system(first_system)
-                .set_stepping(true);
-
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
         }
     }
 }

@@ -2,6 +2,7 @@
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
+use super::StepState;
 use crate::{
     schedule::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
@@ -23,23 +24,8 @@ pub struct SingleThreadedExecutor {
     unapplied_systems: FixedBitSet,
     /// Setting when true applies system buffers after all systems have run
     apply_final_buffers: bool,
-
-    /// Set to true enable system stepping mode
+    /// Storage for step state
     step_state: StepState,
-}
-
-/// step type when stepping is enabled
-#[derive(Default, Copy, Clone, PartialEq, Debug)]
-enum StepState {
-    /// Don't run any systems that respect stepping
-    Wait(usize),
-    /// Only run the first system that hasn't yet been run
-    Next(usize),
-    /// Run all remaining systems
-    Rest(usize),
-    /// Stepping is disabled, run everything
-    #[default]
-    Disabled,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
@@ -70,7 +56,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                     return i;
                 }
             }
-            for i in 0..i{
+            for i in 0..first {
                 if schedule.systems_with_stepping[i] {
                     return i;
                 }
@@ -78,29 +64,27 @@ impl SystemExecutor for SingleThreadedExecutor {
             panic!("all systems exempt from stepping");
         }
 
-        if self.step_state != StepState::Disabled {
-            match self.step_state {
-                StepState::Disabled => (),
-                StepState::Wait(_) => {
-                    self.completed_systems |= &schedule.systems_with_stepping;
-                }
-                StepState::Next(next) => {
-                    let next = next_system(schedule, next);
-                    assert!(schedule.systems_with_stepping[next]);
+        match self.step_state {
+            StepState::RunAll => (),
+            StepState::Wait(_) => {
+                self.completed_systems |= &schedule.systems_with_stepping;
+            }
+            StepState::Next(next) => {
+                let next = next_system(schedule, next);
+                assert!(schedule.systems_with_stepping[next]);
 
-                    self.completed_systems |= &schedule.systems_with_stepping;
-                    self.completed_systems.toggle(next);
+                self.completed_systems |= &schedule.systems_with_stepping;
+                self.completed_systems.toggle(next);
 
-                    self.step_state = StepState::Wait(next + 1);
-                }
-                StepState::Rest(next) => {
-                    let next = next_system(schedule, next);
-                    let mut mask = FixedBitSet::with_capacity(schedule.systems.len());
-                    mask.insert_range(0..next);
-                    mask &= &schedule.systems_with_stepping;
-                    self.completed_systems |= mask;
-                    self.step_state = StepState::Wait(0);
-                }
+                self.step_state = StepState::Wait(next + 1);
+            }
+            StepState::Remaining(next) => {
+                let next = next_system(schedule, next);
+                let mut mask = FixedBitSet::with_capacity(schedule.systems.len());
+                mask.insert_range(0..next);
+                mask &= &schedule.systems_with_stepping;
+                self.completed_systems |= mask;
+                self.step_state = StepState::Wait(0);
             }
         }
 
@@ -171,26 +155,26 @@ impl SystemExecutor for SingleThreadedExecutor {
     }
 
     fn stepping(&self) -> bool {
-        self.step_state != StepState::Disabled
+        self.step_state != StepState::RunAll
     }
 
     fn next_system(&self) -> Option<usize> {
         match self.step_state {
-            StepState::Wait(next) | StepState::Next(next) | StepState::Rest(next) => {
+            StepState::Wait(next) | StepState::Next(next) | StepState::Remaining(next) => {
                 if next >= self.completed_systems.len() {
                     Some(0)
                 } else {
                     Some(next)
                 }
             }
-            StepState::Disabled => None,
+            StepState::RunAll => None,
         }
     }
 
     fn set_stepping(&mut self, stepping: bool) {
         self.step_state = match stepping {
             true => StepState::Wait(0),
-            false => StepState::Disabled,
+            false => StepState::RunAll,
         }
     }
 
@@ -202,7 +186,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
     fn step_frame(&mut self) {
         if let StepState::Wait(next) = self.step_state {
-            self.step_state = StepState::Rest(next);
+            self.step_state = StepState::Remaining(next);
         }
     }
 }
@@ -214,7 +198,7 @@ impl SingleThreadedExecutor {
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
             apply_final_buffers: true,
-            step_state: StepState::Disabled,
+            step_state: StepState::RunAll,
         }
     }
 

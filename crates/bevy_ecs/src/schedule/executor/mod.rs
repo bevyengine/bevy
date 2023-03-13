@@ -105,3 +105,17 @@ pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
     // deref to use `System::type_id` instead of `Any::type_id`
     system.as_ref().type_id() == apply_system_buffers.type_id()
 }
+
+/// Stepping state for internal use in
+#[derive(Default, Copy, Clone, PartialEq, Debug)]
+enum StepState {
+    /// Don't run any systems that respect stepping
+    Wait(usize),
+    /// Only run the first system that hasn't yet been run
+    Next(usize),
+    /// Run all remaining systems
+    Remaining(usize),
+    /// Stepping is disabled, run everything
+    #[default]
+    RunAll,
+}

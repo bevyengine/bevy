@@ -77,12 +77,14 @@ fn main() {
     // stepping is only implemented in the single-threaded executor for the
     // moment, so let's force Main and FixedUpdate to use it.
     // XXX temporary, for proof-of-concept
+    /*
     app.get_schedule_mut(CoreSchedule::FixedUpdate)
         .expect("CoreSchedule::FixedUpdate to be present in app")
         .set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
     app.get_schedule_mut(CoreSchedule::Main)
         .expect("CoreSchedule::Main to be present in app")
         .set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    */
     app.add_startup_system(setup_stepping)
         .add_system(stepping_input.ignore_stepping())
         .add_system(stepping_ui.ignore_stepping());
