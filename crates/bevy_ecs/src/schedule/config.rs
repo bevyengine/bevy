@@ -67,11 +67,12 @@ impl SystemConfigs {
     fn new_system(system: BoxedSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
-        let mut graph_info = GraphInfo::default();
-        graph_info.sets = sets;
         Self::SystemConfig(SystemConfig {
             system,
-            graph_info,
+            graph_info: GraphInfo {
+                sets,
+                ..Default::default()
+            },
             conditions: Vec::new(),
         })
     }
@@ -83,7 +84,7 @@ impl SystemConfigs {
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.in_set_inner(set.dyn_clone())
+                    config.in_set_inner(set.dyn_clone());
                 }
             }
         }

@@ -536,7 +536,7 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    /// Adds the systems to the graph. Returns a vector of all node ids contained the nested SystemConfigs
+    /// Adds the systems to the graph. Returns a vector of all node ids contained the nested `SystemConfigs`
     /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
     /// are linearly chained in the order they are defined
     fn add_systems_inner(
@@ -581,7 +581,7 @@ impl ScheduleGraph {
                             // chaining the last item from the previous list to every item in the current list
                             (true, false) => {
                                 let last_in_prev = previous_nodes.last().unwrap();
-                                for current_node in current_nodes.iter() {
+                                for current_node in &current_nodes {
                                     self.dependency.graph.add_edge(
                                         *last_in_prev,
                                         *current_node,
@@ -593,7 +593,7 @@ impl ScheduleGraph {
                             // only chaining every item in the previous list to the first item in the current list
                             (false, true) => {
                                 let first_in_current = current_nodes.first().unwrap();
-                                for previous_node in previous_nodes.iter() {
+                                for previous_node in &previous_nodes {
                                     self.dependency.graph.add_edge(
                                         *previous_node,
                                         *first_in_current,
@@ -604,8 +604,8 @@ impl ScheduleGraph {
                             // Neither of the lists are "densely" chained, so we must chain every item in the first
                             // list to every item in the second list
                             (false, false) => {
-                                for previous_node in previous_nodes.iter() {
-                                    for current_node in current_nodes.iter() {
+                                for previous_node in &previous_nodes {
+                                    for current_node in &current_nodes {
                                         self.dependency.graph.add_edge(
                                             *previous_node,
                                             *current_node,
@@ -617,7 +617,7 @@ impl ScheduleGraph {
                         }
 
                         if ancestor_chained {
-                            nodes.extend(previous_nodes.drain(..));
+                            nodes.append(&mut previous_nodes);
                         }
 
                         previous_nodes = current_nodes;
@@ -626,7 +626,7 @@ impl ScheduleGraph {
 
                     // ensure the last config's nodes are added
                     if ancestor_chained {
-                        nodes.extend(previous_nodes.drain(..));
+                        nodes.append(&mut previous_nodes);
                     }
                 } else {
                     for config in config_iter {

@@ -336,7 +336,7 @@ impl App {
                     .chain(),
             );
         } else {
-            panic!("{:?} schedule does not exist.", StateTransition)
+            panic!("{StateTransition:?} schedule does not exist.")
         }
 
         if let Some(update_schedule) = schedules.get_mut(&Update) {
@@ -381,7 +381,7 @@ impl App {
         if let Some(update_schedule) = schedules.get_mut(&Update) {
             update_schedule.add_systems(system);
         } else {
-            panic!("Default schedule {:?} does not exist.", Update)
+            panic!("Default schedule {Update:?} does not exist.")
         }
 
         self

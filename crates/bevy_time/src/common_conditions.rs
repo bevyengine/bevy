@@ -53,9 +53,8 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool {
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update,
-///             tick.in_schedule(CoreSchedule::FixedUpdate)
-///                 .run_if(on_fixed_timer(Duration::from_secs(1))),
+///         .add_systems(FixedUpdate,
+///             tick.run_if(on_fixed_timer(Duration::from_secs(1))),
 ///         )
 ///         .run();
 /// }
