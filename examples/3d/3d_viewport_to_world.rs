@@ -1,6 +1,6 @@
-//! This example demonstrates how to use the viewport_to_world method.
+//! This example demonstrates how to use the `Camera::viewport_to_world` method.
 
-use bevy::prelude::*;
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -13,7 +13,7 @@ fn main() {
 fn move_cube(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mut cube_query: Query<&mut Transform, With<Cube>>,
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     input: Res<Input<MouseButton>>,
 ) {
     let (camera, camera_transform) = camera_query.single();
@@ -23,7 +23,7 @@ fn move_cube(
         return;
     }
 
-    let Some(cursor_position) = windows.primary().cursor_position() else { return; };
+    let Some(cursor_position) = windows.single().cursor_position() else { return; };
 
     let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return; };
 
@@ -44,7 +44,10 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 50.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane {
+            size: 50.0,
+            subdivisions: 0,
+        })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -61,22 +64,17 @@ fn setup(
     ));
 
     // light
-    const HALF_SIZE: f32 = 15.0;
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
         directional_light: DirectionalLight {
             shadows_enabled: true,
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..default()
-            },
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            maximum_distance: 15.,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
