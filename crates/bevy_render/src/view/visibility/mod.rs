@@ -454,7 +454,7 @@ mod test {
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
-        app.add_system(visibility_propagate_system);
+        app.add_systems(Update, visibility_propagate_system);
 
         let root1 = app
             .world
