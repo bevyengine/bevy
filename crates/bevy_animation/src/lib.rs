@@ -20,7 +20,8 @@ use bevy_utils::{tracing::warn, HashMap};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
+        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, RootMotion,
+        VariableCurve,
     };
 }
 
@@ -114,6 +115,7 @@ struct PlayingAnimation {
     elapsed: f32,
     animation_clip: Handle<AnimationClip>,
     path_cache: Vec<Vec<Option<Entity>>>,
+    root_motion: Option<RootMotion>,
 }
 
 impl Default for PlayingAnimation {
@@ -124,7 +126,56 @@ impl Default for PlayingAnimation {
             elapsed: 0.0,
             animation_clip: Default::default(),
             path_cache: Vec::new(),
+            root_motion: None,
         }
+    }
+}
+
+#[derive(Reflect, FromReflect, Default, Clone)]
+enum RootMotionMode {
+    #[default]
+    Enabled,
+    Locked,
+}
+
+/// Controls how root motion is handled during an animation
+#[derive(Reflect, Default, FromReflect, Clone)]
+pub struct RootMotion {
+    mode: RootMotionMode,
+    root_node: EntityPath,
+    root_transform_y: bool,
+    root_transform_xz: bool,
+    previous_translation: Vec3,
+}
+
+impl RootMotion {
+    /// Take the root motion for the specified bone projected on the ground plane and transfer it to the parent entity
+    pub fn on_bone(path: EntityPath) -> RootMotion {
+        RootMotion {
+            mode: RootMotionMode::Enabled,
+            root_node: path,
+            root_transform_y: false,
+            root_transform_xz: true,
+            previous_translation: Vec3::ZERO,
+        }
+    }
+
+    /// Do not transfer root motion to the parent entity
+    pub fn locked(mut self) -> Self {
+        self.mode = RootMotionMode::Locked;
+        self
+    }
+
+    /// Also take root motion on the up axis
+    pub fn enable_up_axis(mut self) -> Self {
+        self.root_transform_y = true;
+        self
+    }
+
+    /// Do not take root motion projected on the ground plane
+    pub fn disable_ground_plane(mut self) -> Self {
+        self.root_transform_xz = false;
+        self
     }
 }
 
@@ -267,6 +318,12 @@ impl AnimationPlayer {
         self.animation.elapsed = elapsed;
         self
     }
+
+    /// Enable root motion on the currently playing animation
+    pub fn enable_root_motion(&mut self, root_motion: RootMotion) -> &mut Self {
+        self.animation.root_motion = Some(root_motion);
+        self
+    }
 }
 
 fn find_bone(
@@ -382,7 +439,7 @@ fn run_animation_player(
     }
 
     // Apply the main animation
-    apply_animation(
+    let mut delta = apply_animation(
         1.0,
         &mut player.animation,
         paused,
@@ -403,7 +460,7 @@ fn run_animation_player(
         ..
     } in &mut player.transitions
     {
-        apply_animation(
+        let transition_delta = apply_animation(
             *current_weight,
             animation,
             paused,
@@ -416,6 +473,21 @@ fn run_animation_player(
             parents,
             children,
         );
+        if animation.root_motion.is_some() {
+            delta = delta.lerp(transition_delta, *current_weight);
+        }
+    }
+
+    if delta != Vec3::ZERO {
+        // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
+        // any of their descendant Transforms.
+        //
+        // The system scheduler prevents any other system from mutating Transforms at the same time,
+        // so the only way this fetch can alias is if an AnimationPlayer is targeting another AnimationPlayer
+        // as a bone. This is already verified by the apply_animation function.
+        let mut transform = (unsafe { transforms.get_unchecked(root) }).unwrap();
+        let scale = transform.scale;
+        transform.translation += delta * scale;
     }
 }
 
@@ -432,15 +504,20 @@ fn apply_animation(
     maybe_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
-) {
+) -> Vec3 {
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {
+        let elapsed_before = animation.elapsed % animation_clip.duration;
         if !paused {
             animation.elapsed += time.delta_seconds() * animation.speed;
         }
         let mut elapsed = animation.elapsed;
-        if animation.repeat {
+        let cycle = if animation.repeat {
             elapsed %= animation_clip.duration;
-        }
+            (elapsed < elapsed_before && animation.speed > 0.0)
+                || (elapsed > elapsed_before && animation.speed < 0.0)
+        } else {
+            false
+        };
         if elapsed < 0.0 {
             elapsed += animation_clip.duration;
         }
@@ -449,8 +526,14 @@ fn apply_animation(
         }
         if !verify_no_ancestor_player(maybe_parent, parents) {
             warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
-            return;
+            return Vec3::ZERO;
         }
+
+        let mut delta_root_translation = Vec3::ZERO;
+        let root_bone_id = animation
+            .root_motion
+            .as_ref()
+            .and_then(|root_motion| animation_clip.paths.get(&root_motion.root_node));
 
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
@@ -520,7 +603,48 @@ fn apply_animation(
                         let translation_start = keyframes[step_start];
                         let translation_end = keyframes[step_start + 1];
                         let result = translation_start.lerp(translation_end, lerp);
-                        transform.translation = transform.translation.lerp(result, weight);
+                        let translation = transform.translation.lerp(result, weight);
+                        if Some(bone_id) == root_bone_id {
+                            let root_transform = transforms.get(root).unwrap();
+                            let translation = root_transform.rotation.mul_vec3(translation);
+                            let mut root_translation = Vec3::ZERO;
+                            let mut node_translation = Vec3::ZERO;
+                            if animation
+                                .root_motion
+                                .as_ref()
+                                .map(|rm| rm.root_transform_xz)
+                                .unwrap_or_default()
+                            {
+                                root_translation.x = translation.x;
+                                root_translation.z = translation.z;
+                            } else {
+                                node_translation.x = translation.x;
+                                node_translation.z = translation.z;
+                            }
+                            if animation
+                                .root_motion
+                                .as_ref()
+                                .map(|rm| rm.root_transform_y)
+                                .unwrap_or_default()
+                            {
+                                root_translation.y = translation.y;
+                            } else {
+                                node_translation.y = translation.y;
+                            }
+                            transform.translation =
+                                root_transform.rotation.inverse().mul_vec3(node_translation);
+                            let previous_translation =
+                                &mut animation.root_motion.as_mut().unwrap().previous_translation;
+                            if cycle {
+                                *previous_translation = Vec3::ZERO;
+                                delta_root_translation = root_translation;
+                            } else {
+                                delta_root_translation = root_translation - *previous_translation;
+                                *previous_translation = root_translation;
+                            }
+                        } else {
+                            transform.translation = translation;
+                        }
                     }
                     Keyframes::Scale(keyframes) => {
                         let scale_start = keyframes[step_start];
@@ -531,7 +655,9 @@ fn apply_animation(
                 }
             }
         }
+        return delta_root_translation;
     }
+    Vec3::ZERO
 }
 
 fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
