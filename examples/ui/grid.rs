@@ -106,14 +106,11 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     builder.spawn(NodeBundle {
                         style: Style {
                             position_type: PositionType::Absolute,
+                            top: Val::Px(10.),
+                            left: Val::Px(10.),
+                            size: Size::all(Val::Px(40.)),
                             grid_row: GridPlacement::start(1),
                             grid_column: GridPlacement::start(1),
-                            position: UiRect {
-                                left: Val::Px(10.),
-                                top: Val::Px(10.),
-                                ..default()
-                            },
-                            size: Size::all(Val::Px(40.)),
                             ..default()
                         },
                         background_color: BackgroundColor(Color::BLACK),

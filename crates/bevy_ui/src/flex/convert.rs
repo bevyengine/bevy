@@ -13,20 +13,18 @@ impl Val {
             Val::Auto => Val::Auto,
             Val::Percent(value) => Val::Percent(value),
             Val::Px(value) => Val::Px((scale_factor * value as f64) as f32),
-            Val::Undefined => Val::Undefined,
         }
     }
     fn into_dimension(self, scale_factor: f64) -> taffy::style::Dimension {
         match self.scaled(scale_factor) {
-            Val::Auto | Val::Undefined => taffy::style::Dimension::Auto,
+            Val::Auto => taffy::style::Dimension::Auto,
             Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
             Val::Px(value) => taffy::style::Dimension::Points(value),
         }
     }
-
     fn into_length_percentage(self, scale_factor: f64) -> taffy::style::LengthPercentage {
         match self.scaled(scale_factor) {
-            Val::Auto | Val::Undefined => taffy::style::LengthPercentage::Points(0.0),
+            Val::Auto => taffy::style::LengthPercentage::Points(0.0),
             Val::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
             Val::Px(value) => taffy::style::LengthPercentage::Points(value),
         }
@@ -34,14 +32,6 @@ impl Val {
     fn into_length_percentage_auto(self, scale_factor: f64) -> taffy::style::LengthPercentageAuto {
         match self.scaled(scale_factor) {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
-            Val::Undefined => taffy::style::LengthPercentageAuto::Points(0.),
-        }
-    }
-    fn into_inset(self, scale_factor: f64) -> taffy::style::LengthPercentageAuto {
-        match self.scaled(scale_factor) {
-            Val::Auto | Val::Undefined => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
             Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
         }
@@ -81,10 +71,10 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         align_content: style.align_content.into(),
         justify_content: style.justify_content.into(),
         inset: taffy::prelude::Rect {
-            left: style.position.left.into_inset(scale_factor),
-            right: style.position.right.into_inset(scale_factor),
-            top: style.position.top.into_inset(scale_factor),
-            bottom: style.position.bottom.into_inset(scale_factor),
+            left: style.left.into_length_percentage_auto(scale_factor),
+            right: style.right.into_length_percentage_auto(scale_factor),
+            top: style.top.into_length_percentage_auto(scale_factor),
+            bottom: style.bottom.into_length_percentage_auto(scale_factor),
         },
         margin: style
             .margin
@@ -357,5 +347,246 @@ impl RepeatedGridTrack {
                 vec![taffy_track],
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_from() {
+        use taffy::style_helpers as sh;
+
+        let bevy_style = crate::Style {
+            display: Display::Flex,
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.),
+            right: Val::Percent(0.),
+            top: Val::Auto,
+            bottom: Val::Auto,
+            direction: crate::Direction::Inherit,
+            flex_direction: FlexDirection::ColumnReverse,
+            flex_wrap: FlexWrap::WrapReverse,
+            align_items: AlignItems::Baseline,
+            align_self: AlignSelf::Start,
+            align_content: AlignContent::SpaceAround,
+            justify_items: JustifyItems::Default,
+            justify_self: JustifySelf::Center,
+            justify_content: JustifyContent::SpaceEvenly,
+            margin: UiRect {
+                left: Val::Percent(0.),
+                right: Val::Px(0.),
+                top: Val::Auto,
+                bottom: Val::Auto,
+            },
+            padding: UiRect {
+                left: Val::Percent(0.),
+                right: Val::Px(0.),
+                top: Val::Percent(0.),
+                bottom: Val::Percent(0.),
+            },
+            border: UiRect {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Auto,
+                bottom: Val::Px(0.),
+            },
+            flex_grow: 1.,
+            flex_shrink: 0.,
+            flex_basis: Val::Px(0.),
+            size: Size {
+                width: Val::Px(0.),
+                height: Val::Auto,
+            },
+            min_size: Size {
+                width: Val::Px(0.),
+                height: Val::Percent(0.),
+            },
+            max_size: Size {
+                width: Val::Auto,
+                height: Val::Px(0.),
+            },
+            aspect_ratio: None,
+            overflow: crate::Overflow::Hidden,
+            gap: Size {
+                width: Val::Px(0.),
+                height: Val::Percent(0.),
+            },
+            grid_auto_flow: GridAutoFlow::ColumnDense,
+            grid_template_rows: vec![
+                GridTrack::px(10.0),
+                GridTrack::percent(50.0),
+                GridTrack::fr(1.0),
+            ],
+            grid_template_columns: vec![GridTrack::px::<GridTrack>(10.0).repeat(5)],
+            grid_auto_rows: vec![
+                GridTrack::fit_content_px(10.0),
+                GridTrack::fit_content_percent(25.0),
+                GridTrack::flex(2.0),
+            ],
+            grid_auto_columns: vec![
+                GridTrack::auto(),
+                GridTrack::min_content(),
+                GridTrack::max_content(),
+            ],
+            grid_column: GridPlacement::start(4),
+            grid_row: GridPlacement::span(3),
+        };
+        let taffy_style = from_style(1.0, &bevy_style);
+        assert_eq!(taffy_style.display, taffy::style::Display::Flex);
+        assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
+        assert!(matches!(
+            taffy_style.inset.left,
+            taffy::style::LengthPercentageAuto::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.inset.right,
+            taffy::style::LengthPercentageAuto::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.inset.top,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert!(matches!(
+            taffy_style.inset.bottom,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert_eq!(
+            taffy_style.flex_direction,
+            taffy::style::FlexDirection::ColumnReverse
+        );
+        assert_eq!(taffy_style.flex_wrap, taffy::style::FlexWrap::WrapReverse);
+        assert_eq!(
+            taffy_style.align_items,
+            Some(taffy::style::AlignItems::Baseline)
+        );
+        assert_eq!(taffy_style.align_self, Some(taffy::style::AlignSelf::Start));
+        assert_eq!(
+            taffy_style.align_content,
+            Some(taffy::style::AlignContent::SpaceAround)
+        );
+        assert_eq!(
+            taffy_style.justify_content,
+            Some(taffy::style::JustifyContent::SpaceEvenly)
+        );
+        assert_eq!(taffy_style.justify_items, None);
+        assert_eq!(
+            taffy_style.justify_self,
+            Some(taffy::style::JustifySelf::Center)
+        );
+        assert!(matches!(
+            taffy_style.margin.left,
+            taffy::style::LengthPercentageAuto::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.margin.right,
+            taffy::style::LengthPercentageAuto::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.margin.top,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert!(matches!(
+            taffy_style.margin.bottom,
+            taffy::style::LengthPercentageAuto::Auto
+        ));
+        assert!(matches!(
+            taffy_style.padding.left,
+            taffy::style::LengthPercentage::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.padding.right,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.padding.top,
+            taffy::style::LengthPercentage::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.padding.bottom,
+            taffy::style::LengthPercentage::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.left,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.right,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.top,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.border.bottom,
+            taffy::style::LengthPercentage::Points(_)
+        ));
+        assert_eq!(taffy_style.flex_grow, 1.);
+        assert_eq!(taffy_style.flex_shrink, 0.);
+        assert!(matches!(
+            taffy_style.flex_basis,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.size.width,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.size.height,
+            taffy::style::Dimension::Auto
+        ));
+        assert!(matches!(
+            taffy_style.min_size.width,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert!(matches!(
+            taffy_style.min_size.height,
+            taffy::style::Dimension::Percent(_)
+        ));
+        assert!(matches!(
+            taffy_style.max_size.width,
+            taffy::style::Dimension::Auto
+        ));
+        assert!(matches!(
+            taffy_style.max_size.height,
+            taffy::style::Dimension::Points(_)
+        ));
+        assert_eq!(taffy_style.aspect_ratio, None);
+        assert_eq!(
+            taffy_style.gap.width,
+            taffy::style::LengthPercentage::Points(0.)
+        );
+        assert_eq!(
+            taffy_style.gap.height,
+            taffy::style::LengthPercentage::Percent(0.)
+        );
+        assert_eq!(
+            taffy_style.grid_auto_flow,
+            taffy::style::GridAutoFlow::ColumnDense
+        );
+        assert_eq!(
+            taffy_style.grid_template_rows,
+            vec![sh::points(10.0), sh::percent(50.0), sh::fr(1.0)]
+        );
+        assert_eq!(
+            taffy_style.grid_template_columns,
+            vec![sh::repeat(5, vec![sh::points(10.0)])]
+        );
+        assert_eq!(
+            taffy_style.grid_auto_rows,
+            vec![
+                sh::fit_content(taffy::style::LengthPercentage::Points(10.0)),
+                sh::fit_content(taffy::style::LengthPercentage::Percent(50.0)),
+                sh::minmax(sh::points(0.0), sh::fr(2.0)),
+            ]
+        );
+        assert_eq!(
+            taffy_style.grid_auto_columns,
+            vec![sh::auto(), sh::min_content(), sh::max_content()]
+        );
+        assert_eq!(taffy_style.grid_column, sh::line(4));
+        assert_eq!(taffy_style.grid_row, sh::span(3));
     }
 }
