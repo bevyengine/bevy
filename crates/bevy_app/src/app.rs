@@ -370,7 +370,10 @@ impl App {
     /// #
     /// app.add_systems(Update, my_system);
     /// ```
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Update, your_system).`"
+    )]
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -434,7 +437,10 @@ impl App {
     /// App::new()
     ///     .add_systems(Startup, my_startup_system);
     /// ```
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
+    )]
     pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems(Startup, system)
     }
@@ -458,7 +464,10 @@ impl App {
     ///     startup_system_c,
     /// ));
     /// ```
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
+    )]
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_systems(Startup, systems.into_configs())
     }
