@@ -169,7 +169,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn run_once() -> impl FnMut() -> bool {
+    pub fn run_once() -> impl FnMut() -> bool + Clone {
         let mut has_run = false;
         move || {
             if !has_run {
@@ -209,7 +209,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_exists<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_exists<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
     where
         T: Resource,
     {
@@ -332,7 +332,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
     where
         T: Resource,
     {
@@ -389,7 +389,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
-    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool
+    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool + Clone
     where
         T: Resource,
     {
@@ -446,7 +446,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
-    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
     where
         T: Resource,
     {
@@ -518,7 +518,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.contains_resource::<MyResource>(), true);
     /// ```
-    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
     where
         T: Resource,
     {
@@ -573,7 +573,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
     where
         T: Resource,
     {
@@ -630,7 +630,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
+    pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
     }
 
@@ -684,7 +684,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool + Clone {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
@@ -742,7 +742,7 @@ pub mod common_conditions {
     /// ```
     pub fn state_exists_and_equals<S: States>(
         state: S,
-    ) -> impl FnMut(Option<Res<State<S>>>) -> bool {
+    ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
         move |current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => current_state.0 == state,
             None => false,
@@ -802,7 +802,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn state_changed<S: States>() -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn state_changed<S: States>() -> impl FnMut(Res<State<S>>) -> bool + Clone {
         move |current_state: Res<State<S>>| current_state.is_changed()
     }
 
@@ -841,7 +841,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool {
+    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool + Clone {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
@@ -882,7 +882,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool {
+    pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool + Clone {
         move |query: Query<(), With<T>>| !query.is_empty()
     }
 
@@ -915,7 +915,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker>(condition: impl Condition<Marker>) -> impl Condition<()> {
+    pub fn not<Marker, T>(condition: T) -> impl Condition<()>
+    where
+        T: Condition<Marker>,
+    {
         condition.pipe(|In(val): In<bool>| !val)
     }
 }
