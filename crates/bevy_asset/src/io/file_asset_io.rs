@@ -124,13 +124,13 @@ impl AssetIo for FileAssetIo {
 
     fn watch_path_for_changes(
         &self,
-        to_watch: &Path,
-        to_reload: Option<PathBuf>,
+        _to_watch: &Path,
+        _to_reload: Option<PathBuf>,
     ) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            let to_reload = to_reload.unwrap_or_else(|| to_watch.to_owned());
-            let to_watch = self.root_path.join(to_watch);
+            let to_reload = _to_reload.unwrap_or_else(|| _to_watch.to_owned());
+            let to_watch = self.root_path.join(_to_watch);
             let mut watcher = self.filesystem_watcher.write();
             if let Some(ref mut watcher) = *watcher {
                 watcher
