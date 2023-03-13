@@ -34,8 +34,6 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 
-// TODO: move schedules outside of bevy_app
-
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Main;

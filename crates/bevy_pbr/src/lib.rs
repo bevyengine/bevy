@@ -174,11 +174,14 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .configure_set(
+            .configure_sets(
                 PostUpdate,
-                SimulationLightSystems::AddClustersFlush
-                    .after(SimulationLightSystems::AddClusters)
-                    .before(SimulationLightSystems::AssignLightsToClusters),
+                (
+                    SimulationLightSystems::AddClusters,
+                    SimulationLightSystems::AddClustersFlush,
+                    SimulationLightSystems::AssignLightsToClusters,
+                )
+                    .chain(),
             )
             .add_plugin(FogPlugin)
             .add_systems(

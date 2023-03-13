@@ -17,12 +17,12 @@ struct BonusSpawnTimer(Timer);
 
 fn main() {
     App::new()
+        .add_plugins(DefaultPlugins)
         .init_resource::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
             TimerMode::Repeating,
         )))
-        .add_plugins(DefaultPlugins)
         .add_state::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
@@ -37,7 +37,7 @@ fn main() {
             )
                 .in_set(OnUpdate(GameState::Playing)),
         )
-        .add_systems(OnExit(GameState::GameOver), teardown)
+        .add_systems(OnExit(GameState::Playing), teardown)
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
@@ -46,7 +46,7 @@ fn main() {
                 bevy::window::close_on_esc,
             ),
         )
-        .add_systems(OnExit(GameState::Playing), teardown)
+        .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
 }
 

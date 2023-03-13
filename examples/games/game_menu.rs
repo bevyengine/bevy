@@ -33,9 +33,9 @@ fn main() {
         // Insert as resource the initial value for the settings resources
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
+        .add_state::<GameState>()
         .add_systems(Startup, setup)
         // Declare the game state, whose starting value is determined by the `Default` trait
-        .add_state::<GameState>()
         // Adds the plugins for each state
         .add_plugin(splash::SplashPlugin)
         .add_plugin(menu::MenuPlugin)

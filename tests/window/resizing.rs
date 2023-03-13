@@ -19,10 +19,6 @@ struct Dimensions {
 
 fn main() {
     App::new()
-        .insert_resource(Dimensions {
-            width: MAX_WIDTH,
-            height: MAX_HEIGHT,
-        })
         .add_plugins(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -34,7 +30,12 @@ fn main() {
                 ..default()
             }),
         )
+        .insert_resource(Dimensions {
+            width: MAX_WIDTH,
+            height: MAX_HEIGHT,
+        })
         .insert_resource(Phase::ContractingY)
+        .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(
             Update,
             (
@@ -43,7 +44,6 @@ fn main() {
                 bevy::window::close_on_esc,
             ),
         )
-        .add_systems(Startup, (setup_3d, setup_2d))
         .run();
 }
 

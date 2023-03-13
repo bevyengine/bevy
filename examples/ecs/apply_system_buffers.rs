@@ -19,9 +19,14 @@ fn main() {
         .add_systems(
             Update,
             (
-                despawn_old_and_spawn_new_fruits.before(CustomFlush),
-                apply_system_buffers.in_set(CustomFlush),
-                count_apple.after(CustomFlush),
+                (
+                    despawn_old_and_spawn_new_fruits,
+                    // We encourage adding apply_system_buffers to a custom set
+                    // to improve diagnostics. This is optional, but useful when debugging!
+                    apply_system_buffers.in_set(CustomFlush),
+                    count_apple,
+                )
+                    .chain(),
                 count_orange,
                 bevy::window::close_on_esc,
             ),

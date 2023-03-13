@@ -49,8 +49,6 @@ pub use reflect::*;
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_ecs::schedule::ScheduleLabel;
 
-// TODO: evaluate execution to allow these to be sets
-
 /// Asset storages are updated.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
 pub struct LoadAssets;
@@ -109,16 +107,6 @@ impl Plugin for AssetPlugin {
             .add_systems(PreUpdate, asset_server::free_unused_assets_system);
         app.init_schedule(LoadAssets);
         app.init_schedule(AssetEvents);
-        // app.configure_set(
-        //     AssetSet::LoadAssets
-        //         .before(CoreSet::PreUpdate)
-        //         .after(CoreSet::First),
-        // )
-        // .configure_set(
-        //     AssetSet::AssetEvents
-        //         .after(CoreSet::PostUpdate)
-        //         .before(CoreSet::Last),
-        // )
 
         #[cfg(all(
             feature = "filesystem_watcher",

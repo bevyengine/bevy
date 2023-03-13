@@ -31,7 +31,7 @@ use bevy_render::{
         DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;
@@ -52,10 +52,10 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
+            .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
-                ExtractSchedule,
+                Render,
                 (
-                    extract_core_2d_camera_phases,
                     sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
                     batch_phase_system::<Transparent2d>
                         .after(sort_phase_system::<Transparent2d>)

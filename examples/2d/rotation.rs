@@ -8,6 +8,7 @@ const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_systems(Startup, setup)
         .add_systems(
             FixedUpdate,
@@ -17,7 +18,6 @@ fn main() {
                 rotate_to_player_system,
             ),
         )
-        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
