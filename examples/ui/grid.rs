@@ -27,18 +27,14 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 display: Display::Grid,
                 /// Make node fill the entirety it's parent (in this case the window)
                 size: Size::all(Val::Percent(100.)),
-                /// Set a 20px gap/gutter between both rows and columns
-                // gap: Size::all(Val::Px(20.)),
-                /// Set the grid to have 3 columns with sizes [minmax(0, 1fr), minmax(0, 2fr), minmax(0, 1fr)]
-                /// This means that the columns with initially have zero size. They will then expand to take up
-                /// the remaining available space in proportion to thier "flex fractions" (fr values).
-                ///
-                /// The sum of the fr values is 4, so in this case:
-                ///   - The 1st column will take 1/4 of the width
-                ///   - The 2nd column will take up 2/4 = 1/2 of the width
-                ///   - The 3rd column will be 1/4 of the width
-                grid_template_columns: vec![GridTrack::min_content(), GridTrack::fr(1.0)],
-                /// Set the grid to have 3 rows with sizes [auto, 150px, minmax(0, 1fr)]
+                /// Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
+                ///   - The first column will size to the size of it's contents
+                ///   - The second column will take up the remaining available space
+                grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
+                /// Set the grid to have 3 rows with sizes [auto, minmax(0, 1fr), 20px]
+                ///  - The first row will size to the size of it's contents
+                ///  - The second row take up remaining available space (after rows 1 and 3 have both been sized)
+                ///  - The third row will be exactly 20px high
                 grid_template_rows: vec![
                     GridTrack::auto(),
                     GridTrack::flex(1.0),
@@ -66,17 +62,27 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     spawn_nested_text_bundle(builder, font.clone(), "Bevy CSS Grid Layout Example");
                 });
 
-            // Main content grid
+            // Main content grid (auto placed in row 2, column 1)
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        display: Display::Grid,
-                        padding: UiRect::all(Val::Px(24.0)),
-                        grid_template_columns: vec![GridTrack::flex::<GridTrack>(1.0).repeat(4)],
-                        grid_template_rows: vec![GridTrack::flex::<GridTrack>(1.0).repeat(4)],
-                        gap: Size::all(Val::Px(12.0)),
-                        aspect_ratio: Some(1.0),
+                        /// Make the height of the node
                         size: Size::height(Val::Percent(100.0)),
+                        /// Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
+                        /// As the height is set explicitly, this means the width will adjust to match the height
+                        aspect_ratio: Some(1.0),
+                        /// Use grid layout for this node
+                        display: Display::Grid,
+                        // Add 24px of padding around the grid
+                        padding: UiRect::all(Val::Px(24.0)),
+                        /// Set the grid to have 4 columns all with sizes minmax(0, 1fr)
+                        /// This creates 4 exactly evenly sized columns
+                        grid_template_columns: vec![GridTrack::flex::<GridTrack>(1.0).repeat(4)],
+                        /// Set the grid to have 4 rows all with sizes minmax(0, 1fr)
+                        /// This creates 4 exactly evenly sized rows
+                        grid_template_rows: vec![GridTrack::flex::<GridTrack>(1.0).repeat(4)],
+                        /// Set a 12px gap/gutter between rows and columns
+                        gap: Size::all(Val::Px(12.0)),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::DARK_GRAY),
@@ -109,14 +115,16 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     item_rect(&mut builder, Color::GOLD);
                 });
 
-            // Right side bar
-            // builder.spawn(rect(Color::BLACK));
+            // Right side bar (auto placed in row 2, column 2)
             builder
                 .spawn(NodeBundle {
                     style: Style {
                         display: Display::Grid,
+                        // Align content towards the start (top) in the vertical axis
                         align_items: AlignItems::Start,
+                        // Align content towards the center in the horizontal axis
                         justify_items: JustifyItems::Center,
+                        // Add 20px padding to the top
                         padding: UiRect::top(Val::Px(20.)),
                         ..default()
                     },
@@ -137,7 +145,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Footer / status bar
             builder.spawn(NodeBundle {
                 style: Style {
-                    /// Make this node span two grid column so that it takes up the entire top tow
+                    /// Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
                     ..default()
                 },
@@ -145,7 +153,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
 
-            // Modal (uncomment to view)
+            // Modal (absolutely positioned on top of content - uncomment to view)
             // builder.spawn(NodeBundle {
             //     style: Style {
             //         position_type: PositionType::Absolute,
