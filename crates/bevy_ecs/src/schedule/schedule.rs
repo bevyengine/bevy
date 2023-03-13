@@ -341,17 +341,6 @@ impl Dag {
     }
 }
 
-/// Describes which base set (i.e. [`SystemSet`] where [`SystemSet::is_base`] returns true)
-/// a system belongs to.
-///
-/// Note that this is only populated once [`ScheduleGraph::build_schedule`] is called.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum BaseSetMembership {
-    Uncalculated,
-    None,
-    Some(NodeId),
-}
-
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
     inner: BoxedSystemSet,
@@ -374,14 +363,12 @@ impl SystemSetNode {
 /// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemNode {
     inner: Option<BoxedSystem>,
-    base_set_membership: BaseSetMembership,
 }
 
 impl SystemNode {
     pub fn new(system: BoxedSystem) -> Self {
         Self {
             inner: Some(system),
-            base_set_membership: BaseSetMembership::Uncalculated,
         }
     }
 
@@ -474,33 +461,21 @@ impl ScheduleGraph {
     }
 
     /// Returns an iterator over all systems in this schedule.
-    ///
-    /// Note that the [`BaseSetMembership`] will only be initialized after [`ScheduleGraph::build_schedule`] is called.
     pub fn systems(
         &self,
-    ) -> impl Iterator<
-        Item = (
-            NodeId,
-            &dyn System<In = (), Out = ()>,
-            BaseSetMembership,
-            &[BoxedCondition],
-        ),
-    > {
+    ) -> impl Iterator<Item = (NodeId, &dyn System<In = (), Out = ()>, &[BoxedCondition])> {
         self.systems
             .iter()
             .zip(self.system_conditions.iter())
             .enumerate()
             .filter_map(|(i, (system_node, condition))| {
                 let system = system_node.inner.as_deref()?;
-                let base_set_membership = system_node.base_set_membership;
                 let condition = condition.as_ref()?.as_slice();
-                Some((NodeId::System(i), system, base_set_membership, condition))
+                Some((NodeId::System(i), system, condition))
             })
     }
 
     /// Returns an iterator over all system sets in this schedule.
-    ///
-    /// Note that the [`BaseSetMembership`] will only be initialized after [`ScheduleGraph::build_schedule`] is called.
     pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, node_id)| {
             let set_node = &self.system_sets[node_id.index()];
@@ -865,7 +840,6 @@ impl ScheduleGraph {
     /// Build a [`SystemSchedule`] optimized for scheduler access from the [`ScheduleGraph`].
     ///
     /// This method also
-    /// - calculates [`BaseSetMembership`]
     /// - checks for dependency or hierarchy cycles
     /// - checks for system access conflicts and reports ambiguities
     pub fn build_schedule(

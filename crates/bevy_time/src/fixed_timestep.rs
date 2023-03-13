@@ -1,8 +1,8 @@
 //! Tools to run systems at a regular interval.
 //! This can be extremely useful for steady, frame-rate independent gameplay logic and physics.
 //!
-//! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
-//! This schedules is run in the [`CoreSet::FixedUpdate`](bevy_app::CoreSet::FixedUpdate) near the start of each frame,
+//! To run a system on a fixed timestep, add it to the [`FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
+//! This schedule is run in [`FixedUpdateLoop`](bevy_app::FixedUpdateLoop) near the start of each frame,
 //! via the [`run_fixed_update_schedule`] exclusive system.
 //!
 //! This schedule will be run a number of times each frame,
@@ -98,7 +98,7 @@ pub enum FixedUpdateError {
     },
 }
 
-/// Ticks the [`FixedTime`] resource then runs the [`CoreSchedule::FixedUpdate`].
+/// Ticks the [`FixedTime`] resource then runs the [`FixedUpdate`].
 pub fn run_fixed_update_schedule(world: &mut World) {
     // Tick the time
     let delta_time = world.resource::<Time>().delta();

@@ -40,7 +40,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
@@ -61,7 +61,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate) stage.
+    /// [`PostUpdate`](bevy_app::PostUpdate) stage.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {

@@ -70,7 +70,7 @@ pub struct FixedUpdateLoop;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
-/// The exclusive `run_fixed_update_schedule` system runs this schedule during the [`CoreSet::FixedUpdate`] system set.
+/// The exclusive `run_fixed_update_schedule` system runs this schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
@@ -138,31 +138,7 @@ impl Main {
         });
     }
 
-    /// Adds standardized schedules and labels to an [`App`].
-    ///
-    /// Adding these schedules is necessary to make almost all core engine features work.
-    ///  This is typically done implicitly by calling `App::default`, which is in turn called by
-    /// [`App::new`].
-    ///
-    /// The schedules added are defined in the [`CoreSchedule`] enum,
-    /// and have a starting configuration defined by:
-    ///
-    /// - [`CoreSchedule::Outer`]: uses [`CoreSchedule::outer_schedule`]
-    /// - [`CoreSchedule::Startup`]: uses [`StartupSet::base_schedule`]
-    /// - [`CoreSchedule::Main`]: uses [`CoreSet::base_schedule`]
-    /// - [`CoreSchedule::FixedUpdate`]: no starting configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_app::App;
-    /// use bevy_ecs::schedule::Schedules;
-    ///
-    /// let app = App::empty()
-    ///     .init_resource::<Schedules>()
-    ///     .add_default_schedules()
-    ///     .update();
-    /// ```
+    /// Initializes the [`Main`] schedule and sub-schedules on the given `app`.
     pub fn init(app: &mut App) {
         app.init_schedule(Main)
             .init_schedule(PreStartup)

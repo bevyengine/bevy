@@ -206,7 +206,7 @@ where
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
     ///
-    /// This is equivalent to calling [`run_if`](IntoSystemConfig::run_if) on each individual
+    /// This is equivalent to calling [`run_if`](IntoSystemConfigs::run_if) on each individual
     /// system, as shown below:
     ///
     /// ```

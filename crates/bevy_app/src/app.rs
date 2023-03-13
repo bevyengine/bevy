@@ -96,7 +96,7 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel, SubApp, CoreSchedule};
+/// # use bevy_app::{App, AppLabel, SubApp, Main};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
@@ -114,12 +114,10 @@ impl Debug for App {
 /// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
 /// // add an outer schedule that runs the main schedule
-/// sub_app.add_simple_outer_schedule();
 /// sub_app.insert_resource(Val(100));
 ///
 /// // initialize main schedule
-/// sub_app.init_schedule(Main);
-/// sub_app.add_systems(Update, |counter: Res<Val>| {
+/// sub_app.add_systems(Main, |counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
@@ -203,8 +201,6 @@ impl Default for App {
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
-    ///
-    /// This calls [`App::add_default_schedules`].
     pub fn new() -> App {
         App::default()
     }
@@ -307,13 +303,13 @@ impl App {
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
-    /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
+    /// [`StateTransition`] so that transitions happen before [`Update`] and
+    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
     /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which runs during [`CoreSet::Update`] after the transitions are applied.
+    /// which runs during [`Update`] after the transitions are applied.
     /// These system sets only run if the [`State<S>`] resource matches the respective state variant.
     ///
     /// If you would like to control how other systems run based on the current state,
@@ -409,16 +405,18 @@ impl App {
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        let schedule = schedules
-            .get_mut(&schedule)
-            .unwrap_or_else(|| panic!("Schedule '{schedule:?}' does not exist."));
-
-        schedule.add_systems(systems);
+        if let Some(schedule) = schedules.get_mut(&schedule) {
+            schedule.add_systems(systems);
+        } else {
+            let mut new_schedule = Schedule::new();
+            new_schedule.add_systems(systems);
+            schedules.insert(schedule, new_schedule);
+        }
 
         self
     }
 
-    /// Adds a system to [`CoreSchedule::Startup`].
+    /// Adds a system to [`Startup`].
     ///
     /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
     /// To add a system that runs every frame, see [`add_system`](Self::add_system).
@@ -441,7 +439,7 @@ impl App {
         self.add_systems(Startup, system)
     }
 
-    /// Adds a collection of systems to [`CoreSchedule::Startup`].
+    /// Adds a collection of systems to [`Startup`].
     ///
     /// # Examples
     ///
@@ -496,7 +494,7 @@ impl App {
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`CoreSet::First`].
+    /// and inserting an [`update_system`](Events::update_system) into [`First`].
     ///
     /// See [`Events`] for defining events.
     ///
@@ -1021,26 +1019,6 @@ mod tests {
 
     fn foo(mut commands: Commands) {
         commands.spawn_empty();
-    }
-
-    #[test]
-    fn add_system_should_create_schedule_if_it_does_not_exist() {
-        let mut app = App::new();
-        app.add_systems(OnEnter(AppState::MainMenu), foo)
-            .add_state::<AppState>();
-
-        app.world.run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world.entities().len(), 1);
-    }
-
-    #[test]
-    fn add_system_should_create_schedule_if_it_does_not_exist2() {
-        let mut app = App::new();
-        app.add_state::<AppState>()
-            .add_systems(OnEnter(AppState::MainMenu), foo);
-
-        app.world.run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world.entities().len(), 1);
     }
 
     #[test]
