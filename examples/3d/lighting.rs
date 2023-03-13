@@ -8,7 +8,8 @@ use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), movement, animate_light_direction))
+        .add_system_to(Startup, setup)
+        .add_systems((movement, animate_light_direction))
         .run();
 }
 

@@ -6,7 +6,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), move_scene_entities))
+        .add_system_to(Startup, setup)
+        .add_system(move_scene_entities)
         .run();
 }
 

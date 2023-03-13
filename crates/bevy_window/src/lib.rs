@@ -22,7 +22,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
 use std::path::PathBuf;
 
 impl Default for WindowPlugin {
@@ -93,10 +92,10 @@ impl Plugin for WindowPlugin {
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_system(exit_on_primary_closed.in_base_set(CoreSet::PostUpdate));
+                app.add_system_to(PostUpdate, exit_on_primary_closed);
             }
             ExitCondition::OnAllClosed => {
-                app.add_system(exit_on_all_closed.in_base_set(CoreSet::PostUpdate));
+                app.add_system_to(PostUpdate, exit_on_all_closed);
             }
             ExitCondition::DontExit => {}
         }

@@ -17,7 +17,8 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), cube_rotator_system, rotator_system))
+        .add_system_to(Startup, setup)
+        .add_systems((cube_rotator_system, rotator_system))
         .run();
 }
 

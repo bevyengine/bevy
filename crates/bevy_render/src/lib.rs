@@ -51,7 +51,7 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, CoreSchedule, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
@@ -230,7 +230,7 @@ impl Plugin for RenderPlugin {
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
-            render_app.add_simple_outer_schedule();
+            render_app.default_schedule_label = Box::new(Main);
             let mut render_schedule = RenderSet::base_schedule();
 
             // Prepare the schedule which extracts data from the main world to the render world
@@ -254,7 +254,7 @@ impl Plugin for RenderPlugin {
             render_schedule.add_system(World::clear_entities.in_set(RenderSet::Cleanup));
 
             render_app
-                .add_schedule(CoreSchedule::Main, render_schedule)
+                .add_schedule(Main, render_schedule)
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)

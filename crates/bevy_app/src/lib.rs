@@ -3,7 +3,6 @@
 #![warn(missing_docs)]
 
 mod app;
-mod config;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
@@ -13,7 +12,6 @@ mod ci_testing;
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
-pub use config::*;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
@@ -25,198 +23,155 @@ pub mod prelude {
     pub use crate::AppTypeRegistry;
     #[doc(hidden)]
     pub use crate::{
-        app::App,
-        config::{IntoSystemAppConfig, IntoSystemAppConfigs},
-        CoreSchedule, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet,
+        app::App, DynamicPlugin, First, FixedUpdate, Last, Main, Plugin, PluginGroup, PostStartup,
+        PostUpdate, PreStartup, PreUpdate, Startup, StateTransition, Update,
     };
 }
 
 use bevy_ecs::{
-    schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemSetConfigs, Schedule, ScheduleLabel,
-        SystemSet,
-    },
-    system::Local,
-    world::World,
+    schedule::ScheduleLabel,
+    system::{Local, Resource},
+    world::{Mut, World},
 };
 
-/// The names of the default [`App`] schedules.
-///
-/// The corresponding [`Schedule`](bevy_ecs::schedule::Schedule) objects are added by [`App::add_default_schedules`].
+// TODO: move schedules outside of bevy_app
+
+/// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum CoreSchedule {
-    /// The schedule that runs once when the app starts.
-    Startup,
-    /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
-    Main,
-    /// The schedule that controls which schedules run.
-    ///
-    /// This is typically created using the [`CoreSchedule::outer_schedule`] method,
-    /// and does not need to manipulated during ordinary use.
-    Outer,
-    /// The schedule that contains systems which only run after a fixed period of time has elapsed.
-    ///
-    /// The exclusive `run_fixed_update_schedule` system runs this schedule during the [`CoreSet::FixedUpdate`] system set.
-    FixedUpdate,
+pub struct Main;
+
+/// The schedule that runs before [`Startup`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PreStartup;
+
+/// The schedule that runs once when the app starts.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Startup;
+
+/// The schedule that runs once after [`Startup`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PostStartup;
+
+/// The schedule that runs once when the app starts.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct First;
+
+/// The schedule that contains work required to make [`Update`] logic.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PreUpdate;
+
+/// Runs state transitions.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StateTransition;
+
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedUpdateLoop;
+
+/// The schedule that contains systems which only run after a fixed period of time has elapsed.
+///
+/// The exclusive `run_fixed_update_schedule` system runs this schedule during the [`CoreSet::FixedUpdate`] system set.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedUpdate;
+
+/// The schedule that contains app logic.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Update;
+
+/// The schedule that contains systems that respond to [`Update`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PostUpdate;
+
+/// Runs last in the schedule
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Last;
+
+#[derive(Resource, Debug)]
+pub struct MainScheduleOrder {
+    labels: Vec<Box<dyn ScheduleLabel>>,
 }
 
-impl CoreSchedule {
-    /// An exclusive system that controls which schedule should be running.
-    ///
-    /// [`CoreSchedule::Main`] is always run.
-    ///
-    /// If this is the first time this system has been run, [`CoreSchedule::Startup`] will run before [`CoreSchedule::Main`].
-    pub fn outer_loop(world: &mut World, mut run_at_least_once: Local<bool>) {
+impl Default for MainScheduleOrder {
+    fn default() -> Self {
+        Self {
+            labels: vec![
+                Box::new(First),
+                Box::new(PreUpdate),
+                Box::new(StateTransition),
+                Box::new(FixedUpdateLoop),
+                Box::new(Update),
+                Box::new(PostUpdate),
+                Box::new(Last),
+            ],
+        }
+    }
+}
+
+impl MainScheduleOrder {
+    pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (&**current).eq(&after))
+            .unwrap_or_else(|| panic!("Expected {:?} to exist", after));
+        self.labels.insert(index + 1, Box::new(schedule));
+    }
+}
+
+impl Main {
+    pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            world.run_schedule(CoreSchedule::Startup);
+            world.run_schedule(PreStartup);
+            world.run_schedule(Startup);
+            world.run_schedule(PostStartup);
             *run_at_least_once = true;
         }
 
-        world.run_schedule(CoreSchedule::Main);
+        world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+            for label in &order.labels {
+                world.run_schedule_ref(&**label);
+            }
+        });
     }
 
-    /// Initializes a single threaded schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`](CoreSchedule::outer_loop) system.
-    pub fn outer_schedule() -> Schedule {
-        let mut schedule = Schedule::new();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
-        schedule.add_system(Self::outer_loop);
-        schedule
-    }
-}
-
-/// The names of the default [`App`] system sets.
-///
-/// These are ordered in the same order they are listed.
-///
-/// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_schedules`].
-///
-/// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
-/// that runs immediately after the matching system set.
-/// These can be useful for ordering, but you almost never want to add your systems to these sets.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
-pub enum CoreSet {
-    /// Runs before all other members of this set.
-    First,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `First`.
-    FirstFlush,
-    /// Runs before [`CoreSet::Update`].
-    PreUpdate,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `PreUpdate`.
-    PreUpdateFlush,
-    /// Applies [`State`](bevy_ecs::schedule::State) transitions
-    StateTransitions,
-    /// Runs systems that should only occur after a fixed period of time.
+    /// Adds standardized schedules and labels to an [`App`].
     ///
-    /// The `run_fixed_update_schedule` system runs the [`CoreSchedule::FixedUpdate`] system in this system set.
-    FixedUpdate,
-    /// Responsible for doing most app logic. Systems should be registered here by default.
-    Update,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Update`.
-    UpdateFlush,
-    /// Runs after [`CoreSet::Update`].
-    PostUpdate,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `PostUpdate`.
-    PostUpdateFlush,
-    /// Runs after all other members of this set.
-    Last,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Last`.
-    LastFlush,
-}
-
-impl CoreSet {
-    /// Sets up the base structure of [`CoreSchedule::Main`].
+    /// Adding these schedules is necessary to make almost all core engine features work.
+    ///  This is typically done implicitly by calling `App::default`, which is in turn called by
+    /// [`App::new`].
     ///
-    /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_system_buffers`] is inserted into each `*Flush` set.
-    pub fn base_schedule() -> Schedule {
-        use CoreSet::*;
-        let mut schedule = Schedule::new();
-
-        // Create "stage-like" structure using buffer flushes + ordering
-        schedule
-            .set_default_base_set(Update)
-            .add_systems((
-                apply_system_buffers.in_base_set(FirstFlush),
-                apply_system_buffers.in_base_set(PreUpdateFlush),
-                apply_system_buffers.in_base_set(UpdateFlush),
-                apply_system_buffers.in_base_set(PostUpdateFlush),
-                apply_system_buffers.in_base_set(LastFlush),
-            ))
-            .configure_sets(
-                (
-                    First,
-                    FirstFlush,
-                    PreUpdate,
-                    PreUpdateFlush,
-                    StateTransitions,
-                    FixedUpdate,
-                    Update,
-                    UpdateFlush,
-                    PostUpdate,
-                    PostUpdateFlush,
-                    Last,
-                    LastFlush,
-                )
-                    .chain(),
-            );
-        schedule
-    }
-}
-
-/// The names of the default [`App`] startup sets, which live in [`CoreSchedule::Startup`].
-///
-/// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_schedules`].
-///
-/// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
-/// that runs immediately after the matching system set.
-/// These can be useful for ordering, but you almost never want to add your systems to these sets.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
-pub enum StartupSet {
-    /// Runs once before [`StartupSet::Startup`].
-    PreStartup,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `PreStartup`.
-    PreStartupFlush,
-    /// Runs once when an [`App`] starts up.
-    Startup,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Startup`.
-    StartupFlush,
-    /// Runs once after [`StartupSet::Startup`].
-    PostStartup,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `PostStartup`.
-    PostStartupFlush,
-}
-
-impl StartupSet {
-    /// Sets up the base structure of [`CoreSchedule::Startup`].
+    /// The schedules added are defined in the [`CoreSchedule`] enum,
+    /// and have a starting configuration defined by:
     ///
-    /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_system_buffers`] is inserted into each `*Flush` set.
-    pub fn base_schedule() -> Schedule {
-        use StartupSet::*;
-        let mut schedule = Schedule::new();
-        schedule.set_default_base_set(Startup);
-
-        // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_systems((
-            apply_system_buffers.in_base_set(PreStartupFlush),
-            apply_system_buffers.in_base_set(StartupFlush),
-            apply_system_buffers.in_base_set(PostStartupFlush),
-        ));
-
-        schedule.configure_sets(
-            (
-                PreStartup,
-                PreStartupFlush,
-                Startup,
-                StartupFlush,
-                PostStartup,
-                PostStartupFlush,
-            )
-                .chain(),
-        );
-
-        schedule
+    /// - [`CoreSchedule::Outer`]: uses [`CoreSchedule::outer_schedule`]
+    /// - [`CoreSchedule::Startup`]: uses [`StartupSet::base_schedule`]
+    /// - [`CoreSchedule::Main`]: uses [`CoreSet::base_schedule`]
+    /// - [`CoreSchedule::FixedUpdate`]: no starting configuration
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_app::App;
+    /// use bevy_ecs::schedule::Schedules;
+    ///
+    /// let app = App::empty()
+    ///     .init_resource::<Schedules>()
+    ///     .add_default_schedules()
+    ///     .update();
+    /// ```
+    pub fn init(app: &mut App) {
+        app.init_schedule(Main)
+            .init_schedule(PreStartup)
+            .init_schedule(Startup)
+            .init_schedule(PostStartup)
+            .init_schedule(First)
+            .init_schedule(PreUpdate)
+            .init_schedule(StateTransition)
+            .init_schedule(FixedUpdateLoop)
+            .init_schedule(FixedUpdate)
+            .init_schedule(Update)
+            .init_schedule(PostUpdate)
+            .init_schedule(Last)
+            .init_resource::<MainScheduleOrder>()
+            .add_system_to(Main, Self::run_main);
     }
 }

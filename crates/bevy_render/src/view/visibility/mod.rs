@@ -2,7 +2,7 @@ mod render_layers;
 
 pub use render_layers::*;
 
-use bevy_app::{CoreSet, Plugin};
+use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
@@ -210,52 +210,49 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.configure_set(CalculateBounds.in_base_set(CoreSet::PostUpdate))
+        app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_system(apply_system_buffers.in_set(CalculateBoundsFlush))
-            .configure_set(
-                CalculateBoundsFlush
-                    .after(CalculateBounds)
-                    .in_base_set(CoreSet::PostUpdate),
+            .add_system_to(
+                PostUpdate,
+                apply_system_buffers.in_set(CalculateBoundsFlush),
             )
-            .configure_set(UpdateOrthographicFrusta.in_base_set(CoreSet::PostUpdate))
-            .configure_set(UpdatePerspectiveFrusta.in_base_set(CoreSet::PostUpdate))
-            .configure_set(UpdateProjectionFrusta.in_base_set(CoreSet::PostUpdate))
-            .configure_set(CheckVisibility.in_base_set(CoreSet::PostUpdate))
-            .configure_set(VisibilityPropagate.in_base_set(CoreSet::PostUpdate))
-            .add_systems((
-                calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<OrthographicProjection>
-                    .in_set(UpdateOrthographicFrusta)
-                    .after(camera_system::<OrthographicProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<PerspectiveProjection>
-                    .in_set(UpdatePerspectiveFrusta)
-                    .after(camera_system::<PerspectiveProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<Projection>
-                    .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>)
-                    .after(TransformSystem::TransformPropagate),
-                visibility_propagate_system.in_set(VisibilityPropagate),
-                check_visibility
-                    .in_set(CheckVisibility)
-                    .after(CalculateBoundsFlush)
-                    .after(UpdateOrthographicFrusta)
-                    .after(UpdatePerspectiveFrusta)
-                    .after(UpdateProjectionFrusta)
-                    .after(VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
-            ));
+            .configure_set_in(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
+            .add_systems_to(
+                PostUpdate,
+                (
+                    calculate_bounds.in_set(CalculateBounds),
+                    update_frusta::<OrthographicProjection>
+                        .in_set(UpdateOrthographicFrusta)
+                        .after(camera_system::<OrthographicProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<PerspectiveProjection>
+                        .in_set(UpdatePerspectiveFrusta)
+                        .after(camera_system::<PerspectiveProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<Projection>
+                        .in_set(UpdateProjectionFrusta)
+                        .after(camera_system::<Projection>)
+                        .after(TransformSystem::TransformPropagate),
+                    visibility_propagate_system.in_set(VisibilityPropagate),
+                    check_visibility
+                        .in_set(CheckVisibility)
+                        .after(CalculateBoundsFlush)
+                        .after(UpdateOrthographicFrusta)
+                        .after(UpdatePerspectiveFrusta)
+                        .after(UpdateProjectionFrusta)
+                        .after(VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
+                ),
+            );
     }
 }
 

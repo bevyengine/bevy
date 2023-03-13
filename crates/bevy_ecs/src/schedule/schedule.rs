@@ -183,12 +183,6 @@ impl Schedule {
         }
     }
 
-    pub fn set_default_base_set(&mut self, default_base_set: impl SystemSet) -> &mut Self {
-        self.graph
-            .set_default_base_set(Some(Box::new(default_base_set)));
-        self
-    }
-
     /// Add a system to the schedule.
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         self.graph.add_system(system);
@@ -360,15 +354,11 @@ pub enum BaseSetMembership {
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
     inner: BoxedSystemSet,
-    base_set_membership: BaseSetMembership,
 }
 
 impl SystemSetNode {
     pub fn new(set: BoxedSystemSet) -> Self {
-        Self {
-            inner: set,
-            base_set_membership: BaseSetMembership::Uncalculated,
-        }
+        Self { inner: set }
     }
 
     pub fn name(&self) -> String {
@@ -401,10 +391,6 @@ impl SystemNode {
     pub fn get_mut(&mut self) -> Option<&mut BoxedSystem> {
         self.inner.as_mut()
     }
-
-    pub fn name(&self) -> String {
-        format!("{:?}", &self.inner)
-    }
 }
 
 /// Metadata for a [`Schedule`].
@@ -416,7 +402,6 @@ pub struct ScheduleGraph {
     system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
     uninit: Vec<(NodeId, usize)>,
-    maybe_default_base_set: Vec<NodeId>,
     hierarchy: Dag,
     dependency: Dag,
     dependency_flattened: Dag,
@@ -426,7 +411,6 @@ pub struct ScheduleGraph {
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
-    default_base_set: Option<BoxedSystemSet>,
 }
 
 impl ScheduleGraph {
@@ -437,7 +421,6 @@ impl ScheduleGraph {
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
             system_set_ids: HashMap::new(),
-            maybe_default_base_set: Vec::new(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
@@ -448,7 +431,6 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             changed: false,
             settings: default(),
-            default_base_set: None,
         }
     }
 
@@ -518,17 +500,14 @@ impl ScheduleGraph {
     /// Returns an iterator over all system sets in this schedule.
     ///
     /// Note that the [`BaseSetMembership`] will only be initialized after [`ScheduleGraph::build_schedule`] is called.
-    pub fn system_sets(
-        &self,
-    ) -> impl Iterator<Item = (NodeId, &dyn SystemSet, BaseSetMembership, &[BoxedCondition])> {
+    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, node_id)| {
             let set_node = &self.system_sets[node_id.index()];
             let set = &*set_node.inner;
-            let base_set_membership = set_node.base_set_membership;
             let conditions = self.system_set_conditions[node_id.index()]
                 .as_deref()
                 .unwrap_or(&[]);
-            (*node_id, set, base_set_membership, conditions)
+            (*node_id, set, conditions)
         })
     }
 
@@ -591,7 +570,7 @@ impl ScheduleGraph {
         let id = NodeId::System(self.systems.len());
 
         // graph updates are immediate
-        self.update_graphs(id, graph_info, false)?;
+        self.update_graphs(id, graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
@@ -639,7 +618,7 @@ impl ScheduleGraph {
         };
 
         // graph updates are immediate
-        self.update_graphs(id, graph_info, set.is_base())?;
+        self.update_graphs(id, graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
         let system_set_conditions =
@@ -724,7 +703,6 @@ impl ScheduleGraph {
         &mut self,
         id: NodeId,
         graph_info: GraphInfo,
-        is_base_set: bool,
     ) -> Result<(), ScheduleBuildError> {
         self.check_sets(&id, &graph_info)?;
         self.check_edges(&id, &graph_info)?;
@@ -734,8 +712,6 @@ impl ScheduleGraph {
             sets,
             dependencies,
             ambiguous_with,
-            base_set,
-            add_default_base_set,
             ..
         } = graph_info;
 
@@ -747,30 +723,6 @@ impl ScheduleGraph {
 
             // ensure set also appears in dependency graph
             self.dependency.graph.add_node(set);
-        }
-
-        // If the current node is not a base set, set the base set if it was configured
-        if !is_base_set {
-            if let Some(base_set) = base_set {
-                let set_id = self.system_set_ids[&base_set];
-                self.hierarchy.graph.add_edge(set_id, id, ());
-            } else if let Some(default_base_set) = &self.default_base_set {
-                if add_default_base_set {
-                    match id {
-                        NodeId::System(_) => {
-                            // Queue the default base set. We queue systems instead of adding directly to allow
-                            // sets to define base sets, which will override the default inheritance behavior
-                            self.maybe_default_base_set.push(id);
-                        }
-                        NodeId::Set(_) => {
-                            // Sets should be added automatically because developers explicitly called
-                            // in_default_base_set()
-                            let set_id = self.system_set_ids[default_base_set];
-                            self.hierarchy.graph.add_edge(set_id, id, ());
-                        }
-                    }
-                }
-            }
         }
 
         if !self.dependency.graph.contains_node(id) {
@@ -832,118 +784,6 @@ impl ScheduleGraph {
         }
     }
 
-    /// Calculates the base set for each node and caches the results on the node
-    fn calculate_base_sets_and_detect_cycles(&mut self) -> Result<(), ScheduleBuildError> {
-        let set_ids = (0..self.system_sets.len()).map(NodeId::Set);
-        let system_ids = (0..self.systems.len()).map(NodeId::System);
-        let mut visited_sets = vec![false; self.system_sets.len()];
-        // reset base set membership, as this can change when the schedule updates
-        for system in &mut self.systems {
-            system.base_set_membership = BaseSetMembership::Uncalculated;
-        }
-        for system_set in &mut self.system_sets {
-            system_set.base_set_membership = BaseSetMembership::Uncalculated;
-        }
-        for node_id in set_ids.chain(system_ids) {
-            Self::calculate_base_set(
-                &self.hierarchy,
-                &mut self.system_sets,
-                &mut self.systems,
-                &mut visited_sets,
-                node_id,
-            )?;
-        }
-        Ok(())
-    }
-
-    fn calculate_base_set(
-        hierarchy: &Dag,
-        system_sets: &mut [SystemSetNode],
-        systems: &mut [SystemNode],
-        visited_sets: &mut [bool],
-        node_id: NodeId,
-    ) -> Result<Option<NodeId>, ScheduleBuildError> {
-        let base_set_membership = match node_id {
-            // systems only have
-            NodeId::System(_) => BaseSetMembership::Uncalculated,
-            NodeId::Set(index) => {
-                let set_node = &mut system_sets[index];
-                if set_node.inner.is_base() {
-                    set_node.base_set_membership = BaseSetMembership::Some(node_id);
-                }
-                set_node.base_set_membership
-            }
-        };
-        let base_set = match base_set_membership {
-            BaseSetMembership::None => None,
-            BaseSetMembership::Some(node_id) => Some(node_id),
-            BaseSetMembership::Uncalculated => {
-                let mut base_set: Option<NodeId> = None;
-                if let NodeId::Set(index) = node_id {
-                    if visited_sets[index] {
-                        return Err(ScheduleBuildError::HierarchyCycle);
-                    }
-                    visited_sets[index] = true;
-                }
-                for neighbor in hierarchy
-                    .graph
-                    .neighbors_directed(node_id, Direction::Incoming)
-                {
-                    if let Some(calculated_base_set) = Self::calculate_base_set(
-                        hierarchy,
-                        system_sets,
-                        systems,
-                        visited_sets,
-                        neighbor,
-                    )? {
-                        if let Some(first_set) = base_set {
-                            if first_set != calculated_base_set {
-                                return Err(match node_id {
-                                    NodeId::System(index) => {
-                                        ScheduleBuildError::SystemInMultipleBaseSets {
-                                            system: systems[index].name(),
-                                            first_set: system_sets[first_set.index()].name(),
-                                            second_set: system_sets[calculated_base_set.index()]
-                                                .name(),
-                                        }
-                                    }
-                                    NodeId::Set(index) => {
-                                        ScheduleBuildError::SetInMultipleBaseSets {
-                                            set: system_sets[index].name(),
-                                            first_set: system_sets[first_set.index()].name(),
-                                            second_set: system_sets[calculated_base_set.index()]
-                                                .name(),
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                        base_set = Some(calculated_base_set);
-                    }
-                }
-
-                match node_id {
-                    NodeId::System(index) => {
-                        systems[index].base_set_membership = if let Some(base_set) = base_set {
-                            BaseSetMembership::Some(base_set)
-                        } else {
-                            BaseSetMembership::None
-                        };
-                    }
-                    NodeId::Set(index) => {
-                        system_sets[index].base_set_membership = if let Some(base_set) = base_set {
-                            BaseSetMembership::Some(base_set)
-                        } else {
-                            BaseSetMembership::None
-                        };
-                    }
-                }
-                base_set
-            }
-        };
-        Ok(base_set)
-    }
-
     /// Build a [`SystemSchedule`] optimized for scheduler access from the [`ScheduleGraph`].
     ///
     /// This method also
@@ -954,27 +794,6 @@ impl ScheduleGraph {
         &mut self,
         components: &Components,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
-        self.calculate_base_sets_and_detect_cycles()?;
-
-        // Add missing base set membership to systems that defaulted to using the
-        // default base set and weren't added to a set that belongs to a base set.
-        if let Some(default_base_set) = &self.default_base_set {
-            let default_set_id = self.system_set_ids[default_base_set];
-            for system_id in std::mem::take(&mut self.maybe_default_base_set) {
-                let system_node = &mut self.systems[system_id.index()];
-                if system_node.base_set_membership == BaseSetMembership::None {
-                    self.hierarchy.graph.add_edge(default_set_id, system_id, ());
-                    system_node.base_set_membership = BaseSetMembership::Some(default_set_id);
-                }
-
-                debug_assert_ne!(
-                    system_node.base_set_membership,
-                    BaseSetMembership::Uncalculated,
-                    "base set membership should have been calculated"
-                );
-            }
-        }
-
         // check hierarchy for cycles
         self.hierarchy.topsort = self
             .topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)
@@ -1339,17 +1158,6 @@ impl ScheduleGraph {
         }
 
         Ok(())
-    }
-
-    fn set_default_base_set(&mut self, set: Option<BoxedSystemSet>) {
-        if let Some(set) = set {
-            self.default_base_set = Some(set.dyn_clone());
-            if self.system_set_ids.get(&set).is_none() {
-                self.add_set(set);
-            }
-        } else {
-            self.default_base_set = None;
-        }
     }
 }
 

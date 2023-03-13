@@ -46,8 +46,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CubemapMaterial>::default())
+        .add_system_to(Startup, setup)
         .add_systems((
-            setup.on_startup(),
             cycle_cubemap_asset,
             asset_loaded.after(cycle_cubemap_asset),
             camera_controller,

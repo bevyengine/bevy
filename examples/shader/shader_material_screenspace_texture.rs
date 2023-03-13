@@ -10,7 +10,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_systems((setup.on_startup(), rotate_camera))
+        .add_system_to(Startup, setup)
+        .add_system(rotate_camera)
         .run();
 }
 

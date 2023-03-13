@@ -12,12 +12,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems((
-            setup.on_startup(),
-            display_override,
-            toggle_override,
-            change_scale_factor,
-        ))
+        .add_system_to(Startup, setup)
+        .add_systems((display_override, toggle_override, change_scale_factor))
         .run();
 }
 

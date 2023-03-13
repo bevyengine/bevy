@@ -20,7 +20,7 @@ use bevy::{
 fn main() {
     App::new()
         // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis
-        .edit_schedule(CoreSchedule::Main, |schedule| {
+        .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,
                 ..default()

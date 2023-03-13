@@ -46,18 +46,17 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
+use bevy_app::{prelude::*, MainScheduleOrder};
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
-/// [`SystemSet`]s for asset loading in an [`App`] schedule.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
-pub enum AssetSet {
-    /// Asset storages are updated.
-    LoadAssets,
-    /// Asset events are generated.
-    AssetEvents,
-}
+// TODO: evaluate execution to allow these to be sets
+
+/// Asset storages are updated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct LoadAssets;
+/// Asset events are generated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct AssetEvents;
 
 /// Adds support for [`Assets`] to an App.
 ///
@@ -106,24 +105,29 @@ impl Plugin for AssetPlugin {
             app.insert_resource(asset_server);
         }
 
-        app.register_type::<HandleId>();
-
-        app.configure_set(
-            AssetSet::LoadAssets
-                .before(CoreSet::PreUpdate)
-                .after(CoreSet::First),
-        )
-        .configure_set(
-            AssetSet::AssetEvents
-                .after(CoreSet::PostUpdate)
-                .before(CoreSet::Last),
-        )
-        .add_system(asset_server::free_unused_assets_system.in_base_set(CoreSet::PreUpdate));
+        app.register_type::<HandleId>()
+            .add_system_to(PreUpdate, asset_server::free_unused_assets_system);
+        app.init_schedule(LoadAssets);
+        app.init_schedule(AssetEvents);
+        // app.configure_set(
+        //     AssetSet::LoadAssets
+        //         .before(CoreSet::PreUpdate)
+        //         .after(CoreSet::First),
+        // )
+        // .configure_set(
+        //     AssetSet::AssetEvents
+        //         .after(CoreSet::PostUpdate)
+        //         .before(CoreSet::Last),
+        // )
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system(io::filesystem_watcher_system.in_base_set(AssetSet::LoadAssets));
+        app.add_system_to(LoadAssets, io::filesystem_watcher_system);
+
+        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        order.insert_after(First, LoadAssets);
+        order.insert_after(PostUpdate, AssetEvents);
     }
 }

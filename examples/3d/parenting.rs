@@ -6,7 +6,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), rotator_system))
+        .add_system_to(Startup, setup)
+        .add_system(rotator_system)
         .run();
 }
 

@@ -22,7 +22,7 @@
 //! variants for game simulation, but rather use the value of [`FixedTime`] instead.
 
 use crate::Time;
-use bevy_app::CoreSchedule;
+use bevy_app::FixedUpdate;
 use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::Duration;
 use thiserror::Error;
@@ -111,7 +111,7 @@ pub fn run_fixed_update_schedule(world: &mut World) {
         let mut fixed_time = world.resource_mut::<FixedTime>();
         let fixed_time_run = fixed_time.expend().is_ok();
         if fixed_time_run {
-            world.run_schedule(CoreSchedule::FixedUpdate);
+            world.run_schedule(FixedUpdate);
         } else {
             check_again = false;
         }

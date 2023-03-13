@@ -24,8 +24,8 @@ struct Center {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_system_to(Startup, setup)
         .add_systems((
-            setup.on_startup(),
             move_cube,
             rotate_cube,
             scale_down_sphere_proportional_to_cube_travel_distance,

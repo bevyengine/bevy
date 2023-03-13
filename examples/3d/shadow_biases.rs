@@ -19,8 +19,8 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_system_to(Startup, setup)
         .add_systems((
-            setup.on_startup(),
             adjust_point_light_biases,
             toggle_light,
             adjust_directional_light_biases,

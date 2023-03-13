@@ -9,8 +9,6 @@ use crate::{
     system::{BoxedSystem, IntoSystem, System},
 };
 
-use super::{BaseSystemSet, FreeSystemSet};
-
 /// A [`SystemSet`] with scheduling metadata.
 pub struct SystemSetConfig {
     pub(super) set: BoxedSystemSet,
@@ -29,7 +27,7 @@ impl SystemSetConfig {
 
         Self {
             set,
-            graph_info: GraphInfo::system_set(),
+            graph_info: GraphInfo::default(),
             conditions: Vec::new(),
         }
     }
@@ -46,7 +44,7 @@ impl SystemConfig {
     fn new(system: BoxedSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
-        let mut graph_info = GraphInfo::system();
+        let mut graph_info = GraphInfo::default();
         graph_info.sets = sets;
         Self {
             system,
@@ -88,17 +86,8 @@ pub trait IntoSystemSetConfig: Sized {
     fn into_config(self) -> SystemSetConfig;
     /// Add to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl FreeSystemSet) -> SystemSetConfig {
+    fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
         self.into_config().in_set(set)
-    }
-    /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
-    #[track_caller]
-    fn in_base_set(self, set: impl BaseSystemSet) -> SystemSetConfig {
-        self.into_config().in_base_set(set)
-    }
-    /// Add this set to the schedules's default base set.
-    fn in_default_base_set(self) -> SystemSetConfig {
-        self.into_config().in_default_base_set()
     }
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
@@ -150,38 +139,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        assert!(
-            !set.is_base(),
-            "Sets cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
-        );
-        assert!(
-            !self.set.is_base(),
-            "Base system sets cannot be added to other sets."
-        );
         self.graph_info.sets.push(Box::new(set));
-        self
-    }
-
-    #[track_caller]
-    fn in_base_set(mut self, set: impl SystemSet) -> Self {
-        assert!(
-            set.system_type().is_none(),
-            "System type sets cannot be base sets."
-        );
-        assert!(
-            set.is_base(),
-            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
-        );
-        assert!(
-            !self.set.is_base(),
-            "Base system sets cannot be added to other sets."
-        );
-        self.graph_info.set_base_set(Box::new(set));
-        self
-    }
-
-    fn in_default_base_set(mut self) -> SystemSetConfig {
-        self.graph_info.add_default_base_set = true;
         self
     }
 
@@ -230,17 +188,8 @@ where
     fn into_config(self) -> Config;
     /// Add to `set` membership.
     #[track_caller]
-    fn in_set(self, set: impl FreeSystemSet) -> Config {
+    fn in_set(self, set: impl SystemSet) -> Config {
         self.into_config().in_set(set)
-    }
-    /// Add to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
-    #[track_caller]
-    fn in_base_set(self, set: impl BaseSystemSet) -> Config {
-        self.into_config().in_base_set(set)
-    }
-    /// Don't add this system to the schedules's default set.
-    fn no_default_base_set(self) -> Config {
-        self.into_config().no_default_base_set()
     }
     /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> Config {
@@ -295,30 +244,7 @@ impl IntoSystemConfig<()> for SystemConfig {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        assert!(
-            !set.is_base(),
-            "Systems cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
-        );
         self.graph_info.sets.push(Box::new(set));
-        self
-    }
-
-    #[track_caller]
-    fn in_base_set(mut self, set: impl SystemSet) -> Self {
-        assert!(
-            set.system_type().is_none(),
-            "System type sets cannot be base sets."
-        );
-        assert!(
-            set.is_base(),
-            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
-        );
-        self.graph_info.set_base_set(Box::new(set));
-        self
-    }
-
-    fn no_default_base_set(mut self) -> SystemConfig {
-        self.graph_info.add_default_base_set = false;
         self
     }
 
@@ -372,14 +298,8 @@ where
 
     /// Add these systems to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl FreeSystemSet) -> SystemConfigs {
+    fn in_set(self, set: impl SystemSet) -> SystemConfigs {
         self.into_configs().in_set(set)
-    }
-
-    /// Add these systems to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
-    #[track_caller]
-    fn in_base_set(self, set: impl BaseSystemSet) -> SystemConfigs {
-        self.into_configs().in_base_set(set)
     }
 
     /// Run before all systems in `set`.
@@ -457,29 +377,8 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        assert!(
-            !set.is_base(),
-            "Systems cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
-        );
         for config in &mut self.systems {
             config.graph_info.sets.push(set.dyn_clone());
-        }
-
-        self
-    }
-
-    #[track_caller]
-    fn in_base_set(mut self, set: impl SystemSet) -> Self {
-        assert!(
-            set.system_type().is_none(),
-            "System type sets cannot be base sets."
-        );
-        assert!(
-            set.is_base(),
-            "Systems cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
-        );
-        for config in &mut self.systems {
-            config.graph_info.set_base_set(set.dyn_clone());
         }
 
         self
@@ -558,14 +457,8 @@ where
 
     /// Add these system sets to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl FreeSystemSet) -> SystemSetConfigs {
+    fn in_set(self, set: impl SystemSet) -> SystemSetConfigs {
         self.into_configs().in_set(set)
-    }
-
-    /// Add these system sets to the provided "base" `set`. For more information on base sets, see [`SystemSet::is_base`].
-    #[track_caller]
-    fn in_base_set(self, set: impl BaseSystemSet) -> SystemSetConfigs {
-        self.into_configs().in_base_set(set)
     }
 
     /// Run before all systems in `set`.
@@ -609,37 +502,8 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        assert!(
-            !set.is_base(),
-            "Sets cannot be added to 'base' system sets using 'in_set'. Use 'in_base_set' instead."
-        );
         for config in &mut self.sets {
-            assert!(
-                !config.set.is_base(),
-                "Base system sets cannot be added to other sets."
-            );
             config.graph_info.sets.push(set.dyn_clone());
-        }
-
-        self
-    }
-
-    #[track_caller]
-    fn in_base_set(mut self, set: impl SystemSet) -> Self {
-        assert!(
-            set.system_type().is_none(),
-            "System type sets cannot be base sets."
-        );
-        assert!(
-            set.is_base(),
-            "Sets cannot be added to normal sets using 'in_base_set'. Use 'in_set' instead."
-        );
-        for config in &mut self.sets {
-            assert!(
-                !config.set.is_base(),
-                "Base system sets cannot be added to other sets."
-            );
-            config.graph_info.set_base_set(set.dyn_clone());
         }
 
         self

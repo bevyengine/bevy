@@ -98,28 +98,28 @@ impl Plugin for TransformPlugin {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
-            // add transform systems to startup so the first update is "correct"
-            .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
             .configure_set(PropagateTransformsSet.in_set(TransformSystem::TransformPropagate))
-            .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(
-                    TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
-                );
-            })
-            .add_startup_systems((
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
-                    // These systems cannot access the same entities,
-                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ))
-            .add_systems((
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ));
+            // add transform systems to startup so the first update is "correct"
+            .add_systems_to(
+                PostStartup,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                        // These systems cannot access the same entities,
+                        // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
+                ),
+            )
+            .add_systems_to(
+                PostUpdate,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
+                ),
+            );
     }
 }

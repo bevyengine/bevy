@@ -1,12 +1,13 @@
 //! Renders an animated sprite by loading all animation frames from a single image (a sprite sheet)
 //! into a texture atlas, and changing the displayed image periodically.
 
-use bevy::prelude::*;
+use bevy::{app::Startup, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
-        .add_systems((setup.on_startup(), animate_sprite))
+        .add_system_to(Startup, setup)
+        .add_system(animate_sprite)
         .run();
 }
 

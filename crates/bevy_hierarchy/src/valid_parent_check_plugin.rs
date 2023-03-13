@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreSet, Plugin};
+use bevy_app::{App, Last, Plugin};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_log::warn;
@@ -96,10 +96,11 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ReportHierarchyIssue<T>>().add_system(
-            check_hierarchy_component_has_valid_parent::<T>
-                .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true)))
-                .in_base_set(CoreSet::Last),
-        );
+        app.init_resource::<ReportHierarchyIssue<T>>()
+            .add_system_to(
+                Last,
+                check_hierarchy_component_has_valid_parent::<T>
+                    .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true))),
+            );
     }
 }
