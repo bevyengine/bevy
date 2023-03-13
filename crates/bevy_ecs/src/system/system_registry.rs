@@ -92,10 +92,7 @@ impl SystemRegistry {
     ///
     /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
-        &mut self,
-        system: S,
-    ) -> SystemId {
+    pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
         let type_id = TypeId::of::<S>();
 
         let index = *self.indices.entry(type_id).or_insert_with(|| {
@@ -117,13 +114,9 @@ impl SystemRegistry {
     ///
     /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeSet`],
     /// only the first will be run.
-    pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(
-        &mut self,
-        world: &mut World,
-        system: S,
-    ) {
-        let id = self.register_system(system);
-        self.run_system_by_id(world, id)
+    pub fn run<M, S: IntoSystem<(), (), M> + 'static>(&mut self, world: &mut World, system: S) {
+        let id = self.register(system);
+        self.run_by_id(world, id)
             .expect("System was registered before running");
     }
 
@@ -134,7 +127,7 @@ impl SystemRegistry {
     ///
     /// Systems will be run sequentially in registration order if more than one registered system matches the provided label.
     #[inline]
-    pub fn run_system_by_id(
+    pub fn run_by_id(
         &mut self,
         world: &mut World,
         id: SystemId,
@@ -175,8 +168,7 @@ impl World {
         &mut self,
         system: S,
     ) -> SystemId {
-        self.resource_mut::<SystemRegistry>()
-            .register_system(system)
+        self.resource_mut::<SystemRegistry>().register(system)
     }
 
     /// Runs the supplied system on the [`World`] a single time.
@@ -185,7 +177,7 @@ impl World {
     #[inline]
     pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_system(world, system);
+            registry.run(world, system);
         });
     }
 
@@ -195,7 +187,7 @@ impl World {
     #[inline]
     pub fn run_system_by_id(&mut self, id: SystemId) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_system_by_id(world, id)
+            registry.run_by_id(world, id)
         })
     }
 }
@@ -249,7 +241,7 @@ impl Command for RunSystemById {
     fn write(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry
-                .run_system_by_id(world, self.system_id)
+                .run_by_id(world, self.system_id)
                 // Ideally this error should be handled more gracefully,
                 // but that's blocked on a full error handling solution for commands
                 .unwrap();
