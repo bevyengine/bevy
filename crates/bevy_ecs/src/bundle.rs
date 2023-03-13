@@ -272,7 +272,7 @@ impl BundleInfo {
     ///
     /// # Safety
     ///
-    /// `component_id` must be valid [`ComponentId`]'s in the same World and their associated storages must be 
+    /// `component_id` must be valid [`ComponentId`]'s in the same World and their associated storages must be
     /// properly initialized.
     unsafe fn new(
         bundle_type_name: &'static str,
