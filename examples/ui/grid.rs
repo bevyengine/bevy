@@ -18,24 +18,29 @@ fn main() {
         .run();
 }
 
-fn rect(color: Color) -> NodeBundle {
-    NodeBundle {
-        background_color: BackgroundColor(color),
-        ..default()
-    }
-}
-
 fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
             style: Style {
+                /// Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
+                /// Make node fill the entirety it's parent (in this case the window)
                 size: Size::all(Val::Percent(100.)),
-                grid_template_columns: vec![GridTrack::flex(1.), GridTrack::flex(2.), GridTrack::flex(1.)],
-                grid_template_rows: vec![GridTrack::auto(), GridTrack::px(150.), GridTrack::flex(1.)],
+                /// Set a 20px gap/gutter between both rows and columns
                 gap: Size::all(Val::Px(20.)),
+                /// Set the grid to have 3 columns with sizes [minmax(0, 1fr), minmax(0, 2fr), minmax(0, 1fr)]
+                /// This means that the columns with initially have zero size. They will then expand to take up 
+                /// the remaining available space in proportion to thier "flex fractions" (fr values).
+                ///
+                /// The sum of the fr values is 4, so in this case:
+                ///   - The 1st column will take 1/4 of the width
+                ///   - The 2nd column will take up 2/4 = 1/2 of the width
+                ///   - The 3rd column will be 1/4 of the width
+                grid_template_columns: vec![GridTrack::flex(1.), GridTrack::flex(2.), GridTrack::flex(1.)],
+                /// Set the grid to have 3 rows with sizes [auto, 150px, minmax(0, 1fr)]
+                grid_template_rows: vec![GridTrack::auto(), GridTrack::px(150.), GridTrack::flex(1.)],
                 ..default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -91,13 +96,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     builder.spawn(rect(Color::BISQUE));
                     builder.spawn(rect(Color::BLUE));
                     builder.spawn(rect(Color::CRIMSON));
-
-                    // .with_styled_child(button("Increment").on_press(Message::Increment), |style| {
-                    //     style.align_self = Some(AlignSelf::Center);
-                    //     style.justify_self = Some(AlignSelf::Center);
-                    // })
                     builder.spawn(rect(Color::CYAN));
-
                     builder.spawn(rect(Color::ORANGE_RED));
                     builder.spawn(rect(Color::DARK_GREEN));
                     builder.spawn(rect(Color::FUCHSIA));
@@ -120,6 +119,16 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             builder.spawn(rect(Color::GREEN));
         });
+}
+
+/// Create a coloured rectangle node. The node has size as it is assumed that it will be
+/// spawned as a child of a Grid container with AlignItems::Stretch and JustifyItems::Stretch
+/// which will allow it to take it's size from the size of the grid area it occupies.
+fn rect(color: Color) -> NodeBundle {
+    NodeBundle {
+        background_color: BackgroundColor(color),
+        ..default()
+    }
 }
 
 fn spawn_nested_text_bundle(
