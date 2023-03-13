@@ -16,7 +16,7 @@ use bevy_text::{Text, TextSection, TextStyle};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     prelude::{NodeBundle, TextBundle},
-    Size, Style, UiRect, Val,
+    AlignItems, Size, Style, UiRect, Val,
 };
 use bevy_utils::{default, Duration, HashMap};
 
@@ -49,6 +49,7 @@ fn setup_ui(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 size: Size::width(Val::Percent(100.0)),
+                align_items: AlignItems::Start,
                 ..default()
             },
             ..default()
@@ -119,7 +120,7 @@ fn draw_node_gpu_time_overlay(
             Some((_, label)) => label,
             None => label,
         };
-        let text = format!("{label}: {}ms\n", *duration * 1000.0);
+        let text = format!("{label}: {:.3}ms\n", *duration * 1000.0);
         ui.sections.push(TextSection::new(text, text_style.clone()));
     }
 }
