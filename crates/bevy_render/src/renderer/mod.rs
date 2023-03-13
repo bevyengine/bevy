@@ -16,7 +16,10 @@ use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::tracing::{error, info, info_span};
 use bevy_utils::Instant;
-use std::sync::Arc;
+use std::{
+    mem,
+    sync::{Arc, Mutex},
+};
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Maintain, Queue,
     RequestAdapterOptions,
@@ -38,8 +41,8 @@ pub fn render_system(world: &mut World) {
         &render_queue.0,
         world,
     ) {
-        Ok(gpu_timers) => world.resource_mut::<GpuTimerScopes>().0 = gpu_timers,
-
+        Ok(Some(gpu_timers)) => world.resource_mut::<GpuTimerScopes>().set(gpu_timers),
+        Ok(None) => {}
         Err(e) => {
             error!("Error running render graph:");
             {
@@ -377,7 +380,7 @@ impl RenderContext {
         mut self,
         queue: &Queue,
         render_device: &RenderDevice,
-    ) -> Vec<GpuTimerScopeResult> {
+    ) -> Option<Vec<GpuTimerScopeResult>> {
         self.flush_command_encoder();
 
         let submission_index = {
@@ -388,12 +391,12 @@ impl RenderContext {
 
         if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
             gpu_profiler.end_frame().unwrap();
+            // This poll is not optimal, but unsure how to ensure buffers are mapped otherwise
             render_device.poll(Maintain::WaitForSubmissionIndex(submission_index));
-            if let Some(gpu_timers) = gpu_profiler.process_finished_frame() {
-                return gpu_timers;
-            }
+            return gpu_profiler.process_finished_frame();
         }
-        Vec::new()
+
+        None
     }
 
     fn flush_command_encoder(&mut self) {
@@ -407,5 +410,15 @@ impl RenderContext {
     }
 }
 
-#[derive(Resource, Default)]
-pub struct GpuTimerScopes(pub Vec<GpuTimerScopeResult>);
+#[derive(Resource, Clone, Default)]
+pub struct GpuTimerScopes(Arc<Mutex<Vec<GpuTimerScopeResult>>>);
+
+impl GpuTimerScopes {
+    pub fn set(&self, gpu_timers: Vec<GpuTimerScopeResult>) {
+        *self.0.lock().unwrap() = gpu_timers;
+    }
+
+    pub fn take(&self) -> Vec<GpuTimerScopeResult> {
+        mem::take(&mut self.0.lock().unwrap())
+    }
+}

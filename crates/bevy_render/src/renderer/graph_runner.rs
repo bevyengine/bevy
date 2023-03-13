@@ -57,7 +57,7 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         queue: &wgpu::Queue,
         world: &World,
-    ) -> Result<Vec<GpuTimerScopeResult>, RenderGraphRunnerError> {
+    ) -> Result<Option<Vec<GpuTimerScopeResult>>, RenderGraphRunnerError> {
         let mut render_context = RenderContext::new(render_device.clone(), queue);
 
         Self::run_graph(graph, None, &mut render_context, world, &[])?;

@@ -218,8 +218,9 @@ impl Plugin for RenderPlugin {
                     &self.wgpu_settings,
                     &request_adapter_options,
                 ));
+            let device_features = device.features();
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-            debug!("Configured wgpu adapter Features: {:#?}", device.features());
+            debug!("Configured wgpu adapter Features: {:#?}", device_features);
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
@@ -257,13 +258,18 @@ impl Plugin for RenderPlugin {
                 .add_schedule(CoreSchedule::Main, render_schedule)
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
-                .init_resource::<GpuTimerScopes>()
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
+
+            if device_features.contains(wgpu::Features::TIMESTAMP_QUERY) {
+                let gpu_timers = GpuTimerScopes::default();
+                app.insert_resource(gpu_timers.clone());
+                render_app.insert_resource(gpu_timers);
+            }
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
