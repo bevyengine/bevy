@@ -694,7 +694,9 @@ unsafe fn remove_bundle_from_archetype(
     let remove_bundle_result = {
         let current_archetype = &mut archetypes[archetype_id];
         if intersection {
-            current_archetype.edges().get_remove_bundle(bundle_info.id())
+            current_archetype
+                .edges()
+                .get_remove_bundle(bundle_info.id())
         } else {
             current_archetype.edges().get_take_bundle(bundle_info.id())
         }
