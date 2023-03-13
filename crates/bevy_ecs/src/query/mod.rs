@@ -751,6 +751,7 @@ mod tests {
         let _: &Foo = q.single();
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/8029
     #[test]
     fn par_iter_mut_change_detection() {
         let mut world = World::new();
