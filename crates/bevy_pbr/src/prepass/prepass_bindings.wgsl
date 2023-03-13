@@ -19,3 +19,4 @@ var<uniform> mesh: Mesh;
 var<uniform> joint_matrices: SkinnedMesh;
 #import bevy_pbr::skinning
 #endif
+
