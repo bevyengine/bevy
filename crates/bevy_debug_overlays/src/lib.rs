@@ -96,7 +96,7 @@ fn draw_node_gpu_time_overlay(
     list: Query<Entity, With<ListMarker>>,
 ) {
     let mut gpu_timers = aggregated_gpu_timers.0.iter().collect::<Vec<_>>();
-    gpu_timers.sort_unstable_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap());
+    gpu_timers.sort_unstable_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap().reverse());
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
