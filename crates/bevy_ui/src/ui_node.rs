@@ -441,12 +441,6 @@ pub enum JustifyItems {
     Start,
     /// Items are packed towards the end of the axis.
     End,
-    /// Items are packed towards the start of the axis, unless the flex direction is reversed;
-    /// then they are packed towards the end of the axis.
-    FlexStart,
-    /// Items are packed towards the end of the axis, unless the flex direction is reversed;
-    /// then they are packed towards the start of the axis.
-    FlexEnd,
     /// Items are aligned at the center.
     Center,
     /// Items are aligned at the baseline.
@@ -511,12 +505,6 @@ pub enum JustifySelf {
     Start,
     /// This item will be aligned with the end of the axis.
     End,
-    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
-    /// then it will be aligned with the end of the axis.
-    FlexStart,
-    /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
-    /// then it will be aligned with the start of the axis.
-    FlexEnd,
     /// This item will be aligned at the center.
     Center,
     /// This item will be aligned at the baseline.
