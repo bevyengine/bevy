@@ -7,7 +7,7 @@ fn main() {
         // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(bevy::window::close_on_esc)
         .run();
 }
 

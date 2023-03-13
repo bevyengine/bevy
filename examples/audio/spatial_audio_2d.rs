@@ -5,7 +5,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_system(update_positions)
+        .add_systems(update_positions)
         .run();
 }
 

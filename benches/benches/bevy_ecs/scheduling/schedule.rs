@@ -83,7 +83,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
-                    app.add_system(empty_system);
+                    app.add_systems(empty_system);
                 }
                 app.update();
             });
@@ -93,7 +93,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_system(empty_system.in_set(DummySet));
+                app.add_systems(empty_system.in_set(DummySet));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
@@ -105,7 +105,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                     for label in &labels[i + 1..graph_size] {
                         sys = sys.before(*label);
                     }
-                    app.add_system(sys);
+                    app.add_systems(sys);
                 }
                 // Run the app for a single frame.
                 // This is necessary since dependency resolution does not occur until the game runs.

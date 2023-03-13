@@ -47,7 +47,7 @@ pub(crate) enum AppError {
 /// #
 /// fn main() {
 ///    App::new()
-///        .add_system(hello_world_system)
+///        .add_systems(hello_world_system)
 ///        .run();
 /// }
 ///
@@ -121,7 +121,7 @@ impl Debug for App {
 ///
 /// // initialize main schedule
 /// sub_app.init_schedule(CoreSchedule::Main);
-/// sub_app.add_system(|counter: Res<Val>| {
+/// sub_app.add_systems(|counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
@@ -378,14 +378,14 @@ impl App {
     /// # fn my_system() {}
     /// # let mut app = App::new();
     /// #
-    /// app.add_system(my_system);
+    /// app.add_systems(my_system);
     /// ```
     #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
-            default_schedule.add_system(system);
+            default_schedule.add_systems(system);
         } else {
             let schedule_label = &self.default_schedule_label;
             panic!("Default schedule {schedule_label:?} does not exist.")
@@ -408,7 +408,7 @@ impl App {
     /// # fn my_system() {}
     /// # let mut app = App::new();
     /// #
-    /// app.add_system(my_system);
+    /// app.add_systems(my_system);
     /// ```
     #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_system_to<M>(
@@ -419,7 +419,7 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(schedule) = schedules.get_mut(&schedule) {
-            schedule.add_system(system);
+            schedule.add_systems(system);
         } else {
             panic!("Schedule {schedule:?} does not exist.")
         }

@@ -15,7 +15,7 @@ fn main() {
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .add_startup_systems((save_scene_system, load_scene_system, infotext_system))
-        .add_system(log_system)
+        .add_systems(log_system)
         .run();
 }
 

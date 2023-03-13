@@ -64,7 +64,7 @@
 //!
 //! // Configure this system to run in between the other two systems
 //! // using explicit dependencies.
-//! schedule.add_system(print_mid.after(print_first).before(print_last));
+//! schedule.add_systems(print_mid.after(print_first).before(print_last));
 //! // Prints "Hello, World!"
 //! schedule.run(&mut world);
 //!
@@ -214,7 +214,7 @@ mod tests {
 
     fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
-        schedule.add_system(system);
+        schedule.add_systems(system);
         schedule.run(world);
     }
 

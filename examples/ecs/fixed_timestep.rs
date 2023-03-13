@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
-        .add_system(frame_update)
+        .add_systems(frame_update)
         // add our system to the fixed timestep schedule
         .add_systems_to(FixedUpdate, fixed_update)
         // configure our fixed timestep schedule to run twice a second

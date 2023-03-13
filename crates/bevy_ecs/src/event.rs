@@ -939,7 +939,7 @@ mod tests {
         world.send_event(TestEvent { i: 4 });
 
         let mut schedule = Schedule::new();
-        schedule.add_system(|mut events: EventReader<TestEvent>| {
+        schedule.add_systems(|mut events: EventReader<TestEvent>| {
             let mut iter = events.iter();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));

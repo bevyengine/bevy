@@ -13,7 +13,7 @@ fn main() {
             ..default()
         })
         .add_systems_to(Startup, setup)
-        .add_system(joint_animation)
+        .add_systems(joint_animation)
         .run();
 }
 

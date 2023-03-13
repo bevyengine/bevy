@@ -16,7 +16,7 @@ fn main() {
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_system(animate_light_direction)
+        .add_systems(animate_light_direction)
         .run();
 }
 

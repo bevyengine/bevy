@@ -12,7 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<ArrayTextureMaterial>::default())
         .add_systems_to(Startup, setup)
-        .add_system(create_array_texture)
+        .add_systems(create_array_texture)
         .run();
 }
 

@@ -15,7 +15,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_systems_to(PostUpdate, remove_component)
+        .add_systems_to(Update, remove_component)
+        .add_systems_to(PostUpdate, react_on_removal)
         .run();
 }
 

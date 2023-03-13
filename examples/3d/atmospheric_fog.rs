@@ -16,7 +16,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_systems((setup_camera_fog, setup_terrain_scene, setup_instructions))
-        .add_system(toggle_system)
+        .add_systems(toggle_system)
         .run();
 }
 

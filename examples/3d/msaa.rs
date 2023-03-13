@@ -11,7 +11,7 @@ fn main() {
         .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_system(cycle_msaa)
+        .add_systems(cycle_msaa)
         .run();
 }
 

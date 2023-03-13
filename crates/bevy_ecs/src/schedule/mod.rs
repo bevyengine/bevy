@@ -75,7 +75,7 @@ mod tests {
 
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(make_function_system(0));
+            schedule.add_systems(make_function_system(0));
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
@@ -88,7 +88,7 @@ mod tests {
 
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(make_exclusive_system(0));
+            schedule.add_systems(make_exclusive_system(0));
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
@@ -108,7 +108,7 @@ mod tests {
 
             for _ in 0..thread_count {
                 let inner = barrier.clone();
-                schedule.add_system(move || {
+                schedule.add_systems(move || {
                     inner.wait();
                 });
             }
@@ -210,7 +210,7 @@ mod tests {
             world.init_resource::<RunConditionBool>();
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(
+            schedule.add_systems(
                 make_function_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
             );
 
@@ -256,7 +256,7 @@ mod tests {
             world.init_resource::<RunConditionBool>();
             world.init_resource::<SystemOrder>();
 
-            schedule.add_system(
+            schedule.add_systems(
                 make_exclusive_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
             );
 
@@ -294,13 +294,13 @@ mod tests {
             world.init_resource::<Counter>();
 
             schedule.configure_set(TestSet::A.run_if(|| false).run_if(|| false));
-            schedule.add_system(counting_system.in_set(TestSet::A));
+            schedule.add_systems(counting_system.in_set(TestSet::A));
             schedule.configure_set(TestSet::B.run_if(|| true).run_if(|| false));
-            schedule.add_system(counting_system.in_set(TestSet::B));
+            schedule.add_systems(counting_system.in_set(TestSet::B));
             schedule.configure_set(TestSet::C.run_if(|| false).run_if(|| true));
-            schedule.add_system(counting_system.in_set(TestSet::C));
+            schedule.add_systems(counting_system.in_set(TestSet::C));
             schedule.configure_set(TestSet::D.run_if(|| true).run_if(|| true));
-            schedule.add_system(counting_system.in_set(TestSet::D));
+            schedule.add_systems(counting_system.in_set(TestSet::D));
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
@@ -314,13 +314,13 @@ mod tests {
             world.init_resource::<Counter>();
 
             schedule.configure_set(TestSet::A.run_if(|| false));
-            schedule.add_system(counting_system.in_set(TestSet::A).run_if(|| false));
+            schedule.add_systems(counting_system.in_set(TestSet::A).run_if(|| false));
             schedule.configure_set(TestSet::B.run_if(|| true));
-            schedule.add_system(counting_system.in_set(TestSet::B).run_if(|| false));
+            schedule.add_systems(counting_system.in_set(TestSet::B).run_if(|| false));
             schedule.configure_set(TestSet::C.run_if(|| false));
-            schedule.add_system(counting_system.in_set(TestSet::C).run_if(|| true));
+            schedule.add_systems(counting_system.in_set(TestSet::C).run_if(|| true));
             schedule.configure_set(TestSet::D.run_if(|| true));
-            schedule.add_system(counting_system.in_set(TestSet::D).run_if(|| true));
+            schedule.add_systems(counting_system.in_set(TestSet::D).run_if(|| true));
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
@@ -337,7 +337,7 @@ mod tests {
             world.init_resource::<Bool2>();
             let mut schedule = Schedule::default();
 
-            schedule.add_system(
+            schedule.add_systems(
                 counting_system
                     .run_if(|res1: Res<RunConditionBool>| res1.is_changed())
                     .run_if(|res2: Res<Bool2>| res2.is_changed()),
@@ -391,7 +391,7 @@ mod tests {
                     .run_if(|res2: Res<Bool2>| res2.is_changed()),
             );
 
-            schedule.add_system(counting_system.in_set(TestSet::A));
+            schedule.add_systems(counting_system.in_set(TestSet::A));
 
             // both resource were just added.
             schedule.run(&mut world);
@@ -438,7 +438,7 @@ mod tests {
             schedule
                 .configure_set(TestSet::A.run_if(|res1: Res<RunConditionBool>| res1.is_changed()));
 
-            schedule.add_system(
+            schedule.add_systems(
                 counting_system
                     .run_if(|res2: Res<Bool2>| res2.is_changed())
                     .in_set(TestSet::A),
@@ -544,7 +544,7 @@ mod tests {
             assert!(result.is_ok());
 
             // Schedule another `foo`.
-            schedule.add_system(foo);
+            schedule.add_systems(foo);
 
             // When there are multiple instances of `foo`, dependencies on
             // `foo` are no longer allowed. Too much ambiguity.
@@ -556,11 +556,11 @@ mod tests {
 
             // same goes for `ambiguous_with`
             let mut schedule = Schedule::new();
-            schedule.add_system(foo);
-            schedule.add_system(bar.ambiguous_with(foo));
+            schedule.add_systems(foo);
+            schedule.add_systems(bar.ambiguous_with(foo));
             let result = schedule.initialize(&mut world);
             assert!(result.is_ok());
-            schedule.add_system(foo);
+            schedule.add_systems(foo);
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
@@ -626,7 +626,7 @@ mod tests {
             fn foo() {}
 
             // Add `foo` to both `A` and `C`.
-            schedule.add_system(foo.in_set(TestSet::A).in_set(TestSet::C));
+            schedule.add_systems(foo.in_set(TestSet::A).in_set(TestSet::C));
 
             // Order `A -> B -> C`.
             schedule.configure_sets((

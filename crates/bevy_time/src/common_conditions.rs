@@ -15,7 +15,7 @@ use bevy_utils::Duration;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_system(tick.run_if(on_timer(Duration::from_secs(1))))
+///         .add_systems(tick.run_if(on_timer(Duration::from_secs(1))))
 ///         .run();
 /// }
 /// fn tick() {
@@ -53,7 +53,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool {
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_system(
+///         .add_systems(
 ///             tick.in_schedule(CoreSchedule::FixedUpdate)
 ///                 .run_if(on_fixed_timer(Duration::from_secs(1))),
 ///         )

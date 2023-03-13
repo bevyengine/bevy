@@ -9,7 +9,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_state::<AppState>()
         .add_systems_to(OnEnter(AppState::Setup), load_textures)
-        .add_system(check_textures.in_set(OnUpdate(AppState::Setup)))
+        .add_systems(check_textures.in_set(OnUpdate(AppState::Setup)))
         .add_systems_to(OnEnter(AppState::Finished), setup)
         .run();
 }

@@ -16,7 +16,7 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems_to(Startup, setup)
-        .add_system(mouse_scroll)
+        .add_systems(mouse_scroll)
         .run();
 }
 

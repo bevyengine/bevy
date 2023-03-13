@@ -284,7 +284,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_systems_to(ExtractSchedule, extract_colored_mesh2d)
-            .add_system(queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .add_systems(queue_colored_mesh2d.in_set(RenderSet::Queue));
     }
 }
 

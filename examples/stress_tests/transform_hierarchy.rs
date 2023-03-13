@@ -188,7 +188,7 @@ fn main() {
         .add_startup_system(setup)
         // Updating transforms *must* be done before `CoreSet::PostUpdate`
         // or the hierarchy will momentarily be in an invalid state.
-        .add_system(update)
+        .add_systems(update)
         .run();
 }
 

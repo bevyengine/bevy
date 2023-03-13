@@ -18,7 +18,7 @@ fn main() {
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_system(toggle_fxaa)
+        .add_systems(toggle_fxaa)
         .run();
 }
 

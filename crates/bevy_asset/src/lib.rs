@@ -47,7 +47,7 @@ pub use path::*;
 pub use reflect::*;
 
 use bevy_app::{prelude::*, MainScheduleOrder};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_ecs::schedule::ScheduleLabel;
 
 // TODO: evaluate execution to allow these to be sets
 

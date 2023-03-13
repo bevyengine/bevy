@@ -26,7 +26,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_system(
+    /// app.add_systems(
     ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
@@ -43,7 +43,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_equals` will only get run if the resource `R` exists.
     ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
     /// );
@@ -81,7 +81,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
-    /// app.add_system(
+    /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
     ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
     /// );
@@ -357,7 +357,7 @@ pub mod common_conditions {
     /// use bevy_ecs::prelude::*;
     /// // Building a new schedule/app...
     /// let mut sched = Schedule::default();
-    /// sched.add_system(
+    /// sched.add_systems(
     ///         // This system will never run.
     ///         my_system.run_if(not(always_true))
     ///     )

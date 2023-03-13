@@ -13,7 +13,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_systems((setup_env, add_assets, spawn_tasks))
-        .add_system(handle_tasks)
+        .add_systems(handle_tasks)
         .run();
 }
 

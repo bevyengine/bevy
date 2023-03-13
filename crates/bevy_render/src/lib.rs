@@ -237,21 +237,21 @@ impl Plugin for RenderPlugin {
             render_app.edit_schedule(ExtractSchedule, |schedule| {
                 schedule
                     .set_apply_final_buffers(false)
-                    .add_system(PipelineCache::extract_shaders);
+                    .add_systems(PipelineCache::extract_shaders);
             });
 
             // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
-            render_schedule.add_system(apply_extract_commands.in_set(RenderSet::ExtractCommands));
+            render_schedule.add_systems(apply_extract_commands.in_set(RenderSet::ExtractCommands));
 
-            render_schedule.add_system(
+            render_schedule.add_systems(
                 PipelineCache::process_pipeline_queue_system
                     .before(render_system)
                     .in_set(RenderSet::Render),
             );
-            render_schedule.add_system(render_system.in_set(RenderSet::Render));
+            render_schedule.add_systems(render_system.in_set(RenderSet::Render));
 
-            render_schedule.add_system(World::clear_entities.in_set(RenderSet::Cleanup));
+            render_schedule.add_systems(World::clear_entities.in_set(RenderSet::Cleanup));
 
             render_app
                 .add_schedule(Main, render_schedule)

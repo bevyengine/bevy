@@ -9,7 +9,7 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.9)))
         .add_plugins(DefaultPlugins)
         .add_systems_to(Startup, setup)
-        .add_system(change_clear_color)
+        .add_systems(change_clear_color)
         .run();
 }
 

@@ -155,7 +155,7 @@ impl Plugin for LogVisibleLights {
             Err(_) => return,
         };
 
-        render_app.add_system(print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app.add_systems(print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 

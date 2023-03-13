@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetEvents, AssetLoader, AssetServer, Handle, HandleId,
     LoadAssets, RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::{App, AppTypeRegistry, PostUpdate, PreUpdate};
+use bevy_app::{App, AppTypeRegistry};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
@@ -360,7 +360,7 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_system(
+            self.add_systems(
                 crate::debug_asset_server::sync_debug_assets::<T>
                     .in_base_set(bevy_app::CoreSet::Update),
             );

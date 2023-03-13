@@ -10,7 +10,7 @@ pub struct EntityCountDiagnosticsPlugin;
 impl Plugin for EntityCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(Self::setup_system)
-            .add_system(Self::diagnostic_system);
+            .add_systems(Self::diagnostic_system);
     }
 }
 

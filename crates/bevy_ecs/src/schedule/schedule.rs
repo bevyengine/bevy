@@ -134,7 +134,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();
-///     schedule.add_system(hello_world);
+///     schedule.add_systems(hello_world);
 ///
 ///     schedule.run(&mut world);
 /// }
