@@ -586,7 +586,19 @@ mod tests {
             taffy_style.grid_auto_columns,
             vec![sh::auto(), sh::min_content(), sh::max_content()]
         );
-        assert_eq!(taffy_style.grid_column, taffy::geometry::Line { start: sh::line(4), end: sh::span(1) });
-        assert_eq!(taffy_style.grid_row, taffy::geometry::Line { start: sh::auto(), end: sh::span(3) });
+        assert_eq!(
+            taffy_style.grid_column,
+            taffy::geometry::Line {
+                start: sh::line(4),
+                end: sh::span(1)
+            }
+        );
+        assert_eq!(
+            taffy_style.grid_row,
+            taffy::geometry::Line {
+                start: sh::auto(),
+                end: sh::span(3)
+            }
+        );
     }
 }
