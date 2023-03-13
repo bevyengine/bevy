@@ -10,6 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   NIGHTLY_TOOLCHAIN: nightly
+  CARGO_INCREMENTAL: 0
 
 jobs:
   build:
