@@ -1143,11 +1143,7 @@ impl GridTrack {
         self,
         repetition: Repetition,
     ) -> RepeatedGridTrack {
-        RepeatedGridTrack {
-            repetition: repetition.into(),
-            min_sizing_function: self.min_sizing_function,
-            max_sizing_function: self.max_sizing_function,
-        }
+        RepeatedGridTrack::repeat(repetition, self)
     }
 }
 
@@ -1159,10 +1155,21 @@ impl Default for GridTrack {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
+/// How many times to repeat a repeated grid track
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat>
 pub enum GridTrackRepetition {
-    AutoFit,
-    AutoFill,
+    /// Repeat the track fixed number of times
     Count(u16),
+    /// Repeat the track to fill available space
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat#auto-fill>
+    AutoFill,
+    /// Repeat the track to fill available space but collapse any tracks that do not end up with
+    /// an item placed in them.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat#auto-fit>
+    AutoFit,
 }
 
 impl From<u16> for GridTrackRepetition {
@@ -1173,10 +1180,24 @@ impl From<u16> for GridTrackRepetition {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
+/// Represents a possibly repeated GridTrack:
+///   - Non-repeated `RepeatedGridTrack`s can be created using the constructor method on [`GridTrack`]
+///   - Repeated `RepeatedGridTrack`s can be created using `repeat` constructor method below
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
     pub(crate) min_sizing_function: MinTrackSizingFunction,
     pub(crate) max_sizing_function: MaxTrackSizingFunction,
+}
+
+impl RepeatedGridTrack {
+    /// Create a repeating set of [`GridTrack`]s
+    pub fn repeat(repetition: impl Into<GridTrackRepetition>, track: GridTrack) -> Self {
+        Self {
+            repetition: repetition.into(),
+            min_sizing_function: track.min_sizing_function,
+            max_sizing_function: track.max_sizing_function,
+        }
+    }
 }
 
 impl From<GridTrack> for RepeatedGridTrack {
