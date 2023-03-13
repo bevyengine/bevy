@@ -318,6 +318,8 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
+    let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
@@ -329,7 +331,7 @@ pub fn extract_text_uinodes(
 
             let transform = global_transform.compute_matrix()
                 * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
-                * Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+                * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
