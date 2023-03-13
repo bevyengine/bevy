@@ -262,11 +262,53 @@ impl SparseSetIndex for BundleId {
 }
 
 pub struct BundleInfo {
+    // TODO: Make these not pub(crate)
     pub(crate) id: BundleId,
     pub(crate) component_ids: Vec<ComponentId>,
 }
 
 impl BundleInfo {
+    /// Create a new [`BundleInfo`].
+    ///
+    /// # Safety
+    ///
+    /// `component_id` must be valid [`ComponentId`]'s in the same World and their associated storages must be 
+    /// properly initialized.
+    unsafe fn new(
+        bundle_type_name: &'static str,
+        components: &Components,
+        component_ids: Vec<ComponentId>,
+        id: BundleId,
+    ) -> BundleInfo {
+        let mut deduped = component_ids.clone();
+        deduped.sort();
+        deduped.dedup();
+
+        if deduped.len() != component_ids.len() {
+            // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
+            let mut seen = HashSet::new();
+            let mut dups = Vec::new();
+            for id in component_ids {
+                if !seen.insert(id) {
+                    dups.push(id);
+                }
+            }
+
+            let names = dups
+                .into_iter()
+                .map(|id| {
+                    // SAFETY: component_id exists and is therefore valid
+                    unsafe { components.get_info_unchecked(id).name() }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+        }
+
+        BundleInfo { id, component_ids }
+    }
+
     #[inline]
     pub fn id(&self) -> BundleId {
         self.id
@@ -395,7 +437,7 @@ impl BundleInfo {
             match storage_type {
                 StorageType::Table => {
                     let column =
-                        // SAFETY: If component_id is in self.component_ids, the caller guarentees that
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
@@ -410,7 +452,7 @@ impl BundleInfo {
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
-                        // SAFETY: If component_id is in self.component_ids, the caller guarentees that
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
                     sparse_set.insert(entity, component_ptr, change_tick);
@@ -529,8 +571,7 @@ pub(crate) enum InsertBundleResult<'a> {
 impl<'a, 'b> BundleInserter<'a, 'b> {
     /// # Safety
     /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
-    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type.
-    /// The `add_bundle` edge on `self.archetype`
+    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn insert<T: Bundle>(
         &mut self,
@@ -755,49 +796,11 @@ impl Bundles {
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures info was created
-                unsafe { initialize_bundle(std::any::type_name::<T>(), components, component_ids, id) };
+                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
         // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.0) }
     }
-}
-
-/// # Safety
-///
-/// `component_id` must be valid [`ComponentId`]'s
-unsafe fn initialize_bundle(
-    bundle_type_name: &'static str,
-    components: &Components,
-    component_ids: Vec<ComponentId>,
-    id: BundleId,
-) -> BundleInfo {
-    let mut deduped = component_ids.clone();
-    deduped.sort();
-    deduped.dedup();
-
-    if deduped.len() != component_ids.len() {
-        // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
-        let mut seen = HashSet::new();
-        let mut dups = Vec::new();
-        for id in component_ids {
-            if !seen.insert(id) {
-                dups.push(id);
-            }
-        }
-
-        let names = dups
-            .into_iter()
-            .map(|id| {
-                // SAFETY: component_id exists and is therefore valid
-                unsafe { components.get_info_unchecked(id).name() }
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        panic!("Bundle {bundle_type_name} has duplicate components: {names}");
-    }
-
-    BundleInfo { id, component_ids }
 }
