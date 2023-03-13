@@ -568,7 +568,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.grid_template_rows,
-            vec![sh::points(10.0), sh::percent(50.0), sh::fr(1.0)]
+            vec![sh::points(10.0), sh::percent(0.5), sh::fr(1.0)]
         );
         assert_eq!(
             taffy_style.grid_template_columns,
@@ -578,7 +578,7 @@ mod tests {
             taffy_style.grid_auto_rows,
             vec![
                 sh::fit_content(taffy::style::LengthPercentage::Points(10.0)),
-                sh::fit_content(taffy::style::LengthPercentage::Percent(50.0)),
+                sh::fit_content(taffy::style::LengthPercentage::Percent(0.25)),
                 sh::minmax(sh::points(0.0), sh::fr(2.0)),
             ]
         );
@@ -586,7 +586,7 @@ mod tests {
             taffy_style.grid_auto_columns,
             vec![sh::auto(), sh::min_content(), sh::max_content()]
         );
-        assert_eq!(taffy_style.grid_column, sh::line(4));
-        assert_eq!(taffy_style.grid_row, sh::span(3));
+        assert_eq!(taffy_style.grid_column, taffy::geometry::Line { start: sh::line(4), end: sh::span(1) });
+        assert_eq!(taffy_style.grid_row, taffy::geometry::Line { start: sh::auto(), end: sh::span(3) });
     }
 }
