@@ -58,11 +58,11 @@ impl RenderGraphRunner {
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<Vec<GpuTimerScopeResult>, RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device, queue);
+        let mut render_context = RenderContext::new(render_device.clone(), queue);
 
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
 
-        Ok(render_context.finish(queue))
+        Ok(render_context.finish(queue, &render_device))
     }
 
     fn run_graph(

@@ -18,7 +18,7 @@ use bevy_utils::tracing::{error, info, info_span};
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Queue,
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Maintain, Queue,
     RequestAdapterOptions,
 };
 use wgpu_profiler::{GpuProfiler, GpuTimerScopeResult};
@@ -373,17 +373,22 @@ impl RenderContext {
         }
     }
 
-    pub fn finish(mut self, queue: &Queue) -> Vec<GpuTimerScopeResult> {
+    pub fn finish(
+        mut self,
+        queue: &Queue,
+        render_device: &RenderDevice,
+    ) -> Vec<GpuTimerScopeResult> {
         self.flush_command_encoder();
 
-        {
+        let submission_index = {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(self.command_buffers);
-        }
+            queue.submit(self.command_buffers)
+        };
 
         if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
             gpu_profiler.end_frame().unwrap();
+            render_device.poll(Maintain::WaitForSubmissionIndex(submission_index));
             if let Some(gpu_timers) = gpu_profiler.process_finished_frame() {
                 return gpu_timers;
             }
