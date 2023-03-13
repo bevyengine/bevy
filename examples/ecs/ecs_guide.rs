@@ -198,7 +198,7 @@ fn new_player_system(
 // If you really need full, immediate read/write access to the world or resources, you can use an
 // "exclusive system".
 // WARNING: These will block all parallel execution of other systems until they finish, so they
-// should generally be avoided if you care about performance.
+// should generally be avoided if you want to maximize parallelism.
 #[allow(dead_code)]
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
@@ -237,8 +237,9 @@ fn print_at_end_round(mut counter: Local<u32>) {
     println!();
 }
 
-/// A group of related system sets, used for controlling the order of systems
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+/// A group of related system sets, used for controlling the order of systems. Systems can be
+/// added to any number of sets.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum MySet {
     BeforeRound,
     Round,
@@ -259,17 +260,19 @@ fn main() {
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds
         // (configured above).
         .add_plugin(ScheduleRunnerPlugin::default())
-        // Startup systems run exactly once BEFORE all other systems. These are generally used for
+        // `Startup` systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_systems(Startup, startup_system)
+        // `Update` systems run once every update. These are generally used for "real-time app logic"
         .add_systems(Update, print_message_system)
         // SYSTEM EXECUTION ORDER
         //
         // Each system belongs to a `Schedule`, which controls the execution strategy and broad order
         // of the systems within each tick. The `Startup` schedule holds
-        // startup systems, which are run a single time before `Main` runs.
+        // startup systems, which are run a single time before `Update` runs. `Update` runs once per app update,
+        // which is generally one "frame" or one "tick".
         //
-        // By default, all systems run in parallel, except when they require mutable access to a
+        // By default, all systems in a `Schedule` run in parallel, except when they require mutable access to a
         // piece of data. This is efficient, but sometimes order matters.
         // For example, we want our "game over" system to execute after all other systems to ensure
         // we don't accidentally run the game for an extra round.
@@ -277,37 +280,41 @@ fn main() {
         // You can force an explicit ordering between systems using the `.before` or `.after` methods.
         // Systems will not be scheduled until all of the systems that they have an "ordering dependency" on have
         // completed.
-        //
-        // add_system(system) adds systems to the Update system set by default
-        // However we can manually specify the set if we want to. The following is equivalent to
-        // add_system(score_system)
-        .add_systems(Update, score_system.in_set(MySet::Round))
-        // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
+        // There are other schedules, such as `Last` which runs at the very end of each run.
         .add_systems(Last, print_at_end_round)
         // We can also create new system sets, and order them relative to other system sets.
-        // Here is what our games stage order will look like:
+        // Here is what our games execution order will look like:
         // "before_round": new_player_system, new_round_system
-        // "update": print_message_system, score_system
+        // "round": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .configure_set(Update, MySet::BeforeRound.before(MySet::Round))
-        .configure_set(Update, MySet::AfterRound.after(MySet::Round))
-        .add_systems(Update, new_round_system.in_set(MySet::BeforeRound))
-        .add_systems(
+        .configure_sets(
             Update,
-            new_player_system
-                .after(new_round_system)
-                .in_set(MySet::BeforeRound),
+            // chain() will ensure sets run in the order they are listed
+            (MySet::BeforeRound, MySet::Round, MySet::AfterRound).chain(),
         )
-        .add_systems(Update, exclusive_player_system.in_set(MySet::BeforeRound))
-        .add_systems(Update, score_check_system.in_set(MySet::AfterRound))
+        // The add_systems function is powerful. You can define complex system configurations with ease!
         .add_systems(
             Update,
-            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
-            // To do this we use either `.before` or `.after` to describe the order we want the relationship
-            // Since we are using `after`, `game_over_system` runs after `score_check_system`
-            game_over_system
-                .after(score_check_system)
-                .in_set(MySet::AfterRound),
+            (
+                // These `BeforeRound` systems will run before `Round` systems, thanks to the chained set configuration
+                (
+                    // You can also chain systems! new_round_system will run first, followed by new_player_system
+                    (new_round_system, new_player_system).chain(),
+                    exclusive_player_system,
+                )
+                    // All of the systems in the tuple above will be added to this set
+                    .in_set(MySet::BeforeRound),
+                // This `Round` system will run after the `BeforeRound` systems thanks to the chained set configuration
+                score_system.in_set(MySet::Round),
+                // These `AfterRound` systems will run after the `Round` systems thanks to the chained set configuration
+                (
+                    score_check_system,
+                    // In addition to chain(), you can also use `before(system)` and `after(system)`. This also works
+                    // with sets!
+                    game_over_system.after(score_check_system),
+                )
+                    .in_set(MySet::AfterRound),
+            ),
         )
         // This call to run() starts the app we just built!
         .run();
