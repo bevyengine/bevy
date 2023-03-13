@@ -1,6 +1,8 @@
 use crate::App;
-use bevy_ecs::prelude::*;
-use bevy_ecs::system::{Callback, SystemRegistryError};
+use bevy_ecs::{
+    prelude::*,
+    system::{SystemId, SystemRegistryError},
+};
 
 impl App {
     /// Register a system with any number of [`SystemLabel`]s.
@@ -27,7 +29,7 @@ impl App {
     ///
     /// Calls [`SystemRegistry::run_callback`](bevy_ecs::system::SystemRegistry::run_callback).
     #[inline]
-    pub fn run_callback(&mut self, callback: Callback) -> Result<(), SystemRegistryError> {
-        self.world.run_callback(callback)
+    pub fn run_system_by_id(&mut self, system_id: SystemId) -> Result<(), SystemRegistryError> {
+        self.world.run_system_by_id(system_id)
     }
 }

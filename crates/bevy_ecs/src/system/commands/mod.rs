@@ -5,8 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    schedule::SystemSet,
-    system::{Callback, IntoSystem, RunCallback, RunSystemCommand},
+    system::{IntoSystem, RunSystem, RunSystemById, SystemId},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -533,14 +532,14 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue.push(RunSystemCommand::new(system));
+        self.queue.push(RunSystem::new(system));
     }
 
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
     /// Calls [`SystemRegistry::run_callback`](crate::SystemRegistry::run_callback).
-    pub fn run_callback(&mut self, callback: Callback) {
-        self.queue.push(RunCallback { callback });
+    pub fn run_system_by_id(&mut self, system_id: SystemId) {
+        self.queue.push(RunSystemById::new(system_id));
     }
 
     /// Pushes a generic [`Command`] to the command queue.

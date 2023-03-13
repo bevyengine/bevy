@@ -1,14 +1,12 @@
-use bevy_utils::tracing::warn;
-use bevy_utils::{Entry, HashMap};
+use std::any::TypeId;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::schedule::{BoxedSystemSet, IntoSystemConfig, SystemTypeSet};
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::{Mut, World};
 // Needed for derive(Component) macro
-use crate as bevy_ecs;
-use bevy_ecs_macros::Component;
+use crate::{self as bevy_ecs, TypeIdMap};
+use bevy_ecs_macros::Resource;
 
 /// Stores initialized [`System`]s, so they can be reused and run in an ad-hoc fashion.
 ///
@@ -79,7 +77,8 @@ use bevy_ecs_macros::Component;
 /// ```
 #[derive(Default)]
 pub struct SystemRegistry {
-    systems: HashMap<BoxedSystemSet, BoxedSystem>,
+    systems: Vec<(bool, BoxedSystem)>,
+    indices: TypeIdMap<usize>,
 }
 
 impl SystemRegistry {
@@ -93,23 +92,20 @@ impl SystemRegistry {
     ///
     /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
+    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
-        world: &mut World,
         system: S,
-    ) {
-        let boxed_set: BoxedSystemSet = Box::new(SystemTypeSet::<S>::new());
-        // This avoids nasty surprising behavior in case systems are registered twice
-        if !self.systems.contains_key(&boxed_set) {
-            // Initialize the system's state
-            let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
-            boxed_system.initialize(world);
-            // Insert they system keyed by its set
-            self.systems.insert(boxed_set, boxed_system);
-        } else {
-            let type_name = std::any::type_name::<S>();
-            warn!("A system of type {type_name} was registered more than once!");
-        };
+    ) -> SystemId {
+        let type_id = TypeId::of::<S>();
+
+        let index = *self.indices.entry(type_id).or_insert_with(|| {
+            let index = self.systems.len();
+            self.systems
+                .push((false, Box::new(IntoSystem::into_system(system))));
+            index
+        });
+
+        SystemId::new(index)
     }
 
     /// Runs the supplied system on the [`World`] a single time.
@@ -126,17 +122,9 @@ impl SystemRegistry {
         world: &mut World,
         system: S,
     ) {
-        let boxed_set = Box::new(SystemTypeSet::<S>::new());
-        let matching_system = match self.systems.entry(boxed_set) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => {
-                let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
-                boxed_system.initialize(world);
-                v.insert(boxed_system)
-            }
-        };
-        matching_system.run((), world);
-        matching_system.apply_buffers(world);
+        let id = self.register_system(system);
+        self.run_system_by_id(world, id)
+            .expect("System was registered before running");
     }
 
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
@@ -146,31 +134,49 @@ impl SystemRegistry {
     ///
     /// Systems will be run sequentially in registration order if more than one registered system matches the provided label.
     #[inline]
-    pub fn run_callback(
+    pub fn run_system_by_id(
         &mut self,
         world: &mut World,
-        callback: Callback,
+        id: SystemId,
     ) -> Result<(), SystemRegistryError> {
-        let boxed_set = callback.set;
-        match self.systems.get_mut(&boxed_set) {
-            Some(matching_system) => {
+        match self.systems.get_mut(id.index()) {
+            Some((initialized, matching_system)) => {
+                if !*initialized {
+                    matching_system.initialize(world);
+                    *initialized = true;
+                }
                 matching_system.run((), world);
                 matching_system.apply_buffers(world);
                 Ok(())
             }
-            None => Err(SystemRegistryError::LabelNotFound(boxed_label)),
+            None => Err(SystemRegistryError::SystemIdNotRegistered(id)),
         }
     }
 }
 
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct SystemId(usize);
+
+impl SystemId {
+    #[inline]
+    pub const fn new(index: usize) -> SystemId {
+        SystemId(index)
+    }
+
+    #[inline]
+    pub fn index(self) -> usize {
+        self.0
+    }
+}
+
 impl World {
-    /// Register a system with its [`SystemTypeSet`].
-    ///
-    /// Calls [`SystemRegistry::register_system_with_type_set`].
-    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system(world, system);
-        });
+    #[inline]
+    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> SystemId {
+        self.resource_mut::<SystemRegistry>()
+            .register_system(system)
     }
 
     /// Runs the supplied system on the [`World`] a single time.
@@ -187,26 +193,21 @@ impl World {
     ///
     /// Calls [`SystemRegistry::run_callback`].
     #[inline]
-    pub fn run_callback(&mut self, callback: Callback) -> Result<(), SystemRegistryError> {
+    pub fn run_system_by_id(&mut self, id: SystemId) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_callback(world, callback)
+            registry.run_system_by_id(world, id)
         })
     }
 }
 
 /// The [`Command`] type for [`SystemRegistry::run_system`]
 #[derive(Debug, Clone)]
-pub struct RunSystemCommand<
-    M: Send + Sync + 'static,
-    S: IntoSystem<(), (), M> + Send + Sync + 'static,
-> {
+pub struct RunSystem<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> {
     _phantom_marker: PhantomData<M>,
     system: S,
 }
 
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
-    RunSystemCommand<M, S>
-{
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> RunSystem<M, S> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     #[inline]
     #[must_use]
@@ -219,7 +220,7 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 }
 
 impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
-    for RunSystemCommand<M, S>
+    for RunSystem<M, S>
 {
     #[inline]
     fn apply(self, world: &mut World) {
@@ -233,60 +234,26 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 
 /// The [`Command`] type for [`SystemRegistry::run_systems_by_label`]
 #[derive(Debug, Clone)]
-pub struct RunCallback {
-    pub callback: Callback,
+pub struct RunSystemById {
+    pub system_id: SystemId,
 }
 
-impl Command for RunCallback {
+impl RunSystemById {
+    pub fn new(system_id: SystemId) -> Self {
+        Self { system_id }
+    }
+}
+
+impl Command for RunSystemById {
     #[inline]
     fn write(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry
-                .run_callback(world, self.callback)
+                .run_system_by_id(world, self.system_id)
                 // Ideally this error should be handled more gracefully,
                 // but that's blocked on a full error handling solution for commands
                 .unwrap();
         });
-    }
-}
-
-/// A struct that stores a boxed [`SystemLabel`], used to cause a [`SystemRegistry`] to run systems.
-///
-/// This might be stored as a component, used as an event, or arranged in a queue stored in a resource.
-/// Unless you need to inspect the list of events or add additional information,
-/// prefer the simpler `commands.run_system` over storing callbacks as events,
-///
-/// Systems must be registered via the `register_system` methods on [`SystemRegistry`], [`World`] or `App`
-/// before they can be run by their label using a callback.
-#[derive(Debug, Component, Clone, Eq)]
-pub struct Callback {
-    /// The label of the system(s) to be run.
-    ///
-    /// By default, this is set to the [`SystemTypeIdLabel`]
-    /// of the system passed in via [`Callback::new()`].
-    pub label: Box<dyn SystemLabel>,
-}
-
-impl Callback {
-    /// Creates a new callback from a function that can be used as a system.
-    ///
-    /// Remember that you must register your systems with the `App` / [`World`] before they can be run as callbacks!
-    pub fn new<S: IntoSystemConfig<M> + 'static, M>(_system: S) -> Self {
-        Callback {
-            label: Box::new(SystemTypeIdLabel::<S>::new()),
-        }
-    }
-}
-
-impl PartialEq for Callback {
-    fn eq(&self, other: &Self) -> bool {
-        self.label.dyn_eq(other.label.as_dyn_eq())
-    }
-}
-
-impl Hash for Callback {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.label.dyn_hash(state);
     }
 }
 
@@ -296,7 +263,7 @@ pub enum SystemRegistryError {
     /// A system was run by label, but no system with that label was found.
     ///
     /// Did you forget to register it?
-    LabelNotFound(Box<dyn SystemLabel>),
+    SystemIdNotRegistered(SystemId),
 }
 
 mod tests {

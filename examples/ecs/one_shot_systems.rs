@@ -6,8 +6,10 @@
 //!
 //! See the [`SystemRegistry`](bevy::ecs::SystemRegistry) docs for more details.
 
-use bevy::ecs::system::Callback;
-use bevy::prelude::*;
+use bevy::{
+    ecs::system::{SystemId, SystemRegistry},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -15,12 +17,7 @@ fn main() {
         .add_startup_system(setup)
         // One shot systems are interchangeable with ordinarily scheduled systems.
         // Change detection, Local and NonSend all work as expected.
-        .add_system_to_stage(CoreStage::PostUpdate, count_entities)
-        // Registered systems can be called dynamically by their label.
-        // These must be registered in advance, or commands.run_system will panic
-        // as no matching system was found.
-        .register_system(button_pressed)
-        .register_system(slider_toggled)
+        .add_system(count_entities.in_base_set(CoreSet::PostUpdate))
         // One-shot systems can be used to build complex abstractions
         // to match the needs of your design.
         // Here, we model a very simple component-linked callback architecture.
@@ -36,18 +33,21 @@ fn count_entities(all_entities: Query<()>) {
 }
 
 #[derive(Component)]
+struct Callback(SystemId);
+
+#[derive(Component)]
 struct Triggered;
 
-fn setup(mut commands: Commands) {
-    commands
-        .spawn()
+fn setup(mut system_registry: ResMut<SystemRegistry>, mut commands: Commands) {
+    commands.spawn((
         // The Callback component is defined in bevy_ecs,
         // but wrapping this (or making your own customized variant) is easy.
         // Just stored a boxed SystemLabel!
-        .insert(Callback::new(button_pressed))
-        .insert(Triggered);
+        Callback(system_registry.register_system(button_pressed)),
+        Triggered,
+    ));
     // This entity does not have a Triggered component, so its callback won't run.
-    commands.spawn().insert(Callback::new(slider_toggled));
+    commands.spawn(Callback(system_registry.register_system(slider_toggled)));
     commands.run_system(count_entities);
 }
 
@@ -68,6 +68,6 @@ fn evaluate_callbacks(query: Query<&Callback, With<Triggered>>, mut commands: Co
         // we have to use the layer of indirection provided by system labels.
         // Note that if we had registered multiple systems with the same label,
         // they would all be evaluated here.
-        commands.run_callback(callback.clone());
+        commands.run_system_by_id(callback.0);
     }
 }
