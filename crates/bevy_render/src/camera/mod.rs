@@ -9,7 +9,7 @@ pub use projection::*;
 
 use crate::{render_graph::RenderGraph, ExtractSchedule, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
-use bevy_ecs::schedule::IntoSystemConfig;
+use bevy_ecs::schedule::IntoSystemConfigs;
 
 #[derive(Default)]
 pub struct CameraPlugin;

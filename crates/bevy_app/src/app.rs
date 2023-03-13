@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
+        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
         ScheduleLabel,
     },
 };
@@ -380,7 +380,8 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
+    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
@@ -409,10 +410,11 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
+    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
     pub fn add_system_to<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        system: impl IntoSystemConfig<M>,
+        system: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
@@ -499,7 +501,7 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
+    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
         self.add_system_to(Startup, system)
     }
 

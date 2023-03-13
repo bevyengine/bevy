@@ -184,14 +184,15 @@ impl Schedule {
     }
 
     /// Add a system to the schedule.
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
-        self.graph.add_system(system);
+    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
+        self.graph.add_systems_inner(system.into_configs(), false);
         self
     }
 
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems(systems);
+        self.graph.add_systems_inner(systems.into_configs(), false);
         self
     }
 
@@ -535,47 +536,124 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) {
-        let SystemConfigs { systems, chained } = systems.into_configs();
-        let mut system_iter = systems.into_iter();
-        if chained {
-            let Some(prev) = system_iter.next() else { return };
-            let mut prev_id = self.add_system_inner(prev).unwrap();
-            for next in system_iter {
-                let next_id = self.add_system_inner(next).unwrap();
-                self.dependency.graph.add_edge(prev_id, next_id, ());
-                prev_id = next_id;
+    /// Adds the systems to the graph. Returns a vector of all node ids contained the nested SystemConfigs
+    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
+    /// are linearly chained in the order they are defined
+    fn add_systems_inner(
+        &mut self,
+        configs: SystemConfigs,
+        ancestor_chained: bool,
+    ) -> (Vec<NodeId>, bool) {
+        match configs {
+            SystemConfigs::SystemConfig(config) => {
+                let node_id = self.add_system_inner(config).unwrap();
+                if ancestor_chained {
+                    (vec![node_id], true)
+                } else {
+                    (Vec::new(), true)
+                }
             }
-        } else {
-            for system in system_iter {
-                self.add_system_inner(system).unwrap();
+            SystemConfigs::Configs { configs, chained } => {
+                let mut config_iter = configs.into_iter();
+                let mut nodes = Vec::new();
+                let mut densely_chained = true;
+                if chained {
+                    let Some(prev) = config_iter.next() else { return (Vec::new(), true) };
+                    let (mut previous_nodes, mut prev_densely_chained) =
+                        self.add_systems_inner(prev, true);
+                    densely_chained = prev_densely_chained;
+                    for current in config_iter {
+                        let (current_nodes, current_densely_chained) =
+                            self.add_systems_inner(current, true);
+                        match (prev_densely_chained, current_densely_chained) {
+                            // Both groups are "densely" chained, so we can simplify the graph by only
+                            // chaining the last in the previous list to the first in the current list
+                            (true, true) => {
+                                let last_in_prev = previous_nodes.last().unwrap();
+                                let first_in_current = current_nodes.first().unwrap();
+                                self.dependency.graph.add_edge(
+                                    *last_in_prev,
+                                    *first_in_current,
+                                    (),
+                                );
+                            }
+                            // The previous group is "densely" chained, so we can simplify the graph by only
+                            // chaining the last item from the previous list to every item in the current list
+                            (true, false) => {
+                                let last_in_prev = previous_nodes.last().unwrap();
+                                for current_node in current_nodes.iter() {
+                                    self.dependency.graph.add_edge(
+                                        *last_in_prev,
+                                        *current_node,
+                                        (),
+                                    );
+                                }
+                            }
+                            // The current list is currently "densely" chained, so we can simplify the graph by
+                            // only chaining every item in the previous list to the first item in the current list
+                            (false, true) => {
+                                let first_in_current = current_nodes.first().unwrap();
+                                for previous_node in previous_nodes.iter() {
+                                    self.dependency.graph.add_edge(
+                                        *previous_node,
+                                        *first_in_current,
+                                        (),
+                                    );
+                                }
+                            }
+                            // Neither of the lists are "densely" chained, so we must chain every item in the first
+                            // list to every item in the second list
+                            (false, false) => {
+                                for previous_node in previous_nodes.iter() {
+                                    for current_node in current_nodes.iter() {
+                                        self.dependency.graph.add_edge(
+                                            *previous_node,
+                                            *current_node,
+                                            (),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+
+                        if ancestor_chained {
+                            nodes.extend(previous_nodes.drain(..));
+                        }
+
+                        previous_nodes = current_nodes;
+                        prev_densely_chained = current_densely_chained;
+                    }
+
+                    // ensure the last config's nodes are added
+                    if ancestor_chained {
+                        nodes.extend(previous_nodes.drain(..));
+                    }
+                } else {
+                    for config in config_iter {
+                        let (current, current_densely_chained) =
+                            self.add_systems_inner(config, ancestor_chained);
+                        densely_chained = densely_chained && current_densely_chained;
+                        if ancestor_chained {
+                            nodes.extend(current);
+                        }
+                    }
+                }
+
+                (nodes, densely_chained)
             }
         }
     }
 
-    fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) {
-        self.add_system_inner(system).unwrap();
-    }
-
-    fn add_system_inner<M>(
-        &mut self,
-        system: impl IntoSystemConfig<M>,
-    ) -> Result<NodeId, ScheduleBuildError> {
-        let SystemConfig {
-            system,
-            graph_info,
-            conditions,
-        } = system.into_config();
-
+    fn add_system_inner(&mut self, config: SystemConfig) -> Result<NodeId, ScheduleBuildError> {
         let id = NodeId::System(self.systems.len());
 
         // graph updates are immediate
-        self.update_graphs(id, graph_info)?;
+        self.update_graphs(id, config.graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
-        self.systems.push(SystemNode::new(system));
-        self.system_conditions.push(Some(conditions));
+        self.systems.push(SystemNode::new(config.system));
+        self.system_conditions.push(Some(config.conditions));
 
         Ok(id)
     }

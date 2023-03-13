@@ -7,13 +7,7 @@ pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 use crate::{core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryState, With},
-    schedule::IntoSystemConfig,
-    system::{Commands, Query, Res, ResMut},
-    world::World,
-};
+use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
