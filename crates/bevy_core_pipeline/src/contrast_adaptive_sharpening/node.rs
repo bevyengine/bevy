@@ -102,7 +102,8 @@ impl Node for CASNode {
                             ],
                         });
 
-                let (_, _, bind_group) = cached_bind_group.insert((uniforms_id, source.id(), bind_group));
+                let (_, _, bind_group) =
+                    cached_bind_group.insert((uniforms_id, source.id(), bind_group));
                 bind_group
             }
         };
