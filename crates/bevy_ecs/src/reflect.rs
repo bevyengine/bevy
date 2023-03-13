@@ -81,7 +81,7 @@ impl ReflectComponentFns {
 }
 
 impl ReflectComponent {
-    /// Constructs default reflected [`Component`] from world using [`form_world()`](FromWorld::from_world).
+    /// Constructs default reflected [`Component`] from world using [`from_world()`](FromWorld::from_world).
     pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
         (self.0.from_world)(world)
     }
