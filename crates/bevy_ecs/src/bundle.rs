@@ -262,9 +262,8 @@ impl SparseSetIndex for BundleId {
 }
 
 pub struct BundleInfo {
-    // TODO: Make these not pub(crate)
-    pub(crate) id: BundleId,
-    pub(crate) component_ids: Vec<ComponentId>,
+    id: BundleId,
+    component_ids: Vec<ComponentId>,
 }
 
 impl BundleInfo {
@@ -310,7 +309,7 @@ impl BundleInfo {
     }
 
     #[inline]
-    pub fn id(&self) -> BundleId {
+    pub const fn id(&self) -> BundleId {
         self.id
     }
 
