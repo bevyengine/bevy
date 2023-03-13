@@ -331,8 +331,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system_to(LoadAssets, update_asset_storage_system::<T>)
-            .add_system_to(AssetEvents, Assets::<T>::asset_event_system)
+            .add_systems_to(LoadAssets, update_asset_storage_system::<T>)
+            .add_systems_to(AssetEvents, Assets::<T>::asset_event_system)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }

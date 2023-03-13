@@ -27,7 +27,7 @@ pub struct CameraUpdateSystem;
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
-            .add_system_to(
+            .add_systems_to(
                 PostStartup,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
@@ -36,7 +36,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system_to(
+            .add_systems_to(
                 PostUpdate,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)

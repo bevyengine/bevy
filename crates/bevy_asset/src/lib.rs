@@ -106,7 +106,7 @@ impl Plugin for AssetPlugin {
         }
 
         app.register_type::<HandleId>()
-            .add_system_to(PreUpdate, asset_server::free_unused_assets_system);
+            .add_systems_to(PreUpdate, asset_server::free_unused_assets_system);
         app.init_schedule(LoadAssets);
         app.init_schedule(AssetEvents);
         // app.configure_set(
@@ -124,7 +124,7 @@ impl Plugin for AssetPlugin {
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to(LoadAssets, io::filesystem_watcher_system);
+        app.add_systems_to(LoadAssets, io::filesystem_watcher_system);
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, LoadAssets);

@@ -10,8 +10,8 @@ fn main() {
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
-        .add_systems((read_stream, spawn_text, move_text))
+        .add_systems_to(Startup, setup)
+        .add_systems_to(Update, (read_stream, spawn_text, move_text))
         .run();
 }
 

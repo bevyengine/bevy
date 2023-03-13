@@ -172,6 +172,6 @@ impl Main {
             .init_schedule(PostUpdate)
             .init_schedule(Last)
             .init_resource::<MainScheduleOrder>()
-            .add_system_to(Main, Self::run_main);
+            .add_systems_to(Main, Self::run_main);
     }
 }

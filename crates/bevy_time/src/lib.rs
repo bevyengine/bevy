@@ -43,8 +43,8 @@ impl Plugin for TimePlugin {
             .register_type::<Time>()
             .register_type::<Stopwatch>()
             .init_resource::<FixedTime>()
-            .add_system_to(First, time_system.in_set(TimeSystem))
-            .add_system_to(FixedUpdateLoop, run_fixed_update_schedule);
+            .add_systems_to(First, time_system.in_set(TimeSystem))
+            .add_systems_to(FixedUpdateLoop, run_fixed_update_schedule);
     }
 }
 

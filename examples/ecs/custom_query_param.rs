@@ -18,7 +18,8 @@ use std::fmt::Debug;
 fn main() {
     App::new()
         .add_startup_system(spawn)
-        .add_systems(
+        .add_systems_to(
+            Update,
             (
                 print_components_read_only,
                 print_components_iter_mut,

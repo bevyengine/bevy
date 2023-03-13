@@ -24,12 +24,15 @@ struct Center {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
-        .add_systems((
-            move_cube,
-            rotate_cube,
-            scale_down_sphere_proportional_to_cube_travel_distance,
-        ))
+        .add_systems_to(Startup, setup)
+        .add_systems_to(
+            Update,
+            (
+                move_cube,
+                rotate_cube,
+                scale_down_sphere_proportional_to_cube_travel_distance,
+            ),
+        )
         .run();
 }
 

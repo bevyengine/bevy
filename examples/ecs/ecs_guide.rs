@@ -283,7 +283,7 @@ fn main() {
         // add_system(score_system)
         .add_system(score_system.in_set(MySet::Round))
         // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
-        .add_system_to(Last, print_at_end_round)
+        .add_systems_to(Last, print_at_end_round)
         // We can also create new system sets, and order them relative to other system sets.
         // Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system

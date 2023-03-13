@@ -3,7 +3,7 @@ use crate::{
     MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
     SetMeshViewBindGroup, Shadow,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Main, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -199,14 +199,17 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to(ExtractSchedule, extract_materials::<M>)
-                .add_systems((
-                    prepare_materials::<M>
-                        .in_set(RenderSet::Prepare)
-                        .after(PrepareAssetSet::PreAssetPrepare),
-                    render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
-                    queue_material_meshes::<M>.in_set(RenderSet::Queue),
-                ));
+                .add_systems_to(ExtractSchedule, extract_materials::<M>)
+                .add_systems_to(
+                    Main,
+                    (
+                        prepare_materials::<M>
+                            .in_set(RenderSet::Prepare)
+                            .after(PrepareAssetSet::PreAssetPrepare),
+                        render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
+                        queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                    ),
+                );
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin

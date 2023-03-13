@@ -502,7 +502,7 @@ impl App {
     ///     .add_startup_system(my_startup_system);
     /// ```
     pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_system_to(Startup, system)
+        self.add_systems_to(Startup, system)
     }
 
     /// Adds a collection of systems to [`CoreSchedule::Startup`].
@@ -586,7 +586,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system_to(First, Events::<T>::update_system);
+                .add_systems_to(First, Events::<T>::update_system);
         }
         self
     }
@@ -1095,7 +1095,7 @@ mod tests {
     #[test]
     fn add_system_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.add_system_to(OnEnter(AppState::MainMenu), foo)
+        app.add_systems_to(OnEnter(AppState::MainMenu), foo)
             .add_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
@@ -1106,7 +1106,7 @@ mod tests {
     fn add_system_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
         app.add_state::<AppState>()
-            .add_system_to(OnEnter(AppState::MainMenu), foo);
+            .add_systems_to(OnEnter(AppState::MainMenu), foo);
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 1);

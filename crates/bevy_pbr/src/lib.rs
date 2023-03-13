@@ -253,21 +253,24 @@ impl Plugin for PbrPlugin {
                     render::extract_lights.in_set(RenderLightSystems::ExtractLights),
                 ),
             )
-            .add_systems((
-                render::prepare_lights
-                    .before(ViewSet::PrepareUniforms)
-                    .in_set(RenderLightSystems::PrepareLights),
-                // A sync is needed after prepare_lights, before prepare_view_uniforms,
-                // because prepare_lights creates new views for shadow mapping
-                apply_system_buffers
-                    .in_set(RenderSet::Prepare)
-                    .after(RenderLightSystems::PrepareLights)
-                    .before(ViewSet::PrepareUniforms),
-                render::prepare_clusters
-                    .after(render::prepare_lights)
-                    .in_set(RenderLightSystems::PrepareClusters),
-                sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-            ))
+            .add_systems_to(
+                Main,
+                (
+                    render::prepare_lights
+                        .before(ViewSet::PrepareUniforms)
+                        .in_set(RenderLightSystems::PrepareLights),
+                    // A sync is needed after prepare_lights, before prepare_view_uniforms,
+                    // because prepare_lights creates new views for shadow mapping
+                    apply_system_buffers
+                        .in_set(RenderSet::Prepare)
+                        .after(RenderLightSystems::PrepareLights)
+                        .before(ViewSet::PrepareUniforms),
+                    render::prepare_clusters
+                        .after(render::prepare_lights)
+                        .in_set(RenderLightSystems::PrepareClusters),
+                    sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
+                ),
+            )
             .init_resource::<ShadowSamplers>()
             .init_resource::<LightMeta>()
             .init_resource::<GlobalLightMeta>();

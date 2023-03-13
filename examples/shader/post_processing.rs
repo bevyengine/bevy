@@ -23,7 +23,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(main_camera_cube_rotator_system)
         .run();
 }

@@ -60,11 +60,11 @@ mod splash {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
             app
                 // When entering the state, spawn everything needed for this screen
-                .add_system_to(OnEnter(GameState::Splash), splash_setup)
+                .add_systems_to(OnEnter(GameState::Splash), splash_setup)
                 // While in this state, run the `countdown` system
                 .add_system(countdown.in_set(OnUpdate(GameState::Splash)))
                 // When exiting the state, despawn everything that was spawned for this screen
-                .add_system_to(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
+                .add_systems_to(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
         }
     }
 
@@ -130,9 +130,9 @@ mod game {
 
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
-            app.add_system_to(OnEnter(GameState::Game), game_setup)
+            app.add_systems_to(OnEnter(GameState::Game), game_setup)
                 .add_system(game.in_set(OnUpdate(GameState::Game)))
-                .add_system_to(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
+                .add_systems_to(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
 
@@ -265,37 +265,44 @@ mod menu {
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an independent state from `GameState`
                 .add_state::<MenuState>()
-                .add_system_to(OnEnter(GameState::Menu), menu_setup)
+                .add_systems_to(OnEnter(GameState::Menu), menu_setup)
                 // Systems to handle the main menu screen
-                .add_system_to(OnEnter(MenuState::Main), main_menu_setup)
-                .add_system_to(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
+                .add_systems_to(OnEnter(MenuState::Main), main_menu_setup)
+                .add_systems_to(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
                 // Systems to handle the settings menu screen
-                .add_system_to(OnEnter(MenuState::Settings), settings_menu_setup)
-                .add_system_to(
+                .add_systems_to(OnEnter(MenuState::Settings), settings_menu_setup)
+                .add_systems_to(
                     OnExit(MenuState::Settings),
                     despawn_screen::<OnSettingsMenuScreen>,
                 )
                 // Systems to handle the display settings screen
-                .add_system_to(
+                .add_systems_to(
                     OnEnter(MenuState::SettingsDisplay),
                     display_settings_menu_setup,
                 )
-                .add_systems((
-                    setting_button::<DisplayQuality>.in_set(OnUpdate(MenuState::SettingsDisplay)),
-                ))
-                .add_system_to(
+                .add_systems_to(
+                    Update,
+                    (
+                        setting_button::<DisplayQuality>
+                            .in_set(OnUpdate(MenuState::SettingsDisplay)),
+                    ),
+                )
+                .add_systems_to(
                     OnExit(MenuState::SettingsDisplay),
                     despawn_screen::<OnDisplaySettingsMenuScreen>,
                 )
                 // Systems to handle the sound settings screen
-                .add_system_to(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
+                .add_systems_to(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
                 .add_system(setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)))
-                .add_system_to(
+                .add_systems_to(
                     OnExit(MenuState::SettingsSound),
                     despawn_screen::<OnSoundSettingsMenuScreen>,
                 )
                 // Common systems to all screens that handles buttons behaviour
-                .add_systems((menu_action, button_system).in_set(OnUpdate(GameState::Menu)));
+                .add_systems_to(
+                    Update,
+                    (menu_action, button_system).in_set(OnUpdate(GameState::Menu)),
+                );
         }
     }
 

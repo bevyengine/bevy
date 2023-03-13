@@ -17,7 +17,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(example_control_system);
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.

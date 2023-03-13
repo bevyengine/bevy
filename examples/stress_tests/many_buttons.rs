@@ -21,7 +21,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .init_resource::<UiFont>()
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(button_system)
         .run();
 }

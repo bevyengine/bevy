@@ -16,7 +16,7 @@ use crate::{
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Main, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};
@@ -56,13 +56,16 @@ impl Plugin for ViewPlugin {
             render_app
                 .init_resource::<ViewUniforms>()
                 .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
-                .add_systems((
-                    prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
-                    prepare_view_targets
-                        .after(WindowSystem::Prepare)
-                        .in_set(RenderSet::Prepare)
-                        .after(crate::render_asset::prepare_assets::<Image>),
-                ));
+                .add_systems_to(
+                    Main,
+                    (
+                        prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
+                        prepare_view_targets
+                            .after(WindowSystem::Prepare)
+                            .in_set(RenderSet::Prepare)
+                            .after(crate::render_asset::prepare_assets::<Image>),
+                    ),
+                );
         }
     }
 }

@@ -325,7 +325,7 @@ mod test {
         let mut app = App::new();
         ComputeTaskPool::init(TaskPool::default);
 
-        app.add_systems((sync_simple_transforms, propagate_transforms));
+        app.add_systems_to(Update, (sync_simple_transforms, propagate_transforms));
 
         let translation = vec3(1.0, 0.0, 0.0);
 

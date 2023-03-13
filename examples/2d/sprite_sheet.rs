@@ -6,7 +6,7 @@ use bevy::{app::Startup, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(animate_sprite)
         .run();
 }

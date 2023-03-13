@@ -85,10 +85,13 @@ impl Plugin for CustomMaterialPlugin {
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems((
-                queue_custom.in_set(RenderSet::Queue),
-                prepare_instance_buffers.in_set(RenderSet::Prepare),
-            ));
+            .add_systems_to(
+                Main,
+                (
+                    queue_custom.in_set(RenderSet::Queue),
+                    prepare_instance_buffers.in_set(RenderSet::Prepare),
+                ),
+            );
     }
 }
 

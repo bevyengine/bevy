@@ -37,9 +37,9 @@ impl Plugin for LogDiagnosticsPlugin {
         });
 
         if self.debug {
-            app.add_system_to(PostUpdate, Self::log_diagnostics_debug_system);
+            app.add_systems_to(PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to(PostUpdate, Self::log_diagnostics_system);
+            app.add_systems_to(PostUpdate, Self::log_diagnostics_system);
         }
     }
 }

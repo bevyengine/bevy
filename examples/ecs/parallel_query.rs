@@ -69,7 +69,7 @@ fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut V
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, spawn_system)
-        .add_systems((move_system, bounce_system))
+        .add_systems_to(Startup, spawn_system)
+        .add_systems_to(Update, (move_system, bounce_system))
         .run();
 }

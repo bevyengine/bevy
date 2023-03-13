@@ -5,7 +5,7 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(environment_map_load_finish)
         .run();
 }

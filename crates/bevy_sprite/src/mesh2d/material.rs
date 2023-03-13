@@ -161,7 +161,7 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system_to(ExtractSchedule, extract_materials_2d::<M>)
+                .add_systems_to(ExtractSchedule, extract_materials_2d::<M>)
                 .add_systems((
                     prepare_materials_2d::<M>
                         .in_set(RenderSet::Prepare)

@@ -13,7 +13,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(update_bloom_settings)
         .run();
 }

@@ -79,7 +79,7 @@ impl Plugin for TextPlugin {
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
-            .add_system_to(
+            .add_systems_to(
                 PostUpdate,
                 update_text2d_layout
                     // Potential conflict: `Assets<Image>`
@@ -90,7 +90,7 @@ impl Plugin for TextPlugin {
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to(
+            render_app.add_systems_to(
                 ExtractSchedule,
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );

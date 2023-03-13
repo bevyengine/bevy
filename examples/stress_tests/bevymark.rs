@@ -43,14 +43,17 @@ fn main() {
             count: 0,
             color: Color::WHITE,
         })
-        .add_system_to(Startup, setup)
-        .add_system_to(FixedUpdate, scheduled_spawner)
-        .add_systems((
-            mouse_handler,
-            movement_system,
-            collision_system,
-            counter_system,
-        ))
+        .add_systems_to(Startup, setup)
+        .add_systems_to(FixedUpdate, scheduled_spawner)
+        .add_systems_to(
+            Update,
+            (
+                mouse_handler,
+                movement_system,
+                collision_system,
+                counter_system,
+            ),
+        )
         .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }

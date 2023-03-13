@@ -12,8 +12,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_system_to(Startup, setup)
-        .add_systems((text_update_system, text_color_system))
+        .add_systems_to(Startup, setup)
+        .add_systems_to(Update, (text_update_system, text_color_system))
         .run();
 }
 

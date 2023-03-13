@@ -33,13 +33,16 @@ fn main() {
             setup_color_gradient_scene,
             setup_image_viewer_scene,
         ))
-        .add_systems((
-            update_image_viewer,
-            toggle_scene,
-            toggle_tonemapping_method,
-            update_color_grading_settings,
-            update_ui,
-        ))
+        .add_systems_to(
+            Update,
+            (
+                update_image_viewer,
+                toggle_scene,
+                toggle_tonemapping_method,
+                update_color_grading_settings,
+                update_ui,
+            ),
+        )
         .run();
 }
 

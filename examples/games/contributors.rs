@@ -12,12 +12,15 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_systems((setup_contributor_selection, setup))
-        .add_systems((
-            velocity_system,
-            move_system,
-            collision_system,
-            select_system,
-        ))
+        .add_systems_to(
+            Update,
+            (
+                velocity_system,
+                move_system,
+                collision_system,
+                select_system,
+            ),
+        )
         .init_resource::<SelectionState>()
         .run();
 }

@@ -17,7 +17,7 @@ fn main() {
         // Disable MSAA by default
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
+        .add_systems_to(Startup, setup)
         .add_system(toggle_fxaa)
         .run();
 }

@@ -92,10 +92,10 @@ impl Plugin for WindowPlugin {
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_system_to(PostUpdate, exit_on_primary_closed);
+                app.add_systems_to(PostUpdate, exit_on_primary_closed);
             }
             ExitCondition::OnAllClosed => {
-                app.add_system_to(PostUpdate, exit_on_all_closed);
+                app.add_systems_to(PostUpdate, exit_on_all_closed);
             }
             ExitCondition::DontExit => {}
         }

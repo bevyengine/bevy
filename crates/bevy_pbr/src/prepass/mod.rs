@@ -1,4 +1,4 @@
-use bevy_app::Plugin;
+use bevy_app::{Main, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -129,15 +129,18 @@ where
         };
 
         render_app
-            .add_system_to(ExtractSchedule, extract_camera_prepass_phase)
-            .add_systems((
-                prepare_prepass_textures
-                    .in_set(RenderSet::Prepare)
-                    .after(bevy_render::view::prepare_windows),
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
-                sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
-                sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
-            ))
+            .add_systems_to(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems_to(
+                Main,
+                (
+                    prepare_prepass_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                    queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                ),
+            )
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()

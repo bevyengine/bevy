@@ -14,8 +14,11 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system_to(Startup, setup)
-        .add_systems((animate_translation, animate_rotation, animate_scale))
+        .add_systems_to(Startup, setup)
+        .add_systems_to(
+            Update,
+            (animate_translation, animate_rotation, animate_scale),
+        )
         .run();
 }
 

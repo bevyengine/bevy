@@ -28,26 +28,29 @@ fn main() {
         })
         .init_resource::<A>()
         .init_resource::<B>()
-        .add_systems((
-            // This pair of systems has an ambiguous order,
-            // as their data access conflicts, and there's no order between them.
-            reads_a,
-            writes_a,
-            // This pair of systems has conflicting data access,
-            // but it's resolved with an explicit ordering:
-            // the .after relationship here means that we will always double after adding.
-            adds_one_to_b,
-            doubles_b.after(adds_one_to_b),
-            // This system isn't ambiguous with adds_one_to_b,
-            // due to the transitive ordering created by our constraints:
-            // if A is before B is before C, then A must be before C as well.
-            reads_b.after(doubles_b),
-            // This system will conflict with all of our writing systems
-            // but we've silenced its ambiguity with adds_one_to_b.
-            // This should only be done in the case of clear false positives:
-            // leave a comment in your code justifying the decision!
-            reads_a_and_b.ambiguous_with(adds_one_to_b),
-        ))
+        .add_systems_to(
+            Update,
+            (
+                // This pair of systems has an ambiguous order,
+                // as their data access conflicts, and there's no order between them.
+                reads_a,
+                writes_a,
+                // This pair of systems has conflicting data access,
+                // but it's resolved with an explicit ordering:
+                // the .after relationship here means that we will always double after adding.
+                adds_one_to_b,
+                doubles_b.after(adds_one_to_b),
+                // This system isn't ambiguous with adds_one_to_b,
+                // due to the transitive ordering created by our constraints:
+                // if A is before B is before C, then A must be before C as well.
+                reads_b.after(doubles_b),
+                // This system will conflict with all of our writing systems
+                // but we've silenced its ambiguity with adds_one_to_b.
+                // This should only be done in the case of clear false positives:
+                // leave a comment in your code justifying the decision!
+                reads_a_and_b.ambiguous_with(adds_one_to_b),
+            ),
+        )
         // Be mindful, internal ambiguities are reported too!
         // If there are any ambiguities due solely to DefaultPlugins,
         // or between DefaultPlugins and any of your third party plugins,

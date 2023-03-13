@@ -1,4 +1,4 @@
-use bevy_app::Plugin;
+use bevy_app::{Main, Plugin};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 
 use bevy_ecs::{
@@ -103,11 +103,14 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system_to(ExtractSchedule, extract_mesh2d)
-                .add_systems((
-                    queue_mesh2d_bind_group.in_set(RenderSet::Queue),
-                    queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
-                ));
+                .add_systems_to(ExtractSchedule, extract_mesh2d)
+                .add_systems_to(
+                    Main,
+                    (
+                        queue_mesh2d_bind_group.in_set(RenderSet::Queue),
+                        queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                    ),
+                );
         }
     }
 }

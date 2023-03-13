@@ -550,7 +550,7 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .add_system_to(
+            .add_systems_to(
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
             );
