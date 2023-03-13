@@ -2,83 +2,10 @@ use crate::Val;
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// A type which is commonly used to define positions, margins, paddings and borders.
+/// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-///
-/// ## Position
-///
-/// A position is used to determine where to place a UI element.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// # use bevy_utils::default;
-/// #
-/// let position = UiRect {
-///     left: Val::Px(100.0),
-///     top: Val::Px(50.0),
-///     ..default()
-/// };
-/// ```
-///
-/// If you define opposite sides of the position, the size of the UI element will automatically be calculated
-/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Undefined`](crate::Val::Undefined)
-/// as a width and height, the size would be determined by the window size and the values specified in the position.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let position = UiRect {
-///     left: Val::Px(100.0),
-///     right: Val::Px(200.0),
-///     top: Val::Px(300.0),
-///     bottom: Val::Px(400.0),
-/// };
-/// ```
-///
-/// To determine the width of the UI element you have to take the width of the window and subtract it by the
-/// left and right values of the position. To determine the height of the UI element you have to take the height
-/// of the window and subtract it by the top and bottom values of the position. If we had a window with a width
-/// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
-///
-/// ```
-/// // Size of the window
-/// let window_width = 1000.0;
-/// let window_height = 1000.0;
-///
-/// // Values of the position
-/// let left = 100.0;
-/// let right = 200.0;
-/// let top = 300.0;
-/// let bottom = 400.0;
-///
-/// // Calculation to get the size of the UI element
-/// let ui_element_width = window_width - left - right;
-/// let ui_element_height = window_height - top - bottom;
-///
-/// assert_eq!(ui_element_width, 700.0);
-/// assert_eq!(ui_element_height, 300.0);
-/// ```
-///
-/// If you define a [`Size`] and also all four sides of the position, the top and left values of the position
-/// are used to determine where to place the UI element. The size will not be calculated using the bottom and
-/// right values of the position because the size of the UI element is already explicitly specified.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Size, Val, Style};
-/// # use bevy_utils::default;
-/// #
-/// let style = Style {
-///     position: UiRect { // Defining all four sides
-///         left: Val::Px(100.0),
-///         right: Val::Px(200.0),
-///         top: Val::Px(300.0),
-///         bottom: Val::Px(400.0),
-///     },
-///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
-///     ..default()
-/// };
-/// ```
+
 ///
 /// ## Margin
 ///
@@ -134,10 +61,10 @@ pub struct UiRect {
 
 impl UiRect {
     pub const DEFAULT: Self = Self {
-        left: Val::DEFAULT,
-        right: Val::DEFAULT,
-        top: Val::DEFAULT,
-        bottom: Val::DEFAULT,
+        left: Val::Px(0.),
+        right: Val::Px(0.),
+        top: Val::Px(0.),
+        bottom: Val::Px(0.),
     };
 
     /// Creates a new [`UiRect`] from the values specified.
@@ -191,7 +118,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `left` and `right` take the given value.
+    /// Creates a new [`UiRect`] where `left` and `right` take the given value,
+    /// and `top` and `bottom` set to zero `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -202,8 +130,8 @@ impl UiRect {
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn horizontal(value: Val) -> Self {
         UiRect {
@@ -213,7 +141,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value.
+    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value,
+    /// and `left` and `right` are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -222,8 +151,8 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::vertical(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
@@ -235,7 +164,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `left` takes the given value.
+    /// Creates a new [`UiRect`] where `left` takes the given value, and
+    /// the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -245,9 +175,9 @@ impl UiRect {
     /// let ui_rect = UiRect::left(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn left(value: Val) -> Self {
         UiRect {
@@ -256,7 +186,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `right` takes the given value.
+    /// Creates a new [`UiRect`] where `right` takes the given value,
+    /// and the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -265,10 +196,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::right(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Undefined);
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn right(value: Val) -> Self {
         UiRect {
@@ -277,7 +208,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `top` takes the given value.
+    /// Creates a new [`UiRect`] where `top` takes the given value,
+    /// and the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -286,10 +218,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::top(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Undefined);
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
     pub fn top(value: Val) -> Self {
         UiRect {
@@ -298,7 +230,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where `bottom` takes the given value.
+    /// Creates a new [`UiRect`] where `bottom` takes the given value,
+    /// and the other fields are set to `Val::Px(0.)`.
     ///
     /// # Example
     ///
@@ -307,9 +240,9 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::bottom(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Undefined);
-    /// assert_eq!(ui_rect.right, Val::Undefined);
-    /// assert_eq!(ui_rect.top, Val::Undefined);
+    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
@@ -376,7 +309,9 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `width` takes the given value and its `height` is `Val::Auto`.
+    /// Creates a new [`Size`] where `width` takes the given value,
+    /// and `height` is set to [`Val::Auto`].
+
     ///
     /// # Example
     ///
@@ -395,7 +330,8 @@ impl Size {
         }
     }
 
-    /// Creates a new [`Size`] where `height` takes the given value and its `width` is `Val::Auto`.
+    /// Creates a new [`Size`] where `height` takes the given value,
+    /// and `width` is set to [`Val::Auto`].
     ///
     /// # Example
     ///
@@ -416,9 +352,6 @@ impl Size {
 
     /// Creates a Size where both values are [`Val::Auto`].
     pub const AUTO: Self = Self::all(Val::Auto);
-
-    /// Creates a Size where both values are [`Val::Undefined`].
-    pub const UNDEFINED: Self = Self::all(Val::Undefined);
 }
 
 impl Default for Size {
@@ -481,10 +414,10 @@ mod tests {
         assert_eq!(
             UiRect::default(),
             UiRect {
-                left: Val::Undefined,
-                right: Val::Undefined,
-                top: Val::Undefined,
-                bottom: Val::Undefined
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.)
             }
         );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
