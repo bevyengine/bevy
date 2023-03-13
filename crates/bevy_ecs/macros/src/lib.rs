@@ -384,7 +384,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
-    let state_struct_name = ensure_no_collision(token_stream.clone(), format_ident!("FetchState"));
     let fields_alias = ensure_no_collision(token_stream, format_ident!("FieldsAlias"));
 
     TokenStream::from(quote! {
@@ -396,17 +395,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
 
             #[doc(hidden)]
-            #state_struct_visibility struct #state_struct_name <#(#lifetimeless_generics,)*>
+            #state_struct_visibility struct FetchState <#(#lifetimeless_generics,)*>
             #where_clause {
                 state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
             }
 
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = #state_struct_name<#punctuated_generic_idents>;
+                type State = FetchState<#punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
-                    #state_struct_name {
+                    FetchState {
                         state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
                     }
                 }
