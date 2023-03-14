@@ -10,7 +10,7 @@ pub use symbol::*;
 
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use std::{env, path::PathBuf};
+use std::{collections::HashSet, env, path::PathBuf};
 use syn::{spanned::Spanned, Ident};
 use toml_edit::{Document, Item};
 
@@ -115,25 +115,28 @@ impl BevyManifest {
 /// Note that the returned identifier can still conflict in niche cases,
 /// such as if an identifier in `haystack` is hidden behind an un-expanded macro.
 pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
-    fn visit_tokens(tokens: TokenStream, idents: &mut Vec<String>) {
+    fn visit_tokens(tokens: TokenStream, idents: &mut HashSet<String>) {
         for t in tokens {
             match t {
                 TokenTree::Group(g) => visit_tokens(g.stream(), idents),
-                TokenTree::Ident(ident) => idents.push(ident.to_string()),
+                TokenTree::Ident(ident) => {
+                    idents.insert(ident.to_string());
+                }
                 TokenTree::Punct(_) | TokenTree::Literal(_) => {}
             }
         }
     }
 
-    let mut idents = Vec::new();
+    // Collect all the identifiers in `haystack` into a set.
+    let mut idents = HashSet::new();
     visit_tokens(haystack, &mut idents);
 
     let span = value.span();
-    let mut value = value.to_string();
 
     // If there's a collision, add more characters to the identifier
     // until it doesn't collide with anything anymore.
-    while idents.iter().any(|i| *i == value) {
+    let mut value = value.to_string();
+    while idents.contains(&value) {
         value.push('X');
     }
 
