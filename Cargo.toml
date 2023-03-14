@@ -66,7 +66,7 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 
 # Provides cameras and other basic render pipeline features
-bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline", "bevy_asset", "bevy_render"]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -75,25 +75,25 @@ bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
-bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
-bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides scene functionality
-bevy_scene = ["bevy_internal/bevy_scene"]
+bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite"]
+bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui"]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
