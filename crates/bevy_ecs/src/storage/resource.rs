@@ -1,6 +1,6 @@
 use crate::archetype::ArchetypeComponentId;
 use crate::change_detection::{MutUntyped, TicksMut};
-use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
+use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
 use crate::storage::{Column, SparseSet, TableRow};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{mem::ManuallyDrop, thread::ThreadId};
@@ -42,6 +42,10 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// The only row in the underlying column.
     const ROW: TableRow = TableRow::new(0);
 
+    /// Validates the access to `!Send` resources is only done on the thread they were created from.
+    ///
+    /// # Panics
+    /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
     #[inline]
     fn validate_access(&self) {
         if SEND {
@@ -70,7 +74,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.id
     }
 
-    /// Gets a read-only pointer to the underlying resource, if available.
+    /// Returns a reference to the resource, if it exists.
     ///
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
@@ -83,12 +87,14 @@ impl<const SEND: bool> ResourceData<SEND> {
         })
     }
 
-    /// Gets a read-only reference to the change ticks of the underlying resource, if available.
+    /// Returns a reference to the resource's change ticks, if it exists.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
         self.column.get_ticks(Self::ROW)
     }
 
+    /// Returns references to the resource and its change ticks, if it exists.
+    ///
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
@@ -100,17 +106,18 @@ impl<const SEND: bool> ResourceData<SEND> {
         })
     }
 
-    pub(crate) fn get_mut(
-        &mut self,
-        last_change_tick: u32,
-        change_tick: u32,
-    ) -> Option<MutUntyped<'_>> {
+    /// Returns a mutable reference to the resource, if it exists.
+    ///
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not accessed from the
+    /// original thread it was inserted in.
+    pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
         let (ptr, ticks) = self.get_with_ticks()?;
         Some(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { TicksMut::from_tick_cells(ticks, last_change_tick, change_tick) },
+            ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
         })
     }
 
@@ -124,7 +131,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
     #[inline]
-    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: Tick) {
         if self.is_present() {
             self.validate_access();
             self.column.replace(Self::ROW, value, change_tick);
@@ -273,7 +280,7 @@ impl<const SEND: bool> Resources<SEND> {
         })
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for info in self.resources.values_mut() {
             info.column.check_change_ticks(change_tick);
         }

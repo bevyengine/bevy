@@ -1,4 +1,6 @@
 mod axis;
+/// Common run conditions
+pub mod common_conditions;
 pub mod gamepad;
 mod input;
 pub mod keyboard;

@@ -11,7 +11,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<InputCounter>()
-        .add_system(
+        .add_systems((
             increment_input_counter
                 // The common_conditions module has a few useful run conditions
                 // for checking resources and states. These are included in the prelude.
@@ -21,8 +21,6 @@ fn main() {
                 // Both run conditions must return `true` in order for the system to run.
                 // Note that this second run condition will be evaluated even if the first returns `false`.
                 .run_if(has_user_input),
-        )
-        .add_system(
             print_input_counter
                 // `.and_then()` is a run condition combinator that only evaluates the second condition
                 // if the first condition returns `true`. This behavior is known as "short-circuiting",
@@ -35,8 +33,6 @@ fn main() {
                     // All the normal rules still apply: all parameters must be read only except for local parameters.
                     |counter: Res<InputCounter>| counter.is_changed() && !counter.is_added(),
                 )),
-        )
-        .add_system(
             print_time_message
                 // This function returns a custom run condition, much like the common conditions module.
                 // It will only return true once 2 seconds have passed.
@@ -45,7 +41,7 @@ fn main() {
                 // to inverse a run condition. In this case it will return true if
                 // less than 2.5 seconds have elapsed since the app started.
                 .run_if(not(time_passed(2.5))),
-        )
+        ))
         .run();
 }
 

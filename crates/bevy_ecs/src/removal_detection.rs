@@ -2,7 +2,7 @@
 
 use crate::{
     self as bevy_ecs,
-    component::{Component, ComponentId, ComponentIdFor},
+    component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader},
     prelude::Local,
@@ -265,7 +265,7 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.removed_components()
     }

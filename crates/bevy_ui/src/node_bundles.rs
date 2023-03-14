@@ -9,6 +9,7 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
+#[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -17,7 +18,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 /// Useful as a container for a variety of child nodes.
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -63,7 +64,7 @@ impl Default for NodeBundle {
 /// A UI node that is an image
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct ImageBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -95,10 +96,11 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
+#[cfg(feature = "bevy_text")]
 /// A UI node that is text
 #[derive(Bundle, Clone, Debug)]
 pub struct TextBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -128,6 +130,7 @@ pub struct TextBundle {
     pub background_color: BackgroundColor,
 }
 
+#[cfg(feature = "bevy_text")]
 impl Default for TextBundle {
     fn default() -> Self {
         Self {
@@ -147,6 +150,7 @@ impl Default for TextBundle {
     }
 }
 
+#[cfg(feature = "bevy_text")]
 impl TextBundle {
     /// Create a [`TextBundle`] from a single section.
     ///
@@ -190,7 +194,7 @@ impl TextBundle {
 /// A UI node that is a button
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,

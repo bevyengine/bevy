@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components},
+    component::{ComponentId, Components, Tick},
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -99,7 +99,7 @@ impl Schedules {
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
@@ -190,13 +190,13 @@ impl Schedule {
     }
 
     /// Add a system to the schedule.
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
         self.graph.add_system(system);
         self
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.add_systems(systems);
         self
     }
@@ -245,7 +245,7 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
-        self.initialize(world).unwrap();
+        self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -283,7 +283,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
             system.check_change_tick(change_tick);
         }
@@ -556,7 +556,7 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
+    fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) {
         let SystemConfigs { systems, chained } = systems.into_configs();
         let mut system_iter = systems.into_iter();
         if chained {
@@ -574,13 +574,13 @@ impl ScheduleGraph {
         }
     }
 
-    fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) {
+    fn add_system<M>(&mut self, system: impl IntoSystemConfig<M>) {
         self.add_system_inner(system).unwrap();
     }
 
-    fn add_system_inner<P>(
+    fn add_system_inner<M>(
         &mut self,
-        system: impl IntoSystemConfig<P>,
+        system: impl IntoSystemConfig<M>,
     ) -> Result<NodeId, ScheduleBuildError> {
         let SystemConfig {
             system,
@@ -1138,18 +1138,18 @@ impl ScheduleGraph {
                     ambiguous_with_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in set_systems.get(&lhs).unwrap() {
+                    for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
                         ambiguous_with_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in set_systems.get(&rhs).unwrap() {
+                    for &rhs_ in set_systems.get(&rhs).unwrap_or(&Vec::new()) {
                         ambiguous_with_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in set_systems.get(&lhs).unwrap() {
-                        for &rhs_ in set_systems.get(&rhs).unwrap() {
+                    for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
+                        for &rhs_ in set_systems.get(&rhs).unwrap_or(&vec![]) {
                             ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }

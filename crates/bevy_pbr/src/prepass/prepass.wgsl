@@ -49,6 +49,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif // SKINNED
 
     out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
+#ifdef DEPTH_CLAMP_ORTHO
+        out.clip_position.z = min(out.clip_position.z, 1.0);
+#endif // DEPTH_CLAMP_ORTHO
 
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;

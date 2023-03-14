@@ -1,5 +1,6 @@
 //! This example illustrates how have a mouse's clicks/wheel/movement etc fall through the spawned transparent window to a window below.
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
+//! Note: this example will not work on following platforms: iOS / Android / Web / X11. Window fall through is not supported there.
 
 use bevy::prelude::*;
 
@@ -39,11 +40,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.),
-                right: Val::Px(10.),
-                ..default()
-            },
+            bottom: Val::Px(5.),
+            right: Val::Px(10.),
             ..default()
         }),
     ));
