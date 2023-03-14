@@ -1174,7 +1174,7 @@ impl From<usize> for GridTrackRepetition {
 ///   - a `u16` count to repeat the track N times
 ///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`
 ///
-/// Note: that in the common case you want a non-repeating track (repetition count 1), you may use the constructor method on `GridTrack`
+/// Note: that in the common case you want a non-repeating track (repetition count 1), you may use the constructor methods on [`GridTrack`]
 /// to create a `RepeatedGridTrack`. i.e. `GridTrack::px(10.0)` is equivalent to `RepeatedGridTrack::px(1, 10.0)`.
 ///
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
