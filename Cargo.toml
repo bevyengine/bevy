@@ -25,6 +25,7 @@ members = [
   "tools/build-templated-pages",
   "tools/build-wasm-example",
   "errors",
+  "integration_tests",
 ]
 
 [features]
