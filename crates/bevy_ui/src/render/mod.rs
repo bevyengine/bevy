@@ -31,7 +31,7 @@ use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextLayoutInfo};
+use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -318,52 +318,43 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
+    let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+            if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
-            // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if uinode.size() == Vec2::ZERO {
-                continue;
-            }
-            let text_glyphs = &text_layout_info.glyphs;
-            let alignment_offset = (uinode.size() / -2.0).extend(0.0);
+
+            let transform = global_transform.compute_matrix()
+                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+                * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
-            for text_glyph in text_glyphs {
-                if text_glyph.section_index != current_section {
-                    color = text.sections[text_glyph.section_index]
-                        .style
-                        .color
-                        .as_rgba_linear();
-                    current_section = text_glyph.section_index;
+            for PositionedGlyph {
+                position,
+                atlas_info,
+                section_index,
+                ..
+            } in &text_layout_info.glyphs
+            {
+                if *section_index != current_section {
+                    color = text.sections[*section_index].style.color.as_rgba_linear();
+                    current_section = *section_index;
                 }
-                let atlas = texture_atlases
-                    .get(&text_glyph.atlas_info.texture_atlas)
-                    .unwrap();
-                let texture = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index;
-                let rect = atlas.textures[index];
-                let atlas_size = Some(atlas.size);
-
-                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-                let extracted_transform = global_transform.compute_matrix()
-                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                    * Mat4::from_translation(
-                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                    );
+                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: extracted_transform,
+                    transform: transform * Mat4::from_translation(position.extend(0.)),
                     color,
-                    rect,
-                    image: texture,
-                    atlas_size,
+                    rect: atlas.textures[atlas_info.glyph_index],
+                    image: atlas.texture.clone_weak(),
+                    atlas_size: Some(atlas.size),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,

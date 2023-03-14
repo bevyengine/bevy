@@ -23,8 +23,8 @@ use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, YAxisOrientation,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -94,48 +94,42 @@ pub fn extract_text2d_sprite(
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
+    let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (entity, computed_visibility, text, text_layout_info, anchor, text_transform) in
+    for (entity, computed_visibility, text, text_layout_info, anchor, global_transform) in
         text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;
         }
 
-        let text_glyphs = &text_layout_info.glyphs;
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_offset = text_layout_info.size * text_anchor;
+        let alignment_translation = text_layout_info.size * text_anchor;
+        let transform = *global_transform
+            * scaling
+            * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        for text_glyph in text_glyphs {
-            if text_glyph.section_index != current_section {
-                color = text.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
-                current_section = text_glyph.section_index;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
+        {
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
-            let atlas = texture_atlases
-                .get(&text_glyph.atlas_info.texture_atlas)
-                .unwrap();
-            let handle = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index;
-            let rect = Some(atlas.textures[index]);
-
-            let glyph_transform =
-                Transform::from_translation((alignment_offset + text_glyph.position).extend(0.));
-
-            let transform = *text_transform
-                * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
-                * glyph_transform;
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
-                transform,
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                 color,
-                rect,
+                rect: Some(atlas.textures[atlas_info.glyph_index]),
                 custom_size: None,
-                image_handle_id: handle.id(),
+                image_handle_id: atlas.texture.id(),
                 flip_x: false,
                 flip_y: false,
                 anchor: Anchor::Center.as_vec(),
