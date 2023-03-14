@@ -88,31 +88,31 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     background_color: BackgroundColor(Color::DARK_GRAY),
                     ..default()
                 })
-                .with_children(|mut builder| {
+                .with_children(|builder| {
                     // Note there is no need to specify the position for each grid item. Grid items that are
                     // not given an explicit position will be automatically positioned into the next available
                     // grid cell. The order in which this is performed can be controlled using the grid_auto_flow
                     // style property.
 
-                    item_rect(&mut builder, Color::ORANGE);
-                    item_rect(&mut builder, Color::BISQUE);
-                    item_rect(&mut builder, Color::BLUE);
-                    item_rect(&mut builder, Color::CRIMSON);
+                    item_rect(builder, Color::ORANGE);
+                    item_rect(builder, Color::BISQUE);
+                    item_rect(builder, Color::BLUE);
+                    item_rect(builder, Color::CRIMSON);
 
-                    item_rect(&mut builder, Color::CYAN);
-                    item_rect(&mut builder, Color::ORANGE_RED);
-                    item_rect(&mut builder, Color::DARK_GREEN);
-                    item_rect(&mut builder, Color::FUCHSIA);
+                    item_rect(builder, Color::CYAN);
+                    item_rect(builder, Color::ORANGE_RED);
+                    item_rect(builder, Color::DARK_GREEN);
+                    item_rect(builder, Color::FUCHSIA);
 
-                    item_rect(&mut builder, Color::GOLD);
-                    item_rect(&mut builder, Color::ALICE_BLUE);
-                    item_rect(&mut builder, Color::GOLD);
-                    item_rect(&mut builder, Color::ANTIQUE_WHITE);
+                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::ALICE_BLUE);
+                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::ANTIQUE_WHITE);
 
-                    item_rect(&mut builder, Color::GOLD);
-                    item_rect(&mut builder, Color::GOLD);
-                    item_rect(&mut builder, Color::GOLD);
-                    item_rect(&mut builder, Color::GOLD);
+                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::GOLD);
                 });
 
             // Right side bar (auto placed in row 2, column 2)
