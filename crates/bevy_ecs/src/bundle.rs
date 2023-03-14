@@ -271,7 +271,7 @@ impl BundleInfo {
     ///
     /// # Safety
     ///
-    /// `component_id` must be valid [`ComponentId`]'s in the same World and their associated storages must be
+    /// `component_ids` must be valid [`ComponentId`]'s belonging to the same World and their associated storages must be
     /// properly initialized.
     unsafe fn new(
         bundle_type_name: &'static str,
@@ -296,7 +296,7 @@ impl BundleInfo {
             let names = dups
                 .into_iter()
                 .map(|id| {
-                    // SAFETY: component_id exists and is therefore valid
+                    // SAFETY: the caller ensures component_id is valid.
                     unsafe { components.get_info_unchecked(id).name() }
                 })
                 .collect::<Vec<_>>()
