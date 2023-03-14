@@ -1,4 +1,4 @@
-use crate::measurement::AvailableSpace;
+
 use crate::{IntrinsicSize, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -14,6 +14,7 @@ use bevy_text::{
     TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
+use taffy::style::AvailableSpace;
 
 fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
