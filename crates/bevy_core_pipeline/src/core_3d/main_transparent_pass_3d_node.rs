@@ -11,6 +11,7 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
+/// A [`Node`] that runs the [`Transparent3d`] [`RenderPhase`].
 pub struct MainTransparentPass3dNode {
     query: QueryState<
         (

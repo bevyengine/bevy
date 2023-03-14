@@ -17,6 +17,7 @@ use bevy_utils::tracing::info_span;
 
 use super::{AlphaMask3d, Camera3dDepthLoadOp};
 
+/// A [`Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
 pub struct MainOpaquePass3dNode {
     query: QueryState<
         (
@@ -63,90 +64,60 @@ impl Node for MainOpaquePass3dNode {
             depth,
             depth_prepass,
             normal_prepass,
-            motion_vector_prepass,
+            motion_vector_prepass
         )) = self.query.get_manual(world, view_entity) else {
             // No window
             return Ok(());
         };
 
-        // Always run opaque pass to ensure screen is cleared
-        {
-            // Run the opaque pass, sorted front-to-back
-            // NOTE: Scoped to drop the mutable borrow of render_context
-            #[cfg(feature = "trace")]
-            let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
+        // Run the opaque pass, sorted front-to-back
+        // NOTE: Scoped to drop the mutable borrow of render_context
+        #[cfg(feature = "trace")]
+        let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("main_opaque_pass_3d"),
-                // NOTE: The opaque pass loads the color
-                // buffer as well as writing to it.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_3d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
+        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("main_opaque_pass_3d"),
+            // NOTE: The opaque pass loads the color
+            // buffer as well as writing to it.
+            color_attachments: &[Some(target.get_color_attachment(Operations {
+                load: match camera_3d.clear_color {
+                    ClearColorConfig::Default => {
+                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                    }
+                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                    ClearColorConfig::None => LoadOp::Load,
+                },
+                store: true,
+            }))],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &depth.view,
+                // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
+                depth_ops: Some(Operations {
+                    load: if depth_prepass.is_some()
+                        || normal_prepass.is_some()
+                        || motion_vector_prepass.is_some()
+                    {
+                        // if any prepass runs, it will generate a depth buffer so we should use it,
+                        // even if only the normal_prepass is used.
+                        Camera3dDepthLoadOp::Load
+                    } else {
+                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
+                        camera_3d.depth_load_op.clone()
+                    }
+                    .into(),
                     store: true,
-                }))],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
-                    depth_ops: Some(Operations {
-                        load: if depth_prepass.is_some()
-                            || normal_prepass.is_some()
-                            || motion_vector_prepass.is_some()
-                        {
-                            // if any prepass runs, it will generate a depth buffer so we should use it,
-                            // even if only the normal_prepass is used.
-                            Camera3dDepthLoadOp::Load
-                        } else {
-                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                            camera_3d.depth_load_op.clone()
-                        }
-                        .into(),
-                        store: true,
-                    }),
-                    stencil_ops: None,
                 }),
-            });
+                stencil_ops: None,
+            }),
+        });
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
-            }
-
-            opaque_phase.render(&mut render_pass, world, view_entity);
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
         }
 
+        opaque_phase.render(&mut render_pass, world, view_entity);
+
         if !alpha_mask_phase.items.is_empty() {
-            // Run the alpha mask pass, sorted front-to-back
-            // NOTE: Scoped to drop the mutable borrow of render_context
-            #[cfg(feature = "trace")]
-            let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
-
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("main_alpha_mask_pass_3d"),
-                // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
-            }
-
             alpha_mask_phase.render(&mut render_pass, world, view_entity);
         }
 
