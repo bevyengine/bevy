@@ -90,12 +90,8 @@ fn spawn_button(
             ButtonBundle {
                 style: Style {
                     size: Size::new(Val::Percent(width), Val::Percent(width)),
-
-                    position: UiRect {
-                        bottom: Val::Percent(100.0 / total * i as f32),
-                        left: Val::Percent(100.0 / total * j as f32),
-                        ..default()
-                    },
+                    bottom: Val::Percent(100.0 / total * i as f32),
+                    left: Val::Percent(100.0 / total * j as f32),
                     align_items: AlignItems::Center,
                     position_type: PositionType::Absolute,
                     ..default()

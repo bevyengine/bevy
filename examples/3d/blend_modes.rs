@@ -204,23 +204,16 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
 
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                right: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
             ..default()
         }),
         ExampleDisplay,
@@ -366,8 +359,8 @@ fn example_control_system(
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.position.bottom = Val::Px(viewport_position.y);
-        style.position.left = Val::Px(viewport_position.x);
+        style.bottom = Val::Px(viewport_position.y);
+        style.left = Val::Px(viewport_position.x);
     }
 
     let mut display = display.single_mut();
