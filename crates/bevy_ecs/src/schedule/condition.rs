@@ -897,7 +897,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(Update,
+    /// app.add_systems(
     ///     // `not` will inverse any condition you pass in.
     ///     // Since the condition we choose always returns true
     ///     // this system will never run

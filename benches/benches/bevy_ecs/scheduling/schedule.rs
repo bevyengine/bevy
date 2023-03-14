@@ -1,4 +1,4 @@
-use bevy_app::App;
+use bevy_app::{App, Update};
 use bevy_ecs::prelude::*;
 use criterion::Criterion;
 
@@ -47,7 +47,7 @@ pub fn schedule(c: &mut Criterion) {
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
         let mut schedule = Schedule::new();
-        schedule.add_systems(Update, (ab, cd, ce));
+        schedule.add_systems((ab, cd, ce));
         schedule.run(&mut world);
 
         b.iter(move || schedule.run(&mut world));
@@ -72,7 +72,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(15));
 
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
-    // Add system to the schedule with full constraints. Hopefully this should be maximimally
+    // Add system to the schedule with full constraints. Hopefully this should be maximally
     // difficult for bevy to figure out.
     let labels: Vec<_> = (0..1000).map(|i| NumSet(i)).collect();
 
@@ -83,7 +83,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
-                    app.add_systems(empty_system);
+                    app.add_systems(Update, empty_system);
                 }
                 app.update();
             });
