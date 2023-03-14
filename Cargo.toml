@@ -93,7 +93,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui"]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_text"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
