@@ -8,10 +8,10 @@ pub use attrs::*;
 pub use shape::*;
 pub use symbol::*;
 
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use std::{env, path::PathBuf};
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, Ident};
 use toml_edit::{Document, Item};
 
 pub struct BevyManifest {
@@ -106,6 +106,38 @@ impl BevyManifest {
             })
             .or_else(|| self.maybe_get_path(&format!("bevy_{subcrate}")))
     }
+}
+
+/// Finds an identifier that will not conflict with the specified set of tokens.
+/// If the identifier is present in `haystack`, extra characters will be added
+/// to it until it no longer conflicts with anything.
+///
+/// Note that the returned identifier can still conflict in niche cases,
+/// such as if an identifier in `haystack` is hidden behind an un-expanded macro.
+pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
+    fn visit_tokens(tokens: TokenStream, idents: &mut Vec<String>) {
+        for t in tokens {
+            match t {
+                TokenTree::Group(g) => visit_tokens(g.stream(), idents),
+                TokenTree::Ident(ident) => idents.push(ident.to_string()),
+                TokenTree::Punct(_) | TokenTree::Literal(_) => {}
+            }
+        }
+    }
+
+    let mut idents = Vec::new();
+    visit_tokens(haystack, &mut idents);
+
+    let span = value.span();
+    let mut value = value.to_string();
+
+    // If there's a collision, add more characters to the identifier
+    // until it doesn't collide with anything anymore.
+    while idents.iter().any(|i| *i == value) {
+        value.push('X');
+    }
+
+    Ident::new(&value, span)
 }
 
 /// Derive a label trait

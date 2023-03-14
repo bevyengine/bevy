@@ -6,8 +6,10 @@ mod set;
 mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
-use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
-use proc_macro::{TokenStream, TokenTree};
+use bevy_macro_utils::{
+    derive_boxed_label, ensure_no_collision, get_named_struct_fields, BevyManifest,
+};
+use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
@@ -255,32 +257,6 @@ struct SystemParamFieldAttributes {
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
-fn ensure_no_collision(haystack: TokenStream, value: Ident) -> Ident {
-    fn visit_tokens(tokens: TokenStream, idents: &mut Vec<String>) {
-        for t in tokens {
-            match t {
-                TokenTree::Group(g) => visit_tokens(g.stream(), idents),
-                TokenTree::Ident(ident) => idents.push(ident.to_string()),
-                TokenTree::Punct(_) | TokenTree::Literal(_) => {}
-            }
-        }
-    }
-
-    let mut idents = Vec::new();
-    visit_tokens(haystack, &mut idents);
-
-    let span = value.span();
-    let mut value = value.to_string();
-
-    // If there's a collision, add more characters to the identifier
-    // until it doesn't collide with anything anymore.
-    while idents.iter().any(|i| *i == value) {
-        value.push('X');
-    }
-
-    Ident::new(&value, span)
-}
-
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
@@ -419,7 +395,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
-    let state_struct_name = ensure_no_collision(token_stream, format_ident!("FetchState"));
+    let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
