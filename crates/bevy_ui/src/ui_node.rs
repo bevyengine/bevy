@@ -1167,8 +1167,6 @@ impl From<usize> for GridTrackRepetition {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
 /// Represents a *possibly* repeated `GridTrack`.
 ///
 /// The repetition parameter can either be:
@@ -1177,11 +1175,13 @@ impl From<usize> for GridTrackRepetition {
 ///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`
 ///
 /// Note: that in the common case you want a non-repeating track (repetition count 1), you may use the constructor method on `GridTrack`
-// to create a `RepeatedGridTrack`. i.e. `GridTrack::px(10.0)` is equivalent to `RepeatedGridTrack::px(1, 10.0)`.
+/// to create a `RepeatedGridTrack`. i.e. `GridTrack::px(10.0)` is equivalent to `RepeatedGridTrack::px(1, 10.0)`.
 ///
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
 /// then all track (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
     pub(crate) min_sizing_function: MinTrackSizingFunction,
