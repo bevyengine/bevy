@@ -1128,23 +1128,6 @@ impl GridTrack {
         }
         .into()
     }
-
-    /// Created a repeated set of grid tracks.
-    ///
-    /// The repetition parameter can either be:
-    ///   - a `u16` count to repeat the track N times
-    ///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`
-    ///
-    /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
-    /// then all track (in and outside of the repetition) must be fixed size (px or percent).
-    ///
-    /// Integer repetitions are just shorthand for writing out N tracks longhand and are not subject to the same limitations.
-    pub fn repeat<Repetition: Into<GridTrackRepetition>>(
-        self,
-        repetition: Repetition,
-    ) -> RepeatedGridTrack {
-        RepeatedGridTrack::repeat(repetition, self)
-    }
 }
 
 impl Default for GridTrack {
@@ -1180,9 +1163,19 @@ impl From<u16> for GridTrackRepetition {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-/// Represents a possibly repeated `GridTrack`:
-///   - Non-repeated `RepeatedGridTrack`s can be created using the constructor method on [`GridTrack`]
-///   - Repeated `RepeatedGridTrack`s can be created using `repeat` constructor method below
+/// Represents a *possibly* repeated `GridTrack`.
+///
+/// The repetition parameter can either be:
+///   - The integer `1`, in which case the track is non-repeated.
+///   - a `u16` count to repeat the track N times
+///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`
+///
+/// Note: that in the common case you want a non-repeating track (repetition count 1), you may use the constructor method on `GridTrack`
+// to create a `RepeatedGridTrack`. i.e. `GridTrack::px(10.0)` is equivalent to `RepeatedGridTrack::px(1, 10.0)`.
+///
+/// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
+/// then all track (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
+/// N tracks longhand and are not subject to the same limitations.
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
     pub(crate) min_sizing_function: MinTrackSizingFunction,
@@ -1190,13 +1183,110 @@ pub struct RepeatedGridTrack {
 }
 
 impl RepeatedGridTrack {
-    /// Create a repeating set of [`GridTrack`]s
-    pub fn repeat(repetition: impl Into<GridTrackRepetition>, track: GridTrack) -> Self {
+    /// Create a repeating set of grid tracks with a fixed pixel size
+    pub fn px<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
+            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(value)),
+            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Px(value)),
         }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with a percentage size
+    pub fn percent<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Percent(value)),
+            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Percent(value)),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with automatic size
+    pub fn auto<T: From<Self>>(repetition: u16) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::Auto,
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with an `fr` size.
+    /// Note that this will give the track a content-based minimum size.
+    /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size
+    pub fn fr<T: From<Self>>(repetition: u16, value: f32) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with an `minmax(0, Nfr)` size.
+    pub fn flex<T: From<Self>>(repetition: u16, value: f32) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(0.0)),
+            max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with min-content size
+    pub fn min_content<T: From<Self>>(repetition: u16) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::MinContent,
+            max_sizing_function: MaxTrackSizingFunction::MinContent,
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with max-content size
+    pub fn max_content<T: From<Self>>(repetition: u16) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::MaxContent,
+            max_sizing_function: MaxTrackSizingFunction::MaxContent,
+        }
+        .into()
+    }
+
+    /// Create a fit-content() grid track with fixed pixel limit
+    pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Px(limit)),
+        }
+        .into()
+    }
+
+    /// Create a fit-content() grid track with percentage limit
+    pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
+        Self {
+            repetition: GridTrackRepetition::Count(repetition),
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Percent(limit)),
+        }
+        .into()
+    }
+
+    /// Create a minmax() grid track
+    pub fn minmax<T: From<Self>>(
+        repetition: impl Into<GridTrackRepetition>,
+        min: MinTrackSizingFunction,
+        max: MaxTrackSizingFunction,
+    ) -> T {
+        Self {
+            repetition: repetition.into(),
+            min_sizing_function: min,
+            max_sizing_function: max,
+        }
+        .into()
     }
 }
 
@@ -1207,6 +1297,31 @@ impl From<GridTrack> for RepeatedGridTrack {
             min_sizing_function: track.min_sizing_function,
             max_sizing_function: track.max_sizing_function,
         }
+    }
+}
+
+impl From<GridTrack> for Vec<GridTrack> {
+    fn from(track: GridTrack) -> Self {
+        vec![GridTrack {
+            min_sizing_function: track.min_sizing_function,
+            max_sizing_function: track.max_sizing_function,
+        }]
+    }
+}
+
+impl From<GridTrack> for Vec<RepeatedGridTrack> {
+    fn from(track: GridTrack) -> Self {
+        vec![RepeatedGridTrack {
+            repetition: GridTrackRepetition::Count(1),
+            min_sizing_function: track.min_sizing_function,
+            max_sizing_function: track.max_sizing_function,
+        }]
+    }
+}
+
+impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
+    fn from(track: RepeatedGridTrack) -> Self {
+        vec![track]
     }
 }
 

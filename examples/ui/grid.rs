@@ -77,10 +77,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: UiRect::all(Val::Px(24.0)),
                         /// Set the grid to have 4 columns all with sizes minmax(0, 1fr)
                         /// This creates 4 exactly evenly sized columns
-                        grid_template_columns: vec![GridTrack::flex::<GridTrack>(1.0).repeat(4)],
+                        grid_template_columns: RepeatedGridTrack::flex(4, 1.0),
                         /// Set the grid to have 4 rows all with sizes minmax(0, 1fr)
                         /// This creates 4 exactly evenly sized rows
-                        grid_template_rows: vec![GridTrack::flex::<GridTrack>(1.0).repeat(4)],
+                        grid_template_rows: RepeatedGridTrack::flex(4, 1.0),
                         /// Set a 12px gap/gutter between rows and columns
                         gap: Size::all(Val::Px(12.0)),
                         ..default()
