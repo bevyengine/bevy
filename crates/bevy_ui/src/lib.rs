@@ -141,17 +141,15 @@ impl Plugin for UiPlugin {
 
             system
         })
-        .add_system(
+        .add_systems((
             flex_node_system
                 .in_set(UiSystem::Flex)
                 .before(TransformSystem::TransformPropagate),
-        )
-        .add_system(ui_stack_system.in_set(UiSystem::Stack))
-        .add_system(
+            ui_stack_system.in_set(UiSystem::Stack),
             update_clipping_system
                 .after(TransformSystem::TransformPropagate)
                 .in_base_set(CoreSet::PostUpdate),
-        );
+        ));
 
         crate::render::build_ui_render(app);
     }

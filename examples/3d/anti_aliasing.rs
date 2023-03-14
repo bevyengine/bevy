@@ -23,8 +23,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntialiasPlugin)
         .add_startup_system(setup)
-        .add_system(modify_aa)
-        .add_system(update_ui)
+        .add_systems((modify_aa, update_ui))
         .run();
 }
 
@@ -283,11 +282,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

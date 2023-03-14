@@ -167,6 +167,17 @@ impl WinitWindows {
 
         winit_window.set_cursor_visible(window.cursor.visible);
 
+        // Do not set the cursor hittest on window creation if it's false, as it will always fail on some
+        // platforms and log an unfixable warning.
+        if !window.cursor.hit_test {
+            if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+                warn!(
+                    "Could not set cursor hit test for window {:?}: {:?}",
+                    window.title, err
+                );
+            }
+        }
+
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
 

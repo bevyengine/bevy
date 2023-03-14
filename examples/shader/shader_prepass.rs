@@ -26,9 +26,7 @@ fn main() {
             prepass_enabled: false,
             ..default()
         })
-        .add_startup_system(setup)
-        .add_system(rotate)
-        .add_system(toggle_prepass_view)
+        .add_systems((setup.on_startup(), rotate, toggle_prepass_view))
         .run();
 }
 
@@ -142,11 +140,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );

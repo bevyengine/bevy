@@ -4,7 +4,7 @@ use std::mem;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
-use crate::schedule::{ScheduleLabel, SystemSet};
+use crate::schedule::{ScheduleLabel, Schedules, SystemSet};
 use crate::system::Resource;
 use crate::world::World;
 
@@ -53,6 +53,18 @@ pub struct OnEnter<S: States>(pub S);
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
+
+/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
+/// exits the `from` state, AND enters the `to` state.
+///
+/// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnTransition<S: States> {
+    /// The state being exited.
+    pub from: S,
+    /// The state being entered.
+    pub to: S,
+}
 
 /// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
 ///
@@ -105,7 +117,16 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         next_state_resource.set_changed();
 
         let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
-        world.run_schedule(OnExit(exited));
+        world.run_schedule(OnExit(exited.clone()));
+
+        let transition_schedule = OnTransition {
+            from: exited,
+            to: entered.clone(),
+        };
+        if world.resource::<Schedules>().contains(&transition_schedule) {
+            world.run_schedule(transition_schedule);
+        }
+
         world.run_schedule(OnEnter(entered));
     }
 }

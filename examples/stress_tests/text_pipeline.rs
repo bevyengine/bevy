@@ -20,8 +20,7 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(spawn)
-        .add_system(update_text_bounds)
+        .add_systems((spawn.on_startup(), update_text_bounds))
         .run();
 }
 
