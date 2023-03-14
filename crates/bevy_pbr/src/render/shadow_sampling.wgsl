@@ -114,7 +114,15 @@ fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i3
     return sum / 8.0;
 }
 
-fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+fn sample_cascade(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+#ifdef STOCHASTIC_SAMPLING
+    return sample_cascade_stochastic(light_local, depth, array_index);
+#else
+    return sample_cascade_the_witness(light_local, depth, array_index);
+#endif
+}
+
+fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = &lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
 
@@ -142,9 +150,5 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
     let depth = offset_position_ndc.z;
 
     let array_index = i32((*light).depth_texture_base_index + cascade_index);
-#ifdef STOCHASTIC_SAMPLING
-    return sample_cascade_stochastic(light_local, depth, array_index);
-#else
-    return sample_cascade_the_witness(light_local, depth, array_index);
-#endif // STOCHASTIC_SAMPLING
+    return sample_cascade(light_local, depth, array_index);
 }
