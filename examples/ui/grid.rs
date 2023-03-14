@@ -145,7 +145,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Footer / status bar
             builder.spawn(NodeBundle {
                 style: Style {
-                    /// Make this node span two grid column so that it takes up the entire bottom row
+                    // Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
                     ..default()
                 },
