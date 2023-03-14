@@ -331,8 +331,6 @@ impl Color {
         )
     }
 
-    // sRGB
-
     /// Get red in sRGB colorspace.
     pub fn r(&self) -> f32 {
         match self.as_rgba() {
@@ -407,8 +405,6 @@ impl Color {
         self.set_b(b);
         self
     }
-
-    // RGB Linear
 
     /// Get the red in rgb linear colorspace.
     pub fn rgb_linear_r(&self) -> f32 {
@@ -485,8 +481,6 @@ impl Color {
         self
     }
 
-    // Hsl
-
     /// Get the hue in hsl colorspace.
     pub fn hsl_hue(&self) -> f32 {
         match self.as_hsla() {
@@ -561,8 +555,6 @@ impl Color {
         self.set_hsl_lightness(lightness);
         self
     }
-
-    // Lch
 
     /// Get the lightness in lch colorspace.
     pub fn lch_lightness(&self) -> f32 {
