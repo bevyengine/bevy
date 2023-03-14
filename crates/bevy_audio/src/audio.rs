@@ -1,14 +1,11 @@
 use crate::{AudioSink, AudioSource, Decodable, SpatialAudioSink};
 use bevy_asset::{Asset, Handle, HandleId};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::Resource;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
 use parking_lot::RwLock;
-use std::{
-    collections::VecDeque,
-    fmt,
-    ops::{Deref, DerefMut},
-};
+use std::{collections::VecDeque, fmt};
 
 /// Use this [`Resource`] to play audio.
 ///
@@ -282,26 +279,12 @@ impl Volume {
 }
 
 /// A volume level equivalent to a positive only float.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Deref, DerefMut, Debug)]
 pub struct VolumeLevel(pub(crate) f32);
 
 impl Default for VolumeLevel {
     fn default() -> Self {
         Self(1.0)
-    }
-}
-
-impl Deref for VolumeLevel {
-    type Target = f32;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for VolumeLevel {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
