@@ -1,4 +1,4 @@
-use crate::{measurement::AvailableSpace, IntrinsicSize, Measure, UiImage};
+use crate::{measurement::AvailableSpace, CalculatedSize, Measure, UiImage};
 use bevy_asset::Assets;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
@@ -49,8 +49,8 @@ impl Measure for ImageMeasure {
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
-    #[cfg(feature = "bevy_text")] mut query: Query<(&mut IntrinsicSize, &UiImage), Without<Text>>,
-    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut IntrinsicSize, &UiImage)>,
+    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
+    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage)>,
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {

@@ -1,5 +1,5 @@
 
-use crate::{IntrinsicSize, Measure, Node, UiScale};
+use crate::{CalculatedSize, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -77,7 +77,7 @@ pub fn measure_text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Changed<Text>>,
         Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Text, &mut IntrinsicSize)>,
+        Query<(&Text, &mut CalculatedSize)>,
     )>,
 ) {
     let window_scale_factor = windows
@@ -164,7 +164,7 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
         Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Node, &Text, &mut IntrinsicSize, &mut TextLayoutInfo)>,
+        Query<(&Node, &Text, &mut CalculatedSize, &mut TextLayoutInfo)>,
     )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621

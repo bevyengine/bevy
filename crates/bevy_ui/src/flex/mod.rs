@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{IntrinsicSize, Node, Style, UiScale};
+use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -80,7 +80,7 @@ impl FlexSurface {
         &mut self,
         entity: Entity,
         style: &Style,
-        calculated_size: &IntrinsicSize,
+        calculated_size: &CalculatedSize,
         scale_factor: f64,
     ) {
         let taffy = &mut self.taffy;
@@ -222,11 +222,11 @@ pub fn flex_node_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&IntrinsicSize>), (With<Node>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&IntrinsicSize>), With<Node>>,
+    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
+    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
     changed_size_query: Query<
-        (Entity, &Style, &IntrinsicSize),
-        (With<Node>, Changed<IntrinsicSize>),
+        (Entity, &Style, &CalculatedSize),
+        (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
@@ -252,7 +252,7 @@ pub fn flex_node_system(
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
-        query: Query<(Entity, &Style, Option<&IntrinsicSize>), F>,
+        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
         for (entity, style, calculated_size) in &query {

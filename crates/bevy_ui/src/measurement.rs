@@ -5,7 +5,7 @@ pub use taffy::style::AvailableSpace;
 use std::fmt::Formatter;
 
 
-impl std::fmt::Debug for IntrinsicSize {
+impl std::fmt::Debug for CalculatedSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CalculatedSize")
             .field("size", &self.size)
@@ -55,7 +55,7 @@ impl Measure for FixedMeasure {
 /// A node with an intrinsic size component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect)]
-pub struct IntrinsicSize {
+pub struct CalculatedSize {
     /// Used to track changes
     pub size: Vec2,
     pub min_content: Vec2,
@@ -67,7 +67,7 @@ pub struct IntrinsicSize {
 }
 
 #[allow(clippy::derivable_impls)]
-impl Default for IntrinsicSize {
+impl Default for CalculatedSize {
     fn default() -> Self {
         Self {
             size: Default::default(),
@@ -80,7 +80,7 @@ impl Default for IntrinsicSize {
     }
 }
 
-impl Clone for IntrinsicSize {
+impl Clone for CalculatedSize {
     fn clone(&self) -> Self {
         Self {
             size: self.size,
