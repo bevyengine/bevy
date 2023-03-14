@@ -11,7 +11,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    TextSettings, YAxisOrientation, AutoTextInfo,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -65,6 +65,32 @@ impl Measure for TextMeasure {
     }
 }
 
+#[derive(Clone)]
+pub struct AutoTextMeasure {
+    pub auto_text_info: AutoTextInfo,
+}
+
+
+impl Measure for AutoTextMeasure {
+    fn measure(
+        &self,
+        max_width: Option<f32>,
+        max_height: Option<f32>,
+        _available_width: AvailableSpace,
+        _available_height: AvailableSpace,
+    ) -> Vec2 {
+        let bounds = Vec2::new(
+            max_width.unwrap_or(f32::INFINITY),
+            max_height.unwrap_or(f32::INFINITY),
+        );
+        self.auto_text_info.compute_size(bounds)
+    }
+
+    fn dyn_clone(&self) -> Box<dyn Measure> {
+        Box::new(self.clone())
+    }
+}
+
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 pub fn measure_text_system(
@@ -111,23 +137,26 @@ pub fn measure_text_system(
     let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
         if let Ok((text, mut intrinsic_size)) = query.get_mut(entity) {
-            match text_pipeline.compute_size_constraints(
+            match text_pipeline.compute_auto_text_measure(
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
                 text.linebreak_behaviour,
             ) {
-                Ok([min, max]) => {
-                    let measure = TextMeasure {
-                        min_content: min,
-                        max_content: max,
-                        ideal_height: min.y,
-                    };
-                    intrinsic_size.min_content = min;
-                    intrinsic_size.max_content = max;
-                    intrinsic_size.ideal.y = min.y;
-                    intrinsic_size.measure = Box::new(measure);
+                Ok(measure) => {
+                    // let measure = TextMeasure {
+                    //     min_content: min,
+                    //     max_content: max,
+                    //     ideal_height: min.y,
+                    // };
+                    // intrinsic_size.min_content = min;
+                    // intrinsic_size.max_content = max;
+                    // intrinsic_size.ideal.y = min.y;
+                    // intrinsic_size.measure = Box::new(measure);
+                    intrinsic_size.measure = Box::new(AutoTextMeasure {
+                        auto_text_info: measure,
+                    });
                 }
                 Err(TextError::NoSuchFont) => {
                     new_queue.push(entity);
@@ -224,15 +253,15 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-                    if info.size.y != intrinsic_size.ideal.y {
-                        let measure = TextMeasure {
-                            min_content: intrinsic_size.min_content,
-                            max_content: intrinsic_size.max_content,
-                            ideal_height: info.size.y,
-                        };
-                        intrinsic_size.ideal = info.size;
-                        intrinsic_size.measure = Box::new(measure);
-                    }
+                    // if info.size.y != intrinsic_size.ideal.y {
+                    //     let measure = TextMeasure {
+                    //         min_content: intrinsic_size.min_content,
+                    //         max_content: intrinsic_size.max_content,
+                    //         ideal_height: info.size.y,
+                    //     };
+                    //     intrinsic_size.ideal = info.size;
+                    //     intrinsic_size.measure = Box::new(measure);
+                    // }
                     *text_layout_info = info;
                 }
             }
