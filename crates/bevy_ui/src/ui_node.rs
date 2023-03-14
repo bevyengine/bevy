@@ -1161,6 +1161,12 @@ impl From<u16> for GridTrackRepetition {
     }
 }
 
+impl From<usize> for GridTrackRepetition {
+    fn from(count: usize) -> Self {
+        Self::Count(count as u16)
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 /// Represents a *possibly* repeated `GridTrack`.
