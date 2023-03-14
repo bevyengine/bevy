@@ -1180,7 +1180,7 @@ impl From<u16> for GridTrackRepetition {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-/// Represents a possibly repeated GridTrack:
+/// Represents a possibly repeated `GridTrack`:
 ///   - Non-repeated `RepeatedGridTrack`s can be created using the constructor method on [`GridTrack`]
 ///   - Repeated `RepeatedGridTrack`s can be created using `repeat` constructor method below
 pub struct RepeatedGridTrack {
