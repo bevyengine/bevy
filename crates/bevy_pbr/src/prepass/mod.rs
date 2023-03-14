@@ -19,6 +19,7 @@ use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -239,9 +240,20 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                         },
                         count: None,
                     },
-                    // PreviousViewProjection
+                    // Globals
                     BindGroupLayoutEntry {
                         binding: 1,
+                        visibility: ShaderStages::VERTEX_FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: Some(GlobalsUniform::min_size()),
+                        },
+                        count: None,
+                    },
+                    // PreviousViewProjection
+                    BindGroupLayoutEntry {
+                        binding: 2,
                         visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
@@ -265,6 +277,17 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
                             min_binding_size: Some(ViewUniform::min_size()),
+                        },
+                        count: None,
+                    },
+                    // Globals
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::VERTEX_FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: Some(GlobalsUniform::min_size()),
                         },
                         count: None,
                     },
@@ -810,11 +833,13 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
     previous_view_proj_uniforms: Res<PreviousViewProjectionUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let (Some(view_binding), Some(previous_view_proj_binding)) = (
+    if let (Some(view_binding), Some(globals_binding), Some(previous_view_proj_binding)) = (
         view_uniforms.uniforms.binding(),
+        globals_buffer.buffer.binding(),
         previous_view_proj_uniforms.uniforms.binding(),
     ) {
         prepass_view_bind_group.motion_vectors =
@@ -826,6 +851,10 @@ pub fn queue_prepass_view_bind_group<M: Material>(
                     },
                     BindGroupEntry {
                         binding: 1,
+                        resource: globals_binding,
+                    },
+                    BindGroupEntry {
+                        binding: 2,
                         resource: previous_view_proj_binding,
                     },
                 ],
@@ -834,13 +863,22 @@ pub fn queue_prepass_view_bind_group<M: Material>(
             }));
     }
 
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    if let (Some(view_binding), Some(globals_binding)) = (
+        view_uniforms.uniforms.binding(),
+        globals_buffer.buffer.binding(),
+    ) {
         prepass_view_bind_group.no_motion_vectors =
             Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding,
-                }],
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_binding,
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: globals_binding,
+                    },
+                ],
                 label: Some("prepass_view_no_motion_vectors_bind_group"),
                 layout: &prepass_pipeline.view_layout_no_motion_vectors,
             }));
