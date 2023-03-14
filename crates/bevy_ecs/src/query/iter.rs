@@ -1,5 +1,6 @@
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
+    component::Tick,
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
@@ -29,14 +30,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         QueryIter {
             query_state,
             tables: &world.storages().tables,
             archetypes: &world.archetypes,
-            cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
+            cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
         }
     }
 }
@@ -98,21 +99,11 @@ where
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
         entity_list: EntityList,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> QueryManyIter<'w, 's, Q, F, I> {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryManyIter {
             query_state,
             entities: &world.entities,
@@ -298,8 +289,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
@@ -312,16 +303,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             ptr.write(QueryIterationCursor::init(
                 world,
                 query_state,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             ));
         }
         for slot in (1..K).map(|offset| ptr.add(offset)) {
             slot.write(QueryIterationCursor::init_empty(
                 world,
                 query_state,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             ));
         }
 
@@ -496,34 +487,24 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     unsafe fn init_empty(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         QueryIterationCursor {
             table_id_iter: [].iter(),
             archetype_id_iter: [].iter(),
-            ..Self::init(world, query_state, last_change_tick, change_tick)
+            ..Self::init(world, query_state, last_run, this_run)
         }
     }
 
     unsafe fn init(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryIterationCursor {
             fetch,
             filter,

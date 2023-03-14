@@ -171,6 +171,7 @@ impl Tonemapping {
         *self != Tonemapping::None
     }
 }
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,

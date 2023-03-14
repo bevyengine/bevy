@@ -220,19 +220,14 @@ pub struct StandardMaterial {
     /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
     pub alpha_mode: AlphaMode,
 
-    /// Re-arrange render ordering.
+    /// Adjust rendered depth.
     ///
     /// A material with a positive depth bias will render closer to the
     /// camera while negative values cause the material to render behind
     /// other objects. This is independent of the viewport.
     ///
-    /// `depth_bias` only affects render ordering. This means that for opaque materials,
-    /// `depth_bias` will only have any effect if two materials are overlapping,
-    /// which only serves as a [z-fighting] resolver.
-    ///
-    /// `depth_bias` can however reorder [`AlphaMode::Blend`] materials.
-    /// This is useful if your transparent materials are not rendering
-    /// in the expected order.
+    /// `depth_bias` affects render ordering and depth write operations
+    /// using the `wgpu::DepthBiasState::Constant` field.
     ///
     /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
     pub depth_bias: f32,
@@ -406,7 +401,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
-            emissive: self.emissive.into(),
+            emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
@@ -420,6 +415,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 pub struct StandardMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
+    depth_bias: i32,
 }
 
 impl From<&StandardMaterial> for StandardMaterialKey {
@@ -427,6 +423,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         StandardMaterialKey {
             normal_map: material.normal_map_texture.is_some(),
             cull_mode: material.cull_mode,
+            depth_bias: material.depth_bias as i32,
         }
     }
 }
@@ -448,6 +445,9 @@ impl Material for StandardMaterial {
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
+        }
+        if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
+            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
         }
         Ok(())
     }

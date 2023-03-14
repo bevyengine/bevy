@@ -163,9 +163,11 @@ impl Plugin for AccessibilityPlugin {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
-            .add_system(handle_window_focus)
-            .add_system(window_closed)
-            .add_system(poll_receivers)
-            .add_system(update_accessibility_nodes);
+            .add_systems((
+                handle_window_focus,
+                window_closed,
+                poll_receivers,
+                update_accessibility_nodes,
+            ));
     }
 }

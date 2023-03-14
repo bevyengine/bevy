@@ -149,9 +149,6 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(calc_bounds)
-            .add_system(button_changed)
-            .add_system(image_changed)
-            .add_system(label_changed);
+        app.add_systems((calc_bounds, button_changed, image_changed, label_changed));
     }
 }

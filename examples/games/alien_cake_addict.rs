@@ -43,8 +43,8 @@ fn main() {
             display_score.in_schedule(OnEnter(GameState::GameOver)),
             gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
             teardown.in_schedule(OnExit(GameState::GameOver)),
+            bevy::window::close_on_esc,
         ))
-        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -173,11 +173,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
     );
