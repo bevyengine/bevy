@@ -1,5 +1,5 @@
 use crate::WinitWindows;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
 use crossbeam_channel::{Receiver, Sender};
 use wasm_bindgen::JsCast;

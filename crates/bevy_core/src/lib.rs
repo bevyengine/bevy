@@ -102,12 +102,12 @@ pub struct TaskPoolPlugin {
 }
 
 impl Plugin for TaskPoolPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_systems(Last, tick_global_task_pools);
+        _app.add_systems(Last, tick_global_task_pools);
     }
 }
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
