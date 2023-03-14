@@ -24,7 +24,7 @@ note: required for `Foo<NoReflect>` to implement `Reflect`
   --> tests/reflect_derive/generics.fail.rs:3:10
    |
 3  | #[derive(Reflect)]
-   |          ^^^^^^^
+   |          ^^^^^^^ unsatisfied trait bound introduced in this `derive` macro
 4  | struct Foo<T> {
    |        ^^^^^^
    = note: required for the cast from `Foo<NoReflect>` to the object type `dyn Reflect`

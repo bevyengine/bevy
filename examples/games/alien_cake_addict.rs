@@ -24,8 +24,10 @@ fn main() {
         )))
         .add_plugins(DefaultPlugins)
         .add_state::<GameState>()
-        .add_startup_system(setup_cameras)
-        .add_system_to_schedule(OnEnter(GameState::Playing), setup)
+        .add_systems((
+            setup_cameras.on_startup(),
+            setup.in_schedule(OnEnter(GameState::Playing)),
+        ))
         .add_systems(
             (
                 move_player,
@@ -36,11 +38,13 @@ fn main() {
             )
                 .in_set(OnUpdate(GameState::Playing)),
         )
-        .add_system_to_schedule(OnExit(GameState::Playing), teardown)
-        .add_system_to_schedule(OnEnter(GameState::GameOver), display_score)
-        .add_system(gameover_keyboard.in_set(OnUpdate(GameState::GameOver)))
-        .add_system_to_schedule(OnExit(GameState::GameOver), teardown)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems((
+            teardown.in_schedule(OnExit(GameState::Playing)),
+            display_score.in_schedule(OnEnter(GameState::GameOver)),
+            gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
+            teardown.in_schedule(OnExit(GameState::GameOver)),
+            bevy::window::close_on_esc,
+        ))
         .run();
 }
 
@@ -169,11 +173,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
     );

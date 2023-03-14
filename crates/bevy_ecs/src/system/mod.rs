@@ -55,14 +55,18 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut app = Schedule::new();
-//! // Prints "Hello, World!" each frame.
-//! app
-//!     .add_system(print_first.before(print_mid))
-//!     .add_system(print_mid)
-//!     .add_system(print_last.after(print_mid));
+//! # let mut schedule = Schedule::new();
 //! # let mut world = World::new();
-//! # app.run(&mut world);
+//! // Configure these systems to run in order using `chain()`.
+//! schedule.add_systems((print_first, print_last).chain());
+//! // Prints "HelloWorld!"
+//! schedule.run(&mut world);
+//!
+//! // Configure this system to run in between the other two systems
+//! // using explicit dependencies.
+//! schedule.add_system(print_mid.after(print_first).before(print_last));
+//! // Prints "Hello, World!"
+//! schedule.run(&mut world);
 //!
 //! fn print_first() {
 //!     print!("Hello");
@@ -124,7 +128,7 @@ pub use system_piping::*;
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S) {
     if false {
         // Check it can be converted into a system
         // TODO: This should ensure that the system has no conflicting system params
@@ -137,7 +141,7 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_read_only_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
+pub fn assert_is_read_only_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
 where
     S::System: ReadOnlySystem,
 {
@@ -157,12 +161,12 @@ mod tests {
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components},
+        component::{Component, Components, Tick},
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule::{apply_system_buffers, IntoSystemConfig, Schedule},
+        schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             Res, ResMut, Resource, System, SystemState,
@@ -208,7 +212,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         schedule.add_system(system);
         schedule.run(world);
@@ -334,9 +338,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_system(incr_e_on_flip);
-        schedule.add_system(apply_system_buffers.after(incr_e_on_flip));
-        schedule.add_system(World::clear_trackers.after(apply_system_buffers));
+        schedule.add_systems((incr_e_on_flip, apply_system_buffers, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
@@ -475,7 +477,7 @@ mod tests {
         _buffer: Vec<u8>,
     }
 
-    fn test_for_conflicting_resources<Param, S: IntoSystem<(), (), Param>>(sys: S) {
+    fn test_for_conflicting_resources<Marker, S: IntoSystem<(), (), Marker>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
         world.insert_resource(A);
@@ -1227,7 +1229,7 @@ mod tests {
         let world2 = World::new();
         let qstate = world1.query::<()>();
         // SAFETY: doesnt access anything
-        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
+        let query = unsafe { Query::new(&world2, &qstate, Tick::new(0), Tick::new(0), false) };
         query.iter();
     }
 

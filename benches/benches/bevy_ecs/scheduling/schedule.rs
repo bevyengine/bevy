@@ -47,9 +47,7 @@ pub fn schedule(c: &mut Criterion) {
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
         let mut schedule = Schedule::new();
-        schedule.add_system(ab);
-        schedule.add_system(cd);
-        schedule.add_system(ce);
+        schedule.add_systems((ab, cd, ce));
         schedule.run(&mut world);
 
         b.iter(move || schedule.run(&mut world));
@@ -63,16 +61,11 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
     struct NumSet(usize);
-    #[derive(Debug, Clone, Copy, SystemSet, PartialEq, Eq, Hash)]
-    struct DummySet;
 
-    impl SystemSet for NumSet {
-        fn dyn_clone(&self) -> Box<dyn SystemSet> {
-            Box::new(self.clone())
-        }
-    }
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct DummySet;
 
     let mut group = criterion.benchmark_group("build_schedule");
     group.warm_up_time(std::time::Duration::from_millis(500));

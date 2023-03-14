@@ -33,16 +33,24 @@ pub struct TableId(u32);
 impl TableId {
     pub(crate) const INVALID: TableId = TableId(u32::MAX);
 
+    /// Creates a new [`TableId`].
+    ///
+    /// `index` *must* be retrieved from calling [`TableId::index`] on a `TableId` you got
+    /// from a table of a given [`World`] or the created ID may be invalid.
+    ///
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn new(index: usize) -> Self {
         TableId(index as u32)
     }
 
+    /// Gets the underlying table index from the ID.
     #[inline]
     pub fn index(self) -> usize {
         self.0 as usize
     }
 
+    /// The [`TableId`] of the [`Table`] without any components.
     #[inline]
     pub const fn empty() -> TableId {
         TableId(0)
@@ -71,7 +79,7 @@ impl TableId {
 pub struct TableRow(u32);
 
 impl TableRow {
-    pub const INVALID: TableRow = TableRow(u32::MAX);
+    pub(crate) const INVALID: TableRow = TableRow(u32::MAX);
 
     /// Creates a `TableRow`.
     #[inline]
@@ -86,6 +94,19 @@ impl TableRow {
     }
 }
 
+/// A type-erased contiguous container for data of a homogenous type.
+///
+/// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
+/// It also stores the change detection ticks for its components, kept in two separate
+/// contiguous buffers internally. An element shares its data across these buffers by using the
+/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at
+/// index 3). A slice to these contiguous blocks of memory can be fetched
+/// via [`Column::get_data_slice`], [`Column::get_added_ticks_slice`], and
+/// [`Column::get_changed_ticks_slice`].
+///
+/// Like many other low-level storage types, [`Column`] has a limited and highly unsafe
+/// interface. It's highly advised to use higher level types and their safe abstractions
+/// instead of working directly with [`Column`].
 #[derive(Debug)]
 pub struct Column {
     data: BlobVec,
@@ -94,6 +115,7 @@ pub struct Column {
 }
 
 impl Column {
+    /// Constructs a new [`Column`], configured with a component's layout and an initial `capacity`.
     #[inline]
     pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
@@ -104,6 +126,7 @@ impl Column {
         }
     }
 
+    /// Fetches the [`Layout`] for the underlying type.
     #[inline]
     pub fn item_layout(&self) -> Layout {
         self.data.layout()
@@ -129,13 +152,10 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         debug_assert!(row.index() < self.len());
         self.data.replace_unchecked(row.index(), data);
-        self.changed_ticks
-            .get_unchecked_mut(row.index())
-            .get_mut()
-            .set_changed(change_tick);
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
     }
 
     /// Writes component data to the column at given row.
@@ -150,18 +170,29 @@ impl Column {
         self.data.replace_unchecked(row.index(), data);
     }
 
+    /// Gets the current number of elements stored in the column.
     #[inline]
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Checks if the column is empty. Returns `true` if there are no elements, `false` otherwise.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
+    /// Removes an element from the [`Column`].
+    ///
+    /// - The value will be dropped if it implements [`Drop`].
+    /// - This does not preserve ordering, but is O(1).
+    /// - This does not do any bounds checking.
+    /// - The element is replaced with the last element in the [`Column`].
+    ///
     /// # Safety
-    /// index must be in-bounds
+    /// `row` must be within the range `[0, self.len())`.
+    ///
+    /// [`Drop`]: std::ops::Drop
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.index());
@@ -169,6 +200,16 @@ impl Column {
         self.changed_ticks.swap_remove(row.index());
     }
 
+    /// Removes an element from the [`Column`] and returns it and its change detection ticks.
+    /// This does not preserve ordering, but is O(1).
+    ///
+    /// The element is replaced with the last element in the [`Column`].
+    ///
+    /// It is the caller's responsibility to ensure that the removed value is dropped or used.
+    /// Failure to do so may result in resources not being released (i.e. files handles not being
+    /// released, memory leaks, etc.)
+    ///
+    /// Returns `None` if `row` is out of bounds.
     #[inline]
     #[must_use = "The returned pointer should be used to drop the removed component"]
     pub(crate) fn swap_remove_and_forget(
@@ -184,8 +225,18 @@ impl Column {
         })
     }
 
+    /// Removes an element from the [`Column`] and returns it and its change detection ticks.
+    /// This does not preserve ordering, but is O(1). Unlike [`Column::swap_remove_and_forget`]
+    /// this does not do any bounds checking.
+    ///
+    /// The element is replaced with the last element in the [`Column`].
+    ///
+    /// It's the caller's responsibility to ensure that the removed value is dropped or used.
+    /// Failure to do so may result in resources not being released (i.e. files handles not being
+    /// released, memory leaks, etc.)
+    ///
     /// # Safety
-    /// index must be in-bounds
+    /// `row` must be within the range `[0, self.len())`.
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
@@ -225,8 +276,10 @@ impl Column {
             other.changed_ticks.swap_remove(src_row.index());
     }
 
-    // # Safety
-    // - ptr must point to valid data of this column's component type
+    /// Pushes a new value onto the end of the [`Column`].
+    ///
+    /// # Safety
+    /// `ptr` must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
@@ -240,27 +293,57 @@ impl Column {
         self.changed_ticks.reserve_exact(additional);
     }
 
+    /// Fetches the data pointer to the first element of the [`Column`].
+    ///
+    /// The pointer is type erased, so using this function to fetch anything
+    /// other than the first element will require computing the offset using
+    /// [`Column::item_layout`].
     #[inline]
     pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
     }
 
+    /// Fetches the slice to the [`Column`]'s data cast to a given type.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    ///
     /// # Safety
     /// The type `T` must be the type of the items in this column.
+    ///
+    /// [`UnsafeCell`]: std::cell::UnsafeCell
     pub unsafe fn get_data_slice<T>(&self) -> &[UnsafeCell<T>] {
         self.data.get_slice()
     }
 
+    /// Fetches the slice to the [`Column`]'s "added" change detection ticks.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    ///
+    /// [`UnsafeCell`]: std::cell::UnsafeCell
     #[inline]
     pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
         &self.added_ticks
     }
 
+    /// Fetches the slice to the [`Column`]'s "changed" change detection ticks.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    ///
+    /// [`UnsafeCell`]: std::cell::UnsafeCell
     #[inline]
     pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
         &self.changed_ticks
     }
 
+    /// Fetches a reference to the data and change detection ticks at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>, TickCells<'_>)> {
         (row.index() < self.data.len())
@@ -277,6 +360,9 @@ impl Column {
             })
     }
 
+    /// Fetches a read-only reference to the data at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get_data(&self, row: TableRow) -> Option<Ptr<'_>> {
         // SAFETY: The row is length checked before fetching the pointer. This is being
@@ -284,15 +370,21 @@ impl Column {
         (row.index() < self.data.len()).then(|| unsafe { self.data.get_unchecked(row.index()) })
     }
 
+    /// Fetches a read-only reference to the data at `row`. Unlike [`Column::get`] this does not
+    /// do any bounds checking.
+    ///
     /// # Safety
-    /// - index must be in-bounds
-    /// - no other reference to the data of the same row can exist at the same time
+    /// - `row` must be within the range `[0, self.len())`.
+    /// - no other mutable reference to the data of the same row can exist at the same time
     #[inline]
     pub unsafe fn get_data_unchecked(&self, row: TableRow) -> Ptr<'_> {
         debug_assert!(row.index() < self.data.len());
         self.data.get_unchecked(row.index())
     }
 
+    /// Fetches a mutable reference to the data at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get_data_mut(&mut self, row: TableRow) -> Option<PtrMut<'_>> {
         // SAFETY: The row is length checked before fetching the pointer. This is being
@@ -300,6 +392,9 @@ impl Column {
         (row.index() < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row.index()) })
     }
 
+    /// Fetches a mutable reference to the data at `row`. Unlike [`Column::get_data_mut`] this does not
+    /// do any bounds checking.
+    ///
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -309,16 +404,37 @@ impl Column {
         self.data.get_unchecked_mut(row.index())
     }
 
+    /// Fetches the "added" change detection ticks for the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    ///
+    /// [`UnsafeCell`]: std::cell::UnsafeCell
     #[inline]
     pub fn get_added_ticks(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
         self.added_ticks.get(row.index())
     }
 
+    /// Fetches the "changed" change detection ticks for the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    ///
+    /// [`UnsafeCell`]: std::cell::UnsafeCell
     #[inline]
     pub fn get_changed_ticks(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
         self.changed_ticks.get(row.index())
     }
 
+    /// Fetches the change detection ticks for the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get_ticks(&self, row: TableRow) -> Option<ComponentTicks> {
         if row.index() < self.data.len() {
@@ -329,24 +445,33 @@ impl Column {
         }
     }
 
+    /// Fetches the "added" change detection ticks for the value at `row`. Unlike [`Column::get_added_ticks`]
+    /// this function does not do any bounds checking.
+    ///
     /// # Safety
-    /// index must be in-bounds
+    /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_added_ticks_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
         debug_assert!(row.index() < self.added_ticks.len());
         self.added_ticks.get_unchecked(row.index())
     }
 
+    /// Fetches the "changed" change detection ticks for the value at `row`. Unlike [`Column::get_changed_ticks`]
+    /// this function does not do any bounds checking.
+    ///
     /// # Safety
-    /// index must be in-bounds
+    /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_changed_ticks_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
         debug_assert!(row.index() < self.changed_ticks.len());
         self.changed_ticks.get_unchecked(row.index())
     }
 
+    /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
+    /// this function does not do any bounds checking.
+    ///
     /// # Safety
-    /// index must be in-bounds
+    /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
         debug_assert!(row.index() < self.added_ticks.len());
@@ -357,6 +482,9 @@ impl Column {
         }
     }
 
+    /// Clears the column, removing all values.
+    ///
+    /// Note that this function has no effect on the allocated capacity of the [`Column`]>
     pub fn clear(&mut self) {
         self.data.clear();
         self.added_ticks.clear();
@@ -364,7 +492,7 @@ impl Column {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for component_ticks in &mut self.added_ticks {
             component_ticks.get_mut().check_tick(change_tick);
         }
@@ -417,10 +545,10 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
-/// each `Column` is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
-/// component type (via it's [`ComponentId`]), then fetching the entity's row within that column.
+/// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
 ///
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
 /// [`Component`]: crate::component::Component
@@ -431,6 +559,7 @@ pub struct Table {
 }
 
 impl Table {
+    /// Fetches a read-only slice of the entities stored within the [`Table`].
     #[inline]
     pub fn entities(&self) -> &[Entity] {
         &self.entities
@@ -457,7 +586,8 @@ impl Table {
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
-    /// the caller's responsibility to drop them
+    /// the caller's responsibility to drop them.  Failure to do so may result in resources not
+    /// being released (i.e. files handles not being released, memory leaks, etc.)
     ///
     /// # Safety
     /// Row must be in-bounds
@@ -548,21 +678,39 @@ impl Table {
         }
     }
 
+    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the
+    /// table.
+    ///
+    /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
+    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
+    /// table.
+    ///
+    /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
+    ///
+    /// Returns `true` if the column is present, `false` otherwise.
+    ///
+    /// [`Component`]: crate::component::Component
     #[inline]
     pub fn has_column(&self, component_id: ComponentId) -> bool {
         self.columns.contains(component_id)
     }
 
+    /// Reserves `additional` elements worth of capacity within the table.
     pub(crate) fn reserve(&mut self, additional: usize) {
         if self.entities.capacity() - self.entities.len() < additional {
             self.entities.reserve(additional);
@@ -592,36 +740,45 @@ impl Table {
         TableRow::new(index)
     }
 
+    /// Gets the number of entities currently being stored in the table.
     #[inline]
     pub fn entity_count(&self) -> usize {
         self.entities.len()
     }
 
+    /// Gets the number of components being stored in the table.
     #[inline]
     pub fn component_count(&self) -> usize {
         self.columns.len()
     }
 
+    /// Gets the maximum number of entities the table can currently store
+    /// without reallocating the underlying memory.
     #[inline]
     pub fn entity_capacity(&self) -> usize {
         self.entities.capacity()
     }
 
+    /// Checks if the [`Table`] is empty or not.
+    ///
+    /// Returns `true` if the table contains no entities, `false` otherwise.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for column in self.columns.values_mut() {
             column.check_change_ticks(change_tick);
         }
     }
 
+    /// Iterates over the [`Column`]s of the [`Table`].
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
 
+    /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         self.entities.clear();
         for column in self.columns.values_mut() {
@@ -666,11 +823,19 @@ impl Tables {
         self.tables.is_empty()
     }
 
+    /// Fetches a [`Table`] by its [`TableId`].
+    ///
+    /// Returns `None` if `id` is invalid.
     #[inline]
     pub fn get(&self, id: TableId) -> Option<&Table> {
         self.tables.get(id.index())
     }
 
+    /// Fetches mutable references to two different [`Table`]s.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
         if a.index() > b.index() {
@@ -682,6 +847,9 @@ impl Tables {
         }
     }
 
+    /// Attempts to fetch a table based on the provided components,
+    /// creating and returning a new [`Table`] if one did not already exist.
+    ///
     /// # Safety
     /// `component_ids` must contain components that exist in `components`
     pub(crate) unsafe fn get_id_or_insert(
@@ -706,17 +874,19 @@ impl Tables {
         *value
     }
 
+    /// Iterates through all of the tables stored within in [`TableId`] order.
     pub fn iter(&self) -> std::slice::Iter<'_, Table> {
         self.tables.iter()
     }
 
+    /// Clears all data from all [`Table`]s stored within.
     pub(crate) fn clear(&mut self) {
         for table in &mut self.tables {
             table.clear();
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
