@@ -415,7 +415,7 @@ mod tests {
                 GridTrack::percent(50.0),
                 GridTrack::fr(1.0),
             ],
-            grid_template_columns: vec![GridTrack::px::<GridTrack>(10.0).repeat(5)],
+            grid_template_columns: RepeatedGridTrack::px(5, 10.0),
             grid_auto_rows: vec![
                 GridTrack::fit_content_px(10.0),
                 GridTrack::fit_content_percent(25.0),

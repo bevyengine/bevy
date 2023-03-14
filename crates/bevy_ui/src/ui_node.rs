@@ -1161,6 +1161,12 @@ impl From<u16> for GridTrackRepetition {
     }
 }
 
+impl From<i32> for GridTrackRepetition {
+    fn from(count: i32) -> Self {
+        Self::Count(count as u16)
+    }
+}
+
 impl From<usize> for GridTrackRepetition {
     fn from(count: usize) -> Self {
         Self::Count(count as u16)
