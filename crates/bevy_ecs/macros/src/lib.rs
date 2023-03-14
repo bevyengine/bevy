@@ -255,23 +255,30 @@ struct SystemParamFieldAttributes {
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
-/// Checks if the specified identifier occurs in the specified [`TokenStream`].
-#[allow(clippy::cmp_owned)]
-fn check_for_collision(haystack: TokenStream, value: &Ident) -> bool {
-    haystack.into_iter().any(|t| match t {
-        TokenTree::Group(g) => check_for_collision(g.stream(), value),
-        TokenTree::Ident(ident) => ident.to_string() == value.to_string(),
-        TokenTree::Punct(_) | TokenTree::Literal(_) => false,
-    })
-}
+fn ensure_no_collision(haystack: TokenStream, value: Ident) -> Ident {
+    fn visit_tokens(tokens: TokenStream, idents: &mut Vec<String>) {
+        for t in tokens {
+            match t {
+                TokenTree::Group(g) => visit_tokens(g.stream(), idents),
+                TokenTree::Ident(ident) => idents.push(ident.to_string()),
+                TokenTree::Punct(_) | TokenTree::Literal(_) => {}
+            }
+        }
+    }
 
-fn ensure_no_collision(haystack: TokenStream, mut value: Ident) -> Ident {
+    let mut idents = Vec::new();
+    visit_tokens(haystack, &mut idents);
+
+    let span = value.span();
+    let mut value = value.to_string();
+
     // If there's a collision, add more characters to the identifier
     // until it doesn't collide with anything anymore.
-    while check_for_collision(haystack.clone(), &value) {
-        value = format_ident!("{value}X");
+    while idents.iter().any(|i| *i == value) {
+        value.push('X');
     }
-    value
+
+    Ident::new(&value, span)
 }
 
 /// Implement `SystemParam` to use a struct as a parameter in a system
