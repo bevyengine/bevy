@@ -105,12 +105,12 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         grid_template_rows: style
             .grid_template_rows
             .iter()
-            .map(|track| track.into_repeated_taffy_track(scale_factor))
+            .map(|track| track.clone_into_repeated_taffy_track(scale_factor))
             .collect::<Vec<_>>(),
         grid_template_columns: style
             .grid_template_columns
             .iter()
-            .map(|track| track.into_repeated_taffy_track(scale_factor))
+            .map(|track| track.clone_into_repeated_taffy_track(scale_factor))
             .collect::<Vec<_>>(),
         grid_auto_rows: style
             .grid_auto_rows
@@ -332,7 +332,7 @@ impl GridTrack {
 }
 
 impl RepeatedGridTrack {
-    fn into_repeated_taffy_track(&self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
+    fn clone_into_repeated_taffy_track(&self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(scale_factor);
             let max = self.tracks[0].max_sizing_function.into_taffy(scale_factor);
