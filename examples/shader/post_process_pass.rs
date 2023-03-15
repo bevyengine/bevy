@@ -150,7 +150,7 @@ impl Node for PostProcessNode {
         // Get the pipeline resource that contains the global data we need to create the render pipeline
         let post_process_pipeline = world.resource::<PostProcessPipeline>();
         // The pipeline cache is a cache of all previously created pipelines.
-        // It's required to avoid creating a new pipeline each frame.
+        // It's required to avoid creating a new pipeline each frame, which is expensive due to shader compilation.
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // Get the pipeline data for the current view
