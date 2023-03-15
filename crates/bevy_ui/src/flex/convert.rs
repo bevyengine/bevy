@@ -269,12 +269,22 @@ impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
 
 impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> {
     fn from(value: GridPlacement) -> Self {
-        let start = match value.start {
-            None => taffy::style::GridPlacement::Auto,
-            Some(start) => style_helpers::line(start as i16),
-        };
-        let span = taffy::style::GridPlacement::Span(value.span);
-        taffy::geometry::Line { start, end: span }
+        let span = value.span.unwrap_or(1).max(1);
+        match (value.start, value.end) {
+            (Some(start), Some(end)) => taffy::geometry::Line {
+                start: style_helpers::line(start),
+                end: style_helpers::line(end),
+            },
+            (Some(start), None) => taffy::geometry::Line {
+                start: style_helpers::line(start),
+                end: style_helpers::span(span),
+            },
+            (None, Some(end)) => taffy::geometry::Line {
+                start: style_helpers::span(span),
+                end: style_helpers::line(end),
+            },
+            (None, None) => style_helpers::span(span),
+        }
     }
 }
 
@@ -612,12 +622,6 @@ mod tests {
                 end: sh::span(1)
             }
         );
-        assert_eq!(
-            taffy_style.grid_row,
-            taffy::geometry::Line {
-                start: sh::auto(),
-                end: sh::span(3)
-            }
-        );
+        assert_eq!(taffy_style.grid_row, sh::span(3));
     }
 }

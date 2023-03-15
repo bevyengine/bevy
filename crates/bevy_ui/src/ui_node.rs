@@ -1345,50 +1345,113 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
+/// Represents the position of a grid item in a single axis.
+///
+/// There are 3 fields which may be set:
+///   - `start`: which grid line the item should start at
+///   - `end`: which grid line the item should end at
+///   - `span`: how many tracks the item should span
+///
+/// The default `span` is 1. If neither `start` or `end` is set then the item will be placed automatically.
+///
+/// Generally, at most two fields should be set. If all three fields are specifed then `span` will be ignored. If `end` specifies an earlier
+/// grid line than `start` then `end` will be ignored and the item will have a span of 1.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
 pub struct GridPlacement {
-    /// The grid line at which the node should start. Lines are 1-indexed.
-    /// None indicates automatic placement.
-    pub start: Option<u16>,
-    /// How many grid tracks the node should span. Defaults to 1.
-    pub span: u16,
+    /// The grid line at which the item should start. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    pub(crate) start: Option<i16>,
+    /// How many grid tracks the item should span. Defaults to 1.
+    pub(crate) span: Option<u16>,
+    /// The grid line at which the node should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    pub(crate) end: Option<i16>,
 }
 
 impl GridPlacement {
     const DEFAULT: Self = Self {
         start: None,
-        span: 1,
+        span: Some(1),
+        end: None,
     };
 
-    /// Place the grid item automatically and make it span 1 track
+    /// Place the grid item automatically (letting the `span` default to `1`).
     pub fn auto() -> Self {
         Self {
             start: None,
-            span: 1,
+            end: None,
+            span: Some(1),
         }
     }
 
-    /// Place the grid item starting in the specified track
-    pub fn start(start: u16) -> Self {
+    /// Place the grid item automatically, specifying how many tracks it should `span`.
+    pub fn span(span: u16) -> Self {
+        Self {
+            start: None,
+            end: None,
+            span: Some(span),
+        }
+    }
+
+    /// Place the grid item specifying the `start` grid line (letting the `span` default to `1`).
+    pub fn start(start: i16) -> Self {
         Self {
             start: Some(start),
-            span: 1,
+            end: None,
+            span: Some(1),
         }
     }
 
-    /// Place the grid item automatically and make it span the specified number of tracks
-    pub fn span(span: u16) -> Self {
-        Self { start: None, span }
+    /// Place the grid item specifying the `end` grid line (letting the `span` default to `1`).
+    pub fn end(end: i16) -> Self {
+        Self {
+            start: None,
+            end: Some(end),
+            span: Some(1),
+        }
     }
 
-    /// Place the grid item starting in the specified track
-    pub fn set_start(mut self, start: u16) -> Self {
+    /// Place the grid item specifying the `start` grid line and how many tracks it should `span`.
+    pub fn start_span(start: i16, span: u16) -> Self {
+        Self {
+            start: Some(start),
+            end: None,
+            span: Some(span),
+        }
+    }
+
+    /// Place the grid item specifying `start` and `end` grid lines (`span` will be inferred)
+    pub fn start_end(start: i16, end: i16) -> Self {
+        Self {
+            start: Some(start),
+            end: Some(end),
+            span: None,
+        }
+    }
+
+    /// Place the grid item specifying the `end` grid line and how many tracks it should `span`.
+    pub fn end_span(end: i16, span: u16) -> Self {
+        Self {
+            start: None,
+            end: Some(end),
+            span: Some(span),
+        }
+    }
+
+    /// Mutate the item, setting the `start` grid line
+    pub fn set_start(mut self, start: i16) -> Self {
         self.start = Some(start);
         self
     }
 
-    /// Place the grid item automatically and make it span the specified number of tracks
+    /// Mutate the item, setting the `end` grid line
+    pub fn set_end(mut self, end: i16) -> Self {
+        self.end = Some(end);
+        self
+    }
+
+    /// Mutate the item, setting the number of tracks the item should `span`
     pub fn set_span(mut self, span: u16) -> Self {
-        self.span = span;
+        self.span = Some(span);
         self
     }
 }
