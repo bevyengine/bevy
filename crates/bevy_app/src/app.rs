@@ -80,8 +80,8 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
-    /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    is_building_plugin: bool,
+    /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
+    building_plugin_counter: usize,
 }
 
 impl Debug for App {
@@ -228,7 +228,7 @@ impl App {
             plugin_name_added: Default::default(),
             default_schedule_label: Box::new(CoreSchedule::Main),
             outer_schedule_label: Box::new(CoreSchedule::Outer),
-            is_building_plugin: false,
+            building_plugin_counter: 0,
         }
     }
 
@@ -291,8 +291,8 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        if app.is_building_plugin {
-            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
+        if app.building_plugin_counter > 0 {
+            panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
         Self::setup(&mut app);
@@ -765,9 +765,9 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
-        self.is_building_plugin = true;
+        self.building_plugin_counter += 1;
         plugin.build(self);
-        self.is_building_plugin = false;
+        self.building_plugin_counter -= 1;
         self.plugin_registry.push(plugin);
         Ok(self)
     }
@@ -1071,9 +1071,13 @@ mod tests {
     #[should_panic]
     fn cant_call_app_run_from_plugin_build() {
         struct PluginRun;
+        struct InnerPlugin;
+        impl Plugin for InnerPlugin {
+            fn build(&self, _: &mut crate::App) {}
+        }
         impl Plugin for PluginRun {
             fn build(&self, app: &mut crate::App) {
-                app.run();
+                app.add_plugin(InnerPlugin).run();
             }
         }
         App::new().add_plugin(PluginRun);
