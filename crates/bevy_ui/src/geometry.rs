@@ -1,4 +1,4 @@
-use crate::Val;
+use crate::{Breadth, Val};
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
@@ -22,13 +22,13 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{UiRect, Breadth};
 /// #
 /// let padding = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
+///     left: Breadth::Px(10.0),
+///     right: Breadth::Px(20.0),
+///     top: Breadth::Px(30.0),
+///     bottom: Breadth::Px(40.0),
 /// };
 /// ```
 ///
@@ -37,26 +37,26 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A border is used to define the width of the border of a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{UiRect, Breadth};
 /// #
 /// let border = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
+///     left: Breadth::Px(10.0),
+///     right: Breadth::Px(20.0),
+///     top: Breadth::Px(30.0),
+///     bottom: Breadth::Px(40.0),
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect {
+pub struct UiRect<T: Default + Copy + Clone + PartialEq = Val> {
     /// The value corresponding to the left side of the UI rect.
-    pub left: Val,
+    pub left: T,
     /// The value corresponding to the right side of the UI rect.
-    pub right: Val,
+    pub right: T,
     /// The value corresponding to the top side of the UI rect.
-    pub top: Val,
+    pub top: T,
     /// The value corresponding to the bottom side of the UI rect.
-    pub bottom: Val,
+    pub bottom: T,
 }
 
 impl UiRect {
@@ -86,7 +86,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+    pub const fn new(left: T, right: T, top: T, bottom: T) -> Self {
         UiRect {
             left,
             right,
@@ -109,7 +109,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn all(value: Val) -> Self {
+    pub const fn all(value: T) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -133,7 +133,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn horizontal(value: Val) -> Self {
+    pub fn horizontal(value: T) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -156,7 +156,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn vertical(value: Val) -> Self {
+    pub fn vertical(value: T) -> Self {
         UiRect {
             top: value,
             bottom: value,
@@ -179,7 +179,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn left(value: Val) -> Self {
+    pub fn left(value: T) -> Self {
         UiRect {
             left: value,
             ..Default::default()
@@ -201,7 +201,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn right(value: Val) -> Self {
+    pub fn right(value: T) -> Self {
         UiRect {
             right: value,
             ..Default::default()
@@ -223,7 +223,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(0.));
     /// ```
-    pub fn top(value: Val) -> Self {
+    pub fn top(value: T) -> Self {
         UiRect {
             top: value,
             ..Default::default()
@@ -245,7 +245,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(0.));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn bottom(value: Val) -> Self {
+    pub fn bottom(value: T) -> Self {
         UiRect {
             bottom: value,
             ..Default::default()
@@ -253,9 +253,44 @@ impl UiRect {
     }
 }
 
-impl Default for UiRect {
+impl UiRect<Val> {
+    pub const DEFAULT: Self = Self {
+        left: Val::DEFAULT,
+        right: Val::DEFAULT,
+        top: Val::DEFAULT,
+        bottom: Val::DEFAULT,
+    };
+}
+
+impl Default for UiRect<Val> {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+impl UiRect<Breadth> {
+    pub const DEFAULT: Self = Self {
+        left: Breadth::DEFAULT,
+        right: Breadth::DEFAULT,
+        top: Breadth::DEFAULT,
+        bottom: Breadth::DEFAULT,
+    };
+}
+
+impl Default for UiRect<Breadth> {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<UiRect<Breadth>> for UiRect<Val> {
+    fn from(rect: UiRect<Breadth>) -> Self {
+        Self {
+            left: rect.left.into(),
+            right: rect.right.into(),
+            top: rect.top.into(),
+            bottom: rect.bottom.into(),
+        }
     }
 }
 
