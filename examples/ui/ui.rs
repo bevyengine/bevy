@@ -7,7 +7,8 @@ use bevy::{
     },
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
-    winit::WinitSettings, widget::Label,
+    widget::Label,
+    winit::WinitSettings,
 };
 
 fn main() {
