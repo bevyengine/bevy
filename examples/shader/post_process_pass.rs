@@ -45,7 +45,7 @@ fn main() {
         .run();
 }
 
-/// It's generally encouraged to setup post processing effects as a plugin
+/// It is generally encouraged to set up post processing effects as a plugin
 struct PostProcessPlugin;
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
@@ -54,7 +54,7 @@ impl Plugin for PostProcessPlugin {
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
-            // It's important to derive [`ExtractComponent`] for this plugin to work correctly.
+            // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`] for this plugin to work correctly.
             .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
@@ -69,7 +69,7 @@ impl Plugin for PostProcessPlugin {
         // Initialize the pipeline
         render_app.init_resource::<PostProcessPipeline>();
 
-        // Bevy's renderer uses a render graph which is a series of node in a directed acyclic graph.
+        // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
         // It currently runs sequentially, on each view/camera based on the specified ordering.
         //
         // Each node can execute arbitrary work, but it generally runs at least one render pass.
@@ -90,8 +90,8 @@ impl Plugin for PostProcessPlugin {
         core_3d_graph.add_node(PostProcessNode::NAME, node);
 
         // A slot edge tells the render graph which input/output value should be passed to the node.
-        // In this case, the view entity, which is essentially the entity associated to the
-        // camera the graph is running on.
+        // In this case, the view entity, which is the entity associated with the
+        // camera on which the graph is running.
         core_3d_graph.add_slot_edge(
             core_3d_graph.input_node().id,
             core_3d::graph::input::VIEW_ENTITY,
@@ -113,7 +113,7 @@ impl Plugin for PostProcessPlugin {
 
 /// The post process node used for the render graph
 struct PostProcessNode {
-    // The node needs a query to know how to render,
+    // The node needs a query to gather data from the ECS in order to do its rendering,
     // but it's not a normal system so we need to define it manually.
     query: QueryState<&'static ViewTarget, With<ExtractedView>>,
 }
@@ -148,10 +148,10 @@ impl Node for PostProcessNode {
     }
 
     // Runs the node logic
-    // This is where you issue draw calls.
+    // This is where you encode draw commands.
     //
-    // This will run on every views the graph is running on. If you don't want your effect to run on every camera,
-    // you'll need to make sure you have a marker component to identify which camera should run the effect.
+    // This will run on every view on which the graph is running. If you don't want your effect to run on every camera,
+    // you'll need to make sure you have a marker component to identify which camera(s) should run the effect.
     fn run(
         &self,
         graph_context: &mut RenderGraphContext,
@@ -171,7 +171,7 @@ impl Node for PostProcessNode {
         let post_process_pipeline = world.resource::<PostProcessPipeline>();
 
         // The pipeline cache is a cache of all previously created pipelines.
-        // It's required to avoid creating a new pipeline each frame, which is expensive due to shader compilation.
+        // It is required to avoid creating a new pipeline each frame, which is expensive due to shader compilation.
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // Get the pipeline from the cache
@@ -185,12 +185,13 @@ impl Node for PostProcessNode {
             return Ok(());
         };
 
-        // This will start a new "post process write"
-        //
-        // `source` is the "current" main texture. This will internally flip this
-        // [`ViewTarget`]'s main texture to the `destination` texture, so the caller
-        // _must_ ensure `source` is copied to `destination`, with or without modifications.
-        // Failing to do so will cause the current main texture information to be lost.
+        // This will start a new "post process write", obtaining two texture
+        // views from the view target - a `source` and a `destination`.
+        // `source` is the "current" main texture and you _must_ write into
+        // `destination` because calling `post_process_write()` on the
+        // [`ViewTarget`] will internally flip the [`ViewTarget`]'s main
+        // texture to the `destination` texture. Failing to do so will cause
+        // the current main texture information to be lost.
         let post_process = view_target.post_process_write();
 
         // The bind_group gets created each frame.
