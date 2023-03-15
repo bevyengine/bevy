@@ -581,18 +581,73 @@ impl Default for JustifyContent {
 /// Whether to show or hide overflowing items
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Overflow {
+pub struct Overflow {
+    /// Whether to show or hide overflowing items on the x axis        
+    pub x: OverflowAxis,
+    /// Whether to show or hide overflowing items on the y axis
+    pub y: OverflowAxis,
+}
+
+impl Overflow {
+    pub const DEFAULT: Self = Self {
+        x: OverflowAxis::DEFAULT,
+        y: OverflowAxis::DEFAULT,
+    };
+
+    /// Show overflowing items on both axes
+    pub const fn visible() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Hide overflowing items on both axes
+    pub const fn hidden() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
+    /// Hide overflowing items on the x axis
+    pub const fn x_hidden() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Hide overflowing items on the y axis
+    pub const fn y_hidden() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Hidden,
+        }
+    }
+}
+
+impl Default for Overflow {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Whether to show or hide overflowing items
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
     /// Hide overflowing items.
     Hidden,
 }
 
-impl Overflow {
+impl OverflowAxis {
     pub const DEFAULT: Self = Self::Visible;
 }
 
-impl Default for Overflow {
+impl Default for OverflowAxis {
     fn default() -> Self {
         Self::DEFAULT
     }

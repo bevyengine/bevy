@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Overflow, Style};
+use crate::{CalculatedClip, Overflow, OverflowAxis, Style};
 
 use super::Node;
 use bevy_ecs::{
@@ -56,10 +56,23 @@ fn update_clipping(
 
     // Calculate new clip for its children
     let children_clip = match style.overflow {
-        Overflow::Visible => clip,
-        Overflow::Hidden => {
-            let node_center = global_transform.translation().truncate();
-            let node_rect = Rect::from_center_size(node_center, node.calculated_size);
+        Overflow {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Visible,
+        } => clip,
+        Overflow {
+            x: overflow_x,
+            y: overflow_y,
+        } => {
+            let mut node_rect = node.logical_rect(global_transform);
+            if overflow_x == OverflowAxis::Visible {
+                node_rect.min.x = -f32::INFINITY;
+                node_rect.max.x = f32::INFINITY;
+            }
+            if overflow_y == OverflowAxis::Visible {
+                node_rect.min.y = -f32::INFINITY;
+                node_rect.max.y = f32::INFINITY;
+            }
             Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
