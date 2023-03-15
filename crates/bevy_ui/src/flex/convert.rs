@@ -332,7 +332,10 @@ impl GridTrack {
 }
 
 impl RepeatedGridTrack {
-    fn clone_into_repeated_taffy_track(&self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
+    fn clone_into_repeated_taffy_track(
+        &self,
+        scale_factor: f64,
+    ) -> taffy::style::TrackSizingFunction {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(scale_factor);
             let max = self.tracks[0].max_sizing_function.into_taffy(scale_factor);
