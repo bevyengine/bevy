@@ -359,6 +359,9 @@ impl RenderContext {
         self.command_buffers.push(command_buffer);
     }
 
+    /// Begins a debug scope for timing GPU operations.
+    ///
+    /// Does nothing unless the `TIMESTAMP_QUERY` feature is enabled.
     pub fn begin_debug_scope(&mut self, label: &str) {
         if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
             let command_encoder = self.command_encoder.get_or_insert_with(|| {
@@ -370,6 +373,9 @@ impl RenderContext {
         }
     }
 
+    /// Ends a debug scope for timing GPU operations.
+    ///
+    /// Does nothing unless the `TIMESTAMP_QUERY` feature is enabled.
     pub fn end_debug_scope(&mut self) {
         if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
             gpu_profiler.end_scope(self.command_encoder.as_mut().unwrap());

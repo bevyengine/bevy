@@ -20,7 +20,17 @@ use bevy_ui::{
 use bevy_utils::{default, Duration};
 use std::fmt::Write;
 
-pub struct DebugOverlaysPlugin;
+/// Displays an overlay showing how long GPU operations take.
+///
+/// To time GPU operation(s), wrap them in [`bevy_render::renderer::RenderContext`]`::begin_debug_scope()` and `end_debug_scope()`.
+///
+/// Ensure you add [`WgpuFeatures`]`::TIMESTAMP_QUERY` to `RenderPlugin::wgpu_settings`.
+///
+/// Ensure you add this plugin after `DefaultPlugins`.
+pub struct DebugOverlaysPlugin {
+    /// How often to update the UI (default 300ms).
+    pub ui_update_frequency: Duration,
+}
 
 impl Plugin for DebugOverlaysPlugin {
     fn build(&self, app: &mut App) {
@@ -33,11 +43,19 @@ impl Plugin for DebugOverlaysPlugin {
             .add_startup_system(setup_gpu_time_overlay)
             .add_systems(
                 (
-                    aggregate_gpu_timers.run_if(on_timer(Duration::from_millis(300))),
+                    aggregate_gpu_timers.run_if(on_timer(self.ui_update_frequency)),
                     draw_gpu_time_overlay,
                 )
                     .chain(),
             );
+    }
+}
+
+impl Default for DebugOverlaysPlugin {
+    fn default() -> Self {
+        Self {
+            ui_update_frequency: Duration::from_millis(300),
+        }
     }
 }
 
