@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::all(AutoVal::Percent(100.)),
+                size: Size::all(Val::Percent(100.)),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(AutoVal::Px(200.)),
+                        size: Size::width(Val::Px(200.)),
                         border: Border::all(Val::Px(2.)),
                         ..default()
                     },
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::width(AutoVal::Percent(100.)),
+                                size: Size::width(Val::Percent(100.)),
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 )
                                 .with_style(Style {
-                                    margin: Margin::all(AutoVal::Px(5.)),
+                                    margin: Margin::all(Val::Px(5.)),
                                     ..default()
                                 }),
                                 // Because this is a distinct label widget and
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        size: Size::width(AutoVal::Px(200.)),
+                        size: Size::width(Val::Px(200.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -110,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
-                                size: Size::height(AutoVal::Percent(50.)),
+                                size: Size::height(Val::Percent(50.)),
                                 overflow: Overflow::Hidden,
                                 ..default()
                             },
@@ -155,7 +155,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(AutoVal::Px(200.)),
+                        size: Size::all(Val::Px(200.)),
                         position_type: PositionType::Absolute,
                         left: AutoVal::Px(210.),
                         bottom: AutoVal::Px(10.),
@@ -168,7 +168,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn(NodeBundle {
                         style: Style {
-                            size: Size::all(AutoVal::Percent(100.)),
+                            size: Size::all(Val::Percent(100.)),
                             ..default()
                         },
                         background_color: Color::rgb(0.8, 0.8, 1.).into(),
@@ -179,7 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(AutoVal::Percent(100.)),
+                        size: Size::all(Val::Percent(100.)),
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -191,7 +191,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::all(AutoVal::Px(100.)),
+                                size: Size::all(Val::Px(100.)),
                                 ..default()
                             },
                             background_color: Color::rgb(1.0, 0.0, 0.).into(),
@@ -201,7 +201,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn(NodeBundle {
                                 style: Style {
                                     // Take the size of the parent node.
-                                    size: Size::all(AutoVal::Percent(100.)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(20.),
                                     bottom: AutoVal::Px(20.),
@@ -212,7 +212,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(AutoVal::Percent(100.)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(40.),
                                     bottom: AutoVal::Px(40.),
@@ -223,7 +223,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(AutoVal::Percent(100.)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(60.),
                                     bottom: AutoVal::Px(60.),
@@ -235,7 +235,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // alpha test
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(AutoVal::Percent(100.)),
+                                    size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(80.),
                                     bottom: AutoVal::Px(80.),
@@ -250,7 +250,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(AutoVal::Percent(100.)),
+                        size: Size::width(Val::Percent(100.)),
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
@@ -264,7 +264,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(ImageBundle {
                             style: Style {
-                                size: Size::width(AutoVal::Px(500.0)),
+                                size: Size::width(Val::Px(500.0)),
                                 ..default()
                             },
                             ..default()

@@ -17,7 +17,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(AutoVal::Percent(100.)),
+                size: Size::width(Val::Percent(100.)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
@@ -29,8 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(AutoVal::Px(250.0)),
-                        margin: Margin::bottom(AutoVal::Px(15.)),
+                        size: Size::all(Val::Px(250.0)),
+                        margin: Margin::bottom(Val::Px(15.)),
                         ..default()
                     },
                     background_color: Color::rgb(235., 35., 12.).into(),

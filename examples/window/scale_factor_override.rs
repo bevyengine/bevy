@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(AutoVal::Percent(100.0), AutoVal::Percent(100.0)),
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(AutoVal::Px(200.0), AutoVal::Percent(100.0)),
+                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: Border::all(Val::Px(2.0)),
                         ..default()
                     },

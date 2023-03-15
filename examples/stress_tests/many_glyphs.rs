@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             commands.spawn(TextBundle {
                 text: text.clone(),
                 style: Style {
-                    size: Size::width(AutoVal::Px(1000.)),
+                    size: Size::width(Val::Px(1000.)),
                     ..Default::default()
                 },
                 ..Default::default()

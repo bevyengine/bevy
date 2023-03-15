@@ -22,7 +22,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(AutoVal::Percent(100.0)),
+                size: Size::width(Val::Percent(100.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands) {
                 .spawn(NodeBundle {
                     background_color: Color::GRAY.into(),
                     style: Style {
-                        size: Size::new(AutoVal::Px(180.0), AutoVal::Px(100.0)),
+                        size: Size::new(Val::Px(180.0), Val::Px(100.0)),
                         ..default()
                     },
                     ..default()
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands) {
                             position_type: PositionType::Absolute,
                             left: AutoVal::Px(10.0),
                             bottom: AutoVal::Px(40.0),
-                            size: Size::new(AutoVal::Px(100.0), AutoVal::Px(50.0)),
+                            size: Size::new(Val::Px(100.0), Val::Px(50.0)),
                             ..default()
                         },
                         ..default()
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands) {
                             position_type: PositionType::Absolute,
                             left: AutoVal::Px(45.0),
                             bottom: AutoVal::Px(30.0),
-                            size: Size::new(AutoVal::Px(100.0), AutoVal::Px(50.0)),
+                            size: Size::new(Val::Px(100.0), Val::Px(50.0)),
                             ..default()
                         },
                         ..default()
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands) {
                             position_type: PositionType::Absolute,
                             left: AutoVal::Px(70.0),
                             bottom: AutoVal::Px(20.0),
-                            size: Size::new(AutoVal::Px(100.0), AutoVal::Px(75.0)),
+                            size: Size::new(Val::Px(100.0), Val::Px(75.0)),
                             ..default()
                         },
                         ..default()
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands) {
                             position_type: PositionType::Absolute,
                             left: AutoVal::Px(15.0),
                             bottom: AutoVal::Px(10.0),
-                            size: Size::new(AutoVal::Px(100.0), AutoVal::Px(60.0)),
+                            size: Size::new(Val::Px(100.0), Val::Px(60.0)),
                             ..default()
                         },
                         ..default()
@@ -109,7 +109,7 @@ fn setup(mut commands: Commands) {
                             position_type: PositionType::Absolute,
                             left: AutoVal::Px(-15.0),
                             bottom: AutoVal::Px(-15.0),
-                            size: Size::new(AutoVal::Px(100.0), AutoVal::Px(125.0)),
+                            size: Size::new(Val::Px(100.0), Val::Px(125.0)),
                             ..default()
                         },
                         ..default()

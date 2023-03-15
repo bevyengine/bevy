@@ -18,7 +18,12 @@ macro_rules! frame_impl {
             };
 
             /// Creates a new frame type from the values specified.
-            pub fn new(left: impl Into<$v>, right: impl Into<$v>, top: impl Into<$v>, bottom: impl Into<$v>) -> Self {
+            pub fn new(
+                left: impl Into<$v>,
+                right: impl Into<$v>,
+                top: impl Into<$v>,
+                bottom: impl Into<$v>,
+            ) -> Self {
                 Self {
                     left: left.into(),
                     right: right.into(),
@@ -191,7 +196,10 @@ impl Size {
     /// ```
     #[inline]
     pub fn new(width: impl Into<AutoVal>, height: impl Into<AutoVal>) -> Self {
-        Size { width: width.into(), height: height.into() }
+        Size {
+            width: width.into(),
+            height: height.into(),
+        }
     }
 
     /// Creates a new [`Size`] where both sides take the given value.
@@ -257,7 +265,10 @@ impl Size {
     }
 
     /// Creates a Size where both values are [`AutoVal::Auto`].
-    pub const AUTO: Self = Self { width: AutoVal::Auto, height: AutoVal::Auto };
+    pub const AUTO: Self = Self {
+        width: AutoVal::Auto,
+        height: AutoVal::Auto,
+    };
 }
 
 impl Default for Size {

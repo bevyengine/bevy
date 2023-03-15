@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                size: Size::all(AutoVal::Percent(100.)),
+                size: Size::all(Val::Percent(100.)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -65,7 +65,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        min_size: Size::new(AutoVal::Px(850.), AutoVal::Px(1020.)),
+                        min_size: Size::new(Val::Px(850.), Val::Px(1020.)),
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
@@ -124,7 +124,7 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                size: Size::all(AutoVal::Px(160.)),
+                size: Size::all(Val::Px(160.)),
                 margin: Margin::all(MARGIN),
                 ..Default::default()
             },
@@ -142,7 +142,7 @@ fn spawn_child_node(
                     builder,
                     font.clone(),
                     color,
-                    Margin::top(AutoVal::Px(top_margin)),
+                    Margin::top(Val::Px(top_margin)),
                     &text,
                 );
             }

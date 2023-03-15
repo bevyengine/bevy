@@ -55,7 +55,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             top: AutoVal::Px(5.0),
             right: AutoVal::Px(15.0),
-            max_size: Size::width(AutoVal::Px(400.)),
+            max_size: Size::width(Val::Px(400.)),
             ..default()
         })
     );
@@ -126,10 +126,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             bottom: AutoVal::Px(5.0),
             left: AutoVal::Px(15.0),
-            size: Size {
-                width: AutoVal::Px(200.0),
-                ..default()
-            },
+            size: Size::width(Val::Px(200.0)),
             ..default()
         }),
     );

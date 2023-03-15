@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(AutoVal::Percent(100.0), AutoVal::Percent(100.0)),
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 ..default()
             },
             ..default()
@@ -88,7 +88,7 @@ fn spawn_button(
         .spawn((
             ButtonBundle {
                 style: Style {
-                    size: Size::new(AutoVal::Percent(width), AutoVal::Percent(width)),
+                    size: Size::new(Val::Percent(width), Val::Percent(width)),
                     bottom: AutoVal::Percent(100.0 / total * i as f32),
                     left: AutoVal::Percent(100.0 / total * j as f32),
                     align_items: AlignItems::Center,

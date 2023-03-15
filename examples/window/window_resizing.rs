@@ -36,7 +36,7 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
     // Node that fills entire background
     cmd.spawn(NodeBundle {
         style: Style {
-            size: Size::new(AutoVal::Percent(100.0), AutoVal::Percent(100.0)),
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             ..default()
         },
         ..default()
