@@ -18,19 +18,19 @@ macro_rules! frame_impl {
             };
 
             /// Creates a new frame type from the values specified.
-            pub fn new(left: $v, right: $v, top: $v, bottom: $v) -> Self {
+            pub fn new(left: impl Into<$v>, right: impl Into<$v>, top: impl Into<$v>, bottom: impl Into<$v>) -> Self {
                 Self {
-                    left,
-                    right,
-                    top,
-                    bottom,
+                    left: left.into(),
+                    right: right.into(),
+                    top: top.into(),
+                    bottom: bottom.into(),
                 }
             }
 
             /// Creates a new frame type where `left` takes the given value.
-            pub fn left(left: $v) -> Self {
+            pub fn left(left: impl Into<$v>) -> Self {
                 Self::new(
-                    left,
+                    left.into(),
                     Self::FIELD_DEFAULT,
                     Self::FIELD_DEFAULT,
                     Self::FIELD_DEFAULT,
@@ -38,52 +38,52 @@ macro_rules! frame_impl {
             }
 
             /// Creates a new frame type where `right` takes the given value.
-            pub fn right(right: $v) -> Self {
+            pub fn right(right: impl Into<$v>) -> Self {
                 Self::new(
                     Self::FIELD_DEFAULT,
-                    right,
+                    right.into(),
                     Self::FIELD_DEFAULT,
                     Self::FIELD_DEFAULT,
                 )
             }
 
             /// Creates a new frame type where `top` takes the given value.
-            pub fn top(top: $v) -> Self {
+            pub fn top(top: impl Into<$v>) -> Self {
                 Self::new(
                     Self::FIELD_DEFAULT,
                     Self::FIELD_DEFAULT,
-                    top,
+                    top.into(),
                     Self::FIELD_DEFAULT,
                 )
             }
 
             /// Creates a new frame type where `bottom` takes the given value.
-            pub fn bottom(bottom: $v) -> Self {
+            pub fn bottom(bottom: impl Into<$v>) -> Self {
                 Self::new(
                     Self::FIELD_DEFAULT,
                     Self::FIELD_DEFAULT,
                     Self::FIELD_DEFAULT,
-                    bottom,
+                    bottom.into(),
                 )
             }
 
             /// Creates a new frame type where `left` and `right` take the given value.
-            pub fn horizontal(value: $v) -> Self {
+            pub fn horizontal(value: impl Into<$v> + Copy) -> Self {
                 Self::new(value, value, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
             }
 
             /// Creates a new frame type where `top` and `bottom` take the given value.
-            pub fn vertical(value: $v) -> Self {
+            pub fn vertical(value: impl Into<$v> + Copy) -> Self {
                 Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
             }
 
             /// Creates a new frame type where all sides have the same value.
-            pub fn axes(horizontal: $v, vertical: $v) -> Self {
+            pub fn axes(horizontal: impl Into<$v> + Copy, vertical: impl Into<$v> + Copy) -> Self {
                 Self::new(horizontal, horizontal, vertical, vertical)
             }
 
             /// Creates a new frame type where all sides have the same value.
-            pub fn all(value: $v) -> Self {
+            pub fn all(value: impl Into<$v> + Copy) -> Self {
                 Self::new(value, value, value, value)
             }
         }
@@ -189,8 +189,9 @@ impl Size {
     /// assert_eq!(size.width, AutoVal::Px(100.0));
     /// assert_eq!(size.height, AutoVal::Px(200.0));
     /// ```
-    pub const fn new(width: AutoVal, height: AutoVal) -> Self {
-        Size { width, height }
+    #[inline]
+    pub fn new(width: impl Into<AutoVal>, height: impl Into<AutoVal>) -> Self {
+        Size { width: width.into(), height: height.into() }
     }
 
     /// Creates a new [`Size`] where both sides take the given value.
@@ -205,16 +206,16 @@ impl Size {
     /// assert_eq!(size.width, AutoVal::Px(10.0));
     /// assert_eq!(size.height, AutoVal::Px(10.0));
     /// ```
-    pub const fn all(value: AutoVal) -> Self {
+    #[inline]
+    pub fn all(value: impl Into<AutoVal> + Copy) -> Self {
         Self {
-            width: value,
-            height: value,
+            width: value.into(),
+            height: value.into(),
         }
     }
 
     /// Creates a new [`Size`] where `width` takes the given value,
     /// and `height` is set to [`AutoVal::Auto`].
-
     ///
     /// # Example
     ///
@@ -226,9 +227,10 @@ impl Size {
     /// assert_eq!(size.width, AutoVal::Px(10.0));
     /// assert_eq!(size.height, AutoVal::Auto);
     /// ```
-    pub const fn width(width: AutoVal) -> Self {
+    #[inline]
+    pub fn width(width: impl Into<AutoVal>) -> Self {
         Self {
-            width,
+            width: width.into(),
             height: AutoVal::Auto,
         }
     }
@@ -246,15 +248,16 @@ impl Size {
     /// assert_eq!(size.width, AutoVal::Auto);
     /// assert_eq!(size.height, Val::Px(10.));
     /// ```
-    pub const fn height(height: AutoVal) -> Self {
+    #[inline]
+    pub fn height(height: impl Into<AutoVal>) -> Self {
         Self {
             width: AutoVal::Auto,
-            height,
+            height: height.into(),
         }
     }
 
     /// Creates a Size where both values are [`AutoVal::Auto`].
-    pub const AUTO: Self = Self::all(AutoVal::Auto);
+    pub const AUTO: Self = Self { width: AutoVal::Auto, height: AutoVal::Auto };
 }
 
 impl Default for Size {
