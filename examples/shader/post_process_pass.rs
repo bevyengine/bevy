@@ -70,12 +70,12 @@ impl Plugin for PostProcessPlugin {
         render_app.init_resource::<PostProcessPipeline>();
 
         // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
-        // It currently runs sequentially, on each view/camera based on the specified ordering.
+        // It currently runs on each view/camera and executes each node in the specified order.
+        // It will make sure that any node that needs a dependency from another node only runs when that dependency is done.
         //
         // Each node can execute arbitrary work, but it generally runs at least one render pass.
-        // The graph can be used to pass data between nodes but it's generally preferred to use the ECS to pass data
-        // and only use the graph to enforce node ordering. A node only has access to the render world,
-        // so if you need data from the main world you need to extract it manually or with the plugin like above.
+        // A node only has access to the render world, so if you need data from the main world
+        // you need to extract it manually or with the plugin like above.
 
         // Create the node with the render world
         let node = PostProcessNode::new(&mut render_app.world);
