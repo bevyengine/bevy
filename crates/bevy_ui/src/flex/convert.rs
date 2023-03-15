@@ -281,8 +281,11 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
 impl MinTrackSizingFunction {
     fn into_taffy(self, scale_factor: f64) -> taffy::style::MinTrackSizingFunction {
         match self {
-            MinTrackSizingFunction::Fixed(val) => taffy::style::MinTrackSizingFunction::Fixed(
-                val.into_length_percentage(scale_factor),
+            MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::Px(val).into_length_percentage(scale_factor),
+            ),
+            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::Percent(val).into_length_percentage(scale_factor),
             ),
             MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::Auto,
             MinTrackSizingFunction::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
@@ -294,15 +297,23 @@ impl MinTrackSizingFunction {
 impl MaxTrackSizingFunction {
     fn into_taffy(self, scale_factor: f64) -> taffy::style::MaxTrackSizingFunction {
         match self {
-            MaxTrackSizingFunction::Fixed(val) => taffy::style::MaxTrackSizingFunction::Fixed(
-                val.into_length_percentage(scale_factor),
+            MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::Px(val).into_length_percentage(scale_factor),
+            ),
+            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::Percent(val).into_length_percentage(scale_factor),
             ),
             MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::Auto,
             MaxTrackSizingFunction::MinContent => taffy::style::MaxTrackSizingFunction::MinContent,
             MaxTrackSizingFunction::MaxContent => taffy::style::MaxTrackSizingFunction::MaxContent,
-            MaxTrackSizingFunction::FitContent(val) => {
+            MaxTrackSizingFunction::FitContentPx(val) => {
                 taffy::style::MaxTrackSizingFunction::FitContent(
-                    val.into_length_percentage(scale_factor),
+                    Val::Px(val).into_length_percentage(scale_factor),
+                )
+            }
+            MaxTrackSizingFunction::FitContentPercent(val) => {
+                taffy::style::MaxTrackSizingFunction::FitContent(
+                    Val::Percent(val).into_length_percentage(scale_factor),
                 )
             }
             MaxTrackSizingFunction::Fraction(fraction) => {

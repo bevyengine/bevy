@@ -995,8 +995,10 @@ impl Default for GridAutoFlow {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum MinTrackSizingFunction {
-    /// Track minimum size should be a fixed points or percentage value
-    Fixed(Val),
+    /// Track minimum size should be a fixed pixel value
+    Px(f32),
+    /// Track minimum size should be a percentage value
+    Percent(f32),
     /// Track minimum size should be content sized under a min-content constraint
     MinContent,
     /// Track minimum size should be content sized under a max-content constraint
@@ -1008,14 +1010,18 @@ pub enum MinTrackSizingFunction {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum MaxTrackSizingFunction {
-    /// Track maximum size should be a fixed points or percentage value
-    Fixed(Val),
+    /// Track maximum size should be a fixed pixel value
+    Px(f32),
+    /// Track maximum size should be a percentage value
+    Percent(f32),
     /// Track maximum size should be content sized under a min-content constraint
     MinContent,
     /// Track maximum size should be content sized under a max-content constraint
     MaxContent,
-    /// Track maximum size should be sized according to the fit-content formula
-    FitContent(Val),
+    /// Track maximum size should be sized according to the fit-content formula with a fixed pixel limit
+    FitContentPx(f32),
+    /// Track maximum size should be sized according to the fit-content formula with a percentage limit
+    FitContentPercent(f32),
     /// Track maximum size should be automatically sized
     Auto,
     /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
@@ -1049,8 +1055,8 @@ impl GridTrack {
     /// Create a grid track with a fixed pixel size
     pub fn px<T: From<Self>>(value: f32) -> T {
         Self {
-            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(value)),
-            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Px(value)),
+            min_sizing_function: MinTrackSizingFunction::Px(value),
+            max_sizing_function: MaxTrackSizingFunction::Px(value),
         }
         .into()
     }
@@ -1058,8 +1064,8 @@ impl GridTrack {
     /// Create a grid track with a percentage size
     pub fn percent<T: From<Self>>(value: f32) -> T {
         Self {
-            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Percent(value)),
-            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Percent(value)),
+            min_sizing_function: MinTrackSizingFunction::Percent(value),
+            max_sizing_function: MaxTrackSizingFunction::Percent(value),
         }
         .into()
     }
@@ -1078,7 +1084,7 @@ impl GridTrack {
     /// Create a grid track with an `minmax(0, Nfr)` size.
     pub fn flex<T: From<Self>>(value: f32) -> T {
         Self {
-            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(0.0)),
+            min_sizing_function: MinTrackSizingFunction::Px(0.0),
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
         .into()
@@ -1106,7 +1112,7 @@ impl GridTrack {
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Px(limit)),
+            max_sizing_function: MaxTrackSizingFunction::FitContentPx(limit),
         }
         .into()
     }
@@ -1115,7 +1121,7 @@ impl GridTrack {
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Percent(limit)),
+            max_sizing_function: MaxTrackSizingFunction::FitContentPercent(limit),
         }
         .into()
     }
@@ -1199,8 +1205,8 @@ impl RepeatedGridTrack {
     pub fn px<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(value)),
-            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Px(value)),
+            min_sizing_function: MinTrackSizingFunction::Px(value),
+            max_sizing_function: MaxTrackSizingFunction::Px(value),
         }
         .into()
     }
@@ -1209,8 +1215,8 @@ impl RepeatedGridTrack {
     pub fn percent<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Percent(value)),
-            max_sizing_function: MaxTrackSizingFunction::Fixed(Val::Percent(value)),
+            min_sizing_function: MinTrackSizingFunction::Percent(value),
+            max_sizing_function: MaxTrackSizingFunction::Percent(value),
         }
         .into()
     }
@@ -1241,7 +1247,7 @@ impl RepeatedGridTrack {
     pub fn flex<T: From<Self>>(repetition: u16, value: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::Fixed(Val::Px(0.0)),
+            min_sizing_function: MinTrackSizingFunction::Px(0.0),
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
         .into()
@@ -1272,7 +1278,7 @@ impl RepeatedGridTrack {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
             min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Px(limit)),
+            max_sizing_function: MaxTrackSizingFunction::FitContentPx(limit),
         }
         .into()
     }
@@ -1282,7 +1288,7 @@ impl RepeatedGridTrack {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
             min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::FitContent(Val::Percent(limit)),
+            max_sizing_function: MaxTrackSizingFunction::FitContentPercent(limit),
         }
         .into()
     }
