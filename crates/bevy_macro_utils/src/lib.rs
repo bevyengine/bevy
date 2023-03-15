@@ -115,21 +115,28 @@ impl BevyManifest {
 /// Note that the returned identifier can still conflict in niche cases,
 /// such as if an identifier in `haystack` is hidden behind an un-expanded macro.
 pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
-    fn visit_tokens(tokens: TokenStream, idents: &mut HashSet<String>) {
-        for t in tokens {
-            match t {
-                TokenTree::Group(g) => visit_tokens(g.stream(), idents),
-                TokenTree::Ident(ident) => {
-                    idents.insert(ident.to_string());
+    // Collect all the identifiers in `haystack` into a set.
+    let idents = {
+        // List of token streams that will be visited in future loop iterations.
+        let mut unvisited = vec![haystack];
+        // Identifiers we have found while searching tokens.
+        let mut found = HashSet::new();
+        while let Some(tokens) = unvisited.pop() {
+            for t in tokens {
+                match t {
+                    // Collect any identifiers we encounter.
+                    TokenTree::Ident(ident) => {
+                        found.insert(ident.to_string());
+                    }
+                    // Queue up nested token streams to be visited in a future loop iteration.
+                    TokenTree::Group(g) => unvisited.push(g.stream()),
+                    TokenTree::Punct(_) | TokenTree::Literal(_) => {}
                 }
-                TokenTree::Punct(_) | TokenTree::Literal(_) => {}
             }
         }
-    }
 
-    // Collect all the identifiers in `haystack` into a set.
-    let mut idents = HashSet::new();
-    visit_tokens(haystack, &mut idents);
+        found
+    };
 
     let span = value.span();
 
