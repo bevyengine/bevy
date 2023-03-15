@@ -194,6 +194,9 @@ impl Node for PostProcessNode {
         let post_process = view_target.post_process_write();
 
         // The bind_group gets created each frame.
+        // Normally, you would create a bind_group in the Queue stage, but this doesn't work with the post_process_write().
+        // The reason it doesn't work is because each post_process will alternate the source/destination.
+        // The only way to have the correct source/destination for the bind_group is to make sure you get it during the node execution.
         let bind_group = render_context
             .render_device()
             .create_bind_group(&BindGroupDescriptor {
