@@ -153,7 +153,7 @@ impl Node for PostProcessNode {
         // It's required to avoid creating a new pipeline each frame, which is expensive due to shader compilation.
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        // Get the pipeline data for the current view
+        // Get the pipeline from the cache for the current view, based on the ID component attached to the view.
         let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id) else {
             return Ok(());
         };
