@@ -50,11 +50,15 @@ struct PostProcessPlugin;
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
         app
-            // The settings will be a component that lives in the main world but will be extracted to the render world every frame.
+            // The settings will be a component that lives in the main world but will
+            // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
+            // It's important to derive [`ExtractComponent`] for this plugin to work correctly.
             .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
-            // The settings will use a uniform buffer, so we need this plugin to let bevy manage this automatically.
+            // The settings will also be the data used in the shader.
+            // This plugin will prepare the component for the GPU by creating a uniform buffer
+            // and writing the data to that buffer every frame.
             .add_plugin(UniformComponentPlugin::<PostProcessSettings>::default());
 
         // We need to get the render app from the main app
@@ -65,7 +69,15 @@ impl Plugin for PostProcessPlugin {
         // Initialize the pipeline
         render_app.init_resource::<PostProcessPipeline>();
 
-        // Create our node with the render world
+        // Bevy's renderer uses a render graph which is a series of node in a directed acyclic graph.
+        // It currently runs sequentially, on each view/camera based on the specified ordering.
+        //
+        // Each node can execute arbitrary work, but it generally runs at least one render pass.
+        // The graph can be used to pass data between nodes but it's generally preferred to use the ECS to pass data
+        // and only use the graph to enforce node ordering. A node only has access to the render world,
+        // so if you need data from the main world you need to extract it manually or with the plugin like above.
+
+        // Create the node with the render world
         let node = PostProcessNode::new(&mut render_app.world);
 
         // Get the render graph for the entire app
@@ -78,6 +90,8 @@ impl Plugin for PostProcessPlugin {
         core_3d_graph.add_node(PostProcessNode::NAME, node);
 
         // A slot edge tells the render graph which input/output value should be passed to the node.
+        // In this case, the view entity, which is essentially the entity associated to the
+        // camera the graph is running on.
         core_3d_graph.add_slot_edge(
             core_3d_graph.input_node().id,
             core_3d::graph::input::VIEW_ENTITY,
@@ -128,11 +142,16 @@ impl Node for PostProcessNode {
     // The important difference is that `self` is `mut` here
     fn update(&mut self, world: &mut World) {
         // Since this is not a system we need to update the query manually.
+        // This is mostly boilerplate. There are plans to remove this in the future.
+        // For now, you can just copy it.
         self.query.update_archetypes(world);
     }
 
     // Runs the node logic
     // This is where you issue draw calls.
+    //
+    // This will run on every views the graph is running on. If you don't want your effect to run on every camera,
+    // you'll need to make sure you have a marker component to identify which camera should run the effect.
     fn run(
         &self,
         graph_context: &mut RenderGraphContext,
@@ -142,18 +161,20 @@ impl Node for PostProcessNode {
         // Get the entity of the view for the render graph where this node is running
         let view_entity = graph_context.get_input_entity(PostProcessNode::IN_VIEW)?;
 
-        // We get the data we need from the world based on the view entity.
+        // We get the data we need from the world based on the view entity passed to the node.
+        // The data is the query that was defined earlier in the [`PostProcessNode`]
         let Ok(view_target) = self.query.get_manual(world, view_entity) else {
             return Ok(());
         };
 
         // Get the pipeline resource that contains the global data we need to create the render pipeline
         let post_process_pipeline = world.resource::<PostProcessPipeline>();
+
         // The pipeline cache is a cache of all previously created pipelines.
         // It's required to avoid creating a new pipeline each frame, which is expensive due to shader compilation.
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        // Get the pipeline from the cache for the current view, based on the ID component attached to the view.
+        // Get the pipeline from the cache
         let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id) else {
             return Ok(());
         };
@@ -164,16 +185,21 @@ impl Node for PostProcessNode {
             return Ok(());
         };
 
-        // Get the TextureView used for post processing effects in bevy
+        // This will start a new "post process write"
+        //
+        // `source` is the "current" main texture. This will internally flip this
+        // [`ViewTarget`]'s main texture to the `destination` texture, so the caller
+        // _must_ ensure `source` is copied to `destination`, with or without modifications.
+        // Failing to do so will cause the current main texture information to be lost.
         let post_process = view_target.post_process_write();
 
         // The bind_group gets created each frame.
-        // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
         let bind_group = render_context
             .render_device()
             .create_bind_group(&BindGroupDescriptor {
                 label: Some("post_process_bind_group"),
                 layout: &post_process_pipeline.layout,
+                // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
@@ -197,7 +223,8 @@ impl Node for PostProcessNode {
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("post_process_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                // We need to specify the post process destination view here to make sure we write to the appropriate texture.
+                // We need to specify the post process destination view here
+                // to make sure we write to the appropriate texture.
                 view: post_process.destination,
                 resolve_target: None,
                 ops: Operations::default(),
@@ -205,13 +232,10 @@ impl Node for PostProcessNode {
             depth_stencil_attachment: None,
         });
 
-        // Set the render pipeline for this render pass
+        // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
+        // using the pipeline/bind_group created above
         render_pass.set_render_pipeline(pipeline);
-
-        // Set the bind group
         render_pass.set_bind_group(0, &bind_group, &[]);
-
-        // In this case we want to draw a fullscreen triangle, so we just need to send a single draw call.
         render_pass.draw(0..3, 0..1);
 
         Ok(())
