@@ -1,7 +1,4 @@
-use bevy_a11y::{
-    accesskit::Rect,
-    AccessibilityNode,
-};
+use bevy_a11y::{accesskit::Rect, AccessibilityNode};
 use bevy_app::{App, Plugin};
 
 use bevy_ecs::{

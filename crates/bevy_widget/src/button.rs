@@ -1,5 +1,5 @@
+use bevy_a11y::accesskit::{NodeBuilder, Role};
 use bevy_a11y::AccessibilityNode;
-use bevy_a11y::accesskit::{Role, NodeBuilder};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::{Bundle, Component, Entity};
 use bevy_ecs::query::Changed;
@@ -52,8 +52,7 @@ pub struct ButtonPlugin;
 
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Button>()
-            .add_system(button_changed);
+        app.register_type::<Button>().add_system(button_changed);
     }
 }
 

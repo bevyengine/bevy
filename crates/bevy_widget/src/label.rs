@@ -1,6 +1,6 @@
+use bevy_a11y::accesskit::{NodeBuilder, Role};
 use bevy_a11y::AccessibilityNode;
-use bevy_a11y::accesskit::{Role, NodeBuilder};
-use bevy_app::{Plugin, App};
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::{Component, Entity};
 use bevy_ecs::query::Changed;
 use bevy_ecs::reflect::ReflectComponent;
@@ -50,7 +50,6 @@ pub struct LabelPlugin;
 
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Label>()
-            .add_system(label_changed);
+        app.register_type::<Label>().add_system(label_changed);
     }
 }
