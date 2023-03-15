@@ -1,24 +1,23 @@
+mod aggregation;
+
+use aggregation::{aggregate_gpu_timers, AggregatedGpuTimers};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
     prelude::Component,
     query::{With, Without},
     schedule::{IntoSystemConfig, IntoSystemConfigs},
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res},
 };
 use bevy_hierarchy::BuildChildren;
-use bevy_render::{
-    prelude::Color,
-    render_resource::WgpuFeatures,
-    renderer::{GpuTimerScopes, RenderDevice},
-};
+use bevy_render::{prelude::Color, render_resource::WgpuFeatures, renderer::RenderDevice};
 use bevy_text::{Text, TextSection, TextStyle};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     prelude::{NodeBundle, TextBundle},
     AlignItems, FlexDirection, Size, Style, UiRect, Val,
 };
-use bevy_utils::{default, Duration, HashMap};
+use bevy_utils::{default, Duration};
 use std::fmt::Write;
 
 pub struct DebugOverlaysPlugin;
@@ -31,11 +30,11 @@ impl Plugin for DebugOverlaysPlugin {
         }
 
         app.init_resource::<AggregatedGpuTimers>()
-            .add_startup_system(setup_ui)
+            .add_startup_system(setup_gpu_time_overlay)
             .add_systems(
                 (
                     aggregate_gpu_timers.run_if(on_timer(Duration::from_millis(300))),
-                    draw_node_gpu_time_overlay,
+                    draw_gpu_time_overlay,
                 )
                     .chain(),
             );
@@ -48,7 +47,7 @@ struct GpuTimerLabelMarker;
 #[derive(Component)]
 struct GpuTimerDurationMarker;
 
-fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_gpu_time_overlay(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -104,27 +103,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-#[derive(Resource, Default)]
-struct AggregatedGpuTimers(HashMap<String, f64>);
-
-// TODO: Handle nesting
-fn aggregate_gpu_timers(
-    gpu_timers: Res<GpuTimerScopes>,
-    mut aggregated_gpu_timers: ResMut<AggregatedGpuTimers>,
-) {
-    let mut stack = gpu_timers.take();
-    while let Some(gpu_timer) = stack.pop() {
-        let average = aggregated_gpu_timers.0.entry(gpu_timer.label).or_default();
-        let duration = gpu_timer.time.end - gpu_timer.time.start;
-        *average = (*average * 0.1) + (duration * 0.9);
-
-        for gpu_timer in gpu_timer.nested_scopes {
-            stack.push(gpu_timer);
-        }
-    }
-}
-
-fn draw_node_gpu_time_overlay(
+fn draw_gpu_time_overlay(
     aggregated_gpu_timers: Res<AggregatedGpuTimers>,
     mut labels: Query<&mut Text, (With<GpuTimerLabelMarker>, Without<GpuTimerDurationMarker>)>,
     mut durations: Query<&mut Text, (With<GpuTimerDurationMarker>, Without<GpuTimerLabelMarker>)>,
