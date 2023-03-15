@@ -246,6 +246,7 @@ impl Schedule {
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
+        println!("run step_state {:?}", self.executable.step_state);
         self.executor.run(&mut self.executable, world);
     }
 
@@ -260,11 +261,13 @@ impl Schedule {
                 .update_schedule(&mut self.executable, world.components())?;
             self.graph.changed = false;
             self.executor_initialized = false;
+            println!("init changed: step_state {:?}", self.executable.step_state);
         }
 
         if !self.executor_initialized {
             self.executor.init(&self.executable);
             self.executor_initialized = true;
+            println!("init: step_state {:?}", self.executable.step_state);
         }
 
         Ok(())
@@ -317,47 +320,62 @@ impl Schedule {
 
     /// Get the state of system-stepping
     pub fn stepping(&self) -> bool {
-        self.executor.stepping()
+        match self.executable.step_state {
+            StepState::RunAll => false,
+            StepState::Wait(_) | StepState::Next(_) | StepState::Remaining(_) => true,
+        }
     }
 
     /// Get the name of the next system that will be run in the
     /// schedule if stepping is enabled
     pub fn next_system(&self) -> Option<String> {
-        self.executor
-            .next_system()
-            .map(|idx| self.executable.systems[idx].name().to_string())
-    }
-
-    /// Enable or disable system-stepping mode
-    pub fn set_stepping(&mut self, value: bool) {
-        self.executor.set_stepping(value);
-    }
-
-    /// Run the next system when in stepping-mode
-    pub fn step_system(&mut self) {
-        self.executor.step_system();
-    }
-
-    /// Run any remaining systems for this frame, then stop before running any systems for the next
-    /// frame.
-    ///
-    /// If some of the systems for this frame have already been run by calling
-    /// [`step_system`](crate::Schedule::step_system), they will not be run a second time when this
-    /// method is called.
-    pub fn step_frame(&mut self) {
-        self.executor.step_frame();
+        match self.executable.step_state {
+            StepState::RunAll => None,
+            StepState::Wait(n) | StepState::Next(n) | StepState::Remaining(n) => Some(n),
+        }
+        .map(|idx| self.executable.systems[idx].name().to_string())
     }
 
     /// apply ScheduleEvent to the schedule & executor
     pub fn handle_event(&mut self, event: &ScheduleEvent) {
-        use ScheduleEvent::*;
+        use StepState::*;
+        println!(
+            "handle_event: before step_state {:?}",
+            self.executable.step_state
+        );
+
         match event {
-            EnableStepping(_) => self.executor.set_stepping(true),
-            DisableStepping(_) => self.executor.set_stepping(false),
-            ToggleStepping(_) => self.executor.set_stepping(!self.executor.stepping()),
-            StepFrame(_) => self.executor.step_frame(),
-            StepSystem(_) => self.executor.step_system(),
+            ScheduleEvent::EnableStepping(_) => {
+                if self.executable.step_state == RunAll {
+                    self.executable.step_state = Wait(0);
+                }
+            }
+            ScheduleEvent::DisableStepping(_) => {
+                self.executable.step_state = RunAll;
+            }
+            ScheduleEvent::ToggleStepping(_) => {
+                if self.executable.step_state == RunAll {
+                    self.executable.step_state = Wait(0);
+                } else {
+                    self.executable.step_state = RunAll;
+                }
+            }
+            ScheduleEvent::StepFrame(_) => match self.executable.step_state {
+                Wait(n) => self.executable.step_state = Remaining(n),
+                RunAll => warn!("stepping not enabled for this schedule"),
+                _ => (),
+            },
+            ScheduleEvent::StepSystem(_) => match self.executable.step_state {
+                Wait(n) => self.executable.step_state = Next(n),
+                RunAll => warn!("stepping not enabled for this schedule"),
+                _ => (),
+            },
         }
+
+        println!(
+            "handle_event: after step_state {:?}",
+            self.executable.step_state
+        );
     }
 }
 
@@ -460,7 +478,7 @@ pub struct ScheduleGraph {
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
-    system_ignore_stepping: Vec<bool>,
+    system_stepping_enabled: Vec<bool>,
     uninit: Vec<(NodeId, usize)>,
     maybe_default_base_set: Vec<NodeId>,
     hierarchy: Dag,
@@ -483,7 +501,7 @@ impl ScheduleGraph {
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
             system_set_ids: HashMap::new(),
-            system_ignore_stepping: Vec::new(),
+            system_stepping_enabled: Vec::new(),
             maybe_default_base_set: Vec::new(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
@@ -633,7 +651,7 @@ impl ScheduleGraph {
             system,
             graph_info,
             conditions,
-            ignore_stepping,
+            stepping_behavior,
         } = system.into_config();
 
         let id = NodeId::System(self.systems.len());
@@ -645,7 +663,13 @@ impl ScheduleGraph {
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(system));
         self.system_conditions.push(Some(conditions));
-        self.system_ignore_stepping.push(ignore_stepping);
+
+        use config::SteppingBehavior::*;
+        let stepping = match stepping_behavior {
+            PermitStepping => true,
+            IgnoreStepping => false,
+        };
+        self.system_stepping_enabled.push(stepping);
 
         Ok(id)
     }
@@ -1341,7 +1365,8 @@ impl ScheduleGraph {
             system_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
-            systems_with_stepping: FixedBitSet::with_capacity(sys_count),
+            systems_with_stepping_enabled: FixedBitSet::with_capacity(sys_count),
+            step_state: StepState::default(),
         })
     }
 
@@ -1373,6 +1398,8 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = Some(conditions);
         }
 
+        let step_state = schedule.step_state;
+
         *schedule = self.build_schedule(components)?;
 
         // move systems into new schedule
@@ -1381,8 +1408,8 @@ impl ScheduleGraph {
             let conditions = self.system_conditions[id.index()].take().unwrap();
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
-            if !self.system_ignore_stepping[id.index()] {
-                schedule.systems_with_stepping.insert(id.index());
+            if self.system_stepping_enabled[id.index()] {
+                schedule.systems_with_stepping_enabled.insert(id.index());
             }
         }
 
@@ -1390,6 +1417,19 @@ impl ScheduleGraph {
             let conditions = self.system_set_conditions[id.index()].take().unwrap();
             schedule.set_conditions.push(conditions);
         }
+
+        // As the system indices in the schedule may have changed, we need to
+        // reset any stepping state to point at the first system.
+        // NOTE: This will cause problems if/when we support adding/removing
+        // systems to a schedule while running.  Each time they add/remove, the
+        // schedule will be rebuilt, and the step state wil be reset to the
+        // start of the schedule.  As a result, it may be impossible to system
+        // step past a system that changes the schedule.  Frame stepping will
+        // still work.
+        schedule.step_state = match step_state {
+            StepState::Next(_) | StepState::Remaining(_) | StepState::Wait(_) => StepState::Wait(0),
+            StepState::RunAll => StepState::RunAll,
+        };
 
         Ok(())
     }

@@ -20,17 +20,6 @@ pub(super) trait SystemExecutor: Send + Sync {
     fn init(&mut self, schedule: &SystemSchedule);
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
     fn set_apply_final_buffers(&mut self, value: bool);
-    /// get stepping state
-    fn stepping(&self) -> bool;
-    /// return the index of the the next system in the schedule to be run if
-    /// stepping is enabled
-    fn next_system(&self) -> Option<usize>;
-    /// enable or disable stepping mode in SystemExecutor
-    fn set_stepping(&mut self, value: bool);
-    /// run the next stepable system during the next call to run()
-    fn step_system(&mut self);
-    /// run all remaining stepable systems during the next call to run()
-    fn step_frame(&mut self);
 }
 
 /// Specifies how a [`Schedule`](super::Schedule) will be run.
@@ -70,7 +59,8 @@ pub struct SystemSchedule {
     pub(super) system_dependents: Vec<Vec<usize>>,
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
-    pub(super) systems_with_stepping: FixedBitSet,
+    pub(super) systems_with_stepping_enabled: FixedBitSet,
+    pub(super) step_state: StepState,
 }
 
 impl SystemSchedule {
@@ -85,7 +75,8 @@ impl SystemSchedule {
             system_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
-            systems_with_stepping: FixedBitSet::new(),
+            systems_with_stepping_enabled: FixedBitSet::new(),
+            step_state: StepState::RunAll,
         }
     }
 }
@@ -106,16 +97,23 @@ pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
     system.as_ref().type_id() == apply_system_buffers.type_id()
 }
 
-/// Stepping state for internal use in
+/// Stepping state, stored in [`SystemSchedule`], used by [`SystemExecutor`] to
+/// determine which systems in the schedule should be run.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
-enum StepState {
-    /// Don't run any systems that respect stepping
+pub(super) enum StepState {
+    /// Only run those systems that are exempt from stepping;
+    /// [`SteppingState::IgnoreStepping`].
     Wait(usize),
-    /// Only run the first system that hasn't yet been run
+    /// Run the next system in the schedule that permits stepping
+    /// [`SteppingState::PermitStepping`], along with all systems that are
+    /// except from stepping [`SteppingState::IgnoreStepping`].
     Next(usize),
-    /// Run all remaining systems
+
+    /// Run all remaining systems in the schedule that have not yet been run,
+    /// along with all exempt systems.
     Remaining(usize),
-    /// Stepping is disabled, run everything
+
+    /// Stepping is disabled; run all systems.
     #[default]
     RunAll,
 }

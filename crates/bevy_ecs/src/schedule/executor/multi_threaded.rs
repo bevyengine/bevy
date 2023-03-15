@@ -155,13 +155,13 @@ impl SystemExecutor for MultiThreadedExecutor {
         /// stepped, the first non-exempt system index will be returned.
         fn next_system(schedule: &SystemSchedule, first: usize) -> usize {
             println!("next_system first {}", first);
-            for i in first..schedule.systems_with_stepping.len() {
-                if schedule.systems_with_stepping[i] {
+            for i in first..schedule.systems_with_stepping_enabled.len() {
+                if schedule.systems_with_stepping_enabled[i] {
                     return i;
                 }
             }
             for i in 0..first {
-                if schedule.systems_with_stepping[i] {
+                if schedule.systems_with_stepping_enabled[i] {
                     return i;
                 }
             }
@@ -191,7 +191,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             StepState::RunAll => (),
             StepState::Wait(_) => {
                 // mark all stepping systems as already complete
-                self.completed_systems |= &schedule.systems_with_stepping;
+                self.completed_systems |= &schedule.systems_with_stepping_enabled;
                 self.num_completed_systems = self.completed_systems.count_ones(..);
 
                 // clear waiting systems from the ready mask
@@ -204,9 +204,9 @@ impl SystemExecutor for MultiThreadedExecutor {
             }
             StepState::Next(next) => {
                 let next = next_system(schedule, next);
-                assert!(schedule.systems_with_stepping[next]);
+                assert!(schedule.systems_with_stepping_enabled[next]);
 
-                self.completed_systems |= &schedule.systems_with_stepping;
+                self.completed_systems |= &schedule.systems_with_stepping_enabled;
                 self.completed_systems.toggle(next);
                 self.num_completed_systems = self.completed_systems.count_ones(..);
 
@@ -224,7 +224,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 let next = next_system(schedule, next);
                 let mut mask = FixedBitSet::with_capacity(schedule.systems.len());
                 mask.insert_range(0..next);
-                mask &= &schedule.systems_with_stepping;
+                mask &= &schedule.systems_with_stepping_enabled;
                 self.completed_systems |= mask;
                 self.num_completed_systems = self.completed_systems.count_ones(..);
 
@@ -306,42 +306,6 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.evaluated_sets.clear();
         self.skipped_systems.clear();
         self.completed_systems.clear();
-    }
-
-    fn stepping(&self) -> bool {
-        self.step_state != StepState::RunAll
-    }
-
-    fn next_system(&self) -> Option<usize> {
-        match self.step_state {
-            StepState::Wait(next) | StepState::Next(next) | StepState::Remaining(next) => {
-                if next >= self.completed_systems.len() {
-                    Some(0)
-                } else {
-                    Some(next)
-                }
-            }
-            StepState::RunAll => None,
-        }
-    }
-
-    fn set_stepping(&mut self, stepping: bool) {
-        self.step_state = match stepping {
-            true => StepState::Wait(0),
-            false => StepState::RunAll,
-        }
-    }
-
-    fn step_system(&mut self) {
-        if let StepState::Wait(next) = self.step_state {
-            self.step_state = StepState::Next(next);
-        }
-    }
-
-    fn step_frame(&mut self) {
-        if let StepState::Wait(next) = self.step_state {
-            self.step_state = StepState::Remaining(next);
-        }
     }
 }
 

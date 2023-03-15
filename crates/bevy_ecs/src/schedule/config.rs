@@ -40,7 +40,7 @@ pub struct SystemConfig {
     pub(super) system: BoxedSystem,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
-    pub(super) ignore_stepping: bool,
+    pub(super) stepping_behavior: SteppingBehavior,
 }
 
 impl SystemConfig {
@@ -53,9 +53,19 @@ impl SystemConfig {
             system,
             graph_info,
             conditions: Vec::new(),
-            ignore_stepping: false,
+            stepping_behavior: SteppingBehavior::PermitStepping,
         }
     }
+}
+
+#[derive(Default, Clone, Copy, PartialEq)]
+pub(crate) enum SteppingBehavior {
+    /// permit this system to be skipped when the [`Schedule`] is executing in
+    /// stepping mode
+    #[default]
+    PermitStepping,
+    /// this system will run regardless of the [`Schedule`] stepping mode
+    IgnoreStepping,
 }
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -269,9 +279,14 @@ where
     fn ambiguous_with_all(self) -> Config {
         self.into_config().ambiguous_with_all()
     }
-    /// Always run this system when the schedule is running in system step mode.
+    /// Always run this system when the schedule is running in system stepping mode.
     fn ignore_stepping(self) -> Config {
         self.into_config().ignore_stepping()
+    }
+    /// Permit this system to be skipped when the [`Schedule`] is executed in
+    /// stepping mode; this is the default
+    fn permit_stepping(self) -> Config {
+        self.into_config().permit_stepping()
     }
 }
 
@@ -360,7 +375,12 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     fn ignore_stepping(mut self) -> Self {
-        self.ignore_stepping = true;
+        self.stepping_behavior = SteppingBehavior::IgnoreStepping;
+        self
+    }
+
+    fn permit_stepping(mut self) -> Self {
+        self.stepping_behavior = SteppingBehavior::PermitStepping;
         self
     }
 }
