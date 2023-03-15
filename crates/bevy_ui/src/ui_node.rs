@@ -9,6 +9,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
@@ -1192,12 +1193,11 @@ impl From<usize> for GridTrackRepetition {
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
 /// then all track (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
-    pub(crate) min_sizing_function: MinTrackSizingFunction,
-    pub(crate) max_sizing_function: MaxTrackSizingFunction,
+    pub(crate) tracks: SmallVec<[GridTrack; 1]>,
 }
 
 impl RepeatedGridTrack {
@@ -1205,8 +1205,7 @@ impl RepeatedGridTrack {
     pub fn px<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            min_sizing_function: MinTrackSizingFunction::Px(value),
-            max_sizing_function: MaxTrackSizingFunction::Px(value),
+            tracks: SmallVec::from_buf([GridTrack::px(value)]),
         }
         .into()
     }
@@ -1215,8 +1214,7 @@ impl RepeatedGridTrack {
     pub fn percent<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            min_sizing_function: MinTrackSizingFunction::Percent(value),
-            max_sizing_function: MaxTrackSizingFunction::Percent(value),
+            tracks: SmallVec::from_buf([GridTrack::percent(value)]),
         }
         .into()
     }
@@ -1225,8 +1223,7 @@ impl RepeatedGridTrack {
     pub fn auto<T: From<Self>>(repetition: u16) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::Auto,
+            tracks: SmallVec::from_buf([GridTrack::auto()]),
         }
         .into()
     }
@@ -1237,8 +1234,7 @@ impl RepeatedGridTrack {
     pub fn fr<T: From<Self>>(repetition: u16, value: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+            tracks: SmallVec::from_buf([GridTrack::fr(value)]),
         }
         .into()
     }
@@ -1247,8 +1243,7 @@ impl RepeatedGridTrack {
     pub fn flex<T: From<Self>>(repetition: u16, value: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::Px(0.0),
-            max_sizing_function: MaxTrackSizingFunction::Fraction(value),
+            tracks: SmallVec::from_buf([GridTrack::flex(value)]),
         }
         .into()
     }
@@ -1257,8 +1252,7 @@ impl RepeatedGridTrack {
     pub fn min_content<T: From<Self>>(repetition: u16) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::MinContent,
-            max_sizing_function: MaxTrackSizingFunction::MinContent,
+            tracks: SmallVec::from_buf([GridTrack::min_content()]),
         }
         .into()
     }
@@ -1267,33 +1261,30 @@ impl RepeatedGridTrack {
     pub fn max_content<T: From<Self>>(repetition: u16) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::MaxContent,
-            max_sizing_function: MaxTrackSizingFunction::MaxContent,
+            tracks: SmallVec::from_buf([GridTrack::max_content()]),
         }
         .into()
     }
 
-    /// Create a fit-content() grid track with fixed pixel limit
+    /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
     pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::FitContentPx(limit),
+            tracks: SmallVec::from_buf([GridTrack::fit_content_px(limit)]),
         }
         .into()
     }
 
-    /// Create a fit-content() grid track with percentage limit
+    /// Create a repeating set of fit-content() grid tracks with percentage limit
     pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
-            min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::FitContentPercent(limit),
+            tracks: SmallVec::from_buf([GridTrack::fit_content_percent(limit)]),
         }
         .into()
     }
 
-    /// Create a minmax() grid track
+    /// Create a repeating set of minmax() grid track
     pub fn minmax<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
         min: MinTrackSizingFunction,
@@ -1301,8 +1292,19 @@ impl RepeatedGridTrack {
     ) -> T {
         Self {
             repetition: repetition.into(),
-            min_sizing_function: min,
-            max_sizing_function: max,
+            tracks: SmallVec::from_buf([GridTrack::minmax(min, max)]),
+        }
+        .into()
+    }
+
+    /// Create a repetition of a set of tracks
+    pub fn repeat_many<T: From<Self>>(
+        repetition: impl Into<GridTrackRepetition>,
+        tracks: impl Into<Vec<GridTrack>>,
+    ) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_vec(tracks.into()),
         }
         .into()
     }
@@ -1312,8 +1314,7 @@ impl From<GridTrack> for RepeatedGridTrack {
     fn from(track: GridTrack) -> Self {
         Self {
             repetition: GridTrackRepetition::Count(1),
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
+            tracks: SmallVec::from_buf([track]),
         }
     }
 }
@@ -1331,8 +1332,7 @@ impl From<GridTrack> for Vec<RepeatedGridTrack> {
     fn from(track: GridTrack) -> Self {
         vec![RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(1),
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
+            tracks: SmallVec::from_buf([track]),
         }]
     }
 }

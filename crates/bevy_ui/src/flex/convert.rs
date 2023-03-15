@@ -332,27 +332,36 @@ impl GridTrack {
 }
 
 impl RepeatedGridTrack {
-    fn into_repeated_taffy_track(self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
-        let min = self.min_sizing_function.into_taffy(scale_factor);
-        let max = self.max_sizing_function.into_taffy(scale_factor);
-        let taffy_track: taffy::style::NonRepeatedTrackSizingFunction =
-            taffy::style_helpers::minmax(min, max);
-        match self.repetition {
-            GridTrackRepetition::Count(count) => {
-                if count == 1 {
-                    taffy::style::TrackSizingFunction::Single(taffy_track)
-                } else {
-                    taffy::style_helpers::repeat(count, vec![taffy_track])
+    fn into_repeated_taffy_track(&self, scale_factor: f64) -> taffy::style::TrackSizingFunction {
+        if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
+            let min = self.tracks[0].min_sizing_function.into_taffy(scale_factor);
+            let max = self.tracks[0].max_sizing_function.into_taffy(scale_factor);
+            let taffy_track = taffy::style_helpers::minmax(min, max);
+            taffy::style::TrackSizingFunction::Single(taffy_track)
+        } else {
+            let taffy_tracks: Vec<_> = self
+                .tracks
+                .iter()
+                .map(|track| {
+                    let min = track.min_sizing_function.into_taffy(scale_factor);
+                    let max = track.max_sizing_function.into_taffy(scale_factor);
+                    taffy::style_helpers::minmax(min, max)
+                })
+                .collect();
+
+            match self.repetition {
+                GridTrackRepetition::Count(count) => {
+                    taffy::style_helpers::repeat(count, taffy_tracks)
                 }
+                GridTrackRepetition::AutoFit => taffy::style_helpers::repeat(
+                    taffy::style::GridTrackRepetition::AutoFit,
+                    taffy_tracks,
+                ),
+                GridTrackRepetition::AutoFill => taffy::style_helpers::repeat(
+                    taffy::style::GridTrackRepetition::AutoFill,
+                    taffy_tracks,
+                ),
             }
-            GridTrackRepetition::AutoFit => taffy::style_helpers::repeat(
-                taffy::style::GridTrackRepetition::AutoFit,
-                vec![taffy_track],
-            ),
-            GridTrackRepetition::AutoFill => taffy::style_helpers::repeat(
-                taffy::style::GridTrackRepetition::AutoFill,
-                vec![taffy_track],
-            ),
         }
     }
 }
