@@ -71,7 +71,7 @@ impl Plugin for PostProcessPlugin {
         // Get the render graph for the entire app
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-        // Get the render graph for 3d entities
+        // Get the render graph for 3d cameras/views
         let core_3d_graph = graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
 
         // Register the post process node in the 3d render graph
