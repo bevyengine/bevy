@@ -455,9 +455,9 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, Padding, Val};
     /// let style = Style {
-    ///     padding: UiRect {
+    ///     padding: Padding {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
     ///         top: Val::Percent(3.),

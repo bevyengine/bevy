@@ -187,9 +187,9 @@ impl Size {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, Val};
+    /// # use bevy_ui::{Size, AutoVal};
     /// #
-    /// let size = Size::new(Val::Px(100.0), Val::Px(200.0));
+    /// let size = Size::new(AutoVal::Px(100.0), AutoVal::Px(200.0));
     ///
     /// assert_eq!(size.width, AutoVal::Px(100.0));
     /// assert_eq!(size.height, AutoVal::Px(200.0));
@@ -228,9 +228,9 @@ impl Size {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, Val};
+    /// # use bevy_ui::{Size, AutoVal};
     /// #
-    /// let size = Size::width(Val::Px(10.));
+    /// let size = Size::width(AutoVal::Px(10.));
     ///
     /// assert_eq!(size.width, AutoVal::Px(10.0));
     /// assert_eq!(size.height, AutoVal::Auto);
