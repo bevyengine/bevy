@@ -102,7 +102,7 @@ impl<S: States> NextState<S> {
 
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    let _ = world.try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()));
+    world.try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone())).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
