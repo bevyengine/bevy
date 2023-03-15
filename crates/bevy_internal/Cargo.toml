@@ -86,7 +86,7 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
-bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
+bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text", "bevy_widget?/bevy_text"]
 
 [dependencies]
 # bevy

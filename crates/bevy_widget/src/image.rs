@@ -23,6 +23,8 @@ use bevy_ui::{
 };
 
 use crate::{calc_name, Button};
+#[cfg(feature = "bevy_text")]
+use crate::text_system;
 
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(

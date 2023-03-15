@@ -56,6 +56,6 @@ impl Plugin for WidgetPlugin {
             .add_plugin(LabelPlugin);
 
         #[cfg(feature = "bevy_text")]
-        app.add_plugin(TextPlugin)
+        app.add_plugin(TextPlugin);
     }
 }
