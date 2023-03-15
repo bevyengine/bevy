@@ -150,6 +150,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     font_size: 20.,
                                                     color: Color::WHITE,
                                                 },
+                                            ),
                                             Label,
                                             AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                         ));
