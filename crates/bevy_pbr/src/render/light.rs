@@ -1729,21 +1729,27 @@ impl Node for ShadowPassNode {
                     continue;
                 }
 
-                let mut render_pass =
-                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                        label: Some(&view_light.pass_name),
-                        color_attachments: &[],
-                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                            view: &view_light.depth_texture_view,
-                            depth_ops: Some(Operations {
-                                load: LoadOp::Clear(0.0),
-                                store: true,
-                            }),
-                            stencil_ops: None,
-                        }),
-                    });
+                render_context.begin_debug_scope("ShadowMap");
 
-                shadow_phase.render(&mut render_pass, world, view_light_entity);
+                {
+                    let mut render_pass =
+                        render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                            label: Some(&view_light.pass_name),
+                            color_attachments: &[],
+                            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                                view: &view_light.depth_texture_view,
+                                depth_ops: Some(Operations {
+                                    load: LoadOp::Clear(0.0),
+                                    store: true,
+                                }),
+                                stencil_ops: None,
+                            }),
+                        });
+
+                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+                }
+
+                render_context.end_debug_scope();
             }
         }
 

@@ -69,6 +69,8 @@ impl Node for PrepassNode {
             return Ok(());
         };
 
+        render_context.begin_debug_scope("Prepass");
+
         let mut color_attachments = vec![];
         if let Some(view_normals_texture) = &view_prepass_textures.normal {
             color_attachments.push(Some(RenderPassColorAttachment {
@@ -124,6 +126,8 @@ impl Node for PrepassNode {
                 view_prepass_textures.size,
             );
         }
+
+        render_context.end_debug_scope();
 
         Ok(())
     }

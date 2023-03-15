@@ -140,11 +140,6 @@ fn draw_node_gpu_time_overlay(
     durations.clear();
 
     for (label, duration) in gpu_timers {
-        let label = match label.rsplit_once("::") {
-            Some((_, label)) => label,
-            None => label,
-        };
-        let label = label.strip_suffix("Node").unwrap_or(label);
         let duration_ms = *duration * 1000.0;
         write!(labels, "{label}: \n").unwrap();
         write!(durations, "{duration_ms:.3}\n").unwrap();

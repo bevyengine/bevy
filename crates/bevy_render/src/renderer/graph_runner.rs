@@ -173,14 +173,12 @@ impl RenderGraphRunner {
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
 
-                render_context.begin_debug_scope(node_state.type_name);
                 {
                     #[cfg(feature = "trace")]
                     let _span = info_span!("node", name = node_state.type_name).entered();
 
                     node_state.node.run(&mut context, render_context, world)?;
                 }
-                render_context.end_debug_scope();
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph

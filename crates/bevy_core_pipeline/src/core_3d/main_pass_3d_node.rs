@@ -75,6 +75,8 @@ impl Node for MainPass3dNode {
             return Ok(());
         };
 
+        render_context.begin_debug_scope("Opaque3d");
+
         // Always run opaque pass to ensure screen is cleared
         {
             // Run the opaque pass, sorted front-to-back
@@ -153,7 +155,11 @@ impl Node for MainPass3dNode {
             alpha_mask_phase.render(&mut render_pass, world, view_entity);
         }
 
+        render_context.end_debug_scope();
+
         if !transparent_phase.items.is_empty() {
+            render_context.begin_debug_scope("Transparent3d");
+
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
@@ -187,6 +193,9 @@ impl Node for MainPass3dNode {
             }
 
             transparent_phase.render(&mut render_pass, world, view_entity);
+
+            drop(render_pass);
+            render_context.end_debug_scope();
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
