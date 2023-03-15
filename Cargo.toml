@@ -95,6 +95,8 @@ bevy_text = ["bevy_internal/bevy_text"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
+
+# A collection of widgets built on top of bevy_ui
 bevy_widget = ["bevy_internal/bevy_widget"]
 
 # winit window and input backend
