@@ -2,8 +2,19 @@
 
 #import bevy_pbr::utils
 
-// Since post process is a fullscreen effect, we use the fullscreen vertex stage from bevy
-// This will render a single fullscreen triangle.
+// Since post processing is a fullscreen effect, we use the fullscreen vertex shader provided by bevy.
+// This will import a vertex shader that renders a single fullscreen triangle.
+//
+// A fullscreen triangle is a single triangle that covers the entire screen.
+// The box in the bottom left in that diagram is the screen.
+// .
+// |`.
+// |__`.
+// | s |`.
+// '---'--'-
+// As you can see, the triangle ends up bigger than the screen.
+//
+// You don't need to worry about this too much since bevy will compute the correct UVs for you.
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
 @group(0) @binding(0)

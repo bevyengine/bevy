@@ -346,21 +346,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // cube
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        },
-        Rotates,
-    ));
-    // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..default()
-    });
     // camera
     commands.spawn((
         Camera3dBundle {
@@ -376,6 +361,22 @@ fn setup(
         // This component is also used to determine on which camera to run the post processing effect.
         PostProcessSettings { intensity: 0.02 },
     ));
+
+    // cube
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        Rotates,
+    ));
+    // light
+    commands.spawn(PointLightBundle {
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+        ..default()
+    });
 }
 
 #[derive(Component)]
