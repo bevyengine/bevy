@@ -36,8 +36,10 @@ fn prepare_world_normal(
 #ifndef VERTEX_TANGENTS
 #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
-    // material, the normal needs to be inverted. This is a branchless version of that.
-    output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
+    // material, the normal needs to be inverted.
+    if double_sided && !is_front {
+        output *= -1.0;
+    }
 #endif
 #endif
     return output;
