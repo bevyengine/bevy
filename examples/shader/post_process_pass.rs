@@ -88,7 +88,7 @@ impl Plugin for PostProcessPlugin {
         // We now need to add an edge between our node and the nodes from bevy
         // to make sure our node is scheduled correctly.
         //
-        // Here we want our effect to run after tonemapping and before the end of the main pass
+        // Here we want our effect to run after tonemapping and before the end of the main pass post processing
         core_3d_graph.add_node_edge(core_3d::graph::node::TONEMAPPING, PostProcessNode::NAME);
         core_3d_graph.add_node_edge(
             PostProcessNode::NAME,
