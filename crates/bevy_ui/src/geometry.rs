@@ -249,12 +249,12 @@ impl Size {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, Val};
+    /// # use bevy_ui::{Size, AutoVal};
     /// #
-    /// let size = Size::height(Val::Px(10.));
+    /// let size = Size::height(AutoVal::Px(10.));
     ///
     /// assert_eq!(size.width, AutoVal::Auto);
-    /// assert_eq!(size.height, Val::Px(10.));
+    /// assert_eq!(size.height, AutoVal::Px(10.));
     /// ```
     #[inline]
     pub fn height(height: impl Into<AutoVal>) -> Self {
