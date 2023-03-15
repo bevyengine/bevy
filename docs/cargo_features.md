@@ -25,6 +25,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_sprite|Provides sprite functionality|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
+|bevy_widget|A collection of widgets built on top of bevy_ui|
 |bevy_winit|winit window and input backend|
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
