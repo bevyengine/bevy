@@ -3,6 +3,7 @@ mod render_device;
 
 pub use graph_runner::*;
 pub use render_device::*;
+pub use wgpu_profiler::GpuTimerScopeResult;
 
 use crate::{
     render_graph::RenderGraph,
@@ -17,14 +18,14 @@ use bevy_time::TimeSender;
 use bevy_utils::tracing::{error, info, info_span};
 use bevy_utils::Instant;
 use std::{
-    mem,
-    sync::{Arc, Mutex},
+    collections::VecDeque,
+    sync::{Arc, Mutex, MutexGuard},
 };
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Maintain, Queue,
     RequestAdapterOptions,
 };
-use wgpu_profiler::{GpuProfiler, GpuTimerScopeResult};
+use wgpu_profiler::GpuProfiler;
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -41,7 +42,7 @@ pub fn render_system(world: &mut World) {
         &render_queue.0,
         world,
     ) {
-        Ok(Some(gpu_timers)) => world.resource_mut::<GpuTimerScopes>().set(gpu_timers),
+        Ok(Some(gpu_timers)) => world.resource_mut::<GpuTimerScopes>().try_add(gpu_timers),
         Ok(None) => {}
         Err(e) => {
             error!("Error running render graph:");
@@ -340,7 +341,7 @@ impl RenderContext {
         &'a mut self,
         descriptor: RenderPassDescriptor<'a, '_>,
     ) -> TrackedRenderPass<'a> {
-        // Cannot use command_encoder() as we need to split the borrow on self
+        // Cannot use self.command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
@@ -397,7 +398,7 @@ impl RenderContext {
 
         if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
             gpu_profiler.end_frame().unwrap();
-            // This poll is not optimal, but unsure how to ensure buffers are mapped otherwise
+            // This poll is not optimal, but it's not working without it
             render_device.poll(Maintain::WaitForSubmissionIndex(submission_index));
             return gpu_profiler.process_finished_frame();
         }
@@ -417,14 +418,19 @@ impl RenderContext {
 }
 
 #[derive(Resource, Clone, Default)]
-pub struct GpuTimerScopes(Arc<Mutex<Vec<GpuTimerScopeResult>>>);
+pub struct GpuTimerScopes(Arc<Mutex<VecDeque<Vec<GpuTimerScopeResult>>>>);
 
 impl GpuTimerScopes {
-    pub fn set(&self, gpu_timers: Vec<GpuTimerScopeResult>) {
-        *self.0.lock().unwrap() = gpu_timers;
+    pub fn try_add(&self, gpu_timers: Vec<GpuTimerScopeResult>) {
+        if let Ok(mut frames) = self.0.try_lock() {
+            if frames.len() == 20 {
+                frames.pop_front();
+            }
+            frames.push_back(gpu_timers);
+        }
     }
 
-    pub fn take(&self) -> Vec<GpuTimerScopeResult> {
-        mem::take(&mut self.0.lock().unwrap())
+    pub fn get(&self) -> MutexGuard<VecDeque<Vec<GpuTimerScopeResult>>> {
+        self.0.lock().unwrap()
     }
 }
