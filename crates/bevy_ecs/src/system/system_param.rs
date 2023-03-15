@@ -32,8 +32,8 @@ use std::{
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
 ///
-/// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
-/// and `'s` for data stored in the parameter's state.
+/// Derived `SystemParam` structs may have two lifetimes: `'world` for data stored in the [`World`],
+/// and `'state` for data stored in the parameter'state state.
 ///
 /// ## Attributes
 ///
@@ -52,8 +52,8 @@ use std::{
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'w, Marker: 'static> {
-///     foo: Res<'w, SomeResource>,
+/// struct MyParam<'world, Marker: 'static> {
+///     foo: Res<'world, SomeResource>,
 ///     #[system_param(ignore)]
 ///     marker: PhantomData<Marker>,
 /// }
@@ -1436,8 +1436,8 @@ pub mod lifetimeless {
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, StaticSystemParam};
 /// #[derive(SystemParam)]
-/// struct GenericParam<'w,'s, T: SystemParam + 'static> {
-///     field: StaticSystemParam<'w, 's, T>,
+/// struct GenericParam<'world,'state, T: SystemParam + 'static> {
+///     field: StaticSystemParam<'world, 'state, T>,
 /// }
 /// fn do_thing_generically<T: SystemParam + 'static>(t: StaticSystemParam<T>) {}
 ///
@@ -1463,11 +1463,11 @@ pub mod lifetimeless {
 /// fn do_thing_generically<T: SystemParam + 'static>(t: T) {}
 ///
 /// #[derive(SystemParam)]
-/// struct GenericParam<'w, 's, T: SystemParam> {
+/// struct GenericParam<'world, 'state, T: SystemParam> {
 ///     field: T,
 ///     #[system_param(ignore)]
 ///     // Use the lifetimes in this type, or they will be unbound.
-///     phantom: core::marker::PhantomData<&'w &'s ()>
+///     phantom: core::marker::PhantomData<&'world &'state ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
 /// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);

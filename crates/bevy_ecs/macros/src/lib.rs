@@ -320,8 +320,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     for lt in generics.lifetimes() {
         let ident = &lt.lifetime.ident;
         let w = format_ident!("w");
+        let world = format_ident!("world");
         let s = format_ident!("s");
-        if ident != &w && ident != &s {
+        let state = format_ident!("state");
+        if (ident != &w && ident != &world) && (ident != &s && ident != &state) {
             return syn::Error::new_spanned(
                 lt,
                 r#"invalid lifetime name: expected `'w` or `'s`
