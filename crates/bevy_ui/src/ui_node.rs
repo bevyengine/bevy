@@ -131,7 +131,7 @@ pub enum AutoValArithmeticError {
 
 impl AutoVal {
     /// Tries to add the values of two [`AutoVal`]s.
-    /// Returns [`AutoVal::ArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
+    /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
     /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
     pub fn try_add(&self, rhs: AutoVal) -> Result<AutoVal, AutoValArithmeticError> {
         match (self, rhs) {
@@ -151,7 +151,7 @@ impl AutoVal {
     }
 
     /// Tries to subtract the values of two [`AutoVal`]s.
-    /// Returns [`AutoVal::ArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
+    /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
     /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
     pub fn try_sub(&self, rhs: AutoVal) -> Result<AutoVal, AutoValArithmeticError> {
         match (self, rhs) {
@@ -171,7 +171,7 @@ impl AutoVal {
     }
 
     /// A convenience function for simple evaluation of [`AutoVal::Percent`] variant into a concrete [`AutoVal::Px`] value.
-    /// Returns a [`AutoVal::ArithmeticError::NonEvaluateable`] if the [`AutoVal`] is impossible to evaluate into [`AutoVal::Px`].
+    /// Returns a [`AutoValArithmeticError::NonEvaluateable`] if the [`AutoVal`] is impossible to evaluate into [`AutoVal::Px`].
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
     /// **Note:** If a [`AutoVal::Px`] is evaluated, it's inner value returned unchanged.
