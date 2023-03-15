@@ -45,7 +45,7 @@ fn main() {
         .run();
 }
 
-/// It's generally encouraged to setup post processing effect as a plugin
+/// It's generally encouraged to setup post processing effects as a plugin
 struct PostProcessPlugin;
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
@@ -62,8 +62,7 @@ impl Plugin for PostProcessPlugin {
             return;
         };
 
-        // The renderer has multiple stages.
-        // For more details of each stage see the docs for `RenderSet`
+        // Initialize the pipeline
         render_app.init_resource::<PostProcessPipeline>();
 
         // Create our node with the render world
