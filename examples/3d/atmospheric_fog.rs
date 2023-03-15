@@ -15,9 +15,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_camera_fog)
-        .add_startup_system(setup_terrain_scene)
-        .add_startup_system(setup_instructions)
+        .add_startup_systems((setup_camera_fog, setup_terrain_scene, setup_instructions))
         .add_system(toggle_system)
         .run();
 }
@@ -103,11 +101,8 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
     )
     .with_style(Style {
         position_type: PositionType::Absolute,
-        position: UiRect {
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        },
+        bottom: Val::Px(10.0),
+        left: Val::Px(10.0),
         ..default()
     }),));
 }

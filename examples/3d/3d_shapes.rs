@@ -11,8 +11,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_startup_system(setup)
-        .add_system(rotate)
+        .add_systems((setup.on_startup(), rotate))
         .run();
 }
 

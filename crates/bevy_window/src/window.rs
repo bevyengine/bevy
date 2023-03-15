@@ -261,27 +261,28 @@ impl Window {
     /// The cursor position in this window
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.cursor
-            .physical_position
+        self.internal
+            .physical_cursor_position
             .map(|position| (position / self.scale_factor()).as_vec2())
     }
 
     /// The physical cursor position in this window
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.cursor
-            .physical_position
+        self.internal
+            .physical_cursor_position
             .map(|position| position.as_vec2())
     }
 
     /// Set the cursor position in this window
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
-        self.cursor.physical_position = position.map(|p| p.as_dvec2() * self.scale_factor());
+        self.internal.physical_cursor_position =
+            position.map(|p| p.as_dvec2() * self.scale_factor());
     }
 
     /// Set the physical cursor position in this window
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
-        self.cursor.physical_position = position;
+        self.internal.physical_cursor_position = position;
     }
 }
 
@@ -397,9 +398,6 @@ pub struct Cursor {
     ///
     /// - iOS / Android / Web / X11: Unsupported.
     pub hit_test: bool,
-
-    /// The position of this window's cursor.
-    physical_position: Option<DVec2>,
 }
 
 impl Default for Cursor {
@@ -409,7 +407,6 @@ impl Default for Cursor {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
-            physical_position: None,
         }
     }
 }
@@ -648,7 +645,7 @@ pub enum CursorGrabMode {
 }
 
 /// Stores internal state that isn't directly accessible.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -660,6 +657,8 @@ pub struct InternalWindowState {
     minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
     maximize_request: Option<bool>,
+    /// Unscaled cursor position.
+    physical_cursor_position: Option<DVec2>,
 }
 
 impl InternalWindowState {

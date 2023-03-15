@@ -105,17 +105,15 @@ impl Plugin for UiPlugin {
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
-        app.add_system(
+        app.add_systems((
             flex_node_system
                 .in_set(UiSystem::Flex)
                 .before(TransformSystem::TransformPropagate),
-        )
-        .add_system(ui_stack_system.in_set(UiSystem::Stack))
-        .add_system(
+            ui_stack_system.in_set(UiSystem::Stack),
             update_clipping_system
                 .after(TransformSystem::TransformPropagate)
                 .in_base_set(CoreSet::PostUpdate),
-        );
+        ));
 
         crate::render::build_ui_render(app);
     }
