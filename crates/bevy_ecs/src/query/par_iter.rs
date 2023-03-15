@@ -1,4 +1,4 @@
-use crate::world::World;
+use crate::{component::Tick, world::World};
 use bevy_tasks::ComputeTaskPool;
 use std::ops::Range;
 
@@ -81,6 +81,8 @@ impl BatchingStrategy {
 pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) world: &'w World,
     pub(crate) state: &'s QueryState<Q, F>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
@@ -148,12 +150,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ) {
         let thread_count = ComputeTaskPool::get().thread_num();
         if thread_count <= 1 {
-            self.state.for_each_unchecked_manual(
-                self.world,
-                func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
-            );
+            self.state
+                .for_each_unchecked_manual(self.world, func, self.last_run, self.this_run);
         } else {
             // Need a batch size of at least 1.
             let batch_size = self.get_batch_size(thread_count).max(1);
@@ -161,8 +159,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
                 self.world,
                 batch_size,
                 func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
+                self.last_run,
+                self.this_run,
             );
         }
     }
