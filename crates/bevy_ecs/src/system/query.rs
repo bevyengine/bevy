@@ -728,6 +728,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),
+            last_run: self.last_run,
+            this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -742,6 +744,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }

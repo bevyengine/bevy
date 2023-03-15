@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(Val::Percent(100.0)),
+                size: Size::all(Val::Percent(100.)),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -38,8 +38,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(Val::Px(200.0)),
-                        border: UiRect::all(Val::Px(2.0)),
+                        size: Size::width(Val::Px(200.)),
+                        border: UiRect::all(Val::Px(2.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::width(Val::Percent(100.0)),
+                                size: Size::width(Val::Percent(100.)),
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 )
                                 .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.0)),
+                                    margin: UiRect::all(Val::Px(5.)),
                                     ..default()
                                 }),
                                 // Because this is a distinct label widget and
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        size: Size::width(Val::Px(200.0)),
+                        size: Size::width(Val::Px(200.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -101,11 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 font_size: 25.,
                                 color: Color::WHITE,
                             },
-                        )
-                        .with_style(Style {
-                            size: Size::height(Val::Px(25.)),
-                            ..default()
-                        }),
+                        ),
                         Label,
                     ));
                     // List with hidden overflow
@@ -114,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
-                                size: Size::height(Val::Percent(50.0)),
+                                size: Size::height(Val::Percent(50.)),
                                 overflow: Overflow::Hidden,
                                 ..default()
                             },
@@ -159,26 +155,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Px(200.0)),
+                        size: Size::all(Val::Px(200.)),
                         position_type: PositionType::Absolute,
-                        position: UiRect {
-                            left: Val::Px(210.0),
-                            bottom: Val::Px(10.0),
-                            ..default()
-                        },
-                        border: UiRect::all(Val::Px(20.0)),
+                        left: Val::Px(210.),
+                        bottom: Val::Px(10.),
+                        border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
-                    background_color: Color::rgb(0.4, 0.4, 1.0).into(),
+                    background_color: Color::rgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn(NodeBundle {
                         style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                            size: Size::all(Val::Percent(100.)),
                             ..default()
                         },
-                        background_color: Color::rgb(0.8, 0.8, 1.0).into(),
+                        background_color: Color::rgb(0.8, 0.8, 1.).into(),
                         ..default()
                     });
                 });
@@ -186,7 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        size: Size::all(Val::Percent(100.)),
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -198,10 +191,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                size: Size::all(Val::Px(100.)),
                                 ..default()
                             },
-                            background_color: Color::rgb(1.0, 0.0, 0.0).into(),
+                            background_color: Color::rgb(1.0, 0.0, 0.).into(),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -210,11 +203,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     // Take the size of the parent node.
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
-                                        left: Val::Px(20.0),
-                                        bottom: Val::Px(20.0),
-                                        ..default()
-                                    },
+                                    left: Val::Px(20.),
+                                    bottom: Val::Px(20.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
@@ -224,11 +214,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
-                                        left: Val::Px(40.0),
-                                        bottom: Val::Px(40.0),
-                                        ..default()
-                                    },
+                                    left: Val::Px(40.),
+                                    bottom: Val::Px(40.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
@@ -238,11 +225,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
-                                        left: Val::Px(60.0),
-                                        bottom: Val::Px(60.0),
-                                        ..default()
-                                    },
+                                    left: Val::Px(60.),
+                                    bottom: Val::Px(60.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
@@ -253,11 +237,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::all(Val::Percent(100.)),
                                     position_type: PositionType::Absolute,
-                                    position: UiRect {
-                                        left: Val::Px(80.0),
-                                        bottom: Val::Px(80.0),
-                                        ..default()
-                                    },
+                                    left: Val::Px(80.),
+                                    bottom: Val::Px(80.),
                                     ..default()
                                 },
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
@@ -279,6 +260,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
+
                     parent
                         .spawn(ImageBundle {
                             style: Style {
@@ -320,7 +302,7 @@ fn mouse_scroll(
 
             scrolling_list.position += dy;
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.position.top = Val::Px(scrolling_list.position);
+            style.top = Val::Px(scrolling_list.position);
         }
     }
 }
