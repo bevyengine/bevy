@@ -90,7 +90,7 @@ Freecam Controls:
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.add_system(camera_controller);
     }
 }

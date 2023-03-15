@@ -207,7 +207,7 @@ pub enum VisibilitySystems {
 pub struct VisibilityPlugin;
 
 impl Plugin for VisibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&mut self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
         app.configure_set(CalculateBounds.in_base_set(CoreSet::PostUpdate))

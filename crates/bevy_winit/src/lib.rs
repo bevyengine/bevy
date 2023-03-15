@@ -53,7 +53,7 @@ pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync:
 pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
 
         #[cfg(target_os = "android")]

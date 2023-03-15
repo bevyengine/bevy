@@ -77,7 +77,7 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 }
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .configure_sets(

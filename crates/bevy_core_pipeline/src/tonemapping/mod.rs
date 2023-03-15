@@ -34,7 +34,7 @@ pub struct TonemappingLuts {
 pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         load_internal_asset!(
             app,
             TONEMAPPING_SHADER_HANDLE,

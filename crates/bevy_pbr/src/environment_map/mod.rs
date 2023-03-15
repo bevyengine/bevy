@@ -19,7 +19,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
 pub struct EnvironmentMapPlugin;
 
 impl Plugin for EnvironmentMapPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         load_internal_asset!(
             app,
             ENVIRONMENT_MAP_SHADER_HANDLE,

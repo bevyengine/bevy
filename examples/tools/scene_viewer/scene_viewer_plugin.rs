@@ -55,7 +55,7 @@ Scene Controls:
 pub struct SceneViewerPlugin;
 
 impl Plugin for SceneViewerPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.init_resource::<CameraTracker>().add_systems((
             scene_load_check.in_base_set(CoreSet::PreUpdate),
             update_lights,

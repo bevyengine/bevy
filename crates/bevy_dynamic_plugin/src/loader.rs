@@ -41,7 +41,7 @@ pub trait DynamicPluginExt {
 
 impl DynamicPluginExt for App {
     unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self {
-        let (lib, plugin) = dynamically_load_plugin(path).unwrap();
+        let (lib, mut plugin) = dynamically_load_plugin(path).unwrap();
         std::mem::forget(lib); // Ensure that the library is not automatically unloaded
         plugin.build(self);
         self

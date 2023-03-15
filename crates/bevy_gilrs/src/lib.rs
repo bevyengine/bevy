@@ -12,7 +12,7 @@ use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 pub struct GilrsPlugin;
 
 impl Plugin for GilrsPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         match GilrsBuilder::new()
             .with_default_filters(false)
             .set_update_state(false)

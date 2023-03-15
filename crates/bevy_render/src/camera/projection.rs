@@ -25,7 +25,7 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
 pub struct CameraUpdateSystem;
 
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.register_type::<T>()
             .edit_schedule(CoreSchedule::Startup, |schedule| {
                 schedule.configure_set(CameraUpdateSystem.in_base_set(StartupSet::PostStartup));

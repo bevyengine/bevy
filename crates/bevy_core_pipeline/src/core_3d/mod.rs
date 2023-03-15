@@ -54,7 +54,7 @@ use crate::{
 pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());

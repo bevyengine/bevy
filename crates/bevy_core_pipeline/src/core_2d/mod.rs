@@ -41,7 +41,7 @@ use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.register_type::<Camera2d>()
             .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
 

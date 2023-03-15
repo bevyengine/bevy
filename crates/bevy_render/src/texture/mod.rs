@@ -69,7 +69,7 @@ impl ImagePlugin {
 }
 
 impl Plugin for ImagePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",

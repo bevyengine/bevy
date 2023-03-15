@@ -15,7 +15,7 @@ use bevy_ecs::schedule::IntoSystemConfig;
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.register_type::<Camera>()
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()

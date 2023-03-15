@@ -134,7 +134,7 @@ pub const FOG_SHADER_HANDLE: HandleUntyped =
 pub struct FogPlugin;
 
 impl Plugin for FogPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
         app.add_plugin(ExtractComponentPlugin::<FogSettings>::default());

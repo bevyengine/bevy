@@ -49,7 +49,7 @@ pub enum SpriteSystem {
 }
 
 impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);

@@ -34,7 +34,7 @@ pub struct TimePlugin;
 pub struct TimeSystem;
 
 impl Plugin for TimePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.init_resource::<Time>()
             .init_resource::<TimeUpdateStrategy>()
             .register_type::<Timer>()

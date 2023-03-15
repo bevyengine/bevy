@@ -18,7 +18,7 @@ use bevy_scene::Scene;
 pub struct GltfPlugin;
 
 impl Plugin for GltfPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.init_asset_loader::<GltfLoader>()
             .register_type::<GltfExtras>()
             .add_asset::<Gltf>()

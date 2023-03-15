@@ -40,7 +40,7 @@ use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
 pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         load_internal_asset!(
             app,
             FULLSCREEN_SHADER_HANDLE,

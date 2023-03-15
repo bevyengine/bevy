@@ -184,7 +184,7 @@ pub struct RenderApp;
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()

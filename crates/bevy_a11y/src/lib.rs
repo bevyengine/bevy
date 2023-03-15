@@ -63,7 +63,7 @@ pub struct Focus(Option<Entity>);
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&mut self, app: &mut bevy_app::App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<Focus>();
     }

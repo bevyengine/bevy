@@ -79,7 +79,7 @@ impl<C> Default for UniformComponentPlugin<C> {
 }
 
 impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
@@ -177,7 +177,7 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 }
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app.add_system(extract_visible_components::<C>.in_schedule(ExtractSchedule));

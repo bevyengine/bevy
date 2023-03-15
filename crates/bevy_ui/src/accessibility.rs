@@ -148,7 +148,7 @@ fn label_changed(
 pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.add_systems((calc_bounds, button_changed, image_changed, label_changed));
     }
 }

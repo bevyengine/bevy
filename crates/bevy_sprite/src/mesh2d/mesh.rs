@@ -58,7 +58,7 @@ pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
 impl Plugin for Mesh2dRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&mut self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             MESH2D_VERTEX_OUTPUT,

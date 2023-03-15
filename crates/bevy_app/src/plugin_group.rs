@@ -217,17 +217,17 @@ mod tests {
 
     struct PluginA;
     impl Plugin for PluginA {
-        fn build(&self, _: &mut App) {}
+        fn build(&mut self, _: &mut App) {}
     }
 
     struct PluginB;
     impl Plugin for PluginB {
-        fn build(&self, _: &mut App) {}
+        fn build(&mut self, _: &mut App) {}
     }
 
     struct PluginC;
     impl Plugin for PluginC {
-        fn build(&self, _: &mut App) {}
+        fn build(&mut self, _: &mut App) {}
     }
 
     #[test]

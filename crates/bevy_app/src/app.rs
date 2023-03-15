@@ -305,8 +305,8 @@ impl App {
     /// be useful for situations where you want to use [`App::update`].
     pub fn setup(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
-        for plugin in &plugin_registry {
+        let mut plugin_registry = std::mem::take(&mut self.plugin_registry);
+        for plugin in &mut plugin_registry {
             plugin.setup(self);
         }
         self.plugin_registry = plugin_registry;
@@ -733,7 +733,7 @@ impl App {
     /// #     #[derive(Default)]
     /// #     pub struct LogPlugin;
     /// #     impl Plugin for LogPlugin{
-    /// #        fn build(&self, app: &mut App) {}
+    /// #        fn build(&mut self, app: &mut App) {}
     /// #     }
     /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
@@ -757,7 +757,7 @@ impl App {
     /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
     pub(crate) fn add_boxed_plugin(
         &mut self,
-        plugin: Box<dyn Plugin>,
+        mut plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
         if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
@@ -798,7 +798,7 @@ impl App {
     /// #    default_sampler: bool,
     /// # }
     /// # impl Plugin for ImagePlugin {
-    /// #    fn build(&self, app: &mut App) {}
+    /// #    fn build(&mut self, app: &mut App) {}
     /// # }
     /// # let mut app = App::new();
     /// # app.add_plugin(ImagePlugin::default());
@@ -1028,19 +1028,19 @@ mod tests {
 
     struct PluginA;
     impl Plugin for PluginA {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&mut self, _app: &mut crate::App) {}
     }
     struct PluginB;
     impl Plugin for PluginB {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&mut self, _app: &mut crate::App) {}
     }
     struct PluginC<T>(T);
     impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&mut self, _app: &mut crate::App) {}
     }
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&mut self, _app: &mut crate::App) {}
         fn is_unique(&self) -> bool {
             false
         }
@@ -1072,7 +1072,7 @@ mod tests {
     fn cant_call_app_run_from_plugin_build() {
         struct PluginRun;
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut crate::App) {
+            fn build(&mut self, app: &mut crate::App) {
                 app.run();
             }
         }

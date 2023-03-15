@@ -62,7 +62,7 @@ impl<T: Asset> Default for HandleMap<T> {
 }
 
 impl Plugin for DebugAssetServerPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&mut self, app: &mut bevy_app::App) {
         IoTaskPool::init(|| {
             TaskPoolBuilder::default()
                 .num_threads(2)

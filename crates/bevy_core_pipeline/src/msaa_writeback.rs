@@ -15,7 +15,7 @@ use bevy_render::{render_resource::*, RenderApp};
 pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return
         };

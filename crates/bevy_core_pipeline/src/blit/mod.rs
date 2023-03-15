@@ -13,7 +13,7 @@ pub const BLIT_SHADER_HANDLE: HandleUntyped =
 pub struct BlitPlugin;
 
 impl Plugin for BlitPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return

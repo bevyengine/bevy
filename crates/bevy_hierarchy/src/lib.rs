@@ -38,7 +38,7 @@ use bevy_app::prelude::*;
 pub struct HierarchyPlugin;
 
 impl Plugin for HierarchyPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .register_type::<smallvec::SmallVec<[bevy_ecs::entity::Entity; 8]>>()

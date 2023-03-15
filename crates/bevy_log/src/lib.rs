@@ -104,7 +104,7 @@ impl Default for LogPlugin {
 
 impl Plugin for LogPlugin {
     #[cfg_attr(not(feature = "tracing-chrome"), allow(unused_variables))]
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         #[cfg(feature = "trace")]
         {
             let old_handler = panic::take_hook();

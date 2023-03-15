@@ -37,7 +37,7 @@ pub const VIEW_TYPE_HANDLE: HandleUntyped =
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&mut self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
         app.register_type::<ComputedVisibility>()
