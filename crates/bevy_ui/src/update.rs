@@ -60,16 +60,13 @@ fn update_clipping(
             x: OverflowAxis::Visible,
             y: OverflowAxis::Visible,
         } => clip,
-        Overflow {
-            x: overflow_x,
-            y: overflow_y,
-        } => {
+       _ => {
             let mut node_rect = node.logical_rect(global_transform);
-            if overflow_x == OverflowAxis::Visible {
+            if style.overflow.x == OverflowAxis::Visible {
                 node_rect.min.x = -f32::INFINITY;
                 node_rect.max.x = f32::INFINITY;
             }
-            if overflow_y == OverflowAxis::Visible {
+            if style.overflow.y == OverflowAxis::Visible {
                 node_rect.min.y = -f32::INFINITY;
                 node_rect.max.y = f32::INFINITY;
             }
