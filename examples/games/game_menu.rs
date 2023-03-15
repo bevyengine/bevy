@@ -196,7 +196,7 @@ mod game {
                                 },
                             )
                             .with_style(Style {
-                                margin: UiRect::all(AutoVal::Px(50.0)),
+                                margin: Margin::all(AutoVal::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -228,7 +228,7 @@ mod game {
                                 ),
                             ])
                             .with_style(Style {
-                                margin: UiRect::all(AutoVal::Px(50.0)),
+                                margin: Margin::all(AutoVal::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -391,7 +391,7 @@ mod menu {
         // Common style for all buttons on the screen
         let button_style = Style {
             size: Size::new(AutoVal::Px(250.0), AutoVal::Px(65.0)),
-            margin: UiRect::all(AutoVal::Px(20.0)),
+            margin: Margin::all(AutoVal::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -447,7 +447,7 @@ mod menu {
                                 },
                             )
                             .with_style(Style {
-                                margin: UiRect::all(AutoVal::Px(50.0)),
+                                margin: Margin::all(AutoVal::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -523,7 +523,7 @@ mod menu {
     fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let button_style = Style {
             size: Size::new(AutoVal::Px(200.0), AutoVal::Px(65.0)),
-            margin: UiRect::all(AutoVal::Px(20.0)),
+            margin: Margin::all(AutoVal::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -592,7 +592,7 @@ mod menu {
     ) {
         let button_style = Style {
             size: Size::new(AutoVal::Px(200.0), AutoVal::Px(65.0)),
-            margin: UiRect::all(AutoVal::Px(20.0)),
+            margin: Margin::all(AutoVal::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -694,7 +694,7 @@ mod menu {
     ) {
         let button_style = Style {
             size: Size::new(AutoVal::Px(200.0), AutoVal::Px(65.0)),
-            margin: UiRect::all(AutoVal::Px(20.0)),
+            margin: Margin::all(AutoVal::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()

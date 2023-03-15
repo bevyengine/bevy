@@ -1,4 +1,4 @@
-use crate::{Size, UiRect};
+use crate::{Border, Margin, Padding, Size};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -137,7 +137,9 @@ impl AutoVal {
         match (self, rhs) {
             (AutoVal::Auto, AutoVal::Auto) => Ok(*self),
             (AutoVal::Px(value), AutoVal::Px(rhs_value)) => Ok(AutoVal::Px(value + rhs_value)),
-            (AutoVal::Percent(value), AutoVal::Percent(rhs_value)) => Ok(AutoVal::Percent(value + rhs_value)),
+            (AutoVal::Percent(value), AutoVal::Percent(rhs_value)) => {
+                Ok(AutoVal::Percent(value + rhs_value))
+            }
             _ => Err(AutoValArithmeticError::NonIdenticalVariants),
         }
     }
@@ -155,7 +157,9 @@ impl AutoVal {
         match (self, rhs) {
             (AutoVal::Auto, AutoVal::Auto) => Ok(*self),
             (AutoVal::Px(value), AutoVal::Px(rhs_value)) => Ok(AutoVal::Px(value - rhs_value)),
-            (AutoVal::Percent(value), AutoVal::Percent(rhs_value)) => Ok(AutoVal::Percent(value - rhs_value)),
+            (AutoVal::Percent(value), AutoVal::Percent(rhs_value)) => {
+                Ok(AutoVal::Percent(value - rhs_value))
+            }
             _ => Err(AutoValArithmeticError::NonIdenticalVariants),
         }
     }
@@ -181,7 +185,11 @@ impl AutoVal {
 
     /// Similar to [`AutoVal::try_add`], but performs [`AutoVal::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
-    pub fn try_add_with_size(&self, rhs: AutoVal, size: f32) -> Result<f32, AutoValArithmeticError> {
+    pub fn try_add_with_size(
+        &self,
+        rhs: AutoVal,
+        size: f32,
+    ) -> Result<f32, AutoValArithmeticError> {
         let lhs = self.evaluate(size)?;
         let rhs = rhs.evaluate(size)?;
 
@@ -201,7 +209,11 @@ impl AutoVal {
 
     /// Similar to [`AutoVal::try_sub`], but performs [`AutoVal::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
-    pub fn try_sub_with_size(&self, rhs: AutoVal, size: f32) -> Result<f32, AutoValArithmeticError> {
+    pub fn try_sub_with_size(
+        &self,
+        rhs: AutoVal,
+        size: f32,
+    ) -> Result<f32, AutoValArithmeticError> {
         let lhs = self.evaluate(size)?;
         let rhs = rhs.evaluate(size)?;
 
@@ -323,9 +335,7 @@ impl Val {
     pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => {
-                Ok(Val::Percent(value + rhs_value))
-            }
+            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
         }
     }
@@ -341,9 +351,7 @@ impl Val {
     pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => {
-                Ok(Val::Percent(value - rhs_value))
-            }
+            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
         }
     }
@@ -428,19 +436,19 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, Margin, AutoVal};
     /// let style = Style {
-    ///     margin: UiRect {
-    ///         left: Val::Percent(10.),
-    ///         right: Val::Percent(10.),
-    ///         top: Val::Percent(15.),
-    ///         bottom: Val::Percent(15.)
+    ///     margin: Margin {
+    ///         left: AutoVal::Percent(10.),
+    ///         right: AutoVal::Percent(10.),
+    ///         top: AutoVal::Percent(15.),
+    ///         bottom: AutoVal::Percent(15.)
     ///     },
     ///     ..Default::default()
     /// };
     /// ```
     /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom egdes.
-    pub margin: UiRect,
+    pub margin: Margin,
     /// The amount of space between the edges of a node and its contents.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -459,7 +467,7 @@ pub struct Style {
     /// };
     /// ```
     /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
-    pub padding: UiRect,
+    pub padding: Padding,
     /// The amount of space between the margins of a node and its padding.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -467,7 +475,7 @@ pub struct Style {
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
     ///
     /// Rendering for borders is not yet implemented.
-    pub border: UiRect,
+    pub border: Border,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -516,9 +524,9 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        margin: UiRect::DEFAULT,
-        padding: UiRect::DEFAULT,
-        border: UiRect::DEFAULT,
+        margin: Margin::DEFAULT,
+        padding: Padding::DEFAULT,
+        border: Border::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: AutoVal::Auto,
@@ -934,13 +942,15 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Val, ValArithmeticError, AutoVal, AutoValArithmeticError};
+    use crate::{AutoVal, AutoValArithmeticError, Val, ValArithmeticError};
 
     #[test]
-    fn val_try_add() {
+    fn autoval_try_add() {
         let auto_sum = AutoVal::Auto.try_add(AutoVal::Auto).unwrap();
         let px_sum = AutoVal::Px(20.).try_add(AutoVal::Px(22.)).unwrap();
-        let percent_sum = AutoVal::Percent(50.).try_add(AutoVal::Percent(50.)).unwrap();
+        let percent_sum = AutoVal::Percent(50.)
+            .try_add(AutoVal::Percent(50.))
+            .unwrap();
 
         assert_eq!(auto_sum, AutoVal::Auto);
         assert_eq!(px_sum, AutoVal::Px(42.));
@@ -948,7 +958,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_add_to_self() {
+    fn autoval_try_add_to_self() {
         let mut val = AutoVal::Px(5.);
 
         val.try_add_assign(AutoVal::Px(3.)).unwrap();
@@ -957,10 +967,12 @@ mod tests {
     }
 
     #[test]
-    fn val_try_sub() {
+    fn autoval_try_sub() {
         let auto_sum = AutoVal::Auto.try_sub(AutoVal::Auto).unwrap();
         let px_sum = AutoVal::Px(72.).try_sub(AutoVal::Px(30.)).unwrap();
-        let percent_sum = AutoVal::Percent(100.).try_sub(AutoVal::Percent(50.)).unwrap();
+        let percent_sum = AutoVal::Percent(100.)
+            .try_sub(AutoVal::Percent(50.))
+            .unwrap();
 
         assert_eq!(auto_sum, AutoVal::Auto);
         assert_eq!(px_sum, AutoVal::Px(42.));
@@ -998,7 +1010,7 @@ mod tests {
     }
 
     #[test]
-    fn val_evaluate() {
+    fn autoval_evaluate() {
         let size = 250.;
         let result = AutoVal::Percent(80.).evaluate(size).unwrap();
 
@@ -1006,7 +1018,7 @@ mod tests {
     }
 
     #[test]
-    fn val_evaluate_px() {
+    fn autoval_evaluate_px() {
         let size = 250.;
         let result = AutoVal::Px(10.).evaluate(size).unwrap();
 
@@ -1014,7 +1026,7 @@ mod tests {
     }
 
     #[test]
-    fn val_invalid_evaluation() {
+    fn autoval_invalid_evaluation() {
         let size = 250.;
         let evaluate_auto = AutoVal::Auto.evaluate(size);
 
@@ -1022,10 +1034,12 @@ mod tests {
     }
 
     #[test]
-    fn val_try_add_with_size() {
+    fn autoval_try_add_with_size() {
         let size = 250.;
 
-        let px_sum = AutoVal::Px(21.).try_add_with_size(AutoVal::Px(21.), size).unwrap();
+        let px_sum = AutoVal::Px(21.)
+            .try_add_with_size(AutoVal::Px(21.), size)
+            .unwrap();
         let percent_sum = AutoVal::Percent(20.)
             .try_add_with_size(AutoVal::Percent(30.), size)
             .unwrap();
@@ -1039,10 +1053,12 @@ mod tests {
     }
 
     #[test]
-    fn val_try_sub_with_size() {
+    fn autoval_try_sub_with_size() {
         let size = 250.;
 
-        let px_sum = AutoVal::Px(60.).try_sub_with_size(AutoVal::Px(18.), size).unwrap();
+        let px_sum = AutoVal::Px(60.)
+            .try_sub_with_size(AutoVal::Px(18.), size)
+            .unwrap();
         let percent_sum = AutoVal::Percent(80.)
             .try_sub_with_size(AutoVal::Percent(30.), size)
             .unwrap();
@@ -1056,7 +1072,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_add_non_numeric_with_size() {
+    fn autoval_try_add_non_numeric_with_size() {
         let size = 250.;
 
         let percent_sum = AutoVal::Auto.try_add_with_size(AutoVal::Auto, size);
@@ -1065,7 +1081,7 @@ mod tests {
     }
 
     #[test]
-    fn val_arithmetic_error_messages() {
+    fn autoval_arithmetic_error_messages() {
         assert_eq!(
             format!("{}", AutoValArithmeticError::NonIdenticalVariants),
             "the variants of the Vals don't match"
@@ -1077,22 +1093,21 @@ mod tests {
     }
 
     #[test]
-    fn default_val_equals_const_default_val() {
+    fn default_autoval_equals_const_default_autoval() {
         assert_eq!(AutoVal::default(), AutoVal::DEFAULT);
     }
 
-    fn breadth_try_add() {
+    #[test]
+    fn val_try_add() {
         let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
-        let percent_sum = Val::Percent(50.)
-            .try_add(Val::Percent(50.))
-            .unwrap();
+        let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
 
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(100.));
     }
 
     #[test]
-    fn breadth_try_add_to_self() {
+    fn val_try_add_to_self() {
         let mut breadth = Val::Px(5.);
 
         breadth.try_add_assign(Val::Px(3.)).unwrap();
@@ -1101,11 +1116,9 @@ mod tests {
     }
 
     #[test]
-    fn breadth_try_sub() {
+    fn val_try_sub() {
         let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
-        let percent_sum = Val::Percent(100.)
-            .try_sub(Val::Percent(50.))
-            .unwrap();
+        let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
 
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(50.));
@@ -1142,7 +1155,7 @@ mod tests {
     }
 
     #[test]
-    fn breadth_evaluate_percent() {
+    fn val_evaluate_percent() {
         let size = 250.;
         let result = Val::Percent(80.).evaluate(size);
 
@@ -1150,7 +1163,7 @@ mod tests {
     }
 
     #[test]
-    fn breadth_evaluate_px() {
+    fn val_evaluate_px() {
         let size = 250.;
         let result = Val::Px(10.).evaluate(size);
 
@@ -1158,7 +1171,7 @@ mod tests {
     }
 
     #[test]
-    fn breadth_add_with_size() {
+    fn val_add_with_size() {
         let size = 250.;
 
         let px_sum = Val::Px(21.).add_with_size(Val::Px(21.), size);
@@ -1171,7 +1184,7 @@ mod tests {
     }
 
     #[test]
-    fn breadth_sub_with_size() {
+    fn val_sub_with_size() {
         let size = 250.;
 
         let px_sum = Val::Px(60.).sub_with_size(Val::Px(18.), size);
@@ -1184,7 +1197,7 @@ mod tests {
     }
 
     #[test]
-    fn breadth_arithmetic_error_messages() {
+    fn val_arithmetic_error_messages() {
         assert_eq!(
             format!("{}", ValArithmeticError::NonIdenticalVariants),
             "the variants of the Vals don't match"
@@ -1192,10 +1205,13 @@ mod tests {
     }
 
     #[test]
-    fn from_breadth_to_val() {
+    fn from_val_to_autoval() {
         let inner_value = 11.;
 
-        assert_eq!(AutoVal::from(Val::Px(inner_value)), AutoVal::Px(inner_value));
+        assert_eq!(
+            AutoVal::from(Val::Px(inner_value)),
+            AutoVal::Px(inner_value)
+        );
         assert_eq!(
             AutoVal::from(Val::Percent(inner_value)),
             AutoVal::Percent(inner_value)
@@ -1203,7 +1219,7 @@ mod tests {
     }
 
     #[test]
-    fn try_from_val_to_breadth() {
+    fn try_from_autoval_to_val() {
         let inner_value = 22.;
 
         assert_eq!(
@@ -1217,10 +1233,6 @@ mod tests {
         assert_eq!(
             Val::try_from(AutoVal::Percent(inner_value)),
             Ok(Val::Percent(inner_value))
-        );
-        assert_eq!(
-            Val::try_from(AutoVal::Undefined),
-            Err(crate::ValConversionError::NonEvaluateable)
         );
     }
 }

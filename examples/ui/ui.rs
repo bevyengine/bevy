@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         size: Size::width(AutoVal::Px(200.)),
-                        border: UiRect::all(AutoVal::Px(2.)),
+                        border: Border::all(Val::Px(2.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 )
                                 .with_style(Style {
-                                    margin: UiRect::all(AutoVal::Px(5.)),
+                                    margin: Margin::all(AutoVal::Px(5.)),
                                     ..default()
                                 }),
                                 // Because this is a distinct label widget and
@@ -159,7 +159,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         left: AutoVal::Px(210.),
                         bottom: AutoVal::Px(10.),
-                        border: UiRect::all(AutoVal::Px(20.)),
+                        border: Border::all(Val::Px(20.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.4, 0.4, 1.).into(),

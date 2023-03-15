@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Node, Style, UiScale, AutoVal};
+use crate::{AutoVal, CalculatedSize, Node, Style, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -20,7 +20,12 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 
 /// Defines how `min_size`, `size`, and `max_size` affects the bounds of a text
 /// block.
-pub fn text_constraint(min_size: AutoVal, size: AutoVal, max_size: AutoVal, scale_factor: f64) -> f32 {
+pub fn text_constraint(
+    min_size: AutoVal,
+    size: AutoVal,
+    max_size: AutoVal,
+    scale_factor: f64,
+) -> f32 {
     // Needs support for percentages
     match (min_size, size, max_size) {
         (_, _, AutoVal::Px(max)) => scale_value(max, scale_factor),

@@ -275,7 +275,7 @@ fn setup_image_viewer_scene(
             .with_text_alignment(TextAlignment::Center)
             .with_style(Style {
                 align_self: AlignSelf::Center,
-                margin: UiRect::all(AutoVal::Auto),
+                margin: Margin::all(AutoVal::Auto),
                 ..default()
             }),
             SceneNumber(3),

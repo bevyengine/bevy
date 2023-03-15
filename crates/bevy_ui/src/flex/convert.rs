@@ -1,9 +1,22 @@
-use taffy::style::LengthPercentageAuto;
-
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, AutoVal,
+    AlignContent, AlignItems, AlignSelf, AutoVal, Border, Display, FlexDirection, FlexWrap,
+    JustifyContent, Margin, Padding, PositionType, Size, Style, Val,
 };
+
+impl Val {
+    fn scaled(self, scale_factor: f64) -> Self {
+        match self {
+            Val::Percent(value) => Val::Percent(value),
+            Val::Px(value) => Val::Px((scale_factor * value as f64) as f32),
+        }
+    }
+    fn into_length_percentage(self, scale_factor: f64) -> taffy::style::LengthPercentage {
+        match self.scaled(scale_factor) {
+            Val::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
+            Val::Px(value) => taffy::style::LengthPercentage::Points(value),
+        }
+    }
+}
 
 impl AutoVal {
     fn scaled(self, scale_factor: f64) -> Self {
@@ -13,82 +26,53 @@ impl AutoVal {
             AutoVal::Px(value) => AutoVal::Px((scale_factor * value as f64) as f32),
         }
     }
-
-    fn to_inset(self) -> LengthPercentageAuto {
-        match self {
-            AutoVal::Auto => taffy::style::LengthPercentageAuto::Auto,
-            AutoVal::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
-            AutoVal::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
-        }
-    }
-}
-
-impl UiRect {
-    fn scaled(self, scale_factor: f64) -> Self {
-        Self {
-            left: self.left.scaled(scale_factor),
-            right: self.right.scaled(scale_factor),
-            top: self.top.scaled(scale_factor),
-            bottom: self.bottom.scaled(scale_factor),
-        }
-    }
-}
-
-impl Size {
-    fn scaled(self, scale_factor: f64) -> Self {
-        Self {
-            width: self.width.scaled(scale_factor),
-            height: self.height.scaled(scale_factor),
-        }
-    }
-}
-
-impl<T: From<AutoVal>> From<UiRect> for taffy::prelude::Rect<T> {
-    fn from(value: UiRect) -> Self {
-        Self {
-            left: value.left.into(),
-            right: value.right.into(),
-            top: value.top.into(),
-            bottom: value.bottom.into(),
-        }
-    }
-}
-
-impl<T: From<AutoVal>> From<Size> for taffy::prelude::Size<T> {
-    fn from(value: Size) -> Self {
-        Self {
-            width: value.width.into(),
-            height: value.height.into(),
-        }
-    }
-}
-
-impl From<AutoVal> for taffy::style::Dimension {
-    fn from(value: AutoVal) -> Self {
-        match value {
+    fn into_dimension(self, scale_factor: f64) -> taffy::style::Dimension {
+        match self.scaled(scale_factor) {
             AutoVal::Auto => taffy::style::Dimension::Auto,
             AutoVal::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
             AutoVal::Px(value) => taffy::style::Dimension::Points(value),
         }
     }
-}
-
-impl From<AutoVal> for taffy::style::LengthPercentage {
-    fn from(value: AutoVal) -> Self {
-        match value {
+    fn into_length_percentage(self, scale_factor: f64) -> taffy::style::LengthPercentage {
+        match self.scaled(scale_factor) {
             AutoVal::Auto => taffy::style::LengthPercentage::Points(0.0),
             AutoVal::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
             AutoVal::Px(value) => taffy::style::LengthPercentage::Points(value),
         }
     }
-}
-
-impl From<AutoVal> for taffy::style::LengthPercentageAuto {
-    fn from(value: AutoVal) -> Self {
-        match value {
+    fn into_length_percentage_auto(self, scale_factor: f64) -> taffy::style::LengthPercentageAuto {
+        match self.scaled(scale_factor) {
             AutoVal::Auto => taffy::style::LengthPercentageAuto::Auto,
             AutoVal::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
             AutoVal::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
+        }
+    }
+}
+
+macro_rules! impl_map_to_taffy_rect {
+    ($t:ty, $v:ty) => {
+        impl $t {
+            fn map_to_taffy_rect<T>(self, map_fn: impl Fn($v) -> T) -> taffy::geometry::Rect<T> {
+                taffy::geometry::Rect {
+                    left: map_fn(self.left),
+                    right: map_fn(self.right),
+                    top: map_fn(self.top),
+                    bottom: map_fn(self.bottom),
+                }
+            }
+        }
+    };
+}
+
+impl_map_to_taffy_rect!(Margin, AutoVal);
+impl_map_to_taffy_rect!(Border, Val);
+impl_map_to_taffy_rect!(Padding, Val);
+
+impl Size {
+    fn map_to_taffy_size<T>(self, map_fn: impl Fn(AutoVal) -> T) -> taffy::geometry::Size<T> {
+        taffy::geometry::Size {
+            width: map_fn(self.width),
+            height: map_fn(self.height),
         }
     }
 }
@@ -104,22 +88,36 @@ pub fn from_style(scale_factor: f64, style: &Style) -> taffy::style::Style {
         align_content: Some(style.align_content.into()),
         justify_content: Some(style.justify_content.into()),
         inset: taffy::prelude::Rect {
-            left: style.left.scaled(scale_factor).to_inset(),
-            right: style.right.scaled(scale_factor).to_inset(),
-            top: style.top.scaled(scale_factor).to_inset(),
-            bottom: style.bottom.scaled(scale_factor).to_inset(),
+            left: style.left.into_length_percentage_auto(scale_factor),
+            right: style.right.into_length_percentage_auto(scale_factor),
+            top: style.top.into_length_percentage_auto(scale_factor),
+            bottom: style.bottom.into_length_percentage_auto(scale_factor),
         },
-        margin: style.margin.scaled(scale_factor).into(),
-        padding: style.padding.scaled(scale_factor).into(),
-        border: style.border.scaled(scale_factor).into(),
+        margin: style
+            .margin
+            .map_to_taffy_rect(|m| m.into_length_percentage_auto(scale_factor)),
+        padding: style
+            .padding
+            .map_to_taffy_rect(|p| p.into_length_percentage(scale_factor)),
+        border: style
+            .border
+            .map_to_taffy_rect(|b| b.into_length_percentage(scale_factor)),
         flex_grow: style.flex_grow,
         flex_shrink: style.flex_shrink,
-        flex_basis: style.flex_basis.scaled(scale_factor).into(),
-        size: style.size.scaled(scale_factor).into(),
-        min_size: style.min_size.scaled(scale_factor).into(),
-        max_size: style.max_size.scaled(scale_factor).into(),
+        flex_basis: style.flex_basis.into_dimension(scale_factor),
+        size: style
+            .size
+            .map_to_taffy_size(|s| s.into_dimension(scale_factor)),
+        min_size: style
+            .min_size
+            .map_to_taffy_size(|s| s.into_dimension(scale_factor)),
+        max_size: style
+            .max_size
+            .map_to_taffy_size(|s| s.into_dimension(scale_factor)),
         aspect_ratio: style.aspect_ratio,
-        gap: style.gap.scaled(scale_factor).into(),
+        gap: style
+            .gap
+            .map_to_taffy_size(|s| s.into_length_percentage(scale_factor)),
         justify_self: None,
     }
 }
@@ -243,23 +241,23 @@ mod tests {
             align_self: AlignSelf::Start,
             align_content: AlignContent::SpaceAround,
             justify_content: JustifyContent::SpaceEvenly,
-            margin: UiRect {
+            margin: Margin {
                 left: AutoVal::Percent(0.),
                 right: AutoVal::Px(0.),
                 top: AutoVal::Auto,
                 bottom: AutoVal::Auto,
             },
-            padding: UiRect {
-                left: AutoVal::Percent(0.),
-                right: AutoVal::Px(0.),
-                top: AutoVal::Percent(0.),
-                bottom: AutoVal::Percent(0.),
+            padding: Padding {
+                left: Val::Percent(0.),
+                right: Val::Px(0.),
+                top: Val::Percent(0.),
+                bottom: Val::Percent(0.),
             },
-            border: UiRect {
-                left: AutoVal::Px(0.),
-                right: AutoVal::Px(0.),
-                top: AutoVal::Auto,
-                bottom: AutoVal::Px(0.),
+            border: Border {
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.),
             },
             flex_grow: 1.,
             flex_shrink: 0.,
