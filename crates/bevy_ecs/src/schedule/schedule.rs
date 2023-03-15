@@ -246,7 +246,6 @@ impl Schedule {
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
-        println!("run step_state {:?}", self.executable.step_state);
         self.executor.run(&mut self.executable, world);
     }
 
@@ -261,13 +260,11 @@ impl Schedule {
                 .update_schedule(&mut self.executable, world.components())?;
             self.graph.changed = false;
             self.executor_initialized = false;
-            println!("init changed: step_state {:?}", self.executable.step_state);
         }
 
         if !self.executor_initialized {
             self.executor.init(&self.executable);
             self.executor_initialized = true;
-            println!("init: step_state {:?}", self.executable.step_state);
         }
 
         Ok(())
@@ -339,10 +336,6 @@ impl Schedule {
     /// apply ScheduleEvent to the schedule & executor
     pub fn handle_event(&mut self, event: &ScheduleEvent) {
         use StepState::*;
-        println!(
-            "handle_event: before step_state {:?}",
-            self.executable.step_state
-        );
 
         match event {
             ScheduleEvent::EnableStepping(_) => {
@@ -371,11 +364,6 @@ impl Schedule {
                 _ => (),
             },
         }
-
-        println!(
-            "handle_event: after step_state {:?}",
-            self.executable.step_state
-        );
     }
 }
 

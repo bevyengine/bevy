@@ -65,7 +65,6 @@ impl SystemExecutor for SingleThreadedExecutor {
             StepState::Next(next) => {
                 if let Some(next) = next_system(schedule, next) {
                     debug_assert!(schedule.systems_with_stepping_enabled[next]);
-                    println!("next is {:?}", next);
 
                     // flag all systems that observe stepping as completed, then
                     // clear the flag for our next system.
@@ -76,24 +75,30 @@ impl SystemExecutor for SingleThreadedExecutor {
                     // update the step state to wait, and provide the next
                     // system we should start at.
                     schedule.step_state = StepState::Wait(next + 1);
-                    println!("next state {:?}", schedule.step_state);
                 }
             }
             StepState::Remaining(next) => {
                 if let Some(next) = next_system(schedule, next) {
-                    println!("remaining next is {:?}", next);
+                    // We need to mark all systems that observe stepping prior
+                    // to `next` as completed.  We do this in three steps:
+                    //
+                    // 1. set the bit for every system below `next` in a bitset
+                    // 2. clear the bits for every system ignoring stepping;
+                    //    we do this with a bitwise AND between the mask and
+                    //    those systems that are observing stepping
+                    // 3. We set those bits in the completed_systems bitmask by
+                    //    using a bitwise OR.
+                    //
                     let mut mask = FixedBitSet::with_capacity(schedule.systems.len());
                     mask.insert_range(0..next);
                     mask &= &schedule.systems_with_stepping_enabled;
                     self.completed_systems |= mask;
+
+                    // change the state to waiting for the next call to run().
                     schedule.step_state = StepState::Wait(0);
                 }
             }
         }
-        println!(
-            "step_state {:?}, completed {:?}",
-            schedule.step_state, self.completed_systems
-        );
 
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
