@@ -11,6 +11,7 @@ use crate::{Node, ZIndex};
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
+    /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
 
