@@ -100,10 +100,10 @@ fn setup_scene(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
-                left: Val::Px(50.0),
-                right: Val::Px(50.0),
-                top: Val::Auto,
-                bottom: Val::Px(50.0),
+                left: AutoVal::Px(50.0),
+                right: AutoVal::Px(50.0),
+                top: AutoVal::Auto,
+                bottom: AutoVal::Px(50.0),
                 ..default()
             },
             ..default()

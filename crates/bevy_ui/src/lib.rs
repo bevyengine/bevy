@@ -61,7 +61,7 @@ pub enum UiSystem {
 /// The current scale of the UI.
 ///
 /// A multiplier to fixed-sized ui values.
-/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+/// **Note:** This will only affect fixed ui values like [`AutoVal::Px`]
 #[derive(Debug, Resource)]
 pub struct UiScale {
     /// The scale to be applied.
@@ -98,12 +98,12 @@ impl Plugin for UiPlugin {
             .register_type::<PositionType>()
             .register_type::<Size>()
             .register_type::<UiRect>()
-            .register_type::<UiRect<Breadth>>()
+            .register_type::<UiRect<Val>>()
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
+            .register_type::<AutoVal>()
             .register_type::<Val>()
-            .register_type::<Breadth>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))

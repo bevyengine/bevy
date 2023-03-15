@@ -1,4 +1,4 @@
-use crate::{Breadth, Val};
+use crate::{Val, AutoVal};
 use bevy_reflect::Reflect;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
@@ -12,9 +12,9 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{UiRect, AutoVal};
 /// #
-/// let margin = UiRect::all(Val::Auto); // Centers the UI element
+/// let margin = UiRect::all(AutoVal::Auto); // Centers the UI element
 /// ```
 ///
 /// ## Padding
@@ -22,13 +22,13 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Breadth};
+/// # use bevy_ui::{UiRect, Val};
 /// #
 /// let padding = UiRect {
-///     left: Breadth::Px(10.0),
-///     right: Breadth::Px(20.0),
-///     top: Breadth::Px(30.0),
-///     bottom: Breadth::Px(40.0),
+///     left: Val::Px(10.0),
+///     right: Val::Px(20.0),
+///     top: Val::Px(30.0),
+///     bottom: Val::Px(40.0),
 /// };
 /// ```
 ///
@@ -37,18 +37,18 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// A border is used to define the width of the border of a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Breadth};
+/// # use bevy_ui::{UiRect, Val};
 /// #
 /// let border = UiRect {
-///     left: Breadth::Px(10.0),
-///     right: Breadth::Px(20.0),
-///     top: Breadth::Px(30.0),
-///     bottom: Breadth::Px(40.0),
+///     left: Val::Px(10.0),
+///     right: Val::Px(20.0),
+///     top: Val::Px(30.0),
+///     bottom: Val::Px(40.0),
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect<T: Default + Copy + Clone + PartialEq = Val> {
+pub struct UiRect<T: Default + Copy + Clone + PartialEq = AutoVal> {
     /// The value corresponding to the left side of the UI rect.
     pub left: T,
     /// The value corresponding to the right side of the UI rect.
@@ -61,10 +61,10 @@ pub struct UiRect<T: Default + Copy + Clone + PartialEq = Val> {
 
 impl UiRect {
     pub const DEFAULT: Self = Self {
-        left: Val::Px(0.),
-        right: Val::Px(0.),
-        top: Val::Px(0.),
-        bottom: Val::Px(0.),
+        left: AutoVal::Px(0.),
+        right: AutoVal::Px(0.),
+        top: AutoVal::Px(0.),
+        bottom: AutoVal::Px(0.),
     };
 
     /// Creates a new [`UiRect`] from the values specified.
@@ -100,7 +100,7 @@ impl UiRect {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{UiRect, AutoVal};
     /// #
     /// let ui_rect = UiRect::all(Val::Px(10.0));
     ///
@@ -124,7 +124,7 @@ impl UiRect {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{UiRect, Val};
+    /// # use bevy_ui::{UiRect, AutoVal};
     /// #
     /// let ui_rect = UiRect::horizontal(Val::Px(10.0));
     ///
@@ -253,6 +253,21 @@ impl UiRect {
     }
 }
 
+impl UiRect<AutoVal> {
+    pub const DEFAULT: Self = Self {
+        left: AutoVal::DEFAULT,
+        right: AutoVal::DEFAULT,
+        top: AutoVal::DEFAULT,
+        bottom: AutoVal::DEFAULT,
+    };
+}
+
+impl Default for UiRect<AutoVal> {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 impl UiRect<Val> {
     pub const DEFAULT: Self = Self {
         left: Val::DEFAULT,
@@ -268,23 +283,8 @@ impl Default for UiRect<Val> {
     }
 }
 
-impl UiRect<Breadth> {
-    pub const DEFAULT: Self = Self {
-        left: Breadth::DEFAULT,
-        right: Breadth::DEFAULT,
-        top: Breadth::DEFAULT,
-        bottom: Breadth::DEFAULT,
-    };
-}
-
-impl Default for UiRect<Breadth> {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<UiRect<Breadth>> for UiRect<Val> {
-    fn from(rect: UiRect<Breadth>) -> Self {
+impl From<UiRect<Val>> for UiRect<AutoVal> {
+    fn from(rect: UiRect<Val>) -> Self {
         Self {
             left: rect.left.into(),
             right: rect.right.into(),
@@ -301,9 +301,9 @@ impl From<UiRect<Breadth>> for UiRect<Val> {
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
-    pub width: Val,
+    pub width: AutoVal,
     /// The height of the 2-dimensional area.
-    pub height: Val,
+    pub height: AutoVal,
 }
 
 impl Size {
@@ -321,7 +321,7 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub const fn new(width: Val, height: Val) -> Self {
+    pub const fn new(width: AutoVal, height: AutoVal) -> Self {
         Size { width, height }
     }
 
@@ -330,14 +330,14 @@ impl Size {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, Val};
+    /// # use bevy_ui::{Size, AutoVal};
     /// #
-    /// let size = Size::all(Val::Px(10.));
+    /// let size = Size::all(AutoVal::Px(10.));
     ///
     /// assert_eq!(size.width, Val::Px(10.0));
     /// assert_eq!(size.height, Val::Px(10.0));
     /// ```
-    pub const fn all(value: Val) -> Self {
+    pub const fn all(value: AutoVal) -> Self {
         Self {
             width: value,
             height: value,
@@ -345,7 +345,7 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where `width` takes the given value,
-    /// and `height` is set to [`Val::Auto`].
+    /// and `height` is set to [`AutoVal::Auto`].
 
     ///
     /// # Example
@@ -358,15 +358,15 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(10.0));
     /// assert_eq!(size.height, Val::Auto);
     /// ```
-    pub const fn width(width: Val) -> Self {
+    pub const fn width(width: AutoVal) -> Self {
         Self {
             width,
-            height: Val::Auto,
+            height: AutoVal::Auto,
         }
     }
 
     /// Creates a new [`Size`] where `height` takes the given value,
-    /// and `width` is set to [`Val::Auto`].
+    /// and `width` is set to [`AutoVal::Auto`].
     ///
     /// # Example
     ///
@@ -378,15 +378,15 @@ impl Size {
     /// assert_eq!(size.width, Val::Auto);
     /// assert_eq!(size.height, Val::Px(10.));
     /// ```
-    pub const fn height(height: Val) -> Self {
+    pub const fn height(height: AutoVal) -> Self {
         Self {
-            width: Val::Auto,
+            width: AutoVal::Auto,
             height,
         }
     }
 
-    /// Creates a Size where both values are [`Val::Auto`].
-    pub const AUTO: Self = Self::all(Val::Auto);
+    /// Creates a Size where both values are [`AutoVal::Auto`].
+    pub const AUTO: Self = Self::all(AutoVal::Auto);
 }
 
 impl Default for Size {
@@ -395,8 +395,8 @@ impl Default for Size {
     }
 }
 
-impl From<(Val, Val)> for Size {
-    fn from(vals: (Val, Val)) -> Self {
+impl From<(AutoVal, AutoVal)> for Size {
+    fn from(vals: (AutoVal, AutoVal)) -> Self {
         Self {
             width: vals.0,
             height: vals.1,
@@ -449,10 +449,10 @@ mod tests {
         assert_eq!(
             UiRect::default(),
             UiRect {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.)
+                left: AutoVal::Px(0.),
+                right: AutoVal::Px(0.),
+                top: AutoVal::Px(0.),
+                bottom: AutoVal::Px(0.)
             }
         );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
@@ -460,41 +460,41 @@ mod tests {
 
     #[test]
     fn test_size_from() {
-        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
+        let size: Size = (AutoVal::Px(20.), AutoVal::Px(30.)).into();
 
         assert_eq!(
             size,
             Size {
-                width: Val::Px(20.),
-                height: Val::Px(30.),
+                width: AutoVal::Px(20.),
+                height: AutoVal::Px(30.),
             }
         );
     }
 
     #[test]
     fn test_size_mul() {
-        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
+        assert_eq!(Size::all(AutoVal::Px(10.)) * 2., Size::all(AutoVal::Px(20.)));
 
-        let mut size = Size::all(Val::Px(10.));
+        let mut size = Size::all(AutoVal::Px(10.));
         size *= 2.;
-        assert_eq!(size, Size::all(Val::Px(20.)));
+        assert_eq!(size, Size::all(AutoVal::Px(20.)));
     }
 
     #[test]
     fn test_size_div() {
         assert_eq!(
-            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
-            Size::new(Val::Px(10.), Val::Px(10.))
+            Size::new(AutoVal::Px(20.), AutoVal::Px(20.)) / 2.,
+            Size::new(AutoVal::Px(10.), AutoVal::Px(10.))
         );
 
-        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
+        let mut size = Size::new(AutoVal::Px(20.), AutoVal::Px(20.));
         size /= 2.;
-        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
+        assert_eq!(size, Size::new(AutoVal::Px(10.), AutoVal::Px(10.)));
     }
 
     #[test]
     fn test_size_all() {
-        let length = Val::Px(10.);
+        let length = AutoVal::Px(10.);
 
         assert_eq!(
             Size::all(length),
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_size_width() {
-        let width = Val::Px(10.);
+        let width = AutoVal::Px(10.);
 
         assert_eq!(
             Size::width(width),
@@ -520,7 +520,7 @@ mod tests {
 
     #[test]
     fn test_size_height() {
-        let height = Val::Px(7.);
+        let height = AutoVal::Px(7.);
 
         assert_eq!(
             Size::height(height),
@@ -536,8 +536,8 @@ mod tests {
         assert_eq!(
             Size::default(),
             Size {
-                width: Val::Auto,
-                height: Val::Auto
+                width: AutoVal::Auto,
+                height: AutoVal::Auto
             }
         );
         assert_eq!(Size::default(), Size::DEFAULT);

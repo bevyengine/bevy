@@ -49,8 +49,8 @@ fn atlas_render_system(
                 image: texture_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    top: Val::Px(0.0),
-                    left: Val::Px(512.0 * x_offset),
+                    top: AutoVal::Px(0.0),
+                    left: AutoVal::Px(512.0 * x_offset),
                     ..default()
                 },
                 ..default()
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             background_color: Color::NONE.into(),
             style: Style {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(0.0),
+                bottom: AutoVal::Px(0.0),
                 ..default()
             },
             ..default()

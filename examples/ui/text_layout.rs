@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::rgb(1., 0.066, 0.349);
 const JUSTIFY_CONTENT_COLOR: Color = Color::rgb(0.102, 0.522, 1.);
-const MARGIN: Val = Val::Px(5.);
+const MARGIN: AutoVal = AutoVal::Px(5.);
 
 fn main() {
     App::new()
@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                size: Size::all(Val::Percent(100.)),
+                size: Size::all(AutoVal::Percent(100.)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -65,7 +65,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        min_size: Size::new(Val::Px(850.), Val::Px(1020.)),
+                        min_size: Size::new(AutoVal::Px(850.), AutoVal::Px(1020.)),
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
@@ -124,7 +124,7 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                size: Size::all(Val::Px(160.)),
+                size: Size::all(AutoVal::Px(160.)),
                 margin: UiRect::all(MARGIN),
                 ..Default::default()
             },
@@ -142,7 +142,7 @@ fn spawn_child_node(
                     builder,
                     font.clone(),
                     color,
-                    UiRect::top(Val::Px(top_margin)),
+                    UiRect::top(AutoVal::Px(top_margin)),
                     &text,
                 );
             }
@@ -161,10 +161,10 @@ fn spawn_nested_text_bundle(
             style: Style {
                 margin,
                 padding: UiRect {
-                    top: Breadth::Px(1.),
-                    left: Breadth::Px(5.),
-                    right: Breadth::Px(5.),
-                    bottom: Breadth::Px(1.),
+                    top: Val::Px(1.),
+                    left: Val::Px(5.),
+                    right: Val::Px(5.),
+                    bottom: Val::Px(1.),
                 },
                 ..Default::default()
             },

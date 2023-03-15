@@ -2,23 +2,23 @@ use taffy::style::LengthPercentageAuto;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, Val,
+    PositionType, Size, Style, UiRect, AutoVal,
 };
 
-impl Val {
+impl AutoVal {
     fn scaled(self, scale_factor: f64) -> Self {
         match self {
-            Val::Auto => Val::Auto,
-            Val::Percent(value) => Val::Percent(value),
-            Val::Px(value) => Val::Px((scale_factor * value as f64) as f32),
+            AutoVal::Auto => AutoVal::Auto,
+            AutoVal::Percent(value) => AutoVal::Percent(value),
+            AutoVal::Px(value) => AutoVal::Px((scale_factor * value as f64) as f32),
         }
     }
 
     fn to_inset(self) -> LengthPercentageAuto {
         match self {
-            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
+            AutoVal::Auto => taffy::style::LengthPercentageAuto::Auto,
+            AutoVal::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
+            AutoVal::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
         }
     }
 }
@@ -43,7 +43,7 @@ impl Size {
     }
 }
 
-impl<T: From<Val>> From<UiRect> for taffy::prelude::Rect<T> {
+impl<T: From<AutoVal>> From<UiRect> for taffy::prelude::Rect<T> {
     fn from(value: UiRect) -> Self {
         Self {
             left: value.left.into(),
@@ -54,7 +54,7 @@ impl<T: From<Val>> From<UiRect> for taffy::prelude::Rect<T> {
     }
 }
 
-impl<T: From<Val>> From<Size> for taffy::prelude::Size<T> {
+impl<T: From<AutoVal>> From<Size> for taffy::prelude::Size<T> {
     fn from(value: Size) -> Self {
         Self {
             width: value.width.into(),
@@ -63,32 +63,32 @@ impl<T: From<Val>> From<Size> for taffy::prelude::Size<T> {
     }
 }
 
-impl From<Val> for taffy::style::Dimension {
-    fn from(value: Val) -> Self {
+impl From<AutoVal> for taffy::style::Dimension {
+    fn from(value: AutoVal) -> Self {
         match value {
-            Val::Auto => taffy::style::Dimension::Auto,
-            Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::Dimension::Points(value),
+            AutoVal::Auto => taffy::style::Dimension::Auto,
+            AutoVal::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
+            AutoVal::Px(value) => taffy::style::Dimension::Points(value),
         }
     }
 }
 
-impl From<Val> for taffy::style::LengthPercentage {
-    fn from(value: Val) -> Self {
+impl From<AutoVal> for taffy::style::LengthPercentage {
+    fn from(value: AutoVal) -> Self {
         match value {
-            Val::Auto => taffy::style::LengthPercentage::Points(0.0),
-            Val::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentage::Points(value),
+            AutoVal::Auto => taffy::style::LengthPercentage::Points(0.0),
+            AutoVal::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
+            AutoVal::Px(value) => taffy::style::LengthPercentage::Points(value),
         }
     }
 }
 
-impl From<Val> for taffy::style::LengthPercentageAuto {
-    fn from(value: Val) -> Self {
+impl From<AutoVal> for taffy::style::LengthPercentageAuto {
+    fn from(value: AutoVal) -> Self {
         match value {
-            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
+            AutoVal::Auto => taffy::style::LengthPercentageAuto::Auto,
+            AutoVal::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
+            AutoVal::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
         }
     }
 }
@@ -232,10 +232,10 @@ mod tests {
         let bevy_style = crate::Style {
             display: Display::Flex,
             position_type: PositionType::Absolute,
-            left: Val::Px(0.),
-            right: Val::Percent(0.),
-            top: Val::Auto,
-            bottom: Val::Auto,
+            left: AutoVal::Px(0.),
+            right: AutoVal::Percent(0.),
+            top: AutoVal::Auto,
+            bottom: AutoVal::Auto,
             direction: crate::Direction::Inherit,
             flex_direction: FlexDirection::ColumnReverse,
             flex_wrap: FlexWrap::WrapReverse,
@@ -244,43 +244,43 @@ mod tests {
             align_content: AlignContent::SpaceAround,
             justify_content: JustifyContent::SpaceEvenly,
             margin: UiRect {
-                left: Val::Percent(0.),
-                right: Val::Px(0.),
-                top: Val::Auto,
-                bottom: Val::Auto,
+                left: AutoVal::Percent(0.),
+                right: AutoVal::Px(0.),
+                top: AutoVal::Auto,
+                bottom: AutoVal::Auto,
             },
             padding: UiRect {
-                left: Val::Percent(0.),
-                right: Val::Px(0.),
-                top: Val::Percent(0.),
-                bottom: Val::Percent(0.),
+                left: AutoVal::Percent(0.),
+                right: AutoVal::Px(0.),
+                top: AutoVal::Percent(0.),
+                bottom: AutoVal::Percent(0.),
             },
             border: UiRect {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Auto,
-                bottom: Val::Px(0.),
+                left: AutoVal::Px(0.),
+                right: AutoVal::Px(0.),
+                top: AutoVal::Auto,
+                bottom: AutoVal::Px(0.),
             },
             flex_grow: 1.,
             flex_shrink: 0.,
-            flex_basis: Val::Px(0.),
+            flex_basis: AutoVal::Px(0.),
             size: Size {
-                width: Val::Px(0.),
-                height: Val::Auto,
+                width: AutoVal::Px(0.),
+                height: AutoVal::Auto,
             },
             min_size: Size {
-                width: Val::Px(0.),
-                height: Val::Percent(0.),
+                width: AutoVal::Px(0.),
+                height: AutoVal::Percent(0.),
             },
             max_size: Size {
-                width: Val::Auto,
-                height: Val::Px(0.),
+                width: AutoVal::Auto,
+                height: AutoVal::Px(0.),
             },
             aspect_ratio: None,
             overflow: crate::Overflow::Hidden,
             gap: Size {
-                width: Val::Px(0.),
-                height: Val::Percent(0.),
+                width: AutoVal::Px(0.),
+                height: AutoVal::Percent(0.),
             },
         };
         let taffy_style = from_style(1.0, &bevy_style);
