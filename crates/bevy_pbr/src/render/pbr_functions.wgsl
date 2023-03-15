@@ -48,14 +48,9 @@ fn prepare_world_normal(
 fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
     world_tangent: vec4<f32>,
-#endif
-#endif
-#ifdef VERTEX_UVS
-    uv: vec2<f32>,
-#endif
+    // normal in tangent space, as provided by a standard normal map
+    tangent_normal: vec3<f32>,
 ) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -64,23 +59,15 @@ fn apply_normal_mapping(
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
     var N: vec3<f32> = world_normal;
+    var Nt: vec3<f32> = tangent_normal;
 
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: The mikktspace method of normal mapping explicitly requires that these NOT be
     // normalized nor any Gram-Schmidt applied to ensure the vertex normal is orthogonal to the
     // vertex tangent! Do not change this code unless you really know what you are doing.
     // http://www.mikktspace.com/
     var T: vec3<f32> = world_tangent.xyz;
     var B: vec3<f32> = world_tangent.w * cross(N, T);
-#endif
-#endif
 
-#ifdef VERTEX_TANGENTS
-#ifdef VERTEX_UVS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-    // Nt is the tangent-space normal.
-    var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
     if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
@@ -97,12 +84,9 @@ fn apply_normal_mapping(
     // calculates the normal maps so there is no error introduced. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    N = Nt.x * T + Nt.y * B + Nt.z * N;
-#endif
-#endif
-#endif
+    N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
 
-    return normalize(N);
+    return N;
 }
 
 // NOTE: Correctly calculates the view vector depending on whether

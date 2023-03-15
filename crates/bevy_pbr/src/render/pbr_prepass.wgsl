@@ -77,18 +77,20 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             in.is_front,
         );
 
-        let normal = apply_normal_mapping(
-            material.flags,
-            world_normal,
+        var normal = world_normal;
+#ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
+        let tangent_normal = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb;
+        normal = apply_normal_mapping(
+            material.flags,
+            world_normal,
             in.world_tangent,
+            tangent_normal,
+        );
 #endif // STANDARDMATERIAL_NORMAL_MAP
 #endif // VERTEX_TANGENTS
-#ifdef VERTEX_UVS
-            in.uv,
 #endif // VERTEX_UVS
-        );
 
         return vec4(normal * 0.5 + vec3(0.5), 1.0);
     } else {
