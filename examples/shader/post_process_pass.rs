@@ -27,7 +27,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget},
-        Extract, RenderApp,
+        RenderApp,
     },
 };
 
@@ -64,9 +64,7 @@ impl Plugin for PostProcessPlugin {
 
         // The renderer has multiple stages.
         // For more details of each stage see the docs for `RenderSet`
-        render_app
-            .init_resource::<PostProcessPipeline>()
-            .add_system(extract_post_process_settings.in_schedule(ExtractSchedule));
+        render_app.init_resource::<PostProcessPipeline>();
 
         // Create our node with the render world
         let node = PostProcessNode::new(&mut render_app.world);
@@ -314,26 +312,9 @@ impl FromWorld for PostProcessPipeline {
 }
 
 // This is the component that will get passed to the shader
-// Since it's going to be a uniform. Don't forget to use the UniformComponentPlugin
 #[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
 struct PostProcessSettings {
     intensity: f32,
-}
-
-// The extract stage is the only sync point between the main world and the render world.
-// This is where you can get data from the main app to the render app. Like in this case for the settings of the effect.
-//
-// It's recommended to keep this stage as simple as possible because it blocks the render thread.
-fn extract_post_process_settings(
-    mut commands: Commands,
-    cameras_2d: Extract<Query<(Entity, &Camera, &PostProcessSettings), With<Camera3d>>>,
-) {
-    for (entity, camera, settings) in &cameras_2d {
-        if camera.is_active {
-            // Add the PostProcessSettings component to the camera so it can be queried in the render node.
-            commands.get_or_spawn(entity).insert(*settings);
-        }
-    }
 }
 
 /// Set up a simple 3D scene
