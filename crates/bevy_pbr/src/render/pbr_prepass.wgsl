@@ -74,21 +74,24 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         let world_normal = prepare_world_normal(
             in.world_normal,
             (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            (material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u,
             in.is_front,
         );
 
-        var normal = world_normal;
+        var normal = normalize(world_normal);
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-        let tangent_normal = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb;
-        normal = apply_normal_mapping(
-            material.flags,
-            world_normal,
-            in.world_tangent,
-            tangent_normal,
-        );
-#endif // STANDARDMATERIAL_NORMAL_MAP
+        if (material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u {
+            // NOTE: Do NOT normalize this value before applying normal mapping
+            // http://www.mikktspace.com/
+            let tangent_normal = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb;
+            normal = apply_normal_mapping(
+                material.flags,
+                world_normal,
+                in.world_tangent,
+                tangent_normal,
+            );
+        }
 #endif // VERTEX_TANGENTS
 #endif // VERTEX_UVS
 

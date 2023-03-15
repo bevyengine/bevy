@@ -39,6 +39,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     pbr_input.world_normal = prepare_world_normal(
         in.world_normal,
         (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u,
         in.is_front,
     );
 
@@ -46,16 +47,16 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
     var N = normalize(pbr_input.world_normal);
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-    let tangent_normal = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb;
-    N = apply_normal_mapping(
-        pbr_input.material.flags,
-        pbr_input.world_normal,
-        in.world_tangent,
-        tangent_normal,
-    );
-#endif
-#endif
+    if (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u {
+        let tangent_normal = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb;
+        N = apply_normal_mapping(
+            pbr_input.material.flags,
+            pbr_input.world_normal,
+            in.world_tangent,
+            tangent_normal,
+        );
+    }
+#endif // VERTEX_TANGENTS
     pbr_input.N = N;
     pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 

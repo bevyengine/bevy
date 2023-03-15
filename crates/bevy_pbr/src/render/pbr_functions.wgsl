@@ -31,16 +31,15 @@ fn prepare_world_normal(
     world_normal: vec3<f32>,
     double_sided: bool,
     is_front: bool,
+    normal_map: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
 #ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted.
-    if double_sided && !is_front {
+    if double_sided && !normal_map && !is_front {
         output *= -1.0;
     }
-#endif
 #endif
     return output;
 }
