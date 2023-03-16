@@ -1,6 +1,6 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::ScheduleLabel,
+    schedule::{ExecutorKind, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::{Mut, World},
 };
@@ -154,14 +154,20 @@ pub struct MainSchedulePlugin;
 
 impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
-        app.init_schedule(Main)
+        // simple "facilitator" schedules benefit from simpler single threaded scheduling
+        let mut main_schedule = Schedule::new();
+        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut fixed_update_loop_schedule = Schedule::new();
+        fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+        app.add_schedule(Main, main_schedule)
             .init_schedule(PreStartup)
             .init_schedule(Startup)
             .init_schedule(PostStartup)
             .init_schedule(First)
             .init_schedule(PreUpdate)
             .init_schedule(StateTransition)
-            .init_schedule(FixedUpdateLoop)
+            .add_schedule(FixedUpdateLoop, fixed_update_loop_schedule)
             .init_schedule(FixedUpdate)
             .init_schedule(Update)
             .init_schedule(PostUpdate)
