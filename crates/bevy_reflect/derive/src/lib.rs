@@ -64,6 +64,8 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
         Err(err) => return err.into_compile_error().into(),
     };
 
+    let assertions = impls::impl_assertions(&derive_data);
+
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
@@ -102,7 +104,10 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
     TokenStream::from(quote! {
         const _: () = {
             #reflect_impls
+
             #from_reflect_impl
+
+            #assertions
         };
     })
 }

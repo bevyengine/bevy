@@ -2630,7 +2630,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: Reflect> {
+        struct MyOuter<T: FromReflect> {
             #[reflect(remote = "MyInner<T>")]
             pub a: external_crate::TheirInner<T>,
             #[reflect(remote = "MyInner<bool>")]
@@ -2638,7 +2638,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirInner<T>)]
-        struct MyInner<T: Reflect>(pub T);
+        struct MyInner<T: FromReflect>(pub T);
 
         let mut patch = DynamicStruct::default();
         patch.set_represented_type(Some(MyOuter::<i32>::type_info()));
