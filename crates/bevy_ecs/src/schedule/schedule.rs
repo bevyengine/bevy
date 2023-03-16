@@ -518,34 +518,46 @@ impl ScheduleGraph {
         &mut self,
         configs: SystemConfigs,
         ancestor_chained: bool,
-    ) -> (Vec<NodeId>, bool) {
+    ) -> AddSystemsInnerResult {
         match configs {
             SystemConfigs::SystemConfig(config) => {
                 let node_id = self.add_system_inner(config).unwrap();
                 if ancestor_chained {
-                    (vec![node_id], true)
+                    AddSystemsInnerResult {
+                        densely_chained: true,
+                        nodes: vec![node_id],
+                    }
                 } else {
-                    (Vec::new(), true)
+                    AddSystemsInnerResult {
+                        densely_chained: true,
+                        nodes: Vec::new(),
+                    }
                 }
             }
             SystemConfigs::Configs { configs, chained } => {
                 let mut config_iter = configs.into_iter();
-                let mut nodes = Vec::new();
+                let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
                 if chained {
-                    let Some(prev) = config_iter.next() else { return (Vec::new(), true) };
-                    let (mut previous_nodes, mut prev_densely_chained) =
-                        self.add_systems_inner(prev, true);
-                    densely_chained = prev_densely_chained;
+                    let Some(prev) = config_iter.next() else {
+                        return AddSystemsInnerResult {
+                            nodes: Vec::new(),
+                            densely_chained: true
+                        }
+                    };
+                    let mut previous_result = self.add_systems_inner(prev, true);
+                    densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let (current_nodes, current_densely_chained) =
-                            self.add_systems_inner(current, true);
-                        match (prev_densely_chained, current_densely_chained) {
+                        let current_result = self.add_systems_inner(current, true);
+                        match (
+                            previous_result.densely_chained,
+                            current_result.densely_chained,
+                        ) {
                             // Both groups are "densely" chained, so we can simplify the graph by only
                             // chaining the last in the previous list to the first in the current list
                             (true, true) => {
-                                let last_in_prev = previous_nodes.last().unwrap();
-                                let first_in_current = current_nodes.first().unwrap();
+                                let last_in_prev = previous_result.nodes.last().unwrap();
+                                let first_in_current = current_result.nodes.first().unwrap();
                                 self.dependency.graph.add_edge(
                                     *last_in_prev,
                                     *first_in_current,
@@ -555,8 +567,8 @@ impl ScheduleGraph {
                             // The previous group is "densely" chained, so we can simplify the graph by only
                             // chaining the last item from the previous list to every item in the current list
                             (true, false) => {
-                                let last_in_prev = previous_nodes.last().unwrap();
-                                for current_node in &current_nodes {
+                                let last_in_prev = previous_result.nodes.last().unwrap();
+                                for current_node in &current_result.nodes {
                                     self.dependency.graph.add_edge(
                                         *last_in_prev,
                                         *current_node,
@@ -567,8 +579,8 @@ impl ScheduleGraph {
                             // The current list is currently "densely" chained, so we can simplify the graph by
                             // only chaining every item in the previous list to the first item in the current list
                             (false, true) => {
-                                let first_in_current = current_nodes.first().unwrap();
-                                for previous_node in &previous_nodes {
+                                let first_in_current = current_result.nodes.first().unwrap();
+                                for previous_node in &previous_result.nodes {
                                     self.dependency.graph.add_edge(
                                         *previous_node,
                                         *first_in_current,
@@ -579,8 +591,8 @@ impl ScheduleGraph {
                             // Neither of the lists are "densely" chained, so we must chain every item in the first
                             // list to every item in the second list
                             (false, false) => {
-                                for previous_node in &previous_nodes {
-                                    for current_node in &current_nodes {
+                                for previous_node in &previous_result.nodes {
+                                    for current_node in &current_result.nodes {
                                         self.dependency.graph.add_edge(
                                             *previous_node,
                                             *current_node,
@@ -592,29 +604,30 @@ impl ScheduleGraph {
                         }
 
                         if ancestor_chained {
-                            nodes.append(&mut previous_nodes);
+                            nodes_in_scope.append(&mut previous_result.nodes);
                         }
 
-                        previous_nodes = current_nodes;
-                        prev_densely_chained = current_densely_chained;
+                        previous_result = current_result;
                     }
 
                     // ensure the last config's nodes are added
                     if ancestor_chained {
-                        nodes.append(&mut previous_nodes);
+                        nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
                     for config in config_iter {
-                        let (current, current_densely_chained) =
-                            self.add_systems_inner(config, ancestor_chained);
-                        densely_chained = densely_chained && current_densely_chained;
+                        let result = self.add_systems_inner(config, ancestor_chained);
+                        densely_chained = densely_chained && result.densely_chained;
                         if ancestor_chained {
-                            nodes.extend(current);
+                            nodes_in_scope.extend(result.nodes);
                         }
                     }
                 }
 
-                (nodes, densely_chained)
+                AddSystemsInnerResult {
+                    nodes: nodes_in_scope,
+                    densely_chained,
+                }
             }
         }
     }
@@ -1211,6 +1224,14 @@ impl ScheduleGraph {
 
         Ok(())
     }
+}
+
+/// Values returned by [`Schedule::add_systems_inner`]
+struct AddSystemsInnerResult {
+    /// All nodes contained inside this add_systems_inner call's SystemConfigs hierarchy
+    nodes: Vec<NodeId>,
+    /// True if and only if all nodes are "densely chained"
+    densely_chained: bool,
 }
 
 /// Used to select the appropriate reporting function.
