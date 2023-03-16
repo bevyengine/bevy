@@ -1033,6 +1033,8 @@ pub enum MaxTrackSizingFunction {
     Fraction(f32),
 }
 
+/// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
+/// See below for the different "track sizing functions" you can specify.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct GridTrack {
@@ -1045,15 +1047,6 @@ impl GridTrack {
         min_sizing_function: MinTrackSizingFunction::Auto,
         max_sizing_function: MaxTrackSizingFunction::Auto,
     };
-
-    /// Create a grid track with automatic size
-    pub fn auto<T: From<Self>>() -> T {
-        Self {
-            min_sizing_function: MinTrackSizingFunction::Auto,
-            max_sizing_function: MaxTrackSizingFunction::Auto,
-        }
-        .into()
-    }
 
     /// Create a grid track with a fixed pixel size
     pub fn px<T: From<Self>>(value: f32) -> T {
@@ -1093,7 +1086,16 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track with min-content size
+    /// Create a grid track which is automatically sized to fit it's contents, and then
+    pub fn auto<T: From<Self>>() -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Auto,
+            max_sizing_function: MaxTrackSizingFunction::Auto,
+        }
+        .into()
+    }
+
+    /// Create a grid track which is automatically sized to fit it's contents when sized at their "min-content" sizes
     pub fn min_content<T: From<Self>>() -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::MinContent,
@@ -1102,7 +1104,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track with max-content size
+    /// Create a grid track which is automatically sized to fit it's contents when sized at their "max-content" sizes
     pub fn max_content<T: From<Self>>() -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::MaxContent,
@@ -1112,6 +1114,8 @@ impl GridTrack {
     }
 
     /// Create a fit-content() grid track with fixed pixel limit
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
@@ -1121,6 +1125,8 @@ impl GridTrack {
     }
 
     /// Create a fit-content() grid track with percentage limit
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
@@ -1130,6 +1136,8 @@ impl GridTrack {
     }
 
     /// Create a minmax() grid track
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/minmax>
     pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
         Self {
             min_sizing_function: min,
@@ -1182,7 +1190,7 @@ impl From<usize> for GridTrackRepetition {
     }
 }
 
-/// Represents a *possibly* repeated `GridTrack`.
+/// Represents a *possibly* repeated [`GridTrack`].
 ///
 /// The repetition parameter can either be:
 ///   - The integer `1`, in which case the track is non-repeated.
