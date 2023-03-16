@@ -160,7 +160,7 @@ impl SubApp {
         }
     }
 
-    /// Runs the `SubApp`'s default schedule.
+    /// Runs the [`SubApp`]'s default schedule.
     pub fn run(&mut self) {
         self.app
             .world
@@ -682,7 +682,7 @@ impl App {
         }
     }
 
-    /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
+    /// Boxed variant of [`add_plugin`](App::add_plugin) can be used from a [`PluginGroup`]
     pub(crate) fn add_boxed_plugin(
         &mut self,
         plugin: Box<dyn Plugin>,

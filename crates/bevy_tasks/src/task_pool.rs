@@ -563,7 +563,7 @@ impl Drop for TaskPool {
     }
 }
 
-/// A `TaskPool` scope for running one or more non-`'static` futures.
+/// A [`TaskPool`] scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
