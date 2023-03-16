@@ -12,7 +12,10 @@ use bevy_ecs::{
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -766,8 +769,11 @@ impl App {
             })?;
         }
         self.building_plugin_depth += 1;
-        plugin.build(self);
+        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
         self.building_plugin_depth -= 1;
+        if let Err(payload) = result {
+            resume_unwind(payload);
+        }
         self.plugin_registry.push(plugin);
         Ok(self)
     }
