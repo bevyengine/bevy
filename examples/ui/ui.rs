@@ -132,7 +132,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ))
                                 .with_children(|parent| {
                                     // List items
-                                    for i in 0..30 {
+                                    for i in 0..100 {
                                         parent.spawn((
                                             TextBundle::from_section(
                                                 format!("Item {i}"),
