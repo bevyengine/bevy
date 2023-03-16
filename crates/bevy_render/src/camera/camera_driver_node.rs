@@ -1,6 +1,6 @@
 use crate::{
     camera::{ExtractedCamera, NormalizedRenderTarget, SortedCameras},
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::ExtractedWindows,
 };
@@ -24,6 +24,7 @@ impl Node for CameraDriverNode {
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
+
     fn run(
         &self,
         graph: &mut RenderGraphContext,
@@ -37,10 +38,7 @@ impl Node for CameraDriverNode {
                 if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
                     camera_windows.insert(window_ref.entity());
                 }
-                graph.run_sub_graph(
-                    camera.render_graph.clone(),
-                    vec![SlotValue::Entity(sorted_camera.entity)],
-                )?;
+                graph.run_sub_graph(camera.render_graph.clone(), sorted_camera.entity)?;
             }
         }
 

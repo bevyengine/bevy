@@ -37,10 +37,6 @@ impl UiPassNode {
 }
 
 impl Node for UiPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.ui_view_query.update_archetypes(world);
         self.default_camera_view_query.update_archetypes(world);
@@ -52,7 +48,7 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let input_view_entity = graph.view_entity();
 
         let Ok((transparent_phase, target, camera_ui)) =
                 self.ui_view_query.get_manual(world, input_view_entity)

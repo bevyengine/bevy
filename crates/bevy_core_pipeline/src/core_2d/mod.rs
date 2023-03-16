@@ -25,7 +25,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
@@ -61,46 +61,33 @@ impl Plugin for Core2dPlugin {
             ));
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        let tonemapping = TonemappingNode::new(&mut render_app.world);
-        let upscaling = UpscalingNode::new(&mut render_app.world);
+        let tonemapping = TonemappingNode::from_world(&mut render_app.world);
+        let upscaling = UpscalingNode::from_world(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(graph::node::MAIN_PASS, pass_node_2d);
-        draw_2d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
+
+        draw_2d_graph.add_node_with_edges(graph::node::MAIN_PASS, pass_node_2d, &[]);
         draw_2d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
-        draw_2d_graph.add_node(graph::node::UPSCALING, upscaling);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::MAIN_PASS,
-            MainPass2dNode::IN_VIEW,
-        );
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
+
+        draw_2d_graph.add_node_with_edges(
             graph::node::TONEMAPPING,
-            TonemappingNode::IN_VIEW,
+            tonemapping,
+            &[
+                graph::node::MAIN_PASS,
+                graph::node::TONEMAPPING,
+                graph::node::END_MAIN_PASS_POST_PROCESSING,
+            ],
         );
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
+        draw_2d_graph.add_node_with_edges(
             graph::node::UPSCALING,
-            UpscalingNode::IN_VIEW,
+            upscaling,
+            &[
+                graph::node::END_MAIN_PASS_POST_PROCESSING,
+                graph::node::UPSCALING,
+            ],
         );
-        draw_2d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
-        draw_2d_graph.add_node_edge(
-            graph::node::TONEMAPPING,
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
-        );
-        draw_2d_graph.add_node_edge(
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
-            graph::node::UPSCALING,
-        );
+
         graph.add_sub_graph(graph::NAME, draw_2d_graph);
     }
 }

@@ -22,7 +22,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -83,8 +83,6 @@ impl Plugin for BloomPlugin {
             render_app,
             core_3d::graph::NAME,
             core_3d::graph::node::BLOOM,
-            core_3d::graph::input::VIEW_ENTITY,
-            BloomNode::IN_VIEW,
             &[
                 core_3d::graph::node::MAIN_PASS,
                 core_3d::graph::node::BLOOM,
@@ -97,8 +95,6 @@ impl Plugin for BloomPlugin {
             render_app,
             core_2d::graph::NAME,
             core_2d::graph::node::BLOOM,
-            core_2d::graph::input::VIEW_ENTITY,
-            BloomNode::IN_VIEW,
             &[
                 core_2d::graph::node::MAIN_PASS,
                 core_2d::graph::node::BLOOM,
@@ -121,10 +117,6 @@ pub struct BloomNode {
     )>,
 }
 
-impl BloomNode {
-    pub const IN_VIEW: &'static str = "view";
-}
-
 impl FromWorld for BloomNode {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -134,10 +126,6 @@ impl FromWorld for BloomNode {
 }
 
 impl Node for BloomNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.view_query.update_archetypes(world);
     }
@@ -157,7 +145,7 @@ impl Node for BloomNode {
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let Ok((
             camera,
             view_target,

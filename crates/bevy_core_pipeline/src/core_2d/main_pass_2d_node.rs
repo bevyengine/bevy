@@ -5,7 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
     renderer::RenderContext,
@@ -37,10 +37,6 @@ impl MainPass2dNode {
 }
 
 impl Node for MainPass2dNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -51,7 +47,7 @@ impl Node for MainPass2dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let (camera, transparent_phase, target, camera_2d) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result

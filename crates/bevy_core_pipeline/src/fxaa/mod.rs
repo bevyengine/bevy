@@ -91,26 +91,21 @@ impl Plugin for FxaaPlugin {
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
 
-        // Add node to 3d graph
         add_node::<FxaaNode>(
             render_app,
             core_3d::graph::NAME,
             core_3d::graph::node::FXAA,
-            core_3d::graph::input::VIEW_ENTITY,
-            FxaaNode::IN_VIEW,
             &[
                 core_3d::graph::node::TONEMAPPING,
                 core_3d::graph::node::FXAA,
                 core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
             ],
         );
-        // Add node to 2d graph
+
         add_node::<FxaaNode>(
             render_app,
             core_2d::graph::NAME,
             core_2d::graph::node::FXAA,
-            core_2d::graph::input::VIEW_ENTITY,
-            FxaaNode::IN_VIEW,
             &[
                 core_2d::graph::node::TONEMAPPING,
                 core_2d::graph::node::FXAA,

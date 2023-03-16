@@ -1,9 +1,6 @@
 use crate::{
     define_atomic_id,
-    render_graph::{
-        Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
-        RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
-    },
+    render_graph::{Edge, RenderGraphContext, RenderGraphError, RunSubGraphError},
     renderer::RenderContext,
 };
 use bevy_ecs::world::World;
@@ -26,18 +23,6 @@ define_atomic_id!(NodeId);
 /// Those inputs and outputs are called slots and are the default way of passing render data
 /// inside the graph. For more information see [`SlotType`](super::SlotType).
 pub trait Node: Downcast + Send + Sync + 'static {
-    /// Specifies the required input slots for this node.
-    /// They will then be available during the run method inside the [`RenderGraphContext`].
-    fn input(&self) -> Vec<SlotInfo> {
-        Vec::new()
-    }
-
-    /// Specifies the produced output slots for this node.
-    /// They can then be passed one inside [`RenderGraphContext`] during the run method.
-    fn output(&self) -> Vec<SlotInfo> {
-        Vec::new()
-    }
-
     /// Updates internal node state using the current render [`World`] prior to the run method.
     fn update(&mut self, _world: &mut World) {}
 
@@ -52,14 +37,8 @@ pub trait Node: Downcast + Send + Sync + 'static {
     ) -> Result<(), NodeRunError>;
 }
 
-impl_downcast!(Node);
-
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum NodeRunError {
-    #[error("encountered an input slot error")]
-    InputSlotError(#[from] InputSlotError),
-    #[error("encountered an output slot error")]
-    OutputSlotError(#[from] OutputSlotError),
     #[error("encountered an error when running a sub-graph")]
     RunSubGraphError(#[from] RunSubGraphError),
 }
@@ -138,42 +117,6 @@ impl Edges {
     pub fn has_output_edge(&self, edge: &Edge) -> bool {
         self.output_edges.contains(edge)
     }
-
-    /// Searches the `input_edges` for a [`Edge::SlotEdge`],
-    /// which `input_index` matches the `index`;
-    pub fn get_input_slot_edge(&self, index: usize) -> Result<&Edge, RenderGraphError> {
-        self.input_edges
-            .iter()
-            .find(|e| {
-                if let Edge::SlotEdge { input_index, .. } = e {
-                    *input_index == index
-                } else {
-                    false
-                }
-            })
-            .ok_or(RenderGraphError::UnconnectedNodeInputSlot {
-                input_slot: index,
-                node: self.id,
-            })
-    }
-
-    /// Searches the `output_edges` for a [`Edge::SlotEdge`],
-    /// which `output_index` matches the `index`;
-    pub fn get_output_slot_edge(&self, index: usize) -> Result<&Edge, RenderGraphError> {
-        self.output_edges
-            .iter()
-            .find(|e| {
-                if let Edge::SlotEdge { output_index, .. } = e {
-                    *output_index == index
-                } else {
-                    false
-                }
-            })
-            .ok_or(RenderGraphError::UnconnectedNodeOutputSlot {
-                output_slot: index,
-                node: self.id,
-            })
-    }
 }
 
 /// The internal representation of a [`Node`], with all data required
@@ -186,8 +129,6 @@ pub struct NodeState {
     /// The name of the type that implements [`Node`].
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
-    pub input_slots: SlotInfos,
-    pub output_slots: SlotInfos,
     pub edges: Edges,
 }
 
@@ -207,8 +148,6 @@ impl NodeState {
         NodeState {
             id,
             name: None,
-            input_slots: node.input().into(),
-            output_slots: node.output().into(),
             node: Box::new(node),
             type_name: std::any::type_name::<T>(),
             edges: Edges {
@@ -217,44 +156,6 @@ impl NodeState {
                 output_edges: Vec::new(),
             },
         }
-    }
-
-    /// Retrieves the [`Node`].
-    pub fn node<T>(&self) -> Result<&T, RenderGraphError>
-    where
-        T: Node,
-    {
-        self.node
-            .downcast_ref::<T>()
-            .ok_or(RenderGraphError::WrongNodeType)
-    }
-
-    /// Retrieves the [`Node`] mutably.
-    pub fn node_mut<T>(&mut self) -> Result<&mut T, RenderGraphError>
-    where
-        T: Node,
-    {
-        self.node
-            .downcast_mut::<T>()
-            .ok_or(RenderGraphError::WrongNodeType)
-    }
-
-    /// Validates that each input slot corresponds to an input edge.
-    pub fn validate_input_slots(&self) -> Result<(), RenderGraphError> {
-        for i in 0..self.input_slots.len() {
-            self.edges.get_input_slot_edge(i)?;
-        }
-
-        Ok(())
-    }
-
-    /// Validates that each output slot corresponds to an output edge.
-    pub fn validate_output_slots(&self) -> Result<(), RenderGraphError> {
-        for i in 0..self.output_slots.len() {
-            self.edges.get_output_slot_edge(i)?;
-        }
-
-        Ok(())
     }
 }
 
@@ -322,20 +223,13 @@ impl RunGraphOnViewNode {
 }
 
 impl Node for RunGraphOnViewNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        graph.run_sub_graph(
-            self.graph_name.clone(),
-            vec![SlotValue::Entity(view_entity)],
-        )?;
+        graph.run_sub_graph(self.graph_name.clone(), graph.view_entity())?;
         Ok(())
     }
 }

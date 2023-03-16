@@ -78,15 +78,11 @@ pub fn add_node<T: Node + FromWorld>(
     render_app: &mut App,
     sub_graph_name: &'static str,
     node_name: &'static str,
-    output_slot: &'static str,
-    input_slot: &'static str,
     edges: &[&'static str],
 ) {
     let node = T::from_world(&mut render_app.world);
     let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
 
-    let graph = render_graph.get_sub_graph_mut(sub_graph_name).unwrap();
+    let graph = render_graph.sub_graph_mut(sub_graph_name);
     graph.add_node_with_edges(node_name, node, edges);
-
-    graph.add_slot_edge(graph.input_node().id, output_slot, node_name, input_slot);
 }

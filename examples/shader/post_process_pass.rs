@@ -15,7 +15,7 @@ use bevy::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+        render_graph::{Node, NodeRunError, RenderGraphContext},
         render_resource::{
             BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -87,8 +87,6 @@ impl Plugin for PostProcessPlugin {
             render_app,
             core_3d::graph::NAME,
             PostProcessNode::NAME,
-            core_3d::graph::input::VIEW_ENTITY,
-            PostProcessNode::IN_VIEW,
             &[
                 core_3d::graph::node::MAIN_PASS,
                 PostProcessNode::NAME,
@@ -106,7 +104,6 @@ struct PostProcessNode {
 }
 
 impl PostProcessNode {
-    pub const IN_VIEW: &str = "view";
     pub const NAME: &str = "post_process";
 }
 
@@ -119,14 +116,6 @@ impl FromWorld for PostProcessNode {
 }
 
 impl Node for PostProcessNode {
-    // This defines the input slot of the node and tells the render graph what
-    // we will need when running the node.
-    fn input(&self) -> Vec<SlotInfo> {
-        // In this case we tell the graph that our node will use the view entity.
-        // Currently, every node in bevy uses this pattern, so it's safe to just copy it.
-        vec![SlotInfo::new(PostProcessNode::IN_VIEW, SlotType::Entity)]
-    }
-
     // This will run every frame before the run() method
     // The important difference is that `self` is `mut` here
     fn update(&mut self, world: &mut World) {
@@ -148,7 +137,7 @@ impl Node for PostProcessNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the entity of the view for the render graph where this node is running
-        let view_entity = graph_context.get_input_entity(PostProcessNode::IN_VIEW)?;
+        let view_entity = graph_context.view_entity();
 
         // We get the data we need from the world based on the view entity passed to the node.
         // The data is the query that was defined earlier in the [`PostProcessNode`]
@@ -185,15 +174,19 @@ impl Node for PostProcessNode {
 
         // The bind_group gets created each frame.
         //
-        // Normally, you would create a bind_group in the Queue stage, but this doesn't work with the post_process_write().
-        // The reason it doesn't work is because each post_process_write will alternate the source/destination.
-        // The only way to have the correct source/destination for the bind_group is to make sure you get it during the node execution.
+        // Normally, you would create a bind_group in the Queue stage,
+        // but this doesn't work with the post_process_write().
+        // The reason it doesn't work is because each post_process_write will
+        // alternate the source/destination.
+        // The only way to have the correct source/destination for the bind_group
+        // is to make sure you get it during the node execution.
         let bind_group = render_context
             .render_device()
             .create_bind_group(&BindGroupDescriptor {
                 label: Some("post_process_bind_group"),
                 layout: &post_process_pipeline.layout,
-                // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
+                // It's important for this to match the BindGroupLayout defined in
+                // the PostProcessPipeline
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
@@ -352,7 +345,8 @@ fn setup(
             ..default()
         },
         // Add the setting to the camera.
-        // This component is also used to determine on which camera to run the post processing effect.
+        // This component is also used to determine on which camera to 
+        // run the post processing effect.
         PostProcessSettings { intensity: 0.02 },
     ));
 
