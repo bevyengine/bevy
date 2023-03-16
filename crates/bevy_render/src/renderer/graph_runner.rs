@@ -8,7 +8,7 @@ use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
-    render_graph::{Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext},
+    render_graph::{NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext},
     renderer::{RenderContext, RenderDevice},
 };
 
@@ -65,17 +65,13 @@ impl RenderGraphRunner {
             }
 
             // check if all dependencies have finished running
-            for (edge, input_node) in graph
+            for (_edge, input_node) in graph
                 .iter_node_inputs(node_state.id)
                 .expect("node is in graph")
             {
-                match edge {
-                    Edge::NodeEdge { .. } => {
-                        if !node_completed.contains(&input_node.id) {
-                            node_queue.push_front(node_state);
-                            continue 'handle_node;
-                        }
-                    }
+                if !node_completed.contains(&input_node.id) {
+                    node_queue.push_front(node_state);
+                    continue 'handle_node;
                 }
             }
 

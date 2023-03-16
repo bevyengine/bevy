@@ -14,28 +14,10 @@ use super::NodeId;
 /// with an input slot of the `input_node` to pass additional data along.
 /// For more information see [`SlotType`](super::SlotType).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Edge {
+pub struct Edge {
     /// An edge describing to ordering of both nodes (`output_node` before `input_node`).
-    NodeEdge {
-        input_node: NodeId,
-        output_node: NodeId,
-    },
-}
-
-impl Edge {
-    /// Returns the id of the `input_node`.
-    pub fn get_input_node(&self) -> NodeId {
-        match self {
-            Edge::NodeEdge { input_node, .. } => *input_node,
-        }
-    }
-
-    /// Returns the id of the `output_node`.
-    pub fn get_output_node(&self) -> NodeId {
-        match self {
-            Edge::NodeEdge { output_node, .. } => *output_node,
-        }
-    }
+    pub input_node: NodeId,
+    pub output_node: NodeId,
 }
 
 #[derive(PartialEq, Eq)]

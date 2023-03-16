@@ -117,29 +117,15 @@ impl RenderGraph {
                 // Remove all edges from other nodes to this one. Note that as we're removing this
                 // node, we don't need to remove its input edges
                 for input_edge in node_state.edges.input_edges().iter() {
-                    match input_edge {
-                        Edge::NodeEdge {
-                            input_node: _,
-                            output_node,
-                        } => {
-                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
-                                output_node.edges.remove_output_edge(input_edge.clone())?;
-                            }
-                        }
+                    if let Ok(output_node) = self.get_node_state_mut(input_edge.output_node) {
+                        output_node.edges.remove_output_edge(input_edge.clone())?;
                     }
                 }
                 // Remove all edges from this node to other nodes. Note that as we're removing this
                 // node, we don't need to remove its output edges
                 for output_edge in node_state.edges.output_edges().iter() {
-                    match output_edge {
-                        Edge::NodeEdge {
-                            output_node: _,
-                            input_node,
-                        } => {
-                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
-                                input_node.edges.remove_input_edge(output_edge.clone())?;
-                            }
-                        }
+                    if let Ok(input_node) = self.get_node_state_mut(output_edge.input_node) {
+                        input_node.edges.remove_input_edge(output_edge.clone())?;
                     }
                 }
             }
@@ -201,7 +187,7 @@ impl RenderGraph {
         let output_node_id = self.get_node_id(output_node)?;
         let input_node_id = self.get_node_id(input_node)?;
 
-        let edge = Edge::NodeEdge {
+        let edge = Edge {
             output_node: output_node_id,
             input_node: input_node_id,
         };
@@ -218,7 +204,7 @@ impl RenderGraph {
         Ok(())
     }
 
-    /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
+    /// Adds the [`Edge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node`.
     ///
     /// # Panics
@@ -236,7 +222,7 @@ impl RenderGraph {
         self.try_add_node_edge(output_node, input_node).unwrap();
     }
 
-    /// Removes the [`Edge::NodeEdge`] from the graph. If either node does not exist then nothing
+    /// Removes the [`Edge`] from the graph. If either node does not exist then nothing
     /// happens.
     pub fn remove_node_edge(
         &mut self,
@@ -246,7 +232,7 @@ impl RenderGraph {
         let output_node_id = self.get_node_id(output_node)?;
         let input_node_id = self.get_node_id(input_node)?;
 
-        let edge = Edge::NodeEdge {
+        let edge = Edge {
             output_node: output_node_id,
             input_node: input_node_id,
         };
@@ -281,8 +267,8 @@ impl RenderGraph {
 
     /// Checks whether the `edge` already exists in the graph.
     pub fn has_edge(&self, edge: &Edge) -> bool {
-        let output_node_state = self.get_node_state(edge.get_output_node());
-        let input_node_state = self.get_node_state(edge.get_input_node());
+        let output_node_state = self.get_node_state(edge.output_node);
+        let input_node_state = self.get_node_state(edge.input_node);
         if let Ok(output_node_state) = output_node_state {
             if output_node_state.edges.output_edges().contains(edge) {
                 if let Ok(input_node_state) = input_node_state {
@@ -331,7 +317,7 @@ impl RenderGraph {
             .edges
             .input_edges()
             .iter()
-            .map(|edge| (edge, edge.get_output_node()))
+            .map(|edge| (edge, edge.output_node))
             .map(move |(edge, output_node_id)| {
                 (edge, self.get_node_state(output_node_id).unwrap())
             }))
@@ -348,7 +334,7 @@ impl RenderGraph {
             .edges
             .output_edges()
             .iter()
-            .map(|edge| (edge, edge.get_input_node()))
+            .map(|edge| (edge, edge.input_node))
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
     }
 
@@ -501,7 +487,7 @@ mod tests {
         graph.add_node_edge("A", "B");
         assert_eq!(
             graph.try_add_node_edge("A", "B"),
-            Err(RenderGraphError::EdgeAlreadyExists(Edge::NodeEdge {
+            Err(RenderGraphError::EdgeAlreadyExists(Edge {
                 output_node: graph.get_node_id("A").unwrap(),
                 input_node: graph.get_node_id("B").unwrap(),
             })),

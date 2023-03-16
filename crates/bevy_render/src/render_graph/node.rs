@@ -4,7 +4,6 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::world::World;
-use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
@@ -22,7 +21,7 @@ define_atomic_id!(NodeId);
 /// A node can produce outputs used as dependencies by other nodes.
 /// Those inputs and outputs are called slots and are the default way of passing render data
 /// inside the graph. For more information see [`SlotType`](super::SlotType).
-pub trait Node: Downcast + Send + Sync + 'static {
+pub trait Node: Send + Sync + 'static {
     /// Updates internal node state using the current render [`World`] prior to the run method.
     fn update(&mut self, _world: &mut World) {}
 
