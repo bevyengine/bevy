@@ -2,7 +2,7 @@
 //! This can be extremely useful for steady, frame-rate independent gameplay logic and physics.
 //!
 //! To run a system on a fixed timestep, add it to the [`FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
-//! This schedule is run in [`FixedUpdateLoop`](bevy_app::FixedUpdateLoop) near the start of each frame,
+//! This schedule is run in [`RunFixedUpdateLoop`](bevy_app::RunFixedUpdateLoop) near the start of each frame,
 //! via the [`run_fixed_update_schedule`] exclusive system.
 //!
 //! This schedule will be run a number of times each frame,
