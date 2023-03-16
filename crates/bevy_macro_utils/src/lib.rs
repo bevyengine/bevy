@@ -10,7 +10,8 @@ pub use symbol::*;
 
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use std::{collections::HashSet, env, path::PathBuf};
+use rustc_hash::FxHashSet;
+use std::{env, path::PathBuf};
 use syn::{spanned::Spanned, Ident};
 use toml_edit::{Document, Item};
 
@@ -120,7 +121,7 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
         // List of token streams that will be visited in future loop iterations.
         let mut unvisited = vec![haystack];
         // Identifiers we have found while searching tokens.
-        let mut found = HashSet::new();
+        let mut found = FxHashSet::default();
         while let Some(tokens) = unvisited.pop() {
             for t in tokens {
                 match t {
