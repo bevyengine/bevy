@@ -389,8 +389,8 @@ where
             func: self.func.clone(),
             system_meta: self.system_meta.clone(),
             param_state: None,
-            world_id: self.world_id.clone(),
-            archetype_generation: self.archetype_generation.clone(),
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
             marker: PhantomData,
         }
     }
