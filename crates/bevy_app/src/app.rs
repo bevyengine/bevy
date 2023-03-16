@@ -81,7 +81,7 @@ pub struct App {
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    building_plugin_counter: usize,
+    building_plugin_depth: usize,
 }
 
 impl Debug for App {
@@ -228,7 +228,7 @@ impl App {
             plugin_name_added: Default::default(),
             default_schedule_label: Box::new(CoreSchedule::Main),
             outer_schedule_label: Box::new(CoreSchedule::Outer),
-            building_plugin_counter: 0,
+            building_plugin_depth: 0,
         }
     }
 
@@ -291,7 +291,7 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        if app.building_plugin_counter > 0 {
+        if app.building_plugin_depth > 0 {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
@@ -765,9 +765,9 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
-        self.building_plugin_counter += 1;
+        self.building_plugin_depth += 1;
         plugin.build(self);
-        self.building_plugin_counter -= 1;
+        self.building_plugin_depth -= 1;
         self.plugin_registry.push(plugin);
         Ok(self)
     }
