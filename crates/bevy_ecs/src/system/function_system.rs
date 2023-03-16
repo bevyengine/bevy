@@ -380,6 +380,23 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+impl<Marker, F> Clone for FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker> + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            func: self.func.clone(),
+            system_meta: self.system_meta.clone(),
+            param_state: None,
+            world_id: self.world_id.clone(),
+            archetype_generation: self.archetype_generation.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct IsFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F

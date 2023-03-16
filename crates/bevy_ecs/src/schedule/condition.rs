@@ -1,6 +1,10 @@
-use std::borrow::Cow;
+use std::any::TypeId;
+use std::{borrow::Cow, marker::PhantomData};
 
+use crate::component::{self, ComponentId};
+use crate::query::Access;
 use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
+use crate::world::World;
 
 pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 
@@ -131,13 +135,16 @@ mod sealed {
 }
 
 pub mod common_conditions {
-    use super::Condition;
+
+    use std::{borrow::Cow, marker::PhantomData};
+
+    use super::{Condition, ConditionInverter};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         schedule::{State, States},
-        system::{In, IntoPipeSystem, Res, Resource},
+        system::{IntoSystem, Res, Resource, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -915,12 +922,105 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, T>(condition: T) -> impl Condition<()>
+    pub fn not<Marker, T>(condition: T) -> ConditionInverter<Marker, T::System>
     where
+        Marker: 'static,
         T: Condition<Marker>,
     {
-        condition.pipe(|In(val): In<bool>| !val)
+        let condition = IntoSystem::into_system(condition);
+        let name = format!("!{}", condition.name());
+        ConditionInverter::<Marker, T::System> {
+            _marker: PhantomData,
+            condition,
+            name: Cow::Owned(name),
+        }
     }
+}
+
+/// Inverts the output of a [`Condition`].
+///
+/// See [`common_conditions::not`] for examples.
+#[derive(Clone)]
+pub struct ConditionInverter<Marker, T>
+where
+    T: System<In = (), Out = bool> + ReadOnlySystem,
+{
+    _marker: PhantomData<fn() -> Marker>,
+    condition: T,
+    name: Cow<'static, str>,
+}
+impl<Marker, T> System for ConditionInverter<Marker, T>
+where
+    Marker: 'static,
+    T: System<In = (), Out = bool> + ReadOnlySystem,
+{
+    type In = ();
+    type Out = bool;
+
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<T>()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        self.condition.component_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<crate::archetype::ArchetypeComponentId> {
+        self.condition.archetype_component_access()
+    }
+
+    fn is_send(&self) -> bool {
+        self.condition.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.condition.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+        // SAFETY: The inner condition system asserts its own safety.
+        !self.condition.run_unsafe(input, world)
+    }
+
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        !self.condition.run(input, world)
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.condition.apply_buffers(world);
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.condition.initialize(world);
+    }
+
+    fn update_archetype_component_access(&mut self, world: &World) {
+        self.condition.update_archetype_component_access(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: component::Tick) {
+        self.condition.check_change_tick(change_tick);
+    }
+
+    fn get_last_run(&self) -> component::Tick {
+        self.condition.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: component::Tick) {
+        self.condition.set_last_run(last_run);
+    }
+}
+
+// SAFETY: The inner condition asserts its own safety.
+unsafe impl<Marker, T> ReadOnlySystem for ConditionInverter<Marker, T>
+where
+    Marker: 'static,
+    T: System<In = (), Out = bool> + ReadOnlySystem,
+{
 }
 
 /// Combines the outputs of two systems using the `&&` operator.
@@ -973,12 +1073,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::Condition;
+    use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
-    use crate::schedule::common_conditions::not;
-    use crate::schedule::IntoSystemConfig;
-    use crate::system::Local;
-    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
+    use crate::{
+        change_detection::ResMut,
+        component::Component,
+        schedule::{
+            common_conditions::not, IntoSystemConfig, IntoSystemConfigs, Schedule, State, States,
+        },
+        system::Local,
+        world::World,
+    };
     use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
@@ -1073,5 +1178,38 @@ mod tests {
         assert_eq!(world.resource::<Counter>().0, 0);
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 0);
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+    }
+
+    #[derive(Component)]
+    struct TestComponent;
+
+    fn test_system() {}
+
+    // Ensure distributive_run_if compiles with the common conditions.
+    #[test]
+    fn distributive_run_if_compiles() {
+        Schedule::default().add_systems(
+            (test_system, test_system)
+                .distributive_run_if(run_once())
+                .distributive_run_if(resource_exists::<State<TestState>>())
+                .distributive_run_if(resource_added::<State<TestState>>())
+                .distributive_run_if(resource_changed::<State<TestState>>())
+                .distributive_run_if(resource_exists_and_changed::<State<TestState>>())
+                .distributive_run_if(resource_changed_or_removed::<State<TestState>>())
+                .distributive_run_if(resource_removed::<State<TestState>>())
+                .distributive_run_if(state_exists::<TestState>())
+                .distributive_run_if(in_state(TestState::A))
+                .distributive_run_if(state_changed::<TestState>())
+                .distributive_run_if(on_event::<u8>())
+                .distributive_run_if(any_with_component::<TestComponent>())
+                .distributive_run_if(not(run_once())),
+        );
     }
 }
