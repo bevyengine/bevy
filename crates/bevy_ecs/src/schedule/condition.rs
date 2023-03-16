@@ -137,7 +137,7 @@ mod sealed {
 pub mod common_conditions {
     use std::borrow::Cow;
 
-    use super::{Condition, NotSystem};
+    use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
@@ -921,36 +921,39 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, T>(condition: T) -> NotSystem<T::System>
+    pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System, TOut>
     where
-        T: Condition<Marker>,
+        TOut: std::ops::Not,
+        T: IntoSystem<(), TOut, Marker>,
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
-        NotSystem::<T::System> {
+        NotSystem::<T::System, TOut> {
             condition,
             name: Cow::Owned(name),
         }
     }
 }
 
-/// Inverts the output of a [`Condition`].
+/// Invokes [`std::ops::Not`] with the output of another system.
 ///
 /// See [`common_conditions::not`] for examples.
 #[derive(Clone)]
-pub struct NotSystem<T>
+pub struct NotSystem<T, TOut>
 where
-    T: System<In = (), Out = bool>,
+    TOut: std::ops::Not + 'static,
+    T: System<In = (), Out = TOut>,
 {
     condition: T,
     name: Cow<'static, str>,
 }
-impl<T> System for NotSystem<T>
+impl<T, TOut> System for NotSystem<T, TOut>
 where
-    T: System<In = (), Out = bool>,
+    TOut: std::ops::Not + 'static,
+    T: System<In = (), Out = TOut>,
 {
     type In = ();
-    type Out = bool;
+    type Out = TOut::Output;
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
@@ -1011,7 +1014,12 @@ where
 }
 
 // SAFETY: The inner condition asserts its own safety.
-unsafe impl<T> ReadOnlySystem for NotSystem<T> where T: System<In = (), Out = bool> + ReadOnlySystem {}
+unsafe impl<TOut, T> ReadOnlySystem for NotSystem<T, TOut>
+where
+    TOut: std::ops::Not + 'static,
+    T: ReadOnlySystem<In = (), Out = TOut> + ReadOnlySystem,
+{
+}
 
 /// Combines the outputs of two systems using the `&&` operator.
 pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
