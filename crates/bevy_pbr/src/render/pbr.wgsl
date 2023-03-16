@@ -71,9 +71,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.world_position = in.world_position;
         pbr_input.world_normal = prepare_world_normal(
             in.world_normal,
-            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-            (material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u,
             in.is_front,
+            material.flags,
         );
 
         pbr_input.is_orthographic = view.projection[3].w == 1.0;

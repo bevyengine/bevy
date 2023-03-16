@@ -73,9 +73,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let world_normal = prepare_world_normal(
             in.world_normal,
-            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-            (material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u,
             in.is_front,
+            material.flags,
         );
 
         var normal = normalize(world_normal);

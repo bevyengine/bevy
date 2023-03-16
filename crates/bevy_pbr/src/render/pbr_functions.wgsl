@@ -29,12 +29,17 @@ fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f3
 
 fn prepare_world_normal(
     world_normal: vec3<f32>,
-    double_sided: bool,
     is_front: bool,
-    normal_map: bool,
+    standard_material_flags: u32,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
+
+    // if we don't have vertex tangents, we can't be normal mapping
 #ifndef VERTEX_TANGENTS
+    let flags = standard_material_flags;
+    let double_sided = (flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
+    let normal_map = (flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u;
+
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted.
     if double_sided && !normal_map && !is_front {
