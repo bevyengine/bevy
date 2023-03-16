@@ -113,7 +113,7 @@ pub struct TemporalAntialiasBundle {
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
 /// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO, SSR, and shadow mapping (WIP)
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, shadow mapping, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
