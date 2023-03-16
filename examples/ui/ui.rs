@@ -49,6 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
+                                flex_direction: FlexDirection::Column,
                                 size: Size::width(Val::Percent(100.)),
                                 ..default()
                             },
@@ -75,6 +76,55 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 // for accessibility to treat the text accordingly.
                                 Label,
                             ));
+
+                            // Scrolling list
+                            parent
+                                .spawn(NodeBundle {
+                                    style: Style {
+                                        flex_direction: FlexDirection::Column,
+                                        align_self: AlignSelf::Stretch,
+                                        size: Size::height(Val::Percent(50.)),
+                                        overflow: Overflow::Scroll,
+                                        ..default()
+                                    },
+                                    background_color: Color::rgb(0.10, 0.10, 0.10).into(),
+                                    ..default()
+                                })
+                                .with_children(|parent| {
+                                    // Moving panel
+                                    parent
+                                        .spawn((
+                                            NodeBundle {
+                                                style: Style {
+                                                    flex_direction: FlexDirection::Column,
+                                                    align_items: AlignItems::Center,
+                                                    ..default()
+                                                },
+                                                ..default()
+                                            },
+                                            AccessibilityNode(NodeBuilder::new(Role::List)),
+                                        ))
+                                        .with_children(|parent| {
+                                            // List items
+                                            for i in 0..100 {
+                                                parent.spawn((
+                                                    TextBundle::from_section(
+                                                        format!("Item {}", i + 1),
+                                                        TextStyle {
+                                                            font: asset_server
+                                                                .load("fonts/FiraSans-Bold.ttf"),
+                                                            font_size: 20.,
+                                                            color: Color::WHITE,
+                                                        },
+                                                    ),
+                                                    Label,
+                                                    AccessibilityNode(NodeBuilder::new(
+                                                        Role::ListItem,
+                                                    )),
+                                                ));
+                                            }
+                                        });
+                                });
                         });
                 });
             // right vertical fill
@@ -103,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ),
                         Label,
                     ));
-                    // List with hidden overflow
+                    // Scrolling list
                     parent
                         .spawn(NodeBundle {
                             style: Style {
