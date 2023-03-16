@@ -1,5 +1,5 @@
 use std::any::TypeId;
-use std::{borrow::Cow, marker::PhantomData};
+use std::borrow::Cow;
 
 use crate::component::{self, ComponentId};
 use crate::query::Access;
@@ -135,8 +135,7 @@ mod sealed {
 }
 
 pub mod common_conditions {
-
-    use std::{borrow::Cow, marker::PhantomData};
+    use std::borrow::Cow;
 
     use super::{Condition, ConditionInverter};
     use crate::{
@@ -922,15 +921,13 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, T>(condition: T) -> ConditionInverter<Marker, T::System>
+    pub fn not<Marker, T>(condition: T) -> ConditionInverter<T::System>
     where
-        Marker: 'static,
         T: Condition<Marker>,
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
-        ConditionInverter::<Marker, T::System> {
-            _marker: PhantomData,
+        ConditionInverter::<T::System> {
             condition,
             name: Cow::Owned(name),
         }
@@ -940,18 +937,16 @@ pub mod common_conditions {
 /// Inverts the output of a [`Condition`].
 ///
 /// See [`common_conditions::not`] for examples.
-
-pub struct ConditionInverter<Marker, T>
+#[derive(Clone)]
+pub struct ConditionInverter<T>
 where
     T: System<In = (), Out = bool> + ReadOnlySystem,
 {
-    _marker: PhantomData<fn() -> Marker>,
     condition: T,
     name: Cow<'static, str>,
 }
-impl<Marker, T> System for ConditionInverter<Marker, T>
+impl<T> System for ConditionInverter<T>
 where
-    Marker: 'static,
     T: System<In = (), Out = bool> + ReadOnlySystem,
 {
     type In = ();
@@ -1016,24 +1011,9 @@ where
 }
 
 // SAFETY: The inner condition asserts its own safety.
-unsafe impl<Marker, T> ReadOnlySystem for ConditionInverter<Marker, T>
-where
-    Marker: 'static,
-    T: System<In = (), Out = bool> + ReadOnlySystem,
+unsafe impl<T> ReadOnlySystem for ConditionInverter<T> where
+    T: System<In = (), Out = bool> + ReadOnlySystem
 {
-}
-
-impl<Marker, T> Clone for ConditionInverter<Marker, T>
-where
-    T: System<In = (), Out = bool> + ReadOnlySystem + Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            _marker: PhantomData,
-            condition: self.condition.clone(),
-            name: self.name.clone(),
-        }
-    }
 }
 
 /// Combines the outputs of two systems using the `&&` operator.
