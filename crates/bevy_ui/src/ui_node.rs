@@ -971,7 +971,7 @@ impl Default for FlexWrap {
 ///
 /// Defaults to [`GridAutoFlow::Row`]
 ///
-/// [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow)
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum GridAutoFlow {
