@@ -3,7 +3,9 @@
 use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::Resource,
+    system::{Local, Resource},
+    world::{FromWorld, World},
+    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -12,6 +14,7 @@ use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
+    marker::PhantomData,
     mem::needs_drop,
 };
 
@@ -236,7 +239,8 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
-    fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    /// Create a new [`ComponentInfo`].
+    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo { id, descriptor }
     }
 }
@@ -398,8 +402,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: TypeIdMap<usize>,
+    resource_indices: TypeIdMap<usize>,
 }
 
 impl Components {
@@ -457,6 +461,11 @@ impl Components {
         self.components.get(id.0)
     }
 
+    #[inline]
+    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
+        self.get_info(id).map(|descriptor| descriptor.name())
+    }
+
     /// # Safety
     ///
     /// `id` must be a valid [`ComponentId`]
@@ -498,11 +507,38 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
+    /// Type-erased equivalent of [`Components::resource_id`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices
             .get(&type_id)
             .map(|index| ComponentId(*index))
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Resource` type has not
+    /// yet been initialized using [`Components::init_resource`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ResourceA;
+    ///
+    /// let resource_a_id = world.init_resource::<ResourceA>();
+    ///
+    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.get_resource_id(TypeId::of::<T>())
     }
 
     #[inline]
@@ -550,59 +586,72 @@ impl Components {
     }
 }
 
-/// Used to track changes in state between system runs, e.g. components being added or accessed mutably.
+/// A value that tracks when a system ran relative to other systems.
+/// This is used to power change detection.
 #[derive(Copy, Clone, Debug)]
 pub struct Tick {
-    pub(crate) tick: u32,
+    tick: u32,
 }
 
 impl Tick {
+    /// The maximum relative age for a change tick.
+    /// The value of this is equal to [`crate::change_detection::MAX_CHANGE_AGE`].
+    ///
+    /// Since change detection will not work for any ticks older than this,
+    /// ticks are periodically scanned to ensure their relative values are below this.
+    pub const MAX: Self = Self::new(MAX_CHANGE_AGE);
+
     pub const fn new(tick: u32) -> Self {
         Self { tick }
     }
 
+    /// Gets the value of this change tick.
     #[inline]
-    /// Returns `true` if the tick is older than the system last's run.
-    pub fn is_older_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
-        // `last_change_tick` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
+    pub const fn get(self) -> u32 {
+        self.tick
+    }
+
+    /// Sets the value of this change tick.
+    #[inline]
+    pub fn set(&mut self, tick: u32) {
+        self.tick = tick;
+    }
+
+    #[inline]
+    /// Returns `true` if this `Tick` occurred since the system's `last_run`.
+    ///
+    /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
+    pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
+        // This works even with wraparound because the world tick (`this_run`) is always "newer" than
+        // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_insert = change_tick.wrapping_sub(self.tick).min(MAX_CHANGE_AGE);
-        let ticks_since_system = change_tick
-            .wrapping_sub(last_change_tick)
-            .min(MAX_CHANGE_AGE);
+        let ticks_since_insert = this_run.relative_to(self).tick.min(MAX_CHANGE_AGE);
+        let ticks_since_system = this_run.relative_to(last_run).tick.min(MAX_CHANGE_AGE);
 
         ticks_since_system > ticks_since_insert
     }
 
-    pub(crate) fn check_tick(&mut self, change_tick: u32) {
-        let age = change_tick.wrapping_sub(self.tick);
-        // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-        // so long as this check always runs before that can happen.
-        if age > MAX_CHANGE_AGE {
-            self.tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
-        }
+    /// Returns a change tick representing the relationship between `self` and `other`.
+    pub(crate) fn relative_to(self, other: Self) -> Self {
+        let tick = self.tick.wrapping_sub(other.tick);
+        Self { tick }
     }
 
-    /// Manually sets the change tick.
+    /// Wraps this change tick's value if it exceeds [`Tick::MAX`].
     ///
-    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
-    /// However, components and resources that make use of interior mutability might require manual updates.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// # use bevy_ecs::{world::World, component::ComponentTicks};
-    /// let world: World = unimplemented!();
-    /// let component_ticks: ComponentTicks = unimplemented!();
-    ///
-    /// component_ticks.set_changed(world.read_change_tick());
-    /// ```
-    #[inline]
-    pub fn set_changed(&mut self, change_tick: u32) {
-        self.tick = change_tick;
+    /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
+    pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
+        let age = tick.relative_to(*self);
+        // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
+        // so long as this check always runs before that can happen.
+        if age.get() > Self::MAX.get() {
+            *self = tick.relative_to(Self::MAX);
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -635,20 +684,20 @@ pub struct ComponentTicks {
 impl ComponentTicks {
     #[inline]
     /// Returns `true` if the component was added after the system last ran.
-    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.added.is_older_than(last_change_tick, change_tick)
+    pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
+        self.added.is_newer_than(last_run, this_run)
     }
 
     #[inline]
     /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.changed.is_older_than(last_change_tick, change_tick)
+    pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
+        self.changed.is_newer_than(last_run, this_run)
     }
 
-    pub(crate) fn new(change_tick: u32) -> Self {
+    pub(crate) fn new(change_tick: Tick) -> Self {
         Self {
-            added: Tick::new(change_tick),
-            changed: Tick::new(change_tick),
+            added: change_tick,
+            changed: change_tick,
         }
     }
 
@@ -667,7 +716,52 @@ impl ComponentTicks {
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
     #[inline]
-    pub fn set_changed(&mut self, change_tick: u32) {
-        self.changed.set_changed(change_tick);
+    pub fn set_changed(&mut self, change_tick: Tick) {
+        self.changed = change_tick;
+    }
+}
+
+/// Initialize and fetch a [`ComponentId`] for a specific type.
+///
+/// # Example
+/// ```rust
+/// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
+/// #[derive(Component)]
+/// struct Player;
+/// fn my_system(component_id: Local<ComponentIdFor<Player>>) {
+///     let component_id: ComponentId = component_id.into();
+///     // ...
+/// }
+/// ```
+pub struct ComponentIdFor<T: Component> {
+    component_id: ComponentId,
+    phantom: PhantomData<T>,
+}
+
+impl<T: Component> FromWorld for ComponentIdFor<T> {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            component_id: world.init_component::<T>(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T: Component> std::ops::Deref for ComponentIdFor<T> {
+    type Target = ComponentId;
+    fn deref(&self) -> &Self::Target {
+        &self.component_id
+    }
+}
+
+impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
+    fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
+        *to_component_id
+    }
+}
+
+impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
+    fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
+        **to_component_id
     }
 }

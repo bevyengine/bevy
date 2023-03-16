@@ -3,21 +3,20 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_startup_system(infotext_system)
-        .add_system(change_text_system)
+        .add_systems((infotext_system.on_startup(), change_text_system))
         .run();
 }
 
@@ -38,11 +37,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(15.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(15.0),
             ..default()
         }),
     );
@@ -54,18 +50,12 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: Color::rgb(0.8, 0.2, 0.7),
             },
         )
-        .with_text_alignment(TextAlignment::CENTER)
+        .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
-            max_size: Size {
-                width: Val::Px(400.),
-                height: Val::Undefined,
-            },
+            top: Val::Px(5.0),
+            right: Val::Px(15.0),
+            max_size: Size::width(Val::Px(400.)),
             ..default()
         })
     );
@@ -116,11 +106,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
             ..default()
         }),
         TextChanges,
@@ -137,11 +124,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                left: Val::Px(15.0),
-                ..default()
-            },
+            bottom: Val::Px(5.0),
+            left: Val::Px(15.0),
             size: Size {
                 width: Val::Px(200.0),
                 ..default()

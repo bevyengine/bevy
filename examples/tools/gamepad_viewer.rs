@@ -7,7 +7,7 @@ use bevy::{
         GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
     },
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -127,14 +127,13 @@ fn main() {
         .init_resource::<ButtonMaterials>()
         .init_resource::<ButtonMeshes>()
         .init_resource::<FontHandle>()
-        .add_startup_system(setup)
-        .add_startup_system(setup_sticks)
-        .add_startup_system(setup_triggers)
-        .add_startup_system(setup_connected)
-        .add_system(update_buttons)
-        .add_system(update_button_values)
-        .add_system(update_axes)
-        .add_system(update_connected)
+        .add_startup_systems((setup, setup_sticks, setup_triggers, setup_connected))
+        .add_systems((
+            update_buttons,
+            update_button_values,
+            update_axes,
+            update_connected,
+        ))
         .run();
 }
 
@@ -342,8 +341,8 @@ fn setup_sticks(
                                 value: format!("{:.3}", 0.),
                                 style,
                             },
-                        ])
-                        .with_alignment(TextAlignment::BOTTOM_CENTER),
+                        ]),
+                        text_anchor: Anchor::BottomCenter,
                         ..default()
                     },
                     TextWithAxes { x_axis, y_axis },
@@ -409,8 +408,7 @@ fn setup_triggers(
                                 font_size: 16.,
                                 color: TEXT_COLOR,
                             },
-                        )
-                        .with_alignment(TextAlignment::CENTER),
+                        ),
                         ..default()
                     },
                     TextWithButtonValue(button_type),

@@ -110,8 +110,12 @@ impl Deref for IoTaskPool {
     }
 }
 
-/// Used by `bevy_core` to tick the global tasks pools on the main thread.
+/// A function used by `bevy_core` to tick the global tasks pools on the main thread.
 /// This will run a maximum of 100 local tasks per executor per call to this function.
+///
+/// # Warning
+///
+/// This function *must* be called on the main thread, or the task pools will not be updated appropriately.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn tick_global_task_pools_on_main_thread() {
     COMPUTE_TASK_POOL

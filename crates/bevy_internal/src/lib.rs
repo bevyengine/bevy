@@ -7,6 +7,11 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
+pub mod a11y {
+    //! Integrate with platform accessibility APIs.
+    pub use bevy_a11y::*;
+}
+
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
     pub use bevy_app::*;
@@ -172,6 +177,3 @@ pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
-
-#[cfg(target_os = "android")]
-pub use ndk_glue;

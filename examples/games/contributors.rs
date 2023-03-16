@@ -11,12 +11,13 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_contributor_selection)
-        .add_startup_system(setup)
-        .add_system(velocity_system)
-        .add_system(move_system)
-        .add_system(collision_system)
-        .add_system(select_system)
+        .add_startup_systems((setup_contributor_selection, setup))
+        .add_systems((
+            velocity_system,
+            move_system,
+            collision_system,
+            select_system,
+        ))
         .init_resource::<SelectionState>()
         .run();
 }
@@ -245,17 +246,15 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let Some(window) = windows.get_primary() else {
-        return;
-    };
+    let window = windows.single();
 
     let ceiling = window.height() / 2.;
-    let ground = -(window.height() / 2.);
+    let ground = -window.height() / 2.;
 
-    let wall_left = -(window.width() / 2.);
+    let wall_left = -window.width() / 2.;
     let wall_right = window.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.

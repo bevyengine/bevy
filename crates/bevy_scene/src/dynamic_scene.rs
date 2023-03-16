@@ -71,6 +71,7 @@ impl DynamicScene {
             let entity = *entity_map
                 .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
                 .or_insert_with(|| world.spawn_empty().id());
+            let entity_mut = &mut world.entity_mut(entity);
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
@@ -89,7 +90,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert(world, entity, &**component);
+                reflect_component.apply_or_insert(entity_mut, &**component);
             }
         }
 

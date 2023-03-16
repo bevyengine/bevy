@@ -11,8 +11,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_startup_system(setup)
-        .add_system(rotate)
+        .add_systems((setup.on_startup(), rotate))
         .run();
 }
 
@@ -75,7 +74,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane { size: 50. }.into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
         material: materials.add(Color::SILVER.into()),
         ..default()
     });

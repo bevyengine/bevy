@@ -2,6 +2,9 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_render::ExtractSchedule;
+#[cfg(feature = "bevy_text")]
+use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
@@ -22,14 +25,16 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
-use bevy_text::{Text, TextLayoutInfo};
+use bevy_sprite::SpriteAssetEvents;
+#[cfg(feature = "bevy_text")]
+use bevy_sprite::TextureAtlas;
+#[cfg(feature = "bevy_text")]
+use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
-use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -50,7 +55,7 @@ pub mod draw_ui_graph {
 pub const UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
 }
@@ -71,25 +76,21 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera2d>,
+        .add_systems(
+            (
+                extract_default_ui_camera_view::<Camera2d>,
+                extract_default_ui_camera_view::<Camera3d>,
+                extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                #[cfg(feature = "bevy_text")]
+                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+            )
+                .in_schedule(ExtractSchedule),
         )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera3d>,
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_uinodes.label(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
-        .add_system_to_stage(RenderStage::Queue, queue_uinodes)
-        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+        .add_systems((
+            prepare_uinodes.in_set(RenderSet::Prepare),
+            queue_uinodes.in_set(RenderSet::Queue),
+            sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+        ));
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -169,7 +170,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 pub struct ExtractedUiNode {
     pub stack_index: usize,
     pub transform: Mat4,
-    pub background_color: Color,
+    pub color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
@@ -203,27 +204,25 @@ pub fn extract_uinodes(
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
                 continue;
             }
+
             let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                // Skip loading images
+                if !images.contains(&image.texture) {
+                    continue;
+                }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-            // Skip completely transparent nodes
-            if color.0.a() == 0.0 {
-                continue;
-            }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
-                background_color: color.0,
+                color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
@@ -277,6 +276,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
+                    view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,
@@ -284,6 +284,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         physical_size.x,
                         physical_size.y,
                     ),
+                    color_grading: Default::default(),
                 })
                 .id();
             commands.get_or_spawn(entity).insert((
@@ -294,10 +295,11 @@ pub fn extract_default_ui_camera_view<T: Component>(
     }
 }
 
+#[cfg(feature = "bevy_text")]
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    windows: Extract<Res<Windows>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
@@ -310,53 +312,49 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor() as f32)
+        .unwrap_or(1.0);
+
+    let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+            if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
-            // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if uinode.size() == Vec2::ZERO {
-                continue;
-            }
-            let text_glyphs = &text_layout_info.glyphs;
-            let alignment_offset = (uinode.size() / -2.0).extend(0.0);
+
+            let transform = global_transform.compute_matrix()
+                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+                * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
-            for text_glyph in text_glyphs {
-                if text_glyph.section_index != current_section {
-                    color = text.sections[text_glyph.section_index]
-                        .style
-                        .color
-                        .as_rgba_linear();
-                    current_section = text_glyph.section_index;
+            for PositionedGlyph {
+                position,
+                atlas_info,
+                section_index,
+                ..
+            } in &text_layout_info.glyphs
+            {
+                if *section_index != current_section {
+                    color = text.sections[*section_index].style.color.as_rgba_linear();
+                    current_section = *section_index;
                 }
-                let atlas = texture_atlases
-                    .get(&text_glyph.atlas_info.texture_atlas)
-                    .unwrap();
-                let texture = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index;
-                let rect = atlas.textures[index];
-                let atlas_size = Some(atlas.size);
-
-                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-                let extracted_transform = global_transform.compute_matrix()
-                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                    * Mat4::from_translation(
-                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                    );
+                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: extracted_transform,
-                    background_color: color,
-                    rect,
-                    image: texture,
-                    atlas_size,
+                    transform: transform * Mat4::from_translation(position.extend(0.)),
+                    color,
+                    rect: atlas.textures[atlas_info.glyph_index],
+                    image: atlas.texture.clone_weak(),
+                    atlas_size: Some(atlas.size),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -520,11 +518,12 @@ pub fn prepare_uinodes(
             uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
         }
 
+        let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color: extracted_uinode.background_color.as_linear_rgba_f32(),
+                color,
             });
         }
 
@@ -557,7 +556,7 @@ pub fn queue_uinodes(
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
@@ -586,7 +585,7 @@ pub fn queue_uinodes(
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
+                &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey { hdr: view.hdr },
             );

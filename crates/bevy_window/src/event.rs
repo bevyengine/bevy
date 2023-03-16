@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{WindowDescriptor, WindowId};
+use bevy_ecs::entity::Entity;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 
@@ -16,26 +16,15 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowResized {
-    pub id: WindowId,
+    /// Window that has changed.
+    pub window: Entity,
     /// The new logical width of the window.
     pub width: f32,
     /// The new logical height of the window.
     pub height: f32,
 }
 
-/// An event that indicates that a new window should be created.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct CreateWindow {
-    pub id: WindowId,
-    pub descriptor: WindowDescriptor,
-}
-
+// TODO: This would redraw all windows ? If yes, update docs to reflect this
 /// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
 /// there have been no window events.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
@@ -49,8 +38,7 @@ pub struct RequestRedraw;
 
 /// An event that is sent whenever a new window is created.
 ///
-/// To create a new window, send a [`CreateWindow`] event - this
-/// event will be sent in the handler for that event.
+/// To create a new window, spawn an entity with a [`crate::Window`] on it.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -59,20 +47,20 @@ pub struct RequestRedraw;
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowCreated {
-    pub id: WindowId,
+    /// Window that has been created.
+    pub window: Entity,
 }
 
 /// An event that is sent whenever the operating systems requests that a window
 /// be closed. This will be sent when the close button of the window is pressed.
 ///
 /// If the default [`WindowPlugin`] is used, these events are handled
-/// by [closing] the corresponding [`Window`].  
+/// by closing the corresponding [`Window`].  
 /// To disable this behaviour, set `close_when_requested` on the [`WindowPlugin`]
 /// to `false`.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
-/// [closing]: crate::Window::close
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -81,13 +69,12 @@ pub struct WindowCreated {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowCloseRequested {
-    pub id: WindowId,
+    /// Window to close.
+    pub window: Entity,
 }
 
-/// An event that is sent whenever a window is closed. This will be sent by the
-/// handler for [`Window::close`].
-///
-/// [`Window::close`]: crate::Window::close
+/// An event that is sent whenever a window is closed. This will be sent when
+/// the window entity loses its `Window` component or is despawned.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -96,10 +83,13 @@ pub struct WindowCloseRequested {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowClosed {
-    pub id: WindowId,
+    /// Window that has been closed.
+    ///
+    /// Note that this entity probably no longer exists
+    /// by the time this event is received.
+    pub window: Entity,
 }
-
-/// An event reporting that the mouse cursor has moved on a window.
+/// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
 /// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate.
@@ -116,10 +106,9 @@ pub struct WindowClosed {
     reflect(Serialize, Deserialize)
 )]
 pub struct CursorMoved {
-    /// The identifier of the window the cursor has moved on.
-    pub id: WindowId,
-
-    /// The position of the cursor, in window coordinates.
+    /// Window that the cursor moved inside.
+    pub window: Entity,
+    /// The cursor position in logical pixels.
     pub position: Vec2,
 }
 
@@ -132,7 +121,8 @@ pub struct CursorMoved {
     reflect(Serialize, Deserialize)
 )]
 pub struct CursorEntered {
-    pub id: WindowId,
+    /// Window that the cursor entered.
+    pub window: Entity,
 }
 
 /// An event that is sent whenever the user's cursor leaves a window.
@@ -144,7 +134,8 @@ pub struct CursorEntered {
     reflect(Serialize, Deserialize)
 )]
 pub struct CursorLeft {
-    pub id: WindowId,
+    /// Window that the cursor left.
+    pub window: Entity,
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
@@ -156,8 +147,56 @@ pub struct CursorLeft {
     reflect(Serialize, Deserialize)
 )]
 pub struct ReceivedCharacter {
-    pub id: WindowId,
+    /// Window that received the character.
+    pub window: Entity,
+    /// Received character.
     pub char: char,
+}
+
+/// A Input Method Editor event.
+///
+/// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
+///
+/// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
+#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum Ime {
+    /// Notifies when a new composing text should be set at the cursor position.
+    Preedit {
+        /// Window that received the event.
+        window: Entity,
+        /// Current value.
+        value: String,
+        /// Cursor begin and end position.
+        ///
+        /// `None` indicated the cursor should be hidden
+        cursor: Option<(usize, usize)>,
+    },
+    /// Notifies when text should be inserted into the editor widget.
+    Commit {
+        /// Window that received the event.
+        window: Entity,
+        /// Input string
+        value: String,
+    },
+    /// Notifies when the IME was enabled.
+    ///
+    /// After this event, you will receive events `Ime::Preedit` and `Ime::Commit`,
+    /// and stop receiving events [`ReceivedCharacter`].
+    Enabled {
+        /// Window that received the event.
+        window: Entity,
+    },
+    /// Notifies when the IME was disabled.
+    Disabled {
+        /// Window that received the event.
+        window: Entity,
+    },
 }
 
 /// An event that indicates a window has received or lost focus.
@@ -169,7 +208,9 @@ pub struct ReceivedCharacter {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowFocused {
-    pub id: WindowId,
+    /// Window that changed focus.
+    pub window: Entity,
+    /// Whether it was focused (true) or lost focused (false).
     pub focused: bool,
 }
 
@@ -182,7 +223,9 @@ pub struct WindowFocused {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowScaleFactorChanged {
-    pub id: WindowId,
+    /// Window that had it's scale factor changed.
+    pub window: Entity,
+    /// The new scale factor.
     pub scale_factor: f64,
 }
 
@@ -195,7 +238,9 @@ pub struct WindowScaleFactorChanged {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowBackendScaleFactorChanged {
-    pub id: WindowId,
+    /// Window that had it's scale factor changed by the backend.
+    pub window: Entity,
+    /// The new scale factor.
     pub scale_factor: f64,
 }
 
@@ -208,11 +253,27 @@ pub struct WindowBackendScaleFactorChanged {
     reflect(Serialize, Deserialize)
 )]
 pub enum FileDragAndDrop {
-    DroppedFile { id: WindowId, path_buf: PathBuf },
+    /// File is being dropped into a window.
+    DroppedFile {
+        /// Window the file was dropped into.
+        window: Entity,
+        /// Path to the file that was dropped in.
+        path_buf: PathBuf,
+    },
 
-    HoveredFile { id: WindowId, path_buf: PathBuf },
+    /// File is currently being hovered over a window.
+    HoveredFile {
+        /// Window a file is possibly going to be dropped into.
+        window: Entity,
+        /// Path to the file that might be dropped in.
+        path_buf: PathBuf,
+    },
 
-    HoveredFileCancelled { id: WindowId },
+    /// File hovering was cancelled.
+    HoveredFileCancelled {
+        /// Window that had a cancelled file drop.
+        window: Entity,
+    },
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
@@ -224,6 +285,8 @@ pub enum FileDragAndDrop {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowMoved {
-    pub id: WindowId,
+    /// Window that moved.
+    pub entity: Entity,
+    /// Where the window moved to in physical pixels.
     pub position: IVec2,
 }

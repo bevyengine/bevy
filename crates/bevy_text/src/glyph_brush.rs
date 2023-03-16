@@ -5,12 +5,13 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
 use glyph_brush_layout::{
-    FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, SectionText, ToSectionText,
+    BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
+    SectionText, ToSectionText,
 };
 
 use crate::{
-    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, TextAlignment,
-    TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
+    TextAlignment, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -35,14 +36,18 @@ impl GlyphBrush {
         sections: &[S],
         bounds: Vec2,
         text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),
             ..Default::default()
         };
+
+        let lbb: BuiltInLineBreaker = linebreak_behaviour.into();
+
         let section_glyphs = Layout::default()
-            .h_align(text_alignment.horizontal.into())
-            .v_align(text_alignment.vertical.into())
+            .h_align(text_alignment.into())
+            .line_breaker(lbb)
             .calculate_glyphs(&self.fonts, &geom, sections);
         Ok(section_glyphs)
     }

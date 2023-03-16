@@ -1,5 +1,5 @@
 use crate::DiagnosticId;
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -34,12 +34,12 @@ impl SystemInformationDiagnosticsPlugin {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "bevy_dynamic_plugin")
+    not(feature = "dynamic_linking")
 ))]
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_log::info;
-    use sysinfo::{CpuExt, System, SystemExt};
+    use sysinfo::{CpuExt, CpuRefreshKind, RefreshKind, System, SystemExt};
 
     use crate::{Diagnostic, Diagnostics};
 
@@ -69,23 +69,19 @@ pub mod internal {
         mut sysinfo: Local<Option<System>>,
     ) {
         if sysinfo.is_none() {
-            *sysinfo = Some(System::new_all());
+            *sysinfo = Some(System::new_with_specifics(
+                RefreshKind::new()
+                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                    .with_memory(),
+            ));
         }
         let Some(sys) = sysinfo.as_mut() else {
             return;
         };
 
-        sys.refresh_cpu();
+        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
         sys.refresh_memory();
-        let current_cpu_usage = {
-            let mut usage = 0.0;
-            let cpus = sys.cpus();
-            for cpu in cpus {
-                usage += cpu.cpu_usage(); // NOTE: this returns a value from 0.0 to 100.0
-            }
-            // average
-            usage / cpus.len() as f32
-        };
+        let current_cpu_usage = sys.global_cpu_info().cpu_usage();
         // `memory()` fns return a value in bytes
         let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
         let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
@@ -142,7 +138,7 @@ pub mod internal {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "bevy_dynamic_plugin")
+    not(feature = "dynamic_linking")
 )))]
 pub mod internal {
     pub(crate) fn setup_system() {

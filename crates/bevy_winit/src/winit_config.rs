@@ -4,15 +4,28 @@ use bevy_utils::Duration;
 /// A resource for configuring usage of the `rust_winit` library.
 #[derive(Debug, Resource)]
 pub struct WinitSettings {
-    /// Configures the winit library to return control to the main thread after the
-    /// [run](bevy_app::App::run) loop is exited. Winit strongly recommends avoiding this when
-    /// possible. Before using this please read and understand the
-    /// [caveats](winit::platform::run_return::EventLoopExtRunReturn::run_return) in the winit
-    /// documentation.
+    /// Configures `winit` to return control to the caller after exiting the
+    /// event loop, enabling [`App::run()`](bevy_app::App::run()) to return.
     ///
-    /// This feature is only available on desktop `target_os` configurations. Namely `windows`,
-    /// `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and `openbsd`. If set to true on an
-    /// unsupported platform [run](bevy_app::App::run) will panic.
+    /// By default, [`return_from_run`](Self::return_from_run) is `false` and *Bevy*
+    /// will use `winit`'s
+    /// [`EventLoop::run()`](https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run)
+    /// to initiate the event loop.
+    /// [`EventLoop::run()`](https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run)
+    /// will never return but will terminate the process after the event loop exits.
+    ///
+    /// Setting [`return_from_run`](Self::return_from_run) to `true` will cause *Bevy*
+    /// to use `winit`'s
+    /// [`EventLoopExtRunReturn::run_return()`](https://docs.rs/winit/latest/winit/platform/run_return/trait.EventLoopExtRunReturn.html#tymethod.run_return)
+    /// instead which is strongly discouraged by the `winit` authors.
+    ///
+    /// # Supported platforms
+    ///
+    /// This feature is only available on the following desktop `target_os` configurations:
+    /// `windows`, `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and `openbsd`.
+    ///
+    /// Setting [`return_from_run`](Self::return_from_run) to `true` on
+    /// unsupported platforms will cause [`App::run()`](bevy_app::App::run()) to panic!
     pub return_from_run: bool,
     /// Configures how the winit event loop updates while the window is focused.
     pub focused_mode: UpdateMode,

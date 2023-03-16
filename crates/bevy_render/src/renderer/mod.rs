@@ -17,7 +17,9 @@ use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -249,6 +251,9 @@ pub async fn initialize_renderer(
             max_buffer_size: limits
                 .max_buffer_size
                 .min(constrained_limits.max_buffer_size),
+            max_bindings_per_bind_group: limits
+                .max_bindings_per_bind_group
+                .min(constrained_limits.max_bindings_per_bind_group),
         };
     }
 
@@ -278,20 +283,68 @@ pub async fn initialize_renderer(
 /// The [`RenderDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext {
-    pub render_device: RenderDevice,
-    pub command_encoder: CommandEncoder,
+    render_device: RenderDevice,
+    command_encoder: Option<CommandEncoder>,
+    command_buffers: Vec<CommandBuffer>,
 }
 
 impl RenderContext {
+    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
+    pub fn new(render_device: RenderDevice) -> Self {
+        Self {
+            render_device,
+            command_encoder: None,
+            command_buffers: Vec::new(),
+        }
+    }
+
+    /// Gets the underlying [`RenderDevice`].
+    pub fn render_device(&self) -> &RenderDevice {
+        &self.render_device
+    }
+
+    /// Gets the current [`CommandEncoder`].
+    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
+        self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        })
+    }
+
     /// Creates a new [`TrackedRenderPass`] for the context,
     /// configured using the provided `descriptor`.
     pub fn begin_tracked_render_pass<'a>(
         &'a mut self,
         descriptor: RenderPassDescriptor<'a, '_>,
     ) -> TrackedRenderPass<'a> {
-        TrackedRenderPass::new(
-            &self.render_device,
-            self.command_encoder.begin_render_pass(&descriptor),
-        )
+        // Cannot use command_encoder() as we need to split the borrow on self
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+        let render_pass = command_encoder.begin_render_pass(&descriptor);
+        TrackedRenderPass::new(&self.render_device, render_pass)
+    }
+
+    /// Append a [`CommandBuffer`] to the queue.
+    ///
+    /// If present, this will flush the currently unflushed [`CommandEncoder`]
+    /// into a [`CommandBuffer`] into the queue before append the provided
+    /// buffer.
+    pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
+        self.flush_encoder();
+        self.command_buffers.push(command_buffer);
+    }
+
+    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
+    pub fn finish(mut self) -> Vec<CommandBuffer> {
+        self.flush_encoder();
+        self.command_buffers
+    }
+
+    fn flush_encoder(&mut self) {
+        if let Some(encoder) = self.command_encoder.take() {
+            self.command_buffers.push(encoder.finish());
+        }
     }
 }
