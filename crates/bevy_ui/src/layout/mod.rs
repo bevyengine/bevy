@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, ScrollPosition, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -221,6 +221,7 @@ pub fn ui_layout_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
+    scroll_position_query: Query<(Entity, Option<&ScrollPosition>), With<Node>>,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
@@ -321,6 +322,16 @@ pub fn ui_layout_system(
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
+
+            // Adjust position by the scroll offset of the parent
+            let x_scroll_position = 0.0; // TODO: implement horizontal scrolling
+            new_position.x += to_logical(x_scroll_position);
+            let y_scroll_position = scroll_position_query
+                .get(**parent)
+                .ok()
+                .and_then(|(_, p)| p.map(|p| p.offset_y))
+                .unwrap_or(0.0);
+            new_position.y += to_logical(y_scroll_position);
         }
         // only trigger change detection when the new value is different
         if transform.translation != new_position {

@@ -1,14 +1,16 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, OverflowAxis, Style};
+use crate::{CalculatedClip, OverflowAxis, ScrollPosition, Style};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     query::{With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
+use bevy_input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy_math::Rect;
 use bevy_transform::components::GlobalTransform;
 
@@ -87,6 +89,35 @@ fn update_clipping(
     if let Ok(children) = children_query.get(entity) {
         for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
+        }
+    }
+}
+
+pub fn update_scroll_position(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut query_list: Query<(&mut ScrollPosition, &Style, &Children, &Node)>,
+    query_node: Query<&Node>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.iter() {
+        for (mut scrolling_list, style, children, list_node) in &mut query_list {
+            // TODO: Only scroll nodes that the mouse is currently above
+            if style.overflow.y == OverflowAxis::Scroll {
+                let container_height = list_node.size().y;
+                let items_height: f32 = children
+                    .iter()
+                    .map(|child| query_node.get(*child).unwrap().size().y)
+                    .sum();
+
+                // TODO: Fix scroll clamping too soon
+                let max_scroll = (items_height - container_height).max(0.);
+
+                let dy = match mouse_wheel_event.unit {
+                    MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
+                    MouseScrollUnit::Pixel => mouse_wheel_event.y,
+                };
+
+                scrolling_list.offset_y = (scrolling_list.offset_y + dy).clamp(-max_scroll, 0.);
+            }
         }
     }
 }

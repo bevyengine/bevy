@@ -59,6 +59,24 @@ impl Default for Node {
     }
 }
 
+/// The scroll position on the node
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct ScrollPosition {
+    /// How far down the node is scrolled (0 = not scrolled / scrolled to top)
+    pub offset_y: f32,
+}
+
+impl ScrollPosition {
+    pub const DEFAULT: Self = Self { offset_y: 0.0 };
+}
+
+impl Default for ScrollPosition {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Style`] properties in different units,
@@ -922,6 +940,30 @@ impl Overflow {
         }
     }
 
+    /// Scroll overflowing items on both axes
+    pub const fn scroll() -> Self {
+        Self {
+            x: OverflowAxis::Scroll,
+            y: OverflowAxis::Scroll,
+        }
+    }
+
+    /// Scroll overflowing items on the x axis
+    pub const fn scroll_x() -> Self {
+        Self {
+            x: OverflowAxis::Scroll,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Scroll overflowing items on the y axis
+    pub const fn scroll_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Scroll,
+        }
+    }
+
     /// Overflow is visible on both axes
     pub const fn is_visible(&self) -> bool {
         self.x.is_visible() && self.y.is_visible()
@@ -942,6 +984,8 @@ pub enum OverflowAxis {
     Visible,
     /// Hide overflowing items.
     Clip,
+    /// Scroll overflowing items.
+    Scroll,
 }
 
 impl OverflowAxis {

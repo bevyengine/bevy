@@ -46,7 +46,7 @@ use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::update_clipping_system;
+use update::{update_clipping_system, update_scroll_position};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -164,6 +164,7 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
+                update_scroll_position,
             ),
         );
 
