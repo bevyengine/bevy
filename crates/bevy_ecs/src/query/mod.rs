@@ -61,8 +61,9 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
-    use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
+    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
     use crate::query::{ArchetypeFilter, QueryCombinationIter};
+    use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
@@ -748,5 +749,34 @@ mod tests {
         let _: Option<&Foo> = q.get_single().ok();
         let _: [&Foo; 1] = q.many([e]);
         let _: &Foo = q.single();
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8029
+    #[test]
+    fn par_iter_mut_change_detection() {
+        let mut world = World::new();
+        world.spawn((A(1), B(1)));
+
+        fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
+            query.par_iter_mut().for_each_mut(|(a, mut b)| {
+                b.0 = a.0;
+            });
+        }
+
+        fn modify_system(mut query: Query<&mut A>) {
+            for mut a in &mut query {
+                a.0 = 2;
+            }
+        }
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems((propagate_system, modify_system).chain());
+        schedule.run(&mut world);
+        world.clear_trackers();
+        schedule.run(&mut world);
+        world.clear_trackers();
+
+        let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
+        assert_eq!(values, vec![&B(2)]);
     }
 }

@@ -1,7 +1,7 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
-//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
+//! This UI is laid out with the Flexbox layout model (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
 mod geometry;
@@ -141,17 +141,15 @@ impl Plugin for UiPlugin {
 
             system
         })
-        .add_system(
+        .add_systems((
             flex_node_system
                 .in_set(UiSystem::Flex)
                 .before(TransformSystem::TransformPropagate),
-        )
-        .add_system(ui_stack_system.in_set(UiSystem::Stack))
-        .add_system(
+            ui_stack_system.in_set(UiSystem::Stack),
             update_clipping_system
                 .after(TransformSystem::TransformPropagate)
                 .in_base_set(CoreSet::PostUpdate),
-        );
+        ));
 
         crate::render::build_ui_render(app);
     }

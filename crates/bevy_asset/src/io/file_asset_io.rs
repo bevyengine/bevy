@@ -127,6 +127,7 @@ impl AssetIo for FileAssetIo {
         to_watch: &Path,
         to_reload: Option<PathBuf>,
     ) -> Result<(), AssetIoError> {
+        #![allow(unused_variables)]
         #[cfg(feature = "filesystem_watcher")]
         {
             let to_reload = to_reload.unwrap_or_else(|| to_watch.to_owned());

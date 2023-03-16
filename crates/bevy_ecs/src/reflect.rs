@@ -44,6 +44,8 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// world.
 #[derive(Clone)]
 pub struct ReflectComponentFns {
+    /// Function pointer implementing [`ReflectComponent::from_world()`].
+    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
     pub insert: fn(&mut EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
@@ -79,6 +81,11 @@ impl ReflectComponentFns {
 }
 
 impl ReflectComponent {
+    /// Constructs default reflected [`Component`] from world using [`from_world()`](FromWorld::from_world).
+    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
+        (self.0.from_world)(world)
+    }
+
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
     pub fn insert(&self, entity: &mut EntityMut, component: &dyn Reflect) {
         (self.0.insert)(entity, component);
@@ -170,6 +177,7 @@ impl ReflectComponent {
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
+            from_world: |world| Box::new(C::from_world(world)),
             insert: |entity, reflected_component| {
                 let mut component = entity.world_scope(|world| C::from_world(world));
                 component.apply(reflected_component);

@@ -17,8 +17,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(example_control_system);
+        .add_systems((setup.on_startup(), example_control_system));
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
     // Since this example uses HDR, we must disable MSAA for WASM builds, at least
@@ -204,11 +203,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
@@ -216,11 +212,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                right: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
             ..default()
         }),
         ExampleDisplay,
@@ -366,8 +359,8 @@ fn example_control_system(
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.position.bottom = Val::Px(viewport_position.y);
-        style.position.left = Val::Px(viewport_position.x);
+        style.bottom = Val::Px(viewport_position.y);
+        style.left = Val::Px(viewport_position.x);
     }
 
     let mut display = display.single_mut();

@@ -89,38 +89,6 @@ use std::{
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
-/// # `!Sync` Resources
-/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
-///
-/// This will fail to compile since `RefCell` is `!Sync`.
-/// ```compile_fail
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-///
-/// #[derive(Resource)]
-/// struct NotSync {
-///    counter: RefCell<usize>,
-/// }
-/// ```
-///
-/// This will compile since the `RefCell` is wrapped with `SyncCell`.
-/// ```
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-/// use bevy_utils::synccell::SyncCell;
-///
-/// #[derive(Resource)]
-/// struct ActuallySync {
-///    counter: SyncCell<RefCell<usize>>,
-/// }
-/// ```
-///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
-/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-///
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
@@ -396,10 +364,41 @@ impl_param_set!();
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
 /// }
-/// # schedule.add_system(read_resource_system);
-/// # schedule.add_system(write_resource_system.after(read_resource_system));
+/// # schedule.add_systems((read_resource_system, write_resource_system).chain());
 /// # schedule.run(&mut world);
 /// ```
+///
+/// # `!Sync` Resources
+/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
+/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
+/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
+/// threads.
+///
+/// This will fail to compile since `RefCell` is `!Sync`.
+/// ```compile_fail
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+///
+/// #[derive(Resource)]
+/// struct NotSync {
+///    counter: RefCell<usize>,
+/// }
+/// ```
+///
+/// This will compile since the `RefCell` is wrapped with `SyncCell`.
+/// ```
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+/// use bevy_utils::synccell::SyncCell;
+///
+/// #[derive(Resource)]
+/// struct ActuallySync {
+///    counter: SyncCell<RefCell<usize>>,
+/// }
+/// ```
+///
+/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
 // SAFETY: Res only reads a single World resource
@@ -861,10 +860,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// });
 ///
 /// let mut schedule = Schedule::new();
-/// schedule
-///     // These two systems have no conflicts and will run in parallel.
-///     .add_system(alert_criminal)
-///     .add_system(alert_monster);
+/// // These two systems have no conflicts and will run in parallel.
+/// schedule.add_systems((alert_criminal, alert_monster));
 ///
 /// // There are no criminals or monsters, so the alarm is not sounded.
 /// schedule.run(&mut world);

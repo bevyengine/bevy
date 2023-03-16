@@ -32,7 +32,7 @@ use bevy_utils::Duration;
 /// For more accurate timers, use the [`Timer`] class directly (see
 /// [`Timer::times_finished_this_tick`] to address the problem mentioned above), or
 /// use fixed timesteps that allow systems to run multiple times per frame.
-pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool {
+pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
     let mut timer = Timer::new(duration, TimerMode::Repeating);
     move |time: Res<Time>| {
         timer.tick(time.delta());
@@ -67,10 +67,28 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool {
 /// Note that this run condition may not behave as expected if `duration` is smaller
 /// than the fixed timestep period, since the timer may complete multiple times in
 /// one fixed update.
-pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool {
+pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool + Clone {
     let mut timer = Timer::new(duration, TimerMode::Repeating);
     move |time: Res<FixedTime>| {
         timer.tick(time.period);
         timer.just_finished()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+
+    fn test_system() {}
+
+    // Ensure distributive_run_if compiles with the common conditions.
+    #[test]
+    fn distributive_run_if_compiles() {
+        Schedule::default().add_systems(
+            (test_system, test_system)
+                .distributive_run_if(on_timer(Duration::new(1, 0)))
+                .distributive_run_if(on_fixed_timer(Duration::new(1, 0))),
+        );
     }
 }
