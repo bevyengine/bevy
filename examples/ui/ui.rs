@@ -135,7 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     for i in 0..100 {
                                         parent.spawn((
                                             TextBundle::from_section(
-                                                format!("Item {i}"),
+                                                format!("Item {}", i + 1),
                                                 TextStyle {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
