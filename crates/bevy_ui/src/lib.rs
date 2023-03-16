@@ -46,7 +46,7 @@ use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_scroll_position};
+use update::{update_clipping_system, update_scroll_interaction, update_scroll_position};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -59,6 +59,8 @@ pub enum UiSystem {
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
+    /// After this label, scroll positions have been updated
+    Scroll,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
 }
@@ -164,7 +166,8 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
-                update_scroll_position,
+                update_scroll_interaction.in_set(UiSystem::Focus),
+                update_scroll_position.in_set(UiSystem::Scroll),
             ),
         );
 

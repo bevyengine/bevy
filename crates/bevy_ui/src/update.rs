@@ -1,12 +1,12 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, OverflowAxis, ScrollPosition, Style};
+use crate::{CalculatedClip, Interaction, OverflowAxis, ScrollPosition, Style};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{With, Without},
+    query::{Changed, With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -93,15 +93,29 @@ fn update_clipping(
     }
 }
 
+pub fn update_scroll_interaction(
+    mut interaction_query: Query<(&Interaction, &mut ScrollPosition), Changed<Interaction>>,
+) {
+    for (interaction, mut scroll) in &mut interaction_query {
+        match *interaction {
+            Interaction::Hovered | Interaction::Clicked => {
+                scroll.is_hovered = true;
+            }
+            Interaction::None => {
+                scroll.is_hovered = false;
+            }
+        }
+    }
+}
+
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut query_list: Query<(&mut ScrollPosition, &Style, &Children, &Node)>,
     query_node: Query<&Node>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, style, children, list_node) in &mut query_list {
-            // TODO: Only scroll nodes that the mouse is currently above
-            if style.overflow.y == OverflowAxis::Scroll {
+        for (mut scroll_container, style, children, list_node) in &mut query_list {
+            if style.overflow.y == OverflowAxis::Scroll && scroll_container.is_hovered {
                 let container_height = list_node.size().y;
                 let items_height: f32 = children
                     .iter()
@@ -116,7 +130,7 @@ pub fn update_scroll_position(
                     MouseScrollUnit::Pixel => mouse_wheel_event.y,
                 };
 
-                scrolling_list.offset_y = (scrolling_list.offset_y + dy).clamp(-max_scroll, 0.);
+                scroll_container.offset_y = (scroll_container.offset_y + dy).clamp(-max_scroll, 0.);
             }
         }
     }
