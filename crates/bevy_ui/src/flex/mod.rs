@@ -14,7 +14,7 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged, WindowResized};
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},
@@ -220,6 +220,7 @@ pub fn flex_node_system(
     windows: Query<(Entity, &Window)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
+    mut window_resized_events: EventReader<WindowResized>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
@@ -264,8 +265,9 @@ pub fn flex_node_system(
             }
         }
     }
-
-    if !scale_factor_events.is_empty() || ui_scale.is_changed() {
+    let window_resized = window_resized_events.iter().any(|event| { event.window == primary_window_entity });
+    
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() || window_resized  { 
         scale_factor_events.clear();
         update_changed(&mut flex_surface, scale_factor, full_node_query);
     } else {

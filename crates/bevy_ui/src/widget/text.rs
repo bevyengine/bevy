@@ -32,10 +32,12 @@ impl Measure for TextMeasure {
         &self,
         max_width: Option<f32>,
         max_height: Option<f32>,
-        _: AvailableSpace,
-        _: AvailableSpace,
+        w: AvailableSpace,
+        h: AvailableSpace,
     ) -> Vec2 {
         let mut size = Vec2::ZERO;
+        
+
         match (max_width, max_height) {
             (None, None) => {
                 // with no constraints
@@ -58,6 +60,7 @@ impl Measure for TextMeasure {
         size.x = size.x.ceil();
         size.y = size.y.ceil();
         size
+        
     }
 
     fn dyn_clone(&self) -> Box<dyn Measure> {
@@ -76,14 +79,27 @@ impl Measure for AutoTextMeasure {
         &self,
         max_width: Option<f32>,
         max_height: Option<f32>,
-        _available_width: AvailableSpace,
-        _available_height: AvailableSpace,
+        available_width: AvailableSpace,
+        available_height: AvailableSpace,
     ) -> Vec2 {
+
         let bounds = Vec2::new(
-            max_width.unwrap_or(f32::INFINITY),
-            max_height.unwrap_or(f32::INFINITY),
+            max_width
+            .unwrap_or_else(|| match available_width {
+                AvailableSpace::Definite(x) => x,
+                AvailableSpace::MaxContent => f32::INFINITY,
+                AvailableSpace::MinContent => f32::INFINITY,
+            }),
+            max_height.unwrap_or_else(|| match available_height {
+                AvailableSpace::Definite(y) => y,
+                AvailableSpace::MaxContent => f32::INFINITY,
+                AvailableSpace::MinContent => f32::INFINITY,
+            }),
         );
-        self.auto_text_info.compute_size(bounds)
+
+
+        let size = self.auto_text_info.compute_size(bounds);
+        size
     }
 
     fn dyn_clone(&self) -> Box<dyn Measure> {
@@ -230,6 +246,7 @@ pub fn text_system(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
             );
+            
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
