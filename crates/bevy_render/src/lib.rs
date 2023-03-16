@@ -230,43 +230,38 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter.clone())
                 .init_resource::<ScratchMainWorld>();
 
-            let pipeline_cache = PipelineCache::new(device.clone());
-            let asset_server = app.world.resource::<AssetServer>().clone();
-
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
-            let mut render_schedule = Render::base_schedule();
 
-            // Prepare the schedule which extracts data from the main world to the render world
-            render_app.edit_schedule(ExtractSchedule, |schedule| {
-                schedule
-                    .set_apply_final_buffers(false)
-                    .add_systems(PipelineCache::extract_shaders);
-            });
-
-            // This set applies the commands from the extract stage while the render schedule
-            // is running in parallel with the main app.
-            render_schedule.add_systems(apply_extract_commands.in_set(RenderSet::ExtractCommands));
-
-            render_schedule.add_systems(
-                PipelineCache::process_pipeline_queue_system
-                    .before(render_system)
-                    .in_set(RenderSet::Render),
-            );
-            render_schedule.add_systems(render_system.in_set(RenderSet::Render));
-
-            render_schedule.add_systems(World::clear_entities.in_set(RenderSet::Cleanup));
+            let mut extract_schedule = Schedule::new();
+            extract_schedule.set_apply_final_buffers(false);
 
             render_app
-                .add_schedule(Render, render_schedule)
+                .add_schedule(ExtractSchedule, extract_schedule)
+                .add_schedule(Render, Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
+                .insert_resource(PipelineCache::new(device.clone()))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info)
-                .insert_resource(pipeline_cache)
-                .insert_resource(asset_server);
+                .insert_resource(app.world.resource::<AssetServer>().clone())
+                .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
+                .add_systems(
+                    Render,
+                    (
+                        // This set applies the commands from the extract stage while the render schedule
+                        // is running in parallel with the main app.
+                        apply_extract_commands.in_set(RenderSet::ExtractCommands),
+                        (
+                            PipelineCache::process_pipeline_queue_system.before(render_system),
+                            render_system,
+                        )
+                            .in_set(RenderSet::Render),
+                        World::clear_entities.in_set(RenderSet::Cleanup),
+                    ),
+                );
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
