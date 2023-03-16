@@ -1,19 +1,54 @@
-error[E0308]: `?` operator has incompatible types
-  --> tests/reflect_remote/nested.fail.rs:24:5
+error[E0277]: the trait bound `TheirInner<T>: TypePath` is not satisfied
+  --> tests/reflect_remote/nested.fail.rs:14:20
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
+14 |         pub inner: super::external_crate::TheirInner<T>,
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TypePath` is not implemented for `TheirInner<T>`
    |
-   = note: `?` operator cannot convert from `incorrect_inner_type::MyInner<T>` to `TheirInner<T>`
-   = note: expected struct `TheirInner<T>`
-              found struct `incorrect_inner_type::MyInner<T>`
+   = help: the following other types implement trait `TypePath`:
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
+           and $N others
+note: required by a bound in `NamedField::new`
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/fields.rs:16:29
+   |
+16 |     pub fn new<T: Reflect + TypePath>(name: &'static str) -> Self {
+   |                             ^^^^^^^^ required by this bound in `NamedField::new`
+
+error[E0277]: the trait bound `T: FromReflect` is not satisfied
+  --> tests/reflect_remote/nested.fail.rs:27:20
+   |
+27 |         pub inner: MyInner<T>,
+   |                    ^^^^^^^^^^ the trait `FromReflect` is not implemented for `T`
+   |
+note: required for `incorrect_inner_type::MyInner<T>` to implement `TypePath`
+  --> tests/reflect_remote/nested.fail.rs:30:5
+   |
+30 |     #[reflect_remote(super::external_crate::TheirInner<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound introduced here
+31 |     struct MyInner<T: Reflect>(pub T);
+   |            ^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `NamedField::new`
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/fields.rs:16:29
+   |
+16 |     pub fn new<T: Reflect + TypePath>(name: &'static str) -> Self {
+   |                             ^^^^^^^^ required by this bound in `NamedField::new`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting this bound
+   |
+25 |     struct MyOuter<T: Reflect + bevy_reflect::FromReflect> {
+   |                               +++++++++++++++++++++++++++
 
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
              bool
@@ -31,8 +66,8 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
              bool
@@ -50,8 +85,8 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
              bool
@@ -88,7 +123,7 @@ note: required by a bound in `clone_value`
 75  | pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     |                    ^^^^^^^^^^^^^^^ required by this bound in `Reflect::clone_value`
 ...
-190 |     fn clone_value(&self) -> Box<dyn Reflect>;
+205 |     fn clone_value(&self) -> Box<dyn Reflect>;
     |        ----------- required by a bound in this associated function
     = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -106,8 +141,8 @@ error[E0308]: `?` operator has incompatible types
 error[E0308]: mismatched types
   --> tests/reflect_remote/nested.fail.rs:37:5
    |
-37 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirOuter<T>`
+37 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirOuter<T>`
 ...
 41 |         pub inner: super::external_crate::TheirInner<T>,
    |                    ------------------------------------ expected due to this
@@ -119,8 +154,8 @@ error[E0308]: mismatched types
 error[E0308]: `?` operator has incompatible types
   --> tests/reflect_remote/nested.fail.rs:51:5
    |
-51 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
+51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
 52 |     struct MyOuter<T: Reflect> {
    |                    - this type parameter
    |

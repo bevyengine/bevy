@@ -1,6 +1,5 @@
-use crate::derive_data::{
-    EnumVariantFields, ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, StructField,
-};
+use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl};
+use crate::impls::impl_assertions;
 use crate::utility::ident_or_index;
 use crate::{from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME};
 use proc_macro::TokenStream;
@@ -9,7 +8,9 @@ use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::token::PathSep;
-use syn::{parse_macro_input, DeriveInput, ExprPath, Generics, PathArguments, TypePath};
+use syn::{
+    parse_macro_input, DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
+};
 
 /// Generates the remote wrapper type and implements all the necessary traits.
 pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -36,7 +37,9 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
 
     derive_data.set_remote(Some(RemoteType::new(&remote_ty)));
 
-    let (reflect_impls, from_reflect_impl, assertions) = match derive_data {
+    let assertions = impl_assertions(&derive_data);
+
+    let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
             if struct_data.meta().from_reflect().should_auto_derive() {
@@ -44,11 +47,6 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
             } else {
                 None
             },
-            Some(generate_remote_field_assertions(
-                struct_data.fields(),
-                None,
-                struct_data.meta().type_path().generics(),
-            )),
         ),
         ReflectDerive::TupleStruct(struct_data) => (
             impls::impl_tuple_struct(&struct_data),
@@ -57,11 +55,6 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
             } else {
                 None
             },
-            Some(generate_remote_field_assertions(
-                struct_data.fields(),
-                None,
-                struct_data.meta().type_path().generics(),
-            )),
         ),
         ReflectDerive::Enum(enum_data) => (
             impls::impl_enum(&enum_data),
@@ -70,20 +63,6 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
             } else {
                 None
             },
-            enum_data
-                .variants()
-                .iter()
-                .map(|variant| match &variant.fields {
-                    EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => {
-                        Some(generate_remote_field_assertions(
-                            fields,
-                            Some(&variant.data.ident),
-                            enum_data.meta().type_path().generics(),
-                        ))
-                    }
-                    EnumVariantFields::Unit => None,
-                })
-                .collect(),
         ),
         _ => {
             return syn::Error::new(ast.span(), "cannot reflect a remote value type")
@@ -95,11 +74,13 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
     TokenStream::from(quote! {
         #wrapper_definition
 
-        #reflect_impls
+        const _: () = {
+            #reflect_impls
 
-        #from_reflect_impl
+            #from_reflect_impl
 
-        #assertions
+            #assertions
+        };
     })
 }
 
@@ -134,70 +115,114 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
 
 /// Generates compile-time assertions for remote fields.
 ///
+/// This prevents types from using an invalid remote type.
+/// this works by generating a struct, `RemoteFieldAssertions`, with methods that
+/// will result in compile-time failure if types are mismatched.
+/// The output of this function is best placed within an anonymous context to maintain hygiene.
+///
 /// # Example
 ///
 /// The following would fail to compile due to an incorrect `#[reflect(remote = "...")]` value.
 ///
 /// ```ignore
 /// mod external_crate {
-///     pub struct TheirOuter {
-///         pub inner: TheirInner,
-///     }
-///     pub struct TheirInner(pub String);
+///     pub struct TheirFoo(pub u32);
+///     pub struct TheirBar(pub i32);
 /// }
 ///
-/// #[reflect_remote(external_crate::TheirOuter)]
-/// struct MyOuter {
-///     #[reflect(remote = "MyOuter")] // <- Note the mismatched type (it should be `MyInner`)
-///     pub inner: external_crate::TheirInner,
-/// }
+/// #[reflect_remote(external_crate::TheirFoo)]
+/// struct MyFoo(pub u32);
+/// #[reflect_remote(external_crate::TheirBar)]
+/// struct MyBar(pub i32);
 ///
-/// #[reflect_remote(external_crate::TheirInner)]
-/// struct MyInner(pub String);
+/// #[derive(Reflect)]
+/// struct MyStruct {
+///   #[reflect(remote = "MyBar")] // ERROR: expected type `TheirFoo` but found struct `TheirBar`
+///   foo: external_crate::TheirFoo
+/// }
 /// ```
-fn generate_remote_field_assertions(
-    fields: &[StructField<'_>],
-    variant: Option<&Ident>,
-    generics: &Generics,
-) -> proc_macro2::TokenStream {
-    fields
-        .iter()
-        .filter(|field| field.attrs.remote.is_some())
-        .map(|field| {
-            let ident = if let Some(variant) = variant {
-                format_ident!(
-                    "{}__{}",
-                    variant,
-                    ident_or_index(field.data.ident.as_ref(), field.declaration_index)
-                )
-            } else {
-                field
-                    .data
-                    .ident
-                    .as_ref()
-                    .cloned()
-                    .unwrap_or_else(|| format_ident!("field_{}", field.declaration_index))
-            };
+pub(crate) fn generate_remote_assertions(
+    derive_data: &ReflectDerive,
+) -> Option<proc_macro2::TokenStream> {
+    struct RemoteAssertionData<'a> {
+        ident: Member,
+        variant: Option<&'a Ident>,
+        ty: &'a Type,
+        generics: &'a Generics,
+        remote_ty: &'a Type,
+    }
 
-            let (impl_generics, _, where_clause) = generics.split_for_impl();
-            let field_ty = &field.data.ty;
-            let remote_ty = field.attrs.remote.as_ref().unwrap();
+    let fields: Box<dyn Iterator<Item = RemoteAssertionData>> = match derive_data {
+        ReflectDerive::Struct(data)
+        | ReflectDerive::TupleStruct(data)
+        | ReflectDerive::UnitStruct(data) => Box::new(data.active_fields().filter_map(|field| {
+            field
+                .attrs
+                .remote
+                .as_ref()
+                .map(|remote_ty| RemoteAssertionData {
+                    ident: ident_or_index(field.data.ident.as_ref(), field.declaration_index),
+                    variant: None,
+                    ty: &field.data.ty,
+                    generics: data.meta().type_path().generics(),
+                    remote_ty,
+                })
+        })),
+        ReflectDerive::Enum(data) => Box::new(data.variants().iter().flat_map(|variant| {
+            variant.active_fields().filter_map(|field| {
+                field
+                    .attrs
+                    .remote
+                    .as_ref()
+                    .map(|remote_ty| RemoteAssertionData {
+                        ident: ident_or_index(field.data.ident.as_ref(), field.declaration_index),
+                        variant: Some(&variant.data.ident),
+                        ty: &field.data.ty,
+                        generics: data.meta().type_path().generics(),
+                        remote_ty,
+                    })
+            })
+        })),
+
+        _ => return None,
+    };
+
+    let assertions = fields
+        .map(move |field| {
+            let ident = if let Some(variant) = field.variant {
+                format_ident!("{}__{}", variant, field.ident)
+            } else {
+                match field.ident {
+                    Member::Named(ident) => ident,
+                    Member::Unnamed(index) => format_ident!("field_{}", index),
+                }
+            };
+            let (impl_generics, _, where_clause) = field.generics.split_for_impl();
+
+            let ty = &field.ty;
+            let remote_ty = field.remote_ty;
             let assertion_ident = format_ident!("assert__{}__is_valid_remote", ident);
 
             quote! {
-                const _: () = {
-                    struct RemoteFieldAssertions;
-
-                    impl RemoteFieldAssertions {
-                        #[allow(non_snake_case)]
-                        fn #assertion_ident #impl_generics (#ident: #remote_ty) #where_clause {
-                            let _: #field_ty = #ident.0;
-                        }
-                    }
-                };
+                #[allow(non_snake_case)]
+                fn #assertion_ident #impl_generics (#ident: #remote_ty) #where_clause {
+                    let _: #ty = #ident.0;
+                }
             }
         })
-        .collect()
+        .collect::<proc_macro2::TokenStream>();
+
+    if assertions.is_empty() {
+        None
+    } else {
+        Some(quote! {
+            struct RemoteFieldAssertions;
+
+            impl RemoteFieldAssertions {
+                #assertions
+            }
+        })
+    }
 }
 
 /// A reflected type's remote type.

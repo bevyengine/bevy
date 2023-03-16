@@ -1,0 +1,53 @@
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:22:14
+   |
+22 |     #[derive(Reflect)]
+   |              ^^^^^^^ expected `TheirFoo`, found `TheirBar`
+...
+26 |         foo: external_crate::TheirFoo,
+   |              ------------------------ expected due to this
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:45:14
+   |
+45 |     #[derive(Reflect)]
+   |              ^^^^^^^ expected `TheirFoo`, found `TheirBar`
+...
+48 |         #[reflect(remote = "MyBar")] external_crate::TheirFoo,
+   |                                      ------------------------ expected due to this
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:70:5
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `i32`, found `u32`
+   |
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/type_mismatch.fail.rs:70:5
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `i32`, found `u32`
+   |
+   = note: `?` operator cannot convert from `u32` to `i32`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you can convert a `u32` to an `i32` and panic if the converted value doesn't fit
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)].try_into().unwrap()
+   |                                                ++++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:76:14
+   |
+76 |     #[derive(Reflect)]
+   |              ^^^^^^^ expected `TheirFoo`, found `TheirBar`
+...
+80 |             #[reflect(remote = "MyBar")] external_crate::TheirFoo,
+   |                                          ------------------------ expected due to this
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)

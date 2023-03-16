@@ -4,7 +4,6 @@ error[E0609]: no field `value` on type `&MyType`
 15 |     pub value: String,
    |         ^^^^^ unknown field
    |
-   = note: available fields are: `0`
 help: one of the expressions' fields has a field of the same name
    |
 15 |     pub 0.value: String,

@@ -1,4 +1,4 @@
-use bevy_reflect::{reflect_remote, Reflect};
+use bevy_reflect::{reflect_remote, Reflect, FromReflect};
 
 mod external_crate {
     pub struct TheirOuter<T> {
@@ -7,13 +7,13 @@ mod external_crate {
     pub struct TheirInner<T>(pub T);
 }
 
-#[reflect_remote(external_crate::TheirOuter<T>, FromReflect)]
-struct MyOuter<T: Reflect> {
+#[reflect_remote(external_crate::TheirOuter<T>)]
+struct MyOuter<T: FromReflect> {
     #[reflect(remote = "MyInner<T>")]
     pub inner: external_crate::TheirInner<T>,
 }
 
-#[reflect_remote(external_crate::TheirInner<T>, FromReflect)]
+#[reflect_remote(external_crate::TheirInner<T>)]
 struct MyInner<T: Reflect>(pub T);
 
 fn main() {}
