@@ -1226,7 +1226,7 @@ impl ScheduleGraph {
     }
 }
 
-/// Values returned by [`Schedule::add_systems_inner`]
+/// Values returned by `ScheduleGraph::add_systems_inner`
 struct AddSystemsInnerResult {
     /// All nodes contained inside this add_systems_inner call's SystemConfigs hierarchy
     nodes: Vec<NodeId>,
