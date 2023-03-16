@@ -334,6 +334,15 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
         unsafe { PtrMut::new(self.0) }
     }
 }
+impl<'a> OwningPtr<'a, Unaligned> {
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    pub unsafe fn read_unaligned<T>(self) -> T {
+        self.as_ptr().cast::<T>().read_unaligned()
+    }
+}
 
 /// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
 pub struct ThinSlicePtr<'a, T> {
@@ -452,13 +461,13 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
-        // Implemenation shamelessly borrowed from the currently unstable
+        // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert!(
             self as usize & (align - 1) == 0,
-            "pointer is not aligned. Address {:p} does not have alignemnt {} for type {}",
+            "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,
             align,
             core::any::type_name::<T>(),

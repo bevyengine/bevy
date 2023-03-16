@@ -7,24 +7,24 @@ use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
-/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
-/// to propagate transforms correctly.
+/// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
 pub fn sync_simple_transforms(
     mut query: Query<
         (&Transform, &mut GlobalTransform),
         (Changed<Transform>, Without<Parent>, Without<Children>),
     >,
 ) {
-    query.par_for_each_mut(1024, |(transform, mut global_transform)| {
-        *global_transform = GlobalTransform::from(*transform);
-    });
+    query
+        .par_iter_mut()
+        .for_each_mut(|(transform, mut global_transform)| {
+            *global_transform = GlobalTransform::from(*transform);
+        });
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
 ///
-/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
-/// to propagate transforms correctly.
+/// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(
     mut root_query: Query<
         (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
@@ -33,11 +33,7 @@ pub fn propagate_transforms(
     transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
     parent_query: Query<(Entity, Ref<Parent>)>,
 ) {
-    root_query.par_for_each_mut(
-        // The differing depths and sizes of hierarchy trees causes the work for each root to be
-        // different. A batch size of 1 ensures that each tree gets it's own task and multiple
-        // large trees are not clumped together.
-        1,
+    root_query.par_iter_mut().for_each_mut(
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed();
             if changed {
@@ -169,20 +165,13 @@ mod test {
     use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
-    #[derive(StageLabel)]
-    struct Update;
-
     #[test]
     fn did_propagate() {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(sync_simple_transforms);
-        update_stage.add_system(propagate_transforms);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        let mut schedule = Schedule::new();
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
         world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
@@ -219,12 +208,8 @@ mod test {
     fn did_propagate_command_buffer() {
         let mut world = World::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(sync_simple_transforms);
-        update_stage.add_system(propagate_transforms);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        let mut schedule = Schedule::new();
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -263,12 +248,8 @@ mod test {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(sync_simple_transforms);
-        update_stage.add_system(propagate_transforms);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        let mut schedule = Schedule::new();
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Add parent entities
         let mut children = Vec::new();
@@ -344,8 +325,7 @@ mod test {
         let mut app = App::new();
         ComputeTaskPool::init(TaskPool::default);
 
-        app.add_system(sync_simple_transforms);
-        app.add_system(propagate_transforms);
+        app.add_systems((sync_simple_transforms, propagate_transforms));
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -391,8 +371,7 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_system(propagate_transforms)
-            .add_system(sync_simple_transforms);
+        app.add_systems((propagate_transforms, sync_simple_transforms));
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);

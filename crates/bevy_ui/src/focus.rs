@@ -3,7 +3,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    prelude::Component,
+    prelude::{Component, With},
     query::WorldQuery,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
@@ -11,10 +11,10 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::camera::{Camera, RenderTarget};
-use bevy_render::view::ComputedVisibility;
+use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
 use bevy_transform::components::GlobalTransform;
-use bevy_window::Windows;
+
+use bevy_window::{PrimaryWindow, Window};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -150,15 +150,19 @@ pub struct NodeQuery {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ComputedVisibility`] are always treated as released.
+#[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
+    let primary_window = primary_window.iter().next();
+
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
         if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
@@ -188,18 +192,20 @@ pub fn ui_focus_system(
         .iter()
         .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
         .filter_map(|(camera, _)| {
-            if let RenderTarget::Window(window_id) = camera.target {
-                Some(window_id)
+            if let Some(NormalizedRenderTarget::Window(window_ref)) =
+                camera.target.normalize(primary_window)
+            {
+                Some(window_ref)
             } else {
                 None
             }
         })
-        .filter_map(|window_id| windows.get(window_id))
-        .filter(|window| window.is_focused())
-        .find_map(|window| {
-            window.cursor_position().map(|mut cursor_pos| {
-                cursor_pos.y = window.height() - cursor_pos.y;
-                cursor_pos
+        .find_map(|window_ref| {
+            windows.get(window_ref.entity()).ok().and_then(|window| {
+                window.cursor_position().map(|mut cursor_pos| {
+                    cursor_pos.y = window.height() - cursor_pos.y;
+                    cursor_pos
+                })
             })
         })
         .or_else(|| touches_input.first_pressed_position());
@@ -207,7 +213,7 @@ pub fn ui_focus_system(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    let mut moused_over_nodes = ui_stack
+    let mut hovered_nodes = ui_stack
         .uinodes
         .iter()
         // reverse the iterator to traverse the tree from closest nodes to furthest
@@ -287,7 +293,7 @@ pub fn ui_focus_system(
 
     // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
-    let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
+    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -314,7 +320,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(moused_over_nodes);
+    let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset clicked nodes because they're handled separately

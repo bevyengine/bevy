@@ -41,8 +41,7 @@ fn main() {
         .init_resource::<State>()
         .add_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()
-        .add_startup_system(setup)
-        .add_system(print_on_load)
+        .add_systems((setup.on_startup(), print_on_load))
         .run();
 }
 

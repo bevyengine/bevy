@@ -1,7 +1,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 // For a total of 110 * 110 = 12100 buttons with text
@@ -12,17 +12,16 @@ const FONT_SIZE: f32 = 7.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .init_resource::<UiFont>()
-        .add_startup_system(setup)
-        .add_system(button_system)
+        .add_systems((setup.on_startup(), button_system))
         .run();
 }
 
@@ -90,12 +89,8 @@ fn spawn_button(
             ButtonBundle {
                 style: Style {
                     size: Size::new(Val::Percent(width), Val::Percent(width)),
-
-                    position: UiRect {
-                        bottom: Val::Percent(100.0 / total * i as f32),
-                        left: Val::Percent(100.0 / total * j as f32),
-                        ..default()
-                    },
+                    bottom: Val::Percent(100.0 / total * i as f32),
+                    left: Val::Percent(100.0 / total * j as f32),
                     align_items: AlignItems::Center,
                     position_type: PositionType::Absolute,
                     ..default()

@@ -5,6 +5,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
+    prelude::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -19,11 +20,11 @@ use bevy_render::{
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
-use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, YAxisOrientation,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -57,19 +58,26 @@ impl Text2dBounds {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
+    /// Contains the text.
     pub text: Text,
+    /// How the text is positioned relative to its transform.
     pub text_anchor: Anchor,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    /// The maximum width and height of the text.
     pub text_2d_bounds: Text2dBounds,
+    /// The transform of the text.
+    pub transform: Transform,
+    /// The global transform of the text.
+    pub global_transform: GlobalTransform,
+    /// The visibility properties of the text.
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
 }
 
 pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    windows: Extract<Res<Windows>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
             Entity,
@@ -81,49 +89,47 @@ pub fn extract_text2d_sprite(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor() as f32)
+        .unwrap_or(1.0);
+    let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (entity, computed_visibility, text, text_layout_info, anchor, text_transform) in
+    for (entity, computed_visibility, text, text_layout_info, anchor, global_transform) in
         text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;
         }
 
-        let text_glyphs = &text_layout_info.glyphs;
-        let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
-        let alignment_offset = text_layout_info.size * text_anchor;
+        let text_anchor = -(anchor.as_vec() + 0.5);
+        let alignment_translation = text_layout_info.size * text_anchor;
+        let transform = *global_transform
+            * scaling
+            * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        for text_glyph in text_glyphs {
-            if text_glyph.section_index != current_section {
-                color = text.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
-                current_section = text_glyph.section_index;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
+        {
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
-            let atlas = texture_atlases
-                .get(&text_glyph.atlas_info.texture_atlas)
-                .unwrap();
-            let handle = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index;
-            let rect = Some(atlas.textures[index]);
-
-            let glyph_transform =
-                Transform::from_translation((alignment_offset + text_glyph.position).extend(0.));
-
-            let transform = *text_transform
-                * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
-                * glyph_transform;
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
-                transform,
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                 color,
-                rect,
+                rect: Some(atlas.textures[atlas_info.glyph_index]),
                 custom_size: None,
-                image_handle_id: handle.id(),
+                image_handle_id: atlas.texture.id(),
                 flip_x: false,
                 flip_y: false,
                 anchor: Anchor::Center.as_vec(),
@@ -146,9 +152,9 @@ pub fn update_text2d_layout(
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Res<Windows>,
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -156,16 +162,21 @@ pub fn update_text2d_layout(
     mut text_query: Query<(
         Entity,
         Ref<Text>,
-        &Text2dBounds,
+        Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
-    let scale_factor = windows.scale_factor(WindowId::primary());
+
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0);
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || queue.remove(&entity) {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),
@@ -176,6 +187,7 @@ pub fn update_text2d_layout(
                 &text.sections,
                 scale_factor,
                 text.alignment,
+                text.linebreak_behaviour,
                 text_bounds,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,

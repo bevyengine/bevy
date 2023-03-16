@@ -1,9 +1,10 @@
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
+use bevy_utils::HashMap;
 
-/// An Axis-Aligned Bounding Box
-#[derive(Component, Clone, Debug, Default, Reflect)]
+/// An axis-aligned bounding box.
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
@@ -134,17 +135,33 @@ pub struct Frustum {
 }
 
 impl Frustum {
-    // NOTE: This approach of extracting the frustum planes from the view
-    // projection matrix is from Foundations of Game Engine Development 2
-    // Rendering by Lengyel. Slight modification has been made for when
-    // the far plane is infinite but we still want to cull to a far plane.
+    /// Returns a frustum derived from `view_projection`.
     #[inline]
-    pub fn from_view_projection(
+    pub fn from_view_projection(view_projection: &Mat4) -> Self {
+        let mut frustum = Frustum::from_view_projection_no_far(view_projection);
+        frustum.planes[5] = Plane::new(view_projection.row(2));
+        frustum
+    }
+
+    /// Returns a frustum derived from `view_projection`, but with a custom
+    /// far plane.
+    #[inline]
+    pub fn from_view_projection_custom_far(
         view_projection: &Mat4,
         view_translation: &Vec3,
         view_backward: &Vec3,
         far: f32,
     ) -> Self {
+        let mut frustum = Frustum::from_view_projection_no_far(view_projection);
+        let far_center = *view_translation - far * *view_backward;
+        frustum.planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
+        frustum
+    }
+
+    // NOTE: This approach of extracting the frustum planes from the view
+    // projection matrix is from Foundations of Game Engine Development 2
+    // Rendering by Lengyel.
+    fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
         let row3 = view_projection.row(3);
         let mut planes = [Plane::default(); 6];
         for (i, plane) in planes.iter_mut().enumerate().take(5) {
@@ -155,8 +172,6 @@ impl Frustum {
                 row3 - row
             });
         }
-        let far_center = *view_translation - far * *view_backward;
-        planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
         Self { planes }
     }
 
@@ -173,7 +188,13 @@ impl Frustum {
     }
 
     #[inline]
-    pub fn intersects_obb(&self, aabb: &Aabb, model_to_world: &Mat4, intersect_far: bool) -> bool {
+    pub fn intersects_obb(
+        &self,
+        aabb: &Aabb,
+        model_to_world: &Mat4,
+        intersect_near: bool,
+        intersect_far: bool,
+    ) -> bool {
         let aabb_center_world = model_to_world.transform_point3a(aabb.center).extend(1.0);
         let axes = [
             Vec3A::from(model_to_world.x_axis),
@@ -181,8 +202,13 @@ impl Frustum {
             Vec3A::from(model_to_world.z_axis),
         ];
 
-        let max = if intersect_far { 6 } else { 5 };
-        for plane in &self.planes[..max] {
+        for (idx, plane) in self.planes.into_iter().enumerate() {
+            if idx == 4 && !intersect_near {
+                continue;
+            }
+            if idx == 5 && !intersect_far {
+                continue;
+            }
             let p_normal = Vec3A::from(plane.normal_d());
             let relative_radius = aabb.relative_radius(&p_normal, &axes);
             if plane.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
@@ -207,6 +233,13 @@ impl CubemapFrusta {
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut Frustum> {
         self.frusta.iter_mut()
     }
+}
+
+#[derive(Component, Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct CascadesFrusta {
+    #[reflect(ignore)]
+    pub frusta: HashMap<Entity, Vec<Frustum>>,
 }
 
 #[cfg(test)]

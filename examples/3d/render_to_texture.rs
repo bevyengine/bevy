@@ -17,9 +17,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(cube_rotator_system)
-        .add_system(rotator_system)
+        .add_systems((setup.on_startup(), cube_rotator_system, rotator_system))
         .run();
 }
 
@@ -55,6 +53,7 @@ fn setup(
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         },
         ..default()
     };

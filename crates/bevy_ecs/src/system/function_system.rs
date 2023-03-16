@@ -1,15 +1,16 @@
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::MAX_CHANGE_AGE,
-    component::ComponentId,
+    component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::{SystemLabel, SystemLabelId},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
-use bevy_ecs_macros::all_tuples;
-use std::{any::TypeId, borrow::Cow, fmt::Debug, marker::PhantomData};
+
+use bevy_utils::all_tuples;
+use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+
+use super::ReadOnlySystem;
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -20,7 +21,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) last_change_tick: u32,
+    pub(crate) last_run: Tick,
 }
 
 impl SystemMeta {
@@ -30,7 +31,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
-            last_change_tick: 0,
+            last_run: Tick::new(0),
         }
     }
 
@@ -149,7 +150,7 @@ pub struct SystemState<Param: SystemParam + 'static> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
@@ -286,10 +287,10 @@ impl<Param: SystemParam> SystemState<Param> {
     unsafe fn fetch<'w, 's>(
         &'s mut self,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
         let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
-        self.meta.last_change_tick = change_tick;
+        self.meta.last_run = change_tick;
         param
     }
 }
@@ -317,16 +318,14 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params>: Sized {
+pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
 
-pub struct AlreadyWasSystem;
-
 // Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
+impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
     type System = Sys;
     fn into_system(this: Self) -> Sys {
         this
@@ -360,8 +359,6 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
-#[doc(hidden)]
-pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -370,30 +367,27 @@ pub struct InputMarker;
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
-pub struct FunctionSystem<In, Out, Param, Marker, F>
+pub struct FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<Param::State>,
+    param_state: Option<<F::Param as SystemParam>::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn(In) -> (Out, Marker)>,
+    marker: PhantomData<fn() -> Marker>,
 }
 
 pub struct IsFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
+impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
 where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
 {
-    type System = FunctionSystem<In, Out, Param, Marker, F>;
+    type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -406,9 +400,9 @@ where
     }
 }
 
-impl<In, Out, Param, Marker, F> FunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> FunctionSystem<Marker, F>
 where
-    Param: SystemParam,
+    F: SystemParamFunction<Marker>,
 {
     /// Message shown when a system isn't initialised
     // When lines get too long, rustfmt can sometimes refuse to format them.
@@ -416,16 +410,13 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<In, Out, Param, Marker, F> System for FunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> System for FunctionSystem<Marker, F>
 where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<Marker>,
 {
-    type In = In;
-    type Out = Out;
+    type In = F::In;
+    type Out = F::Out;
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
@@ -465,36 +456,36 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = Param::get_param(
+        let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
             change_tick,
         );
         let out = self.func.run(input, params);
-        self.system_meta.last_change_tick = change_tick;
+        self.system_meta.last_run = change_tick;
         out
     }
 
-    fn get_last_change_tick(&self) -> u32 {
-        self.system_meta.last_change_tick
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.system_meta.last_change_tick = last_change_tick;
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        Param::apply(param_state, &self.system_meta, world);
+        F::Param::apply(param_state, &self.system_meta, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(Param::init_state(world, &mut self.system_meta));
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
@@ -506,7 +497,7 @@ where
 
         for archetype_index in archetype_index_range {
             let param_state = self.param_state.as_mut().unwrap();
-            Param::new_archetype(
+            F::Param::new_archetype(
                 param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.system_meta,
@@ -515,48 +506,28 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
+            &mut self.system_meta.last_run,
             change_tick,
             self.system_meta.name.as_ref(),
         );
     }
 
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        vec![self.func.as_system_label().as_label()]
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
-        let set = crate::schedule_v3::SystemTypeSet::<F>::new();
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
     }
 }
 
-/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
-
-impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
-    #[inline]
-    fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
-    }
+/// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
+unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: SystemParamFunction<Marker>,
+    F::Param: ReadOnlySystemParam,
+{
 }
-
-impl<T> Debug for SystemTypeIdLabel<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SystemTypeIdLabel")
-            .field(&std::any::type_name::<T>())
-            .finish()
-    }
-}
-
-impl<T> Clone for SystemTypeIdLabel<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T> Copy for SystemTypeIdLabel<T> {}
 
 /// A trait implemented for all functions that can be used as [`System`]s.
 ///
@@ -577,20 +548,15 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
-/// // Unfortunately, we need all of these generics. `A` is the first system, with its
-/// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of `A` and `B`.
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(AParam, BParam)>) -> BOut
+/// ) -> impl FnMut(In<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
-///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
-///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
-///     AParam: SystemParam,
-///     BParam: SystemParam,
+///     A: SystemParamFunction<AMarker>,
+///     B: SystemParamFunction<BMarker, In = A::Out>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(a_in), mut params| {
@@ -623,19 +589,32 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
-pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
-    fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
+pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    /// The input type to this system. See [`System::In`].
+    type In;
+
+    /// The return type of this system. See [`System::Out`].
+    type Out;
+
+    /// The [`SystemParam`]/s used by this system to access the [`World`].
+    type Param: SystemParam;
+
+    /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
+    fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = ();
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
@@ -654,12 +633,15 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
                 FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = Input;
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
@@ -680,25 +662,3 @@ macro_rules! impl_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_system_function, 0, 16, F);
-
-/// Used to implicitly convert systems to their default labels. For example, it will convert
-/// "system functions" to their [`SystemTypeIdLabel`].
-pub trait AsSystemLabel<Marker> {
-    fn as_system_label(&self) -> SystemLabelId;
-}
-
-impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
-    AsSystemLabel<(In, Out, Param, Marker)> for T
-{
-    #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
-        SystemTypeIdLabel::<T>(PhantomData).as_label()
-    }
-}
-
-impl<T: SystemLabel> AsSystemLabel<()> for T {
-    #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
-        self.as_label()
-    }
-}

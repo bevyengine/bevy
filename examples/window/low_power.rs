@@ -6,7 +6,7 @@
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, RequestRedraw},
+    window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::WinitSettings,
 };
 
@@ -26,18 +26,20 @@ fn main() {
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
-        .add_startup_system(test_setup::setup)
-        .add_system(test_setup::cycle_modes)
-        .add_system(test_setup::rotate_cube)
-        .add_system(test_setup::update_text)
-        .add_system(update_winit)
+        .add_systems((
+            test_setup::setup.on_startup(),
+            test_setup::cycle_modes,
+            test_setup::rotate_cube,
+            test_setup::update_text,
+            update_winit,
+        ))
         .run();
 }
 
@@ -199,11 +201,8 @@ pub(crate) mod test_setup {
             .with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
-                },
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..default()
             }),
             ModeText,

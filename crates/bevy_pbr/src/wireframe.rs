@@ -6,7 +6,7 @@ use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::Extract;
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -17,7 +17,7 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     view::{ExtractedView, Msaa, VisibleEntities},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_utils::tracing::error;
 
@@ -39,27 +39,21 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
+            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
+            .add_plugin(ExtractComponentPlugin::<Wireframe>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Queue, queue_wireframes);
+                .add_system(queue_wireframes.in_set(RenderSet::Queue));
         }
     }
 }
 
-fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
-    for entity in &query {
-        commands.get_or_spawn(entity).insert(Wireframe);
-    }
-}
-
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Default, ExtractComponent, Reflect)]
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
@@ -117,7 +111,7 @@ fn queue_wireframes(
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 

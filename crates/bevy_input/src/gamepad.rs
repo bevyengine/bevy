@@ -337,7 +337,7 @@ impl GamepadAxis {
 ///
 /// ## Note
 ///
-/// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `girls`,
+/// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
 #[derive(Resource, Default, Debug, Reflect, FromReflect)]

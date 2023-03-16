@@ -81,6 +81,15 @@ Our merge strategy relies on the classification of PRs on two axes:
 * How controversial are the design decisions
 * How complex is the implementation
 
+Each [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
+
+* A: Area (e.g. A-Animation, A-ECS, A-Rendering)
+* C: Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs)
+* D: Difficulty (e.g. D-Complex, D-Good-First-Issue)
+* O: Operating System (e.g. O-Linux, O-Web, O-Windows)
+* P: Priority (e.g. P-Critical, P-High)
+* S: Status (e.g. S-Blocked, S-Controversial, S-Needs-Design)
+
 PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
 the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
 
@@ -103,7 +112,7 @@ Some things that are reason to apply the [`S-Controversial`] label to a PR:
 
 Some things that are reason to apply the [`D-Complex`] label to a PR:
 
-1. Introduction or modification of soundness relevent code (for example `unsafe` code)
+1. Introduction or modification of soundness relevant code (for example `unsafe` code)
 2. High levels of technical complexity.
 3. Large-scale code reorganization
 
@@ -137,9 +146,14 @@ Some useful pull request queries:
 [`S-Controversial`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Controversial
 [`D-Complex`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AD-Complex
 
-### Preparing Releases
+### Prioritizing PRs and issues
 
-We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
+We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issues and PRs that:
+
+* Need to be merged/fixed before the next release. This is generally for extremely bad bugs i.e. UB or important functionality being broken.
+* Would have higher user impact and are almost ready to be merged/fixed.
+
+There are also two priority labels: [`P-Critical`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) and [`P-High`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High) that can be used to find issues and PRs that need to be resolved urgently.
 
 ## Making changes to Bevy
 
@@ -152,7 +166,7 @@ Most changes don't require much "process". If your change is relatively straight
 2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on [Discord](https://discord.gg/bevy) in an appropriate engine development channel.
 3. Once they're content with the pull request (design, code quality, documentation, tests), individual reviewers leave "Approved" reviews.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the [S-Ready-For-Final-Review](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AS-Ready-For-Final-Review) label is added.
-5. When they find time, someone with merge rights performs a final code review and merges the PR using [Bors](https://bors.tech/) by typing `bors r+`.
+5. When they find time, someone with merge rights performs a final code review and queue the PR for merging.
 
 ### Complex changes
 
@@ -278,11 +292,10 @@ There are three main places you can check for things to review:
 2. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
 3. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
-Official focus areas and work done by @cart go through this review process as well.
-Not even our project lead is exempt from reviews and RFCs!
+Not even our Project Leads and Maintainers are exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
-Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
+Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message the Project Lead (currently @cart) for a Bevy org role to help us keep things tidy.
 As discussed in our [*Bevy Organization doc*](/docs/the_bevy_organization.md), this role only requires good faith and a basic understanding of our development process.
 
 ### How to adopt pull requests
@@ -319,16 +332,15 @@ If you're new to Bevy, here's the workflow we use:
     * `cargo run -p ci -- test` - to run tests
     * `cargo run -p ci -- doc` - to run doc tests and doc checks
     * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests))
-    * to get more informations on commands available and what is run, check the [tools/ci crate](./tools/ci)
+    * to get more information on commands available and what is run, check the [tools/ci crate](./tools/ci)
 
 4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
 5. Push your changes to your fork on Github and open a Pull Request.
-6. If your account is new on github, one of the Bevy org members [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/) using the `bors try` command.
-7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
-8. When your PR is ready to merge, @cart will review it and suggest final changes. If those changes are minimal he may even apply them directly to speed up merging.
+6. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to a Maintainer or Project Lead's final judgement.
+7. When your PR is ready to merge, a Maintainer or Project Lead will review it and suggest final changes. If those changes are minimal they may even apply them directly to speed up merging.
 
 If you end up adding a new official Bevy crate to the `bevy` repo:
 
