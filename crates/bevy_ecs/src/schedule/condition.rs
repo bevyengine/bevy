@@ -137,7 +137,7 @@ mod sealed {
 pub mod common_conditions {
     use std::borrow::Cow;
 
-    use super::{Condition, ConditionInverter};
+    use super::{Condition, NotSystem};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
@@ -921,13 +921,13 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, T>(condition: T) -> ConditionInverter<T::System>
+    pub fn not<Marker, T>(condition: T) -> NotSystem<T::System>
     where
         T: Condition<Marker>,
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
-        ConditionInverter::<T::System> {
+        NotSystem::<T::System> {
             condition,
             name: Cow::Owned(name),
         }
@@ -938,16 +938,16 @@ pub mod common_conditions {
 ///
 /// See [`common_conditions::not`] for examples.
 #[derive(Clone)]
-pub struct ConditionInverter<T>
+pub struct NotSystem<T>
 where
-    T: System<In = (), Out = bool> + ReadOnlySystem,
+    T: System<In = (), Out = bool>,
 {
     condition: T,
     name: Cow<'static, str>,
 }
-impl<T> System for ConditionInverter<T>
+impl<T> System for NotSystem<T>
 where
-    T: System<In = (), Out = bool> + ReadOnlySystem,
+    T: System<In = (), Out = bool>,
 {
     type In = ();
     type Out = bool;
@@ -1011,10 +1011,7 @@ where
 }
 
 // SAFETY: The inner condition asserts its own safety.
-unsafe impl<T> ReadOnlySystem for ConditionInverter<T> where
-    T: System<In = (), Out = bool> + ReadOnlySystem
-{
-}
+unsafe impl<T> ReadOnlySystem for NotSystem<T> where T: System<In = (), Out = bool> + ReadOnlySystem {}
 
 /// Combines the outputs of two systems using the `&&` operator.
 pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
