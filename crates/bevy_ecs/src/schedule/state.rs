@@ -122,11 +122,13 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
 
         // Try to run the schedules if they exist.
-        let _ = world.try_run_schedule(OnExit(exited.clone()));
-        let _ = world.try_run_schedule(OnTransition {
-            from: exited,
-            to: entered.clone(),
-        });
-        let _ = world.try_run_schedule(OnEnter(entered));
+        world.try_run_schedule(OnExit(exited.clone())).ok();
+        world
+            .try_run_schedule(OnTransition {
+                from: exited,
+                to: entered.clone(),
+            })
+            .ok();
+        world.try_run_schedule(OnEnter(entered)).ok();
     }
 }
