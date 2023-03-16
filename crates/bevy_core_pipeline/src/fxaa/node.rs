@@ -28,8 +28,6 @@ pub struct FxaaNode {
 }
 
 impl FxaaNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),

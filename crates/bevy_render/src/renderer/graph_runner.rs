@@ -125,7 +125,6 @@ impl RenderGraphRunner {
         'handle_node: while let Some(node_state) = node_queue.pop_back() {
             // skip nodes that are already processed
             if node_outputs.contains_key(&node_state.id) {
-                println!("skipping {:?}", node_state.name);
                 continue;
             }
 
