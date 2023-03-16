@@ -1,4 +1,6 @@
-use crate::{First, Main, Plugin, PluginGroup, Startup, StateTransition, Update};
+use crate::{
+    First, Main, MainSchedulePlugin, Plugin, PluginGroup, Startup, StateTransition, Update,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -185,8 +187,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        Main::init(&mut app);
-
+        app.add_plugin(MainSchedulePlugin);
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
