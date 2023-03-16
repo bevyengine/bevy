@@ -104,15 +104,15 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     item_rect(builder, Color::DARK_GREEN);
                     item_rect(builder, Color::FUCHSIA);
 
-                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::TEAL);
                     item_rect(builder, Color::ALICE_BLUE);
-                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::CRIMSON);
                     item_rect(builder, Color::ANTIQUE_WHITE);
 
-                    item_rect(builder, Color::GOLD);
-                    item_rect(builder, Color::GOLD);
-                    item_rect(builder, Color::GOLD);
-                    item_rect(builder, Color::GOLD);
+                    item_rect(builder, Color::YELLOW);
+                    item_rect(builder, Color::PINK);
+                    item_rect(builder, Color::YELLOW_GREEN);
+                    item_rect(builder, Color::SALMON);
                 });
 
             // Right side bar (auto placed in row 2, column 2)
