@@ -7,7 +7,7 @@
 
 use bevy::{
     core_pipeline::{
-        clear_color::ClearColorConfig, core_3d,
+        add_node, clear_color::ClearColorConfig, core_3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     prelude::*,
@@ -15,7 +15,7 @@ use bevy::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+        render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
         render_resource::{
             BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -54,7 +54,8 @@ impl Plugin for PostProcessPlugin {
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
-            // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`] for this plugin to work correctly.
+            // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`]
+            // for this plugin to work correctly.
             .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
@@ -71,42 +72,28 @@ impl Plugin for PostProcessPlugin {
 
         // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
         // It currently runs on each view/camera and executes each node in the specified order.
-        // It will make sure that any node that needs a dependency from another node only runs when that dependency is done.
+        // It will make sure that any node that needs a dependency from another node
+        // only runs when that dependency is done.
         //
         // Each node can execute arbitrary work, but it generally runs at least one render pass.
         // A node only has access to the render world, so if you need data from the main world
         // you need to extract it manually or with the plugin like above.
 
-        // Create the node with the render world
-        let node = PostProcessNode::new(&mut render_app.world);
-
-        // Get the render graph for the entire app
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-        // Get the render graph for 3d cameras/views
-        let core_3d_graph = graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-
-        // Register the post process node in the 3d render graph
-        core_3d_graph.add_node(PostProcessNode::NAME, node);
-
-        // A slot edge tells the render graph which input/output value should be passed to the node.
-        // In this case, the view entity, which is the entity associated with the
-        // camera on which the graph is running.
-        core_3d_graph.add_slot_edge(
-            core_3d_graph.input_node().id,
+        // Utility function to add a Node to the RenderGraph
+        // * It creates the Node using the FromWorld implementation
+        // * Adds it to the graph
+        // * Automatically adds the required node edges and slot edges based on the given ordering
+        add_node::<PostProcessNode>(
+            render_app,
+            core_3d::graph::NAME,
+            PostProcessNode::NAME,
             core_3d::graph::input::VIEW_ENTITY,
-            PostProcessNode::NAME,
             PostProcessNode::IN_VIEW,
-        );
-
-        // We now need to add an edge between our node and the nodes from bevy
-        // to make sure our node is ordered correctly relative to other nodes.
-        //
-        // Here we want our effect to run after tonemapping and before the end of the main pass post processing
-        core_3d_graph.add_node_edge(core_3d::graph::node::TONEMAPPING, PostProcessNode::NAME);
-        core_3d_graph.add_node_edge(
-            PostProcessNode::NAME,
-            core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+            &[
+                core_3d::graph::node::MAIN_PASS,
+                PostProcessNode::NAME,
+                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+            ],
         );
     }
 }
@@ -121,8 +108,10 @@ struct PostProcessNode {
 impl PostProcessNode {
     pub const IN_VIEW: &str = "view";
     pub const NAME: &str = "post_process";
+}
 
-    fn new(world: &mut World) -> Self {
+impl FromWorld for PostProcessNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
         }
