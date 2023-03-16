@@ -940,7 +940,7 @@ pub mod common_conditions {
 /// Inverts the output of a [`Condition`].
 ///
 /// See [`common_conditions::not`] for examples.
-#[derive(Clone)]
+
 pub struct ConditionInverter<Marker, T>
 where
     T: System<In = (), Out = bool> + ReadOnlySystem,
@@ -1021,6 +1021,19 @@ where
     Marker: 'static,
     T: System<In = (), Out = bool> + ReadOnlySystem,
 {
+}
+
+impl<Marker, T> Clone for ConditionInverter<Marker, T>
+where
+    T: System<In = (), Out = bool> + ReadOnlySystem + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            _marker: PhantomData,
+            condition: self.condition.clone(),
+            name: self.name.clone(),
+        }
+    }
 }
 
 /// Combines the outputs of two systems using the `&&` operator.

@@ -396,7 +396,6 @@ where
     }
 }
 
-#[derive(Clone)]
 pub struct IsFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
