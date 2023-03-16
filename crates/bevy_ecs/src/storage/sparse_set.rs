@@ -589,6 +589,7 @@ impl SparseSets {
     }
 
     /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
     }

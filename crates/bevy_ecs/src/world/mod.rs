@@ -107,11 +107,13 @@ impl World {
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    #[inline]
     pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
     }
@@ -119,6 +121,7 @@ impl World {
     /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
     /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
     /// has been replaced.
+    #[inline]
     pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
     }
