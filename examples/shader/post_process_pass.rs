@@ -39,9 +39,8 @@ fn main() {
             ..default()
         }))
         .add_plugin(PostProcessPlugin)
-        .add_startup_system(setup)
-        .add_system(rotate)
-        .add_system(update_settings)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (rotate, update_settings))
         .run();
 }
 
