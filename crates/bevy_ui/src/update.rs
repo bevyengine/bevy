@@ -122,7 +122,6 @@ pub fn update_scroll_position(
                     .map(|child| query_node.get(*child).unwrap().size().y)
                     .sum();
 
-                // TODO: Fix scroll clamping too soon
                 let max_scroll = (items_height - container_height).max(0.);
 
                 let dy = match mouse_wheel_event.unit {

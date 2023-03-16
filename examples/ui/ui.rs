@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
                                         size: Size::height(Val::Percent(50.)),
-                                        overflow: Overflow::Scroll,
+                                        overflow: Overflow::scroll_y(),
                                         ..default()
                                     },
                                     background_color: Color::rgb(0.10, 0.10, 0.10).into(),
