@@ -234,10 +234,12 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
+    #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Entity::from_raw(value as u32)
     }

@@ -283,6 +283,7 @@ impl SparseSetIndex for ComponentId {
         self.index()
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }
