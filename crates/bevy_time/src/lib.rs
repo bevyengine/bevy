@@ -21,7 +21,7 @@ pub mod prelude {
     pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 }
 
-use bevy_app::{prelude::*, FixedUpdateLoop};
+use bevy_app::{prelude::*, RunFixedUpdateLoop};
 use bevy_ecs::prelude::*;
 
 use crate::fixed_timestep::run_fixed_update_schedule;
@@ -44,7 +44,7 @@ impl Plugin for TimePlugin {
             .register_type::<Stopwatch>()
             .init_resource::<FixedTime>()
             .add_systems(First, time_system.in_set(TimeSystem))
-            .add_systems(FixedUpdateLoop, run_fixed_update_schedule);
+            .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
     }
 }
 

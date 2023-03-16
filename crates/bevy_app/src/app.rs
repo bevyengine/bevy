@@ -369,7 +369,7 @@ impl App {
     /// # fn my_system() {}
     /// # let mut app = App::new();
     /// #
-    /// app.add_systems(Update, my_system);
+    /// app.add_system(my_system);
     /// ```
     #[deprecated(
         since = "0.11.0",

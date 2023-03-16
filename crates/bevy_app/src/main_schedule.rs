@@ -65,7 +65,7 @@ pub struct StateTransition;
 /// Runs the [`FixedUpdate`] schedule in a loop according until all relevant elapsed time has been "consumed".
 /// This is run by the [`Main`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct FixedUpdateLoop;
+pub struct RunFixedUpdateLoop;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
@@ -110,7 +110,7 @@ impl Default for MainScheduleOrder {
                 Box::new(First),
                 Box::new(PreUpdate),
                 Box::new(StateTransition),
-                Box::new(FixedUpdateLoop),
+                Box::new(RunFixedUpdateLoop),
                 Box::new(Update),
                 Box::new(PostUpdate),
                 Box::new(Last),
@@ -167,7 +167,7 @@ impl Plugin for MainSchedulePlugin {
             .init_schedule(First)
             .init_schedule(PreUpdate)
             .init_schedule(StateTransition)
-            .add_schedule(FixedUpdateLoop, fixed_update_loop_schedule)
+            .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
             .init_schedule(FixedUpdate)
             .init_schedule(Update)
             .init_schedule(PostUpdate)
