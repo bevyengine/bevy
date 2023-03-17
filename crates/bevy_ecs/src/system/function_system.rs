@@ -388,8 +388,8 @@ where
     fn clone(&self) -> Self {
         Self {
             func: self.func.clone(),
-            system_meta: SystemMeta::new::<F>(),
             param_state: None,
+            system_meta: SystemMeta::new::<F>(),
             world_id: None,
             archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
