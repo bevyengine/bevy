@@ -21,7 +21,7 @@ use crate::{
     converters::convert_window_level,
 };
 
-/// A reource which maps window entities to [`winit`] library windows.
+/// A resource which maps window entities to [`winit`] library windows.
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
