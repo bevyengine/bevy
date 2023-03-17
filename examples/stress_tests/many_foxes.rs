@@ -41,10 +41,12 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_startup_system(setup)
-        .add_system(setup_scene_once_loaded)
-        .add_system(keyboard_animation_control)
-        .add_system(update_fox_rings.after(keyboard_animation_control))
+        .add_systems((
+            setup.on_startup(),
+            setup_scene_once_loaded,
+            keyboard_animation_control,
+            update_fox_rings.after(keyboard_animation_control),
+        ))
         .run();
 }
 

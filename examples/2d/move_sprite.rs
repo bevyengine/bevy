@@ -5,8 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(sprite_movement)
+        .add_systems((setup.on_startup(), sprite_movement))
         .run();
 }
 

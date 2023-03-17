@@ -1,10 +1,8 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
-use crate::{
-    archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, world::World,
-};
+use crate::component::Tick;
+use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
 use std::any::TypeId;
 use std::borrow::Cow;
@@ -63,19 +61,20 @@ pub trait System: Send + Sync + 'static {
     fn initialize(&mut self, _world: &mut World);
     /// Update the system's archetype component [`Access`].
     fn update_archetype_component_access(&mut self, world: &World);
-    fn check_change_tick(&mut self, change_tick: u32);
+    fn check_change_tick(&mut self, change_tick: Tick);
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         Vec::new()
     }
-    /// Gets the system's last change tick
-    fn get_last_change_tick(&self) -> u32;
-    /// Sets the system's last change tick
+    /// Gets the tick indicating the last time this system ran.
+    fn get_last_run(&self) -> Tick;
+    /// Overwrites the tick indicating the last time this system ran.
+    ///
     /// # Warning
     /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
-    fn set_last_change_tick(&mut self, last_change_tick: u32);
+    fn set_last_run(&mut self, last_run: Tick);
 }
 
 /// [`System`] types that do not modify the [`World`] when run.
@@ -91,23 +90,14 @@ pub unsafe trait ReadOnlySystem: System {}
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_change_tick(
-    last_change_tick: &mut u32,
-    change_tick: u32,
-    system_name: &str,
-) {
-    let age = change_tick.wrapping_sub(*last_change_tick);
-    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-    // so long as this check always runs before that can happen.
-    if age > MAX_CHANGE_AGE {
+pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
+    if last_run.check_tick(this_run) {
+        let age = this_run.relative_to(*last_run).get();
         warn!(
-            "System '{}' has not run for {} ticks. \
+            "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",
-            system_name,
-            age,
-            MAX_CHANGE_AGE - 1,
+            Tick::MAX.get() - 1,
         );
-        *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
     }
 }
 
