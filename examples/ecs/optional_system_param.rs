@@ -10,8 +10,8 @@ use std::ops::{Deref, DerefMut};
 
 use bevy::{
     ecs::{
-        component::ComponentId,
-        system::{OptionalSystemParam, ReadOnlySystemParam},
+        component::{ComponentId, Tick},
+        system::{OptionalSystemParam, ReadOnlySystemParam, SystemMeta},
     },
     prelude::*,
 };
@@ -78,10 +78,7 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for Game<'w, T> {
 
     type Item<'world, 'state> = Game<'world, T>;
 
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut bevy::ecs::system::SystemMeta,
-    ) -> Self::State {
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         GameState {
             mode_id: <Res<CurrentGameMode> as OptionalSystemParam>::init_state(world, system_meta),
         }
@@ -89,9 +86,9 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for Game<'w, T> {
 
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
-        system_meta: &bevy::ecs::system::SystemMeta,
+        system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'world, 'state>> {
         let current_mode = <Res<CurrentGameMode> as OptionalSystemParam>::get_param(
             &mut state.mode_id,

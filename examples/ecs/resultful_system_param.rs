@@ -3,7 +3,10 @@
 //! This is fairly advanced and the [`SystemParam`] derive macro can be used in many cases.
 
 use bevy::{
-    ecs::system::{ReadOnlySystemParam, ResultfulSystemParam, SystemParam},
+    ecs::{
+        component::Tick,
+        system::{ReadOnlySystemParam, ResultfulSystemParam, SystemMeta, SystemParam},
+    },
     prelude::*,
 };
 
@@ -34,10 +37,7 @@ unsafe impl ResultfulSystemParam for AverageScore {
 
     type Error = AverageScoreError;
 
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut bevy::ecs::system::SystemMeta,
-    ) -> Self::State {
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         AverageScoreState {
             query_state: <Query<&Score> as SystemParam>::init_state(world, system_meta),
         }
@@ -45,9 +45,9 @@ unsafe impl ResultfulSystemParam for AverageScore {
 
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
-        system_meta: &bevy::ecs::system::SystemMeta,
+        system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Result<
         Self::Item<'world, 'state>,
         <Self::Item<'world, 'state> as ResultfulSystemParam>::Error,
