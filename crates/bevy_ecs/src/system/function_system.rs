@@ -367,6 +367,9 @@ pub struct In<In>(pub In);
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
+///
+/// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
+/// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
 pub struct FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,

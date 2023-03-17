@@ -394,8 +394,8 @@ where
 
     /// Add a run condition to each contained system.
     ///
-    /// Each system will receive its own clone of the [`Condition`] and will only run
-    /// if the `Condition` is true.
+    /// The [`Condition`] must be [`Clone`]. Each system will receive its own clone
+    /// of the `Condition` and will only run if the `Condition` is true.
     ///
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
@@ -422,6 +422,9 @@ where
     /// Use [`run_if`](IntoSystemSetConfig::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
+    ///
+    /// The [`Condition`] is cloned for each system.
+    /// Cloned instances of [`FunctionSystem`](crate::system::FunctionSystem) will be de-initialized.
     fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> SystemConfigs {
         self.into_configs().distributive_run_if(condition)
     }
