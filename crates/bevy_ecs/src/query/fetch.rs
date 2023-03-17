@@ -280,7 +280,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// `PhantomData<T>` types, this pattern can be used with this macro.
 ///
 /// ```
-/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::{prelude::*, query::WorldQuery};
 /// # use std::marker::PhantomData;
 /// #[derive(WorldQuery)]
 /// pub struct GenericQuery<T> {
