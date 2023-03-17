@@ -1,4 +1,10 @@
 #![warn(missing_docs)]
+//! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
+//!
+//! Most commonly, the [`WinitPlugin`] is used as part of [`DefaultPlugins`](bevy::DefaultPlugins).
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the [`winit::EventLoop`].
+//! See `winit_runner` for details.
+
 pub mod accessibility;
 mod converters;
 mod system;
@@ -273,6 +279,8 @@ impl Default for WinitPersistentState {
 }
 
 /// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+///
+/// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the `EventLoop`.
 pub fn winit_runner(mut app: App) {
     // We remove this so that we have ownership over it.
     let mut event_loop = app
