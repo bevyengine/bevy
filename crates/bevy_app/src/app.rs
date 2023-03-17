@@ -365,15 +365,7 @@ impl App {
         note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Update, your_system).`"
     )]
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(update_schedule) = schedules.get_mut(&Update) {
-            update_schedule.add_systems(system);
-        } else {
-            panic!("Default schedule {Update:?} does not exist.")
-        }
-
-        self
+        self.add_systems(Update, system)
     }
 
     /// Adds a system to the given schedule in this app's [`Schedules`].
