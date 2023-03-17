@@ -1074,6 +1074,7 @@ mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
     use crate::component::Component;
+    use crate::schedule::IntoSystemConfigs;
     use crate::schedule::{common_conditions::not, State, States};
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
