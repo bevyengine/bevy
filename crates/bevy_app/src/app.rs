@@ -222,7 +222,6 @@ impl App {
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
             main_schedule_label: Box::new(Main),
-            is_building_plugin: false,
             building_plugin_depth: 0,
         }
     }
