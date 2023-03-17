@@ -1,3 +1,8 @@
+//! This example shows what happens when there is a lot of buttons on screen.
+//! 
+//! To start the demo without text run
+//! `cargo run --example many_buttons --release no-text`
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -84,7 +89,7 @@ fn spawn_button(
     j: usize,
 ) {
     let width = 90.0 / total;
-    commands
+    let mut builder = commands
         .spawn((
             ButtonBundle {
                 style: Style {
@@ -99,7 +104,10 @@ fn spawn_button(
                 ..default()
             },
             IdleColor(color),
-        ))
+        ));
+
+    if std::env::args().nth(1).as_deref() != Some("no-text") {
+        builder
         .with_children(|commands| {
             commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
@@ -110,4 +118,5 @@ fn spawn_button(
                 },
             ));
         });
+    }
 }
