@@ -79,6 +79,75 @@ impl SystemSchedule {
             step_state: StepState::RunAll,
         }
     }
+
+    /// Return the index of the next system to be run if this schedule is
+    /// stepped
+    pub fn stepping_next_system_index(&self) -> Option<usize> {
+        let index = match self.step_state {
+            StepState::RunAll => None,
+            StepState::Wait(i) | StepState::Next(i) | StepState::Remaining(i) => Some(i),
+        }?;
+
+        self.find_stepping_system(index)
+    }
+
+    /// Called by [`Executor::run`] to get the list of systems to be skipped
+    /// due to stepping; this method also updates the `step_state` to prepare
+    /// for the next call.
+    pub fn step(&mut self) -> Option<FixedBitSet> {
+        match self.step_state {
+            StepState::RunAll => None,
+            StepState::Wait(_) => Some(self.systems_with_stepping_enabled.clone()),
+            StepState::Next(index) => {
+                let next = self.find_stepping_system(index)?;
+
+                // clone the list of stepping systems, then disable
+                let mut mask = self.systems_with_stepping_enabled.clone();
+                mask.toggle(next);
+
+                // Transition to the wait state. it's safe to set the value
+                // beyond the number of systems in the schedule.  All uses of
+                // that value use [`find_stepping_system`], which will wrap it
+                // to a safe value.
+                self.step_state = StepState::Wait(next + 1);
+
+                Some(mask)
+            }
+            StepState::Remaining(index) => {
+                let next = self.find_stepping_system(index)?;
+
+                // We need to mark all systems that observe stepping prior
+                // to `next` as completed.  We do this in three steps:
+                //
+                // 1. set the bit for every system below `next` in a bitset
+                // 2. clear the bits for every system ignoring stepping;
+                //    we do this with a bitwise AND between the mask and
+                //    those systems that are observing stepping
+                // 3. We set those bits in the completed_systems bitmask by
+                //    using a bitwise OR.
+                //
+                let mut mask = FixedBitSet::with_capacity(self.systems.len());
+                mask.insert_range(0..next);
+                mask &= &self.systems_with_stepping_enabled;
+
+                // transition to wait state, starting at the first system
+                self.step_state = StepState::Wait(0);
+
+                Some(mask)
+            }
+        }
+    }
+
+    /// starting at system index `start`, return the index of the first system
+    /// that has stepping enabled.
+    fn find_stepping_system(&self, start: usize) -> Option<usize> {
+        for i in start..self.systems_with_stepping_enabled.len() {
+            if self.systems_with_stepping_enabled[i] {
+                return Some(i);
+            }
+        }
+        (0..start).find(|i| self.systems_with_stepping_enabled[*i])
+    }
 }
 
 /// Instructs the executor to call [`apply_buffers`](crate::system::System::apply_buffers)

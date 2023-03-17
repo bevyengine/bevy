@@ -323,17 +323,14 @@ impl Schedule {
         }
     }
 
-    /// Get the name of the next system that will be run in the
-    /// schedule if stepping is enabled
-    pub fn next_system(&self) -> Option<String> {
-        match self.executable.step_state {
-            StepState::RunAll => None,
-            StepState::Wait(n) | StepState::Next(n) | StepState::Remaining(n) => Some(n),
-        }
-        .map(|idx| self.executable.systems[idx].name().to_string())
+    /// When stepping mode is enabled, this method will return the name of the
+    /// next system to be run when the schedule is stepped.
+    pub fn next_step_system_name(&self) -> Option<std::borrow::Cow<'static, str>> {
+        let index = self.executable.stepping_next_system_index()?;
+        Some(self.executable.systems[index].name())
     }
 
-    /// apply ScheduleEvent to the schedule & executor
+    /// apply `event` to the schedule
     pub fn handle_event(&mut self, event: &ScheduleEvent) {
         use StepState::*;
 

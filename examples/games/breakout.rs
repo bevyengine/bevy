@@ -469,6 +469,14 @@ fn stepping_ui(
     mut ui: Query<(Entity, &mut Text, &Visibility), With<SteppingUi>>,
     mut schedule_events: EventReader<bevy::ecs::schedule::ScheduleEvent>,
 ) {
+    fn next_system_name(schedule: &Schedule) -> String {
+        if let Some(name) = schedule.next_step_system_name() {
+            name.to_string()
+        } else {
+            "unknown".to_string()
+        }
+    }
+
     let label = Box::new(CoreSchedule::FixedUpdate);
     let fixed = schedules
         .get(&*label)
@@ -485,18 +493,13 @@ fn stepping_ui(
     if vis == Visibility::Hidden {
         commands.entity(entity).insert(Visibility::Inherited);
     }
-    text.sections[3].value = fixed.next_system().unwrap_or("unknown".to_string());
+    text.sections[3].value = next_system_name(fixed);
 
     for ev in schedule_events.iter() {
         use bevy::ecs::schedule::ScheduleEvent::*;
         match ev {
             StepFrame(_) => text.sections[1].value = "stepped frame".to_string(),
-            StepSystem(_) => {
-                text.sections[1].value = format!(
-                    "ran {}",
-                    fixed.next_system().unwrap_or("unknown".to_string())
-                )
-            }
+            StepSystem(_) => text.sections[1].value = format!("ran {}", next_system_name(&fixed)),
             _ => text.sections[1].value = "enabled stepping".to_string(),
         }
     }

@@ -10,7 +10,6 @@ use std::panic::AssertUnwindSafe;
 use async_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
 
-use super::StepState;
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
@@ -100,8 +99,6 @@ pub struct MultiThreadedExecutor {
     unapplied_systems: FixedBitSet,
     /// Setting when true applies system buffers after all systems have run
     apply_final_buffers: bool,
-    /// Storage for step state
-    step_state: StepState,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -150,24 +147,6 @@ impl SystemExecutor for MultiThreadedExecutor {
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
-        /// return the next system not exempt from stepping starting at, and
-        /// inclusive of, first.  If there are no more systems that can be
-        /// stepped, the first non-exempt system index will be returned.
-        fn next_system(schedule: &SystemSchedule, first: usize) -> usize {
-            println!("next_system first {}", first);
-            for i in first..schedule.systems_with_stepping_enabled.len() {
-                if schedule.systems_with_stepping_enabled[i] {
-                    return i;
-                }
-            }
-            for i in 0..first {
-                if schedule.systems_with_stepping_enabled[i] {
-                    return i;
-                }
-            }
-            panic!("all systems exempt from stepping");
-        }
-
         // reset counts
         let num_systems = schedule.systems.len();
         if num_systems == 0 {
@@ -185,59 +164,27 @@ impl SystemExecutor for MultiThreadedExecutor {
             }
         }
 
-        // XXX awfully slow and repetitive, but one implementation of stepping
-        // multi-threaded executor
-        match self.step_state {
-            StepState::RunAll => (),
-            StepState::Wait(_) => {
-                // mark all stepping systems as already complete
-                self.completed_systems |= &schedule.systems_with_stepping_enabled;
-                self.num_completed_systems = self.completed_systems.count_ones(..);
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        if let Some(mut skipped_systems) = schedule.step() {
+            // mark skipped systems as completed
+            self.completed_systems |= &skipped_systems;
+            self.num_completed_systems = self.completed_systems.count_ones(..);
 
-                // clear waiting systems from the ready mask
-                let mut ready_mask = self.completed_systems.clone();
-                for system_index in ready_mask.ones() {
-                    self.signal_dependents(system_index);
-                }
-                ready_mask.toggle_range(..);
-                self.ready_systems &= ready_mask;
+            // signal the dependencies for each of the skipped systems, as
+            // though they had run
+            for system_index in skipped_systems.ones() {
+                self.signal_dependents(system_index);
             }
-            StepState::Next(next) => {
-                let next = next_system(schedule, next);
-                assert!(schedule.systems_with_stepping_enabled[next]);
 
-                self.completed_systems |= &schedule.systems_with_stepping_enabled;
-                self.completed_systems.toggle(next);
-                self.num_completed_systems = self.completed_systems.count_ones(..);
-
-                // clear waiting systems from the ready mask
-                let mut ready_mask = self.completed_systems.clone();
-                for system_index in ready_mask.ones() {
-                    self.signal_dependents(system_index);
-                }
-                ready_mask.toggle_range(..);
-                self.ready_systems &= ready_mask;
-
-                self.step_state = StepState::Wait(next + 1);
-            }
-            StepState::Remaining(next) => {
-                let next = next_system(schedule, next);
-                let mut mask = FixedBitSet::with_capacity(schedule.systems.len());
-                mask.insert_range(0..next);
-                mask &= &schedule.systems_with_stepping_enabled;
-                self.completed_systems |= mask;
-                self.num_completed_systems = self.completed_systems.count_ones(..);
-
-                // clear waiting systems from the ready mask
-                let mut ready_mask = self.completed_systems.clone();
-                for system_index in ready_mask.ones() {
-                    self.signal_dependents(system_index);
-                }
-                ready_mask.toggle_range(..);
-                self.ready_systems &= ready_mask;
-
-                self.step_state = StepState::Wait(0);
-            }
+            // Finally, we need to clear all skipped systems from the ready
+            // list.
+            //
+            // We invert the skipped system mask to get the list of systems
+            // that should be run.  Then we bitwise AND it with the ready list,
+            // resulting in a list of ready systems that aren't skipped.
+            skipped_systems.toggle_range(..);
+            self.ready_systems &= skipped_systems;
         }
 
         let thread_executor = world
@@ -330,7 +277,6 @@ impl MultiThreadedExecutor {
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
             apply_final_buffers: true,
-            step_state: StepState::RunAll,
         }
     }
 

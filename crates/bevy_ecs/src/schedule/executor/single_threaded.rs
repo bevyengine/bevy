@@ -2,7 +2,6 @@
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
-use super::StepState;
 use crate::{
     schedule::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
@@ -45,59 +44,11 @@ impl SystemExecutor for SingleThreadedExecutor {
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
-        /// return the next system not exempt from stepping beginning at, and
-        /// inclusive of, `first`.  If there are no more systems that can be
-        /// stepped, the first non-exempt system index will be returned.
-        fn next_system(schedule: &SystemSchedule, first: usize) -> Option<usize> {
-            for i in first..schedule.systems_with_stepping_enabled.len() {
-                if schedule.systems_with_stepping_enabled[i] {
-                    return Some(i);
-                }
-            }
-            (0..first).find(|i| schedule.systems_with_stepping_enabled[*i])
-        }
-
-        match schedule.step_state {
-            StepState::RunAll => (),
-            StepState::Wait(_) => {
-                self.completed_systems |= &schedule.systems_with_stepping_enabled;
-            }
-            StepState::Next(next) => {
-                if let Some(next) = next_system(schedule, next) {
-                    debug_assert!(schedule.systems_with_stepping_enabled[next]);
-
-                    // flag all systems that observe stepping as completed, then
-                    // clear the flag for our next system.
-
-                    self.completed_systems |= &schedule.systems_with_stepping_enabled;
-                    self.completed_systems.toggle(next);
-
-                    // update the step state to wait, and provide the next
-                    // system we should start at.
-                    schedule.step_state = StepState::Wait(next + 1);
-                }
-            }
-            StepState::Remaining(next) => {
-                if let Some(next) = next_system(schedule, next) {
-                    // We need to mark all systems that observe stepping prior
-                    // to `next` as completed.  We do this in three steps:
-                    //
-                    // 1. set the bit for every system below `next` in a bitset
-                    // 2. clear the bits for every system ignoring stepping;
-                    //    we do this with a bitwise AND between the mask and
-                    //    those systems that are observing stepping
-                    // 3. We set those bits in the completed_systems bitmask by
-                    //    using a bitwise OR.
-                    //
-                    let mut mask = FixedBitSet::with_capacity(schedule.systems.len());
-                    mask.insert_range(0..next);
-                    mask &= &schedule.systems_with_stepping_enabled;
-                    self.completed_systems |= mask;
-
-                    // change the state to waiting for the next call to run().
-                    schedule.step_state = StepState::Wait(0);
-                }
-            }
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        if let Some(skipped_systems) = schedule.step() {
+            // mark skipped systems as completed
+            self.completed_systems |= &skipped_systems;
         }
 
         for system_index in 0..schedule.systems.len() {

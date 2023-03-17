@@ -835,6 +835,10 @@ mod tests {
             schedule.handle_event(&StepFrame(Box::new(TestSchedule::X)));
         }
 
+        // TODO: update tests to test the result of `schedule.graph().step()`,
+        // then add a single test per-executor to verify they're calling
+        // `step()` and applying the returned mask.
+
         #[test]
         fn stepping_systems() {
             let mut world = World::default();

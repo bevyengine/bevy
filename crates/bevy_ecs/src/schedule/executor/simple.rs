@@ -34,6 +34,13 @@ impl SystemExecutor for SimpleExecutor {
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        if let Some(skipped_systems) = schedule.step() {
+            // mark skipped systems as completed
+            self.completed_systems |= &skipped_systems;
+        }
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
