@@ -835,91 +835,124 @@ mod tests {
             schedule.handle_event(&StepFrame(Box::new(TestSchedule::X)));
         }
 
-        // TODO: update tests to test the result of `schedule.graph().step()`,
-        // then add a single test per-executor to verify they're calling
-        // `step()` and applying the returned mask.
-
-        #[test]
-        fn stepping_systems() {
+        /// Build the schedule we're using for testing.  Also run it once so it
+        /// builds the SystemSchedule, and clear out our resource.
+        fn build_stepping_schedule() -> (World, Schedule) {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
-            // build a schedule and enable stepping mode
+            // build a schedule, run it once to ensure the graphs are built
             schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
                 .add_system(first_system)
                 .add_system(second_system.after(first_system));
+
+            schedule.run(&mut world);
+
+            // clear the SystemOrder
+            world.get_resource_mut::<SystemOrder>().unwrap().0.clear();
+
             enable_stepping(&mut schedule);
 
-            // nothing should run until we call Schedule::step_*()
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+            (world, schedule)
+        }
 
-            // now step a single system; only first_system should run
+        #[test]
+        fn stepping_systems() {
+            let (mut _world, mut schedule) = build_stepping_schedule();
+
+            // make sure none of the systems run
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+
+            // now step a single system; only the second system should run
             step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(!skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
 
-            // run again, but don't step; system order should remain unchanged
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+            // don't step, but call step() again; all systems should be marked
+            // as skipped
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
 
             // step & run again; the second system should run
             step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(skipped_systems.contains(0));
+            assert!(!skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(2));
 
-            // run without stepping; system order should remain unchanged
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2]);
+            // don't step, but call step() again; all systems should be marked
+            // as skipped
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(2));
 
-            // step & run again; the frame finished, so we should see first
-            // system again
+            // step & run again; the frame finished, so only the second system
+            // should be skipped
             step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(!skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
         }
 
         #[test]
         fn stepping_frames() {
-            let mut world = World::default();
-            let mut schedule = Schedule::default();
+            let (mut _world, mut schedule) = build_stepping_schedule();
 
-            world.init_resource::<SystemOrder>();
+            // make sure none of the systems run
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
 
-            // build a schedule and enable stepping mode
-            schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
-                .add_system(first_system)
-                .add_system(second_system.after(first_system));
-            enable_stepping(&mut schedule);
-
-            // nothing should run until we call Schedule::step_*()
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
-
-            // now step the whole frame; all systems should run
+            // step an entire frame; no systems should be skipped
             step_frame(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert_eq!(skipped_systems.count_ones(..), 0);
+            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
 
-            // do it again and see the systems run again
+            // step the frame again to check the state wrapping behavior
             step_frame(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1, 2]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert_eq!(skipped_systems.count_ones(..), 0);
+            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
 
             // step a single system
             step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1, 2, 1]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(!skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
 
-            // step the rest of the frame, and we should finish the frame, not
-            // run an entirely new frame.
+            // and then step the rest of the frame; we should skip the first
+            // system as it was run in the previous step.  This ensures we
+            // correctly run the rest of a partial frame.
             step_frame(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 2, 1, 2, 1, 2]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(skipped_systems.contains(0));
+            assert!(!skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
         }
 
         #[test]
@@ -936,52 +969,86 @@ mod tests {
                 .add_system(second_system.after(first_system));
             enable_stepping(&mut schedule);
 
-            // first system should run even though we're not stepping
+            // run once to build the SystemSchedule
             schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
 
-            // now step a single system; both first & second systems should run
+            // make sure we only skip the second system
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(!skipped_systems.contains(0));
+            assert!(skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+
+            // now step, and neither system should be skipped
             step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 1, 2]);
+            let skipped_systems = schedule.executable.step().unwrap();
+            assert_eq!(skipped_systems.len(), 2);
+            assert!(!skipped_systems.contains(0));
+            assert!(!skipped_systems.contains(1));
+            assert_eq!(schedule.executable.step_state, StepState::Wait(2));
         }
 
+        /// verify the [`SimpleExecutor`] respects the skipped list returned by
+        /// `SystemSchedule::step()`
         #[test]
-        fn conditional_deadlock() {
+        fn simple_executor() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
-            // build a schedule with a system that will never run due to a
-            // condition.
+            // build a schedule and enable stepping mode
             schedule
-                .set_executor_kind(ExecutorKind::SingleThreaded)
-                .add_system(first_system)
-                .add_system(second_system.after(first_system).run_if(|| false));
+                .set_executor_kind(ExecutorKind::Simple)
+                .add_system(first_system);
             enable_stepping(&mut schedule);
 
-            // run the schedule once to build it; we cannot step on the first
-            // frame because the schedule gets rebuilt, and the step index is
-            // invalidated.
+            // run the schedule, and confirm that the system was skipped by the
+            // executor.
             schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+        }
 
-            // step the first system
-            step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+        /// verify the [`SingleThreadedExecutor`] respects the skipped list
+        /// returned by `SystemSchedule::step()`
+        #[test]
+        fn single_threaded_executor() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
 
-            // step again, second system will not run due to condition, but the
-            // attempt should count, causing our system tracking in the executor
-            // to start over in the next call to run()
-            step_system(&mut schedule);
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+            world.init_resource::<SystemOrder>();
 
-            // frame should start fresh here, and run the first system
-            step_system(&mut schedule);
+            // build a schedule and enable stepping mode
+            schedule
+                .set_executor_kind(ExecutorKind::SingleThreaded)
+                .add_system(first_system);
+            enable_stepping(&mut schedule);
+
+            // run the schedule, and confirm that the system was skipped by the
+            // executor.
             schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1, 1]);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+        }
+
+        /// verify the [`MultiThreadedExecutor`] respects the skipped list
+        /// returned by `SystemSchedule::step()`
+        #[test]
+        fn multi_threaded_executor() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            // build a schedule and enable stepping mode
+            schedule
+                .set_executor_kind(ExecutorKind::MultiThreaded)
+                .add_system(first_system);
+            enable_stepping(&mut schedule);
+
+            // run the schedule, and confirm that the system was skipped by the
+            // executor.
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
         }
     }
 }

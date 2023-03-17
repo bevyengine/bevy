@@ -161,7 +161,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// ```
 pub struct Schedule {
     graph: ScheduleGraph,
-    executable: SystemSchedule,
+    pub(crate) executable: SystemSchedule, // pub(crate) for testing
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
 }
@@ -1763,6 +1763,7 @@ impl ScheduleBuildSettings {
 }
 
 /// Event used to request changes to [`Schedule`]s
+#[derive(Debug)]
 pub enum ScheduleEvent {
     /// Enable step mode for the specified [`Schedule`].
     /// Will take affect at the end of [`App::update`].
