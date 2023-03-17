@@ -52,8 +52,8 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    render_resource::{Shader, SpecializedMeshPipelines},
+    render_phase::sort_phase_system,
+    render_resource::Shader,
     view::{ViewSet, VisibilitySystems},
     ExtractSchedule, RenderApp, RenderSet,
 };
@@ -80,8 +80,6 @@ pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const PBR_AMBIENT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
-pub const SHADOW_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -144,12 +142,6 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            SHADOW_SHADER_HANDLE,
-            "render/depth.wgsl",
-            Shader::from_wgsl
-        );
         load_internal_asset!(
             app,
             PBR_PREPASS_SHADER_HANDLE,
@@ -293,17 +285,12 @@ impl Plugin for PbrPlugin {
                     .after(render::prepare_lights)
                     .in_set(RenderLightSystems::PrepareClusters),
             )
-            .add_system(render::queue_shadows.in_set(RenderLightSystems::QueueShadows))
-            .add_system(render::queue_shadow_view_bind_group.in_set(RenderSet::Queue))
             .add_system(sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort))
-            .init_resource::<ShadowPipeline>()
-            .init_resource::<DrawFunctions<Shadow>>()
+            .init_resource::<ShadowSamplers>()
             .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>()
-            .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
+            .init_resource::<GlobalLightMeta>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
