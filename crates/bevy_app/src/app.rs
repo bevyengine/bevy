@@ -11,7 +11,10 @@ use bevy_ecs::{
         ScheduleLabel,
     },
 };
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{debug, warn},
+    HashMap, HashSet,
+};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
