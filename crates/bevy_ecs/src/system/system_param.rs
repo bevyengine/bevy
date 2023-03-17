@@ -275,7 +275,7 @@ pub unsafe trait OptionalSystemParam: Sized {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'world, 'state>>;
 }
 
@@ -301,7 +301,7 @@ unsafe impl<T: OptionalSystemParam> SystemParam for T {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         T::get_param(state, system_meta, world, change_tick).unwrap()
     }
@@ -329,7 +329,7 @@ unsafe impl<T: OptionalSystemParam> SystemParam for Option<T> {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         T::get_param(state, system_meta, world, change_tick)
     }
@@ -434,7 +434,7 @@ pub unsafe trait ResultfulSystemParam: Sized {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Result<
         Self::Item<'world, 'state>,
         <Self::Item<'world, 'state> as ResultfulSystemParam>::Error,
@@ -463,7 +463,7 @@ unsafe impl<T: ResultfulSystemParam> OptionalSystemParam for T {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'world, 'state>> {
         T::get_param(state, system_meta, world, change_tick).ok()
     }
@@ -492,7 +492,7 @@ unsafe impl<T: ResultfulSystemParam> SystemParam for Result<T, T::Error> {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         T::get_param(state, system_meta, world, change_tick)
     }
@@ -833,7 +833,7 @@ unsafe impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
@@ -887,7 +887,7 @@ unsafe impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
@@ -1340,7 +1340,7 @@ unsafe impl<'a, T: 'static> OptionalSystemParam for NonSend<'a, T> {
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
@@ -1393,7 +1393,7 @@ unsafe impl<'a, T: 'static> OptionalSystemParam for NonSendMut<'a, T> {
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
