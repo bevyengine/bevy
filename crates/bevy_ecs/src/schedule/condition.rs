@@ -1012,7 +1012,8 @@ where
     }
 }
 
-// SAFETY: The inner condition asserts its own safety.
+// SAFETY: This trait is only implemented when the inner system is read-only.
+// The `Not` condition does not modify access, and thus cannot transform a read-only system into one that is not.
 unsafe impl<T> ReadOnlySystem for NotSystem<T>
 where
     T: ReadOnlySystem,
