@@ -72,14 +72,16 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
             ..default()
         })
         .with_children(|commands| {
+            let spawn_text = std::env::args().nth(1).as_deref() != Some("no-text");
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
-                    spawn_button(commands, font.0.clone_weak(), color, count_f, i, j);
+                    spawn_button(commands, font.0.clone_weak(), color, count_f, i, j, spawn_text);
                 }
             }
         });
 }
+
 fn spawn_button(
     commands: &mut ChildBuilder,
     font: Handle<Font>,
@@ -87,6 +89,7 @@ fn spawn_button(
     total: f32,
     i: usize,
     j: usize,
+    spawn_text: bool,
 ) {
     let width = 90.0 / total;
     let mut builder = commands.spawn((
@@ -105,7 +108,7 @@ fn spawn_button(
         IdleColor(color),
     ));
 
-    if std::env::args().nth(1).as_deref() != Some("no-text") {
+    if spawn_text {
         builder.with_children(|commands| {
             commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
