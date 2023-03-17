@@ -1,5 +1,6 @@
 use std::any::TypeId;
 use std::borrow::Cow;
+use std::ops::Not;
 
 use crate::component::{self, ComponentId};
 use crate::query::Access;
@@ -921,39 +922,37 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System, TOut>
+    pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
     where
         TOut: std::ops::Not,
         T: IntoSystem<(), TOut, Marker>,
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
-        NotSystem::<T::System, TOut> {
+        NotSystem::<T::System> {
             condition,
             name: Cow::Owned(name),
         }
     }
 }
 
-/// Invokes [`std::ops::Not`] with the output of another system.
+/// Invokes [`Not`] with the output of another system.
 ///
 /// See [`common_conditions::not`] for examples.
 #[derive(Clone)]
-pub struct NotSystem<T, TOut>
+pub struct NotSystem<T: System>
 where
-    TOut: std::ops::Not + 'static,
-    T: System<In = (), Out = TOut>,
+    T::Out: Not,
 {
     condition: T,
     name: Cow<'static, str>,
 }
-impl<T, TOut> System for NotSystem<T, TOut>
+impl<T: System> System for NotSystem<T>
 where
-    TOut: std::ops::Not + 'static,
-    T: System<In = (), Out = TOut>,
+    T::Out: Not,
 {
-    type In = ();
-    type Out = TOut::Output;
+    type In = T::In;
+    type Out = <T::Out as Not>::Output;
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
@@ -1014,10 +1013,10 @@ where
 }
 
 // SAFETY: The inner condition asserts its own safety.
-unsafe impl<TOut, T> ReadOnlySystem for NotSystem<T, TOut>
+unsafe impl<T> ReadOnlySystem for NotSystem<T>
 where
-    TOut: std::ops::Not + 'static,
-    T: ReadOnlySystem<In = (), Out = TOut> + ReadOnlySystem,
+    T: ReadOnlySystem,
+    T::Out: Not,
 {
 }
 
