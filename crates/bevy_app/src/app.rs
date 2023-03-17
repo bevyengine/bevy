@@ -1007,7 +1007,7 @@ impl App {
 }
 
 fn run_once(mut app: App) {
-    trace!("no app runner detected, defaulting to run_once");
+    warn!("No app runner detected. defaulting to `run_once`. If this is intentional, consider using `App::update` directly instead.");
     app.update();
 }
 
