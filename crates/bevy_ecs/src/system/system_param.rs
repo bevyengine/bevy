@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components},
+    component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -149,38 +149,6 @@ use std::{
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
-/// # `!Sync` Resources
-/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
-///
-/// This will fail to compile since `RefCell` is `!Sync`.
-/// ```compile_fail
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-///
-/// #[derive(Resource)]
-/// struct NotSync {
-///    counter: RefCell<usize>,
-/// }
-/// ```
-///
-/// This will compile since the `RefCell` is wrapped with `SyncCell`.
-/// ```
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-/// use bevy_utils::synccell::SyncCell;
-///
-/// #[derive(Resource)]
-/// struct ActuallySync {
-///    counter: SyncCell<RefCell<usize>>,
-/// }
-/// ```
-///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
-/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-///
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
@@ -229,7 +197,7 @@ pub unsafe trait SystemParam: Sized {
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
 }
 
@@ -622,15 +590,9 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        Query::new(
-            world,
-            state,
-            system_meta.last_change_tick,
-            change_tick,
-            false,
-        )
+        Query::new(world, state, system_meta.last_run, change_tick, false)
     }
 }
 
@@ -766,7 +728,7 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
     world: &'w World,
     system_meta: SystemMeta,
-    change_tick: u32,
+    change_tick: Tick,
 }
 
 impl_param_set!();
@@ -797,10 +759,41 @@ impl_param_set!();
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
 /// }
-/// # schedule.add_system(read_resource_system);
-/// # schedule.add_system(write_resource_system.after(read_resource_system));
+/// # schedule.add_systems((read_resource_system, write_resource_system).chain());
 /// # schedule.run(&mut world);
 /// ```
+///
+/// # `!Sync` Resources
+/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
+/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
+/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
+/// threads.
+///
+/// This will fail to compile since `RefCell` is `!Sync`.
+/// ```compile_fail
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+///
+/// #[derive(Resource)]
+/// struct NotSync {
+///    counter: RefCell<usize>,
+/// }
+/// ```
+///
+/// This will compile since the `RefCell` is wrapped with `SyncCell`.
+/// ```
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+/// use bevy_utils::synccell::SyncCell;
+///
+/// #[derive(Resource)]
+/// struct ActuallySync {
+///    counter: SyncCell<RefCell<usize>>,
+/// }
+/// ```
+///
+/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
 // SAFETY: Res only reads a single World resource
@@ -850,8 +843,8 @@ unsafe impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
                 ticks: Ticks {
                     added: ticks.added.deref(),
                     changed: ticks.changed.deref(),
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
+                    last_run: system_meta.last_run,
+                    this_run: change_tick,
                 },
             })
     }
@@ -904,8 +897,8 @@ unsafe impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
                 ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
+                    last_run: system_meta.last_run,
+                    this_run: change_tick,
                 },
             })
     }
@@ -947,7 +940,7 @@ unsafe impl SystemParam for &'_ World {
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world
     }
@@ -1068,7 +1061,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
     }
@@ -1183,10 +1176,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// });
 ///
 /// let mut schedule = Schedule::new();
-/// schedule
-///     // These two systems have no conflicts and will run in parallel.
-///     .add_system(alert_criminal)
-///     .add_system(alert_monster);
+/// // These two systems have no conflicts and will run in parallel.
+/// schedule.add_systems((alert_criminal, alert_monster));
 ///
 /// // There are no criminals or monsters, so the alarm is not sounded.
 /// schedule.run(&mut world);
@@ -1243,7 +1234,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Deferred(state.get())
     }
@@ -1264,8 +1255,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 pub struct NonSend<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1283,13 +1274,12 @@ where
 impl<'w, T: 'static> NonSend<'w, T> {
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
+        self.ticks.is_added(self.last_run, self.this_run)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+        self.ticks.is_changed(self.last_run, self.this_run)
     }
 }
 
@@ -1308,8 +1298,8 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
                 added: nsm.ticks.added.to_owned(),
                 changed: nsm.ticks.changed.to_owned(),
             },
-            change_tick: nsm.ticks.change_tick,
-            last_change_tick: nsm.ticks.last_change_tick,
+            this_run: nsm.ticks.this_run,
+            last_run: nsm.ticks.last_run,
         }
     }
 }
@@ -1358,8 +1348,8 @@ unsafe impl<'a, T: 'static> OptionalSystemParam for NonSend<'a, T> {
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
+                last_run: system_meta.last_run,
+                this_run: change_tick,
             })
     }
 }
@@ -1410,7 +1400,7 @@ unsafe impl<'a, T: 'static> OptionalSystemParam for NonSendMut<'a, T> {
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
-                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
+                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
             })
     }
 }
@@ -1430,7 +1420,7 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.archetypes()
     }
@@ -1451,7 +1441,7 @@ unsafe impl<'a> SystemParam for &'a Components {
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.components()
     }
@@ -1472,7 +1462,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.entities()
     }
@@ -1493,7 +1483,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.bundles()
     }
@@ -1502,29 +1492,29 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///
 /// A system's change ticks are updated each time it runs:
-/// - `last_change_tick` copies the previous value of `change_tick`
-/// - `change_tick` copies the current value of [`World::read_change_tick`]
+/// - `last_run` copies the previous value of `change_tick`
+/// - `this_run` copies the current value of [`World::read_change_tick`]
 ///
-/// Component change ticks that are more recent than `last_change_tick` will be detected by the system.
+/// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
 /// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 impl SystemChangeTick {
     /// Returns the current [`World`] change tick seen by the system.
     #[inline]
-    pub fn change_tick(&self) -> u32 {
-        self.change_tick
+    pub fn this_run(&self) -> Tick {
+        self.this_run
     }
 
     /// Returns the [`World`] change tick seen by the system the previous time it ran.
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
-        self.last_change_tick
+    pub fn last_run(&self) -> Tick {
+        self.last_run
     }
 }
 
@@ -1542,11 +1532,11 @@ unsafe impl SystemParam for SystemChangeTick {
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
         _world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemChangeTick {
-            last_change_tick: system_meta.last_change_tick,
-            change_tick,
+            last_run: system_meta.last_run,
+            this_run: change_tick,
         }
     }
 }
@@ -1612,7 +1602,7 @@ unsafe impl SystemParam for SystemName<'_> {
         name: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemName { name }
     }
@@ -1654,7 +1644,7 @@ macro_rules! impl_system_param_tuple {
                 state: &'s mut Self::State,
                 _system_meta: &SystemMeta,
                 _world: &'w World,
-                _change_tick: u32,
+                _change_tick: Tick,
             ) -> Self::Item<'w, 's> {
 
                 let ($($param,)*) = state;
@@ -1778,7 +1768,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
         StaticSystemParam(P::get_param(state, system_meta, world, change_tick))

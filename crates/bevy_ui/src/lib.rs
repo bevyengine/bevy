@@ -1,7 +1,7 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
-//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
+//! This UI is laid out with the Flexbox layout model (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
 mod geometry;
@@ -9,6 +9,7 @@ mod render;
 mod stack;
 mod ui_node;
 
+#[cfg(feature = "bevy_text")]
 mod accessibility;
 pub mod camera_config;
 pub mod node_bundles;
@@ -103,7 +104,6 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
-            .add_plugin(accessibility::AccessibilityPlugin)
             .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
             .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
             .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
@@ -124,6 +124,8 @@ impl Plugin for UiPlugin {
                 // they will never observe each other's effects.
                 .ambiguous_with(bevy_text::update_text2d_layout),
         );
+        #[cfg(feature = "bevy_text")]
+        app.add_plugin(accessibility::AccessibilityPlugin);
         app.add_system({
             let system = widget::update_image_calculated_size_system
                 .in_base_set(CoreSet::PostUpdate)
@@ -139,17 +141,15 @@ impl Plugin for UiPlugin {
 
             system
         })
-        .add_system(
+        .add_systems((
             flex_node_system
                 .in_set(UiSystem::Flex)
                 .before(TransformSystem::TransformPropagate),
-        )
-        .add_system(ui_stack_system.in_set(UiSystem::Stack))
-        .add_system(
+            ui_stack_system.in_set(UiSystem::Stack),
             update_clipping_system
                 .after(TransformSystem::TransformPropagate)
                 .in_base_set(CoreSet::PostUpdate),
-        );
+        ));
 
         crate::render::build_ui_render(app);
     }

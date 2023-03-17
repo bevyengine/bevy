@@ -238,7 +238,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     state: &'s mut Self::State,
                     system_meta: &SystemMeta,
                     world: &'w World,
-                    change_tick: u32,
+                    change_tick: Tick,
                 ) -> Self::Item<'w, 's> {
                     ParamSet {
                         param_states: state,
@@ -635,12 +635,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 unsafe fn get_param<'w2, 's2>(
                     state: &'s2 mut Self::State,
-                    system_meta: &#bevy_ecs::system::SystemMeta,
-                    world: &'w2 #bevy_ecs::world::World,
-                    change_tick: u32,
-                ) -> #get_param_return {
-                    let (#(#field_patterns,)*) = <
-                        (#(#field_types,)*) as #bevy_ecs::system::SystemParam
+                    system_meta: &#path::system::SystemMeta,
+                    world: &'w2 #path::world::World,
+                    change_tick: #path::component::Tick,
+                ) -> Self::Item<'w2, 's2> {
+                    let (#(#tuple_patterns,)*) = <
+                        (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #get_param_output
                 }

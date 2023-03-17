@@ -14,8 +14,7 @@ fn main() {
             ..default()
         }))
         .add_system(minimise_automatically)
-        .add_startup_system(setup_3d)
-        .add_startup_system(setup_2d)
+        .add_startup_systems((setup_3d, setup_2d))
         .run();
 }
 

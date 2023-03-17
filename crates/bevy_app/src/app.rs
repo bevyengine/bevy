@@ -12,7 +12,10 @@ use bevy_ecs::{
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -80,8 +83,8 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
-    /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    is_building_plugin: bool,
+    /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
+    building_plugin_depth: usize,
 }
 
 impl Debug for App {
@@ -228,7 +231,7 @@ impl App {
             plugin_name_added: Default::default(),
             default_schedule_label: Box::new(CoreSchedule::Main),
             outer_schedule_label: Box::new(CoreSchedule::Outer),
-            is_building_plugin: false,
+            building_plugin_depth: 0,
         }
     }
 
@@ -291,8 +294,8 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        if app.is_building_plugin {
-            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
+        if app.building_plugin_depth > 0 {
+            panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
         Self::setup(&mut app);
@@ -313,7 +316,7 @@ impl App {
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant, an instance of [`apply_state_transition::<S>`] in
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
@@ -356,11 +359,9 @@ impl App {
             );
         }
 
-        // These are different for loops to avoid conflicting access to self
-        for variant in S::variants() {
-            self.add_schedule(OnEnter(variant.clone()), Schedule::new());
-            self.add_schedule(OnExit(variant), Schedule::new());
-        }
+        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
+        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
+        // gracefully if they aren't present.
 
         self
     }
@@ -390,7 +391,9 @@ impl App {
             if let Some(schedule) = schedules.get_mut(&*schedule_label) {
                 schedule.add_system(system);
             } else {
-                panic!("Schedule {schedule_label:?} does not exist.")
+                let mut schedule = Schedule::new();
+                schedule.add_system(system);
+                schedules.insert(schedule_label, schedule);
             }
         } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
             default_schedule.add_system(system);
@@ -760,9 +763,12 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
-        self.is_building_plugin = true;
-        plugin.build(self);
-        self.is_building_plugin = false;
+        self.building_plugin_depth += 1;
+        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+        self.building_plugin_depth -= 1;
+        if let Err(payload) = result {
+            resume_unwind(payload);
+        }
         self.plugin_registry.push(plugin);
         Ok(self)
     }
@@ -1014,7 +1020,12 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
-    use crate::{App, Plugin};
+    use bevy_ecs::{
+        schedule::{OnEnter, States},
+        system::Commands,
+    };
+
+    use crate::{App, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1061,11 +1072,68 @@ mod tests {
     #[should_panic]
     fn cant_call_app_run_from_plugin_build() {
         struct PluginRun;
+        struct InnerPlugin;
+        impl Plugin for InnerPlugin {
+            fn build(&self, _: &mut crate::App) {}
+        }
         impl Plugin for PluginRun {
             fn build(&self, app: &mut crate::App) {
-                app.run();
+                app.add_plugin(InnerPlugin).run();
             }
         }
         App::new().add_plugin(PluginRun);
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum AppState {
+        #[default]
+        MainMenu,
+    }
+    fn bar(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    fn foo(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_system(foo.in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_system_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_system(foo.in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 1);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist() {
+        let mut app = App::new();
+        app.add_state::<AppState>()
+            .add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)));
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
+    }
+
+    #[test]
+    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
+        let mut app = App::new();
+        app.add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)))
+            .add_state::<AppState>();
+
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
+        assert_eq!(app.world.entities().len(), 2);
     }
 }

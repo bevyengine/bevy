@@ -12,9 +12,7 @@ use std::time::{Duration, Instant};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env)
-        .add_startup_system(add_assets)
-        .add_startup_system(spawn_tasks)
+        .add_startup_systems((setup_env, add_assets, spawn_tasks))
         .add_system(handle_tasks)
         .run();
 }

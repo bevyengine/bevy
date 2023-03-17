@@ -4,8 +4,7 @@ use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(update_positions)
+        .add_systems((setup.on_startup(), update_positions))
         .run();
 }
 

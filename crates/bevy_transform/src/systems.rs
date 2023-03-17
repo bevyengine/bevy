@@ -171,8 +171,7 @@ mod test {
         let mut world = World::default();
 
         let mut schedule = Schedule::new();
-        schedule.add_system(sync_simple_transforms);
-        schedule.add_system(propagate_transforms);
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
         world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
@@ -210,8 +209,7 @@ mod test {
         let mut world = World::default();
 
         let mut schedule = Schedule::new();
-        schedule.add_system(sync_simple_transforms);
-        schedule.add_system(propagate_transforms);
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -251,8 +249,7 @@ mod test {
         let mut world = World::default();
 
         let mut schedule = Schedule::new();
-        schedule.add_system(sync_simple_transforms);
-        schedule.add_system(propagate_transforms);
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Add parent entities
         let mut children = Vec::new();
@@ -328,8 +325,7 @@ mod test {
         let mut app = App::new();
         ComputeTaskPool::init(TaskPool::default);
 
-        app.add_system(sync_simple_transforms);
-        app.add_system(propagate_transforms);
+        app.add_systems((sync_simple_transforms, propagate_transforms));
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -375,8 +371,7 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_system(propagate_transforms)
-            .add_system(sync_simple_transforms);
+        app.add_systems((propagate_transforms, sync_simple_transforms));
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);

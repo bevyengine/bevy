@@ -10,7 +10,9 @@ use bevy_utils::OnDrop;
 
 /// A flat, type-erased data storage type
 ///
-/// Used to densely store homogeneous ECS data.
+/// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
+/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type is an extendable and reallcatable blob, which makes
+/// it a blobby Vec, a `BlobVec`.
 pub(super) struct BlobVec {
     item_layout: Layout,
     capacity: usize,
@@ -35,6 +37,13 @@ impl std::fmt::Debug for BlobVec {
 }
 
 impl BlobVec {
+    /// Creates a new [`BlobVec`] with the specified `capacity`.
+    ///
+    /// `drop` is an optional function pointer that is meant to be invoked when any element in the [`BlobVec`]
+    /// should be dropped. For all Rust-based types, this should match 1:1 with the implementation of [`Drop`]
+    /// if present, and should be `None` if `T: !Drop`. For non-Rust based types, this should match any cleanup
+    /// processes typically associated with the stored element.
+    ///
     /// # Safety
     ///
     /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
@@ -42,6 +51,7 @@ impl BlobVec {
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
     /// [`needs_drop`]: core::mem::needs_drop
+    /// [`Drop`]: core::ops::Drop
     pub unsafe fn new(
         item_layout: Layout,
         drop: Option<unsafe fn(OwningPtr<'_>)>,
@@ -70,26 +80,36 @@ impl BlobVec {
         }
     }
 
+    /// Returns the number of elements in the vector.
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns `true` if the vector contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Returns the total number of elements the vector can hold without reallocating.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
+    /// Returns the [`Layout`] of the element type stored in the vector.
     #[inline]
     pub fn layout(&self) -> Layout {
         self.item_layout
     }
 
+    /// Reserves the minimum capacity for at least `additional` more elements to be inserted in the given `BlobVec`.
+    /// After calling `reserve_exact`, capacity will be greater than or equal to `self.len() + additional`. Does nothing if
+    /// the capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it requests. Therefore, capacity can not be relied upon
+    /// to be precisely minimal.
     pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
         if available_space < additional && self.item_layout.size() > 0 {
@@ -134,6 +154,8 @@ impl BlobVec {
         self.capacity = new_capacity;
     }
 
+    /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
+    ///
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
@@ -145,6 +167,8 @@ impl BlobVec {
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
+    /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
+    ///
     /// # Safety
     /// - index must be in-bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
@@ -201,10 +225,10 @@ impl BlobVec {
         std::ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
     }
 
-    /// Pushes a value to the [`BlobVec`].
+    /// Appends an element to the back of the vector.
     ///
     /// # Safety
-    /// `value` must be valid to add to this [`BlobVec`]
+    /// The `value` must match the [`layout`](`BlobVec::layout`) of the elements in the [`BlobVec`].
     #[inline]
     pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
         self.reserve_exact(1);
@@ -213,6 +237,8 @@ impl BlobVec {
         self.initialize_unchecked(index, value);
     }
 
+    /// Forces the length of the vector to `len`.
+    ///
     /// # Safety
     /// `len` must be <= `capacity`. if length is decreased, "out of bounds" items must be dropped.
     /// Newly added items must be immediately populated with valid values and length must be
@@ -255,6 +281,7 @@ impl BlobVec {
 
     /// Removes the value at `index` and copies the value stored into `ptr`.
     /// Does not do any bounds checking on `index`.
+    /// The removed element is replaced by the last element of the `BlobVec`.
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < `self.len()`
@@ -274,6 +301,10 @@ impl BlobVec {
         self.len -= 1;
     }
 
+    /// Removes the value at `index` and drops it.
+    /// Does not do any bounds checking on `index`.
+    /// The removed element is replaced by the last element of the `BlobVec`.
+    ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
@@ -286,8 +317,10 @@ impl BlobVec {
         }
     }
 
+    /// Returns a reference to the element at `index`, without doing bounds checking.
+    ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    /// It is the caller's responsibility to ensure that `index < self.len()`.
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
         debug_assert!(index < self.len());
@@ -300,8 +333,10 @@ impl BlobVec {
         self.get_ptr().byte_add(index * size)
     }
 
+    /// Returns a mutable reference to the element at `index`, without doing bounds checking.
+    ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    /// It is the caller's responsibility to ensure that `index < self.len()`.
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
         debug_assert!(index < self.len());
@@ -337,6 +372,9 @@ impl BlobVec {
         std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
+    /// Clears the vector, removing (and dropping) all values.
+    ///
+    /// Note that this method has no effect on the allocated capacity of the vector.
     pub fn clear(&mut self) {
         let len = self.len;
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't

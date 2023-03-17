@@ -17,6 +17,7 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -59,15 +60,18 @@ pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
 pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
 
-pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+/// Sets up everything required to use the prepass pipeline.
+///
+/// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
+pub struct PrepassPipelinePlugin<M: Material>(PhantomData<M>);
 
-impl<M: Material> Default for PrepassPlugin<M> {
+impl<M: Material> Default for PrepassPipelinePlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material> Plugin for PrepassPlugin<M>
+impl<M: Material> Plugin for PrepassPipelinePlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -94,25 +98,49 @@ where
         );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+
+        render_app
+            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<PrepassViewBindGroup>()
+            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
+    }
+}
+
+/// Sets up the prepasses for a [`Material`].
+///
+/// This depends on the [`PrepassPipelinePlugin`].
+pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for PrepassPlugin<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<M: Material> Plugin for PrepassPlugin<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    fn build(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .add_system(extract_camera_prepass_phase.in_schedule(ExtractSchedule))
-            .add_system(
+            .add_systems((
+                extract_camera_prepass_phase.in_schedule(ExtractSchedule),
                 prepare_prepass_textures
                     .in_set(RenderSet::Prepare)
                     .after(bevy_render::view::prepare_windows),
-            )
-            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
-            .add_system(queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue))
-            .add_system(sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort))
-            .init_resource::<PrepassPipeline<M>>()
+                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+            ))
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-            .init_resource::<PrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }
@@ -140,11 +168,22 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // Globals
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
                     count: None,
                 },
@@ -208,6 +247,9 @@ where
         if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
         }
+        if blend_key == MeshPipelineKey::BLEND_ALPHA {
+            shader_defs.push("BLEND_ALPHA".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
@@ -254,11 +296,13 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled or the material uses alpha cutoff values
-        let fragment = if key
-            .mesh_key
-            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::ALPHA_MASK)
-            || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+        // The fragment shader is only used when the normal prepass is enabled
+        // or the material uses alpha cutoff values and doesn't rely on the standard prepass shader
+        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
+            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+                || blend_key == MeshPipelineKey::BLEND_ALPHA)
+                && self.material_fragment_shader.is_some())
         {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
@@ -541,19 +585,26 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        prepass_view_bind_group.bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
+    let Some(view_binding) = view_uniforms.uniforms.binding() else { return };
+    let Some(globals_binding) = globals_buffer.buffer.binding() else { return };
+    prepass_view_bind_group.bind_group =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
-                }],
-                label: Some("prepass_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
-    }
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: globals_binding,
+                },
+            ],
+            label: Some("prepass_view_bind_group"),
+            layout: &prepass_pipeline.view_layout,
+        }));
 }
 
 #[allow(clippy::too_many_arguments)]
