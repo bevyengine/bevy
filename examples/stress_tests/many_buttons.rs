@@ -1,5 +1,5 @@
 //! This example shows what happens when there is a lot of buttons on screen.
-//! 
+//!
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
 
@@ -89,26 +89,24 @@ fn spawn_button(
     j: usize,
 ) {
     let width = 90.0 / total;
-    let mut builder = commands
-        .spawn((
-            ButtonBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(width), Val::Percent(width)),
-                    bottom: Val::Percent(100.0 / total * i as f32),
-                    left: Val::Percent(100.0 / total * j as f32),
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                background_color: color,
+    let mut builder = commands.spawn((
+        ButtonBundle {
+            style: Style {
+                size: Size::new(Val::Percent(width), Val::Percent(width)),
+                bottom: Val::Percent(100.0 / total * i as f32),
+                left: Val::Percent(100.0 / total * j as f32),
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
                 ..default()
             },
-            IdleColor(color),
-        ));
+            background_color: color,
+            ..default()
+        },
+        IdleColor(color),
+    ));
 
     if std::env::args().nth(1).as_deref() != Some("no-text") {
-        builder
-        .with_children(|commands| {
+        builder.with_children(|commands| {
             commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
                 TextStyle {
