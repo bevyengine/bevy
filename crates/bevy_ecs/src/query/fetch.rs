@@ -56,7 +56,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - There is no hardcoded limit on the number of elements.
 ///
 /// This trait can only be derived if each field also implements `WorldQuery`.
-/// Note that [`PhantomData`] implements `WorldQuery` for all types.
 ///
 /// The derive macro only supports regular structs (structs with named fields).
 ///
@@ -271,6 +270,24 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// fn my_system(query: Query<Entity, MyFilter<ComponentD, ComponentE>>) {
 ///     // ...
 /// }
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Generic Queries
+///
+/// When writing generic code, it is often necessary to use [`PhantomData`]
+/// to constrain type parameters. Since `WorldQuery` is implemented for all
+/// `PhantomData<T>` types, this pattern can be used with this macro.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use std::marker::PhantomData;
+/// #[derive(WorldQuery)]
+/// pub struct GenericQuery<T> {
+///     id: Entity,
+///     marker: PhantomData<T>,
+/// }
+/// # fn my_system(q: Query<GenericQuery<()>>) {}
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
