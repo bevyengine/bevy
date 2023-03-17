@@ -232,6 +232,8 @@ pub unsafe trait SystemParam: Sized {
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
+/// # Safety
+///
 /// The implementor must ensure the following is true.
 /// - [`OptionalSystemParam::init_state`] correctly registers all [`World`] accesses used
 ///   by [`OptionalSystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
