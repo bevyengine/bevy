@@ -380,6 +380,7 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+// De-initializes the cloned system.
 impl<Marker, F> Clone for FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker> + Clone,
@@ -387,10 +388,10 @@ where
     fn clone(&self) -> Self {
         Self {
             func: self.func.clone(),
-            system_meta: self.system_meta.clone(),
+            system_meta: SystemMeta::new::<F>(),
             param_state: None,
-            world_id: self.world_id,
-            archetype_generation: self.archetype_generation,
+            world_id: None,
+            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
