@@ -43,17 +43,11 @@ impl Schedules {
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
         let label = label.dyn_clone();
-        if self.inner.contains_key(&label) {
-            warn!("schedule with label {:?} already exists", label);
-        }
         self.inner.insert(label, schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
     pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
-        if !self.inner.contains_key(label) {
-            warn!("schedule with label {:?} not found", label);
-        }
         self.inner.remove(label)
     }
 
@@ -62,9 +56,6 @@ impl Schedules {
         &mut self,
         label: &dyn ScheduleLabel,
     ) -> Option<(Box<dyn ScheduleLabel>, Schedule)> {
-        if !self.inner.contains_key(label) {
-            warn!("schedule with label {:?} not found", label);
-        }
         self.inner.remove_entry(label)
     }
 

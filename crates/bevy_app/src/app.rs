@@ -322,28 +322,20 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
-        self.init_resource::<State<S>>();
-        self.init_resource::<NextState<S>>();
-
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(state_transition_schedule) = schedules.get_mut(&StateTransition) {
-            state_transition_schedule.add_systems(
+        self.init_resource::<State<S>>()
+            .init_resource::<NextState<S>>()
+            .add_systems(
+                StateTransition,
                 (
                     run_enter_schedule::<S>.run_if(run_once_condition()),
                     apply_state_transition::<S>,
                 )
                     .chain(),
             );
-        } else {
-            panic!("{StateTransition:?} schedule does not exist.")
-        }
 
-        if let Some(update_schedule) = schedules.get_mut(&Update) {
-            for variant in S::variants() {
-                update_schedule.configure_set(OnUpdate(variant.clone()).run_if(in_state(variant)));
-            }
-        };
+        for variant in S::variants() {
+            self.configure_set(Update, OnUpdate(variant.clone()).run_if(in_state(variant)));
+        }
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
         // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
@@ -476,11 +468,14 @@ impl App {
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSetConfig,
     ) -> &mut Self {
-        self.world
-            .resource_mut::<Schedules>()
-            .get_mut(&schedule)
-            .unwrap()
-            .configure_set(set);
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        if let Some(schedule) = schedules.get_mut(&schedule) {
+            schedule.configure_set(set);
+        } else {
+            let mut new_schedule = Schedule::new();
+            new_schedule.configure_set(set);
+            schedules.insert(schedule, new_schedule);
+        }
         self
     }
 
@@ -490,11 +485,14 @@ impl App {
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        self.world
-            .resource_mut::<Schedules>()
-            .get_mut(&schedule)
-            .unwrap()
-            .configure_sets(sets);
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        if let Some(schedule) = schedules.get_mut(&schedule) {
+            schedule.configure_sets(sets);
+        } else {
+            let mut new_schedule = Schedule::new();
+            new_schedule.configure_sets(sets);
+            schedules.insert(schedule, new_schedule);
+        }
         self
     }
 

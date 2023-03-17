@@ -135,15 +135,15 @@ impl Main {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            world.run_schedule(PreStartup);
-            world.run_schedule(Startup);
-            world.run_schedule(PostStartup);
+            let _ = world.try_run_schedule(PreStartup);
+            let _ = world.try_run_schedule(Startup);
+            let _ = world.try_run_schedule(PostStartup);
             *run_at_least_once = true;
         }
 
         world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
             for label in &order.labels {
-                world.run_schedule_ref(&**label);
+                let _ = world.try_run_schedule_ref(&**label);
             }
         });
     }
@@ -161,17 +161,7 @@ impl Plugin for MainSchedulePlugin {
         fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
         app.add_schedule(Main, main_schedule)
-            .init_schedule(PreStartup)
-            .init_schedule(Startup)
-            .init_schedule(PostStartup)
-            .init_schedule(First)
-            .init_schedule(PreUpdate)
-            .init_schedule(StateTransition)
             .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
-            .init_schedule(FixedUpdate)
-            .init_schedule(Update)
-            .init_schedule(PostUpdate)
-            .init_schedule(Last)
             .init_resource::<MainScheduleOrder>()
             .add_systems(Main, Main::run_main);
     }
