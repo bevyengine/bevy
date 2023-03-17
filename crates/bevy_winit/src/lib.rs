@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
-//! Most commonly, the [`WinitPlugin`] is used as part of [`DefaultPlugins`](crate::bevy::DefaultPlugins).
+//! Most commonly, the [`WinitPlugin`] is used as part of [`DefaultPlugins`](bevy_internal::DefaultPlugins).
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
 //! See `winit_runner` for details.
 
