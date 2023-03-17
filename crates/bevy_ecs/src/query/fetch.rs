@@ -62,7 +62,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   must implement [`Default`] and will be initialized to the default value as defined
 ///   by the trait.
 ///
-/// The derive macro only supports regular structs (structs with named fields).
+/// The derive macro only supports structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
