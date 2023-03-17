@@ -41,7 +41,7 @@ pub struct Startup;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PostStartup;
 
-/// The schedule that runs once when the app starts.
+/// Runs first in the schedule.
 /// This is run by the [`Main`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct First;
@@ -70,7 +70,7 @@ pub struct RunFixedUpdateLoop;
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
 /// The exclusive `run_fixed_update_schedule` system runs this schedule.
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`RunFixedUpdateLoop`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
@@ -90,7 +90,7 @@ pub struct Update;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PostUpdate;
 
-/// Runs last in the schedule
+/// Runs last in the schedule.
 /// This is run by the [`Main`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
