@@ -11,7 +11,10 @@ use bevy_ecs::{
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -77,8 +80,8 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
-    /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    is_building_plugin: bool,
+    /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
+    building_plugin_depth: usize,
 }
 
 impl Debug for App {
@@ -220,6 +223,7 @@ impl App {
             plugin_name_added: Default::default(),
             main_schedule_label: Box::new(Main),
             is_building_plugin: false,
+            building_plugin_depth: 0,
         }
     }
 
@@ -281,8 +285,8 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        if app.is_building_plugin {
-            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
+        if app.building_plugin_depth > 0 {
+            panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
         Self::setup(&mut app);
@@ -342,15 +346,9 @@ impl App {
             }
         };
 
-        // These are different for loops to avoid conflicting access to self
-        for variant in S::variants() {
-            if self.get_schedule(OnEnter(variant.clone())).is_none() {
-                self.add_schedule(OnEnter(variant.clone()), Schedule::new());
-            }
-            if self.get_schedule(OnExit(variant.clone())).is_none() {
-                self.add_schedule(OnExit(variant), Schedule::new());
-            }
-        }
+        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
+        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
+        // gracefully if they aren't present.
 
         self
     }
@@ -704,9 +702,12 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
-        self.is_building_plugin = true;
-        plugin.build(self);
-        self.is_building_plugin = false;
+        self.building_plugin_depth += 1;
+        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+        self.building_plugin_depth -= 1;
+        if let Err(payload) = result {
+            resume_unwind(payload);
+        }
         self.plugin_registry.push(plugin);
         Ok(self)
     }
@@ -1010,9 +1011,13 @@ mod tests {
     #[should_panic]
     fn cant_call_app_run_from_plugin_build() {
         struct PluginRun;
+        struct InnerPlugin;
+        impl Plugin for InnerPlugin {
+            fn build(&self, _: &mut crate::App) {}
+        }
         impl Plugin for PluginRun {
             fn build(&self, app: &mut crate::App) {
-                app.run();
+                app.add_plugin(InnerPlugin).run();
             }
         }
         App::new().add_plugin(PluginRun);
