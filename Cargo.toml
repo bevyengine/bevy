@@ -370,16 +370,6 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "pixel_perfect"
-path = "examples/2d/pixel_perfect.rs"
-
-[package.metadata.example.pixel_perfect]
-name = "Pixel Perfect"
-description = "Demonstrates pixel perfect in 2d"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
 
