@@ -195,6 +195,50 @@ mod tests {
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![0, 1, 2, 3]);
         }
+
+        #[test]
+        fn add_systems_correct_order_nested() {
+            let mut world = World::new();
+            let mut schedule = Schedule::new();
+
+            world.init_resource::<SystemOrder>();
+
+            schedule.add_systems(
+                (
+                    (make_function_system(0), make_function_system(1)).chain(),
+                    make_function_system(2),
+                    (make_function_system(3), make_function_system(4)).chain(),
+                    (
+                        make_function_system(5),
+                        (make_function_system(6), make_function_system(7)),
+                    ),
+                    (
+                        (make_function_system(8), make_function_system(9)).chain(),
+                        make_function_system(10),
+                    ),
+                )
+                    .chain(),
+            );
+
+            schedule.run(&mut world);
+            let order = &world.resource::<SystemOrder>().0;
+            assert_eq!(
+                &order[0..5],
+                &[0, 1, 2, 3, 4],
+                "first five items should be exactly ordered"
+            );
+            let unordered = &order[5..8];
+            assert!(
+                unordered.contains(&5) && unordered.contains(&6) && unordered.contains(&7),
+                "unordered must be 5, 6, and 7 in any order"
+            );
+            let partially_ordered = &order[8..11];
+            assert!(
+                partially_ordered == &[8, 9, 10] || partially_ordered == &[10, 8, 9],
+                "partially_ordered must be [8, 9, 10] or [10, 8, 9]"
+            );
+            assert!(order.len() == 11, "must have exacty 11 order entries");
+        }
     }
 
     mod conditions {

@@ -549,6 +549,7 @@ impl ScheduleGraph {
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
                         let current_result = self.add_systems_inner(current, true);
+                        densely_chained = densely_chained && current_result.densely_chained;
                         match (
                             previous_result.densely_chained,
                             current_result.densely_chained,
@@ -615,12 +616,18 @@ impl ScheduleGraph {
                         nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
+                    let more_than_one_entry = config_iter.len() > 1;
                     for config in config_iter {
                         let result = self.add_systems_inner(config, ancestor_chained);
                         densely_chained = densely_chained && result.densely_chained;
                         if ancestor_chained {
                             nodes_in_scope.extend(result.nodes);
                         }
+                    }
+
+                    // an "unchained" SystemConfig is only densely chained if it has exactly one densely chained entry
+                    if more_than_one_entry {
+                        densely_chained = false;
                     }
                 }
 
