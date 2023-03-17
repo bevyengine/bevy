@@ -120,10 +120,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         .into_compile_error()
         .into()
     };
-    if matches!(fields, syn::Fields::Unit) {
+    if fields.is_empty() {
         return syn::Error::new(
             Span::call_site(),
-            "#[derive(WorldQuery)]` does not support unit structs",
+            "#[derive(WorldQuery)]` does not support fieldless structs",
         )
         .into_compile_error()
         .into();
