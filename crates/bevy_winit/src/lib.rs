@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 pub mod accessibility;
 mod converters;
 mod system;
