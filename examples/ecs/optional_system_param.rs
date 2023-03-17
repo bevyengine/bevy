@@ -145,7 +145,7 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for GameMut<'w, T> {
         state: &'state mut Self::State,
         system_meta: &bevy::ecs::system::SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Option<Self::Item<'world, 'state>> {
         let current_mode = <ResMut<CurrentGameMode> as OptionalSystemParam>::get_param(
             &mut state.mode_id,
