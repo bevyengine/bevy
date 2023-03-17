@@ -42,6 +42,21 @@ help: you can convert a `u32` to an `i32` and panic if the converted value doesn
    |                                                ++++++++++++++++++++
 
 error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:70:5
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `i32`
+...
+73 |         Value(u32),
+   |               --- expected due to this
+   |
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you can convert an `i32` to a `u32` and panic if the converted value doesn't fit
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)].try_into().unwrap()
+   |                                                ++++++++++++++++++++
+
+error[E0308]: mismatched types
   --> tests/reflect_remote/type_mismatch.fail.rs:76:14
    |
 76 |     #[derive(Reflect)]

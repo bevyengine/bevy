@@ -139,6 +139,23 @@ error[E0308]: `?` operator has incompatible types
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0308]: mismatched types
+  --> tests/reflect_remote/nested.fail.rs:24:5
+   |
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `MyInner<T>`, found `TheirInner<T>`
+...
+27 |         pub inner: MyInner<T>,
+   |                    ---------- expected due to this
+   |
+   = note: expected struct `incorrect_inner_type::MyInner<T>`
+              found struct `TheirInner<T>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: try wrapping the expression in `incorrect_inner_type::MyInner`
+   |
+24 |     incorrect_inner_type::MyInner(#[reflect_remote(super::external_crate::TheirOuter<T>)])
+   |     ++++++++++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
   --> tests/reflect_remote/nested.fail.rs:37:5
    |
 37 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
@@ -162,4 +179,19 @@ error[E0308]: `?` operator has incompatible types
    = note: `?` operator cannot convert from `TheirInner<bool>` to `TheirInner<T>`
    = note: expected struct `TheirInner<T>`
               found struct `TheirInner<bool>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested.fail.rs:51:5
+   |
+51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<bool>`, found `TheirInner<T>`
+52 |     struct MyOuter<T: Reflect> {
+   |                    - this type parameter
+...
+55 |         pub inner: super::external_crate::TheirInner<bool>,
+   |                    --------------------------------------- expected due to this
+   |
+   = note: expected struct `TheirInner<bool>`
+              found struct `TheirInner<T>`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
