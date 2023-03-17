@@ -38,6 +38,7 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
     derive_data.set_remote(Some(RemoteType::new(&remote_ty)));
 
     let assertions = impl_assertions(&derive_data);
+    let definition_assertions = generate_remote_definition_assertions(&derive_data);
 
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
@@ -78,6 +79,8 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
             #reflect_impls
 
             #from_reflect_impl
+
+            #definition_assertions
 
             #assertions
         };
@@ -222,6 +225,84 @@ pub(crate) fn generate_remote_assertions(
                 #assertions
             }
         })
+    }
+}
+
+/// Generates compile-time assertions that ensure a remote wrapper definition matches up with the
+/// remote type it's wrapping.
+///
+/// Note: This currently results in "backwards" error messages like:
+///
+/// ```ignore
+/// expected: <WRAPPER_FIELD_TYPE>
+/// found: <REMOTE_FIELD_TYPE>
+/// ```
+///
+/// Ideally it would be the other way around, but there's no easy way of doing this without
+/// generating a copy of the struct/enum definition and using that as the base instead of the remote type.
+fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_macro2::TokenStream {
+    let meta = derive_data.meta();
+    let self_ident = format_ident!("__remote__");
+    let self_ty = derive_data.remote_ty().unwrap().type_path();
+    let self_expr_path = derive_data.remote_ty().unwrap().as_expr_path().unwrap();
+    let (impl_generics, _, where_clause) = meta.type_path().generics().split_for_impl();
+
+    let assertions = match derive_data {
+        ReflectDerive::Struct(data)
+        | ReflectDerive::TupleStruct(data)
+        | ReflectDerive::UnitStruct(data) => {
+            let field_member = data
+                .fields()
+                .iter()
+                .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index));
+            let field_ty = data.fields().iter().map(|field| &field.data.ty);
+            quote! {
+                #(let _: #field_ty = #self_ident.#field_member;)*
+            }
+        }
+        ReflectDerive::Enum(data) => {
+            let variants = data.variants().iter().map(|variant| {
+                let ident = &variant.data.ident;
+
+                let field_member = variant.fields().iter().map(|field| {
+                    ident_or_index(field.data.ident.as_ref(), field.declaration_index)
+                });
+                let field_ident = variant
+                    .fields()
+                    .iter()
+                    .map(|field| format_ident!("field_{}", field.declaration_index))
+                    .collect::<Vec<_>>();
+                let field_ty = variant.fields().iter().map(|field| &field.data.ty);
+
+                quote! {
+                    #self_expr_path::#ident {#(#field_member: #field_ident),*} => {
+                        #(let _: #field_ty = #field_ident;)*
+                    }
+                }
+            });
+
+            quote! {
+                match #self_ident {
+                    #(#variants)*
+                }
+            }
+        }
+        ReflectDerive::Value(meta) => {
+            return syn::Error::new(
+                meta.type_path().span(),
+                "cannot reflect a remote value type",
+            )
+            .into_compile_error()
+        }
+    };
+
+    quote! {
+        const _: () = {
+            #[allow(non_snake_case)]
+            fn assert_wrapper_definition_matches_remote_type #impl_generics (#self_ident: #self_ty) #where_clause {
+                #assertions
+            }
+        };
     }
 }
 

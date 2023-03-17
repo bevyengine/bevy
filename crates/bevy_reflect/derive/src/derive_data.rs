@@ -374,13 +374,23 @@ impl<'a> ReflectDerive<'a> {
         }
     }
 
-    pub fn meta(&self) -> &ReflectMeta<'a> {
+    /// Get the remote type path, if any.
+    pub fn remote_ty(&self) -> Option<RemoteType> {
         match self {
-            ReflectDerive::Struct(data)
-            | ReflectDerive::TupleStruct(data)
-            | ReflectDerive::UnitStruct(data) => data.meta(),
-            ReflectDerive::Enum(data) => data.meta(),
-            ReflectDerive::Value(meta) => meta,
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.remote_ty()
+            }
+            Self::Enum(data) => data.remote_ty(),
+            Self::Value(_) => None,
+        }
+    }
+
+    /// Get the [`ReflectMeta`] for this derived type.
+    pub fn meta(&self) -> &ReflectMeta {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
+            Self::Enum(data) => data.meta(),
+            Self::Value(meta) => meta,
         }
     }
 
