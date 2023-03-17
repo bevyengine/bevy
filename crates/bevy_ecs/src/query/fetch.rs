@@ -1388,3 +1388,33 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        self as bevy_ecs,
+        system::{assert_is_system, Query},
+    };
+
+    #[derive(Component)]
+    struct A;
+
+    #[derive(Component)]
+    struct B;
+
+    #[test]
+    fn world_query_struct_variants() {
+        #[derive(WorldQuery)]
+        pub struct NamedQuery {
+            id: Entity,
+            a: &'static A,
+        }
+
+        #[derive(WorldQuery)]
+        pub struct TupleQuery(&'static A, &'static B);
+
+        fn my_system(_: Query<(NamedQuery, TupleQuery)>) {}
+        assert_is_system(my_system);
+    }
+}
