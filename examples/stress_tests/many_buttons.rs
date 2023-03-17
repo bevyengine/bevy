@@ -5,20 +5,13 @@ use bevy::{
 };
 
 // For a total of 110 * 110 = 12100 buttons with text
-#[cfg(feature = "bevy_text")]
 const ROW_COLUMN_COUNT: usize = 110;
-
-// For a total of 220 * 220 = 48400 buttons without text
-#[cfg(not(feature = "bevy_text"))]
-const ROW_COLUMN_COUNT: usze = 220;
-
-#[cfg(feature = "bevy_text")]
 const FONT_SIZE: f32 = 7.0;
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
                 ..default()
@@ -27,12 +20,9 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems((setup.on_startup(), button_system));
-
-    #[cfg(feature = "bevy_text")]
-    app.init_resource::<UiFont>();
-
-    app.run();
+        .init_resource::<UiFont>()
+        .add_systems((setup.on_startup(), button_system))
+        .run();
 }
 
 #[derive(Component)]
@@ -53,11 +43,9 @@ fn button_system(
     }
 }
 
-#[cfg(feature = "bevy_text")]
 #[derive(Resource)]
 struct UiFont(Handle<Font>);
 
-#[cfg(feature = "bevy_text")]
 impl FromWorld for UiFont {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
@@ -65,11 +53,7 @@ impl FromWorld for UiFont {
     }
 }
 
-fn setup(
-    mut commands: Commands, 
-    #[cfg(feature = "bevy_text")]
-    font: Res<UiFont>
-) {
+fn setup(mut commands: Commands, font: Res<UiFont>) {
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
@@ -86,20 +70,13 @@ fn setup(
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
-                    spawn_button(
-                        commands, 
-                        #[cfg(feature = "bevy_text")]
-                        font.0.clone_weak(), 
-                        color, 
-                        count_f, i, j);
+                    spawn_button(commands, font.0.clone_weak(), color, count_f, i, j);
                 }
             }
         });
 }
-
 fn spawn_button(
     commands: &mut ChildBuilder,
-    #[cfg(feature = "bevy_text")]
     font: Handle<Font>,
     color: BackgroundColor,
     total: f32,
@@ -107,7 +84,6 @@ fn spawn_button(
     j: usize,
 ) {
     let width = 90.0 / total;
-    #[cfg(feature = "bevy_text")]
     commands
         .spawn((
             ButtonBundle {
@@ -134,22 +110,4 @@ fn spawn_button(
                 },
             ));
         });
-
-    #[cfg(not(feature = "bevy_text"))]
-    commands
-        .spawn((
-            ButtonBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(width), Val::Percent(width)),
-                    bottom: Val::Percent(100.0 / total * i as f32),
-                    left: Val::Percent(100.0 / total * j as f32),
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                background_color: color,
-                ..default()
-            },
-            IdleColor(color),
-        ));    
 }
