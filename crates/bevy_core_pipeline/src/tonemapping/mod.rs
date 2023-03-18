@@ -82,13 +82,15 @@ impl Plugin for TonemappingPlugin {
             app.insert_resource(tonemapping_luts);
         }
 
-        app.add_plugin(ExtractResourcePlugin::<TonemappingLuts>::default());
+        app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.register_type::<Tonemapping>();
         app.register_type::<DebandDither>();
 
-        app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
-        app.add_plugin(ExtractComponentPlugin::<DebandDither>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<Tonemapping>::default(),
+            ExtractComponentPlugin::<DebandDither>::default(),
+        ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

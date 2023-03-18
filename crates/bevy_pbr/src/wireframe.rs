@@ -40,8 +40,10 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
-            .add_plugin(ExtractComponentPlugin::<Wireframe>::default());
+            .add_plugins((
+                ExtractResourcePlugin::<WireframeConfig>::default(),
+                ExtractComponentPlugin::<Wireframe>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
