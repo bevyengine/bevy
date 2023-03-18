@@ -247,29 +247,9 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
-/// Checks if the specified identifier occurs in the specified [`TokenStream`].
-#[allow(clippy::cmp_owned)]
-fn check_for_collision(haystack: TokenStream, value: &Ident) -> bool {
-    haystack.into_iter().any(|t| match t {
-        TokenTree::Group(g) => check_for_collision(g.stream(), value),
-        TokenTree::Ident(ident) => ident.to_string() == value.to_string(),
-        TokenTree::Punct(_) | TokenTree::Literal(_) => false,
-    })
-}
-
-fn ensure_no_collision(haystack: TokenStream, mut value: Ident) -> Ident {
-    // If there's a collision, add more characters to the identifier
-    // until it doesn't collide with anything anymore.
-    while check_for_collision(haystack.clone(), &value) {
-        value = format_ident!("{value}X");
-    }
-    value
-}
-
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam)]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
-    let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
     let syn::Data::Struct(syn::DataStruct { fields: field_definitions, ..}) = ast.data else {
         return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
@@ -384,7 +364,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
-    let fields_alias = ensure_no_collision(token_stream, format_ident!("FieldsAlias"));
+    let fields_alias = format_ident!("__StructFieldsAlias");
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
