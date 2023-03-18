@@ -40,11 +40,11 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems((
-            setup.on_startup(),
-            print_sprite_count,
-            move_camera.after(print_sprite_count),
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (print_sprite_count, move_camera.after(print_sprite_count)),
+        )
         .run();
 }
 

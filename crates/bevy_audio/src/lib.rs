@@ -4,13 +4,13 @@
 //! # use bevy_ecs::{system::Res, event::EventWriter};
 //! # use bevy_audio::{Audio, AudioPlugin};
 //! # use bevy_asset::{AssetPlugin, AssetServer};
-//! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins};
+//! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins, Startup};
 //! fn main() {
 //!    App::new()
 //!         .add_plugins(MinimalPlugins)
 //!         .add_plugin(AssetPlugin::default())
 //!         .add_plugin(AudioPlugin)
-//!         .add_startup_system(play_background_audio)
+//!         .add_systems(Startup, play_background_audio)
 //!         .run();
 //! }
 //!
@@ -47,7 +47,6 @@ pub use sinks::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Asset};
-use bevy_ecs::prelude::*;
 
 /// Adds support for audio playback to a Bevy Application
 ///
@@ -62,7 +61,7 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSink>()
             .add_asset::<SpatialAudioSink>()
             .init_resource::<Audio<AudioSource>>()
-            .add_system(play_queued_audio_system::<AudioSource>.in_base_set(CoreSet::PostUpdate));
+            .add_systems(PostUpdate, play_queued_audio_system::<AudioSource>);
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         app.init_asset_loader::<AudioLoader>();
@@ -78,6 +77,6 @@ impl AddAudioSource for App {
         self.add_asset::<T>()
             .init_resource::<Audio<T>>()
             .init_resource::<AudioOutput<T>>()
-            .add_system(play_queued_audio_system::<T>.in_base_set(CoreSet::PostUpdate))
+            .add_systems(PostUpdate, play_queued_audio_system::<T>)
     }
 }
