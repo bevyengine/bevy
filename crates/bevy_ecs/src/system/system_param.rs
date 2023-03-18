@@ -50,6 +50,8 @@ use std::{
 /// which is `infallible` by default.
 ///
 /// ### Struct-level
+/// 
+/// Struct-level attributes tell the macro which trait to implement.
 ///
 /// #### `infallible`
 ///
@@ -73,6 +75,20 @@ use std::{
 /// Fields marked `optional` will unwrap or return [`SystemParamError`].
 ///
 /// ### Field-level
+/// 
+/// Field-level attributes tell the macro how to access the field.
+/// 
+/// For example, suppose `#[system_param(resultful)]` was specified at the struct-level and a field, `T`, only implements [`OptionalSystemParam`].
+/// The macro will try to access the field as [`ResultfulSystemParam`], which will fail.
+/// Instead, a more restrictive level of fallibility must be used.
+/// 
+/// There are a few options: infallible `Option<T>`, optional `T` and infallible `T`.
+/// 
+/// - Infallible `Option<T>` will never fail; if it's missing it will return `None`.
+/// - Optional `T` might fail and will result in an error.
+/// - Infallible `T` might fail and will result in a panic.
+/// 
+/// Each of these possibilities can be achieved by using the correct type and field-level attribute.
 ///
 /// #### `infallible`
 ///
@@ -231,7 +247,7 @@ pub unsafe trait SystemParam: Sized {
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
-///
+/// 
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
