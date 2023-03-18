@@ -196,7 +196,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_system(ui_stack_system);
+        schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();

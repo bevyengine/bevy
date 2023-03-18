@@ -16,7 +16,7 @@ fn main() {
     #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     pub struct FlushEvents;
 
-    schedule.add_system(Events::<MyEvent>::update_system.in_set(FlushEvents));
+    schedule.add_systems(Events::<MyEvent>::update_system.in_set(FlushEvents));
 
     // Add systems sending and receiving events after the events are flushed.
     schedule.add_systems((

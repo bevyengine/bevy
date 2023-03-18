@@ -104,15 +104,15 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
-            .configure_set(UiSystem::Focus.in_base_set(CoreSet::PreUpdate))
-            .configure_set(UiSystem::Flex.in_base_set(CoreSet::PostUpdate))
-            .configure_set(UiSystem::Stack.in_base_set(CoreSet::PostUpdate))
-            .add_system(ui_focus_system.in_set(UiSystem::Focus).after(InputSystem));
+            .add_systems(
+                PreUpdate,
+                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+            );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
-        app.add_system(
+        app.add_systems(
+            PostUpdate,
             widget::text_system
-                .in_base_set(CoreSet::PostUpdate)
                 .before(UiSystem::Flex)
                 // Potential conflict: `Assets<Image>`
                 // In practice, they run independently since `bevy_render::camera_update_system`
@@ -126,10 +126,8 @@ impl Plugin for UiPlugin {
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
-        app.add_system({
-            let system = widget::update_image_calculated_size_system
-                .in_base_set(CoreSet::PostUpdate)
-                .before(UiSystem::Flex);
+        app.add_systems(PostUpdate, {
+            let system = widget::update_image_calculated_size_system.before(UiSystem::Flex);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -141,15 +139,16 @@ impl Plugin for UiPlugin {
 
             system
         })
-        .add_systems((
-            flex_node_system
-                .in_set(UiSystem::Flex)
-                .before(TransformSystem::TransformPropagate),
-            ui_stack_system.in_set(UiSystem::Stack),
-            update_clipping_system
-                .after(TransformSystem::TransformPropagate)
-                .in_base_set(CoreSet::PostUpdate),
-        ));
+        .add_systems(
+            PostUpdate,
+            (
+                flex_node_system
+                    .in_set(UiSystem::Flex)
+                    .before(TransformSystem::TransformPropagate),
+                ui_stack_system.in_set(UiSystem::Stack),
+                update_clipping_system.after(TransformSystem::TransformPropagate),
+            ),
+        );
 
         crate::render::build_ui_render(app);
     }
