@@ -31,7 +31,7 @@ fn main() {
             max_time: 600.0,
             max_kills: 30,
         }))
-        .add_system(update_deathmatch)
+        .add_systems(Update, update_deathmatch)
         .run();
 }
 

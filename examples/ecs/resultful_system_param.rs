@@ -13,7 +13,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_startup_system(setup)
-        .add_system(display_statistics)
+        .add_systems(Update, display_statistics)
         .run();
 }
 
