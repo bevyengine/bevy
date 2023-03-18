@@ -65,7 +65,12 @@ fn main() {
                 move_paddle
                     .before(check_for_collisions)
                     .after(apply_velocity),
-                play_collision_sound.after(check_for_collisions),
+                // This system ignores stepping because it is `Event` driven.
+                // Event-driven systems cannot be stepped at the moment because
+                // the events are not preserved during stepping.
+                play_collision_sound
+                    .after(check_for_collisions)
+                    .ignore_stepping(),
             )
                 .in_schedule(CoreSchedule::FixedUpdate),
         )
@@ -73,18 +78,6 @@ fn main() {
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc);
-
-    // stepping is only implemented in the single-threaded executor for the
-    // moment, so let's force Main and FixedUpdate to use it.
-    // XXX temporary, for proof-of-concept
-    /*
-    app.get_schedule_mut(CoreSchedule::FixedUpdate)
-        .expect("CoreSchedule::FixedUpdate to be present in app")
-        .set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-    app.get_schedule_mut(CoreSchedule::Main)
-        .expect("CoreSchedule::Main to be present in app")
-        .set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-    */
     app.add_startup_system(setup_stepping)
         .add_system(stepping_input.ignore_stepping())
         .add_system(stepping_ui.ignore_stepping());
@@ -191,6 +184,9 @@ struct Scoreboard {
     score: usize,
 }
 
+#[derive(Component)]
+struct ScoreboardUi;
+
 // Add the game's entities to our world
 fn setup(
     mut commands: Commands,
@@ -238,7 +234,8 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn(
+    commands.spawn((
+        ScoreboardUi,
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -263,7 +260,7 @@ fn setup(
             },
             ..default()
         }),
-    );
+    ));
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));
@@ -364,10 +361,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
     }
 }
 
-fn update_scoreboard(
-    scoreboard: Res<Scoreboard>,
-    mut query: Query<&mut Text, Without<SteppingUi>>,
-) {
+fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
     let mut text = query.single_mut();
     text.sections[1].value = scoreboard.score.to_string();
 }
@@ -499,16 +493,17 @@ fn stepping_ui(
         use bevy::ecs::schedule::ScheduleEvent::*;
         match ev {
             StepFrame(_) => text.sections[1].value = "stepped frame".to_string(),
-            StepSystem(_) => text.sections[1].value = format!("ran {}", next_system_name(&fixed)),
+            StepSystem(_) => text.sections[1].value = format!("ran {}", next_system_name(fixed)),
             _ => text.sections[1].value = "enabled stepping".to_string(),
         }
     }
 }
 
-const STEPPING_FONT_SIZE: f32 = 24.0;
+const STEPPING_FONT_SIZE: f32 = 20.0;
 const STEPPING_FONT_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
 
 fn setup_stepping(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // stepping status UI
     commands.spawn((
         SteppingUi,
         TextBundle::from_sections([
@@ -543,10 +538,53 @@ fn setup_stepping(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),
-                right: Val::Px(200.0),
+                left: Val::Percent(25.0),
                 ..default()
             },
             ..default()
         }),
     ));
+    /*
+        .with_children(|parent| {
+            parent.spawn(
+                TextBundle::from_sections([TextSection::new(
+                    "SPACE: Step forward one frame\n \
+                    S: Step forward one system",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: 15.0,
+                        color: STEPPING_FONT_COLOR,
+                    },
+                )])
+                .with_style(Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect {
+                        bottom: Val::Px(5.0),
+                        left: Val::Percent(25.0),
+                        ..default()
+                    },
+                    ..default()
+                }),
+            );
+        });
+    */
+
+    // stepping description box
+    commands.spawn((TextBundle::from_sections([TextSection::new(
+        "Press ` to toggle stepping mode (S: step system, Space: step frame)",
+        TextStyle {
+            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+            font_size: 15.0,
+            color: STEPPING_FONT_COLOR,
+        },
+    )])
+    .with_style(Style {
+        position_type: PositionType::Absolute,
+        position: UiRect {
+            bottom: Val::Px(5.0),
+            left: Val::Px(5.0),
+            ..default()
+        },
+        ..default()
+    }),));
 }

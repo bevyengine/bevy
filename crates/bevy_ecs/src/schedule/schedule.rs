@@ -161,7 +161,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// ```
 pub struct Schedule {
     graph: ScheduleGraph,
-    pub(crate) executable: SystemSchedule, // pub(crate) for testing
+    executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
 }
@@ -278,6 +278,12 @@ impl Schedule {
     /// Returns a mutable reference to the [`ScheduleGraph`].
     pub fn graph_mut(&mut self) -> &mut ScheduleGraph {
         &mut self.graph
+    }
+
+    /// Returns the [`SystemSchedule`]
+    #[cfg(test)]
+    pub fn executable(&mut self) -> &mut SystemSchedule {
+        &mut self.executable
     }
 
     /// Iterates the change ticks of all systems in the schedule and clamps any older than

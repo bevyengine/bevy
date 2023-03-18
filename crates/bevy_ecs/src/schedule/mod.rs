@@ -863,52 +863,52 @@ mod tests {
             let (mut _world, mut schedule) = build_stepping_schedule();
 
             // make sure none of the systems run
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(0));
 
             // now step a single system; only the second system should run
             step_system(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(!skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(1));
 
             // don't step, but call step() again; all systems should be marked
             // as skipped
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(1));
 
             // step & run again; the second system should run
             step_system(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(skipped_systems.contains(0));
             assert!(!skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(2));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(2));
 
             // don't step, but call step() again; all systems should be marked
             // as skipped
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(2));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(2));
 
             // step & run again; the frame finished, so only the second system
             // should be skipped
             step_system(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(!skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(1));
         }
 
         #[test]
@@ -916,43 +916,43 @@ mod tests {
             let (mut _world, mut schedule) = build_stepping_schedule();
 
             // make sure none of the systems run
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(0));
 
             // step an entire frame; no systems should be skipped
             step_frame(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert_eq!(skipped_systems.count_ones(..), 0);
-            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(0));
 
             // step the frame again to check the state wrapping behavior
             step_frame(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert_eq!(skipped_systems.count_ones(..), 0);
-            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(0));
 
             // step a single system
             step_system(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(!skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(1));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(1));
 
             // and then step the rest of the frame; we should skip the first
             // system as it was run in the previous step.  This ensures we
             // correctly run the rest of a partial frame.
             step_frame(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(skipped_systems.contains(0));
             assert!(!skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(0));
         }
 
         #[test]
@@ -973,19 +973,19 @@ mod tests {
             schedule.run(&mut world);
 
             // make sure we only skip the second system
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(!skipped_systems.contains(0));
             assert!(skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(0));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(0));
 
             // now step, and neither system should be skipped
             step_system(&mut schedule);
-            let skipped_systems = schedule.executable.step().unwrap();
+            let skipped_systems = schedule.executable().step().unwrap();
             assert_eq!(skipped_systems.len(), 2);
             assert!(!skipped_systems.contains(0));
             assert!(!skipped_systems.contains(1));
-            assert_eq!(schedule.executable.step_state, StepState::Wait(2));
+            assert_eq!(schedule.executable().step_state, StepState::Wait(2));
         }
 
         /// verify the [`SimpleExecutor`] respects the skipped list returned by
