@@ -1,4 +1,5 @@
 mod entity_ref;
+pub mod error;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 mod world_cell;
@@ -20,6 +21,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
+    world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
@@ -1714,6 +1716,47 @@ impl World {
         schedules.insert(label, schedule);
     }
 
+    /// Attempts to run the [`Schedule`] associated with the `label` a single time,
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    pub fn try_run_schedule(
+        &mut self,
+        label: impl ScheduleLabel,
+    ) -> Result<(), TryRunScheduleError> {
+        self.try_run_schedule_ref(&label)
+    }
+
+    /// Attempts to run the [`Schedule`] associated with the `label` a single time,
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
+    ///
+    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    pub fn try_run_schedule_ref(
+        &mut self,
+        label: &dyn ScheduleLabel,
+    ) -> Result<(), TryRunScheduleError> {
+        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
+            return Err(TryRunScheduleError(label.dyn_clone()));
+        };
+
+        // TODO: move this span to Schedule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        schedule.run(self);
+        self.resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
+
+        Ok(())
+    }
+
     /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
@@ -1741,17 +1784,8 @@ impl World {
     ///
     /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        let (extracted_label, mut schedule) = self
-            .resource_mut::<Schedules>()
-            .remove_entry(label)
-            .unwrap_or_else(|| panic!("The schedule with the label {label:?} was not found."));
-
-        // TODO: move this span to Schedule::run
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
-        schedule.run(self);
-        self.resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
+        self.try_run_schedule_ref(label)
+            .unwrap_or_else(|e| panic!("{}", e));
     }
 }
 

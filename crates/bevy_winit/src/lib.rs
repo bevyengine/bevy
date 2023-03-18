@@ -13,7 +13,7 @@ use system::{changed_window, create_window, despawn_window, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreSet, Plugin};
+use bevy_app::{App, AppExit, Last, Plugin};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{
@@ -76,12 +76,12 @@ impl Plugin for WinitPlugin {
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
             .add_systems(
+                Last,
                 (
                     changed_window.ambiguous_with(exit_on_all_closed),
                     // Update the state of the window before attempting to despawn to ensure consistent event ordering
                     despawn_window.after(changed_window),
-                )
-                    .in_base_set(CoreSet::Last),
+                ),
             );
 
         app.add_plugin(AccessibilityPlugin);

@@ -16,11 +16,11 @@ fn main() {
             target_scale: 1.0,
             target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
-        .add_systems((
-            setup.on_startup(),
-            change_scaling,
-            apply_scaling.after(change_scaling),
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (change_scaling, apply_scaling.after(change_scaling)),
+        )
         .run();
 }
 
@@ -38,11 +38,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Percent(25.),
-                    top: Val::Percent(25.),
-                    ..default()
-                },
+                left: Val::Percent(25.),
+                top: Val::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()

@@ -1,4 +1,4 @@
-use bevy_app::{IntoSystemAppConfig, Plugin};
+use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -17,6 +17,7 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -38,7 +39,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
@@ -101,7 +102,10 @@ where
             };
 
         render_app
-            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .add_systems(
+                Render,
+                queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
+            )
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
@@ -129,15 +133,18 @@ where
         };
 
         render_app
-            .add_systems((
-                extract_camera_prepass_phase.in_schedule(ExtractSchedule),
-                prepare_prepass_textures
-                    .in_set(RenderSet::Prepare)
-                    .after(bevy_render::view::prepare_windows),
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
-                sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
-                sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
-            ))
+            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems(
+                Render,
+                (
+                    prepare_prepass_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                    queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                ),
+            )
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
@@ -167,11 +174,22 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // Globals
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
                     count: None,
                 },
@@ -573,19 +591,26 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        prepass_view_bind_group.bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
+    let Some(view_binding) = view_uniforms.uniforms.binding() else { return };
+    let Some(globals_binding) = globals_buffer.buffer.binding() else { return };
+    prepass_view_bind_group.bind_group =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
-                }],
-                label: Some("prepass_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
-    }
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: globals_binding,
+                },
+            ],
+            label: Some("prepass_view_bind_group"),
+            layout: &prepass_pipeline.view_layout,
+        }));
 }
 
 #[allow(clippy::too_many_arguments)]
