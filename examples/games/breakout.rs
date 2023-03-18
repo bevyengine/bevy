@@ -544,30 +544,6 @@ fn setup_stepping(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
     ));
-    /*
-        .with_children(|parent| {
-            parent.spawn(
-                TextBundle::from_sections([TextSection::new(
-                    "SPACE: Step forward one frame\n \
-                    S: Step forward one system",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 15.0,
-                        color: STEPPING_FONT_COLOR,
-                    },
-                )])
-                .with_style(Style {
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        bottom: Val::Px(5.0),
-                        left: Val::Percent(25.0),
-                        ..default()
-                    },
-                    ..default()
-                }),
-            );
-        });
-    */
 
     // stepping description box
     commands.spawn((TextBundle::from_sections([TextSection::new(
