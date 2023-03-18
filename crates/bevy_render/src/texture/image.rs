@@ -11,11 +11,13 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
+use anyhow::anyhow;
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use winit::window::Icon;
 
 use std::hash::Hash;
 use thiserror::Error;
@@ -610,6 +612,26 @@ impl CompressedImageFormats {
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
+    }
+}
+
+impl TryInto<winit::window::Icon> for Image {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<Icon, Self::Error> {
+        let Ok(icon) = self.try_into_dynamic() else {
+            return Err(anyhow!("failed to convert Image to DynamicImage"));
+        };
+
+        let width = icon.width();
+        let height = icon.height();
+        let data = icon.into_rgba8().into_raw();
+
+        let Ok(icon) = winit::window::Icon::from_rgba(data, width, height) else {
+            return Err(anyhow!("failed to convert to winit::window::Icon"));
+        };
+
+        Ok(icon)
     }
 }
 

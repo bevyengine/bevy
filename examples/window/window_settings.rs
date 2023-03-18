@@ -4,6 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    render::texture::{set_window_icon, WindowIcon},
     window::{CursorGrabMode, PresentMode, WindowLevel},
 };
 
@@ -24,9 +25,11 @@ fn main() {
         }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
+                set_window_icon,
                 change_title,
                 toggle_cursor,
                 toggle_vsync,
@@ -35,6 +38,12 @@ fn main() {
             ),
         )
         .run();
+}
+
+/// Add an icon to the window task bar.  Only works in Windows and Linux.
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let icon_handle = asset_server.load("branding/icon.png");
+    commands.spawn(WindowIcon(Some(icon_handle)));
 }
 
 /// This system toggles the vsync mode when pressing the button V.

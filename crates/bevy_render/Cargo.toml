@@ -44,6 +44,7 @@ bevy_render_macros = { path = "macros", version = "0.11.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.11.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.11.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.11.0-dev" }
+bevy_winit = { path = "../bevy_winit", version = "0.11.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
 
@@ -78,3 +79,4 @@ encase = { version = "0.5", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
 async-channel = "1.8"
+winit = { version = "0.28", default-features = false }
