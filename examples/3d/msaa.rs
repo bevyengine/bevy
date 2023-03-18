@@ -10,8 +10,8 @@ fn main() {
     App::new()
         .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(cycle_msaa)
+        .add_systems(Startup, setup)
+        .add_systems(Update, cycle_msaa)
         .run();
 }
 

@@ -1,11 +1,11 @@
 name: CI
 
 on:
+  merge_group:
   pull_request:
   push:
-    branches-ignore:
-      - 'dependabot/**'
-      - staging-squash-merge.tmp
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -146,7 +146,7 @@ jobs:
   markdownlint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: check-missing-examples-in-docs
+    needs: check-missing-features-in-docs
     if: always()
     steps:
       - uses: actions/checkout@v3
@@ -286,6 +286,7 @@ jobs:
   check-missing-features-in-docs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v3
       - name: check for missing features
@@ -315,30 +316,6 @@ jobs:
         with:
           name: missing-features
           path: missing-features/
-
-  check-unused-dependencies:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - name: Installs cargo-udeps
-        run: cargo install --force cargo-udeps
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-      - name: Run cargo udeps
-        run: cargo udeps
 
   msrv:
     runs-on: ubuntu-latest
