@@ -6,10 +6,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(system)
-        .add_system(rotate_camera)
-        .add_system(update_config)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (system, rotate_camera, update_config))
         .run();
 }
 

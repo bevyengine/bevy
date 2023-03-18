@@ -1,10 +1,10 @@
 use std::mem;
 
-use bevy_app::{CoreSet, IntoSystemAppConfig, Plugin};
+use bevy_app::{Last, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
-    schedule::IntoSystemConfig,
+    schedule::IntoSystemConfigs,
     system::{Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -14,7 +14,7 @@ use bevy_render::{
     mesh::Mesh,
     render_phase::AddRenderCommand,
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 #[cfg(feature = "bevy_pbr")]
@@ -49,11 +49,11 @@ impl Plugin for GizmoPlugin {
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
-            .add_system(update_gizmo_meshes.in_base_set(CoreSet::Last));
+            .add_systems(Last, update_gizmo_meshes);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_system(extract_gizmo_data.in_schedule(ExtractSchedule));
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
         {
@@ -64,7 +64,7 @@ impl Plugin for GizmoPlugin {
                 .add_render_command::<Transparent2d, DrawGizmoLines>()
                 .init_resource::<GizmoLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
-                .add_system(queue_gizmos_2d.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_gizmos_2d.in_set(RenderSet::Queue));
         }
 
         #[cfg(feature = "bevy_pbr")]
@@ -76,7 +76,7 @@ impl Plugin for GizmoPlugin {
                 .add_render_command::<Opaque3d, DrawGizmoLines>()
                 .init_resource::<GizmoPipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
-                .add_system(queue_gizmos_3d.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_gizmos_3d.in_set(RenderSet::Queue));
         }
     }
 }

@@ -17,7 +17,7 @@ use std::borrow::Cow;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`IntoSystemConfig`](crate::schedule::IntoSystemConfig).
+/// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.

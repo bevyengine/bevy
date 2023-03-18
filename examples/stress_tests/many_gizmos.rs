@@ -27,12 +27,11 @@ fn main() {
         on_top: false,
         ..default()
     })
-    .add_startup_system(setup)
-    .add_system(input)
-    .add_system(ui_system);
+    .add_systems(Startup, setup)
+    .add_systems(Update, (input, ui_system));
 
     for _ in 0..SYSTEM_COUNT {
-        app.add_system(system);
+        app.add_systems(Update, system);
     }
 
     app.run();
