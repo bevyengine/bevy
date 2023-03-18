@@ -76,7 +76,7 @@ fn main() {
         .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
         .add_systems(Startup, setup_stepping)
         .add_systems(
-            Main,
+            Update,
             (
                 stepping_input.ignore_stepping(),
                 stepping_ui.ignore_stepping(),
@@ -502,7 +502,6 @@ const STEPPING_FONT_SIZE: f32 = 20.0;
 const STEPPING_FONT_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
 
 fn setup_stepping(mut commands: Commands, asset_server: Res<AssetServer>) {
-    println!("XXX setup stepping XXX");
     // stepping status UI
     commands.spawn((
         SteppingUi,
