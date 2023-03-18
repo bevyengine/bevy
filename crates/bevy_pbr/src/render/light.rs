@@ -500,12 +500,12 @@ pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
         target: Vec3::NEG_Y,
         up: Vec3::NEG_Z,
     },
-    // +Z
+    // +Z (with left-handed conventions, pointing forwards)
     CubeMapFace {
         target: Vec3::NEG_Z,
         up: Vec3::Y,
     },
-    // -Z
+    // -Z (with left-handed conventions, pointing backwards)
     CubeMapFace {
         target: Vec3::Z,
         up: Vec3::Y,
