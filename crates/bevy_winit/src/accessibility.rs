@@ -13,6 +13,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
+    schedule::IntoSystemConfigs,
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -170,7 +171,8 @@ impl Plugin for AccessibilityPlugin {
                     window_closed,
                     poll_receivers,
                     update_accessibility_nodes,
-                ),
+                )
+                    .ignore_stepping(),
             );
     }
 }

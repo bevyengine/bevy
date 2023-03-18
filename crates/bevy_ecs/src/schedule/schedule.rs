@@ -267,7 +267,6 @@ impl Schedule {
     }
 
     /// Returns the [`SystemSchedule`]
-    #[cfg(test)]
     pub fn executable(&mut self) -> &mut SystemSchedule {
         &mut self.executable
     }
@@ -320,6 +319,44 @@ impl Schedule {
     pub fn next_step_system_name(&self) -> Option<std::borrow::Cow<'static, str>> {
         let index = self.executable.stepping_next_system_index()?;
         Some(self.executable.systems[index].name())
+    }
+
+    /// When stepping mode is enabled, this method will return the [`NodeId`]
+    /// of the next system to be run when this schedule is stepped.
+    pub fn next_step_system_node_id(&self) -> Option<NodeId> {
+        let index = self.executable.stepping_next_system_index()?;
+        self.executable.system_ids.get(index).copied()
+    }
+
+    /// Check if a given system supports stepping
+    ///
+    /// This function will return false for an unknown `id`, or when the
+    /// schedule has not yet been built by calling [`Schedule::run()`].
+    pub fn system_permits_stepping(&self, id: NodeId) -> bool {
+        self.executable
+            .system_ids
+            .iter()
+            .position(|&i| i == id)
+            .map(|index| self.executable.systems_with_stepping_enabled[index])
+            .unwrap_or(false)
+    }
+
+    /// Get a System by NodeId
+    pub fn system_at(&self, id: NodeId) -> Option<&BoxedSystem> {
+        self.executable
+            .system_ids
+            .iter()
+            .position(|&i| i == id)
+            .map(|index| &self.executable.systems[index])
+    }
+
+    /// Walk through the ordered list of systems in this system
+    pub fn ordered_systems(&self) -> impl Iterator<Item = (NodeId, &BoxedSystem)> {
+        self.executable
+            .systems
+            .iter()
+            .zip(&self.executable.system_ids)
+            .map(|(boxed_system, system_id)| (*system_id, boxed_system))
     }
 
     /// apply `event` to the schedule

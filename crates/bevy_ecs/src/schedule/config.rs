@@ -189,10 +189,24 @@ impl SystemConfigs {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.stepping_behavior = SteppingBehavior::IgnoreStepping;
+                println!("ignore_stepping_inner: {:#?}", config.system.name());
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
                     config.ignore_stepping_inner();
+                }
+            }
+        }
+    }
+
+    fn permit_stepping_inner(&mut self) {
+        match self {
+            SystemConfigs::SystemConfig(config) => {
+                config.stepping_behavior = SteppingBehavior::PermitStepping;
+            }
+            SystemConfigs::Configs { configs, .. } => {
+                for config in configs {
+                    config.permit_stepping_inner();
                 }
             }
         }
@@ -285,8 +299,19 @@ where
         self.into_configs().chain()
     }
 
+    /// Ignore stepping for this set of systems.
+    ///
+    /// When stepping mode is enabled, these systems will still be run.
     fn ignore_stepping(self) -> SystemConfigs {
         self.into_configs().ignore_stepping()
+    }
+
+    /// Permit stepping for this set of systems.
+    ///
+    /// When stepping mode is enabled, these systems will only be run when a
+    /// step is performed.  This is the default for all systems.
+    fn permit_stepping(self) -> SystemConfigs {
+        self.into_configs().permit_stepping()
     }
 
     /// This used to add the system to `CoreSchedule::Startup`.
@@ -381,6 +406,11 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn ignore_stepping(mut self) -> Self {
         self.ignore_stepping_inner();
+        self
+    }
+
+    fn permit_stepping(mut self) -> Self {
+        self.permit_stepping_inner();
         self
     }
 }

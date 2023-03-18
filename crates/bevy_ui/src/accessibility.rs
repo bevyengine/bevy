@@ -10,6 +10,7 @@ use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
     prelude::Entity,
     query::{Changed, Or, Without},
+    schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
 use bevy_hierarchy::Children;
@@ -148,7 +149,7 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (calc_bounds, button_changed, image_changed, label_changed),
+            (calc_bounds, button_changed, image_changed, label_changed).ignore_stepping(),
         );
     }
 }
