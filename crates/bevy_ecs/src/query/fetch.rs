@@ -1328,7 +1328,6 @@ macro_rules! impl_anytuple_fetch {
 
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for AnyOf<($($name,)*)> {}
-
     };
 }
 
