@@ -1414,7 +1414,10 @@ mod tests {
         #[derive(WorldQuery)]
         pub struct TupleQuery(&'static A, &'static B);
 
-        fn my_system(_: Query<(NamedQuery, TupleQuery)>) {}
+        #[derive(WorldQuery)]
+        pub struct UnitQuery;
+
+        fn my_system(_: Query<(NamedQuery, TupleQuery, UnitQuery)>) {}
         assert_is_system(my_system);
     }
 }

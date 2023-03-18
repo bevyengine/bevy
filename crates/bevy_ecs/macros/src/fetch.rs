@@ -120,14 +120,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         .into_compile_error()
         .into()
     };
-    if fields.is_empty() {
-        return syn::Error::new(
-            Span::call_site(),
-            "#[derive(WorldQuery)]` does not support fieldless structs",
-        )
-        .into_compile_error()
-        .into();
-    }
 
     let mut ignored_field_attrs = Vec::new();
     let mut ignored_field_visibilities = Vec::new();
@@ -221,12 +213,11 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 );
             },
             syn::Fields::Unit => quote! {
-                #derive_macro_call
                 #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
                 #[doc = stringify!(#struct_name)]
                 #[doc = "`], returned when iterating over query results."]
                 #[automatically_derived]
-                #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world;
+                #visibility type #item_struct_name #user_ty_generics_with_world = #struct_name #user_ty_generics;
             },
         };
 
@@ -239,6 +230,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
                 #(#ignored_named_field_idents: #ignored_field_types,)*
+                __world_query_lifetime_marker: &'__w (),
             }
 
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
@@ -279,6 +271,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             ),
                         )*
                         #(#ignored_named_field_idents: Default::default(),)*
+                        __world_query_lifetime_marker: &(),
                     }
                 }
 
@@ -292,6 +285,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                         #(
                             #ignored_named_field_idents: Default::default(),
                         )*
+                        __world_query_lifetime_marker: &(),
                     }
                 }
 
