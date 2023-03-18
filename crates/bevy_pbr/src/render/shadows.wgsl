@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::shadows
 
-var<private> flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
+const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = &point_lights.data[light_id];
