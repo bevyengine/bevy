@@ -7,7 +7,7 @@ mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
 use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
