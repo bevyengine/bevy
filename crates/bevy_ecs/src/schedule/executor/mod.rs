@@ -107,7 +107,7 @@ impl SystemSchedule {
 
                 // Transition to the wait state. it's safe to set the value
                 // beyond the number of systems in the schedule.  All uses of
-                // that value use [`find_stepping_system`], which will wrap it
+                // that value use `find_stepping_system`, which will wrap it
                 // to a safe value.
                 self.step_state = StepState::Wait(next + 1);
 

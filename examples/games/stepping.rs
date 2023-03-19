@@ -65,8 +65,11 @@ struct Stepping;
 
 #[derive(Debug)]
 enum Status {
+    // initial state, waiting for build_ui() to complete successfully
     Init,
+    // game running normally
     Run,
+    // stepping enabled; value is index into State.schedule_labels
     Step(usize),
 }
 
@@ -133,15 +136,32 @@ fn build_ui(
                 color: FONT_COLOR,
             },
         ));
-        for (node_id, system) in schedule.ordered_systems() {
-            // skip any system that doesn't permit stepping
-            if !schedule.system_permits_stepping(node_id) {
-                debug!(
-                    "stepping disabled for {:?}/{}",
-                    label,
-                    schedule.system_at(node_id).unwrap().name().to_string()
-                );
-                continue;
+
+        // grab the list of systems in the schedule, in the order the
+        // single-threaded executor would run them.
+        let systems = match schedule.executor_systems_order() {
+            Ok(iter) => iter,
+            Err(_) => return,
+        };
+
+        for (node_id, system) in systems {
+            match schedule.system_permits_stepping(node_id) {
+                Err(_) => unreachable!(),
+                Ok(None) => panic!("invalid node id in systems order"),
+                Ok(Some(false)) => {
+                    debug!(
+                        "stepping disabled for {:?}/{}",
+                        label,
+                        schedule
+                            .system_at(node_id)
+                            .unwrap()
+                            .unwrap()
+                            .name()
+                            .to_string()
+                    );
+                    continue;
+                }
+                Ok(Some(true)) => (),
             }
 
             text_map.insert((label.clone(), node_id), text_sections.len());
@@ -168,14 +188,6 @@ fn build_ui(
 
         match last_system {
             Some(id) => last_systems.push(id),
-            // It's possible that the [`Stepping`] schedule ran before one of
-            // the schedules we're going to be stepping.  In this case, the
-            // other schedule will not yet have its `SystemSchedule` built
-            // (this happens the first time the schedule runs).  So let's
-            // return, and try again later.
-            //
-            // NOTE: This will cause problems with schedules that are very
-            // rarely run.
             None => {
                 info!("schedule {:?} has no systems; delaying ui creation", label);
                 return;

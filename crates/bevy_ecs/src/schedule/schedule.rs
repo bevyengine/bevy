@@ -310,7 +310,7 @@ impl Schedule {
         }
     }
 
-    /// Get the state of system-stepping
+    /// Check if stepping-mode is enabled on this [`Schedule`]
     pub fn stepping(&self) -> bool {
         match self.executable.step_state {
             StepState::RunAll => false,
@@ -332,35 +332,67 @@ impl Schedule {
         self.executable.system_ids.get(index).copied()
     }
 
-    /// Check if a given system supports stepping
+    /// Get an iterator for the systems in the schedule in the order they would
+    /// be executed by the single-threaded executor.
     ///
-    /// This function will return false for an unknown `id`, or when the
-    /// schedule has not yet been built by calling [`Schedule::run()`].
-    pub fn system_permits_stepping(&self, id: NodeId) -> bool {
-        self.executable
-            .system_ids
-            .iter()
-            .position(|&i| i == id)
-            .map(|index| self.executable.systems_with_stepping_enabled[index])
-            .unwrap_or(false)
-    }
+    /// If [`run`] has not yet been called on this schedule, this method will
+    /// return [`ScheduleNotReadyError`].
+    pub fn executor_systems_order(
+        &self,
+    ) -> Result<impl Iterator<Item = (NodeId, &BoxedSystem)>, ScheduleNotReadyError> {
+        if self.graph.changed {
+            return Err(ScheduleNotReadyError);
+        }
 
-    /// Get a System by [`NodeId`]
-    pub fn system_at(&self, id: NodeId) -> Option<&BoxedSystem> {
-        self.executable
-            .system_ids
-            .iter()
-            .position(|&i| i == id)
-            .map(|index| &self.executable.systems[index])
-    }
-
-    /// Walk through the ordered list of systems in this system
-    pub fn ordered_systems(&self) -> impl Iterator<Item = (NodeId, &BoxedSystem)> {
-        self.executable
+        let iter = self
+            .executable
             .systems
             .iter()
             .zip(&self.executable.system_ids)
-            .map(|(boxed_system, system_id)| (*system_id, boxed_system))
+            .map(|(boxed_system, system_id)| (*system_id, boxed_system));
+
+        Ok(iter)
+    }
+
+    /// Check if a given system supports stepping
+    ///
+    /// If [`run`] has not yet been called on this schedule, this method will
+    /// return [`ScheduleNotReadyError`].
+    pub fn system_permits_stepping(
+        &self,
+        id: NodeId,
+    ) -> Result<Option<bool>, ScheduleNotReadyError> {
+        if self.graph.changed {
+            return Err(ScheduleNotReadyError);
+        }
+
+        let result = self
+            .executable
+            .system_ids
+            .iter()
+            .position(|&i| i == id)
+            .map(|index| self.executable.systems_with_stepping_enabled[index]);
+
+        Ok(result)
+    }
+
+    /// Get a system from the executor's schedule by [`NodeId`]
+    ///
+    /// If [`run`] has not yet been called on this schedule, this method will
+    /// return [`ScheduleNotReadyError`].
+    pub fn system_at(&self, id: NodeId) -> Result<Option<&BoxedSystem>, ScheduleNotReadyError> {
+        if self.graph.changed {
+            return Err(ScheduleNotReadyError);
+        }
+
+        let system = self
+            .executable
+            .system_ids
+            .iter()
+            .position(|&i| i == id)
+            .map(|index| &self.executable.systems[index]);
+
+        Ok(system)
     }
 
     /// apply `event` to the schedule
@@ -1723,3 +1755,9 @@ pub enum ScheduleEvent {
     /// this event will have no effect.
     StepFrame(BoxedScheduleLabel),
 }
+
+/// Error to denote that [`Schedule::run`] has not yet been called for this
+/// schedule.
+#[derive(Error, Debug)]
+#[error("executable schedule has not been built")]
+pub struct ScheduleNotReadyError;

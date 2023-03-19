@@ -718,49 +718,38 @@ mod tests {
         // `Schedule::handle_event()`, so we're creating one here for testing.
         // I also don't want to have these tests dependent on bevy_app.
         #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-        enum TestSchedule {
-            X,
-        }
-
-        fn first_system(mut order: ResMut<SystemOrder>) {
-            order.0.push(1);
-        }
-
-        fn second_system(mut order: ResMut<SystemOrder>) {
-            order.0.push(2);
-        }
+        pub struct TestSchedule;
 
         /// Enable stepping for a given `schedule`
         fn enable_stepping(schedule: &mut Schedule) {
-            schedule.handle_event(&EnableStepping(Box::new(TestSchedule::X)));
+            schedule.handle_event(&EnableStepping(Box::new(TestSchedule)));
             assert!(schedule.stepping());
         }
 
-        /// step forward a single system in a stepping `Schedule`
+        // step forward a single system in a stepping `schedule`
         fn step_system(schedule: &mut Schedule) {
-            schedule.handle_event(&StepSystem(Box::new(TestSchedule::X)));
+            schedule.handle_event(&StepSystem(Box::new(TestSchedule)));
         }
 
-        /// step forward an entire frame in a stepping `Schedule`
+        // step forward an entire frame in a stepping `schedule`
         fn step_frame(schedule: &mut Schedule) {
-            schedule.handle_event(&StepFrame(Box::new(TestSchedule::X)));
+            schedule.handle_event(&StepFrame(Box::new(TestSchedule)));
         }
 
-        /// Build the schedule we're using for testing.  Also run it once so it
-        /// builds the SystemSchedule, and clear out our resource.
+        // generic systems
+        fn first_system() {}
+        fn second_system() {}
+
+        // Build the schedule we're using for testing.  Also run it once so it
+        // builds the SystemSchedule, and clear out our resource.
         fn build_stepping_schedule() -> (World, Schedule) {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
-            world.init_resource::<SystemOrder>();
-
-            // Build a schedule, run it once to ensure the graphs are built.
+            // Build a schedule, run it once to ensure the system schedule is
+            // built.
             schedule.add_systems((first_system, second_system.after(first_system)));
-
             schedule.run(&mut world);
-
-            // clear the SystemOrder
-            world.get_resource_mut::<SystemOrder>().unwrap().0.clear();
 
             enable_stepping(&mut schedule);
 
@@ -913,13 +902,11 @@ mod tests {
             // build a schedule and enable stepping mode
             schedule
                 .set_executor_kind(ExecutorKind::Simple)
-                .add_systems(first_system);
+                .add_systems(|| panic!("should not run"));
             enable_stepping(&mut schedule);
 
-            // run the schedule, and confirm that the system was skipped by the
-            // executor.
+            // this will panic if the executor doesn't follow the skipped list
             schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
         }
 
         /// verify the [`SingleThreadedExecutor`] respects the skipped list
@@ -929,18 +916,14 @@ mod tests {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
-            world.init_resource::<SystemOrder>();
-
             // build a schedule and enable stepping mode
             schedule
                 .set_executor_kind(ExecutorKind::SingleThreaded)
-                .add_systems(first_system);
+                .add_systems(|| panic!("should not run"));
             enable_stepping(&mut schedule);
 
-            // run the schedule, and confirm that the system was skipped by the
-            // executor.
+            // this will panic if the executor doesn't follow the skipped list
             schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
         }
 
         /// verify the [`MultiThreadedExecutor`] respects the skipped list
@@ -950,18 +933,14 @@ mod tests {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
-            world.init_resource::<SystemOrder>();
-
             // build a schedule and enable stepping mode
             schedule
                 .set_executor_kind(ExecutorKind::MultiThreaded)
-                .add_systems(first_system);
+                .add_systems(|| panic!("should not run"));
             enable_stepping(&mut schedule);
 
-            // run the schedule, and confirm that the system was skipped by the
-            // executor.
+            // this will panic if the executor doesn't follow the skipped list
             schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
         }
     }
 }

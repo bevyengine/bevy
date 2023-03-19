@@ -4,7 +4,7 @@ mod stepping {
     use bevy_ecs::prelude::*;
     use bevy_ecs::schedule::ScheduleEvent;
 
-    /// verify App::update() ScheduleEvents behavior
+    // verify App::update() ScheduleEvents behavior
     #[test]
     fn app_update_schedule_events() {
         let mut app = App::new();
