@@ -55,6 +55,7 @@ The default feature set enables most of the expected features of a game engine, 
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
 |serialize|Enable serialization support through serde|
+|spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
