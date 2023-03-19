@@ -819,7 +819,7 @@ impl World {
         component_id
     }
 
-    /// Initializes new resources and returns a vector of the [ComponentId]s created for them.
+    /// Initializes new resources and returns a vector of the [`ComponentId`]s created for them.
     ///
     /// If a resource already exists, nothing happens.
     ///
