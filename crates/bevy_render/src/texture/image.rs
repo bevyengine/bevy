@@ -11,12 +11,14 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
+#[cfg(feature = "bevy_winit")]
 use anyhow::anyhow;
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+#[cfg(feature = "bevy_winit")]
 use bevy_winit::Icon;
 
 use std::hash::Hash;
@@ -616,6 +618,7 @@ impl CompressedImageFormats {
 }
 
 // Convert an [`Image`] to `bevy_winit::Icon`.
+#[cfg(feature = "bevy_winit")]
 impl TryInto<Icon> for Image {
     type Error = anyhow::Error;
 

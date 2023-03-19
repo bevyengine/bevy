@@ -7,7 +7,8 @@ mod exr_texture_loader;
 mod fallback_image;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
-pub mod icon;
+#[cfg(feature = "bevy_winit")]
+mod icon;
 #[allow(clippy::module_inception)]
 mod image;
 mod image_texture_loader;
@@ -28,6 +29,7 @@ pub use exr_texture_loader::*;
 pub use hdr_texture_loader::*;
 
 pub use fallback_image::*;
+#[cfg(feature = "bevy_winit")]
 pub use icon::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
