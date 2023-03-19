@@ -335,8 +335,8 @@ impl Schedule {
     /// Get an iterator for the systems in the schedule in the order they would
     /// be executed by the single-threaded executor.
     ///
-    /// If [`run`] has not yet been called on this schedule, this method will
-    /// return [`ScheduleNotReadyError`].
+    /// If [`Schedule::run`] has not yet been called on this schedule, this
+    /// method will return [`ScheduleNotReadyError`].
     pub fn executor_systems_order(
         &self,
     ) -> Result<impl Iterator<Item = (NodeId, &BoxedSystem)>, ScheduleNotReadyError> {
@@ -356,8 +356,8 @@ impl Schedule {
 
     /// Check if a given system supports stepping
     ///
-    /// If [`run`] has not yet been called on this schedule, this method will
-    /// return [`ScheduleNotReadyError`].
+    /// If [`Schedule::run`] has not yet been called on this schedule, this
+    /// method will return [`ScheduleNotReadyError`].
     pub fn system_permits_stepping(
         &self,
         id: NodeId,
@@ -378,8 +378,9 @@ impl Schedule {
 
     /// Get a system from the executor's schedule by [`NodeId`]
     ///
-    /// If [`run`] has not yet been called on this schedule, this method will
     /// return [`ScheduleNotReadyError`].
+    /// If [`Schedule::run`] has not yet been called on this schedule, this
+    /// method will return [`ScheduleNotReadyError`].
     pub fn system_at(&self, id: NodeId) -> Result<Option<&BoxedSystem>, ScheduleNotReadyError> {
         if self.graph.changed {
             return Err(ScheduleNotReadyError);
