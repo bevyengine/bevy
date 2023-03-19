@@ -311,7 +311,7 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
-        let mut bundle_components = bundle_info.component_ids.iter().cloned();
+        let mut bundle_components = bundle_info.components().iter().cloned();
         let entity = self.entity;
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
         // matches
@@ -463,7 +463,7 @@ impl<'w> EntityMut<'w> {
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
         let entity = self.entity;
-        for component_id in bundle_info.component_ids.iter().cloned() {
+        for component_id in bundle_info.components().iter().cloned() {
             if old_archetype.contains(component_id) {
                 removed_components.send(component_id, entity);
 
@@ -694,9 +694,11 @@ unsafe fn remove_bundle_from_archetype(
     let remove_bundle_result = {
         let current_archetype = &mut archetypes[archetype_id];
         if intersection {
-            current_archetype.edges().get_remove_bundle(bundle_info.id)
+            current_archetype
+                .edges()
+                .get_remove_bundle(bundle_info.id())
         } else {
-            current_archetype.edges().get_take_bundle(bundle_info.id)
+            current_archetype.edges().get_take_bundle(bundle_info.id())
         }
     };
     let result = if let Some(result) = remove_bundle_result {
@@ -710,7 +712,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.component_ids.iter().cloned() {
+            for component_id in bundle_info.components().iter().cloned() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
                     let component_info = components.get_info_unchecked(component_id);
@@ -724,7 +726,7 @@ unsafe fn remove_bundle_from_archetype(
                     // graph
                     current_archetype
                         .edges_mut()
-                        .insert_take_bundle(bundle_info.id, None);
+                        .insert_take_bundle(bundle_info.id(), None);
                     return None;
                 }
             }
@@ -763,11 +765,11 @@ unsafe fn remove_bundle_from_archetype(
     if intersection {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle(bundle_info.id, result);
+            .insert_remove_bundle(bundle_info.id(), result);
     } else {
         current_archetype
             .edges_mut()
-            .insert_take_bundle(bundle_info.id, result);
+            .insert_take_bundle(bundle_info.id(), result);
     }
     result
 }

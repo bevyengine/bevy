@@ -1,24 +1,21 @@
+use crate::{
+    prelude::{Button, Label},
+    Node, UiImage,
+};
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
     AccessibilityNode,
 };
-use bevy_app::{App, Plugin};
-
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
     prelude::Entity,
     query::{Changed, Or, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::Children;
-
 use bevy_render::prelude::Camera;
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
-
-use crate::{
-    prelude::{Button, Label},
-    Node, UiImage,
-};
 
 fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
     let mut name = None;
@@ -149,6 +146,9 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems((calc_bounds, button_changed, image_changed, label_changed));
+        app.add_systems(
+            Update,
+            (calc_bounds, button_changed, image_changed, label_changed),
+        );
     }
 }

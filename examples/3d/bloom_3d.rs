@@ -16,11 +16,8 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            setup_scene.on_startup(),
-            update_bloom_settings,
-            bounce_spheres,
-        ))
+        .add_systems(Startup, setup_scene)
+        .add_systems(Update, (update_bloom_settings, bounce_spheres))
         .run();
 }
 
@@ -106,11 +103,8 @@ fn setup_scene(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
