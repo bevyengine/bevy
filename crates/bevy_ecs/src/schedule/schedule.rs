@@ -1313,13 +1313,15 @@ impl ScheduleGraph {
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
+            if self.system_stepping_enabled[id.index()] {
+                schedule
+                    .systems_with_stepping_enabled
+                    .insert(schedule.systems.len());
+            }
             let system = self.systems[id.index()].inner.take().unwrap();
             let conditions = self.system_conditions[id.index()].take().unwrap();
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
-            if self.system_stepping_enabled[id.index()] {
-                schedule.systems_with_stepping_enabled.insert(id.index());
-            }
         }
 
         for &id in &schedule.set_ids {

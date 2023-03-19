@@ -189,7 +189,6 @@ impl SystemConfigs {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.stepping_behavior = SteppingBehavior::IgnoreStepping;
-                println!("ignore_stepping_inner: {:#?}", config.system.name());
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {

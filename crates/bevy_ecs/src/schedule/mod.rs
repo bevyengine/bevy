@@ -754,7 +754,7 @@ mod tests {
 
             world.init_resource::<SystemOrder>();
 
-            // build a schedule, run it once to ensure the graphs are built
+            // Build a schedule, run it once to ensure the graphs are built.
             schedule.add_systems((first_system, second_system.after(first_system)));
 
             schedule.run(&mut world);
@@ -872,11 +872,13 @@ mod tests {
             world.init_resource::<SystemOrder>();
 
             // build a schedule and enable stepping mode
+            // To verify that we put the stepping fixedbitset in the correct
+            // order, we're going to add the systems in reverse order here.
             schedule
                 .set_executor_kind(ExecutorKind::SingleThreaded)
                 .add_systems((
-                    first_system.ignore_stepping(),
-                    second_system.after(first_system),
+                    second_system,
+                    first_system.before(second_system).ignore_stepping(),
                 ));
             enable_stepping(&mut schedule);
 

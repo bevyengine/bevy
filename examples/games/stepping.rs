@@ -106,6 +106,7 @@ fn build_ui(
     // go through the supplied labels and construct a list of systems for each
     // label
     for label in &state.schedule_labels {
+        info!("getting schedule {:?}", label);
         let schedule = schedules.get(&**label).unwrap();
         let mut last_system: Option<NodeId> = None;
         text_sections.push(TextSection::new(
@@ -119,7 +120,7 @@ fn build_ui(
         for (node_id, system) in schedule.ordered_systems() {
             // skip any system that doesn't permit stepping
             if !schedule.system_permits_stepping(node_id) {
-                info!(
+                debug!(
                     "stepping disabled for {:?}/{}",
                     label,
                     schedule.system_at(node_id).unwrap().name().to_string()
@@ -169,16 +170,20 @@ fn build_ui(
     state.system_text_map = text_map;
     state.status = Status::Run;
 
-    info!("state: {:?}", state);
-
     commands.spawn((
         SteppingUi,
-        TextBundle::from_sections(text_sections).with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Percent(50.0),
-            left: Val::Percent(25.0),
+        TextBundle {
+            text: Text::from_sections(text_sections),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(50.0),
+                left: Val::Percent(25.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            },
+            background_color: BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.33)),
             ..default()
-        }),
+        },
     ));
 
     // stepping description box

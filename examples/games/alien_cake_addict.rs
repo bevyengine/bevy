@@ -5,6 +5,8 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use rand::Rng;
 
+mod stepping;
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
     #[default]
@@ -18,6 +20,9 @@ struct BonusSpawnTimer(Timer);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(stepping::SteppingPlugin::for_schedules(vec![Box::new(
+            Update,
+        )]))
         .init_resource::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
@@ -69,6 +74,9 @@ struct Bonus {
     j: usize,
     handle: Handle<Scene>,
 }
+
+#[derive(Component)]
+struct ScoreboardUi;
 
 #[derive(Resource, Default)]
 struct Game {
@@ -164,7 +172,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.bonus.handle = asset_server.load("models/AlienCake/cakeBirthday.glb#Scene0");
 
     // scoreboard
-    commands.spawn(
+    commands.spawn((
+        ScoreboardUi,
         TextBundle::from_section(
             "Score:",
             TextStyle {
@@ -179,7 +188,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             left: Val::Px(5.0),
             ..default()
         }),
-    );
+    ));
 }
 
 // remove all entities that are not a camera
@@ -368,7 +377,7 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 }
 
 // update the score displayed during the game
-fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
+fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
     let mut text = query.single_mut();
     text.sections[0].value = format!("Sugar Rush: {}", game.score);
 }
