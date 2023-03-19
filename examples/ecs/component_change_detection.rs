@@ -6,12 +6,11 @@ use rand::Rng;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            setup.on_startup(),
-            change_component,
-            change_detection,
-            tracker_monitoring,
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (change_component, change_detection, tracker_monitoring),
+        )
         .run();
 }
 

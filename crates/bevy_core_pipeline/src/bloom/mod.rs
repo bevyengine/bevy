@@ -7,13 +7,7 @@ pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 use crate::{core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryState, With},
-    schedule::IntoSystemConfig,
-    system::{Commands, Query, Res, ResMut},
-    world::World,
-};
+use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -27,7 +21,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -71,12 +65,15 @@ impl Plugin for BloomPlugin {
             .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
-            .add_systems((
-                prepare_bloom_textures.in_set(RenderSet::Prepare),
-                prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                queue_bloom_bind_groups.in_set(RenderSet::Queue),
-            ));
+            .add_systems(
+                Render,
+                (
+                    prepare_bloom_textures.in_set(RenderSet::Prepare),
+                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
+                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
+                    queue_bloom_bind_groups.in_set(RenderSet::Queue),
+                ),
+            );
 
         // Add bloom to the 3d render graph
         {
