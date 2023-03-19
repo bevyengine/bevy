@@ -86,13 +86,16 @@ impl Plugin for TextPlugin {
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `update_text2d_layout`
                     // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem),
+                    .ambiguous_with(CameraUpdateSystem)
+                    .ignore_stepping(),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+                extract_text2d_sprite
+                    .after(SpriteSystem::ExtractSprites)
+                    .ignore_stepping(),
             );
         }
     }

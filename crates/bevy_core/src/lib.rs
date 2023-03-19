@@ -107,7 +107,7 @@ impl Plugin for TaskPoolPlugin {
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        _app.add_systems(Last, tick_global_task_pools);
+        _app.add_systems(Last, tick_global_task_pools.ignore_stepping());
     }
 }
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
@@ -142,7 +142,7 @@ pub struct FrameCountPlugin;
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
-        app.add_systems(Last, update_frame_count);
+        app.add_systems(Last, update_frame_count.ignore_stepping());
     }
 }
 

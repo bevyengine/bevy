@@ -1,6 +1,6 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::{ExecutorKind, Schedule, ScheduleLabel},
+    schedule::{ExecutorKind, IntoSystemConfigs, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::{Mut, World},
 };
@@ -163,6 +163,6 @@ impl Plugin for MainSchedulePlugin {
         app.add_schedule(Main, main_schedule)
             .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
             .init_resource::<MainScheduleOrder>()
-            .add_systems(Main, Main::run_main);
+            .add_systems(Main, Main::run_main.ignore_stepping());
     }
 }

@@ -552,7 +552,9 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_systems(
                 PostUpdate,
-                animation_player.before(TransformSystem::TransformPropagate),
+                animation_player
+                    .before(TransformSystem::TransformPropagate)
+                    .ignore_stepping(),
             );
     }
 }

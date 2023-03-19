@@ -32,9 +32,14 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
-                .add_systems(ExtractSchedule, extract_windows)
+                .add_systems(ExtractSchedule, extract_windows.ignore_stepping())
                 .configure_set(Render, WindowSystem::Prepare.in_set(RenderSet::Prepare))
-                .add_systems(Render, prepare_windows.in_set(WindowSystem::Prepare));
+                .add_systems(
+                    Render,
+                    prepare_windows
+                        .in_set(WindowSystem::Prepare)
+                        .ignore_stepping(),
+                );
         }
     }
 }

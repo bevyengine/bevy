@@ -16,7 +16,9 @@ impl Plugin for UpscalingPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                queue_view_upscaling_pipelines.in_set(RenderSet::Queue),
+                queue_view_upscaling_pipelines
+                    .in_set(RenderSet::Queue)
+                    .ignore_stepping(),
             );
         }
     }

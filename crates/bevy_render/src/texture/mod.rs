@@ -117,7 +117,9 @@ impl Plugin for ImagePlugin {
                 .init_resource::<FallbackImageDepthCache>()
                 .add_systems(
                     Render,
-                    update_texture_cache_system.in_set(RenderSet::Cleanup),
+                    update_texture_cache_system
+                        .in_set(RenderSet::Cleanup)
+                        .ignore_stepping(),
                 );
         }
     }

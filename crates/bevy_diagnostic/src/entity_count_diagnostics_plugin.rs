@@ -9,8 +9,8 @@ pub struct EntityCountDiagnosticsPlugin;
 
 impl Plugin for EntityCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, Self::setup_system)
-            .add_systems(Update, Self::diagnostic_system);
+        app.add_systems(Startup, Self::setup_system.ignore_stepping())
+            .add_systems(Update, Self::diagnostic_system.ignore_stepping());
     }
 }
 

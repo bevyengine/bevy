@@ -68,7 +68,10 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
+            .add_systems(
+                ExtractSchedule,
+                extract_core_3d_camera_phases.ignore_stepping(),
+            )
             .add_systems(
                 Render,
                 (
@@ -78,7 +81,8 @@ impl Plugin for Core3dPlugin {
                     sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
-                ),
+                )
+                    .ignore_stepping(),
             );
 
         let prepass_node = PrepassNode::new(&mut render_app.world);

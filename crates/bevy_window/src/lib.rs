@@ -22,6 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::schedule::IntoSystemConfigs;
 use std::path::PathBuf;
 
 impl Default for WindowPlugin {
@@ -92,17 +93,17 @@ impl Plugin for WindowPlugin {
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_systems(PostUpdate, exit_on_primary_closed);
+                app.add_systems(PostUpdate, exit_on_primary_closed.ignore_stepping());
             }
             ExitCondition::OnAllClosed => {
-                app.add_systems(PostUpdate, exit_on_all_closed);
+                app.add_systems(PostUpdate, exit_on_all_closed.ignore_stepping());
             }
             ExitCondition::DontExit => {}
         }
 
         if self.close_when_requested {
             // Need to run before `exit_on_*` systems
-            app.add_systems(Update, close_when_requested);
+            app.add_systems(Update, close_when_requested.ignore_stepping());
         }
 
         // Register event types

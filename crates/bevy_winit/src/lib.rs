@@ -81,7 +81,8 @@ impl Plugin for WinitPlugin {
                     changed_window.ambiguous_with(exit_on_all_closed),
                     // Update the state of the window before attempting to despawn to ensure consistent event ordering
                     despawn_window.after(changed_window),
-                ),
+                )
+                    .ignore_stepping(),
             );
 
         app.add_plugin(AccessibilityPlugin);

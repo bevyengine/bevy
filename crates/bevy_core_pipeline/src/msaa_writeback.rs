@@ -22,7 +22,9 @@ impl Plugin for MsaaWritebackPlugin {
 
         render_app.add_systems(
             Render,
-            queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
+            queue_msaa_writeback_pipelines
+                .in_set(RenderSet::Queue)
+                .ignore_stepping(),
         );
         let msaa_writeback_2d = MsaaWritebackNode::new(&mut render_app.world);
         let msaa_writeback_3d = MsaaWritebackNode::new(&mut render_app.world);

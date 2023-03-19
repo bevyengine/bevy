@@ -113,7 +113,8 @@ impl Plugin for TransformPlugin {
                         // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                         .ambiguous_with(PropagateTransformsSet),
                     propagate_transforms.in_set(PropagateTransformsSet),
-                ),
+                )
+                    .ignore_stepping(),
             )
             .configure_set(
                 PostUpdate,
@@ -126,7 +127,8 @@ impl Plugin for TransformPlugin {
                         .in_set(TransformSystem::TransformPropagate)
                         .ambiguous_with(PropagateTransformsSet),
                     propagate_transforms.in_set(PropagateTransformsSet),
-                ),
+                )
+                    .ignore_stepping(),
             );
     }
 }

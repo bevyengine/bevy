@@ -64,7 +64,8 @@ impl Plugin for ViewPlugin {
                             .after(WindowSystem::Prepare)
                             .in_set(RenderSet::Prepare)
                             .after(crate::render_asset::prepare_assets::<Image>),
-                    ),
+                    )
+                        .ignore_stepping(),
                 );
         }
     }

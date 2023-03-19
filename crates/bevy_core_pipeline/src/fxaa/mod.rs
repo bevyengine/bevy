@@ -90,7 +90,12 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
+            .add_systems(
+                Render,
+                prepare_fxaa_pipelines
+                    .in_set(RenderSet::Prepare)
+                    .ignore_stepping(),
+            );
 
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);

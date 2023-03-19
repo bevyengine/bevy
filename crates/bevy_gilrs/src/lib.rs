@@ -20,8 +20,11 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.insert_non_send_resource(gilrs)
-                    .add_systems(PreStartup, gilrs_event_startup_system)
-                    .add_systems(PreUpdate, gilrs_event_system.before(InputSystem));
+                    .add_systems(PreStartup, gilrs_event_startup_system.ignore_stepping())
+                    .add_systems(
+                        PreUpdate,
+                        gilrs_event_system.before(InputSystem).ignore_stepping(),
+                    );
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }

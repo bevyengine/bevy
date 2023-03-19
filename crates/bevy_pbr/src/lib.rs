@@ -226,7 +226,8 @@ impl Plugin for PbrPlugin {
                         // because that resets entity ComputedVisibility for the first view
                         // which would override any results from this otherwise
                         .after(VisibilitySystems::CheckVisibility),
-                ),
+                )
+                    .ignore_stepping(),
             );
 
         app.world
@@ -260,7 +261,8 @@ impl Plugin for PbrPlugin {
                 (
                     render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
                     render::extract_lights.in_set(RenderLightSystems::ExtractLights),
-                ),
+                )
+                    .ignore_stepping(),
             )
             .add_systems(
                 Render,
@@ -278,7 +280,8 @@ impl Plugin for PbrPlugin {
                         .after(render::prepare_lights)
                         .in_set(RenderLightSystems::PrepareClusters),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-                ),
+                )
+                    .ignore_stepping(),
             )
             .init_resource::<ShadowSamplers>()
             .init_resource::<LightMeta>()

@@ -247,7 +247,10 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info)
                 .insert_resource(app.world.resource::<AssetServer>().clone())
-                .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
+                .add_systems(
+                    ExtractSchedule,
+                    PipelineCache::extract_shaders.ignore_stepping(),
+                )
                 .add_systems(
                     Render,
                     (
@@ -260,7 +263,8 @@ impl Plugin for RenderPlugin {
                         )
                             .in_set(RenderSet::Render),
                         World::clear_entities.in_set(RenderSet::Cleanup),
-                    ),
+                    )
+                        .ignore_stepping(),
                 );
 
             let (sender, receiver) = bevy_time::create_time_channels();

@@ -75,13 +75,15 @@ impl Plugin for SpritePlugin {
                     (
                         extract_sprites.in_set(SpriteSystem::ExtractSprites),
                         extract_sprite_events,
-                    ),
+                    )
+                        .ignore_stepping(),
                 )
                 .add_systems(
                     Render,
                     queue_sprites
                         .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                        .ambiguous_with(queue_material2d_meshes::<ColorMaterial>)
+                        .ignore_stepping(),
                 );
         };
     }

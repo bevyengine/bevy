@@ -107,14 +107,18 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_meshes, extract_skinned_meshes).ignore_stepping(),
+                )
                 .add_systems(
                     Render,
                     (
                         prepare_skinned_meshes.in_set(RenderSet::Prepare),
                         queue_mesh_bind_group.in_set(RenderSet::Queue),
                         queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
-                    ),
+                    )
+                        .ignore_stepping(),
                 );
         }
     }

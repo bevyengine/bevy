@@ -1,5 +1,6 @@
 use crate::DiagnosticId;
 use bevy_app::prelude::*;
+use bevy_ecs::schedule::IntoSystemConfigs;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -14,8 +15,8 @@ use bevy_app::prelude::*;
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, internal::setup_system)
-            .add_systems(Update, internal::diagnostic_system);
+        app.add_systems(Startup, internal::setup_system.ignore_stepping())
+            .add_systems(Update, internal::diagnostic_system.ignore_stepping());
     }
 }
 

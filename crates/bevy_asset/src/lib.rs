@@ -47,7 +47,7 @@ pub use path::*;
 pub use reflect::*;
 
 use bevy_app::{prelude::*, MainScheduleOrder};
-use bevy_ecs::schedule::ScheduleLabel;
+use bevy_ecs::schedule::{IntoSystemConfigs, ScheduleLabel};
 
 /// Asset storages are updated.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
@@ -103,8 +103,10 @@ impl Plugin for AssetPlugin {
             app.insert_resource(asset_server);
         }
 
-        app.register_type::<HandleId>()
-            .add_systems(PreUpdate, asset_server::free_unused_assets_system);
+        app.register_type::<HandleId>().add_systems(
+            PreUpdate,
+            asset_server::free_unused_assets_system.ignore_stepping(),
+        );
         app.init_schedule(LoadAssets);
         app.init_schedule(AssetEvents);
 

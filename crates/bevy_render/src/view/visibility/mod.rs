@@ -214,7 +214,9 @@ impl Plugin for VisibilityPlugin {
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
             .add_systems(
                 PostUpdate,
-                apply_system_buffers.in_set(CalculateBoundsFlush),
+                apply_system_buffers
+                    .in_set(CalculateBoundsFlush)
+                    .ignore_stepping(),
             )
             .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
@@ -251,7 +253,8 @@ impl Plugin for VisibilityPlugin {
                         .after(UpdateProjectionFrusta)
                         .after(VisibilityPropagate)
                         .after(TransformSystem::TransformPropagate),
-                ),
+                )
+                    .ignore_stepping(),
             );
     }
 }

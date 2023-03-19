@@ -37,9 +37,12 @@ impl Plugin for LogDiagnosticsPlugin {
         });
 
         if self.debug {
-            app.add_systems(PostUpdate, Self::log_diagnostics_debug_system);
+            app.add_systems(
+                PostUpdate,
+                Self::log_diagnostics_debug_system.ignore_stepping(),
+            );
         } else {
-            app.add_systems(PostUpdate, Self::log_diagnostics_system);
+            app.add_systems(PostUpdate, Self::log_diagnostics_system.ignore_stepping());
         }
     }
 }

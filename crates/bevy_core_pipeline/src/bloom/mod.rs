@@ -72,7 +72,8 @@ impl Plugin for BloomPlugin {
                     prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
                     prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
                     queue_bloom_bind_groups.in_set(RenderSet::Queue),
-                ),
+                )
+                    .ignore_stepping(),
             );
 
         // Add bloom to the 3d render graph

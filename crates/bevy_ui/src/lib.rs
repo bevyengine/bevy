@@ -106,7 +106,10 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                ui_focus_system
+                    .in_set(UiSystem::Focus)
+                    .after(InputSystem)
+                    .ignore_stepping(),
             );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
@@ -122,7 +125,8 @@ impl Plugin for UiPlugin {
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
-                .ambiguous_with(bevy_text::update_text2d_layout),
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ignore_stepping(),
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
@@ -135,7 +139,8 @@ impl Plugin for UiPlugin {
             #[cfg(feature = "bevy_text")]
             let system = system
                 .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(widget::text_system);
+                .ambiguous_with(widget::text_system)
+                .ignore_stepping();
 
             system
         })
@@ -147,7 +152,8 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
-            ),
+            )
+                .ignore_stepping(),
         );
 
         crate::render::build_ui_render(app);
