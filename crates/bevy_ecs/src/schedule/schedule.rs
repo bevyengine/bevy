@@ -270,7 +270,7 @@ impl Schedule {
     ///
     /// Note: The [`SystemSchedule`] is invalid prior to [`Schedule::run`] being
     /// called
-    #[cfg(debug)]
+    #[cfg(test)]
     pub fn executable(&mut self) -> &mut SystemSchedule {
         &mut self.executable
     }

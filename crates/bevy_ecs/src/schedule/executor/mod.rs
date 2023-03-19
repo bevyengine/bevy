@@ -91,9 +91,9 @@ impl SystemSchedule {
         self.find_stepping_system(index)
     }
 
-    /// Called by SystemExecutor to get the list of systems to be
-    /// skipped due to stepping; this method also updates the `step_state` to
-    /// prepare for the next call.
+    /// This method returns the list of systems to be skipped when the
+    /// system executor runs, and updates `step_state` to prepare for the
+    /// next call.
     pub fn step(&mut self) -> Option<FixedBitSet> {
         match self.step_state {
             StepState::RunAll => None,
