@@ -8,7 +8,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
-        .init_resource::<EventTriggerState>()
+        .init_resources::<EventTriggerState>()
         .add_systems(Update, (event_trigger, event_listener, sound_player))
         .run();
 }

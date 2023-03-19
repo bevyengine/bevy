@@ -56,25 +56,26 @@ impl Plugin for InputPlugin {
         app
             // keyboard
             .add_event::<KeyboardInput>()
-            .init_resource::<Input<KeyCode>>()
-            .init_resource::<Input<ScanCode>>()
+            .init_resources::<(Input<KeyCode>, Input<ScanCode>)>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
-            .init_resource::<Input<MouseButton>>()
+            .init_resources::<Input<MouseButton>>()
             .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
             .add_event::<GamepadAxisChangedEvent>()
             .add_event::<GamepadEvent>()
-            .init_resource::<GamepadSettings>()
-            .init_resource::<Gamepads>()
-            .init_resource::<Input<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>()
-            .init_resource::<Axis<GamepadButton>>()
+            .init_resources::<(
+                GamepadSettings,
+                Gamepads,
+                Input<GamepadButton>,
+                Axis<GamepadAxis>,
+                Axis<GamepadButton>,
+            )>()
             .add_systems(
                 PreUpdate,
                 (
@@ -91,7 +92,7 @@ impl Plugin for InputPlugin {
             )
             // touch
             .add_event::<TouchInput>()
-            .init_resource::<Touches>()
+            .init_resources::<Touches>()
             .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
 
         // Register common types

@@ -56,11 +56,10 @@ pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AudioOutput<AudioSource>>()
+        app.init_resources::<(AudioOutput<AudioSource>, Audio<AudioSource>)>()
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()
             .add_asset::<SpatialAudioSink>()
-            .init_resource::<Audio<AudioSource>>()
             .add_systems(PostUpdate, play_queued_audio_system::<AudioSource>);
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
@@ -75,8 +74,7 @@ impl AddAudioSource for App {
         f32: rodio::cpal::FromSample<T::DecoderItem>,
     {
         self.add_asset::<T>()
-            .init_resource::<Audio<T>>()
-            .init_resource::<AudioOutput<T>>()
+            .init_resources::<(Audio<T>, AudioOutput<T>)>()
             .add_systems(PostUpdate, play_queued_audio_system::<T>)
     }
 }

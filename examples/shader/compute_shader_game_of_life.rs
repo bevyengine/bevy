@@ -73,7 +73,7 @@ impl Plugin for GameOfLifeComputePlugin {
         app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app
-            .init_resource::<GameOfLifePipeline>()
+            .init_resources::<GameOfLifePipeline>()
             .add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();

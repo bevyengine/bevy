@@ -69,12 +69,14 @@ pub fn build_ui_render(app: &mut App) {
     };
 
     render_app
-        .init_resource::<UiPipeline>()
-        .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-        .init_resource::<UiImageBindGroups>()
-        .init_resource::<UiMeta>()
-        .init_resource::<ExtractedUiNodes>()
-        .init_resource::<DrawFunctions<TransparentUi>>()
+        .init_resources::<(
+            UiPipeline,
+            SpecializedRenderPipelines<UiPipeline>,
+            UiImageBindGroups,
+            UiMeta,
+            ExtractedUiNodes,
+            DrawFunctions<TransparentUi>,
+        )>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
             ExtractSchedule,

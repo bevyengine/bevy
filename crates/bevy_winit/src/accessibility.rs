@@ -161,7 +161,7 @@ pub struct AccessibilityPlugin;
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
-            .init_resource::<WinitActionHandlers>()
+            .init_resources::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
             .add_systems(
                 Update,

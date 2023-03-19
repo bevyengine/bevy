@@ -188,7 +188,7 @@ impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<AppTypeRegistry>();
+        app.init_resources::<AppTypeRegistry>();
 
         app.add_plugin(MainSchedulePlugin);
         app.add_event::<AppExit>();
@@ -322,8 +322,7 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
-        self.init_resource::<State<S>>()
-            .init_resource::<NextState<S>>()
+        self.init_resources::<(State<S>, NextState<S>)>()
             .add_systems(
                 StateTransition,
                 (
@@ -511,7 +510,7 @@ impl App {
         T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>()
+            self.init_resources::<Events<T>>()
                 .add_systems(First, Events::<T>::update_system);
         }
         self
@@ -596,8 +595,57 @@ impl App {
     /// App::new()
     ///     .init_resource::<MyCounter>();
     /// ```
+    #[deprecated(since = "0.11.0", note = "Please use `init_resources::<T>()` instead.")]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
         self.world.init_resource::<R>();
+        self
+    }
+
+    /// Initialize a [`Resource`] with standard starting values by adding it to the [`World`].
+    ///
+    /// If the [`Resource`] already exists, nothing happens.
+    ///
+    /// The [`Resource`] must implement the [`FromWorld`] trait.
+    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
+    /// the [`Default::default`] method to initialize the [`Resource`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// impl Default for MyCounter {
+    ///     fn default() -> MyCounter {
+    ///         MyCounter {
+    ///             counter: 100
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// #[derive(Resource)]
+    /// struct MyValue {
+    ///     value: f32,
+    /// }
+    ///
+    /// impl Default for MyValue {
+    ///     fn default() -> MyValue {
+    ///         MyValue {
+    ///             value: 20.0
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// App::new()
+    ///     .init_resources::<(MyCounter, MyValue)>();
+    /// ```
+    pub fn init_resources<R: InitResources>(&mut self) -> &mut Self {
+        self.world.init_resources::<R>();
         self
     }
 

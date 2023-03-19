@@ -101,8 +101,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<Mesh2dPipeline>()
-                .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
+                .init_resources::<(Mesh2dPipeline, SpecializedMeshPipelines<Mesh2dPipeline>)>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
                 .add_systems(
                     Render,

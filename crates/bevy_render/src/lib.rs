@@ -228,7 +228,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>();
+                .init_resources::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
@@ -239,7 +239,7 @@ impl Plugin for RenderPlugin {
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
                 .add_schedule(Render, Render::base_schedule())
-                .init_resource::<render_graph::RenderGraph>()
+                .init_resources::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(PipelineCache::new(device.clone()))
                 .insert_resource(device)

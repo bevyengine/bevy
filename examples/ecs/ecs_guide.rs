@@ -252,7 +252,7 @@ fn main() {
     // resources, and plugins to our app
     App::new()
         // Resources that implement the Default or FromWorld trait can be added like this:
-        .init_resource::<GameState>()
+        .init_resources::<GameState>()
         // Some systems are configured by adding their settings as a resource.
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).

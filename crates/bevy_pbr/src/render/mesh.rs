@@ -105,8 +105,7 @@ impl Plugin for MeshRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshPipeline>()
-                .init_resource::<SkinnedMeshUniform>()
+                .init_resources::<(MeshPipeline, SkinnedMeshUniform)>()
                 .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_systems(
                     Render,

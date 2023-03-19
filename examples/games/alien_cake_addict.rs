@@ -18,7 +18,7 @@ struct BonusSpawnTimer(Timer);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<Game>()
+        .init_resources::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
             TimerMode::Repeating,

@@ -56,7 +56,7 @@ pub struct SceneViewerPlugin;
 
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CameraTracker>()
+        app.init_resources::<CameraTracker>()
             .add_systems(PreUpdate, scene_load_check)
             .add_systems(
                 Update,

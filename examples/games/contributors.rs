@@ -11,7 +11,7 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<SelectionState>()
+        .init_resources::<SelectionState>()
         .add_systems(Startup, (setup_contributor_selection, setup))
         .add_systems(
             Update,

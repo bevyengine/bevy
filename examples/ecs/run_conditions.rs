@@ -10,7 +10,7 @@ fn main() {
 
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<InputCounter>()
+        .init_resources::<InputCounter>()
         .add_systems(
             Update,
             (

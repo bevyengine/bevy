@@ -24,8 +24,7 @@ impl Plugin for GlobalsPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<GlobalsBuffer>()
-                .init_resource::<Time>()
+                .init_resources::<(GlobalsBuffer, Time)>()
                 .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
                 .add_systems(Render, prepare_globals_buffer.in_set(RenderSet::Prepare));
         }

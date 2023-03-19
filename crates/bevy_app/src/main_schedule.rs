@@ -162,7 +162,7 @@ impl Plugin for MainSchedulePlugin {
 
         app.add_schedule(Main, main_schedule)
             .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
-            .init_resource::<MainScheduleOrder>()
+            .init_resources::<MainScheduleOrder>()
             .add_systems(Main, Main::run_main);
     }
 }

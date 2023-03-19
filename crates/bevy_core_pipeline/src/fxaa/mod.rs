@@ -88,8 +88,7 @@ impl Plugin for FxaaPlugin {
             Err(_) => return,
         };
         render_app
-            .init_resource::<FxaaPipeline>()
-            .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
+            .init_resources::<(FxaaPipeline, SpecializedRenderPipelines<FxaaPipeline>)>()
             .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
 
         {

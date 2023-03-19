@@ -124,9 +124,7 @@ impl GamepadButtonBundle {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<ButtonMaterials>()
-        .init_resource::<ButtonMeshes>()
-        .init_resource::<FontHandle>()
+        .init_resources::<(ButtonMaterials, ButtonMeshes, FontHandle)>()
         .add_systems(
             Startup,
             (setup, setup_sticks, setup_triggers, setup_connected),

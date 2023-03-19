@@ -19,9 +19,7 @@ impl Plugin for BlitPlugin {
             return
         };
 
-        render_app
-            .init_resource::<BlitPipeline>()
-            .init_resource::<SpecializedRenderPipelines<BlitPipeline>>();
+        render_app.init_resources::<(BlitPipeline, SpecializedRenderPipelines<BlitPipeline>)>();
     }
 }
 

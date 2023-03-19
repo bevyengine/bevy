@@ -47,14 +47,14 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
-            .init_resource::<Msaa>()
+            .init_resources::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
             .add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewUniforms>()
+                .init_resources::<ViewUniforms>()
                 .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
                 .add_systems(
                     Render,

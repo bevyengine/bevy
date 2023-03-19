@@ -110,11 +110,13 @@ impl Plugin for ImagePlugin {
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<TextureCache>()
-                .init_resource::<FallbackImage>()
-                .init_resource::<FallbackImageCubemap>()
-                .init_resource::<FallbackImageMsaaCache>()
-                .init_resource::<FallbackImageDepthCache>()
+                .init_resources::<(
+                    TextureCache,
+                    FallbackImage,
+                    FallbackImageCubemap,
+                    FallbackImageMsaaCache,
+                    FallbackImageDepthCache,
+                )>()
                 .add_systems(
                     Render,
                     update_texture_cache_system.in_set(RenderSet::Cleanup),

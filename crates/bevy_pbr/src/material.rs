@@ -190,15 +190,17 @@ where
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<DrawFunctions<Shadow>>()
+                .init_resources::<DrawFunctions<Shadow>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
-                .init_resource::<MaterialPipeline<M>>()
-                .init_resource::<ExtractedMaterials<M>>()
-                .init_resource::<RenderMaterials<M>>()
-                .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
+                .init_resources::<(
+                    MaterialPipeline<M>,
+                    ExtractedMaterials<M>,
+                    RenderMaterials<M>,
+                    SpecializedMeshPipelines<MaterialPipeline<M>>,
+                )>()
                 .add_systems(ExtractSchedule, extract_materials::<M>)
                 .add_systems(
                     Render,

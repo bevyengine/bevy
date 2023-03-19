@@ -157,10 +157,12 @@ where
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<Material2dPipeline<M>>()
-                .init_resource::<ExtractedMaterials2d<M>>()
-                .init_resource::<RenderMaterials2d<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .init_resources::<(
+                    Material2dPipeline<M>,
+                    ExtractedMaterials2d<M>,
+                    RenderMaterials2d<M>,
+                    SpecializedMeshPipelines<Material2dPipeline<M>>,
+                )>()
                 .add_systems(ExtractSchedule, extract_materials_2d::<M>)
                 .add_systems(
                     Render,

@@ -170,10 +170,12 @@ impl Plugin for PbrPlugin {
                 ..Default::default()
             })
             .add_plugin(EnvironmentMapPlugin)
-            .init_resource::<AmbientLight>()
-            .init_resource::<GlobalVisiblePointLights>()
-            .init_resource::<DirectionalLightShadowMap>()
-            .init_resource::<PointLightShadowMap>()
+            .init_resources::<(
+                AmbientLight,
+                GlobalVisiblePointLights,
+                DirectionalLightShadowMap,
+                PointLightShadowMap,
+            )>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
             .configure_sets(
                 PostUpdate,
@@ -280,9 +282,7 @@ impl Plugin for PbrPlugin {
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                 ),
             )
-            .init_resource::<ShadowSamplers>()
-            .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>();
+            .init_resources::<(ShadowSamplers, LightMeta, GlobalLightMeta)>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();

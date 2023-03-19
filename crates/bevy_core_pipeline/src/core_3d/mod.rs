@@ -65,9 +65,11 @@ impl Plugin for Core3dPlugin {
         };
 
         render_app
-            .init_resource::<DrawFunctions<Opaque3d>>()
-            .init_resource::<DrawFunctions<AlphaMask3d>>()
-            .init_resource::<DrawFunctions<Transparent3d>>()
+            .init_resources::<(
+                DrawFunctions<Opaque3d>,
+                DrawFunctions<AlphaMask3d>,
+                DrawFunctions<Transparent3d>,
+            )>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(
                 Render,

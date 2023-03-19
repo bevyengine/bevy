@@ -76,8 +76,7 @@ impl Plugin for TextPlugin {
             .register_type::<Text>()
             .register_type::<TextAlignment>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<TextSettings>()
-            .init_resource::<FontAtlasWarning>()
+            .init_resources::<(TextSettings, FontAtlasWarning)>()
             .insert_resource(TextPipeline::default())
             .add_systems(
                 PostUpdate,

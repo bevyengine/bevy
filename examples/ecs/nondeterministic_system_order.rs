@@ -26,8 +26,7 @@ fn main() {
                 ..default()
             });
         })
-        .init_resource::<A>()
-        .init_resource::<B>()
+        .init_resources::<(A, B)>()
         .add_systems(
             Update,
             (

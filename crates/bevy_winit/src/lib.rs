@@ -71,7 +71,7 @@ impl Plugin for WinitPlugin {
         app.insert_non_send_resource(event_loop);
 
         app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitSettings>()
+            .init_resources::<WinitSettings>()
             .set_runner(winit_runner)
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window

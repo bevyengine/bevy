@@ -20,7 +20,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Resource,
+    system::{InitResources, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -817,6 +817,11 @@ impl World {
             });
         }
         component_id
+    }
+
+    #[inline]
+    pub fn init_resources<R: InitResources>(&mut self) -> Vec<ComponentId> {
+        R::init_resources(self)
     }
 
     /// Inserts a new resource with the given `value`.

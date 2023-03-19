@@ -24,7 +24,7 @@ fn main() {
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
-        .init_resource::<PerMethodSettings>()
+        .init_resources::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
         .insert_resource(SelectedParameter { value: 0, max: 4 })
         .add_systems(

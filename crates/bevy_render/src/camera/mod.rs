@@ -28,7 +28,7 @@ impl Plugin for CameraPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SortedCameras>()
+                .init_resources::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
                 .add_systems(Render, sort_cameras.in_set(RenderSet::Prepare));
             let camera_driver_node = CameraDriverNode::new(&mut render_app.world);

@@ -401,6 +401,28 @@ impl_param_set!();
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
+pub trait InitResources {
+    fn init_resources(world: &mut World) -> Vec<ComponentId>;
+}
+
+impl<P0: Resource + FromWorld> InitResources for P0 {
+    fn init_resources(world: &mut World) -> Vec<ComponentId> {
+        [world.init_resource::<P0>()].into()
+    }
+}
+
+macro_rules! impl_init_resources {
+    ($($param: ident),*) => {
+        impl <$($param: Resource + FromWorld,)*> InitResources for ($($param,)*) {
+            fn init_resources(_world: &mut World) -> Vec<ComponentId> {
+                [$(_world.init_resource::<$param>(),)*].into()
+            }
+        }
+    }
+}
+
+all_tuples!(impl_init_resources, 1, 16, P);
+
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 

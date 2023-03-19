@@ -141,7 +141,7 @@ impl Plugin for FogPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<FogMeta>()
+                .init_resources::<FogMeta>()
                 .add_systems(Render, prepare_fog.in_set(RenderFogSystems::PrepareFog))
                 .configure_set(
                     Render,

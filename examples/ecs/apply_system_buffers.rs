@@ -14,7 +14,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<Timers>()
+        .init_resources::<Timers>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,

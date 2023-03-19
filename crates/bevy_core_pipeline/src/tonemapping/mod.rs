@@ -92,8 +92,10 @@ impl Plugin for TonemappingPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<TonemappingPipeline>()
-                .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+                .init_resources::<(
+                    TonemappingPipeline,
+                    SpecializedRenderPipelines<TonemappingPipeline>,
+                )>()
                 .add_systems(
                     Render,
                     queue_view_tonemapping_pipelines.in_set(RenderSet::Queue),

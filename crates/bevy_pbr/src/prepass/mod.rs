@@ -106,9 +106,11 @@ where
                 Render,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
-            .init_resource::<PrepassPipeline<M>>()
-            .init_resource::<PrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
+            .init_resources::<(
+                PrepassPipeline<M>,
+                PrepassViewBindGroup,
+                SpecializedMeshPipelines<PrepassPipeline<M>>,
+            )>();
     }
 }
 
@@ -145,8 +147,10 @@ where
                     sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
                 ),
             )
-            .init_resource::<DrawFunctions<Opaque3dPrepass>>()
-            .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
+            .init_resources::<(
+                DrawFunctions<Opaque3dPrepass>,
+                DrawFunctions<AlphaMask3dPrepass>,
+            )>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }

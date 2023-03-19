@@ -37,12 +37,10 @@ pub struct TimeSystem;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Time>()
-            .init_resource::<TimeUpdateStrategy>()
+        app.init_resources::<(Time, TimeUpdateStrategy, FixedTime)>()
             .register_type::<Timer>()
             .register_type::<Time>()
             .register_type::<Stopwatch>()
-            .init_resource::<FixedTime>()
             .add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
     }

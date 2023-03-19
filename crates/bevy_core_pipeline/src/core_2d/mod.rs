@@ -51,7 +51,7 @@ impl Plugin for Core2dPlugin {
         };
 
         render_app
-            .init_resource::<DrawFunctions<Transparent2d>>()
+            .init_resources::<DrawFunctions<Transparent2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,

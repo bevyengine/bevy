@@ -80,9 +80,11 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
-                .init_resource::<PrepareNextFrameAssets<A>>()
+                .init_resources::<(
+                    ExtractedAssets<A>,
+                    RenderAssets<A>,
+                    PrepareNextFrameAssets<A>,
+                )>()
                 .add_systems(ExtractSchedule, extract_render_asset::<A>)
                 .configure_sets(
                     Render,

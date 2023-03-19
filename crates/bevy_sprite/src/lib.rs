@@ -63,12 +63,14 @@ impl Plugin for SpritePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ImageBindGroups>()
-                .init_resource::<SpritePipeline>()
-                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
-                .init_resource::<SpriteMeta>()
-                .init_resource::<ExtractedSprites>()
-                .init_resource::<SpriteAssetEvents>()
+                .init_resources::<(
+                    ImageBindGroups,
+                    SpritePipeline,
+                    SpecializedRenderPipelines<SpritePipeline>,
+                    SpriteMeta,
+                    ExtractedSprites,
+                    SpriteAssetEvents,
+                )>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
                     ExtractSchedule,

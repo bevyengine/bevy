@@ -52,7 +52,7 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<ClearColorConfig>()
             .register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
-            .init_resource::<ClearColor>()
+            .init_resources::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
             .add_plugin(Core2dPlugin)
             .add_plugin(Core3dPlugin)
