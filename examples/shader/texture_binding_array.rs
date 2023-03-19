@@ -110,6 +110,8 @@ impl AsBindGroup for BindlessMaterial {
             }
         }
 
+        let fallback_image = &fallback_image.d2;
+
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
 
         // convert bevy's resource types to WGPU's references

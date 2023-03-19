@@ -117,6 +117,19 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     // Read field-level attributes
     for field in fields.iter() {
+        // Search ahead for texture attributes so we can use them with any
+        // corresponding sampler attribute.
+        let mut tex_attrs = None;
+        for attr in &field.attrs {
+            let Some(attr_ident) = attr.path().get_ident() else {
+                continue;
+            };
+            if attr_ident == TEXTURE_ATTRIBUTE_NAME {
+                let (_binding_index, nested_meta_items) = get_binding_nested_attr(attr)?;
+                tex_attrs = Some(get_texture_attrs(nested_meta_items)?);
+            }
+        }
+
         for attr in &field.attrs {
             let Some(attr_ident) = attr.path().get_ident() else {
                 continue;
@@ -255,10 +268,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         sample_type,
                         multisampled,
                         visibility,
-                    } = get_texture_attrs(nested_meta_items)?;
+                    } = tex_attrs.as_ref().unwrap();
 
                     let visibility =
                         visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -266,7 +281,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             if let Some(handle) = handle {
                                 images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                             } else {
-                                fallback_image.texture_view.clone()
+                                #fallback_image.texture_view.clone()
                             }
                         })
                     });
@@ -288,10 +303,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let SamplerAttrs {
                         sampler_binding_type,
                         visibility,
+                        ..
                     } = get_sampler_attrs(nested_meta_items)?;
+                    let TextureAttrs { dimension, .. } = tex_attrs
+                        .as_ref()
+                        .expect("sampler attribute must have matching texture attribute");
 
                     let visibility =
                         visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::Sampler({
@@ -299,7 +320,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             if let Some(handle) = handle {
                                 images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
                             } else {
-                                fallback_image.sampler.clone()
+                                #fallback_image.sampler.clone()
                             }
                         })
                     });
@@ -455,6 +476,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             }
         }
     }))
+}
+
+fn get_fallback_image(
+    render_path: &syn::Path,
+    dimension: BindingTextureDimension,
+) -> proc_macro2::TokenStream {
+    quote! {
+        match #render_path::render_resource::#dimension {
+            #render_path::render_resource::TextureViewDimension::D1 => &fallback_image.d1,
+            #render_path::render_resource::TextureViewDimension::D2 => &fallback_image.d2,
+            #render_path::render_resource::TextureViewDimension::D2Array => &fallback_image.d2_array,
+            #render_path::render_resource::TextureViewDimension::Cube => &fallback_image.cube,
+            #render_path::render_resource::TextureViewDimension::CubeArray => &fallback_image.cube_array,
+            #render_path::render_resource::TextureViewDimension::D3 => &fallback_image.d3,
+        }
+    }
 }
 
 /// Represents the arguments for the `uniform` binding attribute.
@@ -637,7 +674,7 @@ fn get_visibility_flag_value(meta: Meta) -> Result<ShaderStageVisibility> {
     Ok(ShaderStageVisibility::Flags(visibility))
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 enum BindingTextureDimension {
     D1,
     #[default]
