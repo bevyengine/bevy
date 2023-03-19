@@ -819,6 +819,13 @@ impl World {
         component_id
     }
 
+    /// Initializes new resources and returns a vector of the [ComponentId]s created for them.
+    ///
+    /// If a resource already exists, nothing happens.
+    ///
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
+    /// and those default values will be here instead.
     #[inline]
     pub fn init_resources<R: InitResourcesGroup>(&mut self) -> Vec<ComponentId> {
         R::init_resources(self)
