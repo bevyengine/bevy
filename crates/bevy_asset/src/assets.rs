@@ -368,7 +368,7 @@ impl AddAsset for App {
                 .world
                 .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
             app.add_asset::<T>()
-                .init_resource::<crate::debug_asset_server::HandleMap<T>>();
+                .init_resources::<crate::debug_asset_server::HandleMap<T>>();
         }
         self
     }

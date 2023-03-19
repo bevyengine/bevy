@@ -251,8 +251,7 @@ mod tests {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
-            world.init_resource::<RunConditionBool>();
-            world.init_resource::<SystemOrder>();
+            world.init_resources::<(RunConditionBool, SystemOrder)>();
 
             schedule.add_systems(
                 make_function_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
@@ -297,8 +296,7 @@ mod tests {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
-            world.init_resource::<RunConditionBool>();
-            world.init_resource::<SystemOrder>();
+            world.init_resources::<(RunConditionBool, SystemOrder)>();
 
             schedule.add_systems(
                 make_exclusive_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
@@ -376,9 +374,7 @@ mod tests {
             struct Bool2(pub bool);
 
             let mut world = World::default();
-            world.init_resource::<Counter>();
-            world.init_resource::<RunConditionBool>();
-            world.init_resource::<Bool2>();
+            world.init_resources::<(Counter, RunConditionBool, Bool2)>();
             let mut schedule = Schedule::default();
 
             schedule.add_systems(
@@ -424,9 +420,7 @@ mod tests {
             struct Bool2(pub bool);
 
             let mut world = World::default();
-            world.init_resource::<Counter>();
-            world.init_resource::<RunConditionBool>();
-            world.init_resource::<Bool2>();
+            world.init_resources::<(Counter, RunConditionBool, Bool2)>();
             let mut schedule = Schedule::default();
 
             schedule.configure_set(
@@ -474,9 +468,7 @@ mod tests {
             struct Bool2(pub bool);
 
             let mut world = World::default();
-            world.init_resource::<Counter>();
-            world.init_resource::<RunConditionBool>();
-            world.init_resource::<Bool2>();
+            world.init_resources::<(Counter, RunConditionBool, Bool2)>();
             let mut schedule = Schedule::default();
 
             schedule

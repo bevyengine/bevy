@@ -32,7 +32,7 @@ use std::hash::Hash;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .init_resource::<Paused>()
+///         .init_resources::<Paused>()
 ///         .add_systems(Update, pause_menu.run_if(|paused: Res<Paused>| paused.0))
 ///         .run();
 /// }

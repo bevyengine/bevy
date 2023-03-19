@@ -824,8 +824,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
-    /// # world.init_resource::<Events<MyEvent>>();
+    /// # world.init_resources::<(Counter, Events<MyEvent>)>();
     /// # app.add_systems(Events::<MyEvent>::update_system.before(my_system));
     ///
     /// app.add_systems(
