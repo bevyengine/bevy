@@ -5,8 +5,7 @@ use bevy_ecs::{
     system::Commands,
 };
 use bevy_log::{error, info};
-use bevy_winit::WinitWindows;
-use winit::window::Icon;
+use bevy_winit::{Icon, WinitWindows};
 
 /// An icon that can be placed at the top left of the window.
 #[derive(Component, Debug)]

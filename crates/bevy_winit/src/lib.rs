@@ -33,6 +33,9 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 
+// Re-exports
+pub use winit::window::Icon;
+
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 

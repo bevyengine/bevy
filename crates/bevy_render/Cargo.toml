@@ -79,4 +79,3 @@ encase = { version = "0.5", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
 async-channel = "1.8"
-winit = { version = "0.28", default-features = false }

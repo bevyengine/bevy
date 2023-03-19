@@ -17,7 +17,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use winit::window::Icon;
+use bevy_winit::Icon;
 
 use std::hash::Hash;
 use thiserror::Error;
@@ -615,7 +615,7 @@ impl CompressedImageFormats {
     }
 }
 
-// Convert an [`Image`] to `winit::window::Icon`.
+// Convert an [`Image`] to `bevy_winit::Icon`.
 impl TryInto<Icon> for Image {
     type Error = anyhow::Error;
 
