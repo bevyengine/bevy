@@ -19,13 +19,16 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            setup.on_startup(),
-            adjust_point_light_biases,
-            toggle_light,
-            adjust_directional_light_biases,
-            camera_controller,
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                adjust_point_light_biases,
+                toggle_light,
+                adjust_directional_light_biases,
+                camera_controller,
+            ),
+        )
         .run();
 }
 

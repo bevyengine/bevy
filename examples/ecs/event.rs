@@ -9,7 +9,7 @@ fn main() {
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
         .init_resource::<EventTriggerState>()
-        .add_systems((event_trigger, event_listener, sound_player))
+        .add_systems(Update, (event_trigger, event_listener, sound_player))
         .run();
 }
 

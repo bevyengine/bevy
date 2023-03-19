@@ -1,5 +1,7 @@
 #define_import_path bevy_pbr::shadows
 
+const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
+
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = &point_lights.data[light_id];
 
@@ -17,7 +19,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let offset_position = frag_position.xyz + normal_offset + depth_offset;
 
     // similar largest-absolute-axis trick as above, but now with the offset fragment position
-    let frag_ls = (*light).position_radius.xyz - offset_position.xyz;
+    let frag_ls = offset_position.xyz - (*light).position_radius.xyz ;
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
@@ -28,16 +30,17 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let zw = -major_axis_magnitude * (*light).light_custom_data.xy + (*light).light_custom_data.zw;
     let depth = zw.x / zw.y;
 
-    // do the lookup, using HW PCF and comparison
+    // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
+    // so we have to flip the z-axis when sampling.
     // NOTE: Due to the non-uniform control flow above, we must use the Level variant of
     // textureSampleCompare to avoid undefined behaviour due to some of the fragments in
     // a quad (2x2 fragments) being processed not being sampled, and this messing with
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls, depth);
+    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls * flip_z, depth);
 #else
-    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
+    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls * flip_z, i32(light_id), depth);
 #endif
 }
 
