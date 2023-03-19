@@ -615,7 +615,8 @@ impl CompressedImageFormats {
     }
 }
 
-impl TryInto<winit::window::Icon> for Image {
+// Convert an [`Image`] to `winit::window::Icon`.
+impl TryInto<Icon> for Image {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<Icon, Self::Error> {
@@ -626,12 +627,8 @@ impl TryInto<winit::window::Icon> for Image {
         let width = icon.width();
         let height = icon.height();
         let data = icon.into_rgba8().into_raw();
-
-        let Ok(icon) = winit::window::Icon::from_rgba(data, width, height) else {
-            return Err(anyhow!("failed to convert to winit::window::Icon"));
-        };
-
-        Ok(icon)
+        Icon::from_rgba(data, width, height)
+            .map_err(|err| anyhow!("failed to convert image to winit::window::Icon: {}", err))
     }
 }
 
