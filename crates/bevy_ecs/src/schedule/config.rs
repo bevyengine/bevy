@@ -50,11 +50,13 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
 
 #[derive(Default, Clone, Copy, PartialEq)]
 pub(crate) enum SteppingBehavior {
-    /// permit this system to be skipped when the [`Schedule`] is executing in
-    /// stepping mode
+    /// permit this system to be skipped when the
+    /// [`Schedule`](`crate::schedule::Schedule`) is executing in stepping
+    /// mode
     #[default]
     PermitStepping,
-    /// this system will run regardless of the [`Schedule`] stepping mode
+    /// this system will run regardless of the
+    /// [`Schedule`](`crate::schedule::Schedule`) stepping mode
     IgnoreStepping,
 }
 

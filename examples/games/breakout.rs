@@ -52,10 +52,10 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .add_plugin(stepping::SteppingPlugin::for_schedules(vec![
-            Box::new(Update),
-            Box::new(FixedUpdate),
-        ]))
+        .add_plugin(
+            stepping::SteppingPlugin::for_schedules(vec![Box::new(Update), Box::new(FixedUpdate)])
+                .at(Val::Percent(35.0), Val::Percent(50.0)),
+        )
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
@@ -79,7 +79,14 @@ fn main() {
                     .ignore_stepping(),
             ),
         )
-        .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
+        .add_systems(
+            Update,
+            (
+                update_scoreboard,
+                // still want to be able to exit when stepping
+                bevy::window::close_on_esc.ignore_stepping(),
+            ),
+        )
         .run();
 }
 

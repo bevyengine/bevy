@@ -7,13 +7,22 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct SteppingPlugin {
     schedule_labels: Vec<Box<dyn ScheduleLabel>>,
+    top: Val,
+    left: Val,
 }
 
 impl SteppingPlugin {
+    /// Initialize the plugin to step the schedules specified in `labels`
     pub fn for_schedules(labels: Vec<Box<dyn ScheduleLabel>>) -> SteppingPlugin {
         SteppingPlugin {
             schedule_labels: labels,
+            ..default()
         }
+    }
+
+    /// Set the location of the stepping UI when activated
+    pub fn at(self, left: Val, top: Val) -> SteppingPlugin {
+        SteppingPlugin { top, left, ..self }
     }
 }
 
@@ -27,6 +36,8 @@ impl Plugin for SteppingPlugin {
         // add our startup & stepping systems
         app.insert_resource(State {
             schedule_labels: self.schedule_labels.clone(),
+            ui_top: self.top,
+            ui_left: self.left,
             status: Status::Init,
             system_text_map: HashMap::new(),
             last_system_ids: Vec::new(),
@@ -34,9 +45,9 @@ impl Plugin for SteppingPlugin {
         .add_systems(
             Stepping,
             (
-                build_ui.run_if(not(ui_ready)),
-                handle_input.run_if(ui_ready),
-                update_ui.run_if(ui_ready),
+                build_ui.run_if(not(initialized)),
+                handle_input.run_if(initialized),
+                update_ui.run_if(initialized),
             )
                 .ignore_stepping(),
         );
@@ -75,14 +86,15 @@ struct State {
 
     // status of the stepping plugin
     status: Status,
+
+    // ui positioning
+    ui_top: Val,
+    ui_left: Val,
 }
 
 /// condition to check if the stepping UI has been constructed
-fn ui_ready(state: Res<State>) -> bool {
-    match state.status {
-        Status::Init => false,
-        _ => true,
-    }
+fn initialized(state: Res<State>) -> bool {
+    !matches!(state.status, Status::Init)
 }
 
 const FONT_SIZE: f32 = 20.0;
@@ -93,6 +105,11 @@ const FONT_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
 #[derive(Component)]
 struct SteppingUi;
 
+/// Construct the stepping UI elements from the [`Schedules`] resource.
+///
+/// This system may run multiple times before constructing the UI as all of the
+/// data may not be available on the first run of the system.  This happens if
+/// one of the stepping schedules has not yet been run.
 fn build_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -106,7 +123,6 @@ fn build_ui(
     // go through the supplied labels and construct a list of systems for each
     // label
     for label in &state.schedule_labels {
-        info!("getting schedule {:?}", label);
         let schedule = schedules.get(&**label).unwrap();
         let mut last_system: Option<NodeId> = None;
         text_sections.push(TextSection::new(
@@ -176,33 +192,32 @@ fn build_ui(
             text: Text::from_sections(text_sections),
             style: Style {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(50.0),
-                left: Val::Percent(25.0),
+                top: state.ui_top,
+                left: state.ui_left,
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
             },
             background_color: BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.33)),
+            visibility: Visibility::Hidden,
             ..default()
         },
     ));
 
     // stepping description box
-    commands
-        .spawn((TextBundle::from_sections([TextSection::new(
-            "Press ` to toggle stepping mode (S: step system, Space: step frame)",
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 15.0,
-                color: FONT_COLOR,
-            },
-        )])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(5.0),
-            ..default()
-        }),))
-        .insert(Visibility::Hidden);
+    commands.spawn((TextBundle::from_sections([TextSection::new(
+        "Press ` to toggle stepping mode (S: step system, Space: step frame)",
+        TextStyle {
+            font: asset_server.load(FONT_MEDIUM),
+            font_size: 15.0,
+            color: FONT_COLOR,
+        },
+    )])
+    .with_style(Style {
+        position_type: PositionType::Absolute,
+        bottom: Val::Px(5.0),
+        left: Val::Px(5.0),
+        ..default()
+    }),));
 }
 
 fn handle_input(
@@ -240,7 +255,7 @@ fn handle_input(
 
     // space key will step the remainder of this frame
     if keyboard_input.just_pressed(KeyCode::Space) {
-        info!("stepping frame");
+        debug!("step frame");
         for i in index..state.schedule_labels.len() {
             let label = &state.schedule_labels[i];
             schedule_events.send(StepFrame(label.clone()));
@@ -262,8 +277,8 @@ fn handle_input(
         None => return,
     };
 
-    info!(
-        "stepping {:?}: {}",
+    debug!(
+        "step {:?}/{}",
         label,
         schedule.next_step_system_name().unwrap().to_string()
     );
@@ -287,6 +302,10 @@ fn update_ui(
     mut ui: Query<(Entity, &mut Text, &Visibility), With<SteppingUi>>,
     schedules: Res<Schedules>,
 ) {
+    if ui.is_empty() {
+        return;
+    }
+
     // If we're stepping, ensure the UI is visibile, and grab the current
     // schedule label.  Otherwise, hide the UI and just return.
     let (entity, mut text, vis) = ui.single_mut();

@@ -20,9 +20,10 @@ struct BonusSpawnTimer(Timer);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(stepping::SteppingPlugin::for_schedules(vec![Box::new(
-            Update,
-        )]))
+        .add_plugin(
+            stepping::SteppingPlugin::for_schedules(vec![Box::new(Update)])
+                .at(Val::Px(5.0), Val::Px(40.0)),
+        )
         .init_resource::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
@@ -48,7 +49,7 @@ fn main() {
             Update,
             (
                 gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
-                bevy::window::close_on_esc,
+                bevy::window::close_on_esc.ignore_stepping(),
             ),
         )
         .add_systems(OnExit(GameState::GameOver), teardown)

@@ -91,9 +91,9 @@ impl SystemSchedule {
         self.find_stepping_system(index)
     }
 
-    /// Called by [`Executor::run`] to get the list of systems to be skipped
-    /// due to stepping; this method also updates the `step_state` to prepare
-    /// for the next call.
+    /// Called by SystemExecutor to get the list of systems to be
+    /// skipped due to stepping; this method also updates the `step_state` to
+    /// prepare for the next call.
     pub fn step(&mut self) -> Option<FixedBitSet> {
         match self.step_state {
             StepState::RunAll => None,
@@ -170,16 +170,17 @@ pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
 /// determine which systems in the schedule should be run.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub(super) enum StepState {
-    /// Only run those systems that are exempt from stepping;
-    /// [`SteppingState::IgnoreStepping`].
+    /// Run only systems that are ignoring stepping;
+    /// see [`ignore_stepping`](`super::IntoSystemConfigs::ignore_stepping`)
     Wait(usize),
-    /// Run the next system in the schedule that permits stepping
-    /// [`SteppingState::PermitStepping`], along with all systems that are
-    /// except from stepping [`SteppingState::IgnoreStepping`].
+    /// Run the next system in the schedule that does not ignore stepping, ,
+    /// along with all systems that [`ignore
+    /// stepping`](`super::IntoSystemConfigs::ignore_stepping`).
     Next(usize),
 
     /// Run all remaining systems in the schedule that have not yet been run,
-    /// along with all exempt systems.
+    /// along with all systems that
+    /// [`ignore stepping`](`super::IntoSystemConfigs::ignore_stepping`).
     Remaining(usize),
 
     /// Stepping is disabled; run all systems.
