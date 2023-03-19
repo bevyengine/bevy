@@ -28,6 +28,8 @@ wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 
+bevy_winit = ["bevy_winit/x11", "bevy_winit/wayland"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
