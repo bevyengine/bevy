@@ -39,6 +39,9 @@ ktx2 = ["bevy_render/ktx2"]
 zlib = ["bevy_render/zlib"]
 zstd = ["bevy_render/zstd"]
 
+# Enable SPIR-V passthrough
+spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 

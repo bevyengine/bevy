@@ -21,6 +21,9 @@ dds = ["ddsfile"]
 zlib = ["flate2"]
 zstd = ["ruzstd"]
 
+# Enable SPIR-V shader passthrough
+spirv_shader_passthrough = []
+
 trace = ["profiling"]
 tracing-tracy = []
 wgpu_trace = ["wgpu/trace"]
