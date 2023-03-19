@@ -644,7 +644,7 @@ impl App {
     /// App::new()
     ///     .init_resources::<(MyCounter, MyValue)>();
     /// ```
-    pub fn init_resources<R: InitResources>(&mut self) -> &mut Self {
+    pub fn init_resources<R: InitResourcesGroup>(&mut self) -> &mut Self {
         self.world.init_resources::<R>();
         self
     }

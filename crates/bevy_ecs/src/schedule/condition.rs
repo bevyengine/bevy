@@ -505,7 +505,7 @@ pub mod common_conditions {
     ///     if let Some(mut counter) = counter {
     ///         counter.0 += 1;
     ///     } else {
-    ///         commands.init_resource::<MyResource>();
+    ///         commands.init_resources::<MyResource>();
     ///     }
     /// }
     ///

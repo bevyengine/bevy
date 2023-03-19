@@ -13,7 +13,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, InitResourcesGroup, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -443,8 +443,45 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
+    #[deprecated(since = "0.11.0", note = "Please use `init_resources::<T>()` instead.")]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         self.queue.push(InitResource::<R> {
+            _phantom: PhantomData::<R>::default(),
+        });
+    }
+
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
+    ///
+    /// The inferred value is determined by the [`FromWorld`] trait of the resource.
+    /// When the command is applied,
+    /// if the resource already exists, nothing happens.
+    ///
+    /// See [`World::init_resource`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource, Default)]
+    /// # struct PlayerScoreboard {
+    /// #     current_score: u32,
+    /// #     high_score: u32,
+    /// # }
+    /// #
+    /// # #[derive(Resource, Default)]
+    /// # struct EnemyScoreboard {
+    /// #     current_score: u32,
+    /// #     high_score: u32,
+    /// # }
+    /// #
+    /// # fn initialise_scoreboards(mut commands: Commands) {
+    /// commands.init_resource::<(PlayerScoreboard, EnemyScoreboard)>();
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
+    /// ```
+    pub fn init_resources<R: InitResourcesGroup>(&mut self) {
+        self.queue.push(InitResources::<R> {
             _phantom: PhantomData::<R>::default(),
         });
     }
@@ -963,6 +1000,16 @@ pub struct InitResource<R: Resource + FromWorld> {
 impl<R: Resource + FromWorld> Command for InitResource<R> {
     fn write(self, world: &mut World) {
         world.init_resource::<R>();
+    }
+}
+
+pub struct InitResources<R: InitResourcesGroup> {
+    _phantom: PhantomData<R>,
+}
+
+impl<R: InitResourcesGroup> Command for InitResources<R> {
+    fn write(self, world: &mut World) {
+        world.init_resources::<R>();
     }
 }
 

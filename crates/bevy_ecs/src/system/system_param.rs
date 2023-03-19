@@ -401,11 +401,11 @@ impl_param_set!();
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
-pub trait InitResources {
+pub trait InitResourcesGroup: Send + Sync + 'static {
     fn init_resources(world: &mut World) -> Vec<ComponentId>;
 }
 
-impl<P0: Resource + FromWorld> InitResources for P0 {
+impl<P0: Resource + FromWorld> InitResourcesGroup for P0 {
     fn init_resources(world: &mut World) -> Vec<ComponentId> {
         [world.init_resource::<P0>()].into()
     }
@@ -413,7 +413,7 @@ impl<P0: Resource + FromWorld> InitResources for P0 {
 
 macro_rules! impl_init_resources {
     ($($param: ident),*) => {
-        impl <$($param: Resource + FromWorld,)*> InitResources for ($($param,)*) {
+        impl <$($param: Resource + FromWorld,)*> InitResourcesGroup for ($($param,)*) {
             fn init_resources(_world: &mut World) -> Vec<ComponentId> {
                 [$(_world.init_resource::<$param>(),)*].into()
             }
