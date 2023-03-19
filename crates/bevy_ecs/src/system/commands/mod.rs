@@ -476,9 +476,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// #
     /// # fn initialise_scoreboards(mut commands: Commands) {
-    /// commands.init_resource::<(PlayerScoreboard, EnemyScoreboard)>();
+    /// commands.init_resources::<(PlayerScoreboard, EnemyScoreboard)>();
     /// # }
-    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
+    /// # bevy_ecs::system::assert_is_system(initialise_scoreboards);
     /// ```
     pub fn init_resources<R: InitResourcesGroup>(&mut self) {
         self.queue.push(InitResources::<R> {
