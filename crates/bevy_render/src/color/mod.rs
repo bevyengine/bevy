@@ -304,10 +304,7 @@ impl Color {
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
-        let hex = hex.as_ref();
-        let hex = hex.strip_prefix('#').unwrap_or(hex);
-
-        match *hex.as_bytes() {
+        match *hex.as_ref().trim_start_matches('#').as_bytes() {
             // RGB
             [r, g, b] => {
                 let [r, g, b, ..] = decode_hex([r, r, g, g, b, b])?;
