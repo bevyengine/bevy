@@ -42,7 +42,6 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
-  "spirv_shader_passthrough",
   "png",
   "hdr",
   "ktx2",
