@@ -103,7 +103,7 @@ bevy_winit = ["bevy_internal/bevy_winit"]
 # Adds support for rendering gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
-# Enables SPIR-V shader passthrough
+# Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Tracing support, saving a file in Chrome Tracing format
