@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["serialize", "bevy_render"]
+default = ["serialize"]
 serialize = ["dep:serde", "uuid/serde"]
 
 [dependencies]
