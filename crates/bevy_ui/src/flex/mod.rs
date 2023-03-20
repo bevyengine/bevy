@@ -25,8 +25,8 @@ use taffy::{
 pub struct LayoutContext {
     pub scale_factor: f64,
     pub physical_size: Vec2,
-    pub v_min: f32,
-    pub v_max: f32,
+    pub min_size: f32,
+    pub max_size: f32,
 }
 
 impl LayoutContext {
@@ -35,8 +35,8 @@ impl LayoutContext {
         Self {
             scale_factor,
             physical_size,
-            v_min: physical_size.x.min(physical_size.y),
-            v_max: physical_size.x.max(physical_size.y),
+            min_size: physical_size.x.min(physical_size.y),
+            max_size: physical_size.x.max(physical_size.y),
         }
     }
 }
@@ -78,19 +78,17 @@ impl Default for FlexSurface {
 }
 
 impl FlexSurface {
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, viewport_values: &LayoutContext) {
+    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
         let mut added = false;
         let taffy = &mut self.taffy;
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy
-                .new_leaf(convert::from_style(viewport_values, style))
-                .unwrap()
+            taffy.new_leaf(convert::from_style(context, style)).unwrap()
         });
 
         if !added {
             self.taffy
-                .set_style(*taffy_node, convert::from_style(viewport_values, style))
+                .set_style(*taffy_node, convert::from_style(context, style))
                 .unwrap();
         }
     }
@@ -100,11 +98,11 @@ impl FlexSurface {
         entity: Entity,
         style: &Style,
         calculated_size: CalculatedSize,
-        viewport_values: &LayoutContext,
+        context: &LayoutContext,
     ) {
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(viewport_values, style);
-        let scale_factor = viewport_values.scale_factor;
+        let taffy_style = convert::from_style(context, style);
+        let scale_factor = context.scale_factor;
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
                 let mut size = Size {

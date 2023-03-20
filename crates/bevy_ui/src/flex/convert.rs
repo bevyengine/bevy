@@ -8,33 +8,26 @@ use crate::{
 use super::LayoutContext;
 
 impl Val {
-    fn into_dimension(self, viewport_values: &LayoutContext) -> taffy::style::Dimension {
+    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
         match self {
             Val::Auto => taffy::style::Dimension::Auto,
             Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.),
-            Val::Px(value) => taffy::style::Dimension::Points(
-                (viewport_values.scale_factor * value as f64) as f32,
-            ),
-            Val::VMin(value) => {
-                taffy::style::Dimension::Percent(viewport_values.v_min * value / 100.)
+            Val::Px(value) => {
+                taffy::style::Dimension::Points((context.scale_factor * value as f64) as f32)
             }
-            Val::VMax(value) => {
-                taffy::style::Dimension::Points(viewport_values.v_max * value / 100.)
-            }
+            Val::VMin(value) => taffy::style::Dimension::Percent(context.min_size * value / 100.),
+            Val::VMax(value) => taffy::style::Dimension::Points(context.max_size * value / 100.),
             Val::Vw(value) => {
-                taffy::style::Dimension::Points(viewport_values.physical_size.x * value / 100.)
+                taffy::style::Dimension::Points(context.physical_size.x * value / 100.)
             }
             Val::Vh(value) => {
-                taffy::style::Dimension::Points(viewport_values.physical_size.y * value / 100.)
+                taffy::style::Dimension::Points(context.physical_size.y * value / 100.)
             }
         }
     }
 
-    fn into_length_percentage(
-        self,
-        viewport_values: &LayoutContext,
-    ) -> taffy::style::LengthPercentage {
-        match self.into_dimension(viewport_values) {
+    fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
+        match self.into_dimension(context) {
             Dimension::Auto => taffy::style::LengthPercentage::Points(0.0),
             Dimension::Percent(value) => taffy::style::LengthPercentage::Percent(value),
             Dimension::Points(value) => taffy::style::LengthPercentage::Points(value),
@@ -42,9 +35,9 @@ impl Val {
     }
     fn into_length_percentage_auto(
         self,
-        viewport_values: &LayoutContext,
+        context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
-        match self.into_dimension(viewport_values) {
+        match self.into_dimension(context) {
             Dimension::Auto => taffy::style::LengthPercentageAuto::Auto,
             Dimension::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value),
             Dimension::Points(value) => taffy::style::LengthPercentageAuto::Points(value),
@@ -72,7 +65,7 @@ impl Size {
     }
 }
 
-pub fn from_style(viewport_values: &LayoutContext, style: &Style) -> taffy::style::Style {
+pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
         position: style.position_type.into(),
@@ -83,36 +76,34 @@ pub fn from_style(viewport_values: &LayoutContext, style: &Style) -> taffy::styl
         align_content: Some(style.align_content.into()),
         justify_content: Some(style.justify_content.into()),
         inset: taffy::prelude::Rect {
-            left: style.left.into_length_percentage_auto(viewport_values),
-            right: style.right.into_length_percentage_auto(viewport_values),
-            top: style.top.into_length_percentage_auto(viewport_values),
-            bottom: style.bottom.into_length_percentage_auto(viewport_values),
+            left: style.left.into_length_percentage_auto(context),
+            right: style.right.into_length_percentage_auto(context),
+            top: style.top.into_length_percentage_auto(context),
+            bottom: style.bottom.into_length_percentage_auto(context),
         },
         margin: style
             .margin
-            .map_to_taffy_rect(|m| m.into_length_percentage_auto(viewport_values)),
+            .map_to_taffy_rect(|m| m.into_length_percentage_auto(context)),
         padding: style
             .padding
-            .map_to_taffy_rect(|m| m.into_length_percentage(viewport_values)),
+            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
         border: style
             .border
-            .map_to_taffy_rect(|m| m.into_length_percentage(viewport_values)),
+            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
         flex_grow: style.flex_grow,
         flex_shrink: style.flex_shrink,
-        flex_basis: style.flex_basis.into_dimension(viewport_values),
-        size: style
-            .size
-            .map_to_taffy_size(|s| s.into_dimension(viewport_values)),
+        flex_basis: style.flex_basis.into_dimension(context),
+        size: style.size.map_to_taffy_size(|s| s.into_dimension(context)),
         min_size: style
             .min_size
-            .map_to_taffy_size(|s| s.into_dimension(viewport_values)),
+            .map_to_taffy_size(|s| s.into_dimension(context)),
         max_size: style
             .max_size
-            .map_to_taffy_size(|s| s.into_dimension(viewport_values)),
+            .map_to_taffy_size(|s| s.into_dimension(context)),
         aspect_ratio: style.aspect_ratio,
         gap: style
             .gap
-            .map_to_taffy_size(|s| s.into_length_percentage(viewport_values)),
+            .map_to_taffy_size(|s| s.into_length_percentage(context)),
         justify_self: None,
     }
 }
