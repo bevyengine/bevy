@@ -14,9 +14,9 @@ fn main() {
     // `CoreSet::Update', and the system that reacts on the removal in `CoreSet::PostUpdate`.
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(remove_component)
-        .add_system(react_on_removal.in_base_set(CoreSet::PostUpdate))
+        .add_systems(Startup, setup)
+        .add_systems(Update, remove_component)
+        .add_systems(PostUpdate, react_on_removal)
         .run();
 }
 

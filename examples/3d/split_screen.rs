@@ -10,8 +10,8 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(set_camera_viewports)
+        .add_systems(Startup, setup)
+        .add_systems(Update, set_camera_viewports)
         .run();
 }
 
@@ -24,7 +24,7 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

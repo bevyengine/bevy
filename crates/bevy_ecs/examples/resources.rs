@@ -15,8 +15,7 @@ fn main() {
     let mut schedule = Schedule::default();
 
     // Add systems to increase the counter and to print out the current value
-    schedule.add_system(increase_counter);
-    schedule.add_system(print_counter.after(increase_counter));
+    schedule.add_systems((increase_counter, print_counter).chain());
 
     for iteration in 1..=10 {
         println!("Simulating frame {iteration}/10");

@@ -92,6 +92,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
         pbr_input.occlusion = occlusion;
 
+        pbr_input.flags = mesh.flags;
+
         output_color = pbr(pbr_input);
     } else {
         output_color = alpha_discard(material, output_color);
@@ -107,11 +109,11 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
-    output_rgb = pow(output_rgb, vec3<f32>(1.0 / 2.2));
+    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
     output_rgb = output_rgb + screen_space_dither(in.frag_coord.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = pow(output_rgb, vec3<f32>(2.2));
+    output_rgb = powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
 #endif
 #ifdef PREMULTIPLY_ALPHA

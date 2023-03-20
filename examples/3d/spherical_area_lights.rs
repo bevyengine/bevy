@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -23,7 +23,7 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
         material: materials.add(StandardMaterial {
             base_color: Color::rgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,

@@ -7,6 +7,7 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
+        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const PREPASS: &str = "prepass";
         pub const MAIN_PASS: &str = "main_pass";
         pub const BLOOM: &str = "bloom";
@@ -40,7 +41,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{FloatOrd, HashMap};
 
@@ -67,11 +68,18 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_system_to_schedule(ExtractSchedule, extract_core_3d_camera_phases)
-            .add_system(prepare_core_3d_depth_textures.in_set(RenderSet::Prepare))
-            .add_system(sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort))
-            .add_system(sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort));
+            .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
+            .add_systems(
+                Render,
+                (
+                    prepare_core_3d_depth_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                    sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
+                ),
+            );
 
         let prepass_node = PrepassNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);

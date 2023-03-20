@@ -1,8 +1,6 @@
 //! This example illustrates loading scenes from files.
-use std::fs::File;
-use std::io::Write;
-
 use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
@@ -15,10 +13,11 @@ fn main() {
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .register_type::<ResourceA>()
-        .add_startup_system(save_scene_system)
-        .add_startup_system(load_scene_system)
-        .add_startup_system(infotext_system)
-        .add_system(log_system)
+        .add_systems(
+            Startup,
+            (save_scene_system, load_scene_system, infotext_system),
+        )
+        .add_systems(Update, log_system)
         .run();
 }
 

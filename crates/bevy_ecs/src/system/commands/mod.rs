@@ -582,9 +582,9 @@ impl<'w, 's> Commands<'w, 's> {
 /// # world.init_resource::<Counter>();
 /// #
 /// # let mut setup_schedule = Schedule::new();
-/// # setup_schedule.add_system(setup);
+/// # setup_schedule.add_systems(setup);
 /// # let mut assert_schedule = Schedule::new();
-/// # assert_schedule.add_system(assert_names);
+/// # assert_schedule.add_systems(assert_names);
 /// #
 /// # setup_schedule.run(&mut world);
 /// # assert_schedule.run(&mut world);
@@ -951,9 +951,7 @@ where
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            // remove intersection to gracefully handle components that were removed before running
-            // this command
-            entity_mut.remove_intersection::<T>();
+            entity_mut.remove::<T>();
         }
     }
 }

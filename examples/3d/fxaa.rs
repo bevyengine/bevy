@@ -17,8 +17,8 @@ fn main() {
         // Disable MSAA by default
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(toggle_fxaa)
+        .add_systems(Startup, setup)
+        .add_systems(Update, toggle_fxaa)
         .run();
 }
 
@@ -44,7 +44,7 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

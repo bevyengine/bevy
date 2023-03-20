@@ -12,10 +12,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup_scene)
-        .add_startup_system(setup_music)
-        .add_system(touch_camera)
-        .add_system(button_handler)
+        .add_systems(Startup, (setup_scene, setup_music))
+        .add_systems(Update, (touch_camera, button_handler))
         .run();
 }
 
@@ -55,7 +53,7 @@ fn setup_scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
         ..default()
     });
@@ -102,12 +100,10 @@ fn setup_scene(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Px(50.0),
-                    right: Val::Px(50.0),
-                    top: Val::Auto,
-                    bottom: Val::Px(50.0),
-                },
+                left: Val::Px(50.0),
+                right: Val::Px(50.0),
+                top: Val::Auto,
+                bottom: Val::Px(50.0),
                 ..default()
             },
             ..default()

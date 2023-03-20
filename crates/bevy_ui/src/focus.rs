@@ -171,10 +171,10 @@ pub fn ui_focus_system(
         .iter()
         .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
         .filter_map(|(camera, _)| {
-            if let Some(NormalizedRenderTarget::Window(window_id)) =
+            if let Some(NormalizedRenderTarget::Window(window_ref)) =
                 camera.target.normalize(primary_window)
             {
-                Some(window_id)
+                Some(window_ref)
             } else {
                 None
             }
@@ -192,7 +192,7 @@ pub fn ui_focus_system(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    let mut moused_over_nodes = ui_stack
+    let mut hovered_nodes = ui_stack
         .uinodes
         .iter()
         // reverse the iterator to traverse the tree from closest nodes to furthest
@@ -263,7 +263,7 @@ pub fn ui_focus_system(
 
     // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
-    let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
+    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -290,7 +290,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(moused_over_nodes);
+    let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset clicked nodes because they're handled separately
