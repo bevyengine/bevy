@@ -35,6 +35,7 @@ struct RpgSpriteHandles {
 }
 
 fn load_textures(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<AssetServer>) {
+    // load multiple, individual sprites from a folder
     rpg_sprite_handles.handles = asset_server.load_folder("textures/rpg").unwrap();
 }
 
@@ -43,6 +44,7 @@ fn check_textures(
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
 ) {
+    // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     if let LoadState::Loaded = asset_server
         .get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id()))
     {
@@ -57,6 +59,7 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut textures: ResMut<Assets<Image>>,
 ) {
+    // Build a `TextureAtlas` using the individual sprites
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
         let handle = handle.typed_weak();
