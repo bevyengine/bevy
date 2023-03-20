@@ -24,7 +24,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        GpuBufferInfo, Mesh, MeshVertexBufferLayout,
+        GpuBufferInfo, GpuMesh, Mesh, MeshVertexBufferLayout,
     },
     prelude::Msaa,
     render_asset::RenderAssets,
@@ -546,7 +546,7 @@ impl FromWorld for MeshPipeline {
 impl MeshPipeline {
     pub fn get_image_texture<'a>(
         &'a self,
-        gpu_images: &'a RenderAssets<Image>,
+        gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
@@ -953,7 +953,7 @@ pub fn queue_mesh_view_bind_groups(
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,
     fallback_cubemap: Res<FallbackImageCubemap>,
@@ -1143,7 +1143,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = SRes<RenderAssets<GpuMesh>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<Handle<Mesh>>;
     #[inline]

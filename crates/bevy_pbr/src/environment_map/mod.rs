@@ -10,7 +10,7 @@ use bevy_render::{
         BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
         Shader, ShaderStages, TextureSampleType, TextureViewDimension,
     },
-    texture::{FallbackImageCubemap, Image},
+    texture::{FallbackImageCubemap, Image, GpuImage},
 };
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
@@ -55,7 +55,7 @@ pub struct EnvironmentMapLight {
 impl EnvironmentMapLight {
     /// Whether or not all textures necessary to use the environment map
     /// have been loaded by the asset server.
-    pub fn is_loaded(&self, images: &RenderAssets<Image>) -> bool {
+    pub fn is_loaded(&self, images: &RenderAssets<GpuImage>) -> bool {
         images.get(&self.diffuse_map).is_some() && images.get(&self.specular_map).is_some()
     }
 }
@@ -72,7 +72,7 @@ impl ExtractComponent for EnvironmentMapLight {
 
 pub fn get_bindings<'a>(
     environment_map_light: Option<&EnvironmentMapLight>,
-    images: &'a RenderAssets<Image>,
+    images: &'a RenderAssets<GpuImage>,
     fallback_image_cubemap: &'a FallbackImageCubemap,
     bindings: [u32; 3],
 ) -> [BindGroupEntry<'a>; 3] {

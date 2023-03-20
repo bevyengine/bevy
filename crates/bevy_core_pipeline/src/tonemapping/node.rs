@@ -13,7 +13,7 @@ use bevy_render::{
         SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
-    texture::Image,
+    texture::GpuImage,
     view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
@@ -63,7 +63,7 @@ impl Node for TonemappingNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
-        let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
+        let gpu_images = world.get_resource::<RenderAssets<GpuImage>>().unwrap();
         let view_uniforms_resource = world.resource::<ViewUniforms>();
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_id = view_uniforms.buffer().unwrap().id();

@@ -20,8 +20,7 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
+    mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
     render_asset::{PrepareAssetSet, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -33,7 +32,7 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -370,10 +369,10 @@ pub fn queue_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -614,7 +613,7 @@ pub fn prepare_materials<M: Material>(
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,
     mut render_materials: ResMut<RenderMaterials<M>>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
 ) {
@@ -661,7 +660,7 @@ pub fn prepare_materials<M: Material>(
 fn prepare_material<M: Material>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
+    images: &RenderAssets<GpuImage>,
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {

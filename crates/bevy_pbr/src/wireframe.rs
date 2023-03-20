@@ -10,7 +10,7 @@ use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::{
@@ -99,7 +99,7 @@ impl SpecializedMeshPipeline for WireframePipeline {
 #[allow(clippy::too_many_arguments)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,

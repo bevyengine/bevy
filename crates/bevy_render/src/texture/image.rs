@@ -503,9 +503,9 @@ pub struct GpuImage {
     pub mip_level_count: u32,
 }
 
-impl RenderAsset for Image {
+impl RenderAsset for GpuImage {
+    type Asset = Image;
     type ExtractedAsset = Image;
-    type PreparedAsset = GpuImage;
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
@@ -513,15 +513,15 @@ impl RenderAsset for Image {
     );
 
     /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(asset: &Self::Asset) -> Self::ExtractedAsset {
+        asset.clone()
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
             &image.texture_descriptor,

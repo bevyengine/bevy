@@ -828,21 +828,21 @@ pub enum GpuBufferInfo {
     },
 }
 
-impl RenderAsset for Mesh {
+impl RenderAsset for GpuMesh {
+    type Asset = Mesh;
     type ExtractedAsset = Mesh;
-    type PreparedAsset = GpuMesh;
     type Param = SRes<RenderDevice>;
 
     /// Clones the mesh.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(asset: &Self::Asset) -> Self::ExtractedAsset {
+        asset.clone()
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
         render_device: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,

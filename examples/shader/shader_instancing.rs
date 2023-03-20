@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{GpuBufferInfo, MeshVertexBufferLayout},
+        mesh::{GpuBufferInfo, MeshVertexBufferLayout, GpuMesh},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -110,7 +110,7 @@ fn queue_custom(
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    meshes: Res<RenderAssets<Mesh>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
@@ -224,7 +224,7 @@ type DrawCustom = (
 pub struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = SRes<RenderAssets<GpuMesh>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
 

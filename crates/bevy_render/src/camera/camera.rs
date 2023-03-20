@@ -1,6 +1,6 @@
 use crate::{
     camera::CameraProjection,
-    prelude::Image,
+    texture::{Image, GpuImage},
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
@@ -411,7 +411,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
     ) -> Option<&'a TextureView> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
@@ -427,7 +427,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
     ) -> Option<TextureFormat> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows

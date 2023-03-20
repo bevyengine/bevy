@@ -486,7 +486,7 @@ pub fn queue_sprites(
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut views: Query<(

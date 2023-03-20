@@ -8,6 +8,7 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
+        texture::GpuImage,
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
@@ -94,7 +95,7 @@ struct GameOfLifeImageBindGroup(BindGroup);
 fn queue_bind_group(
     mut commands: Commands,
     pipeline: Res<GameOfLifePipeline>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     game_of_life_image: Res<GameOfLifeImage>,
     render_device: Res<RenderDevice>,
 ) {

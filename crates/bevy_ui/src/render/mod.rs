@@ -23,7 +23,7 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::Image,
+    texture::{Image, GpuImage},
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
@@ -565,7 +565,7 @@ pub fn queue_uinodes(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
     events: Res<SpriteAssetEvents>,

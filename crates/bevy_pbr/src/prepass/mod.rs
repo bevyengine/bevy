@@ -18,8 +18,8 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::MeshVertexBufferLayout,
-    prelude::{Camera, Mesh},
+    mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
+    prelude::Camera,
     render_asset::RenderAssets,
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
@@ -621,7 +621,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
