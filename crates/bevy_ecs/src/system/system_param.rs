@@ -401,6 +401,7 @@ impl_param_set!();
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
+/// Resources that can be initialized in the [`World`] together.
 pub trait InitResources: Send + Sync + 'static {
     type IDS;
 
@@ -431,6 +432,7 @@ impl<P0: Resource + FromWorld> InitResources for P0 {
     }
 }
 
+/// Resources that can be inserted into the [`World`] together.
 pub trait InsertResources: Send + Sync + 'static {
     fn insert_resources(self, world: &mut World);
 }
