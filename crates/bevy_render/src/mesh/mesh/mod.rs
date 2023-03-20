@@ -4,13 +4,12 @@ pub use wgpu::PrimitiveTopology;
 
 use crate::{
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Buffer, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::prelude::Component;
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, Hashed};
@@ -393,6 +392,39 @@ impl Mesh {
         }
 
         None
+    }
+
+    pub fn as_gpu(&self, render_device: &RenderDevice) -> GpuMesh {
+        let vertex_buffer_data = self.get_vertex_buffer_data();
+        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("Mesh Vertex Buffer"),
+            contents: &vertex_buffer_data,
+        });
+
+        let buffer_info = self.get_index_buffer_bytes().map_or(
+            GpuBufferInfo::NonIndexed {
+                vertex_count: self.count_vertices() as u32,
+            },
+            |data| GpuBufferInfo::Indexed {
+                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                    usage: BufferUsages::INDEX,
+                    contents: data,
+                    label: Some("Mesh Index Buffer"),
+                }),
+                count: self.indices().unwrap().len() as u32,
+                index_format: self.indices().unwrap().into(),
+            },
+        );
+
+        let mesh_vertex_buffer_layout = self.get_mesh_vertex_buffer_layout();
+
+        GpuMesh {
+            vertex_buffer,
+            buffer_info,
+            primitive_topology: self.primitive_topology(),
+            layout: mesh_vertex_buffer_layout,
+        }
     }
 }
 
@@ -804,7 +836,7 @@ impl From<&Indices> for IndexFormat {
 
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
-#[derive(Debug, Clone)]
+#[derive(Component, Clone, Debug)]
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
@@ -825,54 +857,6 @@ pub enum GpuBufferInfo {
     NonIndexed {
         vertex_count: u32,
     },
-}
-
-impl RenderAsset for Mesh {
-    type ExtractedAsset = Mesh;
-    type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
-
-    /// Clones the mesh.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
-    /// Converts the extracted mesh a into [`GpuMesh`].
-    fn prepare_asset(
-        mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsages::VERTEX,
-            label: Some("Mesh Vertex Buffer"),
-            contents: &vertex_buffer_data,
-        });
-
-        let buffer_info = mesh.get_index_buffer_bytes().map_or(
-            GpuBufferInfo::NonIndexed {
-                vertex_count: mesh.count_vertices() as u32,
-            },
-            |data| GpuBufferInfo::Indexed {
-                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    usage: BufferUsages::INDEX,
-                    contents: data,
-                    label: Some("Mesh Index Buffer"),
-                }),
-                count: mesh.indices().unwrap().len() as u32,
-                index_format: mesh.indices().unwrap().into(),
-            },
-        );
-
-        let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
-
-        Ok(GpuMesh {
-            vertex_buffer,
-            buffer_info,
-            primitive_topology: mesh.primitive_topology(),
-            layout: mesh_vertex_buffer_layout,
-        })
-    }
 }
 
 struct MikktspaceGeometryHelper<'a> {

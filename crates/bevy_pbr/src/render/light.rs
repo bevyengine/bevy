@@ -13,7 +13,7 @@ use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles
 use bevy_render::{
     camera::Camera,
     color::Color,
-    mesh::Mesh,
+    mesh::GpuMesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -1553,8 +1553,7 @@ pub fn prepare_clusters(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    casting_meshes: Query<(&Handle<Mesh>, &Handle<M>), Without<NotShadowCaster>>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    casting_meshes: Query<(&GpuMesh, &Handle<M>), Without<NotShadowCaster>>,
     render_materials: Res<RenderMaterials<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -1598,11 +1597,8 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
-                    if let (Some(mesh), Some(material)) = (
-                        render_meshes.get(mesh_handle),
-                        render_materials.get(material_handle),
-                    ) {
+                if let Ok((mesh, material_handle)) = casting_meshes.get(entity) {
+                    if let Some(material) = render_materials.get(material_handle) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | MeshPipelineKey::DEPTH_PREPASS;

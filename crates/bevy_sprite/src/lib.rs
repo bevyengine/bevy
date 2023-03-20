@@ -57,7 +57,7 @@ impl Plugin for SpritePlugin {
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<Anchor>()
-            .register_type::<Mesh2dHandle>()
+            .register_type::<Mesh2d>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin);
 

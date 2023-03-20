@@ -11,7 +11,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
+    mesh::{GpuBufferInfo, GpuMesh, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
@@ -26,18 +26,11 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 
-/// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
-///
-/// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
+/// Marker component for rendering with meshes in the 2d pipeline, usually with a
+/// [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 #[derive(Default, Clone, Component, Debug, Reflect)]
 #[reflect(Component)]
-pub struct Mesh2dHandle(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2dHandle {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
+pub struct Mesh2d;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -134,10 +127,10 @@ bitflags::bitflags! {
 pub fn extract_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &GlobalTransform), With<Mesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, transform, handle) in &query {
+    for (entity, computed_visibility, transform) in &query {
         if !computed_visibility.is_visible() {
             continue;
         }
@@ -145,7 +138,7 @@ pub fn extract_mesh2d(
         values.push((
             entity,
             (
-                Mesh2dHandle(handle.0.clone_weak()),
+                Mesh2d,
                 Mesh2dUniform {
                     flags: MeshFlags::empty().bits,
                     transform,
@@ -576,36 +569,34 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = ();
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Mesh2dHandle>;
+    type ItemWorldQuery = Read<GpuMesh>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        mesh_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        gpu_mesh: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_mesh) = meshes.into_inner().get(&mesh_handle.0) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, 0..1);
-                }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
-                }
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, 0..1);
             }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
+            GpuBufferInfo::NonIndexed { vertex_count } => {
+                pass.draw(0..*vertex_count, 0..1);
+            }
         }
+
+        RenderCommandResult::Success
     }
 }
