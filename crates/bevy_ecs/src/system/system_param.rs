@@ -408,7 +408,7 @@ pub trait InitResources: Send + Sync + 'static {
     fn init_resources(world: &mut World) -> Self::IDS;
 }
 
-// Base case for init_resources
+// Base case for init_resources.
 impl<P0: Resource + FromWorld> InitResources for P0 {
     type IDS = ComponentId;
 
@@ -437,7 +437,7 @@ pub trait InsertResources: Send + Sync + 'static {
     fn insert_resources(self, world: &mut World);
 }
 
-// Base case for insert_resources
+// Base case for insert_resources.
 impl<P0: Resource> InsertResources for P0 {
     fn insert_resources(self, world: &mut World) {
         let component_id = world.components.init_resource::<P0>();
