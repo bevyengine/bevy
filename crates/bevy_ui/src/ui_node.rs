@@ -73,7 +73,7 @@ pub enum Val {
     /// If the UI node has no parent, the percentage is calculated based on the window's length
     /// along the corresponding axis.
     ///
-    /// The chosen axis depends on the `Style` field set with a percentage value:
+    /// The chosen axis depends on the `Style` field set:
     /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
     /// * For `gap`, `min_size`, `size`, and `max_size`:
     ///   - `width` is relative to the parent's width.
