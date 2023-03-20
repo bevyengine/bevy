@@ -72,23 +72,6 @@ impl<I: PhaseItem> RenderPhase<I> {
     pub fn sort(&mut self) {
         I::sort(&mut self.items);
     }
-
-    /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
-    pub fn render<'w>(
-        &self,
-        render_pass: &mut TrackedRenderPass<'w>,
-        world: &'w World,
-        view: Entity,
-    ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
-        for item in &self.items {
-            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-            draw_function.draw(world, render_pass, view, item);
-        }
-    }
 }
 
 impl<I: BatchedPhaseItem> RenderPhase<I> {
@@ -194,7 +177,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
             .into_inner()
             .get_render_pipeline(item.cached_pipeline())
         {
-            pass.set_render_pipeline(pipeline);
+            pass.set_pipeline(pipeline);
             RenderCommandResult::Success
         } else {
             RenderCommandResult::Failure

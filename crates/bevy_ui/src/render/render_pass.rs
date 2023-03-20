@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
+    render_resource::{CachedRenderPipelineId, LoadOp},
     renderer::*,
     view::*,
 };
@@ -76,16 +76,14 @@ impl Node for UiPassNode {
         } else {
             input_view_entity
         };
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("ui_pass"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: true,
-            }))],
-            depth_stencil_attachment: None,
-        });
 
-        transparent_phase.render(&mut render_pass, world, view_entity);
+        render_context
+            .render_pass(view_entity)
+            .set_label("ui_pass")
+            .add_view_target_unsampled(target)
+            .set_color_ops(LoadOp::Load, true)
+            .begin()
+            .render_phase(transparent_phase, world);
 
         Ok(())
     }

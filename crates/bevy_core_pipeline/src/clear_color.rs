@@ -1,6 +1,7 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::render_resource::{LoadOp, RawColor};
 use bevy_render::{color::Color, extract_resource::ExtractResource};
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +12,17 @@ pub enum ClearColorConfig {
     Default,
     Custom(Color),
     None,
+}
+
+impl ClearColorConfig {
+    #[inline]
+    pub fn load_op(&self, world: &World) -> LoadOp<RawColor> {
+        match self {
+            ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+            ClearColorConfig::Custom(color) => LoadOp::Clear((*color).into()),
+            ClearColorConfig::None => LoadOp::Load,
+        }
+    }
 }
 
 /// A [`Resource`] that stores the color that is used to clear the screen between frames.

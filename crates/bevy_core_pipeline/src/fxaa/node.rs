@@ -1,19 +1,16 @@
-use std::sync::Mutex;
-
 use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::{prelude::*, query::QueryState};
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, PipelineCache,
+        SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
 use bevy_utils::default;
+use std::sync::Mutex;
 
 pub struct FxaaNode {
     query: QueryState<
@@ -109,23 +106,14 @@ impl Node for FxaaNode {
             }
         };
 
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("fxaa_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: destination,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-        };
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        render_context
+            .render_pass(view_entity)
+            .set_label("fxaa_pass")
+            .add_color_attachment(destination)
+            .begin()
+            .set_pipeline(pipeline)
+            .set_bind_group(0, bind_group, &[])
+            .draw(0..3, 0..1);
 
         Ok(())
     }

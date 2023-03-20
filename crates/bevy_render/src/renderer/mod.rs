@@ -6,6 +6,7 @@ use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
+use crate::render_phase::TrackedRenderPassBuilder;
 use crate::{
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
@@ -311,21 +312,6 @@ impl RenderContext {
         })
     }
 
-    /// Creates a new [`TrackedRenderPass`] for the context,
-    /// configured using the provided `descriptor`.
-    pub fn begin_tracked_render_pass<'a>(
-        &'a mut self,
-        descriptor: RenderPassDescriptor<'a, '_>,
-    ) -> TrackedRenderPass<'a> {
-        // Cannot use command_encoder() as we need to split the borrow on self
-        let command_encoder = self.command_encoder.get_or_insert_with(|| {
-            self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
-        });
-        let render_pass = command_encoder.begin_render_pass(&descriptor);
-        TrackedRenderPass::new(&self.render_device, render_pass)
-    }
-
     /// Append a [`CommandBuffer`] to the queue.
     ///
     /// If present, this will flush the currently unflushed [`CommandEncoder`]
@@ -340,6 +326,31 @@ impl RenderContext {
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoder();
         self.command_buffers
+    }
+
+    /// Creates a new [`TrackedRenderPassBuilder`] used to configure and begin the next render pass.
+    ///
+    /// This builder is used to configure the color, depth, and stencil attachments of
+    /// the render pass.
+    pub fn render_pass(&mut self, view_entity: Entity) -> TrackedRenderPassBuilder {
+        TrackedRenderPassBuilder::new(self, view_entity)
+    }
+
+    pub(crate) fn begin_tracked_render_pass<'a>(
+        &'a mut self,
+        descriptor: RenderPassDescriptor<'a, '_>,
+        view_entity: Entity,
+    ) -> TrackedRenderPass<'a> {
+        // Cannot use command_encoder() as we need to split the borrow on self
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+        TrackedRenderPass::new(
+            &self.render_device,
+            command_encoder.begin_render_pass(&descriptor),
+            view_entity,
+        )
     }
 
     fn flush_encoder(&mut self) {
