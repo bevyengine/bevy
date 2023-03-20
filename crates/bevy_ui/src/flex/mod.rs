@@ -269,7 +269,9 @@ pub fn flex_node_system(
             return;
         };
 
-    let resized = resize_events.iter().any(|resized_window| resized_window.window == primary_window_entity);
+    let resized = resize_events
+        .iter()
+        .any(|resized_window| resized_window.window == primary_window_entity);
 
     // update window root nodes
     for (entity, window) in windows.iter() {
