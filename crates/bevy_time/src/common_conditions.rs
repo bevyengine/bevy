@@ -8,14 +8,14 @@ use bevy_utils::Duration;
 /// If used for a fixed timestep system, use [`on_fixed_timer`] instead.
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, IntoSystemAppConfig, NoopPluginGroup as DefaultPlugins, PluginGroup};
-/// # use bevy_ecs::schedule::IntoSystemConfig;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
 /// # use bevy_time::common_conditions::on_timer;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_system(tick.run_if(on_timer(Duration::from_secs(1))))
+///         .add_systems(Update, tick.run_if(on_timer(Duration::from_secs(1))))
 ///         .run();
 /// }
 /// fn tick() {
@@ -46,16 +46,15 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// If used for a non-fixed timestep system, use [`on_timer`] instead.
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, CoreSchedule, IntoSystemAppConfig, NoopPluginGroup as DefaultPlugins, PluginGroup};
-/// # use bevy_ecs::schedule::IntoSystemConfig;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, FixedUpdate};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
 /// # use bevy_time::common_conditions::on_fixed_timer;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_system(
-///             tick.in_schedule(CoreSchedule::FixedUpdate)
-///                 .run_if(on_fixed_timer(Duration::from_secs(1))),
+///         .add_systems(FixedUpdate,
+///             tick.run_if(on_fixed_timer(Duration::from_secs(1))),
 ///         )
 ///         .run();
 /// }

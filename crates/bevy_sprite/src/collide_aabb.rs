@@ -2,7 +2,7 @@
 
 use bevy_math::{Vec2, Vec3};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Collision {
     Left,
     Right,

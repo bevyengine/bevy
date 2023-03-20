@@ -3,13 +3,13 @@ use crate::{
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
-    schedule::IntoSystemConfig,
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
 mod draw_3d_graph {
@@ -59,14 +59,17 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_systems((
-                extract_taa_settings.in_schedule(ExtractSchedule),
-                prepare_taa_jitter
-                    .before(prepare_view_uniforms)
-                    .in_set(RenderSet::Prepare),
-                prepare_taa_history_textures.in_set(RenderSet::Prepare),
-                prepare_taa_pipelines.in_set(RenderSet::Prepare),
-            ));
+            .add_systems(ExtractSchedule, extract_taa_settings)
+            .add_systems(
+                Render,
+                (
+                    prepare_taa_jitter
+                        .before(prepare_view_uniforms)
+                        .in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_pipelines.in_set(RenderSet::Prepare),
+                ),
+            );
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();

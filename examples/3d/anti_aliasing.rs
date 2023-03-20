@@ -22,8 +22,8 @@ fn main() {
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntialiasPlugin)
-        .add_startup_system(setup)
-        .add_systems((modify_aa, update_ui))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (modify_aa, update_ui))
         .run();
 }
 
