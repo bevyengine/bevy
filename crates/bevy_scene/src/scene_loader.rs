@@ -1,3 +1,4 @@
+#[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
