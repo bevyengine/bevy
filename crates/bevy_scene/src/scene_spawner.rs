@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Command, Resource},
     world::{Mut, World},
 };
-use bevy_hierarchy::{AddChild, Parent};
+use bevy_hierarchy::{AddChildCommand, Parent};
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
@@ -278,7 +278,7 @@ impl SceneSpawner {
                         // this case shouldn't happen anyway
                         .unwrap_or(true)
                     {
-                        AddChild {
+                        AddChildCommand {
                             parent,
                             child: entity,
                         }

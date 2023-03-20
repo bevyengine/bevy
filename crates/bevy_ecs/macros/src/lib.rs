@@ -248,6 +248,35 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
+#[proc_macro]
+pub fn impl_resource_apis(_input: TokenStream) -> TokenStream {
+    let mut tokens = TokenStream::new();
+    let max_types = 16;
+    let types = get_idents(|i| format!("P{i}"), max_types);
+
+    for i in 1..=max_types {
+        let ty = &types[0..i];
+        let indices = (0..i).map(|x| Index::from(x)).collect::<Vec<_>>();
+        tokens.extend(TokenStream::from(quote! {
+            impl<#(#ty: Resource + FromWorld,)*> InitResources for (#(#ty,)*) {
+                type IDS = [ComponentId; #i];
+
+                fn init_resources(world: &mut World) -> Self::IDS {
+                    [#(world.init_resources::<#ty>(),)*]
+                }
+            }
+
+            impl<#(#ty: Resource,)*> InsertResources for (#(#ty,)*) {
+                fn insert_resources(self, world: &mut World) {
+                    #(world.insert_resources(self.#indices);)*
+                }
+            }
+        }));
+    }
+
+    tokens
+}
+
 #[derive(Default)]
 struct SystemParamFieldAttributes {
     pub ignore: bool,

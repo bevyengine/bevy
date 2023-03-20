@@ -13,18 +13,18 @@ use bevy::{
 fn main() {
     App::new()
         // Continuous rendering for games - bevy's default.
-        .insert_resource(WinitSettings::game())
+        .insert_resources(WinitSettings::game())
         // Power-saving reactive rendering for applications.
-        .insert_resource(WinitSettings::desktop_app())
+        .insert_resources(WinitSettings::desktop_app())
         // You can also customize update behavior with the fields of [`WinitConfig`]
-        .insert_resource(WinitSettings {
+        .insert_resources(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
                 max_wait: Duration::from_millis(10),
             },
             ..default()
         })
-        .insert_resource(ExampleMode::Game)
+        .insert_resources(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage

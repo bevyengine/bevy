@@ -906,7 +906,7 @@ mod tests {
         let mut world = World::new();
         let mut events = Events::<TestEvent>::default();
         events.send(TestEvent { i: 0 });
-        world.insert_resource(events);
+        world.insert_resources(events);
 
         let mut reader = IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> bool {
             if !events.is_empty() {
@@ -930,7 +930,7 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resources::<Events<TestEvent>>();
 
         world.send_event(TestEvent { i: 0 });
         world.send_event(TestEvent { i: 1 });
@@ -956,7 +956,7 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resources::<Events<TestEvent>>();
 
         let mut reader =
             IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
@@ -1000,7 +1000,7 @@ mod tests {
     fn ensure_reader_readonly() {
         fn read_for<E: Event>() {
             let mut world = World::new();
-            world.init_resource::<Events<E>>();
+            world.init_resources::<Events<E>>();
             let mut state = SystemState::<EventReader<E>>::new(&mut world);
             // This can only work if EventReader only reads the world
             let _reader = state.get(&world);

@@ -9,7 +9,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resources(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0,
         })
@@ -31,7 +31,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Insert a resource with the current scene information
-    commands.insert_resource(Animations(vec![
+    commands.insert_resources(Animations(vec![
         asset_server.load("models/animated/Fox.glb#Animation2"),
         asset_server.load("models/animated/Fox.glb#Animation1"),
         asset_server.load("models/animated/Fox.glb#Animation0"),

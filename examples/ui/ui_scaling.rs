@@ -7,15 +7,17 @@ const SCALE_TIME: u64 = 400;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(TextSettings {
-            allow_dynamic_font_size: true,
-            ..default()
-        })
-        .insert_resource(TargetScale {
-            start_scale: 1.0,
-            target_scale: 1.0,
-            target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
-        })
+        .insert_resources((
+            TextSettings {
+                allow_dynamic_font_size: true,
+                ..default()
+            },
+            TargetScale {
+                start_scale: 1.0,
+                target_scale: 1.0,
+                target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
+            },
+        ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,

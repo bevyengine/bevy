@@ -82,7 +82,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .insert_resource(ComponentUniforms::<C>::default())
+                .insert_resources(ComponentUniforms::<C>::default())
                 .add_systems(
                     Render,
                     prepare_uniform_components::<C>.in_set(RenderSet::Prepare),

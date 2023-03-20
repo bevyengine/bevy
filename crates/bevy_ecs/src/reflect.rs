@@ -368,7 +368,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
             insert: |world, reflected_resource| {
                 let mut resource = C::from_world(world);
                 resource.apply(reflected_resource);
-                world.insert_resource(resource);
+                world.insert_resources(resource);
             },
             apply: |world, reflected_resource| {
                 let mut resource = world.resource_mut::<C>();
@@ -380,7 +380,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 } else {
                     let mut resource = C::from_world(world);
                     resource.apply(reflected_resource);
-                    world.insert_resource(resource);
+                    world.insert_resources(resource);
                 }
             },
             remove: |world| {
@@ -401,7 +401,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 let source_resource = source_world.resource::<C>();
                 let mut destination_resource = C::from_world(destination_world);
                 destination_resource.apply(source_resource);
-                destination_world.insert_resource(destination_resource);
+                destination_world.insert_resources(destination_resource);
             },
         })
     }

@@ -943,7 +943,7 @@ mod tests {
     fn set_if_neq() {
         let mut world = World::new();
 
-        world.insert_resource(R2(0));
+        world.insert_resources(R2(0));
         // Resources are Changed when first added
         world.increment_change_tick();
         // This is required to update world::last_change_tick

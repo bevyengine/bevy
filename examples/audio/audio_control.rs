@@ -18,7 +18,7 @@ fn setup(
 ) {
     let music = asset_server.load("sounds/Windless Slopes.ogg");
     let handle = audio_sinks.get_handle(audio.play(music));
-    commands.insert_resource(MusicController(handle));
+    commands.insert_resources(MusicController(handle));
 }
 
 #[derive(Resource)]

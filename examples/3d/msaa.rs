@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::default())
+        .insert_resources(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, cycle_msaa)

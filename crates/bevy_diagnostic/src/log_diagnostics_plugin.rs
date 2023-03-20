@@ -31,7 +31,7 @@ impl Default for LogDiagnosticsPlugin {
 
 impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(LogDiagnosticsState {
+        app.insert_resources(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, TimerMode::Repeating),
             filter: self.filter.clone(),
         });

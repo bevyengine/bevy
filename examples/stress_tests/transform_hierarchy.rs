@@ -182,7 +182,7 @@ fn main() {
     println!("\n{cfg:#?}");
 
     App::new()
-        .insert_resource(cfg)
+        .insert_resources(cfg)
         .add_plugins(MinimalPlugins)
         .add_plugin(TransformPlugin::default())
         .add_systems(Startup, setup)

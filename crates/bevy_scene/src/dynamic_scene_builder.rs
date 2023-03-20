@@ -24,7 +24,7 @@ use std::collections::BTreeMap;
 /// # #[reflect(Component)]
 /// # struct ComponentA;
 /// # let mut world = World::default();
-/// # world.init_resource::<AppTypeRegistry>();
+/// # world.init_resources::<AppTypeRegistry>();
 /// # let entity = world.spawn(ComponentA).id();
 /// let mut builder = DynamicSceneBuilder::from_world(&world);
 /// builder.extract_entity(entity);
@@ -101,7 +101,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// struct MyComponent;
     ///
     /// # let mut world = World::default();
-    /// # world.init_resource::<AppTypeRegistry>();
+    /// # world.init_resources::<AppTypeRegistry>();
     /// # let _entity = world.spawn(MyComponent).id();
     /// let mut query = world.query_filtered::<Entity, With<MyComponent>>();
     ///
@@ -170,7 +170,7 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        world.insert_resources(atr);
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -190,7 +190,7 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        world.insert_resources(atr);
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -215,7 +215,7 @@ mod tests {
             register.register::<ComponentA>();
             register.register::<ComponentB>();
         }
-        world.insert_resource(atr);
+        world.insert_resources(atr);
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn extract_entity_order() {
         let mut world = World::default();
-        world.init_resource::<AppTypeRegistry>();
+        world.init_resources::<AppTypeRegistry>();
 
         // Spawn entities in order
         let entity_a = world.spawn_empty().id();
@@ -267,7 +267,7 @@ mod tests {
             register.register::<ComponentA>();
             register.register::<ComponentB>();
         }
-        world.insert_resource(atr);
+        world.insert_resources(atr);
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -290,7 +290,7 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        world.insert_resources(atr);
 
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();

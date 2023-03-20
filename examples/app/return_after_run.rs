@@ -16,7 +16,7 @@ use bevy::{prelude::*, window::WindowPlugin, winit::WinitSettings};
 fn main() {
     println!("Running Bevy App");
     App::new()
-        .insert_resource(WinitSettings {
+        .insert_resources(WinitSettings {
             return_from_run: true,
             ..default()
         })

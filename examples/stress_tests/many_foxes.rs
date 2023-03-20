@@ -30,17 +30,19 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
-        .insert_resource(Foxes {
-            count: std::env::args()
-                .nth(1)
-                .map_or(1000, |s| s.parse::<usize>().unwrap()),
-            speed: 2.0,
-            moving: true,
-        })
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0,
-        })
+        .insert_resources((
+            Foxes {
+                count: std::env::args()
+                    .nth(1)
+                    .map_or(1000, |s| s.parse::<usize>().unwrap()),
+                speed: 2.0,
+                moving: true,
+            },
+            AmbientLight {
+                color: Color::WHITE,
+                brightness: 1.0,
+            },
+        ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -89,7 +91,7 @@ fn setup(
     warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information
-    commands.insert_resource(Animations(vec![
+    commands.insert_resources(Animations(vec![
         asset_server.load("models/animated/Fox.glb#Animation2"),
         asset_server.load("models/animated/Fox.glb#Animation1"),
         asset_server.load("models/animated/Fox.glb#Animation0"),

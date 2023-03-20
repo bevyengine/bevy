@@ -150,14 +150,14 @@ fn clear_children(parent: Entity, world: &mut World) {
 
 /// Command that adds a child to an entity
 #[derive(Debug)]
-pub struct AddChild {
+pub struct AddChildCommand {
     /// Parent entity to add the child to
     pub parent: Entity,
     /// Child entity to add
     pub child: Entity,
 }
 
-impl Command for AddChild {
+impl Command for AddChildCommand {
     fn write(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
@@ -165,13 +165,13 @@ impl Command for AddChild {
 
 /// Command that inserts a child at a given index of a parent's children, shifting following children back
 #[derive(Debug)]
-pub struct InsertChildren {
+pub struct InsertChildrenCommand {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
     index: usize,
 }
 
-impl Command for InsertChildren {
+impl Command for InsertChildrenCommand {
     fn write(self, world: &mut World) {
         world
             .entity_mut(self.parent)
@@ -181,47 +181,47 @@ impl Command for InsertChildren {
 
 /// Command that pushes children to the end of the entity's [`Children`].
 #[derive(Debug)]
-pub struct PushChildren {
+pub struct PushChildrenCommand {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
-impl Command for PushChildren {
+impl Command for PushChildrenCommand {
     fn write(self, world: &mut World) {
         world.entity_mut(self.parent).push_children(&self.children);
     }
 }
 
 /// Command that removes children from an entity, and removes that child's parent.
-pub struct RemoveChildren {
+pub struct RemoveChildrenCommand {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
-impl Command for RemoveChildren {
+impl Command for RemoveChildrenCommand {
     fn write(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
     }
 }
 
 /// Command that clear all children from an entity.
-pub struct ClearChildren {
+pub struct ClearChildrenCommand {
     parent: Entity,
 }
 
-impl Command for ClearChildren {
+impl Command for ClearChildrenCommand {
     fn write(self, world: &mut World) {
         clear_children(self.parent, world);
     }
 }
 
 /// Command that clear all children from an entity. And replace with the given children.
-pub struct ReplaceChildren {
+pub struct ReplaceChildrenCommand {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
-impl Command for ReplaceChildren {
+impl Command for ReplaceChildrenCommand {
     fn write(self, world: &mut World) {
         clear_children(self.parent, world);
         world.entity_mut(self.parent).push_children(&self.children);
@@ -229,12 +229,12 @@ impl Command for ReplaceChildren {
 }
 
 /// Command that removes the parent of an entity, and removes that entity from the parent's [`Children`].
-pub struct RemoveParent {
+pub struct RemoveParentCommand {
     /// `Entity` whose parent must be removed.
     pub child: Entity,
 }
 
-impl Command for RemoveParent {
+impl Command for RemoveParentCommand {
     fn write(self, world: &mut World) {
         world.entity_mut(self.child).remove_parent();
     }
@@ -243,7 +243,7 @@ impl Command for RemoveParent {
 /// Struct for building children onto an entity
 pub struct ChildBuilder<'w, 's, 'a> {
     commands: &'a mut Commands<'w, 's>,
-    push_children: PushChildren,
+    push_children: PushChildrenCommand,
 }
 
 impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
@@ -315,7 +315,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         let parent = self.id();
         let mut builder = ChildBuilder {
             commands: self.commands(),
-            push_children: PushChildren {
+            push_children: PushChildrenCommand {
                 children: SmallVec::default(),
                 parent,
             },
@@ -329,7 +329,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        self.commands().add(PushChildren {
+        self.commands().add(PushChildrenCommand {
             children: SmallVec::from(children),
             parent,
         });
@@ -338,7 +338,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        self.commands().add(InsertChildren {
+        self.commands().add(InsertChildrenCommand {
             children: SmallVec::from(children),
             index,
             parent,
@@ -348,7 +348,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        self.commands().add(RemoveChildren {
+        self.commands().add(RemoveChildrenCommand {
             children: SmallVec::from(children),
             parent,
         });
@@ -357,19 +357,19 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(AddChildCommand { child, parent });
         self
     }
 
     fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
-        self.commands().add(ClearChildren { parent });
+        self.commands().add(ClearChildrenCommand { parent });
         self
     }
 
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        self.commands().add(ReplaceChildren {
+        self.commands().add(ReplaceChildrenCommand {
             children: SmallVec::from(children),
             parent,
         });
@@ -378,13 +378,13 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(AddChildCommand { child, parent });
         self
     }
 
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParent { child });
+        self.commands().add(RemoveParentCommand { child });
         self
     }
 }
@@ -587,7 +587,7 @@ mod tests {
     #[test]
     fn add_child() {
         let world = &mut World::new();
-        world.insert_resource(Events::<HierarchyEvent>::default());
+        world.insert_resources(Events::<HierarchyEvent>::default());
 
         let [a, b, c, d] = std::array::from_fn(|_| world.spawn_empty().id());
 
@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn set_parent() {
         let world = &mut World::new();
-        world.insert_resource(Events::<HierarchyEvent>::default());
+        world.insert_resources(Events::<HierarchyEvent>::default());
 
         let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
 
@@ -656,7 +656,7 @@ mod tests {
     #[test]
     fn remove_parent() {
         let world = &mut World::new();
-        world.insert_resource(Events::<HierarchyEvent>::default());
+        world.insert_resources(Events::<HierarchyEvent>::default());
 
         let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
 

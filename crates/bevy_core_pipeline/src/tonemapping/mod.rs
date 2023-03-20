@@ -79,7 +79,7 @@ impl Plugin for TonemappingPlugin {
                 }
             };
 
-            app.insert_resource(tonemapping_luts);
+            app.insert_resources(tonemapping_luts);
         }
 
         app.add_plugin(ExtractResourcePlugin::<TonemappingLuts>::default());

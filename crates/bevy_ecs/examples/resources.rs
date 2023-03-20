@@ -9,7 +9,7 @@ fn main() {
     let mut world = World::new();
 
     // Add the counter resource
-    world.insert_resource(Counter { value: 0 });
+    world.insert_resources(Counter { value: 0 });
 
     // Create a schedule and a stage
     let mut schedule = Schedule::default();

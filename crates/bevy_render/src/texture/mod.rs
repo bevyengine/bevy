@@ -109,7 +109,7 @@ impl Plugin for ImagePlugin {
                 device.create_sampler(&self.default_sampler.clone())
             };
             render_app
-                .insert_resource(DefaultImageSampler(default_sampler))
+                .insert_resources(DefaultImageSampler(default_sampler))
                 .init_resources::<(
                     TextureCache,
                     FallbackImage,

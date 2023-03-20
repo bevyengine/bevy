@@ -117,8 +117,8 @@ impl Time {
     ///     let mut world = World::default();
     ///     let mut time = Time::default();
     ///     time.update();
-    ///     world.insert_resource(time);
-    ///     world.insert_resource(Health { health_value: 0.2 });
+    ///     world.insert_resources(time);
+    ///     world.insert_resources(Health { health_value: 0.2 });
     ///
     ///     let mut schedule = Schedule::new();
     ///     schedule.add_systems(health_system);

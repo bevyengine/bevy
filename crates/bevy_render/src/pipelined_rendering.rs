@@ -69,7 +69,7 @@ impl Plugin for PipelinedRenderingPlugin {
         if app.get_sub_app(RenderApp).is_err() {
             return;
         }
-        app.insert_resource(MainThreadExecutor::new());
+        app.insert_resources(MainThreadExecutor::new());
 
         let mut sub_app = App::empty();
         sub_app.init_schedule(Main);
@@ -92,12 +92,14 @@ impl Plugin for PipelinedRenderingPlugin {
 
         // clone main thread executor to render world
         let executor = app.world.get_resource::<MainThreadExecutor>().unwrap();
-        render_app.app.world.insert_resource(executor.clone());
+        render_app.app.world.insert_resources(executor.clone());
 
         render_to_app_sender.send_blocking(render_app).unwrap();
 
-        app.insert_resource(MainToRenderAppSender(app_to_render_sender));
-        app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
+        app.insert_resources((
+            MainToRenderAppSender(app_to_render_sender),
+            RenderToMainAppReceiver(render_to_app_receiver),
+        ));
 
         std::thread::spawn(move || {
             #[cfg(feature = "trace")]

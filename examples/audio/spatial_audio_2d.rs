@@ -32,7 +32,7 @@ fn setup(
         gap / AUDIO_SCALE,
         Vec3::ZERO,
     ));
-    commands.insert_resource(AudioController(handle));
+    commands.insert_resources(AudioController(handle));
 
     // left ear
     commands.spawn(SpriteBundle {

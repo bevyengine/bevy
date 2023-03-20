@@ -46,7 +46,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
         ron::from_str(config).expect("error deserializing CI testing configuration file")
     };
 
-    app.insert_resource(config)
+    app.insert_resources(config)
         .add_systems(Update, ci_testing_exit_after);
 
     app

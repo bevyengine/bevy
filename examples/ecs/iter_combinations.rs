@@ -8,12 +8,14 @@ const DELTA_TIME: f32 = 0.01;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 0.03,
-            ..default()
-        })
-        .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
+        .insert_resources((
+            AmbientLight {
+                brightness: 0.03,
+                ..default()
+            },
+            ClearColor(Color::BLACK),
+            FixedTime::new_from_secs(DELTA_TIME),
+        ))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
         .add_systems(Update, look_at_star)

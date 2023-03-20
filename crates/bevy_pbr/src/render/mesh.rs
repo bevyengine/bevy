@@ -890,7 +890,7 @@ pub fn queue_mesh_bind_group(
                 layout: &mesh_pipeline.skinned_mesh_layout,
             }));
         }
-        commands.insert_resource(mesh_bind_group);
+        commands.insert_resources(mesh_bind_group);
     }
 }
 

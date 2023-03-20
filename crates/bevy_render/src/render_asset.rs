@@ -159,7 +159,7 @@ fn extract_render_asset<A: RenderAsset>(
         }
     }
 
-    commands.insert_resource(ExtractedAssets {
+    commands.insert_resources(ExtractedAssets {
         extracted: extracted_assets,
         removed,
     });

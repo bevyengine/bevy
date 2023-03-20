@@ -8,7 +8,7 @@ use bevy::{pbr::AmbientLight, prelude::*, render::mesh::skinning::SkinnedMesh};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resources(AmbientLight {
             brightness: 1.0,
             ..default()
         })

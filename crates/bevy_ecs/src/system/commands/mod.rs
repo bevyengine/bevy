@@ -13,7 +13,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, InitResourcesGroup, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, InitResources, InsertResources, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -29,9 +29,9 @@ use super::{Deferred, InitResourcesGroup, Resource, SystemBuffer, SystemMeta};
 /// struct Counter(u64);
 ///
 /// // Our custom command
-/// struct AddToCounter(u64);
+/// struct AddToCounterCommand(u64);
 ///
-/// impl Command for AddToCounter {
+/// impl Command for AddToCounterCommand {
 ///     fn write(self, world: &mut World) {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
@@ -39,7 +39,7 @@ use super::{Deferred, InitResourcesGroup, Resource, SystemBuffer, SystemMeta};
 /// }
 ///
 /// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
+///     commands.add(AddToCounterCommand(42));
 /// }
 /// ```
 pub trait Command: Send + 'static {
@@ -196,7 +196,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        self.add(GetOrSpawn { entity });
+        self.add(GetOrSpawnCommand { entity });
         EntityCommands {
             entity,
             commands: self,
@@ -386,7 +386,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.queue.push(SpawnBatch { bundles_iter });
+        self.queue.push(SpawnBatchCommand { bundles_iter });
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -416,7 +416,7 @@ impl<'w, 's> Commands<'w, 's> {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.queue.push(InsertOrSpawnBatch { bundles_iter });
+        self.queue.push(InsertOrSpawnBatchCommand { bundles_iter });
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -443,9 +443,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
-    #[deprecated(since = "0.11.0", note = "Please use `init_resources::<T>()` instead.")]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `init_resources::<YourResource>()` instead."
+    )]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R> {
+        self.queue.push(InitResourceCommand::<R> {
             _phantom: PhantomData::<R>::default(),
         });
     }
@@ -480,8 +483,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboards);
     /// ```
-    pub fn init_resources<R: InitResourcesGroup>(&mut self) {
-        self.queue.push(InitResources::<R> {
+    pub fn init_resources<R: InitResources>(&mut self) {
+        self.queue.push(InitResourcesCommand::<R> {
             _phantom: PhantomData::<R>::default(),
         });
     }
@@ -511,8 +514,41 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `insert_resources(your_resource)` instead."
+    )]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.queue.push(InsertResource { resource });
+        self.queue.push(InsertResourceCommand { resource });
+    }
+
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
+    ///
+    /// This will overwrite any previous value of the same resource type.
+    ///
+    /// See [`World::insert_resources`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerScoreboard(u32);
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct EnemyScoreboard(u32);
+    /// #
+    /// # fn system(mut commands: Commands) {
+    /// commands.insert_resources((
+    ///     PlayerScoreboard(0),
+    ///     EnemyScoreboard(0),
+    /// ));
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn insert_resources<R: InsertResources>(&mut self, resources: R) {
+        self.queue.push(InsertResourcesCommand { resources });
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
@@ -536,7 +572,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R> {
+        self.queue.push(RemoveResourceCommand::<R> {
             phantom: PhantomData,
         });
     }
@@ -553,9 +589,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
-    /// struct AddToCounter(u64);
+    /// struct AddToCounterCommand(u64);
     ///
-    /// impl Command for AddToCounter {
+    /// impl Command for AddToCounterCommand {
     ///     fn write(self, world: &mut World) {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += self.0;
@@ -563,7 +599,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn add_three_to_counter_system(mut commands: Commands) {
-    ///     commands.add(AddToCounter(3));
+    ///     commands.add(AddToCounterCommand(3));
     /// }
     /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
     ///     commands.add(|world: &mut World| {
@@ -600,9 +636,9 @@ impl<'w, 's> Commands<'w, 's> {
 /// struct Counter(i64);
 ///
 /// /// A `Command` which names an entity based on a global counter.
-/// struct CountName;
+/// struct CountNameCommand;
 ///
-/// impl EntityCommand for CountName {
+/// impl EntityCommand for CountNameCommand {
 ///     fn write(self, id: Entity, world: &mut World) {
 ///         // Get the current value of the counter, and increment it for next time.
 ///         let mut counter = world.resource_mut::<Counter>();
@@ -627,8 +663,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
-///     commands.spawn_empty().add(CountName);
-///     commands.spawn_empty().add(CountName);
+///     commands.spawn_empty().add(CountNameCommand);
+///     commands.spawn_empty().add(CountNameCommand);
 /// }
 ///
 /// fn assert_names(named: Query<&Name>) {
@@ -640,21 +676,21 @@ impl<'w, 's> Commands<'w, 's> {
 pub trait EntityCommand: Send + 'static {
     fn write(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    fn with_entity(self, id: Entity) -> WithEntityCommand<Self>
     where
         Self: Sized,
     {
-        WithEntity { cmd: self, id }
+        WithEntityCommand { cmd: self, id }
     }
 }
 
 /// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<C: EntityCommand> {
+pub struct WithEntityCommand<C: EntityCommand> {
     cmd: C,
     id: Entity,
 }
 
-impl<C: EntityCommand> Command for WithEntity<C> {
+impl<C: EntityCommand> Command for WithEntityCommand<C> {
     #[inline]
     fn write(self, world: &mut World) {
         self.cmd.write(self.id, world);
@@ -736,7 +772,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(Insert {
+        self.commands.add(InsertCommand {
             entity: self.entity,
             bundle,
         });
@@ -785,7 +821,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T> {
+        self.commands.add(RemoveCommand::<T> {
             entity: self.entity,
             phantom: PhantomData,
         });
@@ -818,7 +854,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
     pub fn despawn(&mut self) {
-        self.commands.add(Despawn {
+        self.commands.add(DespawnCommand {
             entity: self.entity,
         });
     }
@@ -850,7 +886,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(&mut self) {
-        self.commands.add(LogComponents {
+        self.commands.add(LogComponentsCommand {
             entity: self.entity,
         });
     }
@@ -880,11 +916,11 @@ where
 }
 
 #[derive(Debug)]
-pub struct Spawn<T> {
+pub struct SpawnCommand<T> {
     pub bundle: T,
 }
 
-impl<T> Command for Spawn<T>
+impl<T> Command for SpawnCommand<T>
 where
     T: Bundle,
 {
@@ -893,17 +929,17 @@ where
     }
 }
 
-pub struct GetOrSpawn {
+pub struct GetOrSpawnCommand {
     entity: Entity,
 }
 
-impl Command for GetOrSpawn {
+impl Command for GetOrSpawnCommand {
     fn write(self, world: &mut World) {
         world.get_or_spawn(self.entity);
     }
 }
 
-pub struct SpawnBatch<I>
+pub struct SpawnBatchCommand<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
@@ -911,7 +947,7 @@ where
     pub bundles_iter: I,
 }
 
-impl<I> Command for SpawnBatch<I>
+impl<I> Command for SpawnBatchCommand<I>
 where
     I: IntoIterator + Send + Sync + 'static,
     I::Item: Bundle,
@@ -921,7 +957,7 @@ where
     }
 }
 
-pub struct InsertOrSpawnBatch<I, B>
+pub struct InsertOrSpawnBatchCommand<I, B>
 where
     I: IntoIterator + Send + Sync + 'static,
     B: Bundle,
@@ -930,7 +966,7 @@ where
     pub bundles_iter: I,
 }
 
-impl<I, B> Command for InsertOrSpawnBatch<I, B>
+impl<I, B> Command for InsertOrSpawnBatchCommand<I, B>
 where
     I: IntoIterator + Send + Sync + 'static,
     B: Bundle,
@@ -948,22 +984,22 @@ where
 }
 
 #[derive(Debug)]
-pub struct Despawn {
+pub struct DespawnCommand {
     pub entity: Entity,
 }
 
-impl Command for Despawn {
+impl Command for DespawnCommand {
     fn write(self, world: &mut World) {
         world.despawn(self.entity);
     }
 }
 
-pub struct Insert<T> {
+pub struct InsertCommand<T> {
     pub entity: Entity,
     pub bundle: T,
 }
 
-impl<T> Command for Insert<T>
+impl<T> Command for InsertCommand<T>
 where
     T: Bundle + 'static,
 {
@@ -977,12 +1013,12 @@ where
 }
 
 #[derive(Debug)]
-pub struct Remove<T> {
+pub struct RemoveCommand<T> {
     pub entity: Entity,
     pub phantom: PhantomData<T>,
 }
 
-impl<T> Command for Remove<T>
+impl<T> Command for RemoveCommand<T>
 where
     T: Bundle,
 {
@@ -993,52 +1029,62 @@ where
     }
 }
 
-pub struct InitResource<R: Resource + FromWorld> {
+pub struct InitResourceCommand<R: Resource + FromWorld> {
     _phantom: PhantomData<R>,
 }
 
-impl<R: Resource + FromWorld> Command for InitResource<R> {
-    fn write(self, world: &mut World) {
-        world.init_resource::<R>();
-    }
-}
-
-pub struct InitResources<R: InitResourcesGroup> {
-    _phantom: PhantomData<R>,
-}
-
-impl<R: InitResourcesGroup> Command for InitResources<R> {
+impl<R: Resource + FromWorld> Command for InitResourceCommand<R> {
     fn write(self, world: &mut World) {
         world.init_resources::<R>();
     }
 }
 
-pub struct InsertResource<R: Resource> {
-    pub resource: R,
+pub struct InitResourcesCommand<R: InitResources> {
+    _phantom: PhantomData<R>,
 }
 
-impl<R: Resource> Command for InsertResource<R> {
+impl<R: InitResources> Command for InitResourcesCommand<R> {
     fn write(self, world: &mut World) {
-        world.insert_resource(self.resource);
+        world.init_resources::<R>();
     }
 }
 
-pub struct RemoveResource<R: Resource> {
+pub struct InsertResourceCommand<R: Resource> {
+    pub resource: R,
+}
+
+impl<R: Resource> Command for InsertResourceCommand<R> {
+    fn write(self, world: &mut World) {
+        world.insert_resources(self.resource);
+    }
+}
+
+pub struct InsertResourcesCommand<R: InsertResources> {
+    pub resources: R,
+}
+
+impl<R: InsertResources> Command for InsertResourcesCommand<R> {
+    fn write(self, world: &mut World) {
+        world.insert_resources(self.resources);
+    }
+}
+
+pub struct RemoveResourceCommand<R: Resource> {
     pub phantom: PhantomData<R>,
 }
 
-impl<R: Resource> Command for RemoveResource<R> {
+impl<R: Resource> Command for RemoveResourceCommand<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
     }
 }
 
 /// [`Command`] to log the components of a given entity. See [`EntityCommands::log_components`].
-pub struct LogComponents {
+pub struct LogComponentsCommand {
     entity: Entity,
 }
 
-impl Command for LogComponents {
+impl Command for LogComponentsCommand {
     fn write(self, world: &mut World) {
         let debug_infos: Vec<_> = world
             .inspect_entity(self.entity)
@@ -1192,8 +1238,7 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.insert_resource(W(123i32));
-            commands.insert_resource(W(456.0f64));
+            commands.insert_resources((W(123i32), W(456.0f64)));
         }
 
         queue.apply(&mut world);

@@ -8,14 +8,14 @@ use bevy_utils::tracing::debug;
 
 /// Despawns the given entity and all its children recursively
 #[derive(Debug)]
-pub struct DespawnRecursive {
+pub struct DespawnRecursiveCommand {
     /// Target entity
     pub entity: Entity,
 }
 
 /// Despawns the given entity's children recursively
 #[derive(Debug)]
-pub struct DespawnChildrenRecursive {
+pub struct DespawnChildrenRecursiveCommand {
     /// Target entity
     pub entity: Entity,
 }
@@ -54,7 +54,7 @@ fn despawn_children(world: &mut World, entity: Entity) {
     }
 }
 
-impl Command for DespawnRecursive {
+impl Command for DespawnRecursiveCommand {
     fn write(self, world: &mut World) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!(
@@ -67,7 +67,7 @@ impl Command for DespawnRecursive {
     }
 }
 
-impl Command for DespawnChildrenRecursive {
+impl Command for DespawnChildrenRecursiveCommand {
     fn write(self, world: &mut World) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!(
@@ -93,12 +93,13 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(mut self) {
         let entity = self.id();
-        self.commands().add(DespawnRecursive { entity });
+        self.commands().add(DespawnRecursiveCommand { entity });
     }
 
     fn despawn_descendants(&mut self) {
         let entity = self.id();
-        self.commands().add(DespawnChildrenRecursive { entity });
+        self.commands()
+            .add(DespawnChildrenRecursiveCommand { entity });
     }
 }
 

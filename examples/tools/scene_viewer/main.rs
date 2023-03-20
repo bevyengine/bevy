@@ -20,7 +20,7 @@ use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(AmbientLight {
+    app.insert_resources(AmbientLight {
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene(scene_path);
 
-    commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
+    commands.insert_resources(SceneHandle::new(asset_server.load(file_path), scene_index));
 }
 
 fn setup_scene_after_load(

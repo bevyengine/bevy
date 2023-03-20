@@ -27,7 +27,7 @@ struct ColorTint(bool);
 
 fn main() {
     App::new()
-        .insert_resource(ColorTint(
+        .insert_resources(ColorTint(
             std::env::args().nth(1).unwrap_or_default() == "--colored",
         ))
         // Since this is also used as a benchmark, we want it to display performance data.

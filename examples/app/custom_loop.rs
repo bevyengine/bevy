@@ -24,7 +24,7 @@ fn print_system(input: Res<Input>) {
 
 fn main() {
     App::new()
-        .insert_resource(Input(String::new()))
+        .insert_resources(Input(String::new()))
         .set_runner(my_runner)
         .add_systems(Update, print_system)
         .run();

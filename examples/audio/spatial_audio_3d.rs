@@ -28,7 +28,7 @@ fn setup(
         gap,
         Vec3::ZERO,
     ));
-    commands.insert_resource(AudioController(handle));
+    commands.insert_resources(AudioController(handle));
 
     // left ear
     commands.spawn(PbrBundle {

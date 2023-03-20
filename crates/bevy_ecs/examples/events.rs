@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 fn main() {
     // Create a new empty world and add the event as a resource
     let mut world = World::new();
-    world.insert_resource(Events::<MyEvent>::default());
+    world.insert_resources(Events::<MyEvent>::default());
 
     // Create a schedule to store our systems
     let mut schedule = Schedule::default();

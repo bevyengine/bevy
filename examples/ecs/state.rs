@@ -86,7 +86,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
         })
         .id();
-    commands.insert_resource(MenuData { button_entity });
+    commands.insert_resources(MenuData { button_entity });
 }
 
 fn menu(

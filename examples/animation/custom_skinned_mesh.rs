@@ -16,7 +16,7 @@ use rand::Rng;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resources(AmbientLight {
             brightness: 1.0,
             ..default()
         })

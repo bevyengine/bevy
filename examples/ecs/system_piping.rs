@@ -9,8 +9,10 @@ use bevy::utils::tracing::Level;
 
 fn main() {
     App::new()
-        .insert_resource(Message("42".to_string()))
-        .insert_resource(OptionalWarning(Err("Got to rusty?".to_string())))
+        .insert_resources((
+            Message("42".to_string()),
+            OptionalWarning(Err("Got to rusty?".to_string())),
+        ))
         .add_plugin(LogPlugin {
             level: Level::TRACE,
             filter: "".to_string(),

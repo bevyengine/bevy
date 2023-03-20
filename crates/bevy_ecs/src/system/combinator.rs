@@ -47,7 +47,7 @@ use super::{ReadOnlySystem, System};
 /// # #[derive(Resource, PartialEq, Eq)] struct B(u32);
 /// # #[derive(Resource, Default)] struct RanFlag(bool);
 /// # let mut world = World::new();
-/// # world.init_resource::<RanFlag>();
+/// # world.init_resources::<RanFlag>();
 /// #
 /// # let mut app = Schedule::new();
 /// app.add_systems(my_system.run_if(Xor::new(
@@ -58,24 +58,23 @@ use super::{ReadOnlySystem, System};
 /// )));
 /// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
 /// #
-/// # world.insert_resource(A(0));
-/// # world.insert_resource(B(0));
+/// # world.insert_resources((A(0), B(0)));
 /// # app.run(&mut world);
 /// # // Neither condition passes, so the system does not run.
 /// # assert!(!world.resource::<RanFlag>().0);
 /// #
-/// # world.insert_resource(A(1));
+/// # world.insert_resources(A(1));
 /// # app.run(&mut world);
 /// # // Only the first condition passes, so the system runs.
 /// # assert!(world.resource::<RanFlag>().0);
 /// # world.resource_mut::<RanFlag>().0 = false;
 /// #
-/// # world.insert_resource(B(1));
+/// # world.insert_resources(B(1));
 /// # app.run(&mut world);
 /// # // Both conditions pass, so the system does not run.
 /// # assert!(!world.resource::<RanFlag>().0);
 /// #
-/// # world.insert_resource(A(0));
+/// # world.insert_resources(A(0));
 /// # app.run(&mut world);
 /// # // Only the second condition passes, so the system runs.
 /// # assert!(world.resource::<RanFlag>().0);

@@ -51,7 +51,7 @@ fn did_hurt_enemy() {
     let mut app = App::new();
 
     // Add Score resource
-    app.insert_resource(Score(0));
+    app.insert_resources(Score(0));
 
     // Add `EnemyDied` event
     app.add_event::<EnemyDied>();
@@ -82,7 +82,7 @@ fn did_despawn_enemy() {
     let mut app = App::new();
 
     // Add Score resource
-    app.insert_resource(Score(0));
+    app.insert_resources(Score(0));
 
     // Add `EnemyDied` event
     app.add_event::<EnemyDied>();
@@ -125,7 +125,7 @@ fn spawn_enemy_using_input_resource() {
     // Setup test resource
     let mut input = Input::<KeyCode>::default();
     input.press(KeyCode::Space);
-    app.insert_resource(input);
+    app.insert_resources(input);
 
     // Run systems
     app.update();
@@ -149,7 +149,7 @@ fn update_score_on_event() {
     let mut app = App::new();
 
     // Add Score resource
-    app.insert_resource(Score(0));
+    app.insert_resources(Score(0));
 
     // Add `EnemyDied` event
     app.add_event::<EnemyDied>();

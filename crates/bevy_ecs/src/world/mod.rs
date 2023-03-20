@@ -20,7 +20,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{InitResourcesGroup, Resource},
+    system::{InitResources, InsertResources, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -800,6 +800,10 @@ impl World {
     /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
     /// and those default values will be here instead.
     #[inline]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `init_resources::<YourResource>()` instead."
+    )]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
         if self
@@ -827,7 +831,7 @@ impl World {
     /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
     /// and those default values will be here instead.
     #[inline]
-    pub fn init_resources<R: InitResourcesGroup>(&mut self) -> Vec<ComponentId> {
+    pub fn init_resources<R: InitResources>(&mut self) -> R::IDS {
         R::init_resources(self)
     }
 
@@ -837,6 +841,10 @@ impl World {
     /// If you insert a resource of a type that already exists,
     /// you will overwrite any existing data.
     #[inline]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `insert_resources(your_resource)` instead."
+    )]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
@@ -845,6 +853,10 @@ impl World {
                 self.insert_resource_by_id(component_id, ptr);
             }
         });
+    }
+
+    pub fn insert_resources<R: InsertResources>(&mut self, value: R) {
+        value.insert_resources(self);
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
@@ -1288,7 +1300,7 @@ impl World {
     /// #[derive(Component)]
     /// struct B(u32);
     /// let mut world = World::new();
-    /// world.insert_resource(A(1));
+    /// world.insert_resources(A(1));
     /// let entity = world.spawn(B(1)).id();
     ///
     /// world.resource_scope(|world, mut a: Mut<A>| {
@@ -1976,7 +1988,7 @@ mod tests {
     #[test]
     fn get_resource_by_id() {
         let mut world = World::new();
-        world.insert_resource(TestResource(42));
+        world.insert_resources(TestResource(42));
         let component_id = world
             .components()
             .get_resource_id(std::any::TypeId::of::<TestResource>())
@@ -1992,7 +2004,7 @@ mod tests {
     #[test]
     fn get_resource_mut_by_id() {
         let mut world = World::new();
-        world.insert_resource(TestResource(42));
+        world.insert_resources(TestResource(42));
         let component_id = world
             .components()
             .get_resource_id(std::any::TypeId::of::<TestResource>())
@@ -2069,10 +2081,10 @@ mod tests {
     #[test]
     fn init_resource_does_not_overwrite() {
         let mut world = World::new();
-        world.insert_resource(TestResource(0));
-        world.init_resource::<TestFromWorld>();
-        world.insert_resource(TestResource(1));
-        world.init_resource::<TestFromWorld>();
+        world.insert_resources(TestResource(0));
+        world.init_resources::<TestFromWorld>();
+        world.insert_resources(TestResource(1));
+        world.init_resources::<TestFromWorld>();
 
         let resource = world.resource::<TestFromWorld>();
 
@@ -2082,9 +2094,9 @@ mod tests {
     #[test]
     fn init_non_send_resource_does_not_overwrite() {
         let mut world = World::new();
-        world.insert_resource(TestResource(0));
+        world.insert_resources(TestResource(0));
         world.init_non_send_resource::<TestFromWorld>();
-        world.insert_resource(TestResource(1));
+        world.insert_resources(TestResource(1));
         world.init_non_send_resource::<TestFromWorld>();
 
         let resource = world.non_send_resource::<TestFromWorld>();

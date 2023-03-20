@@ -149,22 +149,22 @@ mod test {
         },
     };
 
-    struct DropCheck(Arc<AtomicU32>);
+    struct DropCheckCommand(Arc<AtomicU32>);
 
-    impl DropCheck {
+    impl DropCheckCommand {
         fn new() -> (Self, Arc<AtomicU32>) {
             let drops = Arc::new(AtomicU32::new(0));
             (Self(drops.clone()), drops)
         }
     }
 
-    impl Drop for DropCheck {
+    impl Drop for DropCheckCommand {
         fn drop(&mut self) {
             self.0.fetch_add(1, Ordering::Relaxed);
         }
     }
 
-    impl Command for DropCheck {
+    impl Command for DropCheckCommand {
         fn write(self, _: &mut World) {}
     }
 
@@ -172,8 +172,8 @@ mod test {
     fn test_command_queue_inner_drop() {
         let mut queue = CommandQueue::default();
 
-        let (dropcheck_a, drops_a) = DropCheck::new();
-        let (dropcheck_b, drops_b) = DropCheck::new();
+        let (dropcheck_a, drops_a) = DropCheckCommand::new();
+        let (dropcheck_b, drops_b) = DropCheckCommand::new();
 
         queue.push(dropcheck_a);
         queue.push(dropcheck_b);

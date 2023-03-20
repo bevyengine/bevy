@@ -114,12 +114,12 @@ impl Debug for App {
 /// let mut app = App::new();
 ///
 /// // initialize the main app with a value of 0;
-/// app.insert_resource(Val(10));
+/// app.insert_resources(Val(10));
 ///
 /// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
 /// // add an outer schedule that runs the main schedule
-/// sub_app.insert_resource(Val(100));
+/// sub_app.insert_resources(Val(100));
 ///
 /// // initialize main schedule
 /// sub_app.add_systems(Main, |counter: Res<Val>| {
@@ -214,7 +214,7 @@ impl App {
     /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
         let mut world = World::new();
-        world.init_resource::<Schedules>();
+        world.init_resources::<Schedules>();
         Self {
             world,
             runner: Box::new(run_once),
@@ -537,14 +537,49 @@ impl App {
     /// App::new()
     ///    .insert_resource(MyCounter { counter: 0 });
     /// ```
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `insert_resources(your_resource)` instead."
+    )]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
-        self.world.insert_resource(resource);
+        self.world.insert_resources(resource);
+        self
+    }
+
+    /// Inserts a [`Resource`] to the current [`App`] and overwrites any [`Resource`] previously added of the same type.
+    ///
+    /// A [`Resource`] in Bevy represents globally unique data. [`Resource`]s must be added to Bevy apps
+    /// before using them. This happens with [`insert_resources`](Self::insert_resources).
+    ///
+    /// See [`init_resources`](Self::init_resources) for [`Resource`]s that implement [`Default`] or [`FromWorld`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// #[derive(Resource)]
+    /// struct MyValue {
+    ///     value: f32,
+    /// }
+    ///
+    /// App::new()
+    ///    .insert_resources((MyCounter { counter: 0 }, MyValue { value: 1.0 }));
+    /// ```
+    pub fn insert_resources<R: InsertResources>(&mut self, resources: R) -> &mut Self {
+        self.world.insert_resources(resources);
         self
     }
 
     /// Inserts a non-send resource to the app.
     ///
-    /// You usually want to use [`insert_resource`](Self::insert_resource),
+    /// You usually want to use [`insert_resources`](Self::insert_resources),
     /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// # Examples
@@ -595,9 +630,12 @@ impl App {
     /// App::new()
     ///     .init_resource::<MyCounter>();
     /// ```
-    #[deprecated(since = "0.11.0", note = "Please use `init_resources::<T>()` instead.")]
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `init_resources::<YourResource>()` instead."
+    )]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
-        self.world.init_resource::<R>();
+        self.world.init_resources::<R>();
         self
     }
 
@@ -644,7 +682,7 @@ impl App {
     /// App::new()
     ///     .init_resources::<(MyCounter, MyValue)>();
     /// ```
-    pub fn init_resources<R: InitResourcesGroup>(&mut self) -> &mut Self {
+    pub fn init_resources<R: InitResources>(&mut self) -> &mut Self {
         self.world.init_resources::<R>();
         self
     }

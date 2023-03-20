@@ -31,8 +31,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Insert as resource the initial value for the settings resources
-        .insert_resource(DisplayQuality::Medium)
-        .insert_resource(Volume(7))
+        .insert_resources((DisplayQuality::Medium, Volume(7)))
         // Declare the game state, whose starting value is determined by the `Default` trait
         .add_state::<GameState>()
         .add_systems(Startup, setup)
@@ -104,7 +103,7 @@ mod splash {
                 });
             });
         // Insert the timer as a resource
-        commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+        commands.insert_resources(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
     }
 
     // Tick the timer, and change state when finished
@@ -232,7 +231,7 @@ mod game {
                     });
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
-        commands.insert_resource(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
+        commands.insert_resources(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
     }
 
     // Tick the timer, and change state when finished

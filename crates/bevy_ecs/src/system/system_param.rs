@@ -11,10 +11,10 @@ use crate::{
     system::{Query, SystemMeta},
     world::{FromWorld, World},
 };
-use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ecs_macros::{impl_param_set, impl_resource_apis};
+use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     borrow::Cow,
@@ -353,7 +353,7 @@ impl_param_set!();
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
 ///
-/// world.insert_resource(MyResource { value: 42 });
+/// world.insert_resources(MyResource { value: 42 });
 ///
 /// fn read_resource_system(resource: Res<MyResource>) {
 ///     assert_eq!(resource.value, 42);
@@ -401,27 +401,54 @@ impl_param_set!();
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
-pub trait InitResourcesGroup: Send + Sync + 'static {
-    fn init_resources(world: &mut World) -> Vec<ComponentId>;
+pub trait InitResources: Send + Sync + 'static {
+    type IDS;
+
+    fn init_resources(world: &mut World) -> Self::IDS;
 }
 
-impl<P0: Resource + FromWorld> InitResourcesGroup for P0 {
-    fn init_resources(world: &mut World) -> Vec<ComponentId> {
-        [world.init_resource::<P0>()].into()
-    }
-}
+// Base case for init_resources
+impl<P0: Resource + FromWorld> InitResources for P0 {
+    type IDS = ComponentId;
 
-macro_rules! impl_init_resources {
-    ($($param: ident),*) => {
-        impl <$($param: Resource + FromWorld,)*> InitResourcesGroup for ($($param,)*) {
-            fn init_resources(_world: &mut World) -> Vec<ComponentId> {
-                [$(_world.init_resource::<$param>(),)*].into()
-            }
+    fn init_resources(world: &mut World) -> Self::IDS {
+        let component_id = world.components.init_resource::<P0>();
+        if world
+            .storages
+            .resources
+            .get(component_id)
+            .map_or(true, |data| !data.is_present())
+        {
+            let value = P0::from_world(world);
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr);
+                }
+            });
         }
+        component_id
     }
 }
 
-all_tuples!(impl_init_resources, 1, 16, P);
+pub trait InsertResources: Send + Sync + 'static {
+    fn insert_resources(self, world: &mut World);
+}
+
+// Base case for insert_resources
+impl<P0: Resource> InsertResources for P0 {
+    fn insert_resources(self, world: &mut World) {
+        let component_id = world.components.init_resource::<P0>();
+        OwningPtr::make(self, |ptr| {
+            // SAFETY: component_id was just initialized and corresponds to resource of type R.
+            unsafe {
+                world.insert_resource_by_id(component_id, ptr);
+            }
+        });
+    }
+}
+
+impl_resource_apis!();
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}

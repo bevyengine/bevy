@@ -61,7 +61,7 @@ impl Plugin for CustomAssetIoPlugin {
         let asset_io = CustomAssetIo(default_io);
 
         // the asset server is constructed and added the resource manager
-        app.insert_resource(AssetServer::new(asset_io));
+        app.insert_resources(AssetServer::new(asset_io));
     }
 }
 

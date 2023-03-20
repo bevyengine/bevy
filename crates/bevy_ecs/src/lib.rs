@@ -45,9 +45,9 @@ pub mod prelude {
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, Deferred, In, InitResourcesGroup, IntoPipeSystem, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System,
-            SystemParamFunction,
+            Commands, Deferred, In, InitResources, InsertResources, IntoPipeSystem, IntoSystem,
+            Local, NonSend, NonSendMut, ParallelCommands, ParamSet, Query, Res, ResMut, Resource,
+            System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };
@@ -1106,7 +1106,7 @@ mod tests {
         assert!(!world.is_resource_added::<Num>());
         assert!(!world.is_resource_changed::<Num>());
 
-        world.insert_resource(Num(123));
+        world.insert_resources(Num(123));
         let resource_id = world
             .components()
             .get_resource_id(TypeId::of::<Num>())
@@ -1118,10 +1118,10 @@ mod tests {
         assert!(world.is_resource_added::<Num>());
         assert!(world.is_resource_changed::<Num>());
 
-        world.insert_resource(BigNum(456));
+        world.insert_resources(BigNum(456));
         assert_eq!(world.resource::<BigNum>().0, 456u64);
 
-        world.insert_resource(BigNum(789));
+        world.insert_resources(BigNum(789));
         assert_eq!(world.resource::<BigNum>().0, 789);
 
         {
@@ -1152,7 +1152,7 @@ mod tests {
             "double remove returns nothing"
         );
 
-        world.insert_resource(BigNum(1));
+        world.insert_resources(BigNum(1));
         assert_eq!(
             world.get_resource::<BigNum>(),
             Some(&BigNum(1)),
@@ -1278,7 +1278,7 @@ mod tests {
     #[test]
     fn non_send_resource_points_to_distinct_data() {
         let mut world = World::default();
-        world.insert_resource(A(123));
+        world.insert_resources(A(123));
         world.insert_non_send_resource(A(456));
         assert_eq!(*world.resource::<A>(), A(123));
         assert_eq!(*world.non_send_resource::<A>(), A(456));
@@ -1391,7 +1391,7 @@ mod tests {
     #[test]
     fn resource_scope() {
         let mut world = World::default();
-        world.insert_resource(A(0));
+        world.insert_resources(A(0));
         world.resource_scope(|world: &mut World, mut value: Mut<A>| {
             value.0 += 1;
             assert!(!world.contains_resource::<A>());
@@ -1458,7 +1458,7 @@ mod tests {
     fn clear_entities() {
         let mut world = World::default();
 
-        world.insert_resource(A(0));
+        world.insert_resources(A(0));
         world.spawn(A(1));
         world.spawn(SparseStored(1));
 

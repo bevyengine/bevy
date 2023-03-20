@@ -185,7 +185,7 @@ impl Default for SpotLight {
 /// # use bevy_app::prelude::*;
 /// # use bevy_pbr::DirectionalLightShadowMap;
 /// App::new()
-///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
+///     .insert_resources(DirectionalLightShadowMap { size: 2048 });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]

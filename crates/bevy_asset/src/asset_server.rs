@@ -850,8 +850,7 @@ mod test {
         #[derive(SystemSet, Clone, Hash, Debug, PartialEq, Eq)]
         struct FreeUnusedAssets;
         let mut app = App::new();
-        app.insert_resource(assets);
-        app.insert_resource(asset_server);
+        app.insert_resources((assets, asset_server));
         app.add_systems(
             Update,
             (

@@ -336,10 +336,10 @@ pub fn extract_lights(
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
     if point_light_shadow_map.is_changed() {
-        commands.insert_resource(point_light_shadow_map.clone());
+        commands.insert_resources(point_light_shadow_map.clone());
     }
     if directional_light_shadow_map.is_changed() {
-        commands.insert_resource(directional_light_shadow_map.clone());
+        commands.insert_resources(directional_light_shadow_map.clone());
     }
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.

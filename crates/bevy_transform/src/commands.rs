@@ -2,7 +2,7 @@
 //! while preserving [`GlobalTransform`].
 
 use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
-use bevy_hierarchy::{AddChild, RemoveParent};
+use bevy_hierarchy::{AddChildCommand, RemoveParentCommand};
 
 #[cfg(doc)]
 use bevy_hierarchy::BuildChildren;
@@ -14,15 +14,15 @@ use crate::{GlobalTransform, Transform};
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-pub struct AddChildInPlace {
+pub struct AddChildInPlaceCommand {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
-impl Command for AddChildInPlace {
+impl Command for AddChildInPlaceCommand {
     fn write(self, world: &mut World) {
-        let hierarchy_command = AddChild {
+        let hierarchy_command = AddChildCommand {
             child: self.child,
             parent: self.parent,
         };
@@ -44,13 +44,13 @@ impl Command for AddChildInPlace {
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::remove_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-pub struct RemoveParentInPlace {
+pub struct RemoveParentInPlaceCommand {
     /// `Entity` whose parent must be removed.
     pub child: Entity,
 }
-impl Command for RemoveParentInPlace {
+impl Command for RemoveParentInPlaceCommand {
     fn write(self, world: &mut World) {
-        let hierarchy_command = RemoveParent { child: self.child };
+        let hierarchy_command = RemoveParentCommand { child: self.child };
         hierarchy_command.write(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
@@ -89,13 +89,14 @@ pub trait BuildChildrenTransformExt {
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParentInPlace { child });
+        self.commands().add(RemoveParentInPlaceCommand { child });
         self
     }
 
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChildInPlace { child, parent });
+        self.commands()
+            .add(AddChildInPlaceCommand { child, parent });
         self
     }
 }

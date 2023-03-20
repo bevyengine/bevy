@@ -39,10 +39,13 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .insert_resource(BevyCounter {
-            count: 0,
-            color: Color::WHITE,
-        })
+        .insert_resources((
+            BevyCounter {
+                count: 0,
+                color: Color::WHITE,
+            },
+            FixedTime::new_from_secs(0.2),
+        ))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, scheduled_spawner)
         .add_systems(
@@ -54,7 +57,6 @@ fn main() {
                 counter_system,
             ),
         )
-        .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }
 
@@ -131,17 +133,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         StatsText,
     ));
 
-    commands.insert_resource(BirdTexture(texture));
-    commands.insert_resource(BirdScheduled {
-        per_wave: std::env::args()
-            .nth(1)
-            .and_then(|arg| arg.parse::<usize>().ok())
-            .unwrap_or_default(),
-        wave: std::env::args()
-            .nth(2)
-            .and_then(|arg| arg.parse::<usize>().ok())
-            .unwrap_or(1),
-    });
+    commands.insert_resources((
+        BirdTexture(texture),
+        BirdScheduled {
+            per_wave: std::env::args()
+                .nth(1)
+                .and_then(|arg| arg.parse::<usize>().ok())
+                .unwrap_or_default(),
+            wave: std::env::args()
+                .nth(2)
+                .and_then(|arg| arg.parse::<usize>().ok())
+                .unwrap_or(1),
+        },
+    ));
 }
 
 fn mouse_handler(

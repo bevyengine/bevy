@@ -22,7 +22,7 @@ const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resources(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // uncomment for unthrottled FPS
@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     });
     commands.spawn(Camera2dBundle::default());
 
-    commands.insert_resource(GameOfLifeImage(image));
+    commands.insert_resources(GameOfLifeImage(image));
 }
 
 pub struct GameOfLifeComputePlugin;
@@ -107,7 +107,7 @@ fn queue_bind_group(
             resource: BindingResource::TextureView(&view.texture_view),
         }],
     });
-    commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
+    commands.insert_resources(GameOfLifeImageBindGroup(bind_group));
 }
 
 #[derive(Resource)]

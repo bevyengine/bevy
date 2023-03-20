@@ -444,7 +444,7 @@ mod tests {
             registry.register::<[usize; 3]>();
             registry.register::<(f32, f32)>();
         }
-        world.insert_resource(registry);
+        world.insert_resources(registry);
         world
     }
 

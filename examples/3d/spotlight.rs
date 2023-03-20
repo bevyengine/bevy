@@ -58,7 +58,7 @@ fn setup(
     }
 
     // ambient light
-    commands.insert_resource(AmbientLight {
+    commands.insert_resources(AmbientLight {
         color: Color::rgb(0.0, 1.0, 1.0),
         brightness: 0.14,
     });

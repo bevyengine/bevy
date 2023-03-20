@@ -30,11 +30,13 @@ fn main() {
                 ..default()
             }),
         )
-        .insert_resource(Dimensions {
-            width: MAX_WIDTH,
-            height: MAX_HEIGHT,
-        })
-        .insert_resource(Phase::ContractingY)
+        .insert_resources((
+            Dimensions {
+                width: MAX_WIDTH,
+                height: MAX_HEIGHT,
+            },
+            Phase::ContractingY,
+        ))
         .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(
             Update,

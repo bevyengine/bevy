@@ -91,17 +91,16 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
     /// );
     /// #
-    /// # world.insert_resource(C(false));
+    /// # world.insert_resources(C(false));
     /// # app.run(&mut world);
     /// # assert!(!world.resource::<C>().0);
     /// #
-    /// # world.insert_resource(A(0));
+    /// # world.insert_resources(A(0));
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// #
     /// # world.remove_resource::<A>();
-    /// # world.insert_resource(B(0));
-    /// # world.insert_resource(C(false));
+    /// # world.insert_resources((B(0), C(false)));
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
@@ -158,7 +157,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     // `run_once` will only return true the first time it's evaluated
     ///     my_system.run_if(run_once()),
@@ -210,7 +209,7 @@ pub mod common_conditions {
     ///
     /// // `Counter` hasn't been added so `my_system` won't run
     /// app.run(&mut world);
-    /// world.init_resource::<Counter>();
+    /// world.init_resources::<Counter>();
     ///
     /// // `Counter` has now been added so `my_system` can run
     /// app.run(&mut world);
@@ -238,7 +237,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     // `resource_equals` will only return true if the given resource equals the given value
     ///     my_system.run_if(resource_equals(Counter(0))),
@@ -288,7 +287,7 @@ pub mod common_conditions {
     ///
     /// // `Counter` hasn't been added so `my_system` can't run
     /// app.run(&mut world);
-    /// world.init_resource::<Counter>();
+    /// world.init_resources::<Counter>();
     ///
     /// // `Counter` is `0` so `my_system` can run
     /// app.run(&mut world);
@@ -329,7 +328,7 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// world.init_resource::<Counter>();
+    /// world.init_resources::<Counter>();
     ///
     /// // `Counter` was just added so `my_system` will run
     /// app.run(&mut world);
@@ -369,7 +368,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     // `resource_changed` will only return true if the
     ///     // given resource was just changed (or added)
@@ -441,7 +440,7 @@ pub mod common_conditions {
     ///
     /// // `Counter` doesn't exist so `my_system` won't run
     /// app.run(&mut world);
-    /// world.init_resource::<Counter>();
+    /// world.init_resources::<Counter>();
     ///
     /// // `Counter` hasn't been changed so `my_system` won't run
     /// app.run(&mut world);
@@ -484,7 +483,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
@@ -554,7 +553,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     // `resource_removed` will only return true if the
     ///     // given resource was just removed
@@ -568,7 +567,7 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// world.init_resource::<MyResource>();
+    /// world.init_resources::<MyResource>();
     ///
     /// // `MyResource` hasn't just been removed so `my_system` won't run
     /// app.run(&mut world);
@@ -609,7 +608,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// enum GameState {
     ///     #[default]
@@ -631,7 +630,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
-    /// world.init_resource::<State<GameState>>();
+    /// world.init_resources::<State<GameState>>();
     ///
     /// // `GameState` now exists so `my_system` will run
     /// app.run(&mut world);
@@ -656,7 +655,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// enum GameState {
     ///     #[default]
@@ -664,7 +663,7 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// world.init_resource::<State<GameState>>();
+    /// world.init_resources::<State<GameState>>();
     ///
     /// app.add_systems((
     ///     // `in_state` will only return true if the
@@ -708,7 +707,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// enum GameState {
     ///     #[default]
@@ -735,7 +734,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
-    /// world.init_resource::<State<GameState>>();
+    /// world.init_resources::<State<GameState>>();
     ///
     /// // We default to `GameState::Playing` so `play_system` runs
     /// app.run(&mut world);
@@ -774,7 +773,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// enum GameState {
     ///     #[default]
@@ -782,7 +781,7 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// world.init_resource::<State<GameState>>();
+    /// world.init_resources::<State<GameState>>();
     ///
     /// app.add_systems(
     ///     // `state_changed` will only return true if the
@@ -866,7 +865,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     my_system.run_if(any_with_component::<MyComponent>()),
     /// );
@@ -902,7 +901,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
+    /// # world.init_resources::<Counter>();
     /// app.add_systems(
     ///     // `not` will inverse any condition you pass in.
     ///     // Since the condition we choose always returns true
@@ -1094,7 +1093,7 @@ mod tests {
     #[test]
     fn run_condition() {
         let mut world = World::new();
-        world.init_resource::<Counter>();
+        world.init_resources::<Counter>();
         let mut schedule = Schedule::new();
 
         // Run every other cycle
@@ -1121,7 +1120,7 @@ mod tests {
     #[test]
     fn run_condition_combinators() {
         let mut world = World::new();
-        world.init_resource::<Counter>();
+        world.init_resources::<Counter>();
         let mut schedule = Schedule::new();
 
         // Always run
@@ -1138,7 +1137,7 @@ mod tests {
     #[test]
     fn multiple_run_conditions() {
         let mut world = World::new();
-        world.init_resource::<Counter>();
+        world.init_resources::<Counter>();
         let mut schedule = Schedule::new();
 
         // Run every other cycle
@@ -1155,7 +1154,7 @@ mod tests {
     #[test]
     fn multiple_run_conditions_is_and_operation() {
         let mut world = World::new();
-        world.init_resource::<Counter>();
+        world.init_resources::<Counter>();
 
         let mut schedule = Schedule::new();
 

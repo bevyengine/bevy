@@ -11,7 +11,7 @@ fn main() {
         // add our system to the fixed timestep schedule
         .add_systems(FixedUpdate, fixed_update)
         // configure our fixed timestep schedule to run twice a second
-        .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP))
+        .insert_resources(FixedTime::new_from_secs(FIXED_TIMESTEP))
         .run();
 }
 

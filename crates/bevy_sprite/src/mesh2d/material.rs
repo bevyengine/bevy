@@ -481,7 +481,7 @@ fn extract_materials_2d<M: Material2d>(
         }
     }
 
-    commands.insert_resource(ExtractedMaterials2d {
+    commands.insert_resources(ExtractedMaterials2d {
         extracted: extracted_assets,
         removed,
     });

@@ -477,7 +477,7 @@ pub fn queue_mesh2d_bind_group(
     mesh2d_uniforms: Res<ComponentUniforms<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.uniforms().binding() {
-        commands.insert_resource(Mesh2dBindGroup {
+        commands.insert_resources(Mesh2dBindGroup {
             value: render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,

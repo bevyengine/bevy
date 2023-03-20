@@ -133,7 +133,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 
     contributor_selection.order.shuffle(&mut rng);
 
-    commands.insert_resource(contributor_selection);
+    commands.insert_resources(contributor_selection);
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

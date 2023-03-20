@@ -100,7 +100,7 @@ impl Plugin for AssetPlugin {
         if !app.world.contains_resource::<AssetServer>() {
             let source = self.create_platform_default_asset_io();
             let asset_server = AssetServer::with_boxed_io(source);
-            app.insert_resource(asset_server);
+            app.insert_resources(asset_server);
         }
 
         app.register_type::<HandleId>()

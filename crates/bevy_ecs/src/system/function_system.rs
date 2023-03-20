@@ -94,7 +94,7 @@ impl SystemMeta {
 ///
 /// // Work directly on the `World`
 /// let mut world = World::new();
-/// world.init_resource::<Events<MyEvent>>();
+/// world.init_resources::<Events<MyEvent>>();
 ///
 /// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
 /// // as if you were writing an ordinary system.
@@ -125,11 +125,11 @@ impl SystemMeta {
 ///
 /// // Create and store a system state once
 /// let mut world = World::new();
-/// world.init_resource::<Events<MyEvent>>();
+/// world.init_resources::<Events<MyEvent>>();
 /// let initial_state: SystemState<EventReader<MyEvent>>  = SystemState::new(&mut world);
 ///
 /// // The system state is cached in a resource
-/// world.insert_resource(CachedSystemState{event_state: initial_state});
+/// world.insert_resources(CachedSystemState{event_state: initial_state});
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
@@ -588,7 +588,7 @@ where
 /// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
-///     world.insert_resource(Message("42".to_string()));
+///     world.insert_resources(Message("42".to_string()));
 ///
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));

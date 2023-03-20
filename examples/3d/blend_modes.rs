@@ -24,7 +24,7 @@ fn main() {
     // Since this example uses HDR, we must disable MSAA for WASM builds, at least
     // until WebGPU is ready and no longer behind a feature flag in Web browsers.
     #[cfg(target_arch = "wasm32")]
-    app.insert_resource(Msaa::Off);
+    app.insert_resources(Msaa::Off);
 
     app.run();
 }

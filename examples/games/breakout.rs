@@ -50,11 +50,12 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Scoreboard { score: 0 })
-        .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .insert_resources((
+            Scoreboard { score: 0 },
+            ClearColor(BACKGROUND_COLOR),
+            FixedTime::new_from_secs(1.0 / 60.0), // Configure how frequently our gameplay systems are run
+        ))
         .add_event::<CollisionEvent>()
-        // Configure how frequently our gameplay systems are run
-        .insert_resource(FixedTime::new_from_secs(1.0 / 60.0))
         .add_systems(Startup, setup)
         // Add our gameplay simulation systems to the fixed timestep schedule
         .add_systems(
@@ -183,7 +184,7 @@ fn setup(
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
-    commands.insert_resource(CollisionSound(ball_collision_sound));
+    commands.insert_resources(CollisionSound(ball_collision_sound));
 
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;

@@ -596,7 +596,7 @@ impl<'w> EntityMut<'w> {
     /// struct R(u32);
     ///
     /// # let mut world = World::new();
-    /// # world.init_resource::<R>();
+    /// # world.init_resources::<R>();
     /// # let mut entity = world.spawn_empty();
     /// // This closure gives us temporary access to the world.
     /// let new_r = entity.world_scope(|world: &mut World| {

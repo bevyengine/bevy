@@ -15,7 +15,7 @@ use bevy::{
 fn main() {
     App::new()
         // Disable MSAA by default
-        .insert_resource(Msaa::Off)
+        .insert_resources(Msaa::Off)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, toggle_fxaa)

@@ -58,6 +58,6 @@ pub fn extract_resource<R: ExtractResource>(
                 std::any::type_name::<R>()
             );
         }
-        commands.insert_resource(R::extract_resource(&main_resource));
+        commands.insert_resources(R::extract_resource(&main_resource));
     }
 }

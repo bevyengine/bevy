@@ -79,7 +79,7 @@ fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule)
     let mut world = World::new();
     let mut schedule = Schedule::new();
     if parallel {
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
+        world.insert_resources(ComputeTaskPool(TaskPool::default()));
     }
     setup(&mut schedule);
     (world, schedule)

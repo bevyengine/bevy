@@ -36,10 +36,10 @@ fn add_assets(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let box_mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
-    commands.insert_resource(BoxMeshHandle(box_mesh_handle));
+    commands.insert_resources(BoxMeshHandle(box_mesh_handle));
 
     let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
-    commands.insert_resource(BoxMaterialHandle(box_material_handle));
+    commands.insert_resources(BoxMaterialHandle(box_material_handle));
 }
 
 #[derive(Component)]

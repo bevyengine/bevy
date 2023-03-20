@@ -97,7 +97,7 @@ struct Time {
 
 let mut world = World::new();
 
-world.insert_resource(Time::default());
+world.insert_resources(Time::default());
 
 let time = world.get_resource::<Time>().unwrap();
 

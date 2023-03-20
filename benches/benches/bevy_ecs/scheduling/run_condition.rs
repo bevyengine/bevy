@@ -91,7 +91,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
 
 pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     let mut world = World::new();
-    world.insert_resource(TestBool(true));
+    world.insert_resources(TestBool(true));
     let mut group = criterion.benchmark_group("run_condition/yes_using_resource");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));

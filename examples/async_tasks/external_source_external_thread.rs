@@ -39,8 +39,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         tx.send(rng.gen_range(0..2000)).unwrap();
     });
 
-    commands.insert_resource(StreamReceiver(rx));
-    commands.insert_resource(LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")));
+    commands.insert_resources((
+        StreamReceiver(rx),
+        LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+    ));
 }
 
 // This system reads from the receiver and sends events to Bevy

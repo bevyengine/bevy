@@ -590,7 +590,7 @@ pub fn extract_materials<M: Material>(
         }
     }
 
-    commands.insert_resource(ExtractedMaterials {
+    commands.insert_resources(ExtractedMaterials {
         extracted: extracted_assets,
         removed,
     });

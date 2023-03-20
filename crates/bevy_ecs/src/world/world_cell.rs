@@ -373,8 +373,7 @@ mod tests {
     #[test]
     fn world_cell() {
         let mut world = World::default();
-        world.insert_resource(A(1));
-        world.insert_resource(B(1));
+        world.insert_resources((A(1), B(1)));
         let cell = world.cell();
         {
             let mut a = cell.resource_mut::<A>();
@@ -409,7 +408,7 @@ mod tests {
     #[test]
     fn world_access_reused() {
         let mut world = World::default();
-        world.insert_resource(A(1));
+        world.insert_resources(A(1));
         {
             let cell = world.cell();
             {
@@ -438,7 +437,7 @@ mod tests {
     #[should_panic]
     fn world_cell_double_mut() {
         let mut world = World::default();
-        world.insert_resource(A(1));
+        world.insert_resources(A(1));
         let cell = world.cell();
         let _value_a = cell.resource_mut::<A>();
         let _value_b = cell.resource_mut::<A>();
@@ -448,7 +447,7 @@ mod tests {
     #[should_panic]
     fn world_cell_ref_and_mut() {
         let mut world = World::default();
-        world.insert_resource(A(1));
+        world.insert_resources(A(1));
         let cell = world.cell();
         let _value_a = cell.resource::<A>();
         let _value_b = cell.resource_mut::<A>();
@@ -458,7 +457,7 @@ mod tests {
     #[should_panic]
     fn world_cell_mut_and_ref() {
         let mut world = World::default();
-        world.insert_resource(A(1));
+        world.insert_resources(A(1));
         let cell = world.cell();
         let _value_a = cell.resource_mut::<A>();
         let _value_b = cell.resource::<A>();
@@ -467,7 +466,7 @@ mod tests {
     #[test]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
-        world.insert_resource(A(1));
+        world.insert_resources(A(1));
         let cell = world.cell();
         let _value_a = cell.resource::<A>();
         let _value_b = cell.resource::<A>();

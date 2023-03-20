@@ -24,7 +24,7 @@ struct LoadingTexture {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Start loading the texture.
-    commands.insert_resource(LoadingTexture {
+    commands.insert_resources(LoadingTexture {
         is_loaded: false,
         handle: asset_server.load("textures/array_texture.png"),
     });

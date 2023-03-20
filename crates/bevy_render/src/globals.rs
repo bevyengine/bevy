@@ -32,11 +32,11 @@ impl Plugin for GlobalsPlugin {
 }
 
 fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
-    commands.insert_resource(**frame_count);
+    commands.insert_resources(**frame_count);
 }
 
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
-    commands.insert_resource(time.clone());
+    commands.insert_resources(time.clone());
 }
 
 /// Contains global values useful when writing shaders.

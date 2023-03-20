@@ -532,7 +532,7 @@ impl Components {
     /// #[derive(Resource, Default)]
     /// struct ResourceA;
     ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
+    /// let resource_a_id = world.init_resources::<ResourceA>();
     ///
     /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
     /// ```

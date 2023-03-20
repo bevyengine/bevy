@@ -14,7 +14,7 @@ fn main() {
     let mut world = World::new();
 
     // Add the counter resource to remember how many entities where spawned
-    world.insert_resource(EntityCounter { value: 0 });
+    world.insert_resources(EntityCounter { value: 0 });
 
     // Create a new Schedule, which stores systems and controls their relative ordering
     let mut schedule = Schedule::default();

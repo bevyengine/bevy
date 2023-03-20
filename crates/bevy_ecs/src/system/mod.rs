@@ -265,7 +265,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         world.spawn(A);
         world.spawn((A, B));
         world.spawn((A, C));
@@ -316,16 +316,16 @@ mod tests {
         }
 
         let mut world = World::default();
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         let entity_ids = (0..ENTITIES_COUNT)
             .map(|i| world.spawn(W(i)).id())
             .collect();
-        world.insert_resource(EntitiesArray(entity_ids));
+        world.insert_resources(EntitiesArray(entity_ids));
 
         run_system(&mut world, query_system);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
 
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         run_system(&mut world, query_system_mut);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
@@ -350,7 +350,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         world.spawn((A, B));
 
         run_system(&mut world, query_system);
@@ -386,9 +386,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        world.insert_resource(Flipper(false));
-        world.insert_resource(Added(0));
-        world.insert_resource(Changed(0));
+        world.insert_resources((Flipper(false), Added(0), Changed(0)));
 
         let mut schedule = Schedule::default();
 
@@ -533,9 +531,7 @@ mod tests {
 
     fn test_for_conflicting_resources<Marker, S: IntoSystem<(), (), Marker>>(sys: S) {
         let mut world = World::default();
-        world.insert_resource(BufferRes::default());
-        world.insert_resource(A);
-        world.insert_resource(B);
+        world.insert_resources((BufferRes::default(), A, B));
         run_system(&mut world, sys);
     }
 
@@ -569,8 +565,7 @@ mod tests {
     #[test]
     fn local_system() {
         let mut world = World::default();
-        world.insert_resource(ProtoFoo { value: 1 });
-        world.insert_resource(SystemRan::No);
+        world.insert_resources((ProtoFoo { value: 1 }, SystemRan::No));
 
         struct Foo {
             value: u32,
@@ -604,7 +599,7 @@ mod tests {
     fn non_send_option_system() {
         let mut world = World::default();
 
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
@@ -627,7 +622,7 @@ mod tests {
     fn non_send_system() {
         let mut world = World::default();
 
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
 
@@ -657,16 +652,16 @@ mod tests {
         // Track which entities we want to operate on
         #[derive(Resource)]
         struct Despawned(Entity);
-        world.insert_resource(Despawned(entity_to_despawn));
+        world.insert_resources(Despawned(entity_to_despawn));
 
         #[derive(Resource)]
         struct Removed(Entity);
-        world.insert_resource(Removed(entity_to_remove_w_from));
+        world.insert_resources(Removed(entity_to_remove_w_from));
 
         // Verify that all the systems actually ran
         #[derive(Default, Resource)]
         struct NSystems(usize);
-        world.insert_resource(NSystems::default());
+        world.insert_resources(NSystems::default());
 
         // First, check that removal detection is triggered if and only if we despawn an entity with the correct component
         world.entity_mut(entity_to_despawn).despawn();
@@ -723,7 +718,7 @@ mod tests {
     #[test]
     fn world_collections_system() {
         let mut world = World::default();
-        world.insert_resource(SystemRan::No);
+        world.insert_resources(SystemRan::No);
         world.spawn((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
@@ -866,7 +861,7 @@ mod tests {
         struct B(usize);
 
         let mut world = World::default();
-        world.insert_resource(A(42));
+        world.insert_resources(A(42));
         world.spawn(B(7));
 
         let mut system_state: SystemState<(Res<A>, Query<&B>, ParamSet<(Query<&C>, Query<&D>)>)> =
@@ -889,7 +884,7 @@ mod tests {
         struct B(usize);
 
         let mut world = World::default();
-        world.insert_resource(A(42));
+        world.insert_resources(A(42));
         world.spawn(B(7));
 
         let mut system_state: SystemState<(ResMut<A>, Query<&mut B>)> =

@@ -143,7 +143,7 @@ fn game_over_system(
 // app.add_systems(Startup, startup_system)      Normal:  app.add_systems(Update, normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
-    commands.insert_resource(GameRules {
+    commands.insert_resources(GameRules {
         max_rounds: 10,
         winning_score: 4,
         max_players: 4,
@@ -254,7 +254,7 @@ fn main() {
         // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resources::<GameState>()
         // Some systems are configured by adding their settings as a resource.
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
+        .insert_resources(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds

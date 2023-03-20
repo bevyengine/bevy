@@ -224,11 +224,13 @@ impl Plugin for RenderPlugin {
                 ));
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
-            app.insert_resource(device.clone())
-                .insert_resource(queue.clone())
-                .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone())
-                .init_resources::<ScratchMainWorld>();
+            app.insert_resources((
+                device.clone(),
+                queue.clone(),
+                adapter_info.clone(),
+                render_adapter.clone(),
+            ))
+            .init_resources::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
@@ -240,13 +242,15 @@ impl Plugin for RenderPlugin {
                 .add_schedule(ExtractSchedule, extract_schedule)
                 .add_schedule(Render, Render::base_schedule())
                 .init_resources::<render_graph::RenderGraph>()
-                .insert_resource(RenderInstance(instance))
-                .insert_resource(PipelineCache::new(device.clone()))
-                .insert_resource(device)
-                .insert_resource(queue)
-                .insert_resource(render_adapter)
-                .insert_resource(adapter_info)
-                .insert_resource(app.world.resource::<AssetServer>().clone())
+                .insert_resources((
+                    RenderInstance(instance),
+                    PipelineCache::new(device.clone()),
+                    device,
+                    queue,
+                    render_adapter,
+                    adapter_info,
+                    app.world.resource::<AssetServer>().clone(),
+                ))
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
                 .add_systems(
                     Render,
@@ -264,8 +268,8 @@ impl Plugin for RenderPlugin {
                 );
 
             let (sender, receiver) = bevy_time::create_time_channels();
-            app.insert_resource(receiver);
-            render_app.insert_resource(sender);
+            app.insert_resources(receiver);
+            render_app.insert_resources(sender);
 
             app.insert_sub_app(RenderApp, SubApp::new(render_app, move |main_world, render_app| {
                 #[cfg(feature = "trace")]
@@ -326,14 +330,14 @@ fn extract(main_world: &mut World, render_app: &mut App) {
     // temporarily add the app world to the render world as a resource
     let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = std::mem::replace(main_world, scratch_world.0);
-    render_app.world.insert_resource(MainWorld(inserted_world));
+    render_app.world.insert_resources(MainWorld(inserted_world));
 
     render_app.world.run_schedule(ExtractSchedule);
 
     // move the app world back, as if nothing happened.
     let inserted_world = render_app.world.remove_resource::<MainWorld>().unwrap();
     let scratch_world = std::mem::replace(main_world, inserted_world.0);
-    main_world.insert_resource(ScratchMainWorld(scratch_world));
+    main_world.insert_resources(ScratchMainWorld(scratch_world));
 }
 
 /// Applies the commands from the extract schedule. This happens during
