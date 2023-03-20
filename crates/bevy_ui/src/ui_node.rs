@@ -68,9 +68,9 @@ pub enum Val {
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
-    /// Set the value as a percentage of its parent node's dimensions along a specific axis.
+    /// Set the value as a percentage of its parent node's length along a specific axis.
     ///
-    /// If the UI node has no parent, the percentage is calculated based on the window's dimensions
+    /// If the UI node has no parent, the percentage is calculated based on the window's length
     /// along the corresponding axis.
     ///
     /// The chosen axis depends on the `Style` field set with a percentage value:
