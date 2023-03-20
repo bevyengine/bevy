@@ -1,52 +1,53 @@
-use bevy_math::Vec2;
+use taffy::style::Dimension;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
     PositionType, Size, Style, UiRect, Val,
 };
 
+use super::LayoutContext;
+
 impl Val {
-    fn scaled(self, scale_factor: f64, physical_size: Vec2) -> Self {
+    fn into_dimension(self, viewport_values: &LayoutContext) -> taffy::style::Dimension {
         match self {
-            Val::Auto => Val::Auto,
-            Val::Percent(value) => Val::Percent(value),
-            Val::Px(value) => Val::Px((scale_factor * value as f64) as f32),
-            Val::VMin(value) => Val::Px(physical_size.x.min(physical_size.y) * value / 100.),
-            Val::VMax(value) => Val::Px(physical_size.x.max(physical_size.y) * value / 100.),
-            Val::Vw(value) => Val::Px(physical_size.x * value / 100.),
-            Val::Vh(value) => Val::Px(physical_size.y * value / 100.),
-        }
-    }
-    fn into_dimension(self, scale_factor: f64, physical_size: Vec2) -> taffy::style::Dimension {
-        match self.scaled(scale_factor, physical_size) {
             Val::Auto => taffy::style::Dimension::Auto,
-            Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::Dimension::Points(value),
-            _ => unreachable!(),
+            Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.),
+            Val::Px(value) => taffy::style::Dimension::Points(
+                (viewport_values.scale_factor * value as f64) as f32,
+            ),
+            Val::VMin(value) => {
+                taffy::style::Dimension::Percent(viewport_values.v_min * value / 100.)
+            }
+            Val::VMax(value) => {
+                taffy::style::Dimension::Points(viewport_values.v_max * value / 100.)
+            }
+            Val::Vw(value) => {
+                taffy::style::Dimension::Points(viewport_values.physical_size.x * value / 100.)
+            }
+            Val::Vh(value) => {
+                taffy::style::Dimension::Points(viewport_values.physical_size.y * value / 100.)
+            }
         }
     }
+
     fn into_length_percentage(
         self,
-        scale_factor: f64,
-        physical_size: Vec2,
+        viewport_values: &LayoutContext,
     ) -> taffy::style::LengthPercentage {
-        match self.scaled(scale_factor, physical_size) {
-            Val::Auto => taffy::style::LengthPercentage::Points(0.0),
-            Val::Percent(value) => taffy::style::LengthPercentage::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentage::Points(value),
-            _ => unreachable!(),
+        match self.into_dimension(viewport_values) {
+            Dimension::Auto => taffy::style::LengthPercentage::Points(0.0),
+            Dimension::Percent(value) => taffy::style::LengthPercentage::Percent(value),
+            Dimension::Points(value) => taffy::style::LengthPercentage::Points(value),
         }
     }
     fn into_length_percentage_auto(
         self,
-        scale_factor: f64,
-        physical_size: Vec2,
+        viewport_values: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
-        match self.scaled(scale_factor, physical_size) {
-            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.0),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
-            _ => unreachable!(),
+        match self.into_dimension(viewport_values) {
+            Dimension::Auto => taffy::style::LengthPercentageAuto::Auto,
+            Dimension::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value),
+            Dimension::Points(value) => taffy::style::LengthPercentageAuto::Points(value),
         }
     }
 }
@@ -71,7 +72,7 @@ impl Size {
     }
 }
 
-pub fn from_style(scale_factor: f64, physical_size: Vec2, style: &Style) -> taffy::style::Style {
+pub fn from_style(viewport_values: &LayoutContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
         position: style.position_type.into(),
@@ -82,44 +83,36 @@ pub fn from_style(scale_factor: f64, physical_size: Vec2, style: &Style) -> taff
         align_content: Some(style.align_content.into()),
         justify_content: Some(style.justify_content.into()),
         inset: taffy::prelude::Rect {
-            left: style
-                .left
-                .into_length_percentage_auto(scale_factor, physical_size),
-            right: style
-                .right
-                .into_length_percentage_auto(scale_factor, physical_size),
-            top: style
-                .top
-                .into_length_percentage_auto(scale_factor, physical_size),
-            bottom: style
-                .bottom
-                .into_length_percentage_auto(scale_factor, physical_size),
+            left: style.left.into_length_percentage_auto(viewport_values),
+            right: style.right.into_length_percentage_auto(viewport_values),
+            top: style.top.into_length_percentage_auto(viewport_values),
+            bottom: style.bottom.into_length_percentage_auto(viewport_values),
         },
         margin: style
             .margin
-            .map_to_taffy_rect(|m| m.into_length_percentage_auto(scale_factor, physical_size)),
+            .map_to_taffy_rect(|m| m.into_length_percentage_auto(viewport_values)),
         padding: style
             .padding
-            .map_to_taffy_rect(|m| m.into_length_percentage(scale_factor, physical_size)),
+            .map_to_taffy_rect(|m| m.into_length_percentage(viewport_values)),
         border: style
             .border
-            .map_to_taffy_rect(|m| m.into_length_percentage(scale_factor, physical_size)),
+            .map_to_taffy_rect(|m| m.into_length_percentage(viewport_values)),
         flex_grow: style.flex_grow,
         flex_shrink: style.flex_shrink,
-        flex_basis: style.flex_basis.into_dimension(scale_factor, physical_size),
+        flex_basis: style.flex_basis.into_dimension(viewport_values),
         size: style
             .size
-            .map_to_taffy_size(|s| s.into_dimension(scale_factor, physical_size)),
+            .map_to_taffy_size(|s| s.into_dimension(viewport_values)),
         min_size: style
             .min_size
-            .map_to_taffy_size(|s| s.into_dimension(scale_factor, physical_size)),
+            .map_to_taffy_size(|s| s.into_dimension(viewport_values)),
         max_size: style
             .max_size
-            .map_to_taffy_size(|s| s.into_dimension(scale_factor, physical_size)),
+            .map_to_taffy_size(|s| s.into_dimension(viewport_values)),
         aspect_ratio: style.aspect_ratio,
         gap: style
             .gap
-            .map_to_taffy_size(|s| s.into_length_percentage(scale_factor, physical_size)),
+            .map_to_taffy_size(|s| s.into_length_percentage(viewport_values)),
         justify_self: None,
     }
 }
@@ -283,7 +276,8 @@ mod tests {
                 height: Val::Percent(0.),
             },
         };
-        let taffy_style = from_style(1.0, Vec2::new(800., 600.), &bevy_style);
+        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
+        let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
         assert!(matches!(

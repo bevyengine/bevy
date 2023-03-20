@@ -22,6 +22,25 @@ use taffy::{
     Taffy,
 };
 
+pub struct LayoutContext {
+    pub scale_factor: f64,
+    pub physical_size: Vec2,
+    pub v_min: f32,
+    pub v_max: f32,
+}
+
+impl LayoutContext {
+    /// create new a [`LayoutContext`] from the window's physical size and scale factor
+    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+        Self {
+            scale_factor,
+            physical_size,
+            v_min: physical_size.x.min(physical_size.y),
+            v_max: physical_size.x.max(physical_size.y),
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
@@ -59,28 +78,19 @@ impl Default for FlexSurface {
 }
 
 impl FlexSurface {
-    pub fn upsert_node(
-        &mut self,
-        entity: Entity,
-        style: &Style,
-        scale_factor: f64,
-        physical_size: Vec2,
-    ) {
+    pub fn upsert_node(&mut self, entity: Entity, style: &Style, viewport_values: &LayoutContext) {
         let mut added = false;
         let taffy = &mut self.taffy;
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
             taffy
-                .new_leaf(convert::from_style(scale_factor, physical_size, style))
+                .new_leaf(convert::from_style(viewport_values, style))
                 .unwrap()
         });
 
         if !added {
             self.taffy
-                .set_style(
-                    *taffy_node,
-                    convert::from_style(scale_factor, physical_size, style),
-                )
+                .set_style(*taffy_node, convert::from_style(viewport_values, style))
                 .unwrap();
         }
     }
@@ -90,11 +100,11 @@ impl FlexSurface {
         entity: Entity,
         style: &Style,
         calculated_size: CalculatedSize,
-        scale_factor: f64,
-        physical_size: Vec2,
+        viewport_values: &LayoutContext,
     ) {
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, physical_size, style);
+        let taffy_style = convert::from_style(viewport_values, style);
+        let scale_factor = viewport_values.scale_factor;
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
                 let mut size = Size {
@@ -280,43 +290,33 @@ pub fn flex_node_system(
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
+    let viewport_values = LayoutContext::new(scale_factor, physical_size);
+
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
-        scaling_factor: f64,
-        physical_size: Vec2,
+        viewport_values: &LayoutContext,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(
-                    entity,
-                    style,
-                    *calculated_size,
-                    scaling_factor,
-                    physical_size,
-                );
+                flex_surface.upsert_leaf(entity, style, *calculated_size, viewport_values);
             } else {
-                flex_surface.upsert_node(entity, style, scaling_factor, physical_size);
+                flex_surface.upsert_node(entity, style, viewport_values);
             }
         }
     }
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
-        update_changed(
-            &mut flex_surface,
-            scale_factor,
-            physical_size,
-            full_node_query,
-        );
+        update_changed(&mut flex_surface, &viewport_values, full_node_query);
     } else {
-        update_changed(&mut flex_surface, scale_factor, physical_size, node_query);
+        update_changed(&mut flex_surface, &viewport_values, node_query);
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor, physical_size);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, &viewport_values);
     }
 
     // clean up removed nodes
