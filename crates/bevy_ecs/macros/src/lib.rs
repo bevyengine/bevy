@@ -256,7 +256,7 @@ pub fn impl_resource_apis(_input: TokenStream) -> TokenStream {
 
     for i in 1..=max_types {
         let ty = &types[0..i];
-        let indices = (0..i).map(|x| Index::from(x)).collect::<Vec<_>>();
+        let indices = (0..i).map(Index::from).collect::<Vec<_>>();
         tokens.extend(TokenStream::from(quote! {
             impl<#(#ty: Resource + FromWorld,)*> InitResources for (#(#ty,)*) {
                 type IDS = [ComponentId; #i];

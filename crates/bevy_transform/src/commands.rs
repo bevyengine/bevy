@@ -9,7 +9,7 @@ use bevy_hierarchy::BuildChildren;
 
 use crate::{GlobalTransform, Transform};
 
-/// Command similar to [`AddChild`], but updating the child transform to keep
+/// Command similar to [`AddChildCommand`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
@@ -39,7 +39,7 @@ impl Command for AddChildInPlaceCommand {
         update_transform();
     }
 }
-/// Command similar to [`RemoveParent`], but updating the child transform to keep
+/// Command similar to [`RemoveParentCommand`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::remove_parent_in_place`]
