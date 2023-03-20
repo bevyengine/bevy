@@ -7,7 +7,7 @@ use bevy_ecs::{
     prelude::{Changed, Component, Without},
     system::{Commands, Query},
 };
-#[cfg(feature="bevy_render")]
+#[cfg(feature = "bevy_render")]
 use bevy_render::prelude::{ComputedVisibility, Visibility};
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -29,9 +29,9 @@ pub struct SceneBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 
-    #[cfg(feature="bevy_render")]
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
-    #[cfg(feature="bevy_render")]
+    #[cfg(feature = "bevy_render")]
     pub computed_visibility: ComputedVisibility,
 }
 
@@ -46,9 +46,9 @@ pub struct DynamicSceneBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 
-    #[cfg(feature="bevy_render")]
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
-    #[cfg(feature="bevy_render")]
+    #[cfg(feature = "bevy_render")]
     pub computed_visibility: ComputedVisibility,
 }
 
