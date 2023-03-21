@@ -7,7 +7,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
 
-use glyph_brush_layout::{FontId, SectionText, SectionGeometry, GlyphPositioner};
+use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
     error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font, FontAtlasSet,
@@ -210,7 +210,7 @@ impl TextPipeline {
                 Ok(section)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         Ok(AutoTextInfo {
             fonts: auto_fonts,
             scaled_fonts,
@@ -218,13 +218,12 @@ impl TextPipeline {
             text_alignment,
             linebreak_behaviour: linebreak_behaviour.into(),
         })
-
     }
 }
 
 #[derive(Clone)]
 pub struct AutoTextSection {
-    pub text: String, 
+    pub text: String,
     pub scale: PxScale,
     pub font_id: FontId,
 }
@@ -239,22 +238,21 @@ pub struct AutoTextInfo {
 }
 
 impl AutoTextInfo {
-    pub fn compute_size(
-        &self,
-        bounds: Vec2,
-    ) -> Vec2 {
+    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),
             ..Default::default()
         };
 
-        let sections = self.sections.iter().map(|section| {
-            SectionText {
+        let sections = self
+            .sections
+            .iter()
+            .map(|section| SectionText {
                 font_id: section.font_id,
                 scale: section.scale,
                 text: &section.text,
-            }
-        }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let section_glyphs = glyph_brush_layout::Layout::default()
             .h_align(self.text_alignment.into())

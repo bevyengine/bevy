@@ -31,8 +31,8 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale, widget::Label,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
+        Interaction, UiScale,
     };
 }
 
@@ -143,13 +143,12 @@ impl Plugin for UiPlugin {
         })
         .add_systems(
             PostUpdate,
-        (
-            flex_node_system
-                .in_set(UiSystem::Flex)
-                .before(TransformSystem::TransformPropagate),
-            ui_stack_system.in_set(UiSystem::Stack),
-            update_clipping_system
-                .after(TransformSystem::TransformPropagate),
+            (
+                flex_node_system
+                    .in_set(UiSystem::Flex)
+                    .before(TransformSystem::TransformPropagate),
+                ui_stack_system.in_set(UiSystem::Stack),
+                update_clipping_system.after(TransformSystem::TransformPropagate),
                 widget::text_system.after(UiSystem::Flex),
             ),
         );

@@ -1,4 +1,3 @@
-
 use crate::{CalculatedSize, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -10,8 +9,8 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation, AutoTextInfo,
+    AutoTextInfo, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -33,10 +32,8 @@ impl Measure for AutoTextMeasure {
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2 {
-
         let bounds = Vec2::new(
-            max_width
-            .unwrap_or_else(|| match available_width {
+            max_width.unwrap_or_else(|| match available_width {
                 AvailableSpace::Definite(x) => x,
                 AvailableSpace::MaxContent => f32::INFINITY,
                 AvailableSpace::MinContent => f32::INFINITY,
@@ -186,7 +183,7 @@ pub fn text_system(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
             );
-            
+
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,

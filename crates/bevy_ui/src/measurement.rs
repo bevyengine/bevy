@@ -1,9 +1,8 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-pub use taffy::style::AvailableSpace;
 use std::fmt::Formatter;
-
+pub use taffy::style::AvailableSpace;
 
 impl std::fmt::Debug for CalculatedSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
