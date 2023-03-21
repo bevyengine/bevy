@@ -35,23 +35,20 @@ fn update_clipping(
     children_query: &Query<&Children>,
     node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
-    clip: Option<Rect>,
+    maybe_inherited_clip: Option<Rect>,
 ) {
-    let (node, global_transform, style, calculated_clip) = node_query.get_mut(entity).unwrap();
+    let (node, global_transform, style, maybe_calculated_clip) = node_query.get_mut(entity).unwrap();
+
     // Update this node's CalculatedClip component
-    match (clip, calculated_clip) {
-        (None, None) => {}
+    match (maybe_inherited_clip, maybe_calculated_clip) {
         (None, Some(_)) => {
             commands.entity(entity).remove::<CalculatedClip>();
         }
-        (Some(clip), None) => {
-            commands.entity(entity).insert(CalculatedClip { clip });
+        (Some(inherited_clip), None) => {
+            commands.entity(entity).insert(CalculatedClip { clip: inherited_clip });
         }
-        (Some(clip), Some(mut old_clip)) => {
-            if old_clip.clip != clip {
-                *old_clip = CalculatedClip { clip };
-            }
-        }
+        (Some(inherited_clip), Some(mut calculated_clip)) => *calculated_clip = CalculatedClip { clip: inherited_clip },            
+        _ => {},
     }
 
     // Calculate new clip for its children
@@ -59,7 +56,7 @@ fn update_clipping(
         Overflow {
             x: OverflowAxis::Visible,
             y: OverflowAxis::Visible,
-        } => clip,
+        } => maybe_inherited_clip,
         _ => {
             let mut node_rect = node.logical_rect(global_transform);
             if style.overflow.x == OverflowAxis::Visible {
@@ -70,12 +67,12 @@ fn update_clipping(
                 node_rect.min.y = -f32::INFINITY;
                 node_rect.max.y = f32::INFINITY;
             }
-            Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
+            Some(maybe_inherited_clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
 
     if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().cloned() {
+        for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
         }
     }
