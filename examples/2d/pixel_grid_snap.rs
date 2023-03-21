@@ -22,8 +22,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .insert_resource(Msaa::Off)
-        .add_startup_systems((setup_camera, setup_sprite, setup_mesh))
-        .add_systems((transform_drawables, fit_canvas))
+        .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
+        .add_systems(Update, (transform_drawables, fit_canvas))
         .run();
 }
 
