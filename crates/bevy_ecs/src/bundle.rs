@@ -3,7 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
-use bevy_utils::HashSet;
+use bevy_utils::{HashMap, HashSet};
 
 use crate::{
     archetype::{
@@ -135,10 +135,10 @@ use std::any::TypeId;
 /// [`Query`]: crate::system::Query
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
+// bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
-pub unsafe trait Bundle: Send + Sync + 'static {
+pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
@@ -159,7 +159,10 @@ pub unsafe trait Bundle: Send + Sync + 'static {
         // Ensure that the `OwningPtr` is used correctly
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
+}
 
+/// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
+pub trait DynamicBundle {
     // SAFETY:
     // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
     // component being fetched.
@@ -192,7 +195,9 @@ unsafe impl<C: Component> Bundle for C {
         // Safety: The id given in `component_ids` is for `Self`
         func(ctx).read()
     }
+}
 
+impl<C: Component> DynamicBundle for C {
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
         OwningPtr::make(self, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
@@ -203,7 +208,7 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `Bundle::get_components` is called.
+        // bundle, in the exact order that `DynamicBundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
@@ -223,7 +228,9 @@ macro_rules! tuple_impl {
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 ($(<$name as Bundle>::from_components(ctx, func),)*)
             }
+        }
 
+        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             #[allow(unused_variables, unused_mut)]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
@@ -376,7 +383,7 @@ impl BundleInfo {
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
     #[allow(clippy::too_many_arguments)]
-    unsafe fn write_components<T: Bundle, S: BundleComponentStatus>(
+    unsafe fn write_components<T: DynamicBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -527,7 +534,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn insert<T: Bundle>(
+    pub unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
@@ -677,7 +684,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     /// # Safety
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn_non_existent<T: Bundle>(
+    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -712,7 +719,12 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
+    /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
+    /// Cache dynamic [`BundleId`] with multiple components
+    dynamic_bundle_ids: HashMap<Vec<ComponentId>, (BundleId, Vec<StorageType>)>,
+    /// Cache optimized dynamic [`BundleId`] with single component
+    dynamic_component_bundle_ids: HashMap<ComponentId, (BundleId, StorageType)>,
 }
 
 impl Bundles {
@@ -726,6 +738,7 @@ impl Bundles {
         self.bundle_ids.get(&type_id).cloned()
     }
 
+    /// Initializes a new [`BundleInfo`] for a statically known type.
     pub(crate) fn init_info<'a, T: Bundle>(
         &'a mut self,
         components: &mut Components,
@@ -744,6 +757,64 @@ impl Bundles {
         });
         // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.0) }
+    }
+
+    /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the provided [`ComponentId`]s do not exist in the
+    /// provided [`Components`].
+    pub(crate) fn init_dynamic_info(
+        &mut self,
+        components: &mut Components,
+        component_ids: &[ComponentId],
+    ) -> (&BundleInfo, &Vec<StorageType>) {
+        let bundle_infos = &mut self.bundle_infos;
+
+        // Use `raw_entry_mut` to avoid cloning `component_ids` to access `Entry`
+        let (_, (bundle_id, storage_types)) = self
+            .dynamic_bundle_ids
+            .raw_entry_mut()
+            .from_key(component_ids)
+            .or_insert_with(|| {
+                (
+                    Vec::from(component_ids),
+                    initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids)),
+                )
+            });
+
+        // SAFETY: index either exists, or was initialized
+        let bundle_info = unsafe { bundle_infos.get_unchecked(bundle_id.0) };
+
+        (bundle_info, storage_types)
+    }
+
+    /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`] with single component.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided [`ComponentId`] does not exist in the provided [`Components`].
+    pub(crate) fn init_component_info(
+        &mut self,
+        components: &mut Components,
+        component_id: ComponentId,
+    ) -> (&BundleInfo, StorageType) {
+        let bundle_infos = &mut self.bundle_infos;
+        let (bundle_id, storage_types) = self
+            .dynamic_component_bundle_ids
+            .entry(component_id)
+            .or_insert_with(|| {
+                let (id, storage_type) =
+                    initialize_dynamic_bundle(bundle_infos, components, vec![component_id]);
+                // SAFETY: `storage_type` guaranteed to have length 1
+                (id, storage_type[0])
+            });
+
+        // SAFETY: index either exists, or was initialized
+        let bundle_info = unsafe { bundle_infos.get_unchecked(bundle_id.0) };
+
+        (bundle_info, *storage_types)
     }
 }
 
@@ -783,4 +854,29 @@ unsafe fn initialize_bundle(
     }
 
     BundleInfo { id, component_ids }
+}
+
+/// Asserts that all components are part of [`Components`]
+/// and initializes a [`BundleInfo`].
+fn initialize_dynamic_bundle(
+    bundle_infos: &mut Vec<BundleInfo>,
+    components: &Components,
+    component_ids: Vec<ComponentId>,
+) -> (BundleId, Vec<StorageType>) {
+    // Assert component existence
+    let storage_types = component_ids.iter().map(|&id| {
+        components.get_info(id).unwrap_or_else(|| {
+            panic!(
+                "init_dynamic_info called with component id {id:?} which doesn't exist in this world"
+            )
+        }).storage_type()
+    }).collect();
+
+    let id = BundleId(bundle_infos.len());
+    let bundle_info =
+        // SAFETY: `component_ids` are valid as they were just checked
+        unsafe { initialize_bundle("<dynamic bundle>", components, component_ids, id) };
+    bundle_infos.push(bundle_info);
+
+    (id, storage_types)
 }
