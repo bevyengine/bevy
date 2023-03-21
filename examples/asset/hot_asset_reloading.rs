@@ -11,7 +11,7 @@ fn main() {
             watch_for_changes: true,
             ..default()
         }))
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 

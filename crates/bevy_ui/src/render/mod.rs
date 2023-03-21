@@ -2,7 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_render::ExtractSchedule;
+use bevy_render::{ExtractSchedule, Render};
 #[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -77,20 +77,23 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
+            ExtractSchedule,
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-            )
-                .in_schedule(ExtractSchedule),
+            ),
         )
-        .add_systems((
-            prepare_uinodes.in_set(RenderSet::Prepare),
-            queue_uinodes.in_set(RenderSet::Queue),
-            sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-        ));
+        .add_systems(
+            Render,
+            (
+                prepare_uinodes.in_set(RenderSet::Prepare),
+                queue_uinodes.in_set(RenderSet::Queue),
+                sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+            ),
+        );
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -489,34 +492,38 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
+        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+        } else {
+            let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+            let mut uvs = [
+                Vec2::new(
+                    uinode_rect.min.x + positions_diff[0].x,
+                    uinode_rect.min.y + positions_diff[0].y,
+                ),
+                Vec2::new(
+                    uinode_rect.max.x + positions_diff[1].x,
+                    uinode_rect.min.y + positions_diff[1].y,
+                ),
+                Vec2::new(
+                    uinode_rect.max.x + positions_diff[2].x,
+                    uinode_rect.max.y + positions_diff[2].y,
+                ),
+                Vec2::new(
+                    uinode_rect.min.x + positions_diff[3].x,
+                    uinode_rect.max.y + positions_diff[3].y,
+                ),
+            ]
+            .map(|pos| pos / atlas_extent);
 
-        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let mut uvs = [
-            Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.min.y + positions_diff[0].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.min.y + positions_diff[1].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x,
-                uinode_rect.max.y + positions_diff[2].y,
-            ),
-            Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.max.y + positions_diff[3].y,
-            ),
-        ]
-        .map(|pos| pos / atlas_extent);
-
-        if extracted_uinode.flip_x {
-            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-        }
-        if extracted_uinode.flip_y {
-            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-        }
+            if extracted_uinode.flip_x {
+                uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+            }
+            if extracted_uinode.flip_y {
+                uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+            }
+            uvs
+        };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in QUAD_INDICES {

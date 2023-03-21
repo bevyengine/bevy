@@ -138,7 +138,7 @@ pub mod adapter {
     ///
     /// // Building a new schedule/app...
     /// let mut sched = Schedule::default();
-    /// sched.add_system(
+    /// sched.add_systems(
     ///         // Panic if the load system returns an error.
     ///         load_save_system.pipe(system_adapter::unwrap)
     ///     )
@@ -169,7 +169,7 @@ pub mod adapter {
     ///
     /// // Building a new schedule/app...
     /// let mut sched = Schedule::default();
-    /// sched.add_system(
+    /// sched.add_systems(
     ///         // Prints system information.
     ///         data_pipe_system.pipe(system_adapter::info)
     ///     )
@@ -196,7 +196,7 @@ pub mod adapter {
     ///
     /// // Building a new schedule/app...
     /// let mut sched = Schedule::default();
-    /// sched.add_system(
+    /// sched.add_systems(
     ///         // Prints debug data from system.
     ///         parse_message_system.pipe(system_adapter::dbg)
     ///     )
@@ -223,7 +223,7 @@ pub mod adapter {
     ///
     /// // Building a new schedule/app...
     /// # let mut sched = Schedule::default();
-    /// sched.add_system(
+    /// sched.add_systems(
     ///         // Prints system warning if system returns an error.
     ///         warning_pipe_system.pipe(system_adapter::warn)
     ///     )
@@ -251,7 +251,7 @@ pub mod adapter {
     /// use bevy_ecs::prelude::*;
     /// // Building a new schedule/app...
     /// let mut sched = Schedule::default();
-    /// sched.add_system(
+    /// sched.add_systems(
     ///         // Prints system error if system fails.
     ///         parse_error_message_system.pipe(system_adapter::error)
     ///     )
@@ -287,7 +287,7 @@ pub mod adapter {
     ///
     /// // Building a new schedule/app...
     /// # let mut sched = Schedule::default(); sched
-    ///     .add_system(
+    ///     .add_systems(
     ///         // If the system fails, just move on and try again next frame.
     ///         fallible_system.pipe(system_adapter::ignore)
     ///     )

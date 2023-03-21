@@ -64,7 +64,7 @@
 //!
 //! // Configure this system to run in between the other two systems
 //! // using explicit dependencies.
-//! schedule.add_system(print_mid.after(print_first).before(print_last));
+//! schedule.add_systems(print_mid.after(print_first).before(print_last));
 //! // Prints "Hello, World!"
 //! schedule.run(&mut world);
 //!
@@ -214,7 +214,7 @@ mod tests {
 
     fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
-        schedule.add_system(system);
+        schedule.add_systems(system);
         schedule.run(world);
     }
 
@@ -273,6 +273,60 @@ mod tests {
 
         run_system(&mut world, query_system);
 
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+    }
+
+    #[test]
+    fn get_many_is_ordered() {
+        use crate::system::Resource;
+        const ENTITIES_COUNT: usize = 1000;
+
+        #[derive(Resource)]
+        struct EntitiesArray(Vec<Entity>);
+
+        fn query_system(
+            mut ran: ResMut<SystemRan>,
+            entities_array: Res<EntitiesArray>,
+            q: Query<&W<usize>>,
+        ) {
+            let entities_array: [Entity; ENTITIES_COUNT] =
+                entities_array.0.clone().try_into().unwrap();
+
+            for (i, w) in (0..ENTITIES_COUNT).zip(q.get_many(entities_array).unwrap()) {
+                assert_eq!(i, w.0);
+            }
+
+            *ran = SystemRan::Yes;
+        }
+
+        fn query_system_mut(
+            mut ran: ResMut<SystemRan>,
+            entities_array: Res<EntitiesArray>,
+            mut q: Query<&mut W<usize>>,
+        ) {
+            let entities_array: [Entity; ENTITIES_COUNT] =
+                entities_array.0.clone().try_into().unwrap();
+
+            #[allow(unused_mut)]
+            for (i, mut w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
+                assert_eq!(i, w.0);
+            }
+
+            *ran = SystemRan::Yes;
+        }
+
+        let mut world = World::default();
+        world.insert_resource(SystemRan::No);
+        let entity_ids = (0..ENTITIES_COUNT)
+            .map(|i| world.spawn(W(i)).id())
+            .collect();
+        world.insert_resource(EntitiesArray(entity_ids));
+
+        run_system(&mut world, query_system);
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+
+        world.insert_resource(SystemRan::No);
+        run_system(&mut world, query_system_mut);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
