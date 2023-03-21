@@ -1,5 +1,3 @@
-use std::{fmt::Display, path::PathBuf};
-
 use crate::texture::Image;
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{AssetServer, Assets, Handle, LoadState};
@@ -12,9 +10,15 @@ use bevy_ecs::{
 use bevy_log::{error, info, warn};
 use bevy_window::Window;
 use bevy_winit::{Icon, WinitWindows};
+use std::{fmt::Display, path::PathBuf};
 use thiserror::Error;
 
-/// An icon that can be placed at the top left of the window.
+/// Set the window icon. Lower-level systems are also available if something fancier is desired.
+///
+/// # Example
+/// TBD
+///
+/// This functionality [is only known to work on Windows and X11](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.set_window_icon).
 #[derive(Component, Debug)]
 pub struct WindowIcon(Option<Handle<Image>>);
 
@@ -27,12 +31,6 @@ impl WindowIcon {
 #[derive(Debug)]
 pub struct WindowIconPlugin(PathBuf);
 
-/// Set the window icon. Lower-level systems are also available if something fancier is desired.
-///
-/// # Example
-/// TBD
-///
-/// This functionality [is only known to work on Windows and X11](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.set_window_icon).
 impl Plugin for WindowIconPlugin {
     fn build(&self, app: &mut crate::App) {
         app.add_systems(Startup, insert_component(self.0.clone()))

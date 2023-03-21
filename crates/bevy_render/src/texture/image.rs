@@ -11,7 +11,6 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
-#[cfg(feature = "bevy_winit")]
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
