@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
-use crate::texture::{Image, MaybeImage};
+use crate::texture::Image;
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{AssetServer, Assets, Handle, LoadState};
 use bevy_ecs::{
@@ -9,9 +9,10 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::Commands,
 };
-use bevy_log::{error, info};
+use bevy_log::{error, info, warn};
 use bevy_window::Window;
-use bevy_winit::WinitWindows;
+use bevy_winit::{Icon, WinitWindows};
+use thiserror::Error;
 
 /// An icon that can be placed at the top left of the window.
 #[derive(Component, Debug)]
@@ -153,5 +154,111 @@ mod tests {
         app.update();
 
         assert!(app.world.get::<WindowIcon>(entity).is_some());
+    }
+}
+
+#[derive(Error, Debug)]
+pub struct IconCoversionError(String);
+
+impl Display for IconCoversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// Convert an [`Image`] to `bevy_winit::Icon`.
+impl TryInto<Icon> for Image {
+    type Error = IconCoversionError;
+
+    fn try_into(self) -> Result<Icon, Self::Error> {
+        let icon = match self.try_into_dynamic() {
+            Ok(icon) => icon,
+
+            Err(err) => {
+                return Err(IconCoversionError(format!(
+                    "icon conversion error: {}",
+                    err
+                )));
+            }
+        };
+
+        let width = icon.width();
+        let height = icon.height();
+        let data = icon.into_rgba8().into_raw();
+
+        Icon::from_rgba(data, width, height)
+            .map_err(|err| IconCoversionError(format!("icon conversion error: {}", err)))
+    }
+}
+
+/// Work around the orphan rule for converting `Option<&Image>` to `Option<Icon>`.
+#[derive(Debug)]
+pub(crate) struct MaybeImage<'a>(Option<&'a Image>);
+
+impl<'a> From<Option<&'a Image>> for MaybeImage<'a> {
+    fn from(value: Option<&'a Image>) -> Self {
+        Self(value)
+    }
+}
+
+#[cfg(feature = "bevy_winit")]
+impl<'a> From<MaybeImage<'a>> for Option<Icon> {
+    fn from(value: MaybeImage<'a>) -> Self {
+        match value {
+            MaybeImage(Some(image)) => {
+                let result: Result<Icon, _> = image.clone().try_into();
+                match result {
+                    Ok(icon) => Some(icon),
+
+                    Err(err) => {
+                        error!("failed to convert image to icon: {}", err);
+                        None
+                    }
+                }
+            }
+
+            MaybeImage(None) => {
+                warn!("window icon image asset not loaded");
+                None
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bevy_math::Vec2;
+    use wgpu::{Extent3d, TextureDimension, TextureFormat};
+
+    #[test]
+    fn image_size() {
+        let size = Extent3d {
+            width: 200,
+            height: 100,
+            depth_or_array_layers: 1,
+        };
+        let image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+        );
+        assert_eq!(
+            Vec2::new(size.width as f32, size.height as f32),
+            image.size()
+        );
+    }
+
+    #[test]
+    fn image_default_size() {
+        let image = Image::default();
+        assert_eq!(Vec2::ONE, image.size());
+    }
+
+    #[test]
+    fn into_icon() {
+        let image = Image::default();
+        let _: Icon = image.try_into().unwrap();
     }
 }
