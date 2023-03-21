@@ -1,4 +1,4 @@
-use bevy_app::{IntoSystemAppConfig, Plugin};
+use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -39,7 +39,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
@@ -102,7 +102,10 @@ where
             };
 
         render_app
-            .add_system(queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue))
+            .add_systems(
+                Render,
+                queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
+            )
             .init_resource::<PrepassPipeline<M>>()
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
@@ -130,15 +133,18 @@ where
         };
 
         render_app
-            .add_systems((
-                extract_camera_prepass_phase.in_schedule(ExtractSchedule),
-                prepare_prepass_textures
-                    .in_set(RenderSet::Prepare)
-                    .after(bevy_render::view::prepare_windows),
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
-                sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
-                sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
-            ))
+            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems(
+                Render,
+                (
+                    prepare_prepass_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                    queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                ),
+            )
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()

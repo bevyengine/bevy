@@ -3,7 +3,7 @@ use crate::{
     MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
     SetMeshViewBindGroup, Shadow,
 };
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -35,7 +35,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -199,14 +199,17 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems((
-                    extract_materials::<M>.in_schedule(ExtractSchedule),
-                    prepare_materials::<M>
-                        .in_set(RenderSet::Prepare)
-                        .after(PrepareAssetSet::PreAssetPrepare),
-                    render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
-                    queue_material_meshes::<M>.in_set(RenderSet::Queue),
-                ));
+                .add_systems(ExtractSchedule, extract_materials::<M>)
+                .add_systems(
+                    Render,
+                    (
+                        prepare_materials::<M>
+                            .in_set(RenderSet::Prepare)
+                            .after(PrepareAssetSet::PreAssetPrepare),
+                        render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
+                        queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                    ),
+                );
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
