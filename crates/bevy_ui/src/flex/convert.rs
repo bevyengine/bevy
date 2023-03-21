@@ -412,9 +412,8 @@ mod tests {
         ];
         for (val, length) in cases {
             assert!(match (val.into_length_percentage(&context), length) {
-                (LengthPercentage::Points(a), LengthPercentage::Points(b)) =>
-                    (a - b).abs() < 0.0001,
-                (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
+                (LengthPercentage::Points(a), LengthPercentage::Points(b))
+                | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
                     (a - b).abs() < 0.0001,
                 _ => false,
             },);
