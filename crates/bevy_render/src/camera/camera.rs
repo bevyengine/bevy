@@ -1,8 +1,8 @@
 use crate::{
     camera::CameraProjection,
-    texture::{Image, GpuImage},
     render_asset::RenderAssets,
     render_resource::TextureView,
+    texture::{GpuImage, Image},
     view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
     Extract,
 };

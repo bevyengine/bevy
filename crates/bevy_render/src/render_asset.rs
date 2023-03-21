@@ -30,10 +30,10 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
-    /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
-    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset;
+    /// Converts the `source_asset` into a [`RenderAsset::ExtractedAsset`].
+    fn extract_asset(source_asset: &Self::SourceAsset) -> Self::ExtractedAsset;
     /// Prepares the `extracted asset` for the GPU by transforming it into
-    /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
+    /// a [`RenderAsset`]. Therefore ECS data may be accessed via the `param`.
     fn prepare_asset(
         extracted_asset: Self::ExtractedAsset,
         param: &mut SystemParamItem<Self::Param>,
@@ -118,8 +118,8 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
     }
 }
 
-/// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
-/// of [`RenderAssets`](RenderAsset) as long as they exist.
+/// Stores all GPU representations ([`RenderAsset`](RenderAsset))
+/// of [`RenderAssets::SourceAsset`](RenderAsset::SourceAsset) as long as they exist.
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderAssets<A: RenderAsset>(HashMap<Handle<A::SourceAsset>, A>);
 
@@ -129,7 +129,7 @@ impl<A: RenderAsset> Default for RenderAssets<A> {
     }
 }
 
-/// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
+/// This system extracts all created or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
@@ -153,7 +153,7 @@ fn extract_render_asset<A: RenderAsset>(
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
         if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, A::extract_asset(&asset)));
+            extracted_assets.push((handle, A::extract_asset(asset)));
         }
     }
 

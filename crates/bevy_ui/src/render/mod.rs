@@ -23,7 +23,7 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{Image, GpuImage},
+    texture::{GpuImage, Image},
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };

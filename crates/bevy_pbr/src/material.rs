@@ -19,8 +19,8 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
-    render_asset::{RenderAsset, RenderAssets, RenderAssetPlugin, PrepareAssetError},
+    mesh::{GpuMesh, Mesh, MeshVertexBufferLayout},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -35,7 +35,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, VisibleEntities},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::error};
+use bevy_utils::tracing::error;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -538,9 +538,13 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         SRes<FallbackImage>,
         SRes<MaterialPipeline<M>>,
     );
-    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
-        asset.clone()
+
+    /// Clones the Material.
+    fn extract_asset(source_asset: &Self::SourceAsset) -> Self::ExtractedAsset {
+        source_asset.clone()
     }
+
+    /// Converts the extracted material a into [`PreparedMaterial`].
     fn prepare_asset(
         material: Self::ExtractedAsset,
         (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
@@ -551,7 +555,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             images,
             fallback_image,
         ) {
-            Err(AsBindGroupError::RetryNextUpdate) => Err(PrepareAssetError::RetryNextUpdate(material)),
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                Err(PrepareAssetError::RetryNextUpdate(material))
+            }
             Ok(prepared) => Ok(PreparedMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
@@ -560,7 +566,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     alpha_mode: material.alpha_mode(),
                     depth_bias: material.depth_bias(),
                 },
-            })
+            }),
         }
     }
 }

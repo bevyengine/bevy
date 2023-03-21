@@ -3,7 +3,7 @@ use crate::{
     CascadeShadowConfig, Cascades, CascadesVisibleEntities, Clusters, CubemapVisibleEntities,
     DirectionalLight, DirectionalLightShadowMap, DrawPrepass, EnvironmentMapLight,
     GlobalVisiblePointLights, Material, MaterialPipelineKey, MeshPipeline, MeshPipelineKey,
-    NotShadowCaster, PointLight, PointLightShadowMap, PrepassPipeline, PreparedMaterial, SpotLight,
+    NotShadowCaster, PointLight, PointLightShadowMap, PreparedMaterial, PrepassPipeline, SpotLight,
     VisiblePointLights,
 };
 use bevy_asset::Handle;
@@ -13,7 +13,7 @@ use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles
 use bevy_render::{
     camera::Camera,
     color::Color,
-    mesh::{Mesh, GpuMesh},
+    mesh::{GpuMesh, Mesh},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{

@@ -10,7 +10,7 @@ use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
+    mesh::{GpuMesh, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::{

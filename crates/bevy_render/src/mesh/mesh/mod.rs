@@ -834,8 +834,8 @@ impl RenderAsset for GpuMesh {
     type Param = SRes<RenderDevice>;
 
     /// Clones the mesh.
-    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
-        asset.clone()
+    fn extract_asset(source_asset: &Self::SourceAsset) -> Self::ExtractedAsset {
+        source_asset.clone()
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].

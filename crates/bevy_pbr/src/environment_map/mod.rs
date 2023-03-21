@@ -10,7 +10,7 @@ use bevy_render::{
         BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
         Shader, ShaderStages, TextureSampleType, TextureViewDimension,
     },
-    texture::{FallbackImageCubemap, Image, GpuImage},
+    texture::{FallbackImageCubemap, GpuImage, Image},
 };
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =

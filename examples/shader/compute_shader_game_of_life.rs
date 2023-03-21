@@ -8,10 +8,10 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
-        texture::GpuImage,
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
+        texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,

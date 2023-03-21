@@ -17,7 +17,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{GpuMesh, MeshVertexBufferLayout},
-    render_asset::{RenderAssets, RenderAsset, RenderAssetPlugin, PrepareAssetError},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -33,7 +33,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{FloatOrd};
+use bevy_utils::FloatOrd;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -161,9 +161,7 @@ where
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .add_systems(
                     Render,
-                    (
-                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
-                    ),
+                    (queue_material2d_meshes::<M>.in_set(RenderSet::Queue),),
                 );
         }
     }
@@ -429,9 +427,13 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SRes<FallbackImage>,
         SRes<Material2dPipeline<M>>,
     );
-    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
-        asset.clone()
+
+    /// Clones the Material2d.
+    fn extract_asset(source_asset: &Self::SourceAsset) -> Self::ExtractedAsset {
+        source_asset.clone()
     }
+
+    /// Converts the extracted material2d a into [`PreparedMaterial2d`].
     fn prepare_asset(
         material: Self::ExtractedAsset,
         (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
@@ -442,12 +444,14 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             images,
             fallback_image,
         ) {
-            Err(AsBindGroupError::RetryNextUpdate) => Err(PrepareAssetError::RetryNextUpdate(material)),
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                Err(PrepareAssetError::RetryNextUpdate(material))
+            }
             Ok(prepared) => Ok(PreparedMaterial2d {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
                 key: prepared.data,
-            })
+            }),
         }
     }
 }

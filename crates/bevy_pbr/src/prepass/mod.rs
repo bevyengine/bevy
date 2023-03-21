@@ -18,7 +18,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
+    mesh::{GpuMesh, Mesh, MeshVertexBufferLayout},
     prelude::Camera,
     render_asset::RenderAssets,
     render_phase::{

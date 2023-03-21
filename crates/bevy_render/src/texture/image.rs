@@ -513,8 +513,8 @@ impl RenderAsset for GpuImage {
     );
 
     /// Clones the Image.
-    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
-        asset.clone()
+    fn extract_asset(source_asset: &Self::SourceAsset) -> Self::ExtractedAsset {
+        source_asset.clone()
     }
 
     /// Converts the extracted image into a [`GpuImage`].
