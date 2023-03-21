@@ -1,5 +1,3 @@
-use taffy::style::Dimension;
-
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
     PositionType, Size, Style, UiRect, Val,
@@ -8,40 +6,45 @@ use crate::{
 use super::LayoutContext;
 
 impl Val {
-    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
+    fn into_length_percentage_auto(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentageAuto {
         match self {
-            Val::Auto => taffy::style::Dimension::Auto,
-            Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.),
-            Val::Px(value) => {
-                taffy::style::Dimension::Points((context.scale_factor * value as f64) as f32)
+            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
+            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
+            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(
+                (context.scale_factor * value as f64) as f32,
+            ),
+            Val::VMin(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
             }
-            Val::VMin(value) => taffy::style::Dimension::Percent(context.min_size * value / 100.),
-            Val::VMax(value) => taffy::style::Dimension::Points(context.max_size * value / 100.),
+            Val::VMax(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
+            }
             Val::Vw(value) => {
-                taffy::style::Dimension::Points(context.physical_size.x * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
             }
             Val::Vh(value) => {
-                taffy::style::Dimension::Points(context.physical_size.y * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
             }
         }
     }
 
     fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
-        match self.into_dimension(context) {
-            Dimension::Auto => taffy::style::LengthPercentage::Points(0.0),
-            Dimension::Percent(value) => taffy::style::LengthPercentage::Percent(value),
-            Dimension::Points(value) => taffy::style::LengthPercentage::Points(value),
+        match self.into_length_percentage_auto(context) {
+            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Points(0.0),
+            taffy::style::LengthPercentageAuto::Percent(value) => {
+                taffy::style::LengthPercentage::Percent(value)
+            }
+            taffy::style::LengthPercentageAuto::Points(value) => {
+                taffy::style::LengthPercentage::Points(value)
+            }
         }
     }
-    fn into_length_percentage_auto(
-        self,
-        context: &LayoutContext,
-    ) -> taffy::style::LengthPercentageAuto {
-        match self.into_dimension(context) {
-            Dimension::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Dimension::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value),
-            Dimension::Points(value) => taffy::style::LengthPercentageAuto::Points(value),
-        }
+
+    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
+        self.into_length_percentage_auto(context).into()
     }
 }
 
@@ -392,5 +395,29 @@ mod tests {
             taffy_style.gap.height,
             taffy::style::LengthPercentage::Percent(0.)
         );
+    }
+
+    #[test]
+    fn test_into_length_percentage() {
+        use taffy::style::LengthPercentage;
+        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
+        let cases = [
+            (Val::Auto, LengthPercentage::Points(0.)),
+            (Val::Percent(1.), LengthPercentage::Percent(0.01)),
+            (Val::Px(1.), LengthPercentage::Points(2.)),
+            (Val::Vw(1.), LengthPercentage::Points(8.)),
+            (Val::Vh(1.), LengthPercentage::Points(6.)),
+            (Val::VMin(2.), LengthPercentage::Points(12.)),
+            (Val::VMax(2.), LengthPercentage::Points(16.)),
+        ];
+        for (val, length) in cases {
+            assert!(match (val.into_length_percentage(&context), length) {
+                (LengthPercentage::Points(a), LengthPercentage::Points(b)) =>
+                    (a - b).abs() < 0.0001,
+                (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
+                    (a - b).abs() < 0.0001,
+                _ => false,
+            },);
+        }
     }
 }
