@@ -6,7 +6,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    RenderSet,
+    Render, RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
 
@@ -20,7 +20,10 @@ impl Plugin for MsaaWritebackPlugin {
             return
         };
 
-        render_app.add_system(queue_msaa_writeback_pipelines.in_set(RenderSet::Queue));
+        render_app.add_systems(
+            Render,
+            queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
+        );
         let msaa_writeback_2d = MsaaWritebackNode::new(&mut render_app.world);
         let msaa_writeback_3d = MsaaWritebackNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();

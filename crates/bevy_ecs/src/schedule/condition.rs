@@ -31,7 +31,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_system(
+    /// app.add_systems(
     ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
@@ -48,7 +48,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_equals` will only get run if the resource `R` exists.
     ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
     /// );
@@ -86,7 +86,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
-    /// app.add_system(
+    /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
     ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
     /// );
@@ -159,7 +159,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `run_once` will only return true the first time it's evaluated
     ///     my_system.run_if(run_once()),
     /// );
@@ -199,7 +199,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_exsists` will only return true if the given resource exsists in the world
     ///     my_system.run_if(resource_exists::<Counter>()),
     /// );
@@ -239,7 +239,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_equals` will only return true if the given resource equals the given value
     ///     my_system.run_if(resource_equals(Counter(0))),
     /// );
@@ -276,7 +276,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
     ///     // if the given resource exsists and equals the given value
     ///     my_system.run_if(resource_exists_and_equals(Counter(0))),
@@ -319,7 +319,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_added` will only return true if the
     ///     // given resource was just added
     ///     my_system.run_if(resource_added::<Counter>()),
@@ -370,7 +370,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_changed` will only return true if the
     ///     // given resource was just changed (or added)
     ///     my_system.run_if(
@@ -423,7 +423,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
     ///     // given resource exsists and was just changed (or added)
     ///     my_system.run_if(
@@ -485,7 +485,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
     ///     my_system.run_if(
@@ -555,7 +555,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_removed` will only return true if the
     ///     // given resource was just removed
     ///     my_system.run_if(resource_removed::<MyResource>()),
@@ -617,7 +617,7 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `state_exists` will only return true if the
     ///     // given state exsists
     ///     my_system.run_if(state_exists::<GameState>()),
@@ -784,7 +784,7 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<State<GameState>>();
     ///
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `state_changed` will only return true if the
     ///     // given states value has just been updated or
     ///     // the state has just been added
@@ -826,9 +826,9 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_system(Events::<MyEvent>::update_system.before(my_system));
+    /// # app.add_systems(Events::<MyEvent>::update_system.before(my_system));
     ///
-    /// app.add_system(
+    /// app.add_systems(
     ///     my_system.run_if(on_event::<MyEvent>()),
     /// );
     ///
@@ -868,7 +868,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     my_system.run_if(any_with_component::<MyComponent>()),
     /// );
     ///
@@ -904,7 +904,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `not` will inverse any condition you pass in.
     ///     // Since the condition we choose always returns true
     ///     // this system will never run
@@ -1073,15 +1073,11 @@ where
 mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
-    use crate::{
-        change_detection::ResMut,
-        component::Component,
-        schedule::{
-            common_conditions::not, IntoSystemConfig, IntoSystemConfigs, Schedule, State, States,
-        },
-        system::Local,
-        world::World,
-    };
+    use crate::component::Component;
+    use crate::schedule::IntoSystemConfigs;
+    use crate::schedule::{common_conditions::not, State, States};
+    use crate::system::Local;
+    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
     use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
@@ -1103,7 +1099,7 @@ mod tests {
         let mut schedule = Schedule::new();
 
         // Run every other cycle
-        schedule.add_system(increment_counter.run_if(every_other_time));
+        schedule.add_systems(increment_counter.run_if(every_other_time));
 
         schedule.run(&mut world);
         schedule.run(&mut world);
@@ -1113,7 +1109,7 @@ mod tests {
         assert_eq!(world.resource::<Counter>().0, 2);
 
         // Run every other cycle oppsite to the last one
-        schedule.add_system(increment_counter.run_if(not(every_other_time)));
+        schedule.add_systems(increment_counter.run_if(not(every_other_time)));
 
         schedule.run(&mut world);
         schedule.run(&mut world);
@@ -1130,9 +1126,9 @@ mod tests {
         let mut schedule = Schedule::new();
 
         // Always run
-        schedule.add_system(increment_counter.run_if(every_other_time.or_else(|| true)));
+        schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
         // Run every other cycle
-        schedule.add_system(increment_counter.run_if(every_other_time.and_then(|| true)));
+        schedule.add_systems(increment_counter.run_if(every_other_time.and_then(|| true)));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 2);
@@ -1147,9 +1143,9 @@ mod tests {
         let mut schedule = Schedule::new();
 
         // Run every other cycle
-        schedule.add_system(increment_counter.run_if(every_other_time).run_if(|| true));
+        schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
         // Never run
-        schedule.add_system(increment_counter.run_if(every_other_time).run_if(|| false));
+        schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| false));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 1);
@@ -1166,7 +1162,7 @@ mod tests {
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run
-        schedule.add_system(
+        schedule.add_systems(
             increment_counter
                 .run_if(every_other_time)
                 .run_if(not(every_other_time)),

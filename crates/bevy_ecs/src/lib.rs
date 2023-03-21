@@ -39,9 +39,8 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         schedule::{
             apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
-            IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig,
-            IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnTransition, OnUpdate, Schedule,
-            Schedules, State, States, SystemSet,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
+            OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,

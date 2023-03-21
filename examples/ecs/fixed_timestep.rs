@@ -6,12 +6,10 @@ const FIXED_TIMESTEP: f32 = 0.5;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            // this system will run once every update (it should match your screen's refresh rate)
-            frame_update,
-            // add our system to the fixed timestep schedule
-            fixed_update.in_schedule(CoreSchedule::FixedUpdate),
-        ))
+        // this system will run once every update (it should match your screen's refresh rate)
+        .add_systems(Update, frame_update)
+        // add our system to the fixed timestep schedule
+        .add_systems(FixedUpdate, fixed_update)
         // configure our fixed timestep schedule to run twice a second
         .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP))
         .run();
