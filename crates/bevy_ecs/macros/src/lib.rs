@@ -20,7 +20,7 @@ use quote::{format_ident, quote};
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
-    parse_macro_input,
+    parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     ConstParam, DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Result, Token,
@@ -139,7 +139,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_ecs::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables)]
             #[inline]
             fn get_components(
@@ -525,30 +525,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     const LIMIT: usize = 16;
     while field_types.len() > LIMIT {
         let end = Vec::from_iter(field_types.drain(..LIMIT));
-        field_types.push(match syn::parse(quote! { (#(#end,)*) }.into()) {
-            Ok(o) => o,
-            Err(e) => {
-                return syn::Error::new(
-                    Span::call_site(),
-                    format!("Failed to compact field types: {e}"),
-                )
-                .into_compile_error()
-                .into()
-            }
-        });
+        field_types.push(parse_quote! { (#(#end,)*) });
 
         let end = Vec::from_iter(field_patterns.drain(..LIMIT));
-        field_patterns.push(match syn::parse(quote! { (#(#end,)*) }.into()) {
-            Ok(o) => o,
-            Err(e) => {
-                return syn::Error::new(
-                    Span::call_site(),
-                    format!("Failed to compact field patterns: {e}"),
-                )
-                .into_compile_error()
-                .into()
-            }
-        });
+        field_patterns.push(parse_quote! { (#(#end,)*) });
     }
 
     // Create a where clause for the `ReadOnlySystemParam` impl.
