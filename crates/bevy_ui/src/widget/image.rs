@@ -59,8 +59,8 @@ pub fn update_image_calculated_size_system(
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size has changed to avoid needless layout calculations
-            if size != calculated_size.size {
-                calculated_size.size = size;
+            if size != calculated_size.previous_size {
+                calculated_size.previous_size = size;
                 calculated_size.measure = Box::new(ImageMeasure { size });
             }
         }

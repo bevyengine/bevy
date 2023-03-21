@@ -21,58 +21,9 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 }
 
 #[derive(Clone)]
-pub struct TextMeasure {
-    pub min_content: Vec2,
-    pub max_content: Vec2,
-    pub ideal_height: f32,
-}
-
-impl Measure for TextMeasure {
-    fn measure(
-        &self,
-        max_width: Option<f32>,
-        max_height: Option<f32>,
-        w: AvailableSpace,
-        h: AvailableSpace,
-    ) -> Vec2 {
-        let mut size = Vec2::ZERO;
-        
-
-        match (max_width, max_height) {
-            (None, None) => {
-                // with no constraints
-                // ask for maximum width space for text with no wrapping
-                size = self.max_content;
-            }
-            (Some(width), None) => {
-                size.x = width;
-                size.y = self.ideal_height;
-            }
-            (None, Some(height)) => {
-                size.y = height;
-                size.x = self.max_content.x;
-            }
-            (Some(width), Some(height)) => {
-                size.x = width;
-                size.y = height;
-            }
-        }
-        size.x = size.x.ceil();
-        size.y = size.y.ceil();
-        size
-        
-    }
-
-    fn dyn_clone(&self) -> Box<dyn Measure> {
-        Box::new(self.clone())
-    }
-}
-
-#[derive(Clone)]
 pub struct AutoTextMeasure {
     pub auto_text_info: AutoTextInfo,
 }
-
 
 impl Measure for AutoTextMeasure {
     fn measure(
@@ -96,8 +47,6 @@ impl Measure for AutoTextMeasure {
                 AvailableSpace::MinContent => f32::INFINITY,
             }),
         );
-
-
         let size = self.auto_text_info.compute_size(bounds);
         size
     }
@@ -152,7 +101,7 @@ pub fn measure_text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((text, mut intrinsic_size)) = query.get_mut(entity) {
+        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
             match text_pipeline.compute_auto_text_measure(
                 &fonts,
                 &text.sections,
@@ -161,16 +110,7 @@ pub fn measure_text_system(
                 text.linebreak_behaviour,
             ) {
                 Ok(measure) => {
-                    // let measure = TextMeasure {
-                    //     min_content: min,
-                    //     max_content: max,
-                    //     ideal_height: min.y,
-                    // };
-                    // intrinsic_size.min_content = min;
-                    // intrinsic_size.max_content = max;
-                    // intrinsic_size.ideal.y = min.y;
-                    // intrinsic_size.measure = Box::new(measure);
-                    intrinsic_size.measure = Box::new(AutoTextMeasure {
+                    calculated_size.measure = Box::new(AutoTextMeasure {
                         auto_text_info: measure,
                     });
                 }
@@ -239,7 +179,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut text_query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((node, text, mut intrinsic_size, mut text_layout_info)) =
+        if let Ok((node, text, mut calculated_size, mut text_layout_info)) =
             text_query.get_mut(entity)
         {
             let node_size = Vec2::new(
@@ -270,15 +210,6 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-                    // if info.size.y != intrinsic_size.ideal.y {
-                    //     let measure = TextMeasure {
-                    //         min_content: intrinsic_size.min_content,
-                    //         max_content: intrinsic_size.max_content,
-                    //         ideal_height: info.size.y,
-                    //     };
-                    //     intrinsic_size.ideal = info.size;
-                    //     intrinsic_size.measure = Box::new(measure);
-                    // }
                     *text_layout_info = info;
                 }
             }

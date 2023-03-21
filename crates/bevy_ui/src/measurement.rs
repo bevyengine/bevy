@@ -8,7 +8,7 @@ use std::fmt::Formatter;
 impl std::fmt::Debug for CalculatedSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CalculatedSize")
-            .field("size", &self.size)
+            .field("size", &self.previous_size)
             .finish()
     }
 }
@@ -52,15 +52,12 @@ impl Measure for FixedMeasure {
     }
 }
 
-/// A node with an intrinsic size component is a node where its size
+/// A node with a `CalculatedSize` component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect)]
 pub struct CalculatedSize {
-    /// Used to track changes
-    pub size: Vec2,
-    pub min_content: Vec2,
-    pub max_content: Vec2,
-    pub ideal: Vec2,
+    /// Used to track changes, not required to be set.
+    pub previous_size: Vec2,
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub measure: Box<dyn Measure>,
@@ -70,10 +67,7 @@ pub struct CalculatedSize {
 impl Default for CalculatedSize {
     fn default() -> Self {
         Self {
-            size: Default::default(),
-            min_content: Default::default(),
-            max_content: Default::default(),
-            ideal: Default::default(),
+            previous_size: Default::default(),
             // Default `FixedMeasure` always returns zero size.
             measure: Box::<FixedMeasure>::default(),
         }
@@ -83,10 +77,7 @@ impl Default for CalculatedSize {
 impl Clone for CalculatedSize {
     fn clone(&self) -> Self {
         Self {
-            size: self.size,
-            min_content: Default::default(),
-            max_content: Default::default(),
-            ideal: Default::default(),
+            previous_size: self.previous_size,
             measure: self.measure.dyn_clone(),
         }
     }
