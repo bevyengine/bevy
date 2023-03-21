@@ -943,7 +943,7 @@ path = "examples/audio/audio_empty.rs"
 
 [package.metadata.example.audio_empty]
 name = "Audio Empty"
-description = "Shows how to check when an AudioSink has been emptied"
+description = "Shows how to check if an AudioSink has been emptied"
 category = "Audio"
 wasm = true
 
