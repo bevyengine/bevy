@@ -153,7 +153,6 @@ impl<'a> From<Option<&'a Image>> for MaybeImage<'a> {
     }
 }
 
-#[cfg(feature = "bevy_winit")]
 impl<'a> From<MaybeImage<'a>> for Option<Icon> {
     fn from(value: MaybeImage<'a>) -> Self {
         match value {
