@@ -17,7 +17,6 @@ use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_log::error;
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-#[cfg(feature = "bevy_winit")]
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
