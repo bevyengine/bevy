@@ -71,10 +71,13 @@ subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
+bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -122,3 +125,4 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.11.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.11.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.11.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.11.0-dev" }
+bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.11.0-dev", default-features = false }
