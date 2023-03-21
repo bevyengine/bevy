@@ -3,7 +3,7 @@ use bevy_ecs::query::QueryState;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
@@ -34,8 +34,6 @@ pub struct PrepassNode {
 }
 
 impl PrepassNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             main_view_query: QueryState::new(world),
@@ -44,10 +42,6 @@ impl PrepassNode {
 }
 
 impl Node for PrepassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.main_view_query.update_archetypes(world);
     }
@@ -58,7 +52,7 @@ impl Node for PrepassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let Ok((
             camera,
             opaque_prepass_phase,
