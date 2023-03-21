@@ -59,23 +59,19 @@ fn update_clipping(
     }
 
     // Calculate new clip for its children
-    let children_clip = match style.overflow {
-        Overflow {
-            x: OverflowAxis::Visible,
-            y: OverflowAxis::Visible,
-        } => maybe_inherited_clip,
-        _ => {
-            let mut node_rect = node.logical_rect(global_transform);
-            if style.overflow.x == OverflowAxis::Visible {
-                node_rect.min.x = -f32::INFINITY;
-                node_rect.max.x = f32::INFINITY;
-            }
-            if style.overflow.y == OverflowAxis::Visible {
-                node_rect.min.y = -f32::INFINITY;
-                node_rect.max.y = f32::INFINITY;
-            }
-            Some(maybe_inherited_clip.map_or(node_rect, |c| c.intersect(node_rect)))
+    let children_clip = if style.overflow.is_visible() {
+        maybe_inherited_clip
+    } else {
+        let mut node_rect = node.logical_rect(global_transform);
+        if style.overflow.x == OverflowAxis::Visible {
+            node_rect.min.x = -f32::INFINITY;
+            node_rect.max.x = f32::INFINITY;
         }
+        if style.overflow.y == OverflowAxis::Visible {
+            node_rect.min.y = -f32::INFINITY;
+            node_rect.max.y = f32::INFINITY;
+        }
+        Some(maybe_inherited_clip.map_or(node_rect, |c| c.intersect(node_rect)))
     };
 
     if let Ok(children) = children_query.get(entity) {

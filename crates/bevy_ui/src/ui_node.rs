@@ -625,6 +625,11 @@ impl Overflow {
             y: OverflowAxis::Hidden,
         }
     }
+
+    /// Overflow is visible on both axes
+    pub const fn is_visible(&self) -> bool {
+        self.x.is_visible() && self.y.is_visible()
+    }
 }
 
 impl Default for Overflow {
@@ -645,6 +650,11 @@ pub enum OverflowAxis {
 
 impl OverflowAxis {
     pub const DEFAULT: Self = Self::Visible;
+
+    /// Overflow is visible on this axis
+    pub const fn is_visible(&self) -> bool {
+        matches!(self, Self::Visible)
+    }
 }
 
 impl Default for OverflowAxis {
