@@ -109,52 +109,6 @@ pub fn image_asset_loaded() -> impl FnMut(Res<AssetServer>, Query<&WindowIcon>) 
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::WindowIcon;
-    use crate::texture::Image;
-    use crate::texture::WindowIconPlugin;
-    use bevy_app::prelude::App;
-    use bevy_asset::AddAsset;
-    use bevy_asset::Assets;
-
-    fn make_app() -> App {
-        let mut app = App::new();
-        app.add_plugin(bevy_core::TaskPoolPlugin::default())
-            .add_plugin(bevy_core::TypeRegistrationPlugin::default())
-            .add_plugin(bevy_asset::AssetPlugin::default())
-            .init_non_send_resource::<bevy_winit::WinitWindows>()
-            .init_resource::<bevy_winit::WinitSettings>()
-            .set_runner(bevy_winit::winit_runner)
-            .add_asset::<Image>();
-        app
-    }
-
-    #[test]
-    fn window_icon() {
-        let mut app = make_app();
-
-        app.add_plugin(WindowIconPlugin::new("some/image.png".into()));
-
-        let image_handle = app
-            .world
-            .resource_mut::<Assets<Image>>()
-            .add(Image::default());
-
-        assert!(app
-            .world
-            .resource::<Assets<Image>>()
-            .get(&image_handle)
-            .is_some());
-
-        let entity = app.world.spawn(WindowIcon::new(Some(image_handle))).id();
-
-        app.update();
-
-        assert!(app.world.get::<WindowIcon>(entity).is_some());
-    }
-}
-
 #[derive(Error, Debug)]
 pub struct IconCoversionError(String);
 
@@ -225,38 +179,53 @@ impl<'a> From<MaybeImage<'a>> for Option<Icon> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use bevy_math::Vec2;
-    use wgpu::{Extent3d, TextureDimension, TextureFormat};
-
-    #[test]
-    fn image_size() {
-        let size = Extent3d {
-            width: 200,
-            height: 100,
-            depth_or_array_layers: 1,
-        };
-        let image = Image::new_fill(
-            size,
-            TextureDimension::D2,
-            &[0, 0, 0, 255],
-            TextureFormat::Rgba8Unorm,
-        );
-        assert_eq!(
-            Vec2::new(size.width as f32, size.height as f32),
-            image.size()
-        );
-    }
-
-    #[test]
-    fn image_default_size() {
-        let image = Image::default();
-        assert_eq!(Vec2::ONE, image.size());
-    }
+    use super::WindowIcon;
+    use crate::texture::Image;
+    use crate::texture::WindowIconPlugin;
+    use bevy_app::prelude::App;
+    use bevy_asset::AddAsset;
+    use bevy_asset::Assets;
+    use bevy_winit::Icon;
 
     #[test]
     fn into_icon() {
         let image = Image::default();
         let _: Icon = image.try_into().unwrap();
+    }
+
+    fn make_app() -> App {
+        let mut app = App::new();
+        app.add_plugin(bevy_core::TaskPoolPlugin::default())
+            .add_plugin(bevy_core::TypeRegistrationPlugin::default())
+            .add_plugin(bevy_asset::AssetPlugin::default())
+            .init_non_send_resource::<bevy_winit::WinitWindows>()
+            .init_resource::<bevy_winit::WinitSettings>()
+            .set_runner(bevy_winit::winit_runner)
+            .add_asset::<Image>();
+        app
+    }
+
+    #[test]
+    fn window_icon() {
+        let mut app = make_app();
+
+        app.add_plugin(WindowIconPlugin::new("some/image.png".into()));
+
+        let image_handle = app
+            .world
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+
+        assert!(app
+            .world
+            .resource::<Assets<Image>>()
+            .get(&image_handle)
+            .is_some());
+
+        let entity = app.world.spawn(WindowIcon::new(Some(image_handle))).id();
+
+        app.update();
+
+        assert!(app.world.get::<WindowIcon>(entity).is_some());
     }
 }

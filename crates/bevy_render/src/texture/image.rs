@@ -14,7 +14,6 @@ use crate::{
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_log::error;
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use std::hash::Hash;
@@ -610,5 +609,35 @@ impl CompressedImageFormats {
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn image_size() {
+        let size = Extent3d {
+            width: 200,
+            height: 100,
+            depth_or_array_layers: 1,
+        };
+        let image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+        );
+        assert_eq!(
+            Vec2::new(size.width as f32, size.height as f32),
+            image.size()
+        );
+    }
+    #[test]
+    fn image_default_size() {
+        let image = Image::default();
+        assert_eq!(Vec2::ONE, image.size());
     }
 }
