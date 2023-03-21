@@ -421,7 +421,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
 }
 
 impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
-    type Asset = M;
+    type SourceAsset = M;
     type ExtractedAsset = M;
     type Param = (
         SRes<RenderDevice>,
@@ -429,7 +429,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SRes<FallbackImage>,
         SRes<Material2dPipeline<M>>,
     );
-    fn extract_asset(asset: &Self::Asset) -> Self::ExtractedAsset {
+    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
         asset.clone()
     }
     fn prepare_asset(

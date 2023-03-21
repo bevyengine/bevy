@@ -504,7 +504,7 @@ pub struct GpuImage {
 }
 
 impl RenderAsset for GpuImage {
-    type Asset = Image;
+    type SourceAsset = Image;
     type ExtractedAsset = Image;
     type Param = (
         SRes<RenderDevice>,
@@ -513,7 +513,7 @@ impl RenderAsset for GpuImage {
     );
 
     /// Clones the Image.
-    fn extract_asset(asset: &Self::Asset) -> Self::ExtractedAsset {
+    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
         asset.clone()
     }
 

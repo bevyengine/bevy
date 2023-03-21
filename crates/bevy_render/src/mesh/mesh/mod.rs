@@ -829,12 +829,12 @@ pub enum GpuBufferInfo {
 }
 
 impl RenderAsset for GpuMesh {
-    type Asset = Mesh;
+    type SourceAsset = Mesh;
     type ExtractedAsset = Mesh;
     type Param = SRes<RenderDevice>;
 
     /// Clones the mesh.
-    fn extract_asset(asset: &Self::Asset) -> Self::ExtractedAsset {
+    fn extract_asset(asset: &Self::SourceAsset) -> Self::ExtractedAsset {
         asset.clone()
     }
 
