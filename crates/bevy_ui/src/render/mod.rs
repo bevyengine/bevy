@@ -19,7 +19,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
+    render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -44,9 +44,6 @@ pub mod node {
 
 pub mod draw_ui_graph {
     pub const NAME: &str = "draw_ui";
-    pub mod input {
-        pub const VIEW_ENTITY: &str = "view_entity";
-    }
     pub mod node {
         pub const UI_PASS: &str = "ui_pass";
     }
@@ -110,12 +107,6 @@ pub fn build_ui_render(app: &mut App) {
             bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
             draw_ui_graph::node::UI_PASS,
         );
-        graph_2d.add_slot_edge(
-            graph_2d.input_node().id,
-            bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
-        );
         graph_2d.add_node_edge(
             bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
             draw_ui_graph::node::UI_PASS,
@@ -144,12 +135,6 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             bevy_core_pipeline::core_3d::graph::node::UPSCALING,
         );
-        graph_3d.add_slot_edge(
-            graph_3d.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
-        );
     }
 }
 
@@ -157,16 +142,6 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    let input_node_id = ui_graph.set_input(vec![SlotInfo::new(
-        draw_ui_graph::input::VIEW_ENTITY,
-        SlotType::Entity,
-    )]);
-    ui_graph.add_slot_edge(
-        input_node_id,
-        draw_ui_graph::input::VIEW_ENTITY,
-        draw_ui_graph::node::UI_PASS,
-        UiPassNode::IN_VIEW,
-    );
     ui_graph
 }
 
