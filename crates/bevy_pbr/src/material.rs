@@ -4,12 +4,11 @@ use crate::{
     SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+use bevy_asset::{AddAsset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     tonemapping::{DebandDither, Tonemapping},
 };
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -21,7 +20,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, GpuMesh, MeshVertexBufferLayout},
-    render_asset::{PrepareAssetSet, RenderAssets},
+    render_asset::{RenderAsset, RenderAssets, RenderAssetPlugin, PrepareAssetError},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -34,9 +33,9 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::error, HashMap, HashSet};
+use bevy_utils::{tracing::error};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -187,6 +186,8 @@ where
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
+        app.add_plugin(RenderAssetPlugin::<PreparedMaterial<M>>::default());
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
@@ -195,16 +196,10 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<MaterialPipeline<M>>()
-                .init_resource::<ExtractedMaterials<M>>()
-                .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_materials::<M>)
                 .add_systems(
                     Render,
                     (
-                        prepare_materials::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
                         render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
                         queue_material_meshes::<M>.in_set(RenderSet::Queue),
                     ),
@@ -342,7 +337,7 @@ type DrawMaterial<M> = (
 /// Sets the bind group for a given [`Material`] at the configured `I` index.
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
-    type Param = SRes<RenderMaterials<M>>;
+    type Param = SRes<RenderAssets<PreparedMaterial<M>>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<Handle<M>>;
 
@@ -370,7 +365,7 @@ pub fn queue_material_meshes<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<GpuMesh>>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     images: Res<RenderAssets<GpuImage>>,
     mut views: Query<(
@@ -534,149 +529,38 @@ pub struct PreparedMaterial<T: Material> {
     pub properties: MaterialProperties,
 }
 
-#[derive(Resource)]
-pub struct ExtractedMaterials<M: Material> {
-    extracted: Vec<(Handle<M>, M)>,
-    removed: Vec<Handle<M>>,
-}
-
-impl<M: Material> Default for ExtractedMaterials<M> {
-    fn default() -> Self {
-        Self {
-            extracted: Default::default(),
-            removed: Default::default(),
-        }
+impl<M: Material> RenderAsset for PreparedMaterial<M> {
+    type Asset = M;
+    type ExtractedAsset = M;
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderAssets<GpuImage>>,
+        SRes<FallbackImage>,
+        SRes<MaterialPipeline<M>>,
+    );
+    fn extract_asset(asset: &Self::Asset) -> Self::ExtractedAsset {
+        asset.clone()
     }
-}
-
-/// Stores all prepared representations of [`Material`] assets for as long as they exist.
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterials<T: Material>(pub HashMap<Handle<T>, PreparedMaterial<T>>);
-
-impl<T: Material> Default for RenderMaterials<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// This system extracts all created or modified assets of the corresponding [`Material`] type
-/// into the "render world".
-pub fn extract_materials<M: Material>(
-    mut commands: Commands,
-    mut events: Extract<EventReader<AssetEvent<M>>>,
-    assets: Extract<Res<Assets<M>>>,
-) {
-    let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
-    for event in events.iter() {
-        match event {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle.clone_weak());
-            }
-            AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
-                removed.push(handle.clone_weak());
-            }
-        }
-    }
-
-    let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.clone()));
-        }
-    }
-
-    commands.insert_resource(ExtractedMaterials {
-        extracted: extracted_assets,
-        removed,
-    });
-}
-
-/// All [`Material`] values of a given type that should be prepared next frame.
-pub struct PrepareNextFrameMaterials<M: Material> {
-    assets: Vec<(Handle<M>, M)>,
-}
-
-impl<M: Material> Default for PrepareNextFrameMaterials<M> {
-    fn default() -> Self {
-        Self {
-            assets: Default::default(),
-        }
-    }
-}
-
-/// This system prepares all assets of the corresponding [`Material`] type
-/// which where extracted this frame for the GPU.
-pub fn prepare_materials<M: Material>(
-    mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
-    mut extracted_assets: ResMut<ExtractedMaterials<M>>,
-    mut render_materials: ResMut<RenderMaterials<M>>,
-    render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<GpuImage>>,
-    fallback_image: Res<FallbackImage>,
-    pipeline: Res<MaterialPipeline<M>>,
-) {
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.into_iter() {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
+    fn prepare_asset(
+        material: Self::ExtractedAsset,
+        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self, PrepareAssetError<Self::ExtractedAsset>> {
+        match material.as_bind_group(
+            &pipeline.material_layout,
+            render_device,
+            images,
+            fallback_image,
         ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
-            }
+            Err(AsBindGroupError::RetryNextUpdate) => Err(PrepareAssetError::RetryNextUpdate(material)),
+            Ok(prepared) => Ok(PreparedMaterial {
+                bindings: prepared.bindings,
+                bind_group: prepared.bind_group,
+                key: prepared.data,
+                properties: MaterialProperties {
+                    alpha_mode: material.alpha_mode(),
+                    depth_bias: material.depth_bias(),
+                },
+            })
         }
     }
-
-    for removed in std::mem::take(&mut extracted_assets.removed) {
-        render_materials.remove(&removed);
-    }
-
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
-            }
-        }
-    }
-}
-
-fn prepare_material<M: Material>(
-    material: &M,
-    render_device: &RenderDevice,
-    images: &RenderAssets<GpuImage>,
-    fallback_image: &FallbackImage,
-    pipeline: &MaterialPipeline<M>,
-) -> Result<PreparedMaterial<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
-    Ok(PreparedMaterial {
-        bindings: prepared.bindings,
-        bind_group: prepared.bind_group,
-        key: prepared.data,
-        properties: MaterialProperties {
-            alpha_mode: material.alpha_mode(),
-            depth_bias: material.depth_bias(),
-        },
-    })
 }

@@ -3,7 +3,7 @@ use crate::{
     CascadeShadowConfig, Cascades, CascadesVisibleEntities, Clusters, CubemapVisibleEntities,
     DirectionalLight, DirectionalLightShadowMap, DrawPrepass, EnvironmentMapLight,
     GlobalVisiblePointLights, Material, MaterialPipelineKey, MeshPipeline, MeshPipelineKey,
-    NotShadowCaster, PointLight, PointLightShadowMap, PrepassPipeline, RenderMaterials, SpotLight,
+    NotShadowCaster, PointLight, PointLightShadowMap, PrepassPipeline, PreparedMaterial, SpotLight,
     VisiblePointLights,
 };
 use bevy_asset::Handle;
@@ -1555,7 +1555,7 @@ pub fn queue_shadows<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     casting_meshes: Query<(&Handle<Mesh>, &Handle<M>), Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<GpuMesh>>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
