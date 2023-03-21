@@ -489,34 +489,38 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
+        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+        } else {
+            let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+            let mut uvs = [
+                Vec2::new(
+                    uinode_rect.min.x + positions_diff[0].x,
+                    uinode_rect.min.y + positions_diff[0].y,
+                ),
+                Vec2::new(
+                    uinode_rect.max.x + positions_diff[1].x,
+                    uinode_rect.min.y + positions_diff[1].y,
+                ),
+                Vec2::new(
+                    uinode_rect.max.x + positions_diff[2].x,
+                    uinode_rect.max.y + positions_diff[2].y,
+                ),
+                Vec2::new(
+                    uinode_rect.min.x + positions_diff[3].x,
+                    uinode_rect.max.y + positions_diff[3].y,
+                ),
+            ]
+            .map(|pos| pos / atlas_extent);
 
-        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let mut uvs = [
-            Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.min.y + positions_diff[0].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.min.y + positions_diff[1].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x,
-                uinode_rect.max.y + positions_diff[2].y,
-            ),
-            Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.max.y + positions_diff[3].y,
-            ),
-        ]
-        .map(|pos| pos / atlas_extent);
-
-        if extracted_uinode.flip_x {
-            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-        }
-        if extracted_uinode.flip_y {
-            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-        }
+            if extracted_uinode.flip_x {
+                uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+            }
+            if extracted_uinode.flip_y {
+                uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+            }
+            uvs
+        };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in QUAD_INDICES {
