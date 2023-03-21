@@ -37,7 +37,8 @@ fn update_clipping(
     entity: Entity,
     maybe_inherited_clip: Option<Rect>,
 ) {
-    let (node, global_transform, style, maybe_calculated_clip) = node_query.get_mut(entity).unwrap();
+    let (node, global_transform, style, maybe_calculated_clip) =
+        node_query.get_mut(entity).unwrap();
 
     // Update this node's CalculatedClip component
     match (maybe_inherited_clip, maybe_calculated_clip) {
@@ -45,10 +46,16 @@ fn update_clipping(
             commands.entity(entity).remove::<CalculatedClip>();
         }
         (Some(inherited_clip), None) => {
-            commands.entity(entity).insert(CalculatedClip { clip: inherited_clip });
+            commands.entity(entity).insert(CalculatedClip {
+                clip: inherited_clip,
+            });
         }
-        (Some(inherited_clip), Some(mut calculated_clip)) => *calculated_clip = CalculatedClip { clip: inherited_clip },            
-        _ => {},
+        (Some(inherited_clip), Some(mut calculated_clip)) => {
+            *calculated_clip = CalculatedClip {
+                clip: inherited_clip,
+            }
+        }
+        _ => {}
     }
 
     // Calculate new clip for its children
