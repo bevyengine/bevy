@@ -49,6 +49,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
 ]
@@ -97,6 +98,9 @@ bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_spr
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
+
+# Adds support for rendering gizmos
+bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -310,6 +314,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "2d_gizmos"
+path = "examples/2d/2d_gizmos.rs"
+
+[package.metadata.example.2d_gizmos]
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
@@ -397,6 +411,16 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "3d_gizmos"
+path = "examples/3d/3d_gizmos.rs"
+
+[package.metadata.example.3d_gizmos]
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
 category = "3D Rendering"
 wasm = true
 
@@ -1550,6 +1574,16 @@ path = "examples/stress_tests/many_cubes.rs"
 [package.metadata.example.many_cubes]
 name = "Many Cubes"
 description = "Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_gizmos"
+path = "examples/stress_tests/many_gizmos.rs"
+
+[package.metadata.example.many_gizmos]
+name = "Many Gizmos"
+description = "Test rendering of many gizmos"
 category = "Stress Tests"
 wasm = true
 
