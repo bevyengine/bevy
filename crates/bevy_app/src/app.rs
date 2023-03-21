@@ -1,13 +1,12 @@
 use crate::{
-    CoreSchedule, CoreSet, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin, PluginGroup,
-    StartupSet, SystemAppConfig,
+    First, Main, MainSchedulePlugin, Plugin, PluginGroup, Startup, StateTransition, Update,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfig, IntoSystemSetConfigs,
+        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
         ScheduleLabel,
     },
 };
@@ -53,7 +52,7 @@ pub(crate) enum AppError {
 /// #
 /// fn main() {
 ///    App::new()
-///        .add_system(hello_world_system)
+///        .add_systems(Update, hello_world_system)
 ///        .run();
 /// }
 ///
@@ -74,12 +73,10 @@ pub struct App {
     pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
     /// The schedule that systems are added to by default.
     ///
-    /// This is initially set to [`CoreSchedule::Main`].
-    pub default_schedule_label: BoxedScheduleLabel,
-    /// The schedule that controls the outer loop of schedule execution.
+    /// The schedule that runs the main loop of schedule execution.
     ///
-    /// This is initially set to [`CoreSchedule::Outer`].
-    pub outer_schedule_label: BoxedScheduleLabel,
+    /// This is initially set to [`Main`].
+    pub main_schedule_label: BoxedScheduleLabel,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -104,7 +101,7 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel, SubApp, CoreSchedule};
+/// # use bevy_app::{App, AppLabel, SubApp, Main};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
@@ -122,12 +119,10 @@ impl Debug for App {
 /// // create a app with a resource and a single schedule
 /// let mut sub_app = App::empty();
 /// // add an outer schedule that runs the main schedule
-/// sub_app.add_simple_outer_schedule();
 /// sub_app.insert_resource(Val(100));
 ///
 /// // initialize main schedule
-/// sub_app.init_schedule(CoreSchedule::Main);
-/// sub_app.add_system(|counter: Res<Val>| {
+/// sub_app.add_systems(Main, |counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
@@ -169,7 +164,7 @@ impl SubApp {
     pub fn run(&mut self) {
         self.app
             .world
-            .run_schedule_ref(&*self.app.outer_schedule_label);
+            .run_schedule_ref(&*self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -195,8 +190,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_schedules();
-
+        app.add_plugin(MainSchedulePlugin);
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
@@ -211,8 +205,6 @@ impl Default for App {
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
-    ///
-    /// This calls [`App::add_default_schedules`].
     pub fn new() -> App {
         App::default()
     }
@@ -229,8 +221,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            default_schedule_label: Box::new(CoreSchedule::Main),
-            outer_schedule_label: Box::new(CoreSchedule::Outer),
+            main_schedule_label: Box::new(Main),
             building_plugin_depth: 0,
         }
     }
@@ -240,9 +231,8 @@ impl App {
     /// This method also updates sub apps.
     /// See [`insert_sub_app`](Self::insert_sub_app) for more details.
     ///
-    /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
-    /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]
-    /// the first time the app is run, then [`CoreSchedule::Main`] on every call of this method.
+    /// The schedule run by this method is determined by the [`main_schedule_label`](App) field.
+    /// By default this is [`Main`].
     ///
     /// # Panics
     ///
@@ -251,7 +241,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.world.run_schedule_ref(&*self.outer_schedule_label);
+            self.world.run_schedule_ref(&*self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -317,13 +307,13 @@ impl App {
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`] and
-    /// a instance of [`run_enter_schedule::<S>`] in [`CoreSet::StateTransitions`] with a
+    /// [`StateTransition`] so that transitions happen before [`Update`] and
+    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
     /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which runs during [`CoreSet::Update`] after the transitions are applied.
+    /// which runs during [`Update`] after the transitions are applied.
     /// These system sets only run if the [`State<S>`] resource matches the respective state variant.
     ///
     /// If you would like to control how other systems run based on the current state,
@@ -332,31 +322,19 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
-        self.init_resource::<State<S>>();
-        self.init_resource::<NextState<S>>();
-
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) else {
-            let schedule_label = &self.default_schedule_label;
-            panic!("Default schedule {schedule_label:?} does not exist.")
-        };
-
-        default_schedule.add_systems(
-            (
-                run_enter_schedule::<S>.run_if(run_once_condition()),
-                apply_state_transition::<S>,
-            )
-                .chain()
-                .in_base_set(CoreSet::StateTransitions),
-        );
+        self.init_resource::<State<S>>()
+            .init_resource::<NextState<S>>()
+            .add_systems(
+                StateTransition,
+                (
+                    run_enter_schedule::<S>.run_if(run_once_condition()),
+                    apply_state_transition::<S>,
+                )
+                    .chain(),
+            );
 
         for variant in S::variants() {
-            default_schedule.configure_set(
-                OnUpdate(variant.clone())
-                    .in_base_set(CoreSet::Update)
-                    .run_if(in_state(variant)),
-            );
+            self.configure_set(Update, OnUpdate(variant.clone()).run_if(in_state(variant)));
         }
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
@@ -382,30 +360,15 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<M>(&mut self, system: impl IntoSystemAppConfig<M>) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        let SystemAppConfig { system, schedule } = system.into_app_config();
-
-        if let Some(schedule_label) = schedule {
-            if let Some(schedule) = schedules.get_mut(&*schedule_label) {
-                schedule.add_system(system);
-            } else {
-                let mut schedule = Schedule::new();
-                schedule.add_system(system);
-                schedules.insert(schedule_label, schedule);
-            }
-        } else if let Some(default_schedule) = schedules.get_mut(&*self.default_schedule_label) {
-            default_schedule.add_system(system);
-        } else {
-            let schedule_label = &self.default_schedule_label;
-            panic!("Default schedule {schedule_label:?} does not exist.")
-        }
-
-        self
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Update, your_system).`"
+    )]
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
+        self.add_systems(Update, system)
     }
 
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
+    /// Adds a system to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
     ///
@@ -418,36 +381,27 @@ impl App {
     /// # fn system_b() {}
     /// # fn system_c() {}
     /// #
-    /// app.add_systems((system_a, system_b, system_c));
+    /// app.add_systems(Update, (system_a, system_b, system_c));
     /// ```
-    pub fn add_systems<M>(&mut self, systems: impl IntoSystemAppConfigs<M>) -> &mut Self {
+    pub fn add_systems<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        systems: impl IntoSystemConfigs<M>,
+    ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        match systems.into_app_configs().0 {
-            crate::InnerConfigs::Blanket { systems, schedule } => {
-                let schedule = if let Some(label) = schedule {
-                    schedules
-                        .get_mut(&*label)
-                        .unwrap_or_else(|| panic!("Schedule '{label:?}' does not exist."))
-                } else {
-                    let label = &*self.default_schedule_label;
-                    schedules
-                        .get_mut(label)
-                        .unwrap_or_else(|| panic!("Default schedule '{label:?}' does not exist."))
-                };
-                schedule.add_systems(systems);
-            }
-            crate::InnerConfigs::Granular(systems) => {
-                for system in systems {
-                    self.add_system(system);
-                }
-            }
+        if let Some(schedule) = schedules.get_mut(&schedule) {
+            schedule.add_systems(systems);
+        } else {
+            let mut new_schedule = Schedule::new();
+            new_schedule.add_systems(systems);
+            schedules.insert(schedule, new_schedule);
         }
 
         self
     }
 
-    /// Adds a system to [`CoreSchedule::Startup`].
+    /// Adds a system to [`Startup`].
     ///
     /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
     /// To add a system that runs every frame, see [`add_system`](Self::add_system).
@@ -463,13 +417,17 @@ impl App {
     /// }
     ///
     /// App::new()
-    ///     .add_startup_system(my_startup_system);
+    ///     .add_systems(Startup, my_startup_system);
     /// ```
-    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfig<M>) -> &mut Self {
-        self.add_system(system.in_schedule(CoreSchedule::Startup))
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
+    )]
+    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
+        self.add_systems(Startup, system)
     }
 
-    /// Adds a collection of systems to [`CoreSchedule::Startup`].
+    /// Adds a collection of systems to [`Startup`].
     ///
     /// # Examples
     ///
@@ -482,88 +440,58 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_systems((
+    /// app.add_systems(Startup, (
     ///     startup_system_a,
     ///     startup_system_b,
     ///     startup_system_c,
     /// ));
     /// ```
+    #[deprecated(
+        since = "0.11.0",
+        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
+    )]
     pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(systems.into_configs().in_schedule(CoreSchedule::Startup))
+        self.add_systems(Startup, systems.into_configs())
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
-        self.world
-            .resource_mut::<Schedules>()
-            .get_mut(&*self.default_schedule_label)
-            .unwrap()
-            .configure_set(set);
+    pub fn configure_set(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSetConfig,
+    ) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        if let Some(schedule) = schedules.get_mut(&schedule) {
+            schedule.configure_set(set);
+        } else {
+            let mut new_schedule = Schedule::new();
+            new_schedule.configure_set(set);
+            schedules.insert(schedule, new_schedule);
+        }
         self
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
-    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
-        self.world
-            .resource_mut::<Schedules>()
-            .get_mut(&*self.default_schedule_label)
-            .unwrap()
-            .configure_sets(sets);
-        self
-    }
-
-    /// Adds standardized schedules and labels to an [`App`].
-    ///
-    /// Adding these schedules is necessary to make almost all core engine features work.
-    ///  This is typically done implicitly by calling `App::default`, which is in turn called by
-    /// [`App::new`].
-    ///
-    /// The schedules added are defined in the [`CoreSchedule`] enum,
-    /// and have a starting configuration defined by:
-    ///
-    /// - [`CoreSchedule::Outer`]: uses [`CoreSchedule::outer_schedule`]
-    /// - [`CoreSchedule::Startup`]: uses [`StartupSet::base_schedule`]
-    /// - [`CoreSchedule::Main`]: uses [`CoreSet::base_schedule`]
-    /// - [`CoreSchedule::FixedUpdate`]: no starting configuration
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_app::App;
-    /// use bevy_ecs::schedule::Schedules;
-    ///
-    /// let app = App::empty()
-    ///     .init_resource::<Schedules>()
-    ///     .add_default_schedules()
-    ///     .update();
-    /// ```
-    pub fn add_default_schedules(&mut self) -> &mut Self {
-        self.add_schedule(CoreSchedule::Outer, CoreSchedule::outer_schedule());
-        self.add_schedule(CoreSchedule::Startup, StartupSet::base_schedule());
-        self.add_schedule(CoreSchedule::Main, CoreSet::base_schedule());
-        self.init_schedule(CoreSchedule::FixedUpdate);
-
-        self
-    }
-
-    /// adds a single threaded outer schedule to the [`App`] that just runs the main schedule
-    pub fn add_simple_outer_schedule(&mut self) -> &mut Self {
-        fn run_main_schedule(world: &mut World) {
-            world.run_schedule(CoreSchedule::Main);
+    pub fn configure_sets(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        sets: impl IntoSystemSetConfigs,
+    ) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        if let Some(schedule) = schedules.get_mut(&schedule) {
+            schedule.configure_sets(sets);
+        } else {
+            let mut new_schedule = Schedule::new();
+            new_schedule.configure_sets(sets);
+            schedules.insert(schedule, new_schedule);
         }
-
-        self.edit_schedule(CoreSchedule::Outer, |schedule| {
-            schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
-            schedule.add_system(run_main_schedule);
-        });
-
         self
     }
 
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`CoreSet::First`].
+    /// and inserting an [`update_system`](Events::update_system) into [`First`].
     ///
     /// See [`Events`] for defining events.
     ///
@@ -584,7 +512,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system(Events::<T>::update_system.in_base_set(CoreSet::First));
+                .add_systems(First, Events::<T>::update_system);
         }
         self
     }
@@ -1025,7 +953,7 @@ mod tests {
         system::Commands,
     };
 
-    use crate::{App, IntoSystemAppConfig, IntoSystemAppConfigs, Plugin};
+    use crate::{App, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1098,30 +1026,10 @@ mod tests {
     }
 
     #[test]
-    fn add_system_should_create_schedule_if_it_does_not_exist() {
-        let mut app = App::new();
-        app.add_system(foo.in_schedule(OnEnter(AppState::MainMenu)))
-            .add_state::<AppState>();
-
-        app.world.run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world.entities().len(), 1);
-    }
-
-    #[test]
-    fn add_system_should_create_schedule_if_it_does_not_exist2() {
-        let mut app = App::new();
-        app.add_state::<AppState>()
-            .add_system(foo.in_schedule(OnEnter(AppState::MainMenu)));
-
-        app.world.run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world.entities().len(), 1);
-    }
-
-    #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
         app.add_state::<AppState>()
-            .add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)));
+            .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
@@ -1130,7 +1038,7 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
-        app.add_systems((foo, bar).in_schedule(OnEnter(AppState::MainMenu)))
+        app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
             .add_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));

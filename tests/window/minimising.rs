@@ -13,8 +13,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_system(minimise_automatically)
-        .add_startup_systems((setup_3d, setup_2d))
+        .add_systems(Startup, (setup_3d, setup_2d))
+        .add_systems(Update, minimise_automatically)
         .run();
 }
 
