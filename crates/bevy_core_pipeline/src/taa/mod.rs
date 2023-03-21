@@ -18,7 +18,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -77,12 +77,6 @@ impl Plugin for TemporalAntialiasPlugin {
             .get_sub_graph_mut(crate::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::TAA, taa_node);
-        draw_3d_graph.add_slot_edge(
-            draw_3d_graph.input_node().id,
-            crate::core_3d::graph::input::VIEW_ENTITY,
-            draw_3d_graph::node::TAA,
-            TAANode::IN_VIEW,
-        );
         // MAIN_PASS -> TAA -> BLOOM -> TONEMAPPING
         draw_3d_graph.add_node_edge(
             crate::core_3d::graph::node::MAIN_PASS,
@@ -173,8 +167,6 @@ struct TAANode {
 }
 
 impl TAANode {
-    const IN_VIEW: &'static str = "view";
-
     fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
@@ -183,10 +175,6 @@ impl TAANode {
 }
 
 impl Node for TAANode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.view_query.update_archetypes(world);
     }
@@ -197,13 +185,12 @@ impl Node for TAANode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
             Some(pipelines),
             Some(pipeline_cache),
         ) = (
-            self.view_query.get_manual(world, view_entity),
+            self.view_query.get_manual(world, graph.view_entity()),
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
