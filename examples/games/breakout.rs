@@ -1,6 +1,7 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
+    app::Stepping,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
@@ -47,14 +48,22 @@ const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
 const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
+fn step_on_press(input: Res<Input<KeyCode>>, mut stepping: ResMut<Stepping>) {
+    if input.pressed(KeyCode::Space) {
+        *stepping = Stepping::Enabled { frames: 1 };
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(Stepping::Enabled { frames: 0 })
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
         // Configure how frequently our gameplay systems are run
         .insert_resource(FixedTime::new_from_secs(1.0 / 60.0))
+        .add_systems(PreUpdate, step_on_press)
         .add_systems(Startup, setup)
         // Add our gameplay simulation systems to the fixed timestep schedule
         .add_systems(

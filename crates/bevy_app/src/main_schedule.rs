@@ -142,10 +142,38 @@ impl Main {
         }
 
         world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+            let step = world
+                .get_resource_mut::<Stepping>()
+                .and_then(|mut s| s.try_step());
             for label in &order.labels {
+                if let Some(false) = step {
+                    let label = &**label;
+                    if label.eq(&Update) || label.eq(&RunFixedUpdateLoop) {
+                        continue;
+                    }
+                }
                 let _ = world.try_run_schedule_ref(&**label);
             }
         });
+    }
+}
+
+#[derive(Resource)]
+pub enum Stepping {
+    Disabled,
+    Enabled { frames: usize },
+}
+
+impl Stepping {
+    pub fn try_step(&mut self) -> Option<bool> {
+        match self {
+            Stepping::Disabled => None,
+            Stepping::Enabled { frames } => {
+                let should_step = *frames > 0;
+                *frames = frames.saturating_sub(1);
+                Some(should_step)
+            }
+        }
     }
 }
 
