@@ -30,7 +30,7 @@ fn main() {
             ),
         )
         .add_plugin(Material2dPlugin::<CustomMaterial>::default())
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
