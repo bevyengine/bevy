@@ -1,0 +1,23 @@
+{
+  "name": "start-mobile-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "android": "mocha tests/",
+    "clean": "rm -rf node_modules && rm -f package-lock.json && npm install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "appium": "^1.22.3",
+    "assert": "^2.0.0",
+    "chai": "^4.1.2",
+    "mocha": "^8.0.1",
+    "webdriverio": "^7.2.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.1"
+  }
+}

@@ -59,6 +59,61 @@ jobs:
       - name: Build APK
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
 
+  run-android:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-android-x86-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Android targets
+        run: rustup target add x86_64-linux-android
+
+      - name: Install Cargo APK
+        run: cargo install --force cargo-apk
+    
+      - name: Build APK for x86_64
+        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example --target x86_64-linux-android
+    
+      - name: Setup appium
+        run: |
+          cd .github/start-mobile-example
+          npm install
+          ./node_modules/.bin/appium &
+
+      - run: nohup adb logcat > logcat.log &
+        name: Capture logcat
+
+      - uses: reactivecircus/android-emulator-runner@v2
+        name: Run test on android emulator
+        with:
+          api-level: 31
+          arch: x86_64
+          working-directory: .github/start-mobile-example
+          script: npm run android
+
+      - name: Show logcat server output
+        if: ${{ always() }}
+        run: cat logcat.log
+
+      - name: Save screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: .github/start-mobile-example/*.png
+
   run-examples-on-windows-dx12:
     if: ${{ github.event_name == 'merge_group' }}
     runs-on: windows-latest
