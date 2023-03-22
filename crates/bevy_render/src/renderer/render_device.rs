@@ -51,13 +51,18 @@ impl RenderDevice {
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            unsafe {
-                self.device
-                    .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
-                        label: desc.label,
-                        source: source.clone(),
-                    })
-            },
+            {
+                // SAFETY:
+                // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behaviour.
+                // No attempt is made to ensure that data is valid SPIR-V.
+                unsafe {
+                    self.device
+                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                            label: desc.label,
+                            source: source.clone(),
+                        })
+                }
+            }
             _ => self.device.create_shader_module(desc),
         }
 
