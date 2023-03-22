@@ -11,7 +11,7 @@ use std::hash::Hash;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_system(pause_menu.run_if(input_toggle_active(false, KeyCode::Escape)))
+///         .add_systems(Update, pause_menu.run_if(input_toggle_active(false, KeyCode::Escape)))
 ///         .run();
 /// }
 ///
@@ -33,7 +33,7 @@ use std::hash::Hash;
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .init_resource::<Paused>()
-///         .add_system(pause_menu.run_if(|paused: Res<Paused>| paused.0))
+///         .add_systems(Update, pause_menu.run_if(|paused: Res<Paused>| paused.0))
 ///         .run();
 /// }
 ///
@@ -75,7 +75,7 @@ where
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_system(jump.run_if(input_just_pressed(KeyCode::Space)))
+///         .add_systems(Update, jump.run_if(input_just_pressed(KeyCode::Space)))
 ///         .run();
 /// }
 ///

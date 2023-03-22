@@ -18,6 +18,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_audio|Provides audio functionality|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
+|bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_render|Provides rendering functionality|

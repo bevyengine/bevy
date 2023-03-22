@@ -23,33 +23,9 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         None
     }
 
-    /// Returns `true` if this set is a "base system set". Systems
-    /// can only belong to one base set at a time. Systems and Sets
-    /// can only be added to base sets using specialized `in_base_set`
-    /// APIs. This enables "mutually exclusive" behaviors. It also
-    /// enables schedules to have a "default base set", which can be used
-    /// to apply default configuration to systems.
-    fn is_base(&self) -> bool {
-        false
-    }
-
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
-
-/// A marker trait for `SystemSet` types where [`is_base`] returns `true`.
-/// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implemented for base set types by `#[derive(SystemSet)]`.
-///
-/// [`is_base`]: SystemSet::is_base
-pub trait BaseSystemSet: SystemSet {}
-
-/// A marker trait for `SystemSet` types where [`is_base`] returns `false`.
-/// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implemented for non-base set types by `#[derive(SystemSet)]`.
-///
-/// [`is_base`]: SystemSet::is_base
-pub trait FreeSystemSet: SystemSet {}
 
 impl PartialEq for dyn SystemSet {
     fn eq(&self, other: &Self) -> bool {

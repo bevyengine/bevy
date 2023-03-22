@@ -2,7 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_render::ExtractSchedule;
+use bevy_render::{ExtractSchedule, Render};
 #[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -19,7 +19,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
+    render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -44,9 +44,6 @@ pub mod node {
 
 pub mod draw_ui_graph {
     pub const NAME: &str = "draw_ui";
-    pub mod input {
-        pub const VIEW_ENTITY: &str = "view_entity";
-    }
     pub mod node {
         pub const UI_PASS: &str = "ui_pass";
     }
@@ -77,20 +74,23 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
+            ExtractSchedule,
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-            )
-                .in_schedule(ExtractSchedule),
+            ),
         )
-        .add_systems((
-            prepare_uinodes.in_set(RenderSet::Prepare),
-            queue_uinodes.in_set(RenderSet::Queue),
-            sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-        ));
+        .add_systems(
+            Render,
+            (
+                prepare_uinodes.in_set(RenderSet::Prepare),
+                queue_uinodes.in_set(RenderSet::Queue),
+                sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+            ),
+        );
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -106,12 +106,6 @@ pub fn build_ui_render(app: &mut App) {
         graph_2d.add_node_edge(
             bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
             draw_ui_graph::node::UI_PASS,
-        );
-        graph_2d.add_slot_edge(
-            graph_2d.input_node().id,
-            bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
         );
         graph_2d.add_node_edge(
             bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
@@ -141,12 +135,6 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             bevy_core_pipeline::core_3d::graph::node::UPSCALING,
         );
-        graph_3d.add_slot_edge(
-            graph_3d.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
-        );
     }
 }
 
@@ -154,16 +142,6 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    let input_node_id = ui_graph.set_input(vec![SlotInfo::new(
-        draw_ui_graph::input::VIEW_ENTITY,
-        SlotType::Entity,
-    )]);
-    ui_graph.add_slot_edge(
-        input_node_id,
-        draw_ui_graph::input::VIEW_ENTITY,
-        draw_ui_graph::node::UI_PASS,
-        UiPassNode::IN_VIEW,
-    );
     ui_graph
 }
 

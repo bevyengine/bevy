@@ -10,10 +10,13 @@ use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
+use bevy_ecs::reflect::ReflectResource;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
-/// A collection of serializable dynamic entities, each with its own run-time defined set of components.
+/// A collection of serializable resources and dynamic entities.
+///
+/// Each dynamic entity in the collection contains its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
 /// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
@@ -23,6 +26,7 @@ use serde::Serialize;
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
+    pub resources: Vec<Box<dyn Reflect>>,
     pub entities: Vec<DynamicEntity>,
 }
 
@@ -47,15 +51,16 @@ impl DynamicScene {
             DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
 
         builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
+        builder.extract_resources();
 
         builder.build()
     }
 
-    /// Write the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
-    /// [`Component`](bevy_ecs::component::Component) trait.
+    /// [`Component`](bevy_ecs::component::Component) or [`Resource`](bevy_ecs::prelude::Resource) trait.
     pub fn write_to_world_with(
         &self,
         world: &mut World,
@@ -63,6 +68,23 @@ impl DynamicScene {
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
+
+        for resource in &self.resources {
+            let registration = type_registry
+                .get_with_name(resource.type_name())
+                .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                    type_name: resource.type_name().to_string(),
+                })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_name: resource.type_name().to_string(),
+                }
+            })?;
+
+            // If the world already contains an instance of the given resource
+            // just apply the (possibly) new value, otherwise insert the resource
+            reflect_resource.apply_or_insert(world, &**resource);
+        }
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
@@ -105,7 +127,7 @@ impl DynamicScene {
         Ok(())
     }
 
-    /// Write the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the

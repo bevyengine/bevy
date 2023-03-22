@@ -5,7 +5,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), update_speed, pause, volume))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (update_speed, pause, volume))
         .run();
 }
 
