@@ -116,6 +116,9 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         fetch_struct_name.clone()
     };
 
+    let marker_name =
+        ensure_no_collision(format_ident!("_world_query_derive_marker"), tokens.clone());
+
     // Generate a name for the state struct that doesn't conflict
     // with the struct definition.
     let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
@@ -239,7 +242,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
                 #(#ignored_named_field_idents: #ignored_field_types,)*
-                __world_query_lifetime_marker: &'__w (),
+                #marker_name: &'__w (),
             }
 
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
@@ -280,7 +283,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                             ),
                         )*
                         #(#ignored_named_field_idents: Default::default(),)*
-                        __world_query_lifetime_marker: &(),
+                        #marker_name: &(),
                     }
                 }
 
@@ -294,7 +297,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                         #(
                             #ignored_named_field_idents: Default::default(),
                         )*
-                        __world_query_lifetime_marker: &(),
+                        #marker_name: &(),
                     }
                 }
 
