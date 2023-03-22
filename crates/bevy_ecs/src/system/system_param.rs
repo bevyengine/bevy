@@ -18,16 +18,22 @@ use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     borrow::Cow,
-    fmt::Debug,
+    error::Error,
+    fmt::{Debug, Display},
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
-/// A parameter that can be used in a [`System`](super::System).
+/// A parameter that can be used in a [`System`](super::System) as `T`.
+///
+/// Parameters that implement [`SystemParam`] are infallible, which means they must return or panic.
+/// If a parameter is not guaranteed to be infallible, it's better to implement
+/// [`OptionalSystemParam`] or [`ResultfulSystemParam`] and access it as `Option<T>` or `Result<T, E>`.
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro.
-/// This macro only works if each field on the derived struct implements [`SystemParam`].
+/// This trait, as well as [`OptionalSystemParam`] and [`ResultfulSystemParam`],
+/// can be derived with the [`derive@super::SystemParam`] macro.
 /// Note: There are additional requirements on the field types.
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
@@ -37,9 +43,79 @@ use std::{
 ///
 /// ## Attributes
 ///
-/// `#[system_param(ignore)]`:
-/// Can be added to any field in the struct. Fields decorated with this attribute
-/// will be created with the default value upon realisation.
+/// `#[system_param(VALUE)]` is used to control the derive macro,
+/// and can be used on both the struct itself or its fields.
+///
+/// The default value for field-level attributes is the value of struct-level attribute,
+/// which is `infallible` by default.
+///
+/// ### Struct-level
+///
+/// Struct-level attributes tell the macro which trait to implement.
+///
+/// #### `infallible`
+///
+/// The default value. Treats the struct as a [`SystemParam`].
+///
+/// Fields marked `optional` or `resultful` will be unwrapped.
+/// This value exists as a convenience for writing macros.
+///
+/// #### `optional`
+///
+/// Treats the struct as an [`OptionalSystemParam`].
+///
+/// Fields marked `infallible` are expected to succeed.
+/// Fields marked `resultful` will unwrap or return `None`.
+///
+/// #### `resultful(ERROR_TYPE)`
+///
+/// Treats the struct as a [`ResultfulSystemParam`] where `Error` is `ERROR_TYPE`.
+///
+/// Fields marked `infallible` are expected to succeed.
+/// Fields marked `optional` will unwrap or return [`SystemParamError`].
+///
+/// ### Field-level
+///
+/// Field-level attributes tell the macro how to access the field.
+///
+/// For example, suppose `#[system_param(resultful)]` was specified at the struct-level and a field, `T`, only implements [`OptionalSystemParam`].
+/// The macro will try to access the field as [`ResultfulSystemParam`], which will fail.
+/// Instead, a more restrictive level of fallibility must be used.
+///
+/// There are a few options: infallible `Option<T>`, optional `T` and infallible `T`.
+///
+/// - Infallible `Option<T>` will never fail; if it's missing it will return `None`.
+/// - Optional `T` might fail and will result in an error.
+/// - Infallible `T` might fail and will result in a panic.
+///
+/// Each of these possibilities can be achieved by using the correct type and field-level attribute.
+///
+/// #### `infallible`
+///
+/// Treats the field as a [`SystemParam`].
+///
+/// This is useful for using an infallible param inside an encapsulating fallible param.
+/// For example, an infallible `Option<T>` will not block the system param from returning.
+/// Compare this to an optional `T`, which will make the encapsulating system param return `None` if it returns `None`.
+///
+/// #### `optional`
+///
+/// Treats the field as an [`OptionalSystemParam`].
+///
+/// This is useful for using an optional param inside a resultful param.
+/// For example, [`Res`] implements [`OptionalSystemParam`], so it can't be used directly in a resultful param.
+/// When an optional param fails inside a resultful param, it can be handled by implementing [`From<SystemParamError>`](SystemParamError).
+///
+/// #### `resultful`
+///
+/// Treats the field as a [`ResultfulSystemParam`].
+///
+/// This value exists as a convenience for writing macros.
+///
+/// #### `ignore`
+///
+/// Ignores treating the field as a system parameter, instead returning the default value for its type.
+///
 /// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
 /// # Example
@@ -79,10 +155,10 @@ use std::{
 ///
 /// ## Details
 ///
-/// The derive macro requires that the [`SystemParam`] implementation of
+/// The derive macro requires that the `*SystemParam` implementation of
 /// each field `F`'s [`Item`](`SystemParam::Item`)'s is itself `F`
 /// (ignoring lifetimes for simplicity).
-/// This assumption is due to type inference reasons, so that the derived [`SystemParam`] can be
+/// This assumption is due to type inference reasons, so that the derived `*SystemParam` can be
 /// used as an argument to a function system.
 /// If the compiler cannot validate this property for `[ParamType]`, it will error in the form shown above.
 ///
@@ -141,14 +217,359 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
+/// A parameter that can be used in a [`System`](super::System) as `T` or `Option<T>`.
+///
+/// # Derive
+///
+/// This trait, as well as [`SystemParam`] and [`ResultfulSystemParam`],
+/// can be derived with the [`derive@super::SystemParam`] macro.
+///
+/// [Please refer to `SystemParam` for details on its usage.](./trait.SystemParam.html#Derive)
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// use std::marker::PhantomData;
+/// use bevy_ecs::system::SystemParam;
+///
+/// #[derive(SystemParam)]
+/// #[system_param(optional)]
+/// struct MyParam<'w> {
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// fn my_system(param: Option<MyParam>) {
+///     // Access the resource through field `foo` after unwrapping `param`
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Safety
+///
+/// The implementor must ensure the following is true.
+/// - [`OptionalSystemParam::init_state`] correctly registers all [`World`] accesses used
+///   by [`OptionalSystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered
+///   on `system_meta`.
+pub unsafe trait OptionalSystemParam: Sized {
+    /// Used to store data which persists across invocations of a system.
+    type State: Send + Sync + 'static;
+
+    /// The item type returned when constructing this system param succeeds.
+    /// The value of this associated type should be `Self`, instantiated with new lifetimes.
+    ///
+    /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
+    type Item<'world, 'state>: OptionalSystemParam<State = Self::State>;
+
+    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// and creates a new instance of this param's [`State`](Self::State).
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
+
+    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
+    #[inline]
+    fn new_archetype(
+        _state: &mut Self::State,
+        _archetype: &Archetype,
+        _system_meta: &mut SystemMeta,
+    ) {
+    }
+
+    /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
+    /// This is used to apply [`Commands`] at the end of a stage.
+    ///
+    /// [`Commands`]: crate::prelude::Commands
+    #[inline]
+    #[allow(unused_variables)]
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+
+    /// # Safety
+    ///
+    /// This call might use any of the [`World`] accesses that were registered in [`Self::init_state`].
+    /// - None of those accesses may conflict with any other [`SystemParam`]s
+    ///   that exist at the same time, including those on other threads.
+    /// - `world` must be the same `World` that was used to initialize [`state`](SystemParam::init_state).
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: Tick,
+    ) -> Option<Self::Item<'world, 'state>>;
+}
+
+/// SAFETY: requires the implementation of `OptionalSystemParam` to be safe.
+unsafe impl<T: OptionalSystemParam> SystemParam for T {
+    type State = T::State;
+
+    type Item<'world, 'state> = T::Item<'world, 'state>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        T::init_state(world, system_meta)
+    }
+
+    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        T::new_archetype(state, archetype, system_meta);
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        T::apply(state, system_meta, world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        T::get_param(state, system_meta, world, change_tick).unwrap()
+    }
+}
+
+/// SAFETY: requires the implementation of `OptionalSystemParam` to be safe.
+unsafe impl<T: OptionalSystemParam> SystemParam for Option<T> {
+    type State = T::State;
+
+    type Item<'world, 'state> = Option<T::Item<'world, 'state>>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        T::init_state(world, system_meta)
+    }
+
+    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        T::new_archetype(state, archetype, system_meta);
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        T::apply(state, system_meta, world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        T::get_param(state, system_meta, world, change_tick)
+    }
+}
+
+/// A parameter that can be used in a [`System`](super::System) as `T`, `Option<T>`, or `Result<T, E>`.
+///
+/// # Derive
+///
+/// This trait, as well as [`SystemParam`] and [`OptionalSystemParam`],
+/// can be derived with the [`derive@super::SystemParam`] macro.
+///
+/// [Please refer to `SystemParam` for details on its usage.](./trait.SystemParam.html#Derive)
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// use std::marker::PhantomData;
+/// use bevy_ecs::system::{SystemParam, SystemParamError};
+///
+/// #[derive(SystemParam)]
+/// #[system_param(resultful(MyParamError))]
+/// struct MyParam<'w> {
+///     #[system_param(optional)]
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// #[derive(Debug)]
+/// enum MyParamError {
+///     Foo
+/// }
+///
+/// impl std::fmt::Display for MyParamError {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         match self {
+///             MyParamError::Foo => write!(f, "Failed to get field `foo`!")
+///         }
+///     }
+/// }
+///
+/// impl std::error::Error for MyParamError {}
+///
+/// impl From<SystemParamError<Res<'_, SomeResource>>> for MyParamError {
+///     fn from(_: SystemParamError<Res<'_, SomeResource>>) -> Self {
+///         MyParamError::Foo
+///     }
+/// }
+///
+/// fn my_system(param: Result<MyParam, MyParamError>) {
+///     // Access the resource through field `foo` after unwrapping `param`
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Safety
+///
+/// The implementor must ensure the following is true.
+/// - [`ResultfulSystemParam::init_state`] correctly registers all [`World`] accesses used
+///   by [`ResultfulSystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered
+///   on `system_meta`.
+pub unsafe trait ResultfulSystemParam: Sized {
+    /// Used to store data which persists across invocations of a system.
+    type State: Send + Sync + 'static;
+
+    /// The item type returned when constructing this system param succeeds.
+    /// The value of this associated type should be `Self`, instantiated with new lifetimes.
+    ///
+    /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
+    type Item<'world, 'state>: ResultfulSystemParam<State = Self::State, Error = Self::Error>;
+
+    /// The error type returned when constructing this system param fails.
+    type Error: Error;
+
+    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// and creates a new instance of this param's [`State`](Self::State).
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
+
+    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
+    #[inline]
+    fn new_archetype(
+        _state: &mut Self::State,
+        _archetype: &Archetype,
+        _system_meta: &mut SystemMeta,
+    ) {
+    }
+
+    /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
+    /// This is used to apply [`Commands`] at the end of a stage.
+    ///
+    /// [`Commands`]: crate::prelude::Commands
+    #[inline]
+    #[allow(unused_variables)]
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+
+    /// # Safety
+    ///
+    /// This call might use any of the [`World`] accesses that were registered in [`Self::init_state`].
+    /// - None of those accesses may conflict with any other [`SystemParam`]s
+    ///   that exist at the same time, including those on other threads.
+    /// - `world` must be the same `World` that was used to initialize [`state`](SystemParam::init_state).
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: Tick,
+    ) -> Result<
+        Self::Item<'world, 'state>,
+        <Self::Item<'world, 'state> as ResultfulSystemParam>::Error,
+    >;
+}
+
+/// SAFETY: requires the implementation of `ResultfulSystemParam` to be safe.
+unsafe impl<T: ResultfulSystemParam> OptionalSystemParam for T {
+    type State = T::State;
+
+    type Item<'world, 'state> = T::Item<'world, 'state>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        T::init_state(world, system_meta)
+    }
+
+    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        T::new_archetype(state, archetype, system_meta);
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        T::apply(state, system_meta, world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: Tick,
+    ) -> Option<Self::Item<'world, 'state>> {
+        T::get_param(state, system_meta, world, change_tick).ok()
+    }
+}
+
+/// SAFETY: requires the implementation of `ResultfulSystemParam` to be safe.
+unsafe impl<T: ResultfulSystemParam> SystemParam for Result<T, T::Error> {
+    type State = T::State;
+
+    type Item<'world, 'state> =
+        Result<T::Item<'world, 'state>, <T::Item<'world, 'state> as ResultfulSystemParam>::Error>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        T::init_state(world, system_meta)
+    }
+
+    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        T::new_archetype(state, archetype, system_meta);
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        T::apply(state, system_meta, world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        T::get_param(state, system_meta, world, change_tick)
+    }
+}
+
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
 /// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
+// SAFETY: the system param is read-only by the trait bound
+// and so maybe getting it will never cause write-access to be granted.
+unsafe impl<T: ReadOnlySystemParam + OptionalSystemParam> ReadOnlySystemParam for Option<T> {}
+
+// SAFETY: the system param is read-only by the trait bound
+// and so maybe getting it will never cause write-access to be granted.
+unsafe impl<T: ReadOnlySystemParam + ResultfulSystemParam> ReadOnlySystemParam
+    for Result<T, T::Error>
+{
+}
+
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
+
+/// An error that allows a [`ResultfulSystemParam`] to handle [`OptionalSystemParam`] fields that return `None`.
+pub struct SystemParamError<T> {
+    _marker: PhantomData<T>,
+}
+
+impl<T> Debug for SystemParamError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SystemParamError<{}>", std::any::type_name::<T>())
+    }
+}
+
+impl<T> Default for SystemParamError<T> {
+    fn default() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> Display for SystemParamError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to get {}", std::any::type_name::<T>())
+    }
+}
+
+impl<T> Error for SystemParamError<T> {}
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
@@ -405,8 +826,8 @@ pub trait Resource: Send + Sync + 'static {}
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
-// conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
+// conflicts with any prior access, an error will occur.
+unsafe impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
 
@@ -439,48 +860,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
-            .get_resource_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-        Res {
-            value: ptr.deref(),
-            ticks: Ticks {
-                added: ticks.added.deref(),
-                changed: ticks.changed.deref(),
-                last_run: system_meta.last_run,
-                this_run: change_tick,
-            },
-        }
-    }
-}
-
-// SAFETY: Only reads a single World resource
-unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
-
-// SAFETY: this impl defers to `Res`, which initializes and validates the correct world access.
-unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
-    type State = ComponentId;
-    type Item<'w, 's> = Option<Res<'w, T>>;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        Res::<T>::init_state(world, system_meta)
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
@@ -498,7 +878,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
+unsafe impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 
@@ -534,45 +914,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let value = world
-            .as_unsafe_world_cell_migration_internal()
-            .get_resource_mut_by_id(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-        ResMut {
-            value: value.value.deref_mut::<T>(),
-            ticks: TicksMut {
-                added: value.ticks.added,
-                changed: value.ticks.changed,
-                last_run: system_meta.last_run,
-                this_run: change_tick,
-            },
-        }
-    }
-}
-
-// SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
-unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
-    type State = ComponentId;
-    type Item<'w, 's> = Option<ResMut<'w, T>>;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        ResMut::<T>::init_state(world, system_meta)
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_by_id(component_id)
@@ -990,7 +1332,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 
 // SAFETY: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
+unsafe impl<'a, T: 'static> OptionalSystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
 
@@ -1025,46 +1367,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-
-        NonSend {
-            value: ptr.deref(),
-            ticks: ticks.read(),
-            last_run: system_meta.last_run,
-            this_run: change_tick,
-        }
-    }
-}
-
-// SAFETY: Only reads a single World non-send resource
-unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
-
-// SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
-unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
-    type State = ComponentId;
-    type Item<'w, 's> = Option<NonSend<'w, T>>;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        NonSend::<T>::init_state(world, system_meta)
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
@@ -1079,7 +1382,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
 
 // SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
+unsafe impl<'a, T: 'static> OptionalSystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
 
@@ -1117,40 +1420,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-        NonSendMut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-        }
-    }
-}
-
-// SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
-unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
-    type State = ComponentId;
-    type Item<'w, 's> = Option<NonSendMut<'w, T>>;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        NonSendMut::<T>::init_state(world, system_meta)
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         world
             .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
@@ -1624,6 +1894,60 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/4200.
     #[derive(SystemParam)]
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+
+    #[derive(SystemParam)]
+    #[system_param(infallible)]
+    pub struct ExplicitInfallibleParam<'w> {
+        #[system_param(optional)]
+        _r0: Res<'w, R<0>>,
+        #[system_param(infallible)]
+        _r1: Option<Res<'w, R<1>>>,
+    }
+
+    #[derive(SystemParam)]
+    #[system_param(optional)]
+    pub struct OptionalParam<'w> {
+        _r0: Res<'w, R<0>>,
+        #[system_param(optional)]
+        _r1: Res<'w, R<1>>,
+        #[system_param(infallible)]
+        _r2: Res<'w, R<2>>,
+    }
+
+    #[derive(SystemParam)]
+    #[system_param(resultful(ResultfulParamErr))]
+    pub struct ResultfulParam<'w> {
+        #[system_param(optional)]
+        _r0: Res<'w, R<0>>,
+        #[system_param(optional)]
+        _r1: Res<'w, R<1>>,
+    }
+
+    #[derive(Debug)]
+    pub enum ResultfulParamErr {
+        R0,
+        R1,
+    }
+
+    impl std::fmt::Display for ResultfulParamErr {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "ResultfulParamErr is here!")
+        }
+    }
+
+    impl std::error::Error for ResultfulParamErr {}
+
+    impl From<SystemParamError<Res<'_, R<0>>>> for ResultfulParamErr {
+        fn from(_: SystemParamError<Res<'_, R<0>>>) -> Self {
+            Self::R0
+        }
+    }
+
+    impl From<SystemParamError<Res<'_, R<1>>>> for ResultfulParamErr {
+        fn from(_: SystemParamError<Res<'_, R<1>>>) -> Self {
+            Self::R1
+        }
+    }
 
     // regression test for https://github.com/bevyengine/bevy/issues/7103.
     #[derive(SystemParam)]
