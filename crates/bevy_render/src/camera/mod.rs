@@ -7,7 +7,10 @@ pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
 
-use crate::{render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet};
+use crate::{
+    extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, ExtractSchedule, Render,
+    RenderApp, RenderSet,
+};
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
 
