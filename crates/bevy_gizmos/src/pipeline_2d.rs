@@ -12,7 +12,7 @@ use bevy_render::{
     render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
-    view::Msaa,
+    view::{ExtractedView, Msaa, ViewTarget},
 };
 use bevy_sprite::*;
 use bevy_utils::FloatOrd;
@@ -47,6 +47,12 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
             Mesh::ATTRIBUTE_COLOR.at_shader_location(1),
         ])?;
 
+        let format = if key.contains(Mesh2dPipelineKey::HDR) {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone_weak(),
@@ -59,7 +65,7 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -97,11 +103,12 @@ pub(crate) fn queue_gizmos_2d(
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoMesh>>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent2d>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
     let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples());
-    for mut phase in &mut views {
+    for (view, mut phase) in &mut views {
+        let key = key | Mesh2dPipelineKey::from_hdr(view.hdr);
         for (entity, mesh_handle) in &mesh_handles {
             let Some(mesh) = gpu_meshes.get(&mesh_handle.0) else { continue; };
 
