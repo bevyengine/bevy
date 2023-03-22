@@ -5,12 +5,11 @@ on:
   pull_request:
   push:
     branches:
-      - staging
-      - trying
       - main
 
 env:
   CARGO_TERM_COLOR: always
+  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build-and-install-on-iOS:
@@ -158,6 +157,7 @@ jobs:
     if: ${{ github.event_name == 'merge_group' }}
     timeout-minutes: 30
     strategy:
+      max-parallel: 1
       matrix:
         crate: [bevy_ecs, bevy_reflect, bevy]
     runs-on: ubuntu-latest
@@ -171,3 +171,42 @@ jobs:
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  build-without-default-features-status:
+    if: |
+      always() &&
+      github.event_name == 'merge_group'
+    needs: build-without-default-features
+    runs-on: ubuntu-latest
+    steps:
+      - name: Successful
+        if: ${{ !(contains(needs.*.result, 'failure')) }}
+        run: exit 0
+      - name: Failing
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+
+  check-unused-dependencies:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Installs cargo-udeps
+        run: cargo install --force cargo-udeps
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Run cargo udeps
+        run: cargo udeps

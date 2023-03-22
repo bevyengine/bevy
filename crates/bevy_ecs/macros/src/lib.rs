@@ -126,7 +126,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     #(#field_from_components)*
                 }
             }
+        }
 
+        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables)]
             #[inline]
             fn get_components(
@@ -227,7 +229,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     state: &'s mut Self::State,
                     system_meta: &SystemMeta,
                     world: &'w World,
-                    change_tick: u32,
+                    change_tick: Tick,
                 ) -> Self::Item<'w, 's> {
                     ParamSet {
                         param_states: state,
@@ -431,7 +433,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     state: &'s2 mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: &'w2 #path::world::World,
-                    change_tick: u32,
+                    change_tick: #path::component::Tick,
                 ) -> Self::Item<'w2, 's2> {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
@@ -469,7 +471,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
-#[proc_macro_derive(SystemSet, attributes(system_set))]
+#[proc_macro_derive(SystemSet)]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();

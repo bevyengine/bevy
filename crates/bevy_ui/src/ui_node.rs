@@ -7,6 +7,7 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
+use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
@@ -26,6 +27,22 @@ impl Node {
     pub fn size(&self) -> Vec2 {
         self.calculated_size
     }
+
+    /// Returns the logical pixel coordinates of the UI node, based on its `GlobalTransform`.
+    #[inline]
+    pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
+        Rect::from_center_size(transform.translation().truncate(), self.size())
+    }
+
+    /// Returns the physical pixel coordinates of the UI node, based on its `GlobalTransform` and the scale factor.
+    #[inline]
+    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
+        let rect = self.logical_rect(transform);
+        Rect {
+            min: rect.min / scale_factor,
+            max: rect.max / scale_factor,
+        }
+    }
 }
 
 impl Node {
@@ -40,22 +57,42 @@ impl Default for Node {
     }
 }
 
-/// An enum that describes possible types of value in flexbox layout options
+/// Represents the possible value types for layout properties.
+///
+/// This enum allows specifying values for various [`Style`] properties in different units,
+/// such as logical pixels, percentages, or automatically determined values.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// No value defined
-    Undefined,
-    /// Automatically determine this value
+    /// Automatically determine the value based on the context and other `Style` properties.
     Auto,
-    /// Set this value in pixels
+    /// Set this value in logical pixels.
     Px(f32),
-    /// Set this value in percent
+    /// Set the value as a percentage of its parent node's length along a specific axis.
+    ///
+    /// If the UI node has no parent, the percentage is calculated based on the window's length
+    /// along the corresponding axis.
+    ///
+    /// The chosen axis depends on the `Style` field set:
+    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+    /// * For `gap`, `min_size`, `size`, and `max_size`:
+    ///   - `width` is relative to the parent's width.
+    ///   - `height` is relative to the parent's height.
+    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
+    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
     Percent(f32),
+    /// Set this value in percent of the viewport width
+    Vw(f32),
+    /// Set this value in percent of the viewport height
+    Vh(f32),
+    /// Set this value in percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Set this value in percent of the viewport's larger dimension.
+    VMax(f32),
 }
 
 impl Val {
-    pub const DEFAULT: Self = Self::Undefined;
+    pub const DEFAULT: Self = Self::Auto;
 }
 
 impl Default for Val {
@@ -69,10 +106,13 @@ impl Mul<f32> for Val {
 
     fn mul(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Undefined => Val::Undefined,
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value * rhs),
             Val::Percent(value) => Val::Percent(value * rhs),
+            Val::Vw(value) => Val::Vw(value * rhs),
+            Val::Vh(value) => Val::Vh(value * rhs),
+            Val::VMin(value) => Val::VMin(value * rhs),
+            Val::VMax(value) => Val::VMax(value * rhs),
         }
     }
 }
@@ -80,8 +120,13 @@ impl Mul<f32> for Val {
 impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
-            Val::Undefined | Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value *= rhs,
+            Val::Auto => {}
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value *= rhs,
         }
     }
 }
@@ -91,10 +136,13 @@ impl Div<f32> for Val {
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Undefined => Val::Undefined,
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value / rhs),
             Val::Percent(value) => Val::Percent(value / rhs),
+            Val::Vw(value) => Val::Vw(value / rhs),
+            Val::Vh(value) => Val::Vh(value / rhs),
+            Val::VMin(value) => Val::VMin(value / rhs),
+            Val::VMax(value) => Val::VMax(value / rhs),
         }
     }
 }
@@ -102,8 +150,13 @@ impl Div<f32> for Val {
 impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
-            Val::Undefined | Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value /= rhs,
+            Val::Auto => {}
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value /= rhs,
         }
     }
 }
@@ -122,7 +175,7 @@ impl Val {
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Undefined, Val::Undefined) | (Val::Auto, Val::Auto) => Ok(*self),
+            (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
@@ -140,7 +193,7 @@ impl Val {
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Undefined, Val::Undefined) | (Val::Auto, Val::Auto) => Ok(*self),
+            (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
@@ -219,6 +272,10 @@ pub struct Style {
     pub display: Display,
     /// Whether to arrange this node relative to other nodes, or positioned absolutely
     pub position_type: PositionType,
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
     /// Which direction the content of this node should go
     pub direction: Direction,
     /// Whether to use column or row layout
@@ -235,8 +292,6 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The position of the node as described by its Rect
-    pub position: UiRect,
     /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -312,7 +367,7 @@ pub struct Style {
     pub overflow: Overflow,
     /// The size of the gutters between the rows and columns of the flexbox layout
     ///
-    /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
+    /// A value of `Size::AUTO` is treated as zero.
     pub gap: Size,
 }
 
@@ -320,6 +375,10 @@ impl Style {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
         position_type: PositionType::DEFAULT,
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
         direction: Direction::DEFAULT,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
@@ -327,7 +386,6 @@ impl Style {
         align_self: AlignSelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        position: UiRect::DEFAULT,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -339,7 +397,7 @@ impl Style {
         max_size: Size::AUTO,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        gap: Size::UNDEFINED,
+        gap: Size::AUTO,
     };
 }
 
@@ -752,12 +810,10 @@ mod tests {
 
     #[test]
     fn val_try_add() {
-        let undefined_sum = Val::Undefined.try_add(Val::Undefined).unwrap();
         let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
         let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
         let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
 
-        assert_eq!(undefined_sum, Val::Undefined);
         assert_eq!(auto_sum, Val::Auto);
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(100.));
@@ -774,12 +830,10 @@ mod tests {
 
     #[test]
     fn val_try_sub() {
-        let undefined_sum = Val::Undefined.try_sub(Val::Undefined).unwrap();
         let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
         let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
         let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
 
-        assert_eq!(undefined_sum, Val::Undefined);
         assert_eq!(auto_sum, Val::Auto);
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(50.));
@@ -787,9 +841,8 @@ mod tests {
 
     #[test]
     fn different_variant_val_try_add() {
-        let different_variant_sum_1 = Val::Undefined.try_add(Val::Auto);
-        let different_variant_sum_2 = Val::Px(50.).try_add(Val::Percent(50.));
-        let different_variant_sum_3 = Val::Percent(50.).try_add(Val::Undefined);
+        let different_variant_sum_1 = Val::Px(50.).try_add(Val::Percent(50.));
+        let different_variant_sum_2 = Val::Percent(50.).try_add(Val::Auto);
 
         assert_eq!(
             different_variant_sum_1,
@@ -799,17 +852,12 @@ mod tests {
             different_variant_sum_2,
             Err(ValArithmeticError::NonIdenticalVariants)
         );
-        assert_eq!(
-            different_variant_sum_3,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
     }
 
     #[test]
     fn different_variant_val_try_sub() {
-        let different_variant_diff_1 = Val::Undefined.try_sub(Val::Auto);
-        let different_variant_diff_2 = Val::Px(50.).try_sub(Val::Percent(50.));
-        let different_variant_diff_3 = Val::Percent(50.).try_sub(Val::Undefined);
+        let different_variant_diff_1 = Val::Px(50.).try_sub(Val::Percent(50.));
+        let different_variant_diff_2 = Val::Percent(50.).try_sub(Val::Auto);
 
         assert_eq!(
             different_variant_diff_1,
@@ -817,10 +865,6 @@ mod tests {
         );
         assert_eq!(
             different_variant_diff_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-        assert_eq!(
-            different_variant_diff_3,
             Err(ValArithmeticError::NonIdenticalVariants)
         );
     }
@@ -844,10 +888,8 @@ mod tests {
     #[test]
     fn val_invalid_evaluation() {
         let size = 250.;
-        let evaluate_undefined = Val::Undefined.evaluate(size);
         let evaluate_auto = Val::Auto.evaluate(size);
 
-        assert_eq!(evaluate_undefined, Err(ValArithmeticError::NonEvaluateable));
         assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
     }
 
@@ -889,10 +931,8 @@ mod tests {
     fn val_try_add_non_numeric_with_size() {
         let size = 250.;
 
-        let undefined_sum = Val::Undefined.try_add_with_size(Val::Undefined, size);
         let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
 
-        assert_eq!(undefined_sum, Err(ValArithmeticError::NonEvaluateable));
         assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
     }
 
@@ -906,5 +946,10 @@ mod tests {
             format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
         );
+    }
+
+    #[test]
+    fn default_val_equals_const_default_val() {
+        assert_eq!(Val::default(), Val::DEFAULT);
     }
 }

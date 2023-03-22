@@ -49,6 +49,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
 ]
@@ -66,7 +67,7 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 
 # Provides cameras and other basic render pipeline features
-bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline", "bevy_asset", "bevy_render"]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -75,28 +76,31 @@ bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
-bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
-bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides scene functionality
-bevy_scene = ["bevy_internal/bevy_scene"]
+bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite"]
+bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui"]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
+
+# Adds support for rendering gizmos
+bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -310,6 +314,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "2d_gizmos"
+path = "examples/2d/2d_gizmos.rs"
+
+[package.metadata.example.2d_gizmos]
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
@@ -397,6 +411,16 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "3d_gizmos"
+path = "examples/3d/3d_gizmos.rs"
+
+[package.metadata.example.3d_gizmos]
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
 category = "3D Rendering"
 wasm = true
 
@@ -1385,8 +1409,18 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing"
+name = "Post Processing - Render To Texture"
 description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "post_process_pass"
+path = "examples/shader/post_process_pass.rs"
+
+[package.metadata.example.post_process_pass]
+name = "Post Processing - Custom Render Pass"
+description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
 wasm = true
 
@@ -1544,12 +1578,32 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_gizmos"
+path = "examples/stress_tests/many_gizmos.rs"
+
+[package.metadata.example.many_gizmos]
+name = "Many Gizmos"
+description = "Test rendering of many gizmos"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
 
 [package.metadata.example.many_foxes]
 name = "Many Foxes"
 description = "Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_glyphs"
+path = "examples/stress_tests/many_glyphs.rs"
+
+[package.metadata.example.many_glyphs]
+name = "Many Glyphs"
+description = "Simple benchmark to test text rendering."
 category = "Stress Tests"
 wasm = true
 

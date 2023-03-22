@@ -1,4 +1,5 @@
 use crate::{
+    component::Tick,
     storage::SparseSetIndex,
     system::{ReadOnlySystemParam, SystemParam},
     world::{FromWorld, World},
@@ -56,7 +57,7 @@ unsafe impl SystemParam for WorldId {
         _: &'state mut Self::State,
         _: &crate::system::SystemMeta,
         world: &'world super::World,
-        _: u32,
+        _: Tick,
     ) -> Self::Item<'world, 'state> {
         world.id
     }
