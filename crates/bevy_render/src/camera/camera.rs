@@ -532,7 +532,7 @@ impl NormalizedRenderTarget {
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
 /// the app, as well as the runtime-selected [`Projection`].
-/// The system runs during [`CoreSet::PostUpdate`].
+/// The system runs during [`PostUpdate`](bevy_app::PostUpdate).
 ///
 /// ## World Resources
 ///

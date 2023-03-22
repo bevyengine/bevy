@@ -13,7 +13,8 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), update_bloom_settings))
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_bloom_settings)
         .run();
 }
 
@@ -78,11 +79,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );

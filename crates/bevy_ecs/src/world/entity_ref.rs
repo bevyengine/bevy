@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleInfo},
+    bundle::{Bundle, BundleInfo, BundleInserter, DynamicBundle},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -279,6 +279,90 @@ impl<'w> EntityMut<'w> {
         self
     }
 
+    /// Inserts a dynamic [`Component`] into the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// You should prefer to use the typed API [`EntityMut::insert`] where possible.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as [`EntityMut`]
+    /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    pub unsafe fn insert_by_id(
+        &mut self,
+        component_id: ComponentId,
+        component: OwningPtr<'_>,
+    ) -> &mut Self {
+        let change_tick = self.world.change_tick();
+
+        let bundles = &mut self.world.bundles;
+        let components = &mut self.world.components;
+
+        let (bundle_info, storage_type) = bundles.init_component_info(components, component_id);
+        let bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+
+        self.location = insert_dynamic_bundle(
+            bundle_inserter,
+            self.entity,
+            self.location,
+            Some(component).into_iter(),
+            Some(storage_type).into_iter(),
+        );
+
+        self
+    }
+
+    /// Inserts a dynamic [`Bundle`] into the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// You should prefer to use the typed API [`EntityMut::insert`] where possible.
+    /// If your [`Bundle`] only has one component, use the cached API [`EntityMut::insert_by_id`].
+    ///
+    /// If possible, pass a sorted slice of `ComponentId` to maximize caching potential.
+    ///
+    /// # Safety
+    /// - Each [`ComponentId`] must be from the same world as [`EntityMut`]
+    /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
+        &mut self,
+        component_ids: &[ComponentId],
+        iter_components: I,
+    ) -> &mut Self {
+        let change_tick = self.world.change_tick();
+
+        let bundles = &mut self.world.bundles;
+        let components = &mut self.world.components;
+
+        let (bundle_info, storage_types) = bundles.init_dynamic_info(components, component_ids);
+        let bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+
+        self.location = insert_dynamic_bundle(
+            bundle_inserter,
+            self.entity,
+            self.location,
+            iter_components,
+            storage_types.iter().cloned(),
+        );
+
+        self
+    }
+
     /// Removes all components in the [`Bundle`] from the entity and returns their previous values.
     ///
     /// **Note:** If the entity does not have every component in the bundle, this method will not
@@ -311,7 +395,7 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
-        let mut bundle_components = bundle_info.component_ids.iter().cloned();
+        let mut bundle_components = bundle_info.components().iter().cloned();
         let entity = self.entity;
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
         // matches
@@ -463,7 +547,7 @@ impl<'w> EntityMut<'w> {
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
         let entity = self.entity;
-        for component_id in bundle_info.component_ids.iter().cloned() {
+        for component_id in bundle_info.components().iter().cloned() {
             if old_archetype.contains(component_id) {
                 removed_components.send(component_id, entity);
 
@@ -603,7 +687,7 @@ impl<'w> EntityMut<'w> {
     ///     // Mutate the world while we have access to it.
     ///     let mut r = world.resource_mut::<R>();
     ///     r.0 += 1;
-    ///     
+    ///
     ///     // Return a value from the world before giving it back to the `EntityMut`.
     ///     *r
     /// });
@@ -672,6 +756,44 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+/// Inserts a dynamic [`Bundle`] into the entity.
+///
+/// # Safety
+///
+/// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
+/// [`BundleInfo`] used to construct [`BundleInserter`]
+/// - [`Entity`] must correspond to [`EntityLocation`]
+unsafe fn insert_dynamic_bundle<
+    'a,
+    I: Iterator<Item = OwningPtr<'a>>,
+    S: Iterator<Item = StorageType>,
+>(
+    mut bundle_inserter: BundleInserter<'_, '_>,
+    entity: Entity,
+    location: EntityLocation,
+    components: I,
+    storage_types: S,
+) -> EntityLocation {
+    struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
+        components: I,
+    }
+
+    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+        for DynamicInsertBundle<'a, I>
+    {
+        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+            self.components.for_each(|(t, ptr)| func(t, ptr));
+        }
+    }
+
+    let bundle = DynamicInsertBundle {
+        components: storage_types.zip(components),
+    };
+
+    // SAFETY: location matches current entity.
+    unsafe { bundle_inserter.insert(entity, location, bundle) }
+}
+
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
 /// removal was invalid). in the event that adding the given bundle does not result in an Archetype
 /// change. Results are cached in the Archetype Graph to avoid redundant work.
@@ -694,9 +816,11 @@ unsafe fn remove_bundle_from_archetype(
     let remove_bundle_result = {
         let current_archetype = &mut archetypes[archetype_id];
         if intersection {
-            current_archetype.edges().get_remove_bundle(bundle_info.id)
+            current_archetype
+                .edges()
+                .get_remove_bundle(bundle_info.id())
         } else {
-            current_archetype.edges().get_take_bundle(bundle_info.id)
+            current_archetype.edges().get_take_bundle(bundle_info.id())
         }
     };
     let result = if let Some(result) = remove_bundle_result {
@@ -710,7 +834,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.component_ids.iter().cloned() {
+            for component_id in bundle_info.components().iter().cloned() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
                     let component_info = components.get_info_unchecked(component_id);
@@ -724,7 +848,7 @@ unsafe fn remove_bundle_from_archetype(
                     // graph
                     current_archetype
                         .edges_mut()
-                        .insert_take_bundle(bundle_info.id, None);
+                        .insert_take_bundle(bundle_info.id(), None);
                     return None;
                 }
             }
@@ -763,11 +887,11 @@ unsafe fn remove_bundle_from_archetype(
     if intersection {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle(bundle_info.id, result);
+            .insert_remove_bundle(bundle_info.id(), result);
     } else {
         current_archetype
             .edges_mut()
-            .insert_take_bundle(bundle_info.id, result);
+            .insert_take_bundle(bundle_info.id(), result);
     }
     result
 }
@@ -833,6 +957,7 @@ pub(crate) unsafe fn take_component<'a>(
 
 #[cfg(test)]
 mod tests {
+    use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
     use crate as bevy_ecs;
@@ -860,8 +985,12 @@ mod tests {
         assert_eq!(a, vec![1]);
     }
 
-    #[derive(Component)]
+    #[derive(Component, Clone, Copy, Debug, PartialEq)]
     struct TestComponent(u32);
+
+    #[derive(Component, Clone, Copy, Debug, PartialEq)]
+    #[component(storage = "SparseSet")]
+    struct TestComponent2(u32);
 
     #[test]
     fn entity_ref_get_by_id() {
@@ -1104,5 +1233,73 @@ mod tests {
         world.entity_mut(e1).despawn();
 
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    #[test]
+    fn entity_mut_insert_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn_empty();
+        OwningPtr::make(TestComponent(42), |ptr| {
+            // SAFETY: `ptr` matches the component id
+            unsafe { entity.insert_by_id(test_component_id, ptr) };
+        });
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![&TestComponent(42)]);
+
+        // Compare with `insert_bundle_by_id`
+
+        let mut entity = world.spawn_empty();
+        OwningPtr::make(TestComponent(84), |ptr| {
+            // SAFETY: `ptr` matches the component id
+            unsafe { entity.insert_by_ids(&[test_component_id], vec![ptr].into_iter()) };
+        });
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![&TestComponent(42), &TestComponent(84)]);
+    }
+
+    #[test]
+    fn entity_mut_insert_bundle_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_2_id = world.init_component::<TestComponent2>();
+
+        let component_ids = [test_component_id, test_component_2_id];
+        let test_component_value = TestComponent(42);
+        let test_component_2_value = TestComponent2(84);
+
+        let mut entity = world.spawn_empty();
+        OwningPtr::make(test_component_value, |ptr1| {
+            OwningPtr::make(test_component_2_value, |ptr2| {
+                // SAFETY: `ptr1` and `ptr2` match the component ids
+                unsafe { entity.insert_by_ids(&component_ids, vec![ptr1, ptr2].into_iter()) };
+            });
+        });
+
+        let dynamic_components: Vec<_> = world
+            .query::<(&TestComponent, &TestComponent2)>()
+            .iter(&world)
+            .collect();
+
+        assert_eq!(
+            dynamic_components,
+            vec![(&TestComponent(42), &TestComponent2(84))]
+        );
+
+        // Compare with `World` generated using static type equivalents
+        let mut static_world = World::new();
+
+        static_world.spawn((test_component_value, test_component_2_value));
+        let static_components: Vec<_> = static_world
+            .query::<(&TestComponent, &TestComponent2)>()
+            .iter(&static_world)
+            .collect();
+
+        assert_eq!(dynamic_components, static_components);
     }
 }

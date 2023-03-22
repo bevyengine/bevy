@@ -1,3 +1,8 @@
+//! This example shows what happens when there is a lot of buttons on screen.
+//!
+//! To start the demo without text run
+//! `cargo run --example many_buttons --release no-text`
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -21,7 +26,8 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .init_resource::<UiFont>()
-        .add_systems((setup.on_startup(), button_system))
+        .add_systems(Startup, setup)
+        .add_systems(Update, button_system)
         .run();
 }
 
@@ -67,14 +73,24 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
             ..default()
         })
         .with_children(|commands| {
+            let spawn_text = std::env::args().nth(1).as_deref() != Some("no-text");
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
-                    spawn_button(commands, font.0.clone_weak(), color, count_f, i, j);
+                    spawn_button(
+                        commands,
+                        font.0.clone_weak(),
+                        color,
+                        count_f,
+                        i,
+                        j,
+                        spawn_text,
+                    );
                 }
             }
         });
 }
+
 fn spawn_button(
     commands: &mut ChildBuilder,
     font: Handle<Font>,
@@ -82,29 +98,27 @@ fn spawn_button(
     total: f32,
     i: usize,
     j: usize,
+    spawn_text: bool,
 ) {
     let width = 90.0 / total;
-    commands
-        .spawn((
-            ButtonBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(width), Val::Percent(width)),
-
-                    position: UiRect {
-                        bottom: Val::Percent(100.0 / total * i as f32),
-                        left: Val::Percent(100.0 / total * j as f32),
-                        ..default()
-                    },
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                background_color: color,
+    let mut builder = commands.spawn((
+        ButtonBundle {
+            style: Style {
+                size: Size::new(Val::Percent(width), Val::Percent(width)),
+                bottom: Val::Percent(100.0 / total * i as f32),
+                left: Val::Percent(100.0 / total * j as f32),
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
                 ..default()
             },
-            IdleColor(color),
-        ))
-        .with_children(|commands| {
+            background_color: color,
+            ..default()
+        },
+        IdleColor(color),
+    ));
+
+    if spawn_text {
+        builder.with_children(|commands| {
             commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
                 TextStyle {
@@ -114,4 +128,5 @@ fn spawn_button(
                 },
             ));
         });
+    }
 }
