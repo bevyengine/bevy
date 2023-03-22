@@ -98,7 +98,7 @@ fn menu(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Clicked | Interaction::Released => {
                 *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }

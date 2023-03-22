@@ -35,7 +35,7 @@ fn button_system(
                 text.sections[0].value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            _ => {
                 text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
             }
