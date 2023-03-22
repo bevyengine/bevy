@@ -1,9 +1,10 @@
+use bevy_macro_utils::ensure_no_collision;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_quote,
+    parse_macro_input, parse_quote,
     punctuated::Punctuated,
     Attribute, Data, DataStruct, DeriveInput, Field, Fields,
 };
@@ -25,7 +26,10 @@ mod field_attr_keywords {
 
 pub static WORLD_QUERY_ATTRIBUTE_NAME: &str = "world_query";
 
-pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
+pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+
+    let ast = parse_macro_input!(input as DeriveInput);
     let visibility = ast.vis;
 
     let mut fetch_struct_attributes = FetchStructAttributes::default();
@@ -104,13 +108,18 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     };
 
     let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
+    let fetch_struct_name = ensure_no_collision(fetch_struct_name, tokens.clone());
     let read_only_fetch_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site())
+        let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
+        ensure_no_collision(new_ident, tokens.clone())
     } else {
         fetch_struct_name.clone()
     };
 
+    // Generate a name for the state struct that doesn't conflict
+    // with the struct definition.
     let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
+    let state_struct_name = ensure_no_collision(state_struct_name, tokens);
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
