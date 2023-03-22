@@ -389,7 +389,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
 
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = #state_struct_name <#punctuated_generic_idents>;
+                type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
