@@ -1398,10 +1398,10 @@ mod tests {
     };
 
     #[derive(Component)]
-    struct A;
+    pub struct A;
 
     #[derive(Component)]
-    struct B;
+    pub struct B;
 
     // Tests that each variant of struct can be used as a `WorldQuery`.
     #[test]
@@ -1422,9 +1422,6 @@ mod tests {
 
         assert_is_system(my_system);
     }
-
-    #[derive(Component)]
-    pub struct A;
 
     // Ensures that each field of a `WorldQuery` struct's read-only variant
     // has the same visibility as its corresponding mutable field.
