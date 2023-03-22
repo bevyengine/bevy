@@ -1642,3 +1642,37 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{self as bevy_ecs, system::Query};
+
+    #[derive(Component)]
+    pub struct A;
+
+    // Ensures that each field of a `WorldQuery` struct's read-only variant
+    // has the same visibility as its corresponding mutable field.
+    #[test]
+    fn read_only_field_visibility() {
+        mod private {
+            use super::*;
+
+            #[derive(WorldQuery)]
+            #[world_query(mutable)]
+            pub struct Q {
+                pub a: &'static mut A,
+            }
+        }
+
+        let _ = private::QReadOnly { a: &A };
+
+        fn my_system(query: Query<private::Q>) {
+            for q in &query {
+                let _ = &q.a;
+            }
+        }
+
+        crate::system::assert_is_system(my_system);
+    }
+}
