@@ -5,7 +5,7 @@ use wgpu::PrimitiveTopology;
 #[derive(Debug, Copy, Clone)]
 pub struct RegularPolygon {
     /// Circumscribed radius in the `XY` plane.
-    /// 
+    ///
     /// In other words, the vertices of this polygon will all touch a circle of this radius.
     pub radius: f32,
     /// Number of sides.
