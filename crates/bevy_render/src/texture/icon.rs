@@ -33,7 +33,7 @@ pub struct WindowIconPlugin(PathBuf);
 
 impl Plugin for WindowIconPlugin {
     fn build(&self, app: &mut crate::App) {
-        app.add_systems(Startup, insert_component(self.0.clone()))
+        app.add_systems(Startup, insert_component(Some(self.0.clone())))
             .add_systems(Update, set_window_icon.run_if(image_asset_loaded()));
     }
 }
@@ -45,15 +45,15 @@ impl WindowIconPlugin {
 }
 
 pub fn insert_component(
-    path: PathBuf,
+    path: Option<PathBuf>,
 ) -> impl FnMut(Commands, Query<Entity, With<Window>>, Res<AssetServer>) {
     move |mut commands: Commands, query: Query<_, _>, asset_server: Res<_>| {
-        let icon_handle = asset_server.load(path.clone());
+        let maybe_handle = path.as_ref().map(|path| asset_server.load(path.clone()));
 
         for id in query.iter() {
             commands
                 .entity(id)
-                .insert(WindowIcon::new(Some(icon_handle.clone())));
+                .insert(WindowIcon::new(maybe_handle.clone()));
         }
     }
 }
