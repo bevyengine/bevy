@@ -35,48 +35,51 @@ fn update_clipping(
     children_query: &Query<&Children>,
     node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
-    clip: Option<Rect>,
+    maybe_inherited_clip: Option<Rect>,
 ) {
-    let (node, global_transform, style, old_clip) = node_query.get_mut(entity).unwrap();
+    let (node, global_transform, style, maybe_calculated_clip) =
+        node_query.get_mut(entity).unwrap();
 
     // Update current node's CalculatedClip component
-    match (old_clip, clip) {
+    match (maybe_calculated_clip, maybe_inherited_clip) {
         (None, None) => {}
         (Some(_), None) => {
             commands.entity(entity).remove::<CalculatedClip>();
         }
-        (None, Some(clip)) => {
-            commands.entity(entity).insert(CalculatedClip { clip });
+        (None, Some(inherited_clip)) => {
+            commands.entity(entity).insert(CalculatedClip {
+                clip: inherited_clip,
+            });
         }
-        (Some(mut old_clip), Some(clip)) => {
-            if old_clip.clip != clip {
-                *old_clip = CalculatedClip { clip };
+        (Some(mut calculated_clip), Some(inherited_clip)) => {
+            if calculated_clip.clip != inherited_clip {
+                *calculated_clip = CalculatedClip {
+                    clip: inherited_clip,
+                };
             }
         }
     }
 
     // Calculate new clip rectangle for children nodes
     let children_clip = match style.overflow {
-        // When `Visible`, children will be visible even when they are outside
-        // the current node's "area". In this case they inherit the current
+        // When `Visible`, children might be visible even when they are outside
+        // the current node's boundaries. In this case they inherit the current
         // node's parent clip. If an ancestor is set as `Hidden`, that clip will
         // be used; otherwise this will be `None`.
-        Overflow::Visible => clip,
+        Overflow::Visible => maybe_inherited_clip,
         Overflow::Hidden => {
-            // Calculate current node clip rectangle from: posisition + calculated_size
-            let node_center = global_transform.translation().truncate();
-            let node_clip = Rect::from_center_size(node_center, node.calculated_size);
+            let node_clip = node.logical_rect(global_transform);
 
-            // If `clip` is `Some`, use the intersection between current node's
-            // clip and the ancestor `clip`. This handles the case of nested
-            // `Overflow::Hidden` nodes. If parent `clip` is not defined, use
-            // the current node's clip (pos + calculated size).
-            Some(clip.map_or(node_clip, |c| c.intersect(node_clip)))
+            // If `maybe_inherited_clip` is `Some`, use the intersection between
+            // current node's clip and the inherited clip. This handles the case
+            // of nested `Overflow::Hidden` nodes. If parent `clip` is not
+            // defined, use the current node's clip.
+            Some(maybe_inherited_clip.map_or(node_clip, |c| c.intersect(node_clip)))
         }
     };
 
     if let Ok(children) = children_query.get(entity) {
-        for &child in children.into_iter() {
+        for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
         }
     }
