@@ -4,7 +4,7 @@ use wgpu::PrimitiveTopology;
 /// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
 pub struct RegularPolygon {
-    /// Inscribed radius in the `XY` plane.
+    /// Circumscribed radius in the `XY` plane.
     pub radius: f32,
     /// Number of sides.
     pub sides: usize,
