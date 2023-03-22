@@ -17,7 +17,8 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), example_control_system));
+        .add_systems(Startup, setup)
+        .add_systems(Update, example_control_system);
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
     // Since this example uses HDR, we must disable MSAA for WASM builds, at least

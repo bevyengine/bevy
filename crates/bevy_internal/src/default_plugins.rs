@@ -135,6 +135,11 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_animation::AnimationPlugin::default());
         }
 
+        #[cfg(feature = "bevy_gizmos")]
+        {
+            group = group.add(bevy_gizmos::GizmoPlugin);
+        }
+
         group
     }
 }
