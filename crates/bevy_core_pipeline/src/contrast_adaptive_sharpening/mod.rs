@@ -11,7 +11,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 
 mod node;
@@ -105,20 +105,13 @@ impl Plugin for CASPlugin {
         render_app
             .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
-            .add_system(prepare_cas_pipelines.in_set(RenderSet::Prepare));
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
         {
             let cas_node = CASNode::new(&mut render_app.world);
             let mut binding = render_app.world.resource_mut::<RenderGraph>();
             let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
 
             graph.add_node(core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING, cas_node);
-
-            graph.add_slot_edge(
-                graph.input_node().id,
-                core_3d::graph::input::VIEW_ENTITY,
-                core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-                CASNode::IN_VIEW,
-            );
 
             graph.add_node_edge(
                 core_3d::graph::node::FXAA,
@@ -135,13 +128,6 @@ impl Plugin for CASPlugin {
             let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
 
             graph.add_node(core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING, cas_node);
-
-            graph.add_slot_edge(
-                graph.input_node().id,
-                core_2d::graph::input::VIEW_ENTITY,
-                core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-                CASNode::IN_VIEW,
-            );
 
             graph.add_node_edge(
                 core_2d::graph::node::FXAA,
