@@ -131,7 +131,7 @@ fn button_handler(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Clicked | Interaction::Released => {
                 *color = Color::BLUE.into();
             }
             Interaction::Hovered => {
