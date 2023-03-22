@@ -82,6 +82,9 @@ fn setup_scene(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         point_light: PointLight {
             intensity: 5000.0,
+            // Shadows makes some Android devices segfault, this is under investigation
+            // https://github.com/bevyengine/bevy/issues/8214
+            #[cfg(not(target_os = "android"))]
             shadows_enabled: true,
             ..default()
         },
