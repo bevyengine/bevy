@@ -11,10 +11,14 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
+    parse::{ParseStream, Parse}, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
     ConstParam, DeriveInput, Field, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
     TypeParam,
 };
+
+mod kw {
+    syn::custom_keyword!(error_type);
+}
 
 enum BundleFieldKind {
     Component,
@@ -250,6 +254,22 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
+struct SystemParamErrorType {
+    _error_ty_kw: kw::error_type,
+    _eq_token: syn::Token!(=),
+    error_ty: syn::Ident,
+}
+
+impl Parse for SystemParamErrorType {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            _error_ty_kw: input.parse()?,
+            _eq_token: input.parse()?,
+            error_ty: input.parse()?,
+        })
+    }
+}
+
 #[derive(Default)]
 struct SystemParamFieldAttributes {
     pub ignore: bool,
@@ -261,14 +281,33 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let syn::Data::Struct(syn::DataStruct { fields: field_definitions, ..}) = ast.data else {
+    let syn::Data::Struct(syn::DataStruct { fields, ..}) = ast.data else {
         return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
             .into_compile_error()
             .into();
     };
     let path = bevy_ecs_path();
 
-    let field_attributes = field_definitions
+    let mut error_ty = None;
+    for attr in &ast.attrs {
+        let Some(attr_ident) = attr.path.get_ident() else { continue };
+        if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
+            if error_ty.is_none() {
+                error_ty = match attr.parse_args_with(SystemParamErrorType::parse) {
+                    Ok(v) => Some(v.error_ty),
+                    Err(err) => {
+                        return err.to_compile_error().into();
+                    }
+                };
+            } else {
+                return syn::Error::new(attr.span(), "Attribute `error_type` is already set")
+                    .into_compile_error()
+                    .into();
+            }
+        }
+    }
+
+    let field_attributes = fields
         .iter()
         .map(|field| {
             (
@@ -294,7 +333,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
     let mut field_locals = Vec::new();
-    let mut fields = Vec::new();
+    let mut field_names = Vec::new();
     let mut field_types = Vec::new();
     let mut ignored_fields = Vec::new();
     let mut ignored_field_types = Vec::new();
@@ -305,7 +344,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         } else {
             field_locals.push(format_ident!("f{i}"));
             let i = Index::from(i);
-            fields.push(
+            field_names.push(
                 field
                     .ident
                     .as_ref()
@@ -395,6 +434,31 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
 
+    let (error_ty, trait_ty, get_param_return_ty, get_param_output) = match error_ty {
+        Some(err) => (
+            quote! { type Error = #err; },
+            quote! { #path::system::FallibleSystemParam },
+            quote! { Result<Self::Item<'w2, 's2>, <Self::Item<'w2, 's2> as #path::system::FallibleSystemParam>::Error },
+            quote! {
+                #struct_name {
+                    #(#field_names: #field_locals,)*
+                    #(#ignored_fields: std::default::Default::default(),)*
+                }
+            }
+        ),
+        None => (
+            quote! { },
+            quote! { #path::system::SystemParam },
+            quote! { Self::Item<'w2, 's2> },
+            quote! {
+                #struct_name {
+                    #(#field_names: #field_locals,)*
+                    #(#ignored_fields: std::default::Default::default(),)*
+                }
+            }
+        ),
+    };
+
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
@@ -410,9 +474,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 )>,
             }
 
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+            unsafe impl<'w, 's, #punctuated_generics> #trait_ty for #struct_name #ty_generics #where_clause {
                 type State = FetchState<'static, 'static, #punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
+                #error_ty
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     FetchState {
@@ -434,14 +499,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     system_meta: &#path::system::SystemMeta,
                     world: &'w2 #path::world::World,
                     change_tick: #path::component::Tick,
-                ) -> Self::Item<'w2, 's2> {
+                ) -> #get_param_return_ty {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
-                        #(#fields: #field_locals,)*
-                        #(#ignored_fields: std::default::Default::default(),)*
-                    }
+                    #get_param_output
                 }
             }
 
