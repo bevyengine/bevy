@@ -111,7 +111,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v3
         with:
-          name: screenshots
+          name: screenshots-android
           path: .github/start-mobile-example/*.png
 
   run-examples-on-windows-dx12:
