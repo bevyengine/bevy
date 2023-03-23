@@ -106,12 +106,12 @@ impl_reflect_value!(
     ::core::result::Result < T: Clone + Reflect + TypePath,
     E: Clone + Reflect + TypePath > ()
 );
-impl_reflect_value!(::bevy_utils::HashSet<T: TypePath + Hash + Eq + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::Range<T: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeInclusive<T: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeFrom<T: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeTo<T: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeToInclusive<T: TypePath + Clone + Send + Sync>());
+impl_reflect_value!(::bevy_utils::HashSet<T: Hash + Eq + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFull());
 impl_reflect_value!(::bevy_utils::Duration(
     Debug,

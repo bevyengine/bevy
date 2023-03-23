@@ -41,6 +41,7 @@ use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput, Generics};
 use type_path::NamedTypePathDef;
 use type_uuid::TypeUuidDef;
+use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -129,7 +130,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// which will be used by the reflection serializers to determine whether or not the field is serializable.
 ///
 /// [`reflect_trait`]: macro@reflect_trait
-#[proc_macro_derive(Reflect, attributes(reflect, reflect_value))]
+#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -203,7 +204,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 
     impls::impl_type_path(
         derive_data.meta(),
-        &derive_data.meta().type_path_where_clause_options(),
+        &WhereClauseOptions::type_path_bounds(derive_data.meta()),
     )
     .into()
 }
@@ -450,7 +451,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(path_to_type, &generics, ReflectTraits::default());
 
-    impls::impl_type_path(&meta, &meta.type_path_where_clause_options()).into()
+    impls::impl_type_path(&meta, &WhereClauseOptions::type_path_bounds(&meta)).into()
 }
 /// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
 #[proc_macro]

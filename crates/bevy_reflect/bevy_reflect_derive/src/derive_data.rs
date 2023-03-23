@@ -402,25 +402,6 @@ impl<'a> ReflectMeta<'a> {
     pub fn doc(&self) -> &crate::documentation::Documentation {
         &self.docs
     }
-
-    pub fn type_path_where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = self.bevy_reflect_path();
-        WhereClauseOptions {
-            active_types: self
-                .generics()
-                .type_params()
-                .map(|param| {
-                    let path: Path = param.ident.clone().into();
-                    let type_path = syn::TypePath { path, qself: None };
-                    type_path.into()
-                })
-                .collect(),
-            active_trait_bounds: quote! {
-                #bevy_reflect_path::TypePath
-            },
-            ..Default::default()
-        }
-    }
 }
 
 impl<'a> ReflectStruct<'a> {
@@ -492,6 +473,7 @@ impl<'a> ReflectStruct<'a> {
             active_trait_bounds: quote! { #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath },
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
+            ..WhereClauseOptions::type_path_bounds(self.meta())
         }
     }
 }
@@ -550,6 +532,7 @@ impl<'a> ReflectEnum<'a> {
             active_trait_bounds: quote! { #bevy_reflect_path::FromReflect + #bevy_reflect_path::TypePath },
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
+            ..WhereClauseOptions::type_path_bounds(self.meta())
         }
     }
 }
@@ -600,18 +583,18 @@ impl<'a> EnumVariant<'a> {
 ///
 /// # Example
 ///
-/// ```
-/// # use quote::{quote, ToTokens};
+/// ```rust,ignore
 /// # use syn::parse_quote;
+/// # use bevy_reflect_derive::ReflectTypePath;
 ///
-/// let path: Path = parse_quote!(::core::marker::PhantomData)?;
+/// let path: syn::Path = parse_quote!(::core::marker::PhantomData)?;
 ///
 /// let type_path = ReflectTypePath::External {
 ///     path,
 ///     custom_path: None,
 /// };
 ///
-/// // Equals "core::marker".
+/// // Eqivalent to "core::marker".
 /// let module_path = type_path.module_path();
 ///
 /// # Ok::<(), syn::Error>(())

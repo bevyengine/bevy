@@ -1,11 +1,11 @@
 //! General-purpose utility functions for internal usage within this crate.
 
-use crate::{field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
+use crate::{derive_data::ReflectMeta, field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{Member, Path, Token, Type, WhereClause};
+use syn::{Generics, Member, Path, Token, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -60,6 +60,10 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 
 /// Options defining how to extend the `where` clause in reflection with any additional bounds needed.
 pub(crate) struct WhereClauseOptions {
+    /// Type parameters that need extra trait bounds.
+    pub(crate) parameter_types: Box<[Ident]>,
+    /// Trait bounds to add to the type parameters.
+    pub(crate) parameter_trait_bounds: proc_macro2::TokenStream,
     /// Any types that will be reflected and need an extra trait bound
     pub(crate) active_types: Box<[Type]>,
     /// Trait bounds to add to the active types
@@ -70,12 +74,29 @@ pub(crate) struct WhereClauseOptions {
     pub(crate) ignored_trait_bounds: proc_macro2::TokenStream,
 }
 
+impl WhereClauseOptions {
+    pub fn type_path_bounds(meta: &ReflectMeta) -> Self {
+        let bevy_reflect_path = meta.bevy_reflect_path();
+        Self {
+            parameter_types: WhereClauseOptions::parameter_types(meta.generics()),
+            parameter_trait_bounds: quote! { #bevy_reflect_path::TypePath },
+            ..Default::default()
+        }
+    }
+
+    pub fn parameter_types(generics: &Generics) -> Box<[Ident]> {
+        generics.type_params().map(|ty| ty.ident.clone()).collect()
+    }
+}
+
 impl Default for WhereClauseOptions {
     /// By default, don't add any additional bounds to the `where` clause
     fn default() -> Self {
         Self {
+            parameter_types: Box::new([]),
             active_types: Box::new([]),
             ignored_types: Box::new([]),
+            parameter_trait_bounds: quote! {},
             active_trait_bounds: quote! {},
             ignored_trait_bounds: quote! {},
         }
@@ -117,8 +138,10 @@ pub(crate) fn extend_where_clause(
     where_clause: Option<&WhereClause>,
     where_clause_options: &WhereClauseOptions,
 ) -> proc_macro2::TokenStream {
+    let parameter_types = &where_clause_options.parameter_types;
     let active_types = &where_clause_options.active_types;
     let ignored_types = &where_clause_options.ignored_types;
+    let parameter_trait_bounds = &where_clause_options.parameter_trait_bounds;
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
 
@@ -129,12 +152,13 @@ pub(crate) fn extend_where_clause(
                 .push_punct(Token![,](Span::call_site()));
         }
         where_clause.to_token_stream()
-    } else if !(active_types.is_empty() && ignored_types.is_empty()) {
+    } else if !(parameter_types.is_empty() && active_types.is_empty() && ignored_types.is_empty()) {
         quote!(where)
     } else {
         quote!()
     };
     generic_where_clause.extend(quote! {
+        #(#parameter_types: #parameter_trait_bounds,)*
         #(#active_types: #active_trait_bounds,)*
         #(#ignored_types: #ignored_trait_bounds,)*
     });
@@ -219,15 +243,12 @@ where
 
 /// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.
 pub(crate) fn wrap_in_option(tokens: Option<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
-    tokens
-        .map(|tokens| {
-            quote! {
-                #FQOption::Some(#tokens)
-            }
-        })
-        .unwrap_or_else(|| {
-            quote! {
-                #FQOption::None
-            }
-        })
+    match tokens {
+        Some(tokens) => quote! {
+            #FQOption::Some(#tokens)
+        },
+        None => quote! {
+            #FQOption::None
+        },
+    }
 }
