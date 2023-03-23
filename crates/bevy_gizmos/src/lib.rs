@@ -177,7 +177,7 @@ fn extract_gizmo_data(
             GizmoMesh,
             #[cfg(feature = "bevy_pbr")]
             (
-                handle.clone(),
+                handle.clone_weak(),
                 MeshUniform {
                     flags: 0,
                     transform,
@@ -186,7 +186,7 @@ fn extract_gizmo_data(
             ),
             #[cfg(feature = "bevy_sprite")]
             (
-                Mesh2dHandle(handle.clone()),
+                Mesh2dHandle(handle.clone_weak()),
                 Mesh2dUniform {
                     flags: 0,
                     transform,
