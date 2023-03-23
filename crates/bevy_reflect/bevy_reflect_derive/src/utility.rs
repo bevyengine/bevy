@@ -52,8 +52,6 @@ pub(crate) struct ResultSifter<T> {
 /// a tuple struct or a struct with named fields. If you don't have a field name,
 /// it means you need to access the struct through an index.
 pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
-    // TODO(Quality) when #4761 is merged, code that does this should be replaced
-    // by a call to `ident_or_index`.
     ident.map_or_else(
         || Member::Unnamed(index.into()),
         |ident| Member::Named(ident.clone()),
@@ -94,7 +92,7 @@ impl Default for WhereClauseOptions {
 /// # Arguments
 ///
 /// * `where_clause`: existing `where` clause present on the object to be derived
-/// * `where_clause_options`: additional paramters defining which trait bounds to add to the `where` clause
+/// * `where_clause_options`: additional parameters defining which trait bounds to add to the `where` clause
 ///
 /// # Example
 ///

@@ -12,9 +12,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(text_update_system)
-        .add_system(text_color_system)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (text_update_system, text_color_system))
         .run();
 }
 
@@ -45,11 +44,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
             ..default()
         }),
         ColorText,

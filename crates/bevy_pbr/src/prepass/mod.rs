@@ -8,17 +8,16 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_ecs::{
-    prelude::Entity,
-    query::With,
+    prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        SystemParamItem,
     },
-    world::{FromWorld, World},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -28,25 +27,26 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
-        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FragmentState,
-        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, VertexState,
+        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
+        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+        Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode,
+        PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages,
+        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        VertexState,
     },
     renderer::RenderDevice,
-    texture::TextureCache,
+    texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap};
 
 use crate::{
     AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
     MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
-    MAX_DIRECTIONAL_LIGHTS,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -60,15 +60,18 @@ pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
 pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
 
-pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+/// Sets up everything required to use the prepass pipeline.
+///
+/// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
+pub struct PrepassPipelinePlugin<M: Material>(PhantomData<M>);
 
-impl<M: Material> Default for PrepassPlugin<M> {
+impl<M: Material> Default for PrepassPipelinePlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material> Plugin for PrepassPlugin<M>
+impl<M: Material> Plugin for PrepassPipelinePlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -95,24 +98,55 @@ where
         );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+
+        render_app
+            .add_systems(
+                Render,
+                queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
+            )
+            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<PrepassViewBindGroup>()
+            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
+    }
+}
+
+/// Sets up the prepasses for a [`Material`].
+///
+/// This depends on the [`PrepassPipelinePlugin`].
+pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for PrepassPlugin<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<M: Material> Plugin for PrepassPlugin<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    fn build(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_phase)
-            .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
-            .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<AlphaMask3dPrepass>,
+            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems(
+                Render,
+                (
+                    prepare_prepass_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                    queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                ),
             )
-            .init_resource::<PrepassPipeline<M>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-            .init_resource::<PrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }
@@ -140,11 +174,22 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // Globals
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
                     count: None,
                 },
@@ -202,6 +247,16 @@ where
             shader_defs.push("ALPHA_MASK".into());
         }
 
+        let blend_key = key
+            .mesh_key
+            .intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
+        }
+        if blend_key == MeshPipelineKey::BLEND_ALPHA {
+            shader_defs.push("BLEND_ALPHA".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -211,6 +266,13 @@ where
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as i32,
         ));
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as i32,
+        ));
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
+            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -240,9 +302,13 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
+        // The fragment shader is only used when the normal prepass is enabled
+        // or the material uses alpha cutoff values and doesn't rely on the standard prepass shader
         let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
-            || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+                || blend_key == MeshPipelineKey::BLEND_ALPHA)
+                && self.material_fragment_shader.is_some())
         {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
@@ -286,7 +352,7 @@ where
                 buffers: vec![vertex_buffer_layout],
             },
             fragment,
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
             primitive: PrimitiveState {
                 topology: key.mesh_key.primitive_topology(),
                 strip_index_format: None,
@@ -317,6 +383,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            push_constant_ranges: Vec::new(),
             label: Some("prepass_pipeline".into()),
         };
 
@@ -327,6 +394,73 @@ where
 
         Ok(descriptor)
     }
+}
+
+pub fn get_bind_group_layout_entries(
+    bindings: [u32; 2],
+    multisampled: bool,
+) -> [BindGroupLayoutEntry; 2] {
+    [
+        // Depth texture
+        BindGroupLayoutEntry {
+            binding: bindings[0],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled,
+                sample_type: TextureSampleType::Depth,
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
+        // Normal texture
+        BindGroupLayoutEntry {
+            binding: bindings[1],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled,
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
+    ]
+}
+
+pub fn get_bindings<'a>(
+    prepass_textures: Option<&'a ViewPrepassTextures>,
+    fallback_images: &'a mut FallbackImagesMsaa,
+    fallback_depths: &'a mut FallbackImagesDepth,
+    msaa: &'a Msaa,
+    bindings: [u32; 2],
+) -> [BindGroupEntry<'a>; 2] {
+    let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
+        Some(texture) => &texture.default_view,
+        None => {
+            &fallback_depths
+                .image_for_samplecount(msaa.samples())
+                .texture_view
+        }
+    };
+
+    let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
+        Some(texture) => &texture.default_view,
+        None => {
+            &fallback_images
+                .image_for_samplecount(msaa.samples())
+                .texture_view
+        }
+    };
+
+    [
+        BindGroupEntry {
+            binding: bindings[0],
+            resource: BindingResource::TextureView(depth_view),
+        },
+        BindGroupEntry {
+            binding: bindings[1],
+            resource: BindingResource::TextureView(normal_view),
+        },
+    ]
 }
 
 // Extract the render phases for the prepass
@@ -411,6 +545,7 @@ pub fn prepare_prepass_textures(
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
                 })
@@ -432,6 +567,7 @@ pub fn prepare_prepass_textures(
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
                         },
                     )
                 })
@@ -455,19 +591,26 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        prepass_view_bind_group.bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
+    let Some(view_binding) = view_uniforms.uniforms.binding() else { return };
+    let Some(globals_binding) = globals_buffer.buffer.binding() else { return };
+    prepass_view_bind_group.bind_group =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
-                }],
-                label: Some("prepass_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
-    }
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: globals_binding,
+                },
+            ],
+            label: Some("prepass_view_bind_group"),
+            layout: &prepass_pipeline.view_layout,
+        }));
 }
 
 #[allow(clippy::too_many_arguments)]

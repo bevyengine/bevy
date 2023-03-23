@@ -14,25 +14,11 @@ use bevy::{
 use std::num::NonZeroU32;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .add_startup_system(setup)
-        .run();
-}
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
 
-const MAX_TEXTURE_COUNT: usize = 16;
-const TILE_ID: [usize; 16] = [
-    19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
-];
+    let render_device = app.world.resource::<RenderDevice>();
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<BindlessMaterial>>,
-    asset_server: Res<AssetServer>,
-    render_device: Res<RenderDevice>,
-) {
     // check if the device support the required feature
     if !render_device
         .features()
@@ -46,6 +32,22 @@ fn setup(
         return;
     }
 
+    app.add_plugin(MaterialPlugin::<BindlessMaterial>::default())
+        .add_systems(Startup, setup)
+        .run();
+}
+
+const MAX_TEXTURE_COUNT: usize = 16;
+const TILE_ID: [usize; 16] = [
+    19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
+];
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<BindlessMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ..Default::default()
@@ -94,16 +96,13 @@ impl AsBindGroup for BindlessMaterial {
         }
 
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
-        let samplers = vec![&fallback_image.sampler; MAX_TEXTURE_COUNT];
 
         // convert bevy's resource types to WGPU's references
         let mut textures: Vec<_> = textures.into_iter().map(|texture| &**texture).collect();
-        let mut samplers: Vec<_> = samplers.into_iter().map(|sampler| &**sampler).collect();
 
         // fill in up to the first `MAX_TEXTURE_COUNT` textures and samplers to the arrays
         for (id, image) in images.into_iter().enumerate() {
             textures[id] = &*image.texture_view;
-            samplers[id] = &*image.sampler;
         }
 
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -116,7 +115,7 @@ impl AsBindGroup for BindlessMaterial {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::SamplerArray(&samplers[..]),
+                    resource: BindingResource::Sampler(&fallback_image.sampler),
                 },
             ],
         });
@@ -146,12 +145,15 @@ impl AsBindGroup for BindlessMaterial {
                     },
                     count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
                 },
-                // @group(1) @binding(1) var samplers: binding_array<sampler>;
+                // @group(1) @binding(1) var nearest_sampler: sampler;
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
+                    count: None,
+                    // Note: as textures, multiple samplers can also be bound onto one binding slot.
+                    // One may need to pay attention to the limit of sampler binding amount on some platforms.
+                    // count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
                 },
             ],
         })

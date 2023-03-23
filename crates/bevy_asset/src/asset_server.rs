@@ -286,7 +286,7 @@ impl AssetServer {
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
     /// setting the `"BEVY_ASSET_ROOT"` or `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
-    /// to another directory. When the application  is run through Cargo, then
+    /// to another directory. When the application is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
@@ -422,7 +422,7 @@ impl AssetServer {
         }
 
         self.asset_io()
-            .watch_path_for_changes(asset_path.path())
+            .watch_path_for_changes(asset_path.path(), None)
             .unwrap();
         self.create_assets_in_load_context(&mut load_context);
         Ok(asset_path_id)
@@ -644,7 +644,7 @@ pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
 mod test {
     use super::*;
     use crate::{loader::LoadedAsset, update_asset_storage_system};
-    use bevy_app::App;
+    use bevy_app::{App, Update};
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
@@ -847,13 +847,18 @@ mod test {
         asset_server.add_loader(FakePngLoader);
         let assets = asset_server.register_asset_type::<PngAsset>();
 
-        #[derive(SystemLabel, Clone, Hash, Debug, PartialEq, Eq)]
+        #[derive(SystemSet, Clone, Hash, Debug, PartialEq, Eq)]
         struct FreeUnusedAssets;
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(free_unused_assets_system.label(FreeUnusedAssets));
-        app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
+        app.add_systems(
+            Update,
+            (
+                free_unused_assets_system.in_set(FreeUnusedAssets),
+                update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets),
+            ),
+        );
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.resource::<AssetServer>();

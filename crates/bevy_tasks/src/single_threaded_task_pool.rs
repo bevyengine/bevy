@@ -56,6 +56,11 @@ impl TaskPoolBuilder {
 pub struct TaskPool {}
 
 impl TaskPool {
+    /// Just create a new `ThreadExecutor` for wasm
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Arc::new(ThreadExecutor::new())
+    }
+
     /// Create a `TaskPool` with the default configuration.
     pub fn new() -> Self {
         TaskPoolBuilder::new().build()
@@ -178,14 +183,25 @@ pub struct Scope<'scope, 'env: 'scope, T> {
 }
 
 impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// Spawns a scoped future onto the executor. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
-    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
+    /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+        self.spawn_on_scope(f);
+    }
+
+    /// Spawns a scoped future onto the executor. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_on_external<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 

@@ -1,4 +1,4 @@
-use crate::{app::AppExit, App};
+use crate::{app::AppExit, App, Update};
 use serde::Deserialize;
 
 use bevy_ecs::prelude::Resource;
@@ -47,7 +47,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     };
 
     app.insert_resource(config)
-        .add_system(ci_testing_exit_after);
+        .add_systems(Update, ci_testing_exit_after);
 
     app
 }
