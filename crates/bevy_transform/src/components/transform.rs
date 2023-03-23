@@ -20,11 +20,11 @@ use std::ops::Mul;
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform`] of an entity during this set or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
 /// # Examples
@@ -34,6 +34,7 @@ use std::ops::Mul;
 ///
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [`Transform`]: super::Transform
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
@@ -119,6 +120,11 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points towards the `target` position and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -128,6 +134,11 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points in the given `direction` and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `direction` is zero, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
     pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
@@ -324,6 +335,11 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
     /// and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `target` is the same as the transtorm translation, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         self.look_to(target - self.translation, up);
@@ -331,10 +347,19 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
     /// and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `direction` is zero, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
-        let forward = -direction.normalize();
-        let right = up.cross(forward).normalize();
+        let forward = -direction.try_normalize().unwrap_or(Vec3::Z);
+        let up = up.try_normalize().unwrap_or(Vec3::Y);
+        let right = up
+            .cross(forward)
+            .try_normalize()
+            .unwrap_or_else(|| up.any_orthonormal_vector());
         let up = forward.cross(right);
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
     }

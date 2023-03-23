@@ -39,7 +39,7 @@ impl ReflectIgnoreBehavior {
         }
     }
 
-    /// The exact logical opposite of `self.is_active()` returns true iff this member is not part of the reflection API whatsover (neither serialized nor reflected)
+    /// The exact logical opposite of `self.is_active()` returns true iff this member is not part of the reflection API whatsoever (neither serialized nor reflected)
     pub fn is_ignored(self) -> bool {
         !self.is_active()
     }

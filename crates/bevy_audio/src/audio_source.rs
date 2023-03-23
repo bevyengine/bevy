@@ -104,5 +104,6 @@ pub trait AddAudioSource {
     /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added first.    
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
-        T: Decodable + Asset;
+        T: Decodable + Asset,
+        f32: rodio::cpal::FromSample<T::DecoderItem>;
 }

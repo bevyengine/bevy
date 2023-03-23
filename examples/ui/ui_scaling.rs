@@ -4,9 +4,6 @@ use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SystemLabel)]
-struct ApplyScaling;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -19,9 +16,11 @@ fn main() {
             target_scale: 1.0,
             target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
-        .add_startup_system(setup)
-        .add_system(apply_scaling.label(ApplyScaling))
-        .add_system(change_scaling.before(ApplyScaling))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (change_scaling, apply_scaling.after(change_scaling)),
+        )
         .run();
 }
 
@@ -39,11 +38,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Percent(25.),
-                    top: Val::Percent(25.),
-                    ..default()
-                },
+                left: Val::Percent(25.),
+                top: Val::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()

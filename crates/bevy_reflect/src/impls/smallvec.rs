@@ -4,12 +4,12 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, Array, ArrayIter, DynamicTypePath, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, Array, DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List,
+    ListInfo, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + TypePath + Send + Sync> Array for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync + 'static> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -29,28 +29,6 @@ where
         }
     }
 
-    fn len(&self) -> usize {
-        <SmallVec<T>>::len(self)
-    }
-
-    fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
-    }
-
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        self.into_iter()
-            .map(|value| Box::new(value) as Box<dyn Reflect>)
-            .collect()
-    }
-}
-
-impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
-where
-    T::Item: FromReflect,
-{
     fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
@@ -81,6 +59,20 @@ where
 
     fn pop(&mut self) -> Option<Box<dyn Reflect>> {
         self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
+
+    fn len(&self) -> usize {
+        <SmallVec<T>>::len(self)
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
     }
 }
 
@@ -147,7 +139,7 @@ where
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(List::clone_dynamic(self))
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

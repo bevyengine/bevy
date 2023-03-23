@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
@@ -226,14 +226,23 @@ pub struct DirectionalLightShadowMap {
 
 impl Default for DirectionalLightShadowMap {
     fn default() -> Self {
-        #[cfg(feature = "webgl")]
-        return Self { size: 1024 };
-        #[cfg(not(feature = "webgl"))]
-        return Self { size: 2048 };
+        Self { size: 2048 }
     }
 }
 
 /// Controls how cascaded shadow mapping works.
+/// Prefer using [`CascadeShadowConfigBuilder`] to construct an instance.
+///
+/// ```
+/// # use bevy_pbr::CascadeShadowConfig;
+/// # use bevy_pbr::CascadeShadowConfigBuilder;
+/// # use bevy_utils::default;
+/// #
+/// let config: CascadeShadowConfig = CascadeShadowConfigBuilder {
+///   maximum_distance: 100.0,
+///   ..default()
+/// }.into();
+/// ```
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CascadeShadowConfig {
@@ -241,16 +250,13 @@ pub struct CascadeShadowConfig {
     pub bounds: Vec<f32>,
     /// The proportion of overlap each cascade has with the previous cascade.
     pub overlap_proportion: f32,
+    /// The (positive) distance to the near boundary of the first cascade.
+    pub minimum_distance: f32,
 }
 
 impl Default for CascadeShadowConfig {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
-            // Currently only support one cascade in webgl.
-            Self::new(1, 5.0, 100.0, 0.2)
-        } else {
-            Self::new(4, 5.0, 1000.0, 0.2)
-        }
+        CascadeShadowConfigBuilder::default().into()
     }
 }
 
@@ -268,28 +274,109 @@ fn calculate_cascade_bounds(
         .collect()
 }
 
-impl CascadeShadowConfig {
-    /// Returns a cascade config for `num_cascades` cascades, with the first cascade
-    /// having far bound `nearest_bound` and the last cascade having far bound `shadow_maximum_distance`.
-    /// In-between cascades will be exponentially spaced.
-    pub fn new(
-        num_cascades: usize,
-        nearest_bound: f32,
-        shadow_maximum_distance: f32,
-        overlap_proportion: f32,
-    ) -> Self {
+/// Builder for [`CascadeShadowConfig`].
+pub struct CascadeShadowConfigBuilder {
+    /// The number of shadow cascades.
+    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas
+    /// nearer the camera are covered by fewer shadow map texels than areas further from the camera, causing
+    /// blocky looking shadows.
+    ///
+    /// This does come at the cost increased rendering overhead, however this overhead is still less
+    /// than if you were to use fewer cascades and much larger shadow map textures to achieve the
+    /// same quality level.
+    ///
+    /// In case rendered geometry covers a relatively narrow and static depth relative to camera, it may
+    /// make more sense to use fewer cascades and a higher resolution shadow map texture as perspective aliasing
+    /// is not as much an issue. Be sure to adjust `minimum_distance` and `maximum_distance` appropriately.
+    pub num_cascades: usize,
+    /// The minimum shadow distance, which can help improve the texel resolution of the first cascade.
+    /// Areas nearer to the camera than this will likely receive no shadows.
+    ///
+    /// NOTE: Due to implementation details, this usually does not impact shadow quality as much as
+    /// `first_cascade_far_bound` and `maximum_distance`. At many view frustum field-of-views, the
+    /// texel resolution of the first cascade is dominated by the width / height of the view frustum plane
+    /// at `first_cascade_far_bound` rather than the depth of the frustum from `minimum_distance` to
+    /// `first_cascade_far_bound`.
+    pub minimum_distance: f32,
+    /// The maximum shadow distance.
+    /// Areas further from the camera than this will likely receive no shadows.
+    pub maximum_distance: f32,
+    /// Sets the far bound of the first cascade, relative to the view origin.
+    /// In-between cascades will be exponentially spaced relative to the maximum shadow distance.
+    /// NOTE: This is ignored if there is only one cascade, the maximum distance takes precedence.
+    pub first_cascade_far_bound: f32,
+    /// Sets the overlap proportion between cascades.
+    /// The overlap is used to make the transition from one cascade's shadow map to the next
+    /// less abrupt by blending between both shadow maps.
+    pub overlap_proportion: f32,
+}
+
+impl CascadeShadowConfigBuilder {
+    /// Returns the cascade config as specified by this builder.
+    pub fn build(&self) -> CascadeShadowConfig {
         assert!(
-            num_cascades > 0,
-            "num_cascades must be positive, but was {num_cascades}",
+            self.num_cascades > 0,
+            "num_cascades must be positive, but was {}",
+            self.num_cascades
         );
         assert!(
-            (0.0..1.0).contains(&overlap_proportion),
-            "overlap_proportion must be in [0.0, 1.0) but was {overlap_proportion}",
+            self.minimum_distance >= 0.0,
+            "maximum_distance must be non-negative, but was {}",
+            self.minimum_distance
         );
-        Self {
-            bounds: calculate_cascade_bounds(num_cascades, nearest_bound, shadow_maximum_distance),
-            overlap_proportion,
+        assert!(
+            self.num_cascades == 1 || self.minimum_distance < self.first_cascade_far_bound,
+            "minimum_distance must be less than first_cascade_far_bound, but was {}",
+            self.minimum_distance
+        );
+        assert!(
+            self.maximum_distance > self.minimum_distance,
+            "maximum_distance must be greater than minimum_distance, but was {}",
+            self.maximum_distance
+        );
+        assert!(
+            (0.0..1.0).contains(&self.overlap_proportion),
+            "overlap_proportion must be in [0.0, 1.0) but was {}",
+            self.overlap_proportion
+        );
+        CascadeShadowConfig {
+            bounds: calculate_cascade_bounds(
+                self.num_cascades,
+                self.first_cascade_far_bound,
+                self.maximum_distance,
+            ),
+            overlap_proportion: self.overlap_proportion,
+            minimum_distance: self.minimum_distance,
         }
+    }
+}
+
+impl Default for CascadeShadowConfigBuilder {
+    fn default() -> Self {
+        if cfg!(feature = "webgl") {
+            // Currently only support one cascade in webgl.
+            Self {
+                num_cascades: 1,
+                minimum_distance: 0.1,
+                maximum_distance: 100.0,
+                first_cascade_far_bound: 5.0,
+                overlap_proportion: 0.2,
+            }
+        } else {
+            Self {
+                num_cascades: 4,
+                minimum_distance: 0.1,
+                maximum_distance: 1000.0,
+                first_cascade_far_bound: 5.0,
+                overlap_proportion: 0.2,
+            }
+        }
+    }
+}
+
+impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
+    fn from(builder: CascadeShadowConfigBuilder) -> Self {
+        builder.build()
     }
 }
 
@@ -306,7 +393,7 @@ pub struct Cascade {
     pub(crate) view_transform: Mat4,
     /// The orthographic projection for this cascade.
     pub(crate) projection: Mat4,
-    /// The view-projection matrix for this cacade, converting world space into light clip space.
+    /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
     pub(crate) view_projection: Mat4,
@@ -326,19 +413,12 @@ pub fn update_directional_light_cascades(
 ) {
     let views = views
         .iter()
-        .filter_map(|view| match view {
-            // TODO: orthographic camera projection support.
-            (entity, transform, Projection::Perspective(projection), camera)
-                if camera.is_active =>
-            {
-                Some((
-                    entity,
-                    projection.aspect_ratio,
-                    (0.5 * projection.fov).tan(),
-                    transform.compute_matrix(),
-                ))
+        .filter_map(|(entity, transform, projection, camera)| {
+            if camera.is_active {
+                Some((entity, projection, transform.compute_matrix()))
+            } else {
+                None
             }
-            _ => None,
         })
         .collect::<Vec<_>>();
 
@@ -357,27 +437,38 @@ pub fn update_directional_light_cascades(
         let light_to_world_inverse = light_to_world.inverse();
 
         cascades.cascades.clear();
-        for (view_entity, aspect_ratio, tan_half_fov, view_to_world) in views.iter().copied() {
+        for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
             let view_cascades = cascades_config
                 .bounds
                 .iter()
                 .enumerate()
                 .map(|(idx, far_bound)| {
+                    // Negate bounds as -z is camera forward direction.
+                    let z_near = if idx > 0 {
+                        (1.0 - cascades_config.overlap_proportion)
+                            * -cascades_config.bounds[idx - 1]
+                    } else {
+                        -cascades_config.minimum_distance
+                    };
+                    let z_far = -far_bound;
+
+                    let corners = match projection {
+                        Projection::Perspective(projection) => frustum_corners(
+                            projection.aspect_ratio,
+                            (projection.fov / 2.).tan(),
+                            z_near,
+                            z_far,
+                        ),
+                        Projection::Orthographic(projection) => {
+                            frustum_corners_ortho(projection.area, z_near, z_far)
+                        }
+                    };
                     calculate_cascade(
-                        aspect_ratio,
-                        tan_half_fov,
+                        corners,
                         directional_light_shadow_map.size as f32,
                         light_to_world,
                         camera_to_light_view,
-                        // Negate bounds as -z is camera forward direction.
-                        if idx > 0 {
-                            (1.0 - cascades_config.overlap_proportion)
-                                * -cascades_config.bounds[idx - 1]
-                        } else {
-                            0.0
-                        },
-                        -far_bound,
                     )
                 })
                 .collect();
@@ -386,37 +477,45 @@ pub fn update_directional_light_cascades(
     }
 }
 
+fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+    [
+        Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_near), // top right
+        Vec3A::new(area.min.x, area.max.y, z_near), // top left
+        Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
+        Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_far),  // top right
+        Vec3A::new(area.min.x, area.max.y, z_far),  // top left
+        Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
+    ]
+}
+
+fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    let a = z_near.abs() * tan_half_fov;
+    let b = z_far.abs() * tan_half_fov;
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+    [
+        Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+        Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+        Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+        Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+        Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+        Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+        Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+        Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
+    ]
+}
+
+/// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+/// The corner vertices should be specified in the following order:
+/// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(
-    aspect_ratio: f32,
-    tan_half_fov: f32,
+    frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
     light_to_world: Mat4,
     camera_to_light: Mat4,
-    z_near: f32,
-    z_far: f32,
 ) -> Cascade {
-    debug_assert!(z_near <= 0.0, "z_near {z_near} must be <= 0.0");
-    debug_assert!(z_far <= 0.0, "z_far {z_far} must be <= 0.0");
-    // NOTE: This whole function is very sensitive to floating point precision and instability and
-    // has followed instructions to avoid view dependence from the section on cascade shadow maps in
-    // Eric Lengyel's Foundations of Game Engine Development 2: Rendering. Be very careful when
-    // modifying this code!
-
-    let a = z_near.abs() * tan_half_fov;
-    let b = z_far.abs() * tan_half_fov;
-    // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
-    //                                               for near then for far
-    let frustum_corners = [
-        Vec3A::new(a * aspect_ratio, -a, z_near),
-        Vec3A::new(a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, -a, z_near),
-        Vec3A::new(b * aspect_ratio, -b, z_far),
-        Vec3A::new(b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, -b, z_far),
-    ];
-
     let mut min = Vec3A::splat(f32::MAX);
     let mut max = Vec3A::splat(f32::MIN);
     for corner_camera_view in frustum_corners {
@@ -507,9 +606,10 @@ pub struct NotShadowCaster;
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
+    AddClustersFlush,
     AssignLightsToClusters,
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
@@ -824,12 +924,13 @@ const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 ///     `Z` in view space, with range `[-inf, -f32::MIN_POSITIVE]`
 fn cluster_space_light_aabb(
     inverse_view_transform: Mat4,
+    view_inv_scale: Vec3,
     projection_matrix: Mat4,
     light_sphere: &Sphere,
 ) -> (Vec3, Vec3) {
     let light_aabb_view = Aabb {
         center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
-        half_extents: Vec3A::splat(light_sphere.radius),
+        half_extents: Vec3A::from(light_sphere.radius * view_inv_scale.abs()),
     };
     let (mut light_aabb_view_min, mut light_aabb_view_max) =
         (light_aabb_view.min(), light_aabb_view.max());
@@ -1199,6 +1300,8 @@ pub(crate) fn assign_lights_to_clusters(
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
+        let view_inv_scale = camera_transform.compute_transform().scale.recip();
+        let view_inv_scale_max = view_inv_scale.abs().max_element();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix().w_axis.w == 1.0;
 
@@ -1209,7 +1312,7 @@ pub(crate) fn assign_lights_to_clusters(
                     .iter()
                     .map(|light| {
                         -inverse_view_row_2.dot(light.transform.translation().extend(1.0))
-                            + light.range
+                            + light.range * view_inv_scale.z
                     })
                     .reduce(f32::max)
                     .unwrap_or(0.0)
@@ -1231,6 +1334,8 @@ pub(crate) fn assign_lights_to_clusters(
             (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
+        let first_slice_depth = first_slice_depth * view_inv_scale.z;
+
         // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
         let far_z = far_z.max(first_slice_depth);
         let cluster_factors = calculate_cluster_factors(
@@ -1255,6 +1360,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // it can overestimate more significantly when light ranges are only partially in view
                 let (light_aabb_min, light_aabb_max) = cluster_space_light_aabb(
                     inverse_view_transform,
+                    view_inv_scale,
                     camera.projection_matrix(),
                     &light_sphere,
                 );
@@ -1412,6 +1518,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
                     cluster_space_light_aabb(
                         inverse_view_transform,
+                        view_inv_scale,
                         camera.projection_matrix(),
                         &light_sphere,
                     );
@@ -1442,12 +1549,14 @@ pub(crate) fn assign_lights_to_clusters(
                 // center point on the axis of interest plus the radius, and that is not true!
                 let view_light_sphere = Sphere {
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
-                    radius: light_sphere.radius,
+                    radius: light_sphere.radius * view_inv_scale_max,
                 };
                 let spot_light_dir_sin_cos = light.spot_light_angle.map(|angle| {
                     let (angle_sin, angle_cos) = angle.sin_cos();
                     (
-                        (inverse_view_transform * light.transform.back().extend(0.0)).truncate(),
+                        (inverse_view_transform * light.transform.back().extend(0.0))
+                            .truncate()
+                            .normalize(),
                         angle_sin,
                         angle_cos,
                     )
@@ -1588,7 +1697,8 @@ pub(crate) fn assign_lights_to_clusters(
                                 let angle_cull =
                                     distance_closest_point > cluster_aabb_sphere.radius;
 
-                                let front_cull = v1_len > cluster_aabb_sphere.radius + light.range;
+                                let front_cull = v1_len
+                                    > cluster_aabb_sphere.radius + light.range * view_inv_scale_max;
                                 let back_cull = v1_len < -cluster_aabb_sphere.radius;
 
                                 if !angle_cull && !front_cull && !back_cull {
@@ -2075,7 +2185,7 @@ mod test {
         // check a smaller number of clusters would not cover the screen
         assert!(clusters.tile_size.x * (clusters.dimensions.x - 1) < screen_size.x);
         assert!(clusters.tile_size.y * (clusters.dimensions.y - 1) < screen_size.y);
-        // check a smaller tilesize would not cover the screen
+        // check a smaller tile size would not cover the screen
         assert!((clusters.tile_size.x - 1) * clusters.dimensions.x < screen_size.x);
         assert!((clusters.tile_size.y - 1) * clusters.dimensions.y < screen_size.y);
         // check we don't have more clusters than pixels

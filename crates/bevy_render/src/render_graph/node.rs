@@ -2,7 +2,7 @@ use crate::{
     define_atomic_id,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
-        RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
+        RunSubGraphError, SlotInfo, SlotInfos,
     },
     renderer::RenderContext,
 };
@@ -102,12 +102,7 @@ impl Edges {
 
     /// Removes an edge from the `input_edges` if it exists.
     pub(crate) fn remove_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if let Some((index, _)) = self
-            .input_edges
-            .iter()
-            .enumerate()
-            .find(|(_i, e)| **e == edge)
-        {
+        if let Some(index) = self.input_edges.iter().position(|e| *e == edge) {
             self.input_edges.swap_remove(index);
             Ok(())
         } else {
@@ -126,12 +121,7 @@ impl Edges {
 
     /// Removes an edge from the `output_edges` if it exists.
     pub(crate) fn remove_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if let Some((index, _)) = self
-            .output_edges
-            .iter()
-            .enumerate()
-            .find(|(_i, e)| **e == edge)
-        {
+        if let Some(index) = self.output_edges.iter().position(|e| *e == edge) {
             self.output_edges.swap_remove(index);
             Ok(())
         } else {
@@ -316,14 +306,13 @@ impl Node for EmptyNode {
     }
 }
 
-/// A [`RenderGraph`](super::RenderGraph) [`Node`] that takes a view entity as input and runs the configured graph name once.
+/// A [`RenderGraph`](super::RenderGraph) [`Node`] that runs the configured graph name once.
 /// This makes it easier to insert sub-graph runs into a graph.
 pub struct RunGraphOnViewNode {
     graph_name: Cow<'static, str>,
 }
 
 impl RunGraphOnViewNode {
-    pub const IN_VIEW: &'static str = "view";
     pub fn new<T: Into<Cow<'static, str>>>(graph_name: T) -> Self {
         Self {
             graph_name: graph_name.into(),
@@ -332,20 +321,13 @@ impl RunGraphOnViewNode {
 }
 
 impl Node for RunGraphOnViewNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        graph.run_sub_graph(
-            self.graph_name.clone(),
-            vec![SlotValue::Entity(view_entity)],
-        )?;
+        graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
         Ok(())
     }
 }

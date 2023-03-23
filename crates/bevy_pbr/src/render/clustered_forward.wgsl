@@ -27,7 +27,7 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
 }
 
 // this must match CLUSTER_COUNT_SIZE in light.rs
-let CLUSTER_COUNT_SIZE = 9u;
+const CLUSTER_COUNT_SIZE = 9u;
 fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     return cluster_offsets_and_counts.data[cluster_index].xyz;
