@@ -100,6 +100,8 @@ pub struct Window {
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used?
     pub mode: WindowMode,
+    /// The preferred monitor this window should be spawned at. Cannot be changed after the window is spawned.
+    pub monitor_selection: MonitorSelection,
     /// Where the window should be placed.
     pub position: WindowPosition,
     /// What resolution the window should have.
@@ -194,6 +196,7 @@ impl Default for Window {
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
+            monitor_selection: MonitorSelection::Primary,
             position: Default::default(),
             resolution: Default::default(),
             internal: Default::default(),

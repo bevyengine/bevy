@@ -9,7 +9,9 @@ use bevy_a11y::{
 use bevy_ecs::entity::Entity;
 
 use bevy_utils::{tracing::warn, HashMap};
-use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
+use bevy_window::{
+    CursorGrabMode, MonitorSelection, Window, WindowMode, WindowPosition, WindowResolution,
+};
 
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
@@ -54,18 +56,22 @@ impl WinitWindows {
         // AccessKit adapter is initialized.
         winit_window_builder = winit_window_builder.with_visible(false);
 
+        let monitor = winit_monitor_selection(
+            &window.monitor_selection,
+            None,
+            event_loop.primary_monitor(),
+            event_loop.available_monitors(),
+        );
+
         winit_window_builder = match window.mode {
-            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
+            WindowMode::BorderlessFullscreen => winit_window_builder
+                .with_fullscreen(Some(winit::window::Fullscreen::Borderless(monitor))),
+            WindowMode::Fullscreen => winit_window_builder.with_fullscreen(Some(
+                winit::window::Fullscreen::Exclusive(get_best_videomode(monitor.as_ref().unwrap())),
             )),
-            WindowMode::Fullscreen => {
-                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                )))
-            }
             WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                    &event_loop.primary_monitor().unwrap(),
+                    monitor.as_ref().unwrap(),
                     window.width() as u32,
                     window.height() as u32,
                 )),
@@ -319,7 +325,7 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,
-    mut available_monitors: impl Iterator<Item = MonitorHandle>,
+    available_monitors: impl Iterator<Item = MonitorHandle>,
     primary_monitor: Option<MonitorHandle>,
     current_monitor: Option<MonitorHandle>,
 ) -> Option<PhysicalPosition<i32>> {
@@ -329,17 +335,12 @@ pub fn winit_window_position(
             None
         }
         WindowPosition::Centered(monitor_selection) => {
-            use bevy_window::MonitorSelection::*;
-            let maybe_monitor = match monitor_selection {
-                Current => {
-                    if current_monitor.is_none() {
-                        warn!("Can't select current monitor on window creation or cannot find current monitor!");
-                    }
-                    current_monitor
-                }
-                Primary => primary_monitor,
-                Index(n) => available_monitors.nth(*n),
-            };
+            let maybe_monitor = winit_monitor_selection(
+                monitor_selection,
+                current_monitor,
+                primary_monitor,
+                available_monitors,
+            );
 
             if let Some(monitor) = maybe_monitor {
                 let screen_size = monitor.size();
@@ -368,6 +369,24 @@ pub fn winit_window_position(
         WindowPosition::At(position) => {
             Some(PhysicalPosition::new(position[0] as f64, position[1] as f64).cast::<i32>())
         }
+    }
+}
+
+fn winit_monitor_selection(
+    monitor_selection: &bevy_window::MonitorSelection,
+    current_monitor: Option<MonitorHandle>,
+    primary_monitor: Option<MonitorHandle>,
+    mut available_monitors: impl Iterator<Item = MonitorHandle>,
+) -> Option<MonitorHandle> {
+    match monitor_selection {
+        MonitorSelection::Current => {
+            if current_monitor.is_none() {
+                warn!("Can't select current monitor on window creation or cannot find current monitor!");
+            }
+            current_monitor
+        }
+        MonitorSelection::Primary => primary_monitor,
+        MonitorSelection::Index(n) => available_monitors.nth(*n),
     }
 }
 

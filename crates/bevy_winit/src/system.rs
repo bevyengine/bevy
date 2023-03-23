@@ -159,6 +159,11 @@ pub(crate) fn changed_window(
                     winit_window.set_fullscreen(new_mode);
                 }
             }
+
+            if window.monitor_selection != cache.window.monitor_selection {
+                warn!("changing monitor_selection after the window is spawned is not supported!");
+            }
+
             if window.resolution != cache.window.resolution {
                 let physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
