@@ -741,7 +741,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// *world.resource_mut::<State<GameState>>() = State(GameState::Paused);
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
     /// // Now that we are in `GameState::Pause`, `pause_system` will run
     /// app.run(&mut world);
@@ -803,7 +803,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// *world.resource_mut::<State<GameState>>() = State(GameState::Paused);
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
     /// // Now that `GameState` has been updated `my_system` will run
     /// app.run(&mut world);
