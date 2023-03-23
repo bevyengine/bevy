@@ -5,7 +5,7 @@ use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{Generics, Member, Path, Token, Type, WhereClause};
+use syn::{Member, Path, Token, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -75,17 +75,18 @@ pub(crate) struct WhereClauseOptions {
 }
 
 impl WhereClauseOptions {
+    /// Extends a where clause, adding a `TypePath` bound to each type parameter.
     pub fn type_path_bounds(meta: &ReflectMeta) -> Self {
         let bevy_reflect_path = meta.bevy_reflect_path();
         Self {
-            parameter_types: WhereClauseOptions::parameter_types(meta.generics()),
+            parameter_types: meta
+                .generics()
+                .type_params()
+                .map(|ty| ty.ident.clone())
+                .collect(),
             parameter_trait_bounds: quote! { #bevy_reflect_path::TypePath },
             ..Default::default()
         }
-    }
-
-    pub fn parameter_types(generics: &Generics) -> Box<[Ident]> {
-        generics.type_params().map(|ty| ty.ident.clone()).collect()
     }
 }
 
