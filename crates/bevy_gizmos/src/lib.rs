@@ -131,31 +131,42 @@ fn update_gizmo_meshes(
 ) {
     let list_mesh = meshes.get_mut(&handles.list).unwrap();
 
-    let positions = mem::take(&mut storage.list_positions);
-    list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    storage.in_use = false;
 
-    let colors = mem::take(&mut storage.list_colors);
-    list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    if !storage.list_positions.is_empty() {
+        storage.in_use = true;
 
-    let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
+        let positions = mem::take(&mut storage.list_positions);
+        list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
-    let positions = mem::take(&mut storage.strip_positions);
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        let colors = mem::take(&mut storage.list_colors);
+        list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    }
 
-    let colors = mem::take(&mut storage.strip_colors);
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    if !storage.strip_positions.is_empty() {
+        storage.in_use = true;
+
+        let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
+
+        let positions = mem::take(&mut storage.strip_positions);
+        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+        let colors = mem::take(&mut storage.strip_colors);
+        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    }
 }
 
 fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<MeshHandles>>,
     config: Extract<Res<GizmoConfig>>,
+    storage: Extract<Res<GizmoStorage>>,
 ) {
     if config.is_changed() {
         commands.insert_resource(**config);
     }
 
-    if !config.enabled {
+    if !config.enabled || !storage.in_use {
         return;
     }
 
