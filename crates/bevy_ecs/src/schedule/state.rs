@@ -86,6 +86,13 @@ pub struct OnUpdate<S: States>(pub S);
 pub struct State<S: States>(S);
 
 impl<S: States> State<S> {
+    /// Creates a new state with a specific value.
+    ///
+    /// To change the state use [`NextState<S>`] rather than using this to modify the `State<S>`.
+    pub fn new(state: S) -> Self {
+        Self(state)
+    }
+
     /// Get the current state.
     pub fn get(&self) -> &S {
         &self.0
