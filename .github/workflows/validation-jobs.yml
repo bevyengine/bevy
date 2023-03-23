@@ -4,6 +4,8 @@ on:
   merge_group:
   pull_request:
   push:
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -60,6 +62,7 @@ jobs:
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
 
   run-android:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
