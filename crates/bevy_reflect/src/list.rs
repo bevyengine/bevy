@@ -6,8 +6,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
 use crate::{
-    self as bevy_reflect, Array, ArrayIter, DynamicArray, DynamicInfo, DynamicTypePath,
-    FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    self as bevy_reflect, DynamicInfo, DynamicTypePath, FromReflect, Reflect, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 
 /// A trait used to power [list-like] operations via [reflection].

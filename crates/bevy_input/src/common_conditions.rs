@@ -1,5 +1,6 @@
 use crate::Input;
 use bevy_ecs::system::Res;
+use bevy_reflect::TypePath;
 use std::hash::Hash;
 
 /// Stateful run condition that can be toggled via a input press using [`Input::just_pressed`].
@@ -48,7 +49,10 @@ use std::hash::Hash;
 /// }
 ///
 /// ```
-pub fn input_toggle_active<T>(default: bool, input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
+pub fn input_toggle_active<T: TypePath>(
+    default: bool,
+    input: T,
+) -> impl FnMut(Res<Input<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
@@ -60,7 +64,7 @@ where
 }
 
 /// Run condition that is active if [`Input::pressed`] is true for the given input.
-pub fn input_pressed<T>(input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
+pub fn input_pressed<T: TypePath>(input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
@@ -81,7 +85,7 @@ where
 ///
 /// # fn jump() {}
 /// ```
-pub fn input_just_pressed<T>(input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
+pub fn input_just_pressed<T: TypePath>(input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
@@ -89,7 +93,7 @@ where
 }
 
 /// Run condition that is active if [`Input::just_released`] is true for the given input.
-pub fn input_just_released<T>(input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
+pub fn input_just_released<T: TypePath>(input: T) -> impl FnMut(Res<Input<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {

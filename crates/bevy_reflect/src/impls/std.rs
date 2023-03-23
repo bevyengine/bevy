@@ -3,7 +3,7 @@ use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, DynamicTypePath, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List,
-    ListInfo, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
+    ListInfo, ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
     ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
     UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
@@ -280,11 +280,8 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn iter(&self) -> ArrayIter {
-                ArrayIter {
-                    array: self,
-                    index: 0,
-                }
+            fn iter(&self) -> ListIter {
+                ListIter::new(self)
             }
 
             #[inline]
@@ -321,23 +318,6 @@ macro_rules! impl_reflect_for_veclike {
 
             fn pop(&mut self) -> Option<Box<dyn Reflect>> {
                 $pop(self).map(|value| Box::new(value) as Box<dyn Reflect>)
-            }
-
-            #[inline]
-            fn len(&self) -> usize {
-                <$sub>::len(self)
-            }
-
-            #[inline]
-            fn iter(&self) -> $crate::ListIter {
-                $crate::ListIter::new(self)
-            }
-
-            #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-                self.into_iter()
-                    .map(|value| Box::new(value) as Box<dyn Reflect>)
-                    .collect()
             }
         }
 
@@ -469,7 +449,7 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + TypePath + Eq + Hash,
             V: FromReflect + TypePath,
-            S: BuildHasher + Send + Sync + 'static,
+            S: TypePath + BuildHasher + Send + Sync + 'static,
         {
             fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
                 key.downcast_ref::<K>()
@@ -555,9 +535,9 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> Reflect for $ty
         where
-            K: FromReflect + Eq + Hash,
-            V: FromReflect,
-            S: BuildHasher + Send + Sync + 'static,
+            K: FromReflect + TypePath + Eq + Hash,
+            V: FromReflect + TypePath,
+            S: TypePath + BuildHasher + Send + Sync + 'static,
         {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -565,6 +545,10 @@ macro_rules! impl_reflect_for_hashmap {
 
             fn get_type_info(&self) -> &'static TypeInfo {
                 <Self as Typed>::type_info()
+            }
+
+            fn get_type_path(&self) -> &dyn DynamicTypePath {
+                self
             }
 
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -624,9 +608,9 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> Typed for $ty
         where
-            K: FromReflect + Eq + Hash,
-            V: FromReflect,
-            S: BuildHasher + Send + Sync + 'static,
+            K: FromReflect + TypePath + Eq + Hash,
+            V: FromReflect + TypePath,
+            S: TypePath + BuildHasher + Send + Sync + 'static,
         {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -637,16 +621,16 @@ macro_rules! impl_reflect_for_hashmap {
         impl_type_path!(
             $ty
             where
-                K: FromReflect + TypePath + Eq + Hash,
-                V: FromReflect + TypePath,
+                K: FromReflect + Eq + Hash,
+                V: FromReflect,
                 S: BuildHasher + Send + Sync + 'static,
         );
 
         impl<K, V, S> GetTypeRegistration for $ty
         where
-            K: FromReflect + Eq + Hash,
-            V: FromReflect,
-            S: BuildHasher + Send + Sync + 'static,
+            K: FromReflect + TypePath + Eq + Hash,
+            V: FromReflect + TypePath,
+            S: TypePath + BuildHasher + Send + Sync + 'static,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
@@ -657,9 +641,9 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> FromReflect for $ty
         where
-            K: FromReflect + Eq + Hash,
-            V: FromReflect,
-            S: BuildHasher + Default + Send + Sync + 'static,
+            K: FromReflect + TypePath + Eq + Hash,
+            V: FromReflect + TypePath,
+            S: TypePath + BuildHasher + Default + Send + Sync + 'static,
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
@@ -677,6 +661,8 @@ macro_rules! impl_reflect_for_hashmap {
         }
     };
 }
+
+impl_type_path!(ahash::RandomState in ahash::random_state);
 
 impl_reflect_for_hashmap!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
