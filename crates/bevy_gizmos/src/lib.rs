@@ -1,3 +1,5 @@
+//! Ere be geckos
+
 use std::mem;
 
 use bevy_app::{Last, Plugin};
