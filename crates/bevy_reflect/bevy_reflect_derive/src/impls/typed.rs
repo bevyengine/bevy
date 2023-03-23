@@ -33,10 +33,10 @@ fn combine_generics(
 }
 
 /// Returns an expression for a `&'static str`,
-/// representing either a [long path](long) or [short path](short).
+/// representing either a [long path] or [short path].
 ///
-/// [long]: ReflectTypePath::non_generic_type_path
-/// [short]: ReflectTypePath::non_generic_short_path
+/// [long path]: ReflectTypePath::non_generic_type_path
+/// [short path]: ReflectTypePath::non_generic_short_path
 fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let path_to_type = meta.path_to_type();
     let generics = meta.generics();
