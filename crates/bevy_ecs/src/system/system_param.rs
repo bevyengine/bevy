@@ -129,8 +129,8 @@ pub unsafe trait SystemParam: Sized {
 
     /// # Safety
     ///
-    /// - The passed [`UnsafeWorldCell`] must be allowed to use any accesses registered
-    ///   in [`init_state`](SystemParam::init_state).
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data
+    ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same `World` that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
