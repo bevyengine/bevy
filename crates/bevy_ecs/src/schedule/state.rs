@@ -85,9 +85,9 @@ pub struct OnUpdate<S: States>(pub S);
 #[derive(Resource, Default, Debug)]
 pub struct State<S: States>(S);
 
-impl<S: States> std::ops::Deref for State<S> {
-    type Target = S;
-    fn deref(&self) -> &Self::Target {
+impl<S: States> State<S> {
+    /// Get the current state.
+    pub fn get(&self) -> &S {
         &self.0
     }
 }
