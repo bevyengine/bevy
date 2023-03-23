@@ -189,8 +189,9 @@ impl<'w> UnsafeWorldCell<'w> {
     /// The caller must only access world data that this [`UnsafeWorldCell`]
     /// was given access to on construction.
     pub unsafe fn storages(self) -> &'w Storages {
-        // SAFETY: Caller ensures they will only access world
-        // data that this instance is allowed to access.
+        // SAFETY:
+        // - Caller ensures they will only access world
+        //   data that this instance is allowed to access.
         unsafe { self.unsafe_world() }.storages()
     }
 
