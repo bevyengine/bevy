@@ -45,7 +45,11 @@ impl RenderDevice {
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
-        self.device.create_shader_module(desc)
+        if cfg!(target_arch = "wasm32") {
+            self.device.create_shader_module(desc)
+        } else {
+            unsafe { self.device.create_shader_module_unchecked(desc) }
+        }
     }
 
     /// Check for resource cleanups and mapping callbacks.
