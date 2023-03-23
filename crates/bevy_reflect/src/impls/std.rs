@@ -401,7 +401,8 @@ macro_rules! impl_reflect_for_hashmap {
                 for (k, v) in self {
                     let key = K::from_reflect(k).unwrap_or_else(||{
                         panic!(
-                            ""
+                            "Attempted to clone invalid key of type {}.",
+                            k.type_name()
                         )
                     });
                     dynamic_map.insert_boxed(Box::new(key), v.clone_value());
