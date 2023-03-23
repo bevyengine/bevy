@@ -197,7 +197,10 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Query::new(
-            world.world(),
+            // SAFETY: We have registered all of the query's world accesses,
+            // so the caller ensures that `world` has permission to access any
+            // world datata that the query needs.
+            world.unsafe_world(),
             state,
             system_meta.last_run,
             change_tick,
