@@ -199,7 +199,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         Query::new(
             // SAFETY: We have registered all of the query's world accesses,
             // so the caller ensures that `world` has permission to access any
-            // world datata that the query needs.
+            // world data that the query needs.
             world.unsafe_world(),
             state,
             system_meta.last_run,
