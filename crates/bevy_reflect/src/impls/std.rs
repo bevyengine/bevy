@@ -399,10 +399,9 @@ macro_rules! impl_reflect_for_hashmap {
                 let mut dynamic_map = DynamicMap::default();
                 dynamic_map.set_name(self.type_name().to_string());
                 for (k, v) in self {
-                    let key = K::take_from_reflect(k.clone_value()).unwrap_or_else(|key| {
+                    let key = K::from_reflect(k).unwrap_or_else(||{
                         panic!(
-                            "Attempted to insert invalid key of type {}.",
-                            key.type_name()
+                            ""
                         )
                     });
                     dynamic_map.insert_boxed(Box::new(key), v.clone_value());
