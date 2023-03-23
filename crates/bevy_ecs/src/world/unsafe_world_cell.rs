@@ -10,7 +10,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    storage::{Column, ComponentSparseSet},
+    storage::{Column, ComponentSparseSet, Storages},
     system::Resource,
 };
 use bevy_ptr::Ptr;
@@ -181,6 +181,17 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.bundles
+    }
+
+    /// Provides access to the underlying data storages of the world.
+    ///
+    /// # Safety
+    /// The caller must only access world data that this [`UnsafeWorldCell`]
+    /// was given access to on construction.
+    pub unsafe fn storages(self) -> &'w Storages {
+        // SAFETY: Caller ensures they will only access world
+        // data that this instance is allowed to access.
+        unsafe { self.unsafe_world() }.storages()
     }
 
     /// Reads the current change tick of this world.
