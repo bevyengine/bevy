@@ -291,8 +291,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: caller ensures that `self` has permission to access `R`
         //  caller ensures that no mutable reference exists to `R`
-        unsafe { self.unsafe_world() }
-            .storages
+        unsafe { self.storages() }
             .resources
             .get(component_id)?
             .get_data()
@@ -334,8 +333,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: we only access data on world that the caller has ensured is unaliased and we have
         //  permission to access.
-        unsafe { self.unsafe_world() }
-            .storages
+        unsafe { self.storages() }
             .non_send_resources
             .get(component_id)?
             .get_data()
@@ -378,8 +376,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<MutUntyped<'w>> {
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
-        let (ptr, ticks) = unsafe { self.unsafe_world() }
-            .storages
+        let (ptr, ticks) = unsafe { self.storages() }
             .resources
             .get(component_id)?
             .get_with_ticks()?;
@@ -439,8 +436,7 @@ impl<'w> UnsafeWorldCell<'w> {
         let change_tick = self.read_change_tick();
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
-        let (ptr, ticks) = unsafe { self.unsafe_world() }
-            .storages
+        let (ptr, ticks) = unsafe { self.storages() }
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()?;
@@ -473,8 +469,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
         // - caller ensures that we have permission to access this resource
-        unsafe { self.unsafe_world() }
-            .storages
+        unsafe { self.storages() }
             .resources
             .get(component_id)?
             .get_with_ticks()
@@ -498,8 +493,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
         // - caller ensures that we have permission to access this resource
-        unsafe { self.unsafe_world() }
-            .storages
+        unsafe { self.storages() }
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
@@ -769,7 +763,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<&'w Column> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
-        unsafe { self.unsafe_world() }.storages.tables[location.table_id].get_column(component_id)
+        unsafe { self.storages() }.tables[location.table_id].get_column(component_id)
     }
 
     #[inline]
@@ -780,10 +774,7 @@ impl<'w> UnsafeWorldCell<'w> {
     unsafe fn fetch_sparse_set(self, component_id: ComponentId) -> Option<&'w ComponentSparseSet> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
-        unsafe { self.unsafe_world() }
-            .storages
-            .sparse_sets
-            .get(component_id)
+        unsafe { self.storages() }.sparse_sets.get(component_id)
     }
 }
 
