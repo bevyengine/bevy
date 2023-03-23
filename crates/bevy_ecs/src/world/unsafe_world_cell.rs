@@ -200,10 +200,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn read_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        let tick = unsafe { self.world_metadata() }
-            .change_tick
-            .load(Ordering::Acquire);
-        Tick::new(tick)
+        unsafe { self.world_metadata() }.read_change_tick()
     }
 
     #[inline]
