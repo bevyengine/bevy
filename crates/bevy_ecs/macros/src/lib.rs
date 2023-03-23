@@ -306,11 +306,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .filter(|g| !matches!(g, GenericParam::Lifetime(_)))
         .collect();
 
-    let mut shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|x| x.lifetime.clone()).collect();
-    for lifetime in &mut shadowed_lifetimes {
-        let shadowed_ident = format_ident!("_{}", lifetime.ident);
-        lifetime.ident = shadowed_ident;
-    }
+    let shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|_| quote!('_)).collect();
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
     punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
@@ -388,32 +384,34 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
             }
 
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+            unsafe impl<#punctuated_generics> #path::system::SystemParam for
+                #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause
+            {
                 type State = #state_struct_name<#punctuated_generic_idents>;
-                type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
+                type Item<'w, 's> = #struct_name #ty_generics;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
-                        state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
                     }
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <#fields_alias::<'w, 's, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    <#fields_alias::<'w, 's, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
-                unsafe fn get_param<'w2, 's2>(
-                    state: &'s2 mut Self::State,
+                unsafe fn get_param<'w, 's>(
+                    state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w2 #path::world::World,
+                    world: &'w #path::world::World,
                     change_tick: #path::component::Tick,
-                ) -> Self::Item<'w2, 's2> {
+                ) -> Self::Item<'w, 's> {
                     let (#(#tuple_patterns,)*) = <
-                        #fields_alias::<'w2, 's2, #punctuated_generic_idents> as #path::system::SystemParam
+                        (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
