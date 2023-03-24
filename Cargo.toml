@@ -707,13 +707,19 @@ wasm = true
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
 
+[package.metadata.example.animated_transform]
+name = "Animated Transform"
+description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "linear_interpolation"
 path = "examples/animation/linear_interpolation.rs"
 
-[package.metadata.example.animated_transform]
-name = "Animated Transform"
-description = "Create and play an animation defined by code that operates on the `Transform` component"
+[package.metadata.example.linear_interpolation]
+name = "Linear Interpolation"
+description = "Linear interpolation example on a cube"
 category = "Animation"
 wasm = true
 
