@@ -707,6 +707,10 @@ wasm = true
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
 
+[[example]]
+name = "linear_interpolation"
+path = "examples/animation/linear_interpolation.rs"
+
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
 description = "Create and play an animation defined by code that operates on the `Transform` component"
