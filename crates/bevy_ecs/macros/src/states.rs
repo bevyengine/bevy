@@ -99,6 +99,5 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
             }
         }
     };
-    println!("{}", token);
     token.into()
 }
