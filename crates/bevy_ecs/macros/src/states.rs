@@ -39,24 +39,30 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
         .collect();
     // kagamine
     let len = enumeration.variants.len();
-    let variants_impl = if fieldful_idents.len() > 0 {
-        quote! {
-            let mut fields = vec![#(Self::#fieldless_idents,)*];
-            let fieldful = [#(<Self::#fieldful_idents as States>::variants().map(|variant| {
-                        Self::#fieldful_idents(variant)
-            }),)*];
-            for field in fieldful {
-                fields.extend(field)
-            }
+    let (variants_impl, iter_type) = if fieldful_idents.len() > 0 {
+        (
+            quote! {
+                let mut fields = vec![#(Self::#fieldless_idents,)*];
+                let fieldful = [#(<Self::#fieldful_idents as States>::variants().map(|variant| {
+                            Self::#fieldful_idents(variant)
+                }),)*];
+                for field in fieldful {
+                    fields.extend(field)
+                }
 
-            (*fields).into_iter()
-        }
+                fields.into_iter()
+            },
+            quote! {std::vec::IntoIter<Self>},
+        )
     } else {
-        quote! {[#(Self::#fieldless_idents,)*].into_iter()  }
+        (
+            quote! {[#(Self::#fieldless_idents,)*].into_iter()  },
+            quote! {std::array::IntoIter<Self, #len>},
+        )
     };
     quote! {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
-            type Iter = std::array::IntoIter<Self, #len>;
+            type Iter = #iter_type;
 
             fn variants() -> Self::Iter {
                 #variants_impl

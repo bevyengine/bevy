@@ -1,4 +1,4 @@
-use bevy_ecs::schedule::States;
+
 use bevy_ecs_macros::States;
 
 #[test]
