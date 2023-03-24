@@ -2,7 +2,7 @@ mod colorspace;
 
 pub use colorspace::*;
 
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{prelude::Lerp, Vec3, Vec4};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
@@ -1732,6 +1732,71 @@ impl encase::private::CreateFrom for Color {
 
 impl encase::ShaderSize for Color {}
 
+impl Lerp for Color {
+    type Scalar = f32;
+
+    fn lerp(self, rhs: Self, s: Self::Scalar) -> Self {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let rhs = rhs.as_rgba_f32();
+                Color::Rgba {
+                    red: red + ((rhs[0] - red) * s),
+                    green: green + ((rhs[1] - green) * s),
+                    blue: blue + ((rhs[2] - blue) * s),
+                    alpha: alpha + ((rhs[3] - alpha) * s),
+                }
+            }
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let rhs = rhs.as_linear_rgba_f32();
+                Color::RgbaLinear {
+                    red: red + ((rhs[0] - red) * s),
+                    green: green + ((rhs[1] - green) * s),
+                    blue: blue + ((rhs[2] - blue) * s),
+                    alpha: alpha + ((rhs[3] - alpha) * s),
+                }
+            }
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let rhs = rhs.as_hsla_f32();
+                Color::Hsla {
+                    hue: hue + ((rhs[0] - hue) * s),
+                    saturation: saturation + ((rhs[1] - saturation) * s),
+                    lightness: lightness + ((rhs[2] - lightness) * s),
+                    alpha: alpha + ((rhs[3] - alpha) * s),
+                }
+            }
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => {
+                let rhs = rhs.as_lcha_f32();
+                Color::Lcha {
+                    lightness: lightness + ((rhs[0] - lightness) * s),
+                    chroma: chroma + ((rhs[1] - chroma) * s),
+                    hue: hue + ((rhs[2] - hue) * s),
+                    alpha: alpha + ((rhs[3] - alpha) * s),
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
     #[error("Unexpected length of hex string")]
@@ -1781,6 +1846,100 @@ const fn hex_value(b: u8) -> Result<u8, u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lerp_colors() {
+        let color_rgba1 = Color::Rgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        };
+        let color_rgba2 = Color::Rgba {
+            red: 1.0,
+            green: 1.0,
+            blue: 1.0,
+            alpha: 1.0,
+        };
+
+        let color_linear1 = Color::RgbaLinear {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        };
+        let color_linear2 = Color::RgbaLinear {
+            red: 1.0,
+            green: 1.0,
+            blue: 1.0,
+            alpha: 1.0,
+        };
+
+        let color_hsla1 = Color::Hsla {
+            hue: 0.0,
+            saturation: 0.0,
+            lightness: 0.0,
+            alpha: 0.0,
+        };
+        let color_hsla2 = Color::Hsla {
+            hue: 1.0,
+            saturation: 1.0,
+            lightness: 1.0,
+            alpha: 1.0,
+        };
+
+        let color_lcha1 = Color::Lcha {
+            lightness: 0.0,
+            chroma: 0.0,
+            hue: 0.0,
+            alpha: 0.0,
+        };
+        let color_lcha2 = Color::Lcha {
+            lightness: 1.0,
+            chroma: 1.0,
+            hue: 1.0,
+            alpha: 1.0,
+        };
+
+        assert_eq!(
+            color_rgba1.lerp(color_rgba2, 0.5),
+            Color::rgba(0.5, 0.5, 0.5, 0.5)
+        );
+        assert_eq!(
+            color_rgba2.lerp(color_rgba1, 0.25),
+            Color::rgba(0.75, 0.75, 0.75, 0.75)
+        );
+
+        assert_eq!(
+            color_linear1.lerp(color_linear2, 0.5),
+            Color::rgba_linear(0.5, 0.5, 0.5, 0.5)
+        );
+        assert_eq!(
+            color_linear2.lerp(color_linear1, 0.25),
+            Color::rgba_linear(0.75, 0.75, 0.75, 0.75)
+        );
+
+        assert_eq!(
+            color_hsla1.lerp(color_hsla2, 0.5),
+            Color::hsla(0.5, 0.5, 0.5, 0.5)
+        );
+        assert_eq!(
+            color_hsla2.lerp(color_hsla1, 0.25),
+            Color::hsla(0.75, 0.75, 0.75, 0.75)
+        );
+
+        assert_eq!(
+            color_lcha1.lerp(color_lcha2, 0.5),
+            Color::lcha(0.5, 0.5, 0.5, 0.5)
+        );
+        assert_eq!(
+            color_lcha2.lerp(color_lcha1, 0.25),
+            Color::lcha(0.75, 0.75, 0.75, 0.75)
+        );
+
+        assert_eq!(color_rgba1.lerp(color_rgba2, 0.0), color_rgba1);
+        assert_eq!(color_lcha1.lerp(color_lcha2, 1.0), color_lcha2);
+    }
 
     #[test]
     fn hex_color() {

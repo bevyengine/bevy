@@ -1,4 +1,3 @@
-
 /// Provides a trait to implement the linear interpolation function.
 pub trait Lerp {
     /// The Scalar type used in the linear interpolation function.
