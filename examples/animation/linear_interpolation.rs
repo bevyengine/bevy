@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct Sphere;
+pub struct Cube;
 
 fn main() {
     App::new()
@@ -20,7 +20,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Spawning a sphere to experiment on
+    // Spawning a cube to experiment on
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(shape::Cube::default().into()),
@@ -28,7 +28,7 @@ fn setup(
             transform: Transform::from_xyz(0., 2., 0.),
             ..default()
         },
-        Sphere,
+        Cube,
     ));
 
     // Some light to see something
@@ -57,7 +57,7 @@ fn setup(
     });
 }
 
-pub fn linear_interpolate(time: Res<Time>, mut query: Query<&mut Transform, With<Sphere>>) {
+pub fn linear_interpolate(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     // s lies between 0 and 1
     let s = (time.elapsed_seconds().sin() + 1.) / 2.;
 
@@ -69,6 +69,6 @@ pub fn linear_interpolate(time: Res<Time>, mut query: Query<&mut Transform, With
         transform.rotation = Quat::from_rotation_x(-PI / 4.).slerp(Quat::from_rotation_z(PI), s);
 
         // Lerp on f32 directly
-        transform.scale = Vec3::splat((1.).lerp(2., s));
+        transform.scale = Vec3::splat(1_f32.lerp(2_f32, s));
     }
 }
