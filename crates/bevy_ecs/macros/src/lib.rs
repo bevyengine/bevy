@@ -11,13 +11,18 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse::{ParseStream, Parse}, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
-    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
+    parse::{Parse, ParseStream},
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    ConstParam, DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
     TypeParam,
 };
 
 mod kw {
     syn::custom_keyword!(error_type);
+    syn::custom_keyword!(ignore);
+    syn::custom_keyword!(infallible);
 }
 
 enum BundleFieldKind {
@@ -254,25 +259,44 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
-struct SystemParamErrorType {
-    _error_ty_kw: kw::error_type,
-    _eq_token: syn::Token!(=),
-    error_ty: syn::Ident,
+enum SystemParamStructAttribute {
+    ErrorType(syn::Ident),
 }
 
-impl Parse for SystemParamErrorType {
+impl Parse for SystemParamStructAttribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            _error_ty_kw: input.parse()?,
-            _eq_token: input.parse()?,
-            error_ty: input.parse()?,
-        })
+        if let Ok(_) = input.parse::<kw::error_type>() {
+            input.parse::<syn::Token!(=)>()?;
+            return Ok(Self::ErrorType(input.parse()?));
+        }
+
+        Err(syn::Error::new(
+            input.span(),
+            "Invalid struct-level attribute",
+        ))
     }
 }
 
-#[derive(Default)]
-struct SystemParamFieldAttributes {
-    pub ignore: bool,
+#[derive(Default, PartialEq)]
+enum SystemParamFieldAttribute {
+    #[default]
+    None,
+    Ignore,
+    Infallible,
+}
+
+impl Parse for SystemParamFieldAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if let Ok(_) = input.parse::<kw::ignore>() {
+            return Ok(Self::Ignore);
+        }
+
+        if let Ok(_) = input.parse::<kw::infallible>() {
+            return Ok(Self::Infallible);
+        }
+
+        Ok(Self::None)
+    }
 }
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
@@ -293,8 +317,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let Some(attr_ident) = attr.path.get_ident() else { continue };
         if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
             if error_ty.is_none() {
-                error_ty = match attr.parse_args_with(SystemParamErrorType::parse) {
-                    Ok(v) => Some(v.error_ty),
+                match attr.parse_args_with(SystemParamStructAttribute::parse) {
+                    Ok(v) => match v {
+                        SystemParamStructAttribute::ErrorType(ty) => {
+                            error_ty = Some(ty);
+                        }
+                    },
                     Err(err) => {
                         return err.to_compile_error().into();
                     }
@@ -307,51 +335,114 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }
     }
 
-    let field_attributes = fields
-        .iter()
-        .map(|field| {
-            (
-                field,
-                field
-                    .attrs
-                    .iter()
-                    .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
-                    .map_or_else(SystemParamFieldAttributes::default, |a| {
-                        syn::custom_keyword!(ignore);
-                        let mut attributes = SystemParamFieldAttributes::default();
-                        a.parse_args_with(|input: ParseStream| {
-                            if input.parse::<Option<ignore>>()?.is_some() {
-                                attributes.ignore = true;
-                            }
-                            Ok(())
-                        })
-                        .expect("Invalid 'system_param' attribute format.");
-
-                        attributes
-                    }),
-            )
-        })
-        .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
     let mut field_locals = Vec::new();
+    let mut field_getters = Vec::new();
     let mut field_names = Vec::new();
     let mut field_types = Vec::new();
     let mut ignored_fields = Vec::new();
     let mut ignored_field_types = Vec::new();
-    for (i, (field, attrs)) in field_attributes.iter().enumerate() {
-        if attrs.ignore {
-            ignored_fields.push(field.ident.as_ref().unwrap());
-            ignored_field_types.push(&field.ty);
-        } else {
-            field_locals.push(format_ident!("f{i}"));
-            let i = Index::from(i);
-            field_names.push(
-                field
-                    .ident
-                    .as_ref()
-                    .map(|f| quote! { #f })
-                    .unwrap_or_else(|| quote! { #i }),
-            );
-            field_types.push(&field.ty);
+    for (i, field) in fields.iter().enumerate() {
+        let mut attr_state = SystemParamFieldAttribute::default();
+        for attr in &field.attrs {
+            let Some(attr_ident) = attr.path.get_ident() else { continue; };
+            if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
+                if attr_state == SystemParamFieldAttribute::None {
+                    attr_state = match attr.parse_args_with(SystemParamFieldAttribute::parse) {
+                        Ok(v) => v,
+                        Err(err) => {
+                            return err.to_compile_error().into();
+                        }
+                    }
+                } else {
+                    return syn::Error::new(
+                        attr.span(),
+                        "Multiple `system_param` field attributes found.",
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+        }
+
+        let construct_infallible =
+            |fls: &mut Vec<Ident>,
+             fgs: &mut Vec<proc_macro2::TokenStream>,
+             fns: &mut Vec<proc_macro2::TokenStream>,
+             fts: &mut Vec<proc_macro2::TokenStream>| {
+                let ident = format_ident!("f{i}");
+                fls.push(ident.clone());
+                fgs.push(quote! {
+                    #ident
+                });
+                let i = Index::from(i);
+                let ty = &field.ty;
+                fns.push(
+                    field
+                        .ident
+                        .as_ref()
+                        .map(|f| quote! { #f })
+                        .unwrap_or_else(|| quote! { #i }),
+                );
+                fts.push(quote! { #ty });
+            };
+
+        let construct_fallible =
+            |fls: &mut Vec<Ident>,
+             fgs: &mut Vec<proc_macro2::TokenStream>,
+             fns: &mut Vec<proc_macro2::TokenStream>,
+             fts: &mut Vec<proc_macro2::TokenStream>| {
+                let ident = format_ident!("f{i}");
+                fls.push(ident.clone());
+                fgs.push(quote! {
+                    match #ident {
+                        Ok(o) => o,
+                        Err(e) => return Err(e.into()),
+                    }
+                });
+                let i = Index::from(i);
+                let ty = &field.ty;
+                fns.push(
+                    field
+                        .ident
+                        .as_ref()
+                        .map(|f| quote! { #f })
+                        .unwrap_or_else(|| quote! { #i }),
+                );
+                fts.push(
+                    quote! { Result<#ty, <#ty as #path::system::FallibleSystemParam>::Error> },
+                );
+            };
+
+        match attr_state {
+            SystemParamFieldAttribute::None => {
+                if error_ty.is_none() {
+                    construct_infallible(
+                        &mut field_locals,
+                        &mut field_getters,
+                        &mut field_names,
+                        &mut field_types,
+                    );
+                } else {
+                    construct_fallible(
+                        &mut field_locals,
+                        &mut field_getters,
+                        &mut field_names,
+                        &mut field_types,
+                    );
+                }
+            }
+            SystemParamFieldAttribute::Ignore => {
+                ignored_fields.push(field.ident.as_ref().unwrap());
+                ignored_field_types.push(&field.ty);
+            }
+            SystemParamFieldAttribute::Infallible => {
+                construct_infallible(
+                    &mut field_locals,
+                    &mut field_getters,
+                    &mut field_names,
+                    &mut field_types,
+                );
+            }
         }
     }
 
@@ -438,24 +529,24 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         Some(err) => (
             quote! { type Error = #err; },
             quote! { #path::system::FallibleSystemParam },
-            quote! { Result<Self::Item<'w2, 's2>, <Self::Item<'w2, 's2> as #path::system::FallibleSystemParam>::Error },
+            quote! { Result<Self::Item<'w2, 's2>, <Self::Item<'w2, 's2> as #path::system::FallibleSystemParam>::Error> },
             quote! {
-                #struct_name {
-                    #(#field_names: #field_locals,)*
+                Ok(#struct_name {
+                    #(#field_names: #field_getters,)*
                     #(#ignored_fields: std::default::Default::default(),)*
-                }
-            }
+                })
+            },
         ),
         None => (
-            quote! { },
+            quote! {},
             quote! { #path::system::SystemParam },
             quote! { Self::Item<'w2, 's2> },
             quote! {
                 #struct_name {
-                    #(#field_names: #field_locals,)*
+                    #(#field_names: #field_getters,)*
                     #(#ignored_fields: std::default::Default::default(),)*
                 }
-            }
+            },
         ),
     };
 

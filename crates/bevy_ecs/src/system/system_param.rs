@@ -384,7 +384,10 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 unsafe impl<T: FallibleSystemParam + ReadOnlySystemParam> ReadOnlySystemParam for Option<T> {}
 
 // SAFETY: Since T exclusively reads the world, Result<T, E> can only exclusively read the world.
-unsafe impl<T: FallibleSystemParam + ReadOnlySystemParam> ReadOnlySystemParam for Result<T, T::Error> {}
+unsafe impl<T: FallibleSystemParam + ReadOnlySystemParam> ReadOnlySystemParam
+    for Result<T, T::Error>
+{
+}
 
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
