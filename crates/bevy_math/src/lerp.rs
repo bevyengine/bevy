@@ -110,7 +110,10 @@ mod tests {
     fn compare_lerp_types() {
         assert_eq!(12.5_f32.lerp(18.5, 0.3), 12.5_f64.lerp(18.5, 0.3) as f32);
 
-        assert_eq!(12_i32.lerp(18, 0.3), 12_f32.lerp(18_f32, 0.3).round() as i32);
+        assert_eq!(
+            12_i32.lerp(18, 0.3),
+            12_f32.lerp(18_f32, 0.3).round() as i32
+        );
 
         assert_eq!(12_i64.lerp(18, 0.3), 12_i8.lerp(18, 0.3) as i64);
 
