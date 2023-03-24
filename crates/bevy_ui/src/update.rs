@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Overflow, OverflowAxis, Style};
+use crate::{CalculatedClip, OverflowAxis, Style};
 
 use super::Node;
 use bevy_ecs::{
@@ -41,23 +41,23 @@ fn update_clipping(
         node_query.get_mut(entity).unwrap();
 
     // Update this node's CalculatedClip component
-    match (maybe_inherited_clip, maybe_calculated_clip) {
-        (None, Some(_)) => {
-            commands.entity(entity).remove::<CalculatedClip>();
-        }
-        (Some(inherited_clip), None) => {
-            commands.entity(entity).insert(CalculatedClip {
-                clip: inherited_clip,
-            });
-        }
-        (Some(inherited_clip), Some(mut calculated_clip)) => {
+    if let Some(mut calculated_clip) = maybe_calculated_clip {        
+        if let Some(inherited_clip) = maybe_inherited_clip {
+            // Replace the previous calculated clip with the inherited clipping rect
             *calculated_clip = CalculatedClip {
                 clip: inherited_clip,
             }
+        } else {
+            // No inherited clipping rect, remove the component
+            commands.entity(entity).remove::<CalculatedClip>();
         }
-        _ => {}
+    } else if let Some(inherited_clip) = maybe_inherited_clip {
+        // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
+        commands.entity(entity).insert(CalculatedClip {
+            clip: inherited_clip,
+        });
     }
-
+        
     // Calculate new clip for its children
     let children_clip = if style.overflow.is_visible() {
         maybe_inherited_clip
