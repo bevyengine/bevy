@@ -37,6 +37,20 @@ macro_rules! impl_lerp_for_integers {
 
             #[inline(always)]
             fn lerp(self, rhs: Self, s: Self::Scalar) -> Self {
+                self + ((rhs - self) as $scalar * s).round() as $type
+            }
+        }
+    };
+}
+
+// implementation for unsigned integers
+macro_rules! impl_lerp_for_unsigned_integers {
+    ($type: ident, $scalar: ident) => {
+        impl Lerp for $type {
+            type Scalar = $scalar;
+
+            #[inline(always)]
+            fn lerp(self, rhs: Self, s: Self::Scalar) -> Self {
                 if self <= rhs {
                     self + ((rhs - self) as $scalar * s).round() as $type
                 } else {
@@ -53,11 +67,11 @@ impl_lerp_for_integers!(i32, f32);
 impl_lerp_for_integers!(i64, f32);
 impl_lerp_for_integers!(i128, f32);
 
-impl_lerp_for_integers!(u8, f32);
-impl_lerp_for_integers!(u16, f32);
-impl_lerp_for_integers!(u32, f32);
-impl_lerp_for_integers!(u64, f32);
-impl_lerp_for_integers!(u128, f32);
+impl_lerp_for_unsigned_integers!(u8, f32);
+impl_lerp_for_unsigned_integers!(u16, f32);
+impl_lerp_for_unsigned_integers!(u32, f32);
+impl_lerp_for_unsigned_integers!(u64, f32);
+impl_lerp_for_unsigned_integers!(u128, f32);
 
 #[cfg(test)]
 mod tests {
