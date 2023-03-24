@@ -61,6 +61,7 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::schedule::States;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -1711,25 +1712,18 @@ mod tests {
     #[test]
     fn fieldful_and_fieldless_states() {
         use bevy_ecs_macros::States;
-        #[derive(Hash, Eq, PartialEq, Clone, Debug, States)]
+        #[derive(Hash, Default, Eq, PartialEq, Clone, Debug, States)]
         pub enum Foo {
+            #[default]
             Fieldless,
+
             Fieldful(Bar),
         }
-        #[derive(Hash, Eq, PartialEq, Clone, Debug, States)]
+        #[derive(Hash, Eq, Default, PartialEq, Clone, Debug, States)]
         pub enum Bar {
+            #[default]
             Alice,
             Bob,
-        }
-        impl Default for Bar {
-            fn default() -> Self {
-                Self::Alice
-            }
-        }
-        impl Default for Foo {
-            fn default() -> Self {
-                Self::Fieldless
-            }
         }
 
         assert_eq!(
