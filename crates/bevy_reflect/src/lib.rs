@@ -87,7 +87,7 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name, clippy::approx_constant)]
+#[allow(clippy::disallowed_names, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
@@ -182,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::blacklisted_name)]
+    #[allow(clippy::disallowed_names)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -918,7 +918,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 

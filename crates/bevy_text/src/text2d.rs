@@ -98,7 +98,7 @@ pub fn extract_text2d_sprite(
                     .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
                 let handle = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index as usize;
+                let index = text_glyph.atlas_info.glyph_index;
                 let rect = Some(atlas.textures[index]);
 
                 let glyph_transform = Transform::from_translation(
@@ -163,9 +163,9 @@ pub fn update_text2d_layout(
                 scale_factor,
                 text.alignment,
                 text_bounds,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the

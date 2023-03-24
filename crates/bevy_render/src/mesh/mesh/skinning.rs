@@ -39,6 +39,6 @@ impl From<Vec<Mat4>> for SkinnedMeshInverseBindposes {
 impl Deref for SkinnedMeshInverseBindposes {
     type Target = [Mat4];
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &self.0
     }
 }

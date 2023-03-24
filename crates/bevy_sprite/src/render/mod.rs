@@ -256,7 +256,7 @@ pub fn extract_sprites(
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
+            let rect = Some(texture_atlas.textures[atlas_sprite.index]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {
                 color: atlas_sprite.color,
                 transform: *transform,

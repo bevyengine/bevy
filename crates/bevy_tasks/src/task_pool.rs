@@ -66,9 +66,9 @@ impl TaskPoolBuilder {
 pub struct TaskPool {
     /// The executor for the pool
     ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
+    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
     /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<Task<T>> contained within TaskPoolInner
+    /// the `Vec<Task<T>>` contained within TaskPoolInner
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
@@ -150,7 +150,7 @@ impl TaskPool {
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
             // validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
+            let executor: &async_executor::Executor = &self.executor;
             let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
@@ -287,7 +287,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_names)]
 mod tests {
     use super::*;
     use std::sync::{

@@ -54,6 +54,7 @@ impl HandleId {
         HandleId::Id(T::TYPE_UUID, rand::random())
     }
 
+    #[allow(clippy::should_implement_trait)]
     #[inline]
     pub fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)

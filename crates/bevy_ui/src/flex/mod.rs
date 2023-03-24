@@ -217,12 +217,12 @@ pub fn flex_node_system(
 
     if scale_factor_events.iter().next_back().is_some() {
         update_changed(
-            &mut *flex_surface,
+            &mut flex_surface,
             logical_to_physical_factor,
             full_node_query,
         );
     } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+        update_changed(&mut flex_surface, logical_to_physical_factor, node_query);
     }
 
     fn update_changed<F: WorldQuery>(

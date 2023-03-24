@@ -185,7 +185,7 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
+        let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
