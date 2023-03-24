@@ -508,6 +508,7 @@ impl<'s> Gizmos<'s> {
     }
 }
 
+/// A builder returned by [`Gimzos::circle`].
 pub struct CircleBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec3,
@@ -518,6 +519,7 @@ pub struct CircleBuilder<'a, 's> {
 }
 
 impl CircleBuilder<'_, '_> {
+    /// Set the number of line-segements for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self
@@ -533,6 +535,7 @@ impl Drop for CircleBuilder<'_, '_> {
     }
 }
 
+/// A builder returned by [`Gimzos::sphere`].
 pub struct SphereBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec3,
@@ -543,6 +546,7 @@ pub struct SphereBuilder<'a, 's> {
 }
 
 impl SphereBuilder<'_, '_> {
+    /// Set the number of line-segements per circle for this sphere.
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
         self
@@ -559,6 +563,7 @@ impl Drop for SphereBuilder<'_, '_> {
     }
 }
 
+/// A builder returned by [`Gimzos::circle_2d`].
 pub struct Circle2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
@@ -568,6 +573,7 @@ pub struct Circle2dBuilder<'a, 's> {
 }
 
 impl Circle2dBuilder<'_, '_> {
+    /// Set the number of line-segements for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self

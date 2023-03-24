@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
@@ -37,6 +38,7 @@ use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
+/// A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
@@ -55,6 +57,7 @@ pub mod prelude {
 const LINE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
 
+/// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
@@ -96,6 +99,7 @@ impl Plugin for GizmoPlugin {
     }
 }
 
+/// A [`Resource`] that stores configuration for gizmos.
 #[derive(Resource, Clone, Copy)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
