@@ -714,6 +714,16 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "bezier_curve"
+path = "examples/animation/bezier_curve.rs"
+
+[package.metadata.example.bezier_curve]
+name = "Bezier Curve"
+description = "Bezier curve example showing a cube following a curve"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
 
