@@ -20,6 +20,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         color: Color::WHITE,
     };
 
+    let image = asset_server.load("branding/icon.png");
+
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -28,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 size: Size::width(Val::Percent(100.)),
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            background_color: Color::ANTIQUE_WHITE.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -82,7 +84,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..Default::default()
                             })
                             .with_children(|parent| {
-                                parent.spawn(NodeBundle {
+                                parent.spawn(ImageBundle {
+                                    image: UiImage::new(image.clone()),
                                     style: Style {
                                         min_size: Size::all(Val::Px(100.)),
                                         ..Default::default()

@@ -327,7 +327,7 @@ Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Overflow Debug](../examples/ui/overflow_debug.rs) | Simple example demonstrating overflow behavior
+[Overflow Debug](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout

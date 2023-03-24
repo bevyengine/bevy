@@ -41,7 +41,7 @@ fn update_clipping(
         node_query.get_mut(entity).unwrap();
 
     // Update this node's CalculatedClip component
-    if let Some(mut calculated_clip) = maybe_calculated_clip {        
+    if let Some(mut calculated_clip) = maybe_calculated_clip {
         if let Some(inherited_clip) = maybe_inherited_clip {
             // Replace the previous calculated clip with the inherited clipping rect
             *calculated_clip = CalculatedClip {
@@ -57,7 +57,7 @@ fn update_clipping(
             clip: inherited_clip,
         });
     }
-        
+
     // Calculate new clip for its children
     let children_clip = if style.overflow.is_visible() {
         maybe_inherited_clip
