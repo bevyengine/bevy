@@ -37,7 +37,6 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
         .filter(|v| !v.fields.is_empty())
         .map(|v| &v.ident)
         .collect();
-    // kagamine
     let len = enumeration.variants.len();
     let (variants_impl, iter_type) = if fieldful_idents.len() > 0 {
         (
