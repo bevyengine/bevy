@@ -508,7 +508,7 @@ impl<'s> Gizmos<'s> {
     }
 }
 
-/// A builder returned by [`Gimzos::circle`].
+/// A builder returned by [`Gizmos::circle`].
 pub struct CircleBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec3,
@@ -535,7 +535,7 @@ impl Drop for CircleBuilder<'_, '_> {
     }
 }
 
-/// A builder returned by [`Gimzos::sphere`].
+/// A builder returned by [`Gizmos::sphere`].
 pub struct SphereBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec3,
@@ -563,7 +563,7 @@ impl Drop for SphereBuilder<'_, '_> {
     }
 }
 
-/// A builder returned by [`Gimzos::circle_2d`].
+/// A builder returned by [`Gizmos::circle_2d`].
 pub struct Circle2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
