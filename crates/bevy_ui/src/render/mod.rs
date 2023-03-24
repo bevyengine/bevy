@@ -474,15 +474,19 @@ pub fn prepare_uinodes(
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             if extracted_uinode.flip_x {
                 std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                for i in 0..4 {
-                    positions_diff[i].x *= -1.;
-                }
+                positions_diff[0].x *= -1.;
+                positions_diff[1].x *= -1.;
+                positions_diff[2].x *= -1.;
+                positions_diff[3].x *= -1.;
+                
             }
             if extracted_uinode.flip_y {
                 std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                for i in 0..4 {
-                    positions_diff[i].y *= -1.;
-                }
+                positions_diff[0].y *= -1.;
+                positions_diff[1].y *= -1.;
+                positions_diff[2].y *= -1.;
+                positions_diff[3].y *= -1.;
+
             }
             [
                 Vec2::new(
