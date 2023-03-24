@@ -22,7 +22,7 @@ impl AssetLoader for CustomAssetLoader {
         &'a self,
         bytes: &'a [u8],
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<(), bevy::asset::Error>> {
         Box::pin(async move {
             let custom_asset = ron::de::from_bytes::<CustomAsset>(bytes)?;
             load_context.set_default_asset(LoadedAsset::new(custom_asset));
@@ -41,12 +41,12 @@ fn main() {
         .init_resource::<State>()
         .add_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()
-        .add_startup_system(setup)
-        .add_system(print_on_load)
+        .add_systems(Startup, setup)
+        .add_systems(Update, print_on_load)
         .run();
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct State {
     handle: Handle<CustomAsset>,
     printed: bool,

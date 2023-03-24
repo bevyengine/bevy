@@ -1,6 +1,7 @@
-use crate::{app::AppExit, App};
+use crate::{app::AppExit, App, Update};
 use serde::Deserialize;
 
+use bevy_ecs::prelude::Resource;
 use bevy_utils::tracing::info;
 
 /// A configuration struct for automated CI testing.
@@ -8,7 +9,7 @@ use bevy_utils::tracing::info;
 /// It gets used when the `bevy_ci_testing` feature is enabled to automatically
 /// exit a Bevy app when run through the CI. This is needed because otherwise
 /// Bevy apps would be stuck in the game loop and wouldn't allow the CI to progress.
-#[derive(Deserialize)]
+#[derive(Deserialize, Resource)]
 pub struct CiTestingConfig {
     /// The number of frames after which Bevy should exit.
     pub exit_after: Option<u32>,
@@ -46,7 +47,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     };
 
     app.insert_resource(config)
-        .add_system(ci_testing_exit_after);
+        .add_systems(Update, ci_testing_exit_after);
 
     app
 }

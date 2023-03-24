@@ -1,14 +1,16 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
-use serde::Deserialize;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
-/// A reflected Rust tuple.
+/// A trait used to power [tuple-like] operations via [reflection].
+///
+/// This trait uses the [`Reflect`] trait to allow implementors to have their fields
+/// be dynamically addressed by index.
 ///
 /// This trait is automatically implemented for arbitrary tuples of up to 12
 /// elements, provided that each element implements [`Reflect`].
@@ -16,16 +18,17 @@ use std::slice::Iter;
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::Tuple;
+/// use bevy_reflect::{Reflect, Tuple};
 ///
-/// # fn main() {
-/// let foo = ("blue".to_string(), 42_i32);
+/// let foo = (123_u32, true);
 /// assert_eq!(foo.field_len(), 2);
 ///
-/// let first = foo.field(0).unwrap();
-/// assert_eq!(first.downcast_ref::<String>(), Some(&"blue".to_string()));
-/// # }
+/// let field: &dyn Reflect = foo.field(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
+///
+/// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
+/// [reflection]: crate
 pub trait Tuple: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
@@ -40,6 +43,9 @@ pub trait Tuple: Reflect {
 
     /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
+
+    /// Drain the fields of this tuple to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
@@ -132,6 +138,8 @@ pub struct TupleInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl TupleInfo {
@@ -146,7 +154,15 @@ impl TupleInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this tuple.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Get the field at the given index.
@@ -180,10 +196,16 @@ impl TupleInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+
+    /// The docstring of this tuple, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -255,6 +277,11 @@ impl Tuple for DynamicTuple {
     }
 
     #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
+    }
+
+    #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
             name: self.name.clone(),
@@ -294,6 +321,11 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -316,6 +348,11 @@ impl Reflect for DynamicTuple {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Tuple(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Tuple(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -373,9 +410,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
-    let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
-        tuple
-    } else {
+    let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return Some(false);
     };
 
@@ -453,6 +488,13 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                vec![
+                    $(Box::new(self.$index),)*
+                ]
+            }
+
+            #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
                 let mut dyn_tuple = DynamicTuple {
                     name: String::default(),
@@ -487,6 +529,10 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
+            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+                self
+            }
+
             fn as_reflect(&self) -> &dyn Reflect {
                 self
             }
@@ -512,6 +558,10 @@ macro_rules! impl_reflect_tuple {
                 ReflectMut::Tuple(self)
             }
 
+            fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                ReflectOwned::Tuple(self)
+            }
+
             fn clone_value(&self) -> Box<dyn Reflect> {
                 Box::new(self.clone_dynamic())
             }
@@ -534,11 +584,9 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + Typed),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<($($name,)*)>();
-                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
-                registration
+                TypeRegistration::of::<($($name,)*)>()
             }
         }
 

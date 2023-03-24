@@ -12,19 +12,22 @@
 //!
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
-use bevy::{
-    ecs::{component::Component, query::WorldQuery},
-    prelude::*,
-};
+use bevy::{ecs::query::WorldQuery, prelude::*};
 use std::fmt::Debug;
 
 fn main() {
     App::new()
-        .add_startup_system(spawn)
-        .add_system(print_components_read_only)
-        .add_system(print_components_iter_mut.after(print_components_read_only))
-        .add_system(print_components_iter.after(print_components_iter_mut))
-        .add_system(print_components_tuple.after(print_components_iter))
+        .add_systems(Startup, spawn)
+        .add_systems(
+            Update,
+            (
+                print_components_read_only,
+                print_components_iter_mut,
+                print_components_iter,
+                print_components_tuple,
+            )
+                .chain(),
+        )
         .run();
 }
 
@@ -56,7 +59,7 @@ fn print_components_read_only(
     query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (read_only):");
-    for e in query.iter() {
+    for e in &query {
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
@@ -115,19 +118,14 @@ struct QueryFilter<T: Component, P: Component> {
 }
 
 fn spawn(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(ComponentA)
-        .insert(ComponentB)
-        .insert(ComponentC)
-        .insert(ComponentD);
+    commands.spawn((ComponentA, ComponentB, ComponentC, ComponentD));
 }
 
 fn print_components_iter_mut(
     mut query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter_mut):");
-    for e in query.iter_mut() {
+    for e in &mut query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
         let e: CustomQueryItem<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
@@ -145,7 +143,7 @@ fn print_components_iter(
     query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter):");
-    for e in query.iter() {
+    for e in &query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
         let e: CustomQueryReadOnlyItem<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
@@ -177,11 +175,11 @@ fn print_components_tuple(
     >,
 ) {
     println!("Print components (tuple):");
-    for (entity, a, b, nested, (generic_c, generic_d)) in query.iter() {
-        println!("Entity: {:?}", entity);
-        println!("A: {:?}", a);
-        println!("B: {:?}", b);
+    for (entity, a, b, nested, (generic_c, generic_d)) in &query {
+        println!("Entity: {entity:?}");
+        println!("A: {a:?}");
+        println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);
-        println!("Generic: {:?} {:?}", generic_c, generic_d);
+        println!("Generic: {generic_c:?} {generic_d:?}");
     }
 }

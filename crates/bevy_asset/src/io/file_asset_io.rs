@@ -6,7 +6,7 @@ use anyhow::Result;
 use bevy_ecs::system::Res;
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_utils::HashSet;
+use bevy_utils::{default, HashSet};
 #[cfg(feature = "filesystem_watcher")]
 use crossbeam_channel::TryRecvError;
 use fs::File;
@@ -21,6 +21,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// I/O implementation for the local filesystem.
+///
+/// This asset I/O is fully featured but it's not available on `android` and `wasm` targets.
 pub struct FileAssetIo {
     root_path: PathBuf,
     #[cfg(feature = "filesystem_watcher")]
@@ -28,11 +31,15 @@ pub struct FileAssetIo {
 }
 
 impl FileAssetIo {
+    /// Creates a new `FileAssetIo` at a path relative to the executable's directory, optionally
+    /// watching for changes.
+    ///
+    /// See `get_base_path` below.
     pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
         let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
-            filesystem_watcher: Default::default(),
-            root_path: Self::get_root_path().join(path.as_ref()),
+            filesystem_watcher: default(),
+            root_path: Self::get_base_path().join(path.as_ref()),
         };
         if watch_for_changes {
             #[cfg(any(
@@ -50,8 +57,17 @@ impl FileAssetIo {
         file_asset_io
     }
 
-    pub fn get_root_path() -> PathBuf {
-        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+    /// Returns the base path of the assets directory, which is normally the executable's parent
+    /// directory.
+    ///
+    /// If a `BEVY_ASSET_ROOT` environment variable is set, then its value will be used.
+    ///
+    /// Else if the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
+    /// instead. It's set by cargo when running with `cargo run`.
+    pub fn get_base_path() -> PathBuf {
+        if let Ok(env_bevy_asset_root) = env::var("BEVY_ASSET_ROOT") {
+            PathBuf::from(env_bevy_asset_root)
+        } else if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
         } else {
             env::current_exe()
@@ -64,6 +80,9 @@ impl FileAssetIo {
         }
     }
 
+    /// Returns the root directory where assets are loaded from.
+    ///
+    /// See `get_base_path`.
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
@@ -103,15 +122,21 @@ impl AssetIo for FileAssetIo {
         )))
     }
 
-    fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(
+        &self,
+        to_watch: &Path,
+        to_reload: Option<PathBuf>,
+    ) -> Result<(), AssetIoError> {
+        #![allow(unused_variables)]
         #[cfg(feature = "filesystem_watcher")]
         {
-            let path = self.root_path.join(_path);
+            let to_reload = to_reload.unwrap_or_else(|| to_watch.to_owned());
+            let to_watch = self.root_path.join(to_watch);
             let mut watcher = self.filesystem_watcher.write();
             if let Some(ref mut watcher) = *watcher {
                 watcher
-                    .watch(&path)
-                    .map_err(|_error| AssetIoError::PathWatchError(path))?;
+                    .watch(&to_watch, to_reload)
+                    .map_err(|_error| AssetIoError::PathWatchError(to_watch))?;
             }
         }
 
@@ -121,7 +146,7 @@ impl AssetIo for FileAssetIo {
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            *self.filesystem_watcher.write() = Some(FilesystemWatcher::default());
+            *self.filesystem_watcher.write() = Some(default());
         }
         #[cfg(not(feature = "filesystem_watcher"))]
         bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
@@ -144,12 +169,12 @@ impl AssetIo for FileAssetIo {
     }
 }
 
+/// Watches for file changes in the local file system.
 #[cfg(all(
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
-    let mut changed = HashSet::default();
     let asset_io =
         if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
             asset_io
@@ -158,6 +183,7 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
         };
     let watcher = asset_io.filesystem_watcher.read();
     if let Some(ref watcher) = *watcher {
+        let mut changed = HashSet::<&PathBuf>::default();
         loop {
             let event = match watcher.receiver.try_recv() {
                 Ok(result) => result.unwrap(),
@@ -171,12 +197,14 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
             } = event
             {
                 for path in &paths {
-                    if !changed.contains(path) {
-                        let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
-                        let _ = asset_server.load_untracked(relative_path.into(), true);
+                    let Some(set) = watcher.path_map.get(path) else {continue};
+                    for to_reload in set {
+                        if !changed.contains(to_reload) {
+                            changed.insert(to_reload);
+                            let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
+                        }
                     }
                 }
-                changed.extend(paths);
             }
         }
     }

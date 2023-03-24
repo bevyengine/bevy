@@ -1,14 +1,22 @@
-use crate::{serde::SceneSerializer, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
+use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::EntityMap,
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+
+#[cfg(feature = "serialize")]
+use crate::serde::SceneSerializer;
+use bevy_ecs::reflect::ReflectResource;
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
-/// A collection of serializable dynamic entities, each with its own run-time defined set of components.
+/// A collection of serializable resources and dynamic entities.
+///
+/// Each dynamic entity in the collection contains its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
 /// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
@@ -18,6 +26,7 @@ use serde::Serialize;
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
+    pub resources: Vec<Box<dyn Reflect>>,
     pub entities: Vec<DynamicEntity>,
 }
 
@@ -32,60 +41,50 @@ pub struct DynamicEntity {
 
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
-    pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
+    pub fn from_scene(scene: &Scene, type_registry: &AppTypeRegistry) -> Self {
         Self::from_world(&scene.world, type_registry)
     }
 
     /// Create a new dynamic scene from a given world.
-    pub fn from_world(world: &World, type_registry: &TypeRegistryArc) -> Self {
-        let mut scene = DynamicScene::default();
-        let type_registry = type_registry.read();
+    pub fn from_world(world: &World, type_registry: &AppTypeRegistry) -> Self {
+        let mut builder =
+            DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
 
-        for archetype in world.archetypes().iter() {
-            let entities_offset = scene.entities.len();
+        builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
+        builder.extract_resources();
 
-            // Create a new dynamic entity for each entity of the given archetype
-            // and insert it into the dynamic scene.
-            for entity in archetype.entities() {
-                scene.entities.push(DynamicEntity {
-                    entity: entity.id(),
-                    components: Vec::new(),
-                });
-            }
-
-            // Add each reflection-powered component to the entity it belongs to.
-            for component_id in archetype.components() {
-                let reflect_component = world
-                    .components()
-                    .get_info(component_id)
-                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
-                    .and_then(|registration| registration.data::<ReflectComponent>());
-                if let Some(reflect_component) = reflect_component {
-                    for (i, entity) in archetype.entities().iter().enumerate() {
-                        if let Some(component) = reflect_component.reflect(world, *entity) {
-                            scene.entities[entities_offset + i]
-                                .components
-                                .push(component.clone_value());
-                        }
-                    }
-                }
-            }
-        }
-
-        scene
+        builder.build()
     }
 
-    /// Write the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
-    /// This method will return a `SceneSpawnError` if either a type is not registered
-    /// or doesn't reflect the `Component` trait.
-    pub fn write_to_world(
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered
+    /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) or [`Resource`](bevy_ecs::prelude::Resource) trait.
+    pub fn write_to_world_with(
         &self,
         world: &mut World,
         entity_map: &mut EntityMap,
+        type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.resource::<TypeRegistryArc>().clone();
-        let type_registry = registry.read();
+        let type_registry = type_registry.read();
+
+        for resource in &self.resources {
+            let registration = type_registry
+                .get_with_name(resource.type_name())
+                .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                    type_name: resource.type_name().to_string(),
+                })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_name: resource.type_name().to_string(),
+                }
+            })?;
+
+            // If the world already contains an instance of the given resource
+            // just apply the (possibly) new value, otherwise insert the resource
+            reflect_resource.apply_or_insert(world, &**resource);
+        }
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
@@ -93,7 +92,8 @@ impl DynamicScene {
             // no corresponding entry.
             let entity = *entity_map
                 .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
-                .or_insert_with(|| world.spawn().id());
+                .or_insert_with(|| world.spawn_empty().id());
+            let entity_mut = &mut world.entity_mut(entity);
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
@@ -112,14 +112,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                if world
-                    .entity(entity)
-                    .contains_type_id(registration.type_id())
-                {
-                    reflect_component.apply(world, entity, &**component);
-                } else {
-                    reflect_component.add(world, entity, &**component);
-                }
+                reflect_component.apply_or_insert(entity_mut, &**component);
             }
         }
 
@@ -134,20 +127,35 @@ impl DynamicScene {
         Ok(())
     }
 
+    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
+    ///
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered
+    /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
+    pub fn write_to_world(
+        &self,
+        world: &mut World,
+        entity_map: &mut EntityMap,
+    ) -> Result<(), SceneSpawnError> {
+        let registry = world.resource::<AppTypeRegistry>().clone();
+        self.write_to_world_with(world, entity_map, &registry)
+    }
+
     // TODO: move to AssetSaver when it is implemented
     /// Serialize this dynamic scene into rust object notation (ron).
+    #[cfg(feature = "serialize")]
     pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
 
 /// Serialize a given Rust data structure into rust object notation (ron).
+#[cfg(feature = "serialize")]
 pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 where
     S: Serialize,
 {
     let pretty_config = ron::ser::PrettyConfig::default()
-        .decimal_floats(true)
         .indentor("  ".to_string())
         .new_line("\n".to_string());
     ron::ser::to_string_pretty(&serialize, pretty_config)

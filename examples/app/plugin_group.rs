@@ -10,11 +10,14 @@ fn main() {
         // Adding a plugin group adds all plugins in the group by default
         .add_plugins(HelloWorldPlugins)
         // You can also modify a PluginGroup (such as disabling plugins) like this:
-        // .add_plugins_with(HelloWorldPlugins, |group| {
-        //     group
+        // .add_plugins(
+        //     HelloWorldPlugins
+        //         .build()
         //         .disable::<PrintWorldPlugin>()
-        //         .add_before::<PrintHelloPlugin,
-        // _>(bevy::diagnostic::LogDiagnosticsPlugin::default()) })
+        //         .add_before::<PrintHelloPlugin, _>(
+        //             bevy::diagnostic::LogDiagnosticsPlugin::default(),
+        //         ),
+        // )
         .run();
 }
 
@@ -22,8 +25,10 @@ fn main() {
 pub struct HelloWorldPlugins;
 
 impl PluginGroup for HelloWorldPlugins {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
-        group.add(PrintHelloPlugin).add(PrintWorldPlugin);
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(PrintHelloPlugin)
+            .add(PrintWorldPlugin)
     }
 }
 
@@ -31,7 +36,7 @@ pub struct PrintHelloPlugin;
 
 impl Plugin for PrintHelloPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(print_hello_system);
+        app.add_systems(Update, print_hello_system);
     }
 }
 
@@ -43,7 +48,7 @@ pub struct PrintWorldPlugin;
 
 impl Plugin for PrintWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(print_world_system);
+        app.add_systems(Update, print_world_system);
     }
 }
 

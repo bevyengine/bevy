@@ -12,7 +12,7 @@ impl Benchmark {
         let mut world = World::default();
         let mut entities = Vec::with_capacity(10_000);
         for _ in 0..10_000 {
-            entities.push(world.spawn().insert(A(0.0)).id());
+            entities.push(world.spawn(A(0.0)).id());
         }
 
         Self(world, entities)

@@ -7,6 +7,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// I/O implementation for Android devices.
+///
+/// Implementation details:
+///
+/// - `load_path` uses the [AssetManager] to load files.
+/// - `read_directory` always returns an empty iterator.
+/// - `get_metadata` will probably return an error.
+/// - Watching for changes is not supported. The watcher methods will do nothing.
+///
+/// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
 pub struct AndroidAssetIo {
     root_path: PathBuf,
 }
@@ -22,7 +32,10 @@ impl AndroidAssetIo {
 impl AssetIo for AndroidAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let asset_manager = ndk_glue::native_activity().asset_manager();
+            let asset_manager = bevy_winit::ANDROID_APP
+                .get()
+                .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                .asset_manager();
             let mut opened_asset = asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
                 .ok_or(AssetIoError::NotFound(path.to_path_buf()))?;
@@ -38,7 +51,11 @@ impl AssetIo for AndroidAssetIo {
         Ok(Box::new(std::iter::empty::<PathBuf>()))
     }
 
-    fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(
+        &self,
+        _to_watch: &Path,
+        _to_reload: Option<PathBuf>,
+    ) -> Result<(), AssetIoError> {
         Ok(())
     }
 

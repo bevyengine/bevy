@@ -5,7 +5,7 @@ use bevy::{input::gamepad::GamepadButton, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(gamepad_system)
+        .add_systems(Update, gamepad_system)
         .run();
 }
 
@@ -15,7 +15,7 @@ fn gamepad_system(
     button_axes: Res<Axis<GamepadButton>>,
     axes: Res<Axis<GamepadAxis>>,
 ) {
-    for gamepad in gamepads.iter().cloned() {
+    for gamepad in gamepads.iter() {
         if button_inputs.just_pressed(GamepadButton::new(gamepad, GamepadButtonType::South)) {
             info!("{:?} just pressed South", gamepad);
         } else if button_inputs.just_released(GamepadButton::new(gamepad, GamepadButtonType::South))

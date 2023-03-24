@@ -37,8 +37,9 @@ pub fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxisType> {
         gilrs::Axis::RightStickX => Some(GamepadAxisType::RightStickX),
         gilrs::Axis::RightStickY => Some(GamepadAxisType::RightStickY),
         gilrs::Axis::RightZ => Some(GamepadAxisType::RightZ),
-        gilrs::Axis::DPadX => Some(GamepadAxisType::DPadX),
-        gilrs::Axis::DPadY => Some(GamepadAxisType::DPadY),
-        gilrs::Axis::Unknown => None,
+        // The `axis_dpad_to_button` gilrs filter should filter out all DPadX and DPadY events. If
+        // it doesn't then we probably need an entry added to the following repo and an update to
+        // GilRs to use the updated database: https://github.com/gabomdq/SDL_GameControllerDB
+        gilrs::Axis::Unknown | gilrs::Axis::DPadX | gilrs::Axis::DPadY => None,
     }
 }

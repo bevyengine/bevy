@@ -21,7 +21,7 @@ impl Benchmark {
 
         // TODO: batch this
         for _ in 0..10_000 {
-            world.spawn().insert_bundle((
+            world.spawn((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Position(Vec3::X),
                 Rotation(Vec3::X),
@@ -30,7 +30,7 @@ impl Benchmark {
         }
 
         fn query_system(mut query: Query<(&Velocity, &mut Position)>) {
-            for (velocity, mut position) in query.iter_mut() {
+            for (velocity, mut position) in &mut query {
                 position.0 += velocity.0;
             }
         }

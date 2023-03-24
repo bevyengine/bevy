@@ -1,15 +1,15 @@
 use crate::{
-    camera::{ExtractedCamera, RenderTarget},
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
+    camera::{ExtractedCamera, NormalizedRenderTarget, SortedCameras},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::ExtractedWindows,
 };
-use bevy_ecs::{entity::Entity, prelude::QueryState, world::World};
-use bevy_utils::{tracing::warn, HashSet};
+use bevy_ecs::{prelude::QueryState, world::World};
+use bevy_utils::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
 
 pub struct CameraDriverNode {
-    cameras: QueryState<(Entity, &'static ExtractedCamera)>,
+    cameras: QueryState<&'static ExtractedCamera>,
 }
 
 impl CameraDriverNode {
@@ -30,45 +30,19 @@ impl Node for CameraDriverNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let mut sorted_cameras = self
-            .cameras
-            .iter_manual(world)
-            .map(|(e, c)| (e, c.priority, c.target.clone()))
-            .collect::<Vec<_>>();
-        // sort by priority and ensure within a priority, RenderTargets of the same type are packed together
-        sorted_cameras.sort_by(|(_, p1, t1), (_, p2, t2)| match p1.cmp(p2) {
-            std::cmp::Ordering::Equal => t1.cmp(t2),
-            ord => ord,
-        });
+        let sorted_cameras = world.resource::<SortedCameras>();
         let mut camera_windows = HashSet::new();
-        let mut previous_priority_target = None;
-        let mut ambiguities = HashSet::new();
-        for (entity, priority, target) in sorted_cameras {
-            let new_priority_target = (priority, target);
-            if let Some(previous_priority_target) = previous_priority_target {
-                if previous_priority_target == new_priority_target {
-                    ambiguities.insert(new_priority_target.clone());
+        for sorted_camera in &sorted_cameras.0 {
+            if let Ok(camera) = self.cameras.get_manual(world, sorted_camera.entity) {
+                if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
+                    camera_windows.insert(window_ref.entity());
                 }
+                graph.run_sub_graph(
+                    camera.render_graph.clone(),
+                    vec![],
+                    Some(sorted_camera.entity),
+                )?;
             }
-            previous_priority_target = Some(new_priority_target);
-            if let Ok((_, camera)) = self.cameras.get_manual(world, entity) {
-                if let RenderTarget::Window(id) = camera.target {
-                    camera_windows.insert(id);
-                }
-                graph
-                    .run_sub_graph(camera.render_graph.clone(), vec![SlotValue::Entity(entity)])?;
-            }
-        }
-
-        if !ambiguities.is_empty() {
-            warn!(
-                "Camera priority ambiguities detected for active cameras with the following priorities: {:?}. \
-                To fix this, ensure there is exactly one Camera entity spawned with a given priority for a given RenderTarget. \
-                Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
-                result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, \
-                ambiguities could result in unpredictable render results.",
-                ambiguities
-            );
         }
 
         // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
@@ -78,9 +52,7 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let swap_chain_texture = if let Some(swap_chain_texture) = &window.swap_chain_texture {
-                swap_chain_texture
-            } else {
+            let Some(swap_chain_texture) = &window.swap_chain_texture else {
                 continue;
             };
 
@@ -88,19 +60,19 @@ impl Node for CameraDriverNode {
             let _span = bevy_utils::tracing::info_span!("no_camera_clear_pass").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("no_camera_clear_pass"),
-                color_attachments: &[RenderPassColorAttachment {
+                color_attachments: &[Some(RenderPassColorAttachment {
                     view: swap_chain_texture,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(wgpu::Color::BLACK),
                         store: true,
                     },
-                }],
+                })],
                 depth_stencil_attachment: None,
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 

@@ -7,11 +7,17 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
+pub mod a11y {
+    //! Integrate with platform accessibility APIs.
+    pub use bevy_a11y::*;
+}
+
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
     pub use bevy_app::*;
 }
 
+#[cfg(feature = "bevy_asset")]
 pub mod asset {
     //! Load and store assets and resources for Apps.
     pub use bevy_asset::*;
@@ -60,6 +66,7 @@ pub mod reflect {
     };
 }
 
+#[cfg(feature = "bevy_scene")]
 pub mod scene {
     //! Save/load collections of entities and components to/from file.
     pub use bevy_scene::*;
@@ -134,9 +141,9 @@ pub mod pbr {
 #[cfg(feature = "bevy_render")]
 pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.
-    //! Use [`RenderDevice::features`](bevy_render::renderer::RenderDevice::features),
-    //! [`RenderDevice::limits`](bevy_render::renderer::RenderDevice::limits), and the
-    //! [`WgpuAdapterInfo`](bevy_render::render_resource::WgpuAdapterInfo) resource to
+    //! Use [`RenderDevice::features`](crate::render::renderer::RenderDevice::features),
+    //! [`RenderDevice::limits`](crate::render::renderer::RenderDevice::limits), and the
+    //! [`RenderAdapterInfo`](crate::render::renderer::RenderAdapterInfo) resource to
     //! get runtime information about the actual adapter, backend, features, and limits.
     pub use bevy_render::*;
 }
@@ -165,11 +172,14 @@ pub mod winit {
     pub use bevy_winit::*;
 }
 
+#[cfg(feature = "bevy_gizmos")]
+pub mod gizmos {
+    //! Immediate mode debug drawing.
+    pub use bevy_gizmos::*;
+}
+
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
-
-#[cfg(target_os = "android")]
-pub use ndk_glue;

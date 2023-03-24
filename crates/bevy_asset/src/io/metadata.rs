@@ -4,17 +4,21 @@ use std::convert::{TryFrom, TryInto};
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FileType {
+    /// A directory.
     Directory,
+    /// A file.
     File,
 }
 
 impl FileType {
+    /// Returns `true` if the entry is a directory.
     #[inline]
     pub const fn is_dir(&self) -> bool {
         matches!(self, Self::Directory)
     }
 
     #[inline]
+    /// Returns `true` if the entry is a file.
     pub const fn is_file(&self) -> bool {
         matches!(self, Self::File)
     }
@@ -46,20 +50,24 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// Creates new metadata information.
     pub fn new(file_type: FileType) -> Self {
         Self { file_type }
     }
 
+    /// Returns the file type.
     #[inline]
     pub const fn file_type(&self) -> FileType {
         self.file_type
     }
 
+    /// Returns `true` if the entry is a directory.
     #[inline]
     pub const fn is_dir(&self) -> bool {
         self.file_type.is_dir()
     }
 
+    /// Returns `true` if the entry is a file.
     #[inline]
     pub const fn is_file(&self) -> bool {
         self.file_type.is_file()

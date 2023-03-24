@@ -9,9 +9,7 @@ fn main() {
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
         .init_resource::<EventTriggerState>()
-        .add_system(event_trigger)
-        .add_system(event_listener)
-        .add_system(sound_player)
+        .add_systems(Update, (event_trigger, event_listener, sound_player))
         .run();
 }
 
@@ -22,6 +20,7 @@ struct MyEvent {
 #[derive(Default)]
 struct PlaySound;
 
+#[derive(Resource)]
 struct EventTriggerState {
     event_timer: Timer,
 }
@@ -29,7 +28,7 @@ struct EventTriggerState {
 impl Default for EventTriggerState {
     fn default() -> Self {
         EventTriggerState {
-            event_timer: Timer::from_seconds(1.0, true),
+            event_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
         }
     }
 }

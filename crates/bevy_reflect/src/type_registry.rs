@@ -1,12 +1,23 @@
-use crate::serde::Serializable;
-use crate::{Reflect, TypeInfo, Typed};
+use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
 
-/// A registry of reflected types.
+/// A registry of [reflected] types.
+///
+/// This struct is used as the central store for type information.
+/// [Registering] a type will generate a new [`TypeRegistration`] entry in this store
+/// using a type's [`GetTypeRegistration`] implementation
+/// (which is automatically implemented when using [`#[derive(Reflect)]`](derive@crate::Reflect)).
+///
+/// See the [crate-level documentation] for more information.
+///
+/// [reflected]: crate
+/// [Registering]: TypeRegistry::register
+/// [crate-level documentation]: crate
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
@@ -28,9 +39,15 @@ impl Debug for TypeRegistryArc {
     }
 }
 
-/// A trait which allows a type to generate its [`TypeRegistration`].
+/// A trait which allows a type to generate its [`TypeRegistration`]
+/// for registration into the [`TypeRegistry`].
 ///
-/// This trait is automatically implemented for types which derive [`Reflect`].
+/// This trait is automatically implemented for items using [`#[derive(Reflect)]`](derive@crate::Reflect).
+/// The macro also allows [`TypeData`] to be more easily registered.
+///
+/// See the [crate-level documentation] for more information on type registration.
+///
+/// [crate-level documentation]: crate
 pub trait GetTypeRegistration {
     fn get_type_registration() -> TypeRegistration;
 }
@@ -56,6 +73,7 @@ impl TypeRegistry {
     pub fn new() -> Self {
         let mut registry = Self::empty();
         registry.register::<bool>();
+        registry.register::<char>();
         registry.register::<u8>();
         registry.register::<u16>();
         registry.register::<u32>();
@@ -70,10 +88,15 @@ impl TypeRegistry {
         registry.register::<isize>();
         registry.register::<f32>();
         registry.register::<f64>();
+        registry.register::<String>();
         registry
     }
 
-    /// Registers the type `T`.
+    /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
+    /// ```rust,ignore
+    /// #[derive(Reflect)]
+    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// ```
     pub fn register<T>(&mut self)
     where
         T: GetTypeRegistration,
@@ -83,6 +106,10 @@ impl TypeRegistry {
 
     /// Registers the type described by `registration`.
     pub fn add_registration(&mut self, registration: TypeRegistration) {
+        if self.registrations.contains_key(&registration.type_id()) {
+            return;
+        }
+
         let short_name = registration.short_name.to_string();
         if self.short_name_to_id.contains_key(&short_name)
             || self.ambiguous_names.contains(&short_name)
@@ -98,6 +125,33 @@ impl TypeRegistry {
             .insert(registration.type_name().to_string(), registration.type_id());
         self.registrations
             .insert(registration.type_id(), registration);
+    }
+
+    /// Registers the type data `D` for type `T`.
+    ///
+    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<Option<String>>();
+    /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
+    /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
+    /// ```
+    pub fn register_type_data<T: Reflect + 'static, D: TypeData + FromType<T>>(&mut self) {
+        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
+                T = std::any::type_name::<T>(),
+                D = std::any::type_name::<D>(),
+            )
+        });
+        data.insert(D::from_type());
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
@@ -222,23 +276,45 @@ impl TypeRegistryArc {
     }
 }
 
-/// A record of data about a type.
+/// Runtime storage for type metadata, registered into the [`TypeRegistry`].
 ///
-/// This contains the [`TypeInfo`] of the type, as well as its [short name].
+/// An instance of `TypeRegistration` can be created using the [`TypeRegistration::of`] method,
+/// but is more often automatically generated using [`#[derive(Reflect)]`](derive@crate::Reflect) which itself generates
+/// an implementation of the [`GetTypeRegistration`] trait.
 ///
-/// For each trait specified by the [`#[reflect(_)]`][0] attribute of
-/// [`#[derive(Reflect)]`][1] on the registered type, this record also contains
-/// a [`TypeData`] which can be used to downcast [`Reflect`] trait objects of
-/// this type to trait objects of the relevant trait.
+/// Along with the type's [`TypeInfo`] and [short name],
+/// this struct also contains a type's registered [`TypeData`].
+///
+/// See the [crate-level documentation] for more information on type registration.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, FromType};
+/// let mut registration = TypeRegistration::of::<Option<String>>();
+///
+/// assert_eq!("core::option::Option<alloc::string::String>", registration.type_name());
+/// assert_eq!("Option<String>", registration.short_name());
+///
+/// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
+/// assert!(registration.data::<ReflectDefault>().is_some())
+/// ```
 ///
 /// [short name]: bevy_utils::get_short_name
-/// [`TypeInfo`]: crate::TypeInfo
-/// [0]: crate::Reflect
-/// [1]: crate::Reflect
+/// [crate-level documentation]: crate
 pub struct TypeRegistration {
     short_name: String,
     data: HashMap<TypeId, Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
+}
+
+impl Debug for TypeRegistration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TypeRegistration")
+            .field("short_name", &self.short_name)
+            .field("type_info", &self.type_info)
+            .finish()
+    }
 }
 
 impl TypeRegistration {
@@ -322,9 +398,17 @@ impl Clone for TypeRegistration {
     }
 }
 
-/// A trait for types generated by the [`#[reflect_trait]`][0] attribute macro.
+/// A trait used to type-erase type metadata.
 ///
-/// [0]: crate::reflect_trait
+/// Type data can be registered to the [`TypeRegistry`] and stored on a type's [`TypeRegistration`].
+///
+/// While type data is often generated using the [`#[reflect_trait]`](crate::reflect_trait) macro,
+/// almost any type that implements [`Clone`] can be considered "type data".
+/// This is because it has a blanket implementation over all `T` where `T: Clone + Send + Sync + 'static`.
+///
+/// See the [crate-level documentation] for more information on type data and type registration.
+///
+/// [crate-level documentation]: crate
 pub trait TypeData: Downcast + Send + Sync {
     fn clone_type_data(&self) -> Box<dyn TypeData>;
 }
@@ -411,10 +495,133 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
     }
 }
 
+/// [`Reflect`] values are commonly used in situations where the actual types of values
+/// are not known at runtime. In such situations you might have access to a `*const ()` pointer
+/// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
+///
+/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
+/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// from a pointer.
+///
+/// # Example
+/// ```rust
+/// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
+/// use bevy_ptr::Ptr;
+/// use std::ptr::NonNull;
+///
+/// #[derive(Reflect)]
+/// struct Reflected(String);
+///
+/// let mut type_registry = TypeRegistry::default();
+/// type_registry.register::<Reflected>();
+///
+/// let mut value = Reflected("Hello world!".to_string());
+/// let value = Ptr::from(&value);
+///
+/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
+/// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
+/// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+///
+/// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
+/// ```
+#[derive(Clone)]
+pub struct ReflectFromPtr {
+    type_id: TypeId,
+    to_reflect: for<'a> unsafe fn(Ptr<'a>) -> &'a dyn Reflect,
+    to_reflect_mut: for<'a> unsafe fn(PtrMut<'a>) -> &'a mut dyn Reflect,
+}
+
+impl ReflectFromPtr {
+    /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// # Safety
+    ///
+    /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
+    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
+    pub unsafe fn as_reflect_ptr<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+        (self.to_reflect)(val)
+    }
+
+    /// # Safety
+    ///
+    /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
+    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
+    pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+        (self.to_reflect_mut)(val)
+    }
+}
+
+impl<T: Reflect> FromType<T> for ReflectFromPtr {
+    fn from_type() -> Self {
+        ReflectFromPtr {
+            type_id: std::any::TypeId::of::<T>(),
+            to_reflect: |ptr| {
+                // SAFE: only called from `as_reflect`, where the `ptr` is guaranteed to be of type `T`,
+                // and `as_reflect_ptr`, where the caller promises to call it with type `T`
+                unsafe { ptr.deref::<T>() as &dyn Reflect }
+            },
+            to_reflect_mut: |ptr| {
+                // SAFE: only called from `as_reflect_mut`, where the `ptr` is guaranteed to be of type `T`,
+                // and `as_reflect_ptr_mut`, where the caller promises to call it with type `T`
+                unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::TypeRegistration;
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
+    use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
+
+    use crate as bevy_reflect;
+    use crate::Reflect;
+
+    #[test]
+    fn test_reflect_from_ptr() {
+        #[derive(Reflect)]
+        struct Foo {
+            a: f32,
+        }
+
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        // not required in this situation because we no nobody messed with the TypeRegistry,
+        // but in the general case somebody could have replaced the ReflectFromPtr with an
+        // instance for another type, so then we'd need to check that the type is the expected one
+        assert_eq!(reflect_from_ptr.type_id(), std::any::TypeId::of::<Foo>());
+
+        let mut value = Foo { a: 1.0 };
+        {
+            let value = PtrMut::from(&mut value);
+            // SAFETY: reflect_from_ptr was constructed for the correct type
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr_mut(value) };
+            match dyn_reflect.reflect_mut() {
+                bevy_reflect::ReflectMut::Struct(strukt) => {
+                    strukt.field_mut("a").unwrap().apply(&2.0f32);
+                }
+                _ => panic!("invalid reflection"),
+            }
+        }
+
+        {
+            // SAFETY: reflect_from_ptr was constructed for the correct type
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(Ptr::from(&value)) };
+            match dyn_reflect.reflect_ref() {
+                bevy_reflect::ReflectRef::Struct(strukt) => {
+                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
+                    assert_eq!(*a, 2.0);
+                }
+                _ => panic!("invalid reflection"),
+            }
+        }
+    }
 
     #[test]
     fn test_property_type_registration() {

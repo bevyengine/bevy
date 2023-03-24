@@ -3,6 +3,7 @@ use crate::{
     plugin::Plugin,
 };
 use bevy_ecs::event::{Events, ManualEventReader};
+use bevy_ecs::prelude::Resource;
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -34,7 +35,7 @@ impl Default for RunMode {
 /// The configuration information for the [`ScheduleRunnerPlugin`].
 ///
 /// It gets added as a [`Resource`](bevy_ecs::system::Resource) inside of the [`ScheduleRunnerPlugin`].
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Resource)]
 pub struct ScheduleRunnerSettings {
     /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,
@@ -60,6 +61,16 @@ impl ScheduleRunnerSettings {
 
 /// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
 /// [`RunMode`].
+///
+/// [`ScheduleRunnerPlugin`] is included in the
+/// [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+///
+/// [`ScheduleRunnerPlugin`] is *not* included in the
+/// [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group
+/// which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other means:
+/// typically, the `winit` event loop
+/// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
+/// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin;
 
