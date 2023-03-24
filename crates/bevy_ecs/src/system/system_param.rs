@@ -1658,4 +1658,10 @@ mod tests {
 
     #[derive(Resource)]
     pub struct FetchState;
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/8192.
+    #[derive(SystemParam)]
+    pub struct InvariantParam<'w, 's> {
+        _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
+    }
 }
