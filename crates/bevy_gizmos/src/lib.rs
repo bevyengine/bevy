@@ -38,7 +38,6 @@ use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
-/// A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]

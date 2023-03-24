@@ -1,3 +1,5 @@
+//! A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
+
 use std::{f32::consts::TAU, iter};
 
 use bevy_ecs::{
