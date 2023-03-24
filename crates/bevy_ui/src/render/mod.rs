@@ -478,7 +478,6 @@ pub fn prepare_uinodes(
                 positions_diff[1].x *= -1.;
                 positions_diff[2].x *= -1.;
                 positions_diff[3].x *= -1.;
-                
             }
             if extracted_uinode.flip_y {
                 std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
@@ -486,7 +485,6 @@ pub fn prepare_uinodes(
                 positions_diff[1].y *= -1.;
                 positions_diff[2].y *= -1.;
                 positions_diff[3].y *= -1.;
-
             }
             [
                 Vec2::new(
