@@ -6,6 +6,43 @@ const CONTAINER_SIZE: f32 = 150.0;
 const HALF_CONTAINER_SIZE: f32 = CONTAINER_SIZE / 2.0;
 const LOOP_LENGTH: f32 = 4.0;
 
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        // TODO: Remove once #8144 is fixed
+        .insert_resource(GizmoConfig {
+            enabled: false,
+            ..default()
+        })
+        .insert_resource(AnimationState {
+            playing: false,
+            paused_at: 0.0,
+            paused_total: 0.0,
+            t: 0.0,
+        })
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                toggle_overflow,
+                next_container_size,
+                update_transform::<Move>,
+                update_transform::<Scale>,
+                update_transform::<Rotate>,
+                update_animation,
+            ),
+        )
+        .run();
+}
+
+#[derive(Resource)]
+struct AnimationState {
+    playing: bool,
+    paused_at: f32,
+    paused_total: f32,
+    t: f32,
+}
+
 #[derive(Component)]
 struct Container(u8);
 
@@ -42,27 +79,6 @@ impl UpdateTransform for Rotate {
     }
 }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(GizmoConfig {
-            enabled: false,
-            ..default()
-        })
-        .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                toggle_overflow,
-                next_container_size,
-                update_transform::<Move>,
-                update_transform::<Scale>,
-                update_transform::<Rotate>,
-            ),
-        )
-        .run();
-}
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn(Camera2dBundle::default());
@@ -90,7 +106,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(
-                        vec!["Toggle Overflow (O)", "Next Container Size (S)"].join("  ·  "),
+                        vec![
+                            "Toggle Overflow (O)",
+                            "Next Container Size (S)",
+                            "Toggle Animation (space)",
+                        ]
+                        .join("  ·  "),
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 18.0,
@@ -219,15 +240,34 @@ fn spawn_container(
         });
 }
 
-// SYSTEMS
-fn update_transform<T: UpdateTransform + Component>(
+fn update_animation(
+    mut animation: ResMut<AnimationState>,
     time: Res<Time>,
+    keys: Res<Input<KeyCode>>,
+) {
+    let time = time.elapsed_seconds();
+
+    if keys.just_pressed(KeyCode::Space) {
+        animation.playing = !animation.playing;
+
+        if !animation.playing {
+            animation.paused_at = time;
+        } else {
+            animation.paused_total += time - animation.paused_at;
+        }
+    }
+
+    if animation.playing {
+        animation.t = (time - animation.paused_total) % LOOP_LENGTH / LOOP_LENGTH;
+    }
+}
+
+fn update_transform<T: UpdateTransform + Component>(
+    animation: Res<AnimationState>,
     mut containers: Query<(&mut Transform, &mut Style, &T)>,
 ) {
-    let t = time.elapsed_seconds() % LOOP_LENGTH / LOOP_LENGTH;
-
     for (mut transform, mut style, update_transform) in &mut containers {
-        update_transform.update(t, &mut transform);
+        update_transform.update(animation.t, &mut transform);
 
         style.left = Val::Px(transform.translation.x);
         style.top = Val::Px(transform.translation.y);
@@ -254,9 +294,9 @@ fn next_container_size(
             container.0 = (container.0 + 1) % 3;
 
             style.size = match container.0 {
-                1 => Size::new(Val::Px(150.), Val::Px(30.)),
-                2 => Size::new(Val::Px(30.), Val::Px(150.)),
-                _ => Size::new(Val::Px(150.), Val::Px(150.)),
+                1 => Size::new(Val::Px(CONTAINER_SIZE), Val::Px(30.)),
+                2 => Size::new(Val::Px(30.), Val::Px(CONTAINER_SIZE)),
+                _ => Size::new(Val::Px(CONTAINER_SIZE), Val::Px(CONTAINER_SIZE)),
             };
         }
     }
