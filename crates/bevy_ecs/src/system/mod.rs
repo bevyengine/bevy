@@ -1016,8 +1016,8 @@ mod tests {
     #[test]
     #[allow(unused)]
     fn long_life_test() {
-        struct Holder<'w> {
-            value: &'w A,
+        struct Holder<'world> {
+            value: &'world A,
         }
 
         struct State {
@@ -1026,18 +1026,22 @@ mod tests {
         }
 
         impl State {
-            fn hold_res<'w>(&mut self, world: &'w World) -> Holder<'w> {
+            fn hold_res<'world>(&mut self, world: &'world World) -> Holder<'world> {
                 let a = self.state.get(world);
                 Holder {
                     value: a.into_inner(),
                 }
             }
-            fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
+            fn hold_component<'world>(
+                &mut self,
+                world: &'world World,
+                entity: Entity,
+            ) -> Holder<'world> {
                 let q = self.state_q.get(world);
                 let a = q.get_inner(entity).unwrap();
                 Holder { value: a }
             }
-            fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
+            fn hold_components<'world>(&mut self, world: &'world World) -> Vec<Holder<'world>> {
                 let mut components = Vec::new();
                 let q = self.state_q.get(world);
                 for a in q.iter_inner() {

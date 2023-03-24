@@ -43,9 +43,9 @@ struct ParallelCommandQueue {
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
 ///```
 #[derive(SystemParam)]
-pub struct ParallelCommands<'w, 's> {
-    state: Deferred<'s, ParallelCommandQueue>,
-    entities: &'w Entities,
+pub struct ParallelCommands<'world, 'state> {
+    state: Deferred<'state, ParallelCommandQueue>,
+    entities: &'world Entities,
 }
 
 impl SystemBuffer for ParallelCommandQueue {
@@ -61,7 +61,7 @@ impl SystemBuffer for ParallelCommandQueue {
     }
 }
 
-impl<'w, 's> ParallelCommands<'w, 's> {
+impl<'world, 'state> ParallelCommands<'world, 'state> {
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
         let store = &self.state.thread_local_storage;
         let command_queue_cell = store.get_or_default();

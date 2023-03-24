@@ -21,12 +21,12 @@ pub struct PlayerCount(usize);
 ///
 /// In this example, it includes a query and a mutable resource.
 #[derive(SystemParam)]
-struct PlayerCounter<'w, 's> {
-    players: Query<'w, 's, &'static Player>,
-    count: ResMut<'w, PlayerCount>,
+struct PlayerCounter<'world, 'state> {
+    players: Query<'world, 'state, &'static Player>,
+    count: ResMut<'world, PlayerCount>,
 }
 
-impl<'w, 's> PlayerCounter<'w, 's> {
+impl<'world, 'state> PlayerCounter<'world, 'state> {
     fn count(&mut self) {
         self.count.0 = self.players.iter().len();
     }

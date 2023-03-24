@@ -187,16 +187,16 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
             // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
-            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            unsafe impl<'world, 'state, #(#param,)*> ReadOnlySystemParam for ParamSet<'world, 'state, (#(#param,)*)>
             where #(#param: ReadOnlySystemParam,)*
             { }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
-            unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
+            unsafe impl<'_world, '_state, #(#param: SystemParam,)*> SystemParam for ParamSet<'_world, '_state, (#(#param,)*)>
             {
                 type State = (#(#param::State,)*);
-                type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
+                type Item<'world, 'state> = ParamSet<'world, 'state, (#(#param,)*)>;
 
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
@@ -227,12 +227,12 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
-                unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self::State,
+                unsafe fn get_param<'world, 'state>(
+                    state: &'state mut Self::State,
                     system_meta: &SystemMeta,
-                    world: &'w World,
+                    world: &'world World,
                     change_tick: Tick,
-                ) -> Self::Item<'w, 's> {
+                ) -> Self::Item<'world, 'state> {
                     ParamSet {
                         param_states: state,
                         system_meta: system_meta.clone(),
@@ -242,7 +242,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
+            impl<'world, 'state, #(#param: SystemParam,)*> ParamSet<'world, 'state, (#(#param,)*)>
             {
                 #(#param_fn_mut)*
             }
@@ -324,14 +324,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     // Emit an error if there's any unrecognized lifetime names.
     for lt in generics.lifetimes() {
         let ident = &lt.lifetime.ident;
-        let w = format_ident!("w");
-        let s = format_ident!("s");
-        if ident != &w && ident != &s {
+        let world_lifetime = format_ident!("world");
+        let state_lifetime = format_ident!("state");
+        if ident != &world_lifetime && ident != &state_lifetime {
             return syn::Error::new_spanned(
                 lt,
-                r#"invalid lifetime name: expected `'w` or `'s`
- 'w -- refers to data stored in the World.
- 's -- refers to data stored in the SystemParam's state.'"#,
+                r#"invalid lifetime name: expected `'world` or `'state`
+ 'world -- refers to data stored in the World.
+ 'state -- refers to data stored in the SystemParam's state.'"#,
             )
             .into_compile_error()
             .into();
@@ -405,18 +405,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             #[doc(hidden)]
-            #state_struct_visibility struct #state_struct_name <'w, 's, #(#lifetimeless_generics,)*>
+            #state_struct_visibility struct #state_struct_name <'world, 'state, #(#lifetimeless_generics,)*>
             #where_clause {
                 state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
-                    <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
+                    <#path::prelude::Query<'world, 'state, ()> as #path::system::SystemParam>::State,
                     #(fn() -> #ignored_field_types,)*
                 )>,
             }
 
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+            unsafe impl<'world, 'state, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
                 type State = #state_struct_name<'static, 'static, #punctuated_generic_idents>;
-                type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
+                type Item<'_world, '_state> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
@@ -433,12 +433,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <(#(#tuple_types,)*) as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
-                unsafe fn get_param<'w2, 's2>(
-                    state: &'s2 mut Self::State,
+                unsafe fn get_param<'world2, 'state2>(
+                    state: &'state2 mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w2 #path::world::World,
+                    world: &'world2 #path::world::World,
                     change_tick: #path::component::Tick,
-                ) -> Self::Item<'w2, 's2> {
+                ) -> Self::Item<'world2, 'state2> {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
@@ -450,7 +450,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
+            unsafe impl<'world, 'state, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
         };
     })
 }

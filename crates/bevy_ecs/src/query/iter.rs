@@ -14,22 +14,22 @@ use super::ReadOnlyWorldQuery;
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    tables: &'w Tables,
-    archetypes: &'w Archetypes,
-    query_state: &'s QueryState<Q, F>,
-    cursor: QueryIterationCursor<'w, 's, Q, F>,
+pub struct QueryIter<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+    tables: &'world Tables,
+    archetypes: &'world Archetypes,
+    query_state: &'state QueryState<Q, F>,
+    cursor: QueryIterationCursor<'world, 'state, Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'world, 'state, Q, F> {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
     pub(crate) unsafe fn new(
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
+        world: &'world World,
+        query_state: &'state QueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -42,8 +42,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
-    type Item = Q::Item<'w>;
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator
+    for QueryIter<'world, 'state, Q, F>
+{
+    type Item = Q::Item<'world>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -65,7 +67,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator
+    for QueryIter<'world, 'state, Q, F>
+{
+}
 
 /// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
 ///
@@ -73,20 +78,21 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator for QueryIter<'
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
+pub struct QueryManyIter<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
 where
     I::Item: Borrow<Entity>,
 {
     entity_iter: I,
-    entities: &'w Entities,
-    tables: &'w Tables,
-    archetypes: &'w Archetypes,
-    fetch: Q::Fetch<'w>,
-    filter: F::Fetch<'w>,
-    query_state: &'s QueryState<Q, F>,
+    entities: &'world Entities,
+    tables: &'world Tables,
+    archetypes: &'world Archetypes,
+    fetch: Q::Fetch<'world>,
+    filter: F::Fetch<'world>,
+    query_state: &'state QueryState<Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator> QueryManyIter<'w, 's, Q, F, I>
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
+    QueryManyIter<'world, 'state, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
@@ -96,12 +102,12 @@ where
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
     pub(crate) unsafe fn new<EntityList: IntoIterator<IntoIter = I>>(
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
+        world: &'world World,
+        query_state: &'state QueryState<Q, F>,
         entity_list: EntityList,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryManyIter<'w, 's, Q, F, I> {
+    ) -> QueryManyIter<'world, 'state, Q, F, I> {
         let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryManyIter {
@@ -122,7 +128,7 @@ where
     ///
     /// It is always safe for shared access.
     #[inline(always)]
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<Q::Item<'w>> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<Q::Item<'world>> {
         for entity in self.entity_iter.by_ref() {
             let entity = *entity.borrow();
             let location = match self.entities.get(entity) {
@@ -181,12 +187,12 @@ where
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> Iterator
-    for QueryManyIter<'w, 's, Q, F, I>
+impl<'world, 'state, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> Iterator
+    for QueryManyIter<'world, 'state, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
-    type Item = Q::Item<'w>;
+    type Item = Q::Item<'world>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -201,8 +207,8 @@ where
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> FusedIterator
-    for QueryManyIter<'w, 's, Q, F, I>
+impl<'world, 'state, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> FusedIterator
+    for QueryManyIter<'world, 'state, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
@@ -271,15 +277,21 @@ where
 /// [`Query`]: crate::system::Query
 /// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
 /// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize> {
-    tables: &'w Tables,
-    archetypes: &'w Archetypes,
-    query_state: &'s QueryState<Q, F>,
-    cursors: [QueryIterationCursor<'w, 's, Q, F>; K],
+pub struct QueryCombinationIter<
+    'world,
+    'state,
+    Q: WorldQuery,
+    F: ReadOnlyWorldQuery,
+    const K: usize,
+> {
+    tables: &'world Tables,
+    archetypes: &'world Archetypes,
+    query_state: &'state QueryState<Q, F>,
+    cursors: [QueryIterationCursor<'world, 'state, Q, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
-    QueryCombinationIter<'w, 's, Q, F, K>
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
+    QueryCombinationIter<'world, 'state, Q, F, K>
 {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -287,18 +299,19 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a
     /// `world` with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
     pub(crate) unsafe fn new(
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
+        world: &'world World,
+        query_state: &'state QueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, Q, F>; K]> = MaybeUninit::uninit();
+        let mut array: MaybeUninit<[QueryIterationCursor<'world, 'state, Q, F>; K]> =
+            MaybeUninit::uninit();
         let ptr = array
             .as_mut_ptr()
-            .cast::<QueryIterationCursor<'w, 's, Q, F>>();
+            .cast::<QueryIterationCursor<'world, 'state, Q, F>>();
         if K != 0 {
             ptr.write(QueryIterationCursor::init(
                 world,
@@ -330,7 +343,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[Q::Item<'w>; K]> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[Q::Item<'world>; K]> {
         if K == 0 {
             return None;
         }
@@ -360,9 +373,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             }
         }
 
-        let mut values = MaybeUninit::<[Q::Item<'w>; K]>::uninit();
+        let mut values = MaybeUninit::<[Q::Item<'world>; K]>::uninit();
 
-        let ptr = values.as_mut_ptr().cast::<Q::Item<'w>>();
+        let ptr = values.as_mut_ptr().cast::<Q::Item<'world>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
             ptr.add(offset).write(cursor.peek_last().unwrap());
         }
@@ -386,10 +399,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
-    for QueryCombinationIter<'w, 's, Q, F, K>
+impl<'world, 'state, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
+    for QueryCombinationIter<'world, 'state, Q, F, K>
 {
-    type Item = [Q::Item<'w>; K];
+    type Item = [Q::Item<'world>; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -429,7 +442,8 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Itera
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, F>
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> ExactSizeIterator
+    for QueryIter<'world, 'state, Q, F>
 where
     F: ArchetypeFilter,
 {
@@ -439,18 +453,18 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
-    for QueryCombinationIter<'w, 's, Q, F, K>
+impl<'world, 'state, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
+    for QueryCombinationIter<'world, 'state, Q, F, K>
 {
 }
 
-struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    table_id_iter: std::slice::Iter<'s, TableId>,
-    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    table_entities: &'w [Entity],
-    archetype_entities: &'w [ArchetypeEntity],
-    fetch: Q::Fetch<'w>,
-    filter: F::Fetch<'w>,
+struct QueryIterationCursor<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+    table_id_iter: std::slice::Iter<'state, TableId>,
+    archetype_id_iter: std::slice::Iter<'state, ArchetypeId>,
+    table_entities: &'world [Entity],
+    archetype_entities: &'world [ArchetypeEntity],
+    fetch: Q::Fetch<'world>,
+    filter: F::Fetch<'world>,
     // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
     current_len: usize,
     // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
@@ -458,7 +472,9 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery>
+    QueryIterationCursor<'world, 'state, Q, F>
+{
     /// This function is safe to call if `(Q, F): ReadOnlyWorldQuery` holds.
     ///
     /// # Safety
@@ -481,12 +497,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery>
+    QueryIterationCursor<'world, 'state, Q, F>
+{
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
     unsafe fn init_empty(
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
+        world: &'world World,
+        query_state: &'state QueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -498,8 +516,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     }
 
     unsafe fn init(
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
+        world: &'world World,
+        query_state: &'state QueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -520,7 +538,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
-    unsafe fn peek_last(&mut self) -> Option<Q::Item<'w>> {
+    unsafe fn peek_last(&mut self) -> Option<Q::Item<'world>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
             if Self::IS_DENSE {
@@ -543,7 +561,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     ///
     /// Note that if `Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
-    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+    fn max_remaining(&self, tables: &'world Tables, archetypes: &'world Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
             let ids = self.table_id_iter.clone();
             ids.map(|id| tables[*id].entity_count()).sum()
@@ -563,10 +581,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     #[inline(always)]
     unsafe fn next(
         &mut self,
-        tables: &'w Tables,
-        archetypes: &'w Archetypes,
-        query_state: &'s QueryState<Q, F>,
-    ) -> Option<Q::Item<'w>> {
+        tables: &'world Tables,
+        archetypes: &'world Archetypes,
+        query_state: &'state QueryState<Q, F>,
+    ) -> Option<Q::Item<'world>> {
         if Self::IS_DENSE {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next

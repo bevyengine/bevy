@@ -1088,15 +1088,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     type ItemWorldQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
-            'w,
+            'world,
             Self::ViewWorldQuery,
         >,
         _entity: (),
-        _: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        _: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         pass.set_bind_group(
             I,
@@ -1117,12 +1117,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         Option<Read<SkinnedMeshJoints>>,
     );
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
         (mesh_index, skinned_mesh_joints): ROQueryItem<'_, Self::ItemWorldQuery>,
-        mesh_bind_group: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        mesh_bind_group: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         if let Some(joints) = skinned_mesh_joints {
             pass.set_bind_group(
@@ -1147,12 +1147,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<Handle<Mesh>>;
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
         mesh_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        meshes: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));

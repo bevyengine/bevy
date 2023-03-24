@@ -306,12 +306,12 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     type ItemWorldQuery = Read<Handle<M>>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
         material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        materials: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         let material2d = materials.into_inner().get(material2d_handle).unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);

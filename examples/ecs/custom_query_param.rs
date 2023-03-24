@@ -155,8 +155,8 @@ fn print_components_iter(
     println!();
 }
 
-type NestedTupleQuery<'w> = (&'w ComponentC, &'w ComponentD);
-type GenericTupleQuery<'w, T, P> = (&'w T, &'w P);
+type NestedTupleQuery<'world> = (&'world ComponentC, &'world ComponentD);
+type GenericTupleQuery<'world, T, P> = (&'world T, &'world P);
 
 fn print_components_tuple(
     query: Query<

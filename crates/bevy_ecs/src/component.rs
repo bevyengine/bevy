@@ -760,7 +760,7 @@ impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
     }
 }
 
-impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
+impl<'state, T: Component> From<Local<'state, ComponentIdFor<T>>> for ComponentId {
     fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
         **to_component_id
     }

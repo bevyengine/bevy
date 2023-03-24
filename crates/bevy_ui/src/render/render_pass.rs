@@ -131,12 +131,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type ViewWorldQuery = Read<ViewUniformOffset>;
     type ItemWorldQuery = ();
 
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
-        view_uniform: &'w ViewUniformOffset,
+        view_uniform: &'world ViewUniformOffset,
         _entity: (),
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        ui_meta: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         pass.set_bind_group(
             I,
@@ -153,12 +153,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     type ItemWorldQuery = Read<UiBatch>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        batch: &'world UiBatch,
+        image_bind_groups: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
@@ -172,12 +172,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type ItemWorldQuery = Read<UiBatch>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        batch: &'world UiBatch,
+        ui_meta: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);

@@ -18,8 +18,8 @@ use super::unsafe_world_cell::UnsafeWorldCell;
 
 /// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
 /// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
-pub struct WorldCell<'w> {
-    pub(crate) world: UnsafeWorldCell<'w>,
+pub struct WorldCell<'world> {
+    pub(crate) world: UnsafeWorldCell<'world>,
     pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
@@ -75,7 +75,7 @@ impl ArchetypeComponentAccess {
     }
 }
 
-impl<'w> Drop for WorldCell<'w> {
+impl<'world> Drop for WorldCell<'world> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
 
@@ -91,15 +91,15 @@ impl<'w> Drop for WorldCell<'w> {
     }
 }
 
-pub struct WorldBorrow<'w, T> {
-    value: &'w T,
+pub struct WorldBorrow<'world, T> {
+    value: &'world T,
     archetype_component_id: ArchetypeComponentId,
     access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
-impl<'w, T> WorldBorrow<'w, T> {
+impl<'world, T> WorldBorrow<'world, T> {
     fn try_new(
-        value: impl FnOnce() -> Option<&'w T>,
+        value: impl FnOnce() -> Option<&'world T>,
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
     ) -> Option<Self> {
@@ -117,7 +117,7 @@ impl<'w, T> WorldBorrow<'w, T> {
     }
 }
 
-impl<'w, T> Deref for WorldBorrow<'w, T> {
+impl<'world, T> Deref for WorldBorrow<'world, T> {
     type Target = T;
 
     #[inline]
@@ -126,22 +126,22 @@ impl<'w, T> Deref for WorldBorrow<'w, T> {
     }
 }
 
-impl<'w, T> Drop for WorldBorrow<'w, T> {
+impl<'world, T> Drop for WorldBorrow<'world, T> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
         access.drop_read(self.archetype_component_id);
     }
 }
 
-pub struct WorldBorrowMut<'w, T> {
-    value: Mut<'w, T>,
+pub struct WorldBorrowMut<'world, T> {
+    value: Mut<'world, T>,
     archetype_component_id: ArchetypeComponentId,
     access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
-impl<'w, T> WorldBorrowMut<'w, T> {
+impl<'world, T> WorldBorrowMut<'world, T> {
     fn try_new(
-        value: impl FnOnce() -> Option<Mut<'w, T>>,
+        value: impl FnOnce() -> Option<Mut<'world, T>>,
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
     ) -> Option<Self> {
@@ -159,7 +159,7 @@ impl<'w, T> WorldBorrowMut<'w, T> {
     }
 }
 
-impl<'w, T> Deref for WorldBorrowMut<'w, T> {
+impl<'world, T> Deref for WorldBorrowMut<'world, T> {
     type Target = T;
 
     #[inline]
@@ -168,21 +168,21 @@ impl<'w, T> Deref for WorldBorrowMut<'w, T> {
     }
 }
 
-impl<'w, T> DerefMut for WorldBorrowMut<'w, T> {
+impl<'world, T> DerefMut for WorldBorrowMut<'world, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
     }
 }
 
-impl<'w, T> Drop for WorldBorrowMut<'w, T> {
+impl<'world, T> Drop for WorldBorrowMut<'world, T> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
         access.drop_write(self.archetype_component_id);
     }
 }
 
-impl<'w> WorldCell<'w> {
-    pub(crate) fn new(world: &'w mut World) -> Self {
+impl<'world> WorldCell<'world> {
+    pub(crate) fn new(world: &'world mut World) -> Self {
         // this is cheap because ArchetypeComponentAccess::new() is const / allocation free
         let access = std::mem::replace(
             &mut world.archetype_component_access,

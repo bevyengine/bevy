@@ -286,13 +286,15 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     force_read_only_component_access: bool,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug
+    for Query<'world, 'state, Q, F>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_run: {:?}, this_run: {:?} }}", self.iter().count(), self.world, self.state, self.last_run, self.this_run)
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'world, 'state, Q, F> {
     /// Creates a new query.
     ///
     /// # Panics
@@ -305,8 +307,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// called in ways that ensure the queries have unique mutable access.
     #[inline]
     pub(crate) unsafe fn new(
-        world: &'w World,
-        state: &'s QueryState<Q, F>,
+        world: &'world World,
+        state: &'state QueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
         force_read_only_component_access: bool,
@@ -327,7 +329,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// For example, `Query<(&mut A, &B, &mut C), With<D>>` will become `Query<(&A, &B, &C), With<D>>`.
     /// This can be useful when working around the borrow checker,
     /// or reusing functionality between systems via functions that accept query types.
-    pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn to_readonly(&self) -> Query<'_, 'state, Q::ReadOnly, F::ReadOnly> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
         unsafe {
@@ -368,7 +370,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter_mut`](Self::iter_mut) for mutable query items.
     /// - [`for_each`](Self::for_each) for the closure based alternative.
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn iter(&self) -> QueryIter<'_, 'state, Q::ReadOnly, F::ReadOnly> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -403,7 +405,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) for read-only query items.
     /// - [`for_each_mut`](Self::for_each_mut) for the closure based alternative.
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, Q, F> {
+    pub fn iter_mut(&mut self) -> QueryIter<'_, 'state, Q, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -434,7 +436,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     pub fn iter_combinations<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
+    ) -> QueryCombinationIter<'_, 'state, Q::ReadOnly, F::ReadOnly, K> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -468,7 +470,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,
-    ) -> QueryCombinationIter<'_, 's, Q, F, K> {
+    ) -> QueryCombinationIter<'_, 'state, Q, F, K> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -517,7 +519,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_many<EntityList: IntoIterator>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, Q::ReadOnly, F::ReadOnly, EntityList::IntoIter>
+    ) -> QueryManyIter<'_, 'state, Q::ReadOnly, F::ReadOnly, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -570,7 +572,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_many_mut<EntityList: IntoIterator>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, Q, F, EntityList::IntoIter>
+    ) -> QueryManyIter<'_, 'state, Q, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -597,7 +599,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// - [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) for the safe versions.
     #[inline]
-    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, Q, F> {
+    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 'state, Q, F> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state
@@ -617,7 +619,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, Q, F, K> {
+    ) -> QueryCombinationIter<'_, 'state, Q, F, K> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state
@@ -638,7 +640,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub unsafe fn iter_many_unsafe<EntityList: IntoIterator>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, Q, F, EntityList::IntoIter>
+    ) -> QueryManyIter<'_, 'state, Q, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -1339,18 +1341,22 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
-    type Item = ROQueryItem<'w, Q>;
-    type IntoIter = QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly>;
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator
+    for &'world Query<'_, 'state, Q, F>
+{
+    type Item = ROQueryItem<'world, Q>;
+    type IntoIter = QueryIter<'world, 'state, Q::ReadOnly, F::ReadOnly>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Query<'_, 's, Q, F> {
-    type Item = Q::Item<'w>;
-    type IntoIter = QueryIter<'w, 's, Q, F>;
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator
+    for &'world mut Query<'_, 'state, Q, F>
+{
+    type Item = Q::Item<'world>;
+    type IntoIter = QueryIter<'world, 'state, Q, F>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
@@ -1393,7 +1399,7 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
+impl<'world, 'state, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'world, 'state, Q, F> {
     /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
@@ -1427,7 +1433,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
-    pub fn get_inner(&self, entity: Entity) -> Result<ROQueryItem<'w, Q>, QueryEntityError> {
+    pub fn get_inner(&self, entity: Entity) -> Result<ROQueryItem<'world, Q>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1464,7 +1470,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn iter_inner(&self) -> QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn iter_inner(&self) -> QueryIter<'world, 'state, Q::ReadOnly, F::ReadOnly> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {

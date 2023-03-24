@@ -5,8 +5,8 @@ use bevy_ecs::system::{ReadOnlySystemParam, SystemParam, SystemState};
 struct Foo;
 
 #[derive(SystemParam)]
-struct Mutable<'w, 's> {
-    a: Query<'w, 's, &'static mut Foo>,
+struct Mutable<'world, 'state> {
+    a: Query<'world, 'state, &'static mut Foo>,
 }
 
 fn main() {

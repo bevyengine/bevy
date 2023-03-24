@@ -25,7 +25,7 @@ pub struct ReflectAsset {
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
     set: fn(&mut World, HandleUntyped, &dyn Reflect) -> HandleUntyped,
     len: fn(&World) -> usize,
-    ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = HandleId> + 'w>,
+    ids: for<'world> fn(&'world World) -> Box<dyn Iterator<Item = HandleId> + 'world>,
     remove: fn(&mut World, HandleUntyped) -> Option<Box<dyn Reflect>>,
 }
 
@@ -46,16 +46,20 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get`]
-    pub fn get<'w>(&self, world: &'w World, handle: HandleUntyped) -> Option<&'w dyn Reflect> {
+    pub fn get<'world>(
+        &self,
+        world: &'world World,
+        handle: HandleUntyped,
+    ) -> Option<&'world dyn Reflect> {
         (self.get)(world, handle)
     }
 
     /// Equivalent of [`Assets::get_mut`]
-    pub fn get_mut<'w>(
+    pub fn get_mut<'world>(
         &self,
-        world: &'w mut World,
+        world: &'world mut World,
         handle: HandleUntyped,
-    ) -> Option<&'w mut dyn Reflect> {
+    ) -> Option<&'world mut dyn Reflect> {
         // SAFETY: unique world access
         unsafe { (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle) }
     }
@@ -87,11 +91,11 @@ impl ReflectAsset {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
-    pub unsafe fn get_unchecked_mut<'w>(
+    pub unsafe fn get_unchecked_mut<'world>(
         &self,
-        world: UnsafeWorldCell<'w>,
+        world: UnsafeWorldCell<'world>,
         handle: HandleUntyped,
-    ) -> Option<&'w mut dyn Reflect> {
+    ) -> Option<&'world mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
         (self.get_unchecked_mut)(world, handle)
     }
@@ -127,7 +131,7 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::ids`]
-    pub fn ids<'w>(&self, world: &'w World) -> impl Iterator<Item = HandleId> + 'w {
+    pub fn ids<'world>(&self, world: &'world World) -> impl Iterator<Item = HandleId> + 'world {
         (self.ids)(world)
     }
 }
