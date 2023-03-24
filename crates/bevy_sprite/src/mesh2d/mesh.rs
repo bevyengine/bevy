@@ -164,6 +164,7 @@ pub struct Mesh2dPipeline {
     pub mesh_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
+    pub shader_defs: Vec<ShaderDefVal>,
 }
 
 impl FromWorld for Mesh2dPipeline {
@@ -256,10 +257,14 @@ impl FromWorld for Mesh2dPipeline {
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
+
+        let shader_defs = world.resource::<BaseShaderDefs>().to_vec();
+
         Mesh2dPipeline {
             view_layout,
             mesh_layout,
             dummy_white_gpu_image,
+            shader_defs,
         }
     }
 }
@@ -362,7 +367,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut shader_defs = Vec::new();
+        let mut shader_defs = self.shader_defs.clone();
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {

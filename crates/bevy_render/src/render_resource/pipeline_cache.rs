@@ -10,6 +10,7 @@ use crate::{
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_utils::{
@@ -161,6 +162,35 @@ impl ShaderDefVal {
     }
 }
 
+/// Provides globally-constant shader definitions to pipeline implementors.
+///
+/// Contains the following definitions:
+///
+/// - `NO_ARRAY_TEXTURES_SUPPORT`
+/// - `SIXTEEN_BYTE_ALIGNMENT`
+/// - `AVAILABLE_STORAGE_BUFFER_BINDINGS`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deref, DerefMut, Resource)]
+pub struct BaseShaderDefs(pub Vec<ShaderDefVal>);
+
+impl BaseShaderDefs {
+    pub fn new(device: &RenderDevice) -> Self {
+        let mut shader_defs = vec![];
+
+        #[cfg(feature = "webgl")]
+        {
+            shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+            shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
+
+        shader_defs.push(ShaderDefVal::UInt(
+            String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+            device.limits().max_storage_buffers_per_shader_stage,
+        ));
+
+        BaseShaderDefs(shader_defs)
+    }
+}
+
 impl ShaderCache {
     fn get(
         &mut self,
@@ -193,17 +223,7 @@ impl ShaderCache {
         let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
-                let mut shader_defs = shader_defs.to_vec();
-                #[cfg(feature = "webgl")]
-                {
-                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
-                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
-                }
-
-                shader_defs.push(ShaderDefVal::UInt(
-                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage,
-                ));
+                let shader_defs = shader_defs.to_vec();
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
@@ -697,6 +717,7 @@ impl PipelineCache {
                     // shader could not be processed ... retrying won't help
                     PipelineCacheError::ProcessShaderError(err) => {
                         error!("failed to process shader: {}", err);
+                        error!("{:#?}", pipeline.descriptor);
                         continue;
                     }
                     PipelineCacheError::AsModuleDescriptorError(err, source) => {
