@@ -21,7 +21,6 @@ pub mod world;
 
 use std::any::TypeId;
 
-use bevy_ecs_macros::States;
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
@@ -1711,6 +1710,7 @@ mod tests {
 
     #[test]
     fn fieldful_and_fieldless_states() {
+        use bevy_ecs_macros::States;
         #[derive(Hash, Eq, PartialEq, Clone, Debug, States)]
         pub enum Foo {
             Fieldless,
@@ -1741,5 +1741,4 @@ mod tests {
             ]
         )
     }
-
 }
