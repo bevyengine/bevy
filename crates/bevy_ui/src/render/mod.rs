@@ -296,8 +296,7 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
-        let inverse_scale_factor = scale_factor.recip();
-    
+    let inverse_scale_factor = scale_factor.recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
@@ -330,7 +329,8 @@ pub fn extract_text_uinodes(
                 rect.max *= inverse_scale_factor;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: transform * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                    transform: transform
+                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
                     rect,
                     image: atlas.texture.clone_weak(),
