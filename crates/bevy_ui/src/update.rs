@@ -44,8 +44,8 @@ fn update_clipping(
     if let Some(mut calculated_clip) = maybe_calculated_clip {
         if let Some(inherited_clip) = maybe_inherited_clip {
             // Replace the previous calculated clip with the inherited clipping rect
-            *calculated_clip = CalculatedClip {
-                clip: inherited_clip,
+            if calculated_clip.clip != inherited_clip {
+                *calculated_clip = CalculatedClip { clip: inherited_clip };
             }
         } else {
             // No inherited clipping rect, remove the component
