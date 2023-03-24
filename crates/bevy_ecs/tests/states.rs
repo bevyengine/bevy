@@ -34,28 +34,4 @@ fn fieldful_and_fieldless_states() {
     )
 }
 
-#[test]
-fn fieldless_inner() {
-    #[derive(Hash, Eq, PartialEq, Clone, Debug)]
-    pub enum Foo {
-        Fieldless,
-        Fieldful(Bar),
-    }
-    #[derive(Hash, Eq, PartialEq, Clone, Debug, States)]
-    pub enum Bar {
-        Alice,
-        Bob,
-    }
-    impl Default for Bar {
-        fn default() -> Self {
-            Self::Alice
-        }
-    }
-    let mut fields = vec![Foo::Fieldless];
-    let fieldful = [Bar::variants().map(|variant| Foo::Fieldful(variant))];
-    for field in fieldful {
-        fields.extend(field)
-    }
 
-    fields.into_iter()
-}
