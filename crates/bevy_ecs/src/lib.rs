@@ -1733,6 +1733,6 @@ mod tests {
                 Foo::Fieldful(Bar::Alice),
                 Foo::Fieldful(Bar::Bob)
             ]
-        )
+        );
     }
 }
