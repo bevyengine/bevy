@@ -692,7 +692,7 @@ pub mod common_conditions {
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
     pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| *current_state.get() == state
+        move |current_state: Res<State<S>>| *current_state == state
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -751,7 +751,7 @@ pub mod common_conditions {
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
         move |current_state: Option<Res<State<S>>>| match current_state {
-            Some(current_state) => *current_state.get() == state,
+            Some(current_state) => *current_state == state,
             None => false,
         }
     }

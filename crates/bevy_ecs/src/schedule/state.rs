@@ -99,6 +99,12 @@ impl<S: States> State<S> {
     }
 }
 
+impl<S: States> PartialEq<S> for State<S> {
+    fn eq(&self, other: &S) -> bool {
+        self.get() == other
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
