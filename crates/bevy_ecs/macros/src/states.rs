@@ -1,7 +1,7 @@
 use proc_macro::{Span, TokenStream};
 use proc_macro2::Ident;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data::Enum, DeriveInput};
+use syn::{parse_macro_input, spanned::Spanned, Data::Enum, DeriveInput, Field, Fields};
 
 use crate::bevy_ecs_path;
 
@@ -10,7 +10,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     let error = || {
         syn::Error::new(
             Span::call_site().into(),
-            "derive(States) only supports enums whose fields also implement States.",
+            "derive(States) only supports enums (additionaly, all of the fields need to implement States too)",
         )
         .into_compile_error()
         .into()
@@ -18,7 +18,36 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     let Enum(enumeration) = ast.data else {
         return error();
     };
+    let mut error: Option<syn::Error> = None;
+    let non_unnamed = enumeration.variants.iter().filter(|v| {
+        if let Fields::Named(_) = v.fields {
+            true
+        } else {
+            false
+        }
+    });
+    for variant in non_unnamed {
+        let err = syn::Error::new(
+            variant.span(),
+            format!(
+                "Expected either unit (e.g. None) or unnamed field (e.g. Some(T)), found {}",
+                match variant.fields {
+                    Fields::Named(_) => "named structs (e.g. Foo { bar: bool }",
+                    _ => unreachable!(),
+                }
+            ),
+        );
+        match &mut error {
+            Some(error) => error.combine(err),
+            None => error = Some(err),
+        }
+    }
 
+    if let Some(error) = error {
+        return error.into_compile_error().into();
+    }
+
+    {}
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -31,25 +60,27 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
         .iter()
         .filter(|v| v.fields.is_empty())
         .map(|v| &v.ident);
-    let fieldful_idents: Vec<&Ident> = enumeration
-        .variants
-        .iter()
-        .filter(|v| !v.fields.is_empty())
-        .map(|v| &v.ident)
+    let fieldful_variants = enumeration.variants.iter().filter(|v| !v.fields.is_empty());
+    let fieldful_idents: Vec<&Ident> = fieldful_variants.clone().map(|v| &v.ident).collect();
+    let fieldful_values: Vec<&Field> = fieldful_variants
+        .map(|v| match &v.fields {
+            syn::Fields::Unnamed(field) => &field.unnamed,
+            _ => unreachable!(),
+        })
+        .flatten()
         .collect();
+
     let len = enumeration.variants.len();
     let (variants_impl, iter_type) = if fieldful_idents.len() > 0 {
         (
             quote! {
-                let mut fields = vec![#(Self::#fieldless_idents,)*];
-                let fieldful = [#(<Self::#fieldful_idents as States>::variants().map(|variant| {
-                            Self::#fieldful_idents(variant)
-                }),)*];
-                for field in fieldful {
-                    fields.extend(field)
-                }
 
-                fields.into_iter()
+                [vec![#(Self::#fieldless_idents,)*], #(<#fieldful_values as #trait_path>::variants().map(|variant| {
+                            Self::#fieldful_idents(variant)
+                }).collect::<Vec<Self>>(),)*].into_iter()
+                .flatten()
+                .collect::<Vec<Self>>()
+                .into_iter()
             },
             quote! {std::vec::IntoIter<Self>},
         )
@@ -59,7 +90,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
             quote! {std::array::IntoIter<Self, #len>},
         )
     };
-    quote! {
+    let token = quote! {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
             type Iter = #iter_type;
 
@@ -67,6 +98,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
                 #variants_impl
             }
         }
-    }
-    .into()
+    };
+    println!("{}", token);
+    token.into()
 }
