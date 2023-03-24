@@ -19,13 +19,10 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
         return error();
     };
     let mut error: Option<syn::Error> = None;
-    let non_unnamed = enumeration.variants.iter().filter(|v| {
-        if let Fields::Named(_) = v.fields {
-            true
-        } else {
-            false
-        }
-    });
+    let non_unnamed = enumeration
+        .variants
+        .iter()
+        .filter(|v| matches!(v.fields, Fields::Named(_)));
     for variant in non_unnamed {
         let err = syn::Error::new(
             variant.span(),
@@ -63,15 +60,14 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     let fieldful_variants = enumeration.variants.iter().filter(|v| !v.fields.is_empty());
     let fieldful_idents: Vec<&Ident> = fieldful_variants.clone().map(|v| &v.ident).collect();
     let fieldful_values: Vec<&Field> = fieldful_variants
-        .map(|v| match &v.fields {
+        .flat_map(|v| match &v.fields {
             syn::Fields::Unnamed(field) => &field.unnamed,
             _ => unreachable!(),
         })
-        .flatten()
         .collect();
 
     let len = enumeration.variants.len();
-    let (variants_impl, iter_type) = if fieldful_idents.len() > 0 {
+    let (variants_impl, iter_type) = if !fieldful_idents.is_empty() {
         (
             quote! {
 
