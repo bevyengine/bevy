@@ -47,6 +47,7 @@ impl SystemBuffer for GizmoBuffer {
 impl<'s> Gizmos<'s> {
     /// Draw a line from `start` to `end`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -64,6 +65,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line with a color gradient from `start` to `end`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -81,6 +83,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line from `start` to `start + vector`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -97,6 +100,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line with a color gradient from `start` to `start + vector`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -119,6 +123,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines between a list of points.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -140,6 +145,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines between a list of points with a color gradient.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -178,6 +184,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a circle at `position` with the flat side facing `normal`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -213,6 +220,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe sphere made out of 3 circles.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -248,6 +256,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe rectangle.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -265,6 +274,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe cube.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -293,6 +303,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line from `start` to `end`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -309,6 +320,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line with a color gradient from `start` to `end`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -331,6 +343,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines between a list of points.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -347,6 +360,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines between a list of points with a color gradient.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -371,6 +385,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line from `start` to `start + vector`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -387,6 +402,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line with a color gradient from `start` to `start + vector`.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -409,6 +425,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a circle.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -442,6 +459,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe rectangle.
     ///
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
