@@ -20,15 +20,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Define your control points
-    // These point will build a curve looking like
-    //
-    // y
-    // │     .``.
-    // │    .-``-.
-    // │ .-`      `-.
-    // ●─────────────── x
-    //
-    // (Do not comment my ascii art graph skills)
+    // These points will define the curve
+    // You can learn more about bezier curves here
+    // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
     let control_point1 = Vec3::new(-6., 2., 0.);
     let control_point2 = Vec3::new(12., 8., 0.);
 
