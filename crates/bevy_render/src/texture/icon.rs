@@ -86,13 +86,28 @@ pub fn set_window_icon(
     }
 }
 
+const MAX_ATTEMPTS: usize = 100;
+
 pub fn image_asset_loaded() -> impl FnMut(Res<AssetServer>, Query<&WindowIcon>) -> bool {
     let mut has_run = false;
+    let mut attempts = 0;
 
     move |asset_server: Res<_>, query: Query<_>| {
         if has_run {
             return false;
         }
+
+        if attempts >= MAX_ATTEMPTS {
+            if attempts == MAX_ATTEMPTS {
+                // There was a problem loading the asset; perhaps the path to the asset was
+                // misspelled.
+                warn!("window icon asset not loaded after {MAX_ATTEMPTS} iterations");
+            }
+            has_run = true;
+            return false;
+        }
+
+        attempts += 1;
 
         let loaded = query.iter().all(|WindowIcon(maybe_handle)| {
             maybe_handle
@@ -168,10 +183,7 @@ impl<'a> From<MaybeImage<'a>> for Option<Icon> {
                 }
             }
 
-            MaybeImage(None) => {
-                warn!("window icon image asset not loaded");
-                None
-            }
+            MaybeImage(None) => None,
         }
     }
 }
