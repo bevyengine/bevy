@@ -150,10 +150,10 @@ impl Frustum {
         view_projection: &Mat4,
         view_translation: &Vec3,
         view_backward: &Vec3,
-        far: f32,
+        far: Option<f32>,
     ) -> Self {
         let mut frustum = Frustum::from_view_projection_no_far(view_projection);
-        let far_center = *view_translation - far * *view_backward;
+        let far_center = *view_translation - far.unwrap_or_default() * *view_backward;
         frustum.planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
         frustum
     }
