@@ -37,12 +37,28 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
-/// ## Attributes
+/// ## Struct-Level Attributes
+///
+/// `#[system_param(error_type = E)]`:
+/// Can be added to implement [`FallibleSystemParam`] instead with the specified error type.
+/// This allows the system param to be used as `T`, `Option<T>`, and `Result<T, E>`.
+/// `E` should also implement [`From`](std::convert::From) for all error types that can be thrown by fields.
+/// Alternatively, fields can be marked `#[system_param(fallible)]` to opt-out of error handling.
+///
+/// ## Field-Level Attributes
 ///
 /// `#[system_param(ignore)]`:
 /// Can be added to any field in the struct. Fields decorated with this attribute
 /// will be created with the default value upon realisation.
 /// This is most useful for `PhantomData` fields, such as markers for generic types.
+///
+/// `#[system_param(fallible)]`:
+/// Can be added to any field in the struct.
+/// Only has an effect in structs marked with `#[system_param(error_type = E)]`.
+/// Instead of getting the field as a [`FallibleSystemParam`],
+/// it will get it as a [`SystemParam`].
+/// This is most useful for using types that only implement
+/// [`SystemParam`] inside a [`FallibleSystemParam`].
 ///
 /// # Example
 ///
@@ -158,7 +174,7 @@ pub unsafe trait SystemParam: Sized {
 /// # #[derive(Resource)]
 /// # struct SomeResource;
 /// use std::marker::PhantomData;
-/// use bevy_ecs::system::{SystemParam, MissingSystemParam};
+/// use bevy_ecs::system::{SystemParam, ResError};
 ///
 /// #[derive(SystemParam)]
 /// #[system_param(error_type = MyParamError)]
@@ -181,8 +197,8 @@ pub unsafe trait SystemParam: Sized {
 ///
 /// impl std::error::Error for MyParamError {}
 ///
-/// impl From<MissingSystemParam<Res<'_, SomeResource>>> for MyParamError {
-///     fn from(_: MissingSystemParam<Res<'_, SomeResource>>) -> Self {
+/// impl From<ResError<SomeResource>> for MyParamError {
+///     fn from(_: ResError<SomeResource>) -> Self {
 ///         MyParamError::Foo
 ///     }
 /// }
@@ -338,44 +354,6 @@ unsafe impl<T: FallibleSystemParam> SystemParam for Result<T, T::Error> {
         T::get_param(state, system_meta, world, change_tick)
     }
 }
-
-pub struct MissingSystemParam<T: FallibleSystemParam> {
-    system_name: Cow<'static, str>,
-    _marker: PhantomData<T>,
-}
-
-impl<T: FallibleSystemParam> MissingSystemParam<T> {
-    pub fn new(system_name: Cow<'static, str>) -> Self {
-        Self {
-            system_name,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: FallibleSystemParam> std::fmt::Debug for MissingSystemParam<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "SystemParamError<{}> {{ system_name: \"{}\" }}",
-            std::any::type_name::<T>(),
-            self.system_name
-        )
-    }
-}
-
-impl<T: FallibleSystemParam> std::fmt::Display for MissingSystemParam<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "`{}` requested by `{}` does not exist",
-            std::any::type_name::<T>(),
-            self.system_name
-        )
-    }
-}
-
-impl<T: FallibleSystemParam> Error for MissingSystemParam<T> {}
 
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
@@ -646,6 +624,36 @@ impl_param_set!();
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
+/// An error returned when a system fails to get a [`Res`].
+pub struct ResError<T: Resource> {
+    pub system_name: Cow<'static, str>,
+    _marker: PhantomData<T>,
+}
+
+impl<T: Resource> std::fmt::Debug for ResError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ResError<{}> {{ system_name: {} }}",
+            std::any::type_name::<T>(),
+            self.system_name
+        )
+    }
+}
+
+impl<T: Resource> std::fmt::Display for ResError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Resource requested by `{}` does not exist: `{}`",
+            self.system_name,
+            std::any::type_name::<T>()
+        )
+    }
+}
+
+impl<T: Resource> Error for ResError<T> {}
+
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
@@ -654,7 +662,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 unsafe impl<'a, T: Resource> FallibleSystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
-    type Error = MissingSystemParam<Res<'static, T>>;
+    type Error = ResError<T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -698,16 +706,49 @@ unsafe impl<'a, T: Resource> FallibleSystemParam for Res<'a, T> {
                     this_run: change_tick,
                 },
             })
-            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
+            .ok_or(ResError {
+                system_name: system_meta.name.clone(),
+                _marker: PhantomData,
+            })
     }
 }
+
+/// An error returned when a system fails to get a [`ResMut`].
+pub struct ResMutError<T: Resource> {
+    pub system_name: Cow<'static, str>,
+    _marker: PhantomData<T>,
+}
+
+impl<T: Resource> std::fmt::Debug for ResMutError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ResMutError<{}> {{ system_name: {} }}",
+            std::any::type_name::<T>(),
+            self.system_name
+        )
+    }
+}
+
+impl<T: Resource> std::fmt::Display for ResMutError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Mutable resource requested by `{}` does not exist: `{}`",
+            self.system_name,
+            std::any::type_name::<T>()
+        )
+    }
+}
+
+impl<T: Resource> Error for ResMutError<T> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> FallibleSystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
-    type Error = MissingSystemParam<ResMut<'static, T>>;
+    type Error = ResMutError<T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -754,7 +795,10 @@ unsafe impl<'a, T: Resource> FallibleSystemParam for ResMut<'a, T> {
                     this_run: change_tick,
                 },
             })
-            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
+            .ok_or(ResMutError {
+                system_name: system_meta.name.clone(),
+                _marker: PhantomData,
+            })
     }
 }
 
@@ -1158,12 +1202,42 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     }
 }
 
+/// An error returned when a system fails to get a [`NonSend`].
+pub struct NonSendError<T: 'static> {
+    pub system_name: Cow<'static, str>,
+    _marker: PhantomData<T>,
+}
+
+impl<T: 'static> std::fmt::Debug for NonSendError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "NonSendError<{}> {{ system_name: {} }}",
+            std::any::type_name::<T>(),
+            self.system_name
+        )
+    }
+}
+
+impl<T: 'static> std::fmt::Display for NonSendError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Non-send resource requested by `{}` does not exist: `{}`",
+            self.system_name,
+            std::any::type_name::<T>()
+        )
+    }
+}
+
+impl<T: 'static> Error for NonSendError<T> {}
+
 // SAFETY: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> FallibleSystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
-    type Error = MissingSystemParam<NonSend<'static, T>>;
+    type Error = NonSendError<T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1206,16 +1280,49 @@ unsafe impl<'a, T: 'static> FallibleSystemParam for NonSend<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             })
-            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
+            .ok_or(NonSendError {
+                system_name: system_meta.name.clone(),
+                _marker: PhantomData,
+            })
     }
 }
+
+/// An error returned when a system fails to get a [`NonSendMut`].
+pub struct NonSendMutError<T: 'static> {
+    pub system_name: Cow<'static, str>,
+    _marker: PhantomData<T>,
+}
+
+impl<T: 'static> std::fmt::Debug for NonSendMutError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "NonSendMutError<{}> {{ system_name: {} }}",
+            std::any::type_name::<T>(),
+            self.system_name
+        )
+    }
+}
+
+impl<T: 'static> std::fmt::Display for NonSendMutError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Mutable non-send resource requested by `{}` does not exist: `{}`",
+            self.system_name,
+            std::any::type_name::<T>()
+        )
+    }
+}
+
+impl<T: 'static> Error for NonSendMutError<T> {}
 
 // SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> FallibleSystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
-    type Error = MissingSystemParam<NonSendMut<'static, T>>;
+    type Error = NonSendMutError<T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1259,7 +1366,10 @@ unsafe impl<'a, T: 'static> FallibleSystemParam for NonSendMut<'a, T> {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
             })
-            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
+            .ok_or(NonSendMutError {
+                system_name: system_meta.name.clone(),
+                _marker: PhantomData,
+            })
     }
 }
 
