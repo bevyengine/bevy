@@ -158,10 +158,10 @@ pub unsafe trait SystemParam: Sized {
 /// # #[derive(Resource)]
 /// # struct SomeResource;
 /// use std::marker::PhantomData;
-/// use bevy_ecs::system::{SystemParam, SystemParamError};
+/// use bevy_ecs::system::{SystemParam, MissingSystemParam};
 ///
 /// #[derive(SystemParam)]
-/// #[system_param(error = MyParamError)]
+/// #[system_param(error_type = MyParamError)]
 /// struct MyParam<'w> {
 ///     foo: Res<'w, SomeResource>,
 /// }
@@ -181,8 +181,8 @@ pub unsafe trait SystemParam: Sized {
 ///
 /// impl std::error::Error for MyParamError {}
 ///
-/// impl From<SystemParamError<Res<'_, SomeResource>>> for MyParamError {
-///     fn from(_: SystemParamError<Res<'_, SomeResource>>) -> Self {
+/// impl From<MissingSystemParam<Res<'_, SomeResource>>> for MyParamError {
+///     fn from(_: MissingSystemParam<Res<'_, SomeResource>>) -> Self {
 ///         MyParamError::Foo
 ///     }
 /// }
