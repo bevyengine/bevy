@@ -97,12 +97,10 @@ pub fn image_asset_loaded() -> impl FnMut(Res<AssetServer>, Query<&WindowIcon>) 
             return false;
         }
 
-        if attempts >= MAX_ATTEMPTS {
-            if attempts == MAX_ATTEMPTS {
-                // There was a problem loading the asset; perhaps the path to the asset was
-                // misspelled.
-                warn!("window icon asset not loaded after {MAX_ATTEMPTS} iterations");
-            }
+        if attempts == MAX_ATTEMPTS {
+            // There was a problem loading the asset; perhaps the path to the asset was
+            // misspelled.
+            warn!("window icon asset not loaded after {MAX_ATTEMPTS} iterations");
             has_run = true;
             return false;
         }
