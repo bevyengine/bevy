@@ -336,12 +336,12 @@ unsafe impl<T: FallibleSystemParam> SystemParam for Result<T, T::Error> {
     }
 }
 
-pub struct SystemParamError<T: FallibleSystemParam> {
+pub struct MissingSystemParam<T: FallibleSystemParam> {
     system_name: Cow<'static, str>,
     _marker: PhantomData<T>,
 }
 
-impl<T: FallibleSystemParam> SystemParamError<T> {
+impl<T: FallibleSystemParam> MissingSystemParam<T> {
     pub fn new(system_name: Cow<'static, str>) -> Self {
         Self {
             system_name,
@@ -350,7 +350,7 @@ impl<T: FallibleSystemParam> SystemParamError<T> {
     }
 }
 
-impl<T: FallibleSystemParam> std::fmt::Debug for SystemParamError<T> {
+impl<T: FallibleSystemParam> std::fmt::Debug for MissingSystemParam<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -361,7 +361,7 @@ impl<T: FallibleSystemParam> std::fmt::Debug for SystemParamError<T> {
     }
 }
 
-impl<T: FallibleSystemParam> std::fmt::Display for SystemParamError<T> {
+impl<T: FallibleSystemParam> std::fmt::Display for MissingSystemParam<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -372,7 +372,7 @@ impl<T: FallibleSystemParam> std::fmt::Display for SystemParamError<T> {
     }
 }
 
-impl<T: FallibleSystemParam> Error for SystemParamError<T> {}
+impl<T: FallibleSystemParam> Error for MissingSystemParam<T> {}
 
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
@@ -651,7 +651,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 unsafe impl<'a, T: Resource> FallibleSystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
-    type Error = SystemParamError<Res<'static, T>>;
+    type Error = MissingSystemParam<Res<'static, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -695,7 +695,7 @@ unsafe impl<'a, T: Resource> FallibleSystemParam for Res<'a, T> {
                     this_run: change_tick,
                 },
             })
-            .ok_or(SystemParamError::new(system_meta.name.clone()))
+            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
     }
 }
 
@@ -704,7 +704,7 @@ unsafe impl<'a, T: Resource> FallibleSystemParam for Res<'a, T> {
 unsafe impl<'a, T: Resource> FallibleSystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
-    type Error = SystemParamError<ResMut<'static, T>>;
+    type Error = MissingSystemParam<ResMut<'static, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -751,7 +751,7 @@ unsafe impl<'a, T: Resource> FallibleSystemParam for ResMut<'a, T> {
                     this_run: change_tick,
                 },
             })
-            .ok_or(SystemParamError::new(system_meta.name.clone()))
+            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
     }
 }
 
@@ -1160,7 +1160,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 unsafe impl<'a, T: 'static> FallibleSystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
-    type Error = SystemParamError<NonSend<'static, T>>;
+    type Error = MissingSystemParam<NonSend<'static, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1203,7 +1203,7 @@ unsafe impl<'a, T: 'static> FallibleSystemParam for NonSend<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             })
-            .ok_or(SystemParamError::new(system_meta.name.clone()))
+            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
     }
 }
 
@@ -1212,7 +1212,7 @@ unsafe impl<'a, T: 'static> FallibleSystemParam for NonSend<'a, T> {
 unsafe impl<'a, T: 'static> FallibleSystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
-    type Error = SystemParamError<NonSend<'static, T>>;
+    type Error = MissingSystemParam<NonSendMut<'static, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1256,7 +1256,7 @@ unsafe impl<'a, T: 'static> FallibleSystemParam for NonSendMut<'a, T> {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
             })
-            .ok_or(SystemParamError::new(system_meta.name.clone()))
+            .ok_or(MissingSystemParam::new(system_meta.name.clone()))
     }
 }
 
