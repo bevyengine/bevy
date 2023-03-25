@@ -252,6 +252,7 @@ pub unsafe trait FallibleSystemParam: Sized {
     >;
 }
 
+// SAFETY: `FallibleSystemParam` has the same safety requirements as `SystemParam`.
 unsafe impl<T: FallibleSystemParam> SystemParam for T {
     type State = T::State;
 
@@ -282,6 +283,7 @@ unsafe impl<T: FallibleSystemParam> SystemParam for T {
     }
 }
 
+// SAFETY: `FallibleSystemParam` has the same safety requirements as `SystemParam`.
 unsafe impl<T: FallibleSystemParam> SystemParam for Option<T> {
     type State = T::State;
 
@@ -309,6 +311,7 @@ unsafe impl<T: FallibleSystemParam> SystemParam for Option<T> {
     }
 }
 
+// SAFETY: `FallibleSystemParam` has the same safety requirements as `SystemParam`.
 unsafe impl<T: FallibleSystemParam> SystemParam for Result<T, T::Error> {
     type State = T::State;
 

@@ -267,7 +267,7 @@ enum SystemParamStructAttribute {
 
 impl Parse for SystemParamStructAttribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        if let Ok(_) = input.parse::<kw::error_type>() {
+        if input.parse::<kw::error_type>().is_ok() {
             input.parse::<syn::Token!(=)>()?;
             return Ok(Self::ErrorType(input.parse()?));
         }
@@ -289,11 +289,11 @@ enum SystemParamFieldAttribute {
 
 impl Parse for SystemParamFieldAttribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        if let Ok(_) = input.parse::<kw::ignore>() {
+        if input.parse::<kw::ignore>().is_ok() {
             return Ok(Self::Ignore);
         }
 
-        if let Ok(_) = input.parse::<kw::infallible>() {
+        if input.parse::<kw::infallible>().is_ok() {
             return Ok(Self::Infallible);
         }
 
