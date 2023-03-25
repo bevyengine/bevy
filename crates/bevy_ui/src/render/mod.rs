@@ -29,7 +29,7 @@ use bevy_render::{
 };
 use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
-use bevy_sprite::TextureAtlasLayout;
+use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
@@ -165,6 +165,7 @@ pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
+    atlas_layouts: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -172,13 +173,14 @@ pub fn extract_uinodes(
             &BackgroundColor,
             Option<&UiImage>,
             &ComputedVisibility,
+            Option<&TextureAtlas>,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, color, maybe_image, visibility, atlas, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -195,17 +197,33 @@ pub fn extract_uinodes(
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-
+            // Skip loading images
+            if !images.contains(&image) {
+                continue;
+            }
+            // Skip completely transparent nodes
+            if color.0.a() == 0.0 {
+                continue;
+            }
+            let (atlas_size, rect_min) = atlas
+                .and_then(|a| atlas_layouts.get(&a.layout).map(|l| (l, a.index)))
+                .and_then(|(atlas, index)| {
+                    atlas
+                        .textures
+                        .get(index)
+                        .map(|rect| (Some(atlas.size), rect.min))
+                })
+                .unwrap_or((None, Vec2::ZERO));
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
                 rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    min: rect_min,
+                    max: rect_min + uinode.calculated_size,
                 },
                 image,
-                atlas_size: None,
+                atlas_size,
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,

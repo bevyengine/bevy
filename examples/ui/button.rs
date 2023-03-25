@@ -9,7 +9,7 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
+        .add_systems(Update, (button_system, sheet_button_system))
         .run();
 }
 
@@ -43,7 +43,40 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn sheet_button_system(
+    mut interaction_query: Query<
+        (&Interaction, &mut TextureAtlas),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for (interaction, mut atlas) in interaction_query.iter_mut() {
+        match *interaction {
+            Interaction::Clicked => {
+                atlas.index = 2;
+            }
+            Interaction::Hovered => {
+                atlas.index = 1;
+            }
+            Interaction::None => {
+                atlas.index = 0;
+            }
+        }
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    let handle = asset_server.load("textures/array_texture.png");
+    let layout = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+        Vec2::splat(250.0),
+        1,
+        4,
+        None,
+        None,
+    ));
     // ui camera
     commands.spawn(Camera2dBundle::default());
     commands
@@ -57,6 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
+            // Classic button
             parent
                 .spawn(ButtonBundle {
                     style: Style {
@@ -65,6 +99,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         // vertically center child text
                         align_items: AlignItems::Center,
+                        // center button
+                        margin: UiRect::all(Val::Auto),
                         ..default()
                     },
                     background_color: NORMAL_BUTTON.into(),
@@ -80,5 +116,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     ));
                 });
+            // Texture sheet button
+            parent
+                .spawn(ButtonBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        // center button
+                        margin: UiRect::all(Val::Auto),
+                        ..default()
+                    },
+                    image: handle.into(),
+                    ..default()
+                })
+                .insert(TextureAtlas { layout, index: 0 });
         });
 }
