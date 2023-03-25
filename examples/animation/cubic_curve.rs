@@ -1,10 +1,10 @@
-//! Demonstrates how to work with Bezier curves.
+//! Demonstrates how to work with Cubic curves.
 //!
 
 use bevy::{math::cubic_splines::CubicCurve, prelude::*};
 
 #[derive(Component)]
-pub struct CubeCurve(CubicCurve<Vec3>);
+pub struct Curve(CubicCurve<Vec3>);
 
 fn main() {
     App::new()
@@ -47,7 +47,7 @@ fn setup(
             transform: Transform::from_translation(control_point1),
             ..default()
         },
-        CubeCurve(bezier),
+        Curve(bezier),
     ));
 
     // Some light to see something
@@ -78,16 +78,16 @@ fn setup(
 
 pub fn animate_cube(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &CubeCurve)>,
+    mut query: Query<(&mut Transform, &Curve)>,
     mut gizmos: Gizmos,
 ) {
     let step = (time.elapsed_seconds().sin() + 1.) / 2.;
 
-    for (mut transform, cube_curve) in &mut query {
+    for (mut transform, cubic_curve) in &mut query {
         // Draw the curve
-        gizmos.linestrip(cube_curve.0.iter_positions(50), Color::WHITE);
+        gizmos.linestrip(cubic_curve.0.iter_positions(50), Color::WHITE);
         // position takes a point from the curve where 0 is the initial point
         // and 1 is the last point
-        transform.translation = cube_curve.0.position(step);
+        transform.translation = cubic_curve.0.position(step);
     }
 }
