@@ -9,6 +9,7 @@ pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
 pub mod globals;
+pub mod gpu_component_list;
 pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;

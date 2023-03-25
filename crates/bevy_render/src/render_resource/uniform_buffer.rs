@@ -20,9 +20,11 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuList`](crate::render_resource::GpuList)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -149,6 +151,8 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuList`](crate::render_resource::GpuList)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
@@ -177,6 +181,18 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
 }
 
 impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+    pub fn new_with_alignment(alignment: u64) -> Self {
+        Self {
+            values: Vec::new(),
+            scratch: DynamicUniformBufferWrapper::new_with_alignment(Vec::new(), alignment),
+            buffer: None,
+            capacity: 0,
+            label: None,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+        }
+    }
+
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
