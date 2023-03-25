@@ -1,4 +1,4 @@
-//! Demonstrates how to work with beizer curves.
+//! Demonstrates how to work with Bezier curves.
 //!
 
 use bevy::{math::cubic_splines::CubicCurve, prelude::*};
