@@ -11,7 +11,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(spawn_layout)
+        .add_systems(Startup, spawn_layout)
         .run();
 }
 

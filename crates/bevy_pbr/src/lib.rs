@@ -294,11 +294,5 @@ impl Plugin for PbrPlugin {
             draw_3d_graph::node::SHADOW_PASS,
             bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
         );
-        draw_3d_graph.add_slot_edge(
-            draw_3d_graph.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_3d_graph::node::SHADOW_PASS,
-            ShadowPassNode::IN_VIEW,
-        );
     }
 }

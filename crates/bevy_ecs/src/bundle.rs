@@ -12,6 +12,7 @@ use crate::{
     },
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
+    query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     TypeIdMap,
 };
@@ -269,10 +270,59 @@ impl SparseSetIndex for BundleId {
 
 pub struct BundleInfo {
     id: BundleId,
+    // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,
+    // must have its storage initialized (i.e. columns created in tables, sparse set created),
+    // and must be in the same order as the source bundle type writes its components in.
     component_ids: Vec<ComponentId>,
 }
 
 impl BundleInfo {
+    /// Create a new [`BundleInfo`].
+    ///
+    /// # Safety
+    ///
+    // Every ID in `component_ids` must be valid within the World that owns the BundleInfo,
+    // must have its storage initialized (i.e. columns created in tables, sparse set created),
+    // and must be in the same order as the source bundle type writes its components in.
+    unsafe fn new(
+        bundle_type_name: &'static str,
+        components: &Components,
+        component_ids: Vec<ComponentId>,
+        id: BundleId,
+    ) -> BundleInfo {
+        let mut deduped = component_ids.clone();
+        deduped.sort();
+        deduped.dedup();
+
+        if deduped.len() != component_ids.len() {
+            // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
+            let mut seen = HashSet::new();
+            let mut dups = Vec::new();
+            for id in component_ids {
+                if !seen.insert(id) {
+                    dups.push(id);
+                }
+            }
+
+            let names = dups
+                .into_iter()
+                .map(|id| {
+                    // SAFETY: the caller ensures component_id is valid.
+                    unsafe { components.get_info_unchecked(id).name() }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+        }
+
+        // SAFETY: The caller ensures that component_ids:
+        // - is valid for the associated world
+        // - has had its storage initialized
+        // - is in the same order as the source bundle type
+        BundleInfo { id, component_ids }
+    }
+
     #[inline]
     pub const fn id(&self) -> BundleId {
         self.id
@@ -400,7 +450,10 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
-                    let column = table.get_column_mut(component_id).unwrap();
+                    let column =
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                        // the target table contains the component.
+                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     match bundle_component_status.get_status(bundle_component) {
                         ComponentStatus::Added => {
@@ -412,11 +465,11 @@ impl BundleInfo {
                     }
                 }
                 StorageType::SparseSet => {
-                    sparse_sets.get_mut(component_id).unwrap().insert(
-                        entity,
-                        component_ptr,
-                        change_tick,
-                    );
+                    let sparse_set =
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                        // a sparse set exists for the component.
+                        unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
+                    sparse_set.insert(entity, component_ptr, change_tick);
                 }
             }
             bundle_component += 1;
@@ -543,11 +596,13 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
         match &mut self.result {
             InsertBundleResult::SameArchetype => {
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
-                let add_bundle = self
-                    .archetype
-                    .edges()
-                    .get_add_bundle_internal(self.bundle_info.id)
-                    .unwrap();
+                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
+                let add_bundle = unsafe {
+                    self.archetype
+                        .edges()
+                        .get_add_bundle_internal(self.bundle_info.id)
+                        .debug_checked_unwrap()
+                };
                 self.bundle_info.write_components(
                     self.table,
                     self.sparse_sets,
@@ -562,7 +617,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
+                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     self.entities.set(
                         swapped_entity.index(),
                         EntityLocation {
@@ -577,11 +634,13 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 self.entities.set(entity.index(), new_location);
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
-                let add_bundle = self
-                    .archetype
-                    .edges()
-                    .get_add_bundle_internal(self.bundle_info.id)
-                    .unwrap();
+                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
+                let add_bundle = unsafe {
+                    self.archetype
+                        .edges()
+                        .get_add_bundle_internal(self.bundle_info.id)
+                        .debug_checked_unwrap()
+                };
                 self.bundle_info.write_components(
                     self.table,
                     self.sparse_sets,
@@ -599,7 +658,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
+                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     self.entities.set(
                         swapped_entity.index(),
                         EntityLocation {
@@ -620,7 +681,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
-                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
+                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
                     let swapped_archetype = if self.archetype.id() == swapped_location.archetype_id
                     {
                         &mut *self.archetype
@@ -647,11 +710,13 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 }
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
-                let add_bundle = self
-                    .archetype
-                    .edges()
-                    .get_add_bundle_internal(self.bundle_info.id)
-                    .unwrap();
+                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
+                let add_bundle = unsafe {
+                    self.archetype
+                        .edges()
+                        .get_add_bundle_internal(self.bundle_info.id)
+                        .debug_checked_unwrap()
+                };
                 self.bundle_info.write_components(
                     new_table,
                     self.sparse_sets,
@@ -750,8 +815,11 @@ impl Bundles {
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
-                // SAFETY: T::component_id ensures info was created
-                unsafe { initialize_bundle(std::any::type_name::<T>(), components, component_ids, id) };
+                // SAFETY: T::component_id ensures its: 
+                // - info was created 
+                // - appropriate storage for it has been initialized.
+                // - was created in the same order as the components in T
+                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -818,44 +886,6 @@ impl Bundles {
     }
 }
 
-/// # Safety
-///
-/// `component_id` must be valid [`ComponentId`]'s
-unsafe fn initialize_bundle(
-    bundle_type_name: &'static str,
-    components: &Components,
-    component_ids: Vec<ComponentId>,
-    id: BundleId,
-) -> BundleInfo {
-    let mut deduped = component_ids.clone();
-    deduped.sort();
-    deduped.dedup();
-
-    if deduped.len() != component_ids.len() {
-        // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
-        let mut seen = HashSet::new();
-        let mut dups = Vec::new();
-        for id in component_ids {
-            if !seen.insert(id) {
-                dups.push(id);
-            }
-        }
-
-        let names = dups
-            .into_iter()
-            .map(|id| {
-                // SAFETY: component_id exists and is therefore valid
-                unsafe { components.get_info_unchecked(id).name() }
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        panic!("Bundle {bundle_type_name} has duplicate components: {names}");
-    }
-
-    BundleInfo { id, component_ids }
-}
-
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
@@ -875,7 +905,7 @@ fn initialize_dynamic_bundle(
     let id = BundleId(bundle_infos.len());
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { initialize_bundle("<dynamic bundle>", components, component_ids, id) };
+        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
