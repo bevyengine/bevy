@@ -1410,7 +1410,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: GetTypeRegistration> {
+        struct MyGenericStruct<T> {
             foo: T,
             bar: usize,
         }
@@ -1999,8 +1999,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
-        #[reflect(where T: Default + GetTypeRegistration)]
-        #[reflect(where U: std::ops::Add < T > + GetTypeRegistration)]
+        #[reflect(where T: Default)]
+        #[reflect(where U: std::ops::Add < T >)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -2021,7 +2021,7 @@ bevy_reflect::tests::Test {
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(where T::Assoc: core::fmt::Display + GetTypeRegistration)]
+        #[reflect(where T::Assoc: core::fmt::Display)]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
@@ -2045,7 +2045,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
-        struct Recurse<T: GetTypeRegistration>(T);
+        struct Recurse<T>(T);
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
@@ -2080,7 +2080,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn recursive_registration_does_not_hang() {
         #[derive(Reflect)]
-        struct Recurse<T: GetTypeRegistration>(T);
+        struct Recurse<T>(T);
 
         let mut registry = TypeRegistry::empty();
 

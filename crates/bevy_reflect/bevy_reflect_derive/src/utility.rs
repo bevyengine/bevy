@@ -217,10 +217,14 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
 
             // `TypePath` is always required for active fields since they are used to
             // construct `NamedField` and `UnnamedField` instances for the `Typed` impl.
+            // Likewise, `GetTypeRegistration` is always required for active fields since
+            // they are used to register the type's dependencies.
             Some(
                 self.active_fields
                     .iter()
-                    .map(move |ty| quote!(#ty : #reflect_bound + #bevy_reflect_path::TypePath)),
+                    .map(move |ty| quote!(
+                        #ty : #reflect_bound + #bevy_reflect_path::TypePath + #bevy_reflect_path::GetTypeRegistration
+                    )),
             )
         }
     }
