@@ -507,6 +507,7 @@ pub fn check_visibility<QF>(
         &mut VisibleEntities,
         &Frustum,
         Option<&RenderLayers>,
+        Option<&Projection>,
         &Camera,
         Has<NoCpuCulling>,
     )>,
@@ -529,7 +530,7 @@ pub fn check_visibility<QF>(
 {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+    for (view, mut visible_entities, frustum, maybe_view_mask, maybe_projection, camera, no_cpu_culling) in
         &mut view_query
     {
         if !camera.is_active {
@@ -563,6 +564,11 @@ pub fn check_visibility<QF>(
                     return;
                 }
 
+                let use_far_culling = match maybe_projection {
+                    Some(p) => p.far().is_some(),
+                    None => false,
+                };
+
                 // If outside of the visibility range, cull.
                 if has_visibility_range
                     && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
@@ -581,11 +587,11 @@ pub fn check_visibility<QF>(
                             radius: transform.radius_vec3a(model_aabb.half_extents),
                         };
                         // Do quick sphere-based frustum culling
-                        if !frustum.intersects_sphere(&model_sphere, false) {
+                        if !frustum.intersects_sphere(&model_sphere, use_far_culling) {
                             return;
                         }
                         // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, use_far_culling) {
                             return;
                         }
                     }
