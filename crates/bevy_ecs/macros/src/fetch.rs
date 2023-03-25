@@ -1,9 +1,10 @@
+use bevy_macro_utils::ensure_no_collision;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_quote,
+    parse_macro_input, parse_quote,
     punctuated::Punctuated,
     Attribute, Data, DataStruct, DeriveInput, Field, Fields,
 };
@@ -25,7 +26,10 @@ mod field_attr_keywords {
 
 pub static WORLD_QUERY_ATTRIBUTE_NAME: &str = "world_query";
 
-pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
+pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
+    let tokens = input.clone();
+
+    let ast = parse_macro_input!(input as DeriveInput);
     let visibility = ast.vis;
 
     let mut fetch_struct_attributes = FetchStructAttributes::default();
@@ -104,13 +108,18 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     };
 
     let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
+    let fetch_struct_name = ensure_no_collision(fetch_struct_name, tokens.clone());
     let read_only_fetch_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site())
+        let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
+        ensure_no_collision(new_ident, tokens.clone())
     } else {
         fetch_struct_name.clone()
     };
 
+    // Generate a name for the state struct that doesn't conflict
+    // with the struct definition.
     let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
+    let state_struct_name = ensure_no_collision(state_struct_name, tokens);
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -176,7 +185,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             &field_types
         };
 
-        quote! {
+        let item_struct = quote! {
             #derive_macro_call
             #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
             #[doc = stringify!(#struct_name)]
@@ -186,7 +195,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQuery>::Item<'__w>,)*
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
+        };
 
+        let query_impl = quote! {
             #[doc(hidden)]
             #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
             #[doc = stringify!(#struct_name)]
@@ -222,16 +233,16 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 unsafe fn init_fetch<'__w>(
                     _world: &'__w #path::world::World,
                     state: &Self::State,
-                    _last_change_tick: u32,
-                    _change_tick: u32
+                    _last_run: #path::component::Tick,
+                    _this_run: #path::component::Tick,
                 ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(#field_idents:
                             <#field_types>::init_fetch(
                                 _world,
                                 &state.#field_idents,
-                                _last_change_tick,
-                                _change_tick
+                                _last_run,
+                                _this_run,
                             ),
                         )*
                         #(#ignored_field_idents: Default::default(),)*
@@ -324,26 +335,28 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     true #(&& <#field_types>::matches_component_set(&state.#field_idents, _set_contains_id))*
                 }
             }
-        }
+        };
+        (item_struct, query_impl)
     };
 
-    let mutable_impl = impl_fetch(false);
-    let readonly_impl = if fetch_struct_attributes.is_mutable {
-        let world_query_impl = impl_fetch(true);
-        quote! {
+    let (mutable_struct, mutable_impl) = impl_fetch(false);
+    let (read_only_struct, read_only_impl) = if fetch_struct_attributes.is_mutable {
+        let (readonly_state, read_only_impl) = impl_fetch(true);
+        let read_only_structs = quote! {
             #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
             #[doc = stringify!(#struct_name)]
             #[doc = "`]."]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
-                #( #field_idents: #read_only_field_types, )*
+                #( #field_visibilities #field_idents: #read_only_field_types, )*
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
 
-            #world_query_impl
-        }
+            #readonly_state
+        };
+        (read_only_structs, read_only_impl)
     } else {
-        quote! {}
+        (quote! {}, quote! {})
     };
 
     let read_only_asserts = if fetch_struct_attributes.is_mutable {
@@ -367,23 +380,29 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     };
 
     TokenStream::from(quote! {
-        #mutable_impl
+        #mutable_struct
 
-        #readonly_impl
-
-        #[doc(hidden)]
-        #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
-        #[doc = stringify!(#struct_name)]
-        #[doc = "`], used for caching."]
-        #[automatically_derived]
-        #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
-            #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
-            #(#ignored_field_idents: #ignored_field_types,)*
-        }
+        #read_only_struct
 
         /// SAFETY: we assert fields are readonly below
         unsafe impl #user_impl_generics #path::query::ReadOnlyWorldQuery
             for #read_only_struct_name #user_ty_generics #user_where_clauses {}
+
+        const _: () = {
+            #[doc(hidden)]
+            #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
+            #[doc = stringify!(#struct_name)]
+            #[doc = "`], used for caching."]
+            #[automatically_derived]
+            #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
+                #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
+                #(#ignored_field_idents: #ignored_field_types,)*
+            }
+
+            #mutable_impl
+
+            #read_only_impl
+        };
 
         #[allow(dead_code)]
         const _: () = {
@@ -412,7 +431,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(q.#ignored_field_idents;)*
                 #(q2.#field_idents;)*
                 #(q2.#ignored_field_idents;)*
-
             }
         };
     })

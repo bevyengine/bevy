@@ -54,6 +54,18 @@ pub struct OnEnter<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
+/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
+/// exits the `from` state, AND enters the `to` state.
+///
+/// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnTransition<S: States> {
+    /// The state being exited.
+    pub from: S,
+    /// The state being entered.
+    pub to: S,
+}
+
 /// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
 ///
 /// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
@@ -88,15 +100,18 @@ impl<S: States> NextState<S> {
     }
 }
 
-/// Run the enter schedule for the current state
+/// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    world.run_schedule(OnEnter(world.resource::<State<S>>().0.clone()));
+    world
+        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
+        .ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
-/// - Runs the [`OnExit(exited_state)`] schedule.
-/// - Runs the [`OnEnter(entered_state)`] schedule.
+/// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
+/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
+/// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
@@ -105,7 +120,15 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         next_state_resource.set_changed();
 
         let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
-        world.run_schedule(OnExit(exited));
-        world.run_schedule(OnEnter(entered));
+
+        // Try to run the schedules if they exist.
+        world.try_run_schedule(OnExit(exited.clone())).ok();
+        world
+            .try_run_schedule(OnTransition {
+                from: exited,
+                to: entered.clone(),
+            })
+            .ok();
+        world.try_run_schedule(OnEnter(entered)).ok();
     }
 }

@@ -3,7 +3,10 @@ use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
 use bevy_ptr::UnsafeCellDeref;
 
 use crate::{
-    archetype::ArchetypeComponentId, component::ComponentId, prelude::World, query::Access,
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    prelude::World,
+    query::Access,
 };
 
 use super::{ReadOnlySystem, System};
@@ -47,7 +50,7 @@ use super::{ReadOnlySystem, System};
 /// # world.init_resource::<RanFlag>();
 /// #
 /// # let mut app = Schedule::new();
-/// app.add_system(my_system.run_if(Xor::new(
+/// app.add_systems(my_system.run_if(Xor::new(
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
 ///     // The name of the combined system.
@@ -203,18 +206,18 @@ where
             .extend(self.b.archetype_component_access());
     }
 
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         self.a.check_change_tick(change_tick);
         self.b.check_change_tick(change_tick);
     }
 
-    fn get_last_change_tick(&self) -> u32 {
-        self.a.get_last_change_tick()
+    fn get_last_run(&self) -> Tick {
+        self.a.get_last_run()
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.a.set_last_change_tick(last_change_tick);
-        self.b.set_last_change_tick(last_change_tick);
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.a.set_last_run(last_run);
+        self.b.set_last_run(last_run);
     }
 
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
