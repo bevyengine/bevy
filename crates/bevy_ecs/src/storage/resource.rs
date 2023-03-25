@@ -275,7 +275,7 @@ impl<const SEND: bool> Resources<SEND> {
             if SEND {
                 assert!(
                     component_info.is_send_and_sync(),
-                    "Send + Sync resource {} initialized as non_send",
+                    "Send + Sync resource {} initialized as non_send. It may have been inserted via World::insert_non_send_resource by accident. Try using World::insert_resource instead.",
                     component_info.name(),
                 );
             }
