@@ -115,7 +115,7 @@ where
 {
     fn write_into<B: BufferMut>(&self, writer: &mut Writer<B>) {
         debug_assert!(self.0.len() <= self.1);
-        self.0.write_into(writer)
+        self.0.write_into(writer);
     }
 }
 
