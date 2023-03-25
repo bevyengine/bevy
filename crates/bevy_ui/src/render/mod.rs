@@ -321,9 +321,7 @@ pub fn extract_text_uinodes(
                     color = text.sections[*section_index].style.color.as_rgba_linear();
                     current_section = *section_index;
                 }
-                let atlas = texture_atlases
-                    .get(&text_glyph.atlas_info.texture_atlas)
-                    .unwrap();
+                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
                 let mut rect = atlas.textures[atlas_info.glyph_index];
                 rect.min *= inverse_scale_factor;
@@ -334,7 +332,7 @@ pub fn extract_text_uinodes(
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
                     rect,
-                    image: atlas.texture.clone_weak(),
+                    image: atlas_info.texture.clone_weak(),
                     atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
