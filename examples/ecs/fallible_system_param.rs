@@ -121,8 +121,8 @@ unsafe impl<'w, T: GameMode> FallibleSystemParam for Game<'w, T> {
         }
     }
 
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
+    unsafe fn get_param<'world>(
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: &'world World,
         change_tick: Tick,
@@ -186,8 +186,8 @@ unsafe impl<'w, T: GameMode> FallibleSystemParam for GameMut<'w, T> {
         }
     }
 
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
+    unsafe fn get_param<'world>(
+        state: &mut Self::State,
         system_meta: &bevy::ecs::system::SystemMeta,
         world: &'world World,
         change_tick: Tick,
