@@ -1,6 +1,7 @@
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
+use std::panic::AssertUnwindSafe;
 
 use crate::{
     schedule::{
@@ -95,9 +96,15 @@ impl SystemExecutor for SingleThreadedExecutor {
             } else {
                 #[cfg(feature = "trace")]
                 let system_span = info_span!("system", name = &*name).entered();
-                system.run((), world);
+                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    system.run((), world);
+                }));
                 #[cfg(feature = "trace")]
                 system_span.exit();
+                if res.is_err() {
+                    println!("Panic occurred in system `{}`", &*system.name());
+                    return;
+                }
                 self.unapplied_systems.insert(system_index);
             }
         }

@@ -190,10 +190,13 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                         if self.num_running_systems > 0 {
                             // wait for systems to complete
-                            let index =
-                                self.receiver.recv().await.expect(
-                                    "A system has panicked so the executor cannot continue.",
-                                );
+                            let Ok(index) =
+                                self.receiver.recv().await else {
+                                    // the thread panicked, so stop running
+                                    self.ready_systems.clear();
+                                    self.running_systems.clear();
+                                    return;
+                                };
 
                             self.finish_system_and_signal_dependents(index);
 
@@ -450,6 +453,7 @@ impl MultiThreadedExecutor {
             #[cfg(feature = "trace")]
             drop(system_guard);
             if res.is_err() {
+                println!("Panic occurred in system `{}`", &*system.name());
                 // close the channel to propagate the error to the
                 // multithreaded executor
                 sender.close();
