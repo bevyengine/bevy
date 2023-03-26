@@ -68,5 +68,6 @@ The default feature set enables most of the expected features of a game engine, 
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
+|webp|WebP image format support|
 |wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|
