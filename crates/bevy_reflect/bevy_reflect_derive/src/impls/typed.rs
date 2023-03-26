@@ -100,7 +100,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
     path
 }
 
-/// Returns an expression for a `NonGenericTypedCell` or `GenericTypedCell`.
+/// Returns an expression for a `NonGenericTypeCell` or `GenericTypeCell`  to contain `'static` references.
 fn static_typed_cell(
     meta: &ReflectMeta,
     property: TypedProperty,

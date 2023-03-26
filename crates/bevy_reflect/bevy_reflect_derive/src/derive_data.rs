@@ -380,7 +380,7 @@ impl<'a> ReflectMeta<'a> {
 
     /// Whether an impl using this [`ReflectMeta`] should be generic.
     pub fn impl_is_generic(&self) -> bool {
-        // Whether to use `GenericTypedCell` is not dependent on lifetimes
+        // Whether to use `GenericTypeCell` is not dependent on lifetimes
         // (which all have to be 'static anyway).
         !self
             .generics
