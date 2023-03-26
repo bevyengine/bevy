@@ -57,10 +57,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
         })
         .collect();
 
-    let ident = path_to_type.get_ident().unwrap().to_string();
-    let ident = LitStr::new(&ident, path_to_type.span());
-
-    let path = if long_path {
+    let (path, ty_generics) = if long_path {
         let ty_generics: Vec<_> = ty_generic_paths
             .iter()
             .map(|cell| {
@@ -70,14 +67,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
             })
             .collect();
 
-        let generics = combine_generics(ty_generics, generics);
-        let path = path_to_type.non_generic_type_path();
-
-        quote! {
-            ::std::borrow::ToOwned::to_owned(::core::concat!(#path, "::<"))
-                #(+ #generics)*
-                + ">"
-        }
+        (path_to_type.non_generic_type_path(), ty_generics)
     } else {
         let ty_generics: Vec<_> = ty_generic_paths
             .iter()
@@ -88,16 +78,16 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
             })
             .collect();
 
-        let generics = combine_generics(ty_generics, generics);
-
-        quote! {
-            ::std::borrow::ToOwned::to_owned(::core::concat!(#ident, "<"))
-                #(+ #generics)*
-                + ">"
-        }
+        (path_to_type.non_generic_short_path(), ty_generics)
     };
 
-    path
+    let generics = combine_generics(ty_generics, generics);
+
+    quote! {
+        ::std::borrow::ToOwned::to_owned(::core::concat!(#path, "<"))
+            #(+ #generics)*
+            + ">"
+    }
 }
 
 /// Returns an expression for a `NonGenericTypeCell` or `GenericTypeCell`  to contain `'static` references.

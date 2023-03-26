@@ -1132,24 +1132,21 @@ mod tests {
 
         assert_eq!(
             DeriveG::<()>::type_path(),
-            "bevy_reflect::tests::DeriveG::<()>"
+            "bevy_reflect::tests::DeriveG<()>"
         );
         assert_eq!(
             DerivePathG::<(), 10>::type_path(),
-            "my_alias::DerivePathG::<(), 10>"
+            "my_alias::DerivePathG<(), 10>"
         );
         assert_eq!(
             DerivePathNameG::<()>::type_path(),
-            "my_alias::MyDerivePathNameG::<()>"
+            "my_alias::MyDerivePathNameG<()>"
         );
 
         assert_eq!(Macro::type_path(), "my_alias::Macro");
         assert_eq!(MacroName::type_path(), "my_alias::MyMacroName");
-        assert_eq!(MacroG::<(), 10>::type_path(), "my_alias::MacroG::<(), 10>");
-        assert_eq!(
-            MacroNameG::<()>::type_path(),
-            "my_alias::MyMacroNameG::<()>"
-        );
+        assert_eq!(MacroG::<(), 10>::type_path(), "my_alias::MacroG<(), 10>");
+        assert_eq!(MacroNameG::<()>::type_path(), "my_alias::MyMacroNameG<()>");
     }
 
     #[test]
