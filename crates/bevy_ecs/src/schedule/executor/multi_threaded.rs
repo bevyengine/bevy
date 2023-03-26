@@ -457,6 +457,7 @@ impl MultiThreadedExecutor {
                 // close the channel to propagate the error to the
                 // multithreaded executor
                 sender.close();
+                return;
             } else {
                 sender
                     .try_send(system_index)
@@ -510,9 +511,11 @@ impl MultiThreadedExecutor {
                 #[cfg(feature = "trace")]
                 drop(system_guard);
                 if res.is_err() {
+                    println!("Exclusive system `{}` panicked!", &*system.name());
                     // close the channel to propagate the error to the
                     // multithreaded executor
                     sender.close();
+                    return;
                 } else {
                     sender
                         .try_send(system_index)
@@ -533,9 +536,11 @@ impl MultiThreadedExecutor {
                 #[cfg(feature = "trace")]
                 drop(system_guard);
                 if res.is_err() {
+                    println!("Eclusive system `{}` panicked!", &*system.name());
                     // close the channel to propagate the error to the
                     // multithreaded executor
                     sender.close();
+                    return;
                 } else {
                     sender
                         .try_send(system_index)
