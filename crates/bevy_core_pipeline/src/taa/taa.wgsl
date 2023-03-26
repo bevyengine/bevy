@@ -21,6 +21,16 @@ struct Output {
     @location(1) history: vec4<f32>,
 };
 
+// TAA is ideally applied after tonemapping, but before post processing
+// Post processing wants to go before tonemapping, which conflicts
+// Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
+// https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
+// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve
+fn rcp(x: f32) -> f32 { return 1.0 / x; }
+fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
+fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
+fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
+
 // The following 3 functions are from Playdead
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
 fn RGB_to_YCoCg(rgb: vec3<f32>) -> vec3<f32> {
@@ -43,19 +53,9 @@ fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, 
     let v_clip = history_color - p_clip;
     let v_unit = v_clip / e_clip;
     let a_unit = abs(v_unit);
-    let ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
+    let ma_unit = max3(a_unit);
     return select(history_color, p_clip + v_clip / ma_unit, ma_unit > 1.0);
 }
-
-// TAA is ideally applied after tonemapping, but before post processing
-// Post processing wants to go before tonemapping, which conflicts
-// Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
-// https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
-// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve
-fn rcp(x: f32) -> f32 { return 1.0 / x; }
-fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
-fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
-fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
 
 fn sample_history(u: f32, v: f32) -> vec3<f32> {
     return textureSample(history, linear_sampler, vec2(u, v)).rgb;
