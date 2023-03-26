@@ -5,7 +5,7 @@ use bevy::{input::touch::*, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(touch_system)
+        .add_systems(Update, touch_system)
         .run();
 }
 

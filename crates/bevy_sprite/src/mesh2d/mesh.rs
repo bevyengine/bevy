@@ -1,4 +1,4 @@
-use bevy_app::{IntoSystemAppConfig, Plugin};
+use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 
 use bevy_ecs::{
@@ -22,7 +22,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 
@@ -103,11 +103,14 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_systems((
-                    extract_mesh2d.in_schedule(ExtractSchedule),
-                    queue_mesh2d_bind_group.in_set(RenderSet::Queue),
-                    queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
-                ));
+                .add_systems(ExtractSchedule, extract_mesh2d)
+                .add_systems(
+                    Render,
+                    (
+                        queue_mesh2d_bind_group.in_set(RenderSet::Queue),
+                        queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                    ),
+                );
         }
     }
 }

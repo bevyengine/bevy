@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -45,11 +45,8 @@ fn setup(mut commands: Commands) {
                         background_color: Color::RED.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            position: UiRect {
-                                left: Val::Px(10.0),
-                                bottom: Val::Px(40.0),
-                                ..default()
-                            },
+                            left: Val::Px(10.0),
+                            bottom: Val::Px(40.0),
                             size: Size::new(Val::Px(100.0), Val::Px(50.0)),
                             ..default()
                         },
@@ -63,11 +60,8 @@ fn setup(mut commands: Commands) {
                         background_color: Color::BLUE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            position: UiRect {
-                                left: Val::Px(45.0),
-                                bottom: Val::Px(30.0),
-                                ..default()
-                            },
+                            left: Val::Px(45.0),
+                            bottom: Val::Px(30.0),
                             size: Size::new(Val::Px(100.0), Val::Px(50.0)),
                             ..default()
                         },
@@ -81,11 +75,8 @@ fn setup(mut commands: Commands) {
                         background_color: Color::GREEN.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            position: UiRect {
-                                left: Val::Px(70.0),
-                                bottom: Val::Px(20.0),
-                                ..default()
-                            },
+                            left: Val::Px(70.0),
+                            bottom: Val::Px(20.0),
                             size: Size::new(Val::Px(100.0), Val::Px(75.0)),
                             ..default()
                         },
@@ -100,11 +91,8 @@ fn setup(mut commands: Commands) {
                         background_color: Color::PURPLE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            position: UiRect {
-                                left: Val::Px(15.0),
-                                bottom: Val::Px(10.0),
-                                ..default()
-                            },
+                            left: Val::Px(15.0),
+                            bottom: Val::Px(10.0),
                             size: Size::new(Val::Px(100.0), Val::Px(60.0)),
                             ..default()
                         },
@@ -119,11 +107,8 @@ fn setup(mut commands: Commands) {
                         background_color: Color::YELLOW.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            position: UiRect {
-                                left: Val::Px(-15.0),
-                                bottom: Val::Px(-15.0),
-                                ..default()
-                            },
+                            left: Val::Px(-15.0),
+                            bottom: Val::Px(-15.0),
                             size: Size::new(Val::Px(100.0), Val::Px(125.0)),
                             ..default()
                         },

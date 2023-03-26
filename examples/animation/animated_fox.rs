@@ -13,11 +13,11 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_systems((
-            setup.on_startup(),
-            setup_scene_once_loaded,
-            keyboard_animation_control,
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (setup_scene_once_loaded, keyboard_animation_control),
+        )
         .run();
 }
 

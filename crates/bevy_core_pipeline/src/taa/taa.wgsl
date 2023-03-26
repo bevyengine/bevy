@@ -4,8 +4,11 @@
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
-const HISTORY_BLEND_RATE: f32 = 0.1;
-const MIN_HISTORY_BLEND_RATE: f32 = 0.015;
+// Controls how much to blend between the current and past samples
+// Lower numbers = less of the current sample and more of the past sample = more smoothing
+// Values chosen empirically
+const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
+const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
@@ -21,7 +24,17 @@ struct Output {
     @location(1) history: vec4<f32>,
 };
 
-// The following 3 functions are from Playdead
+// TAA is ideally applied after tonemapping, but before post processing
+// Post processing wants to go before tonemapping, which conflicts
+// Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
+// https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
+// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve
+fn rcp(x: f32) -> f32 { return 1.0 / x; }
+fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
+fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
+fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
+
+// The following 3 functions are from Playdead (MIT-licensed)
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
 fn RGB_to_YCoCg(rgb: vec3<f32>) -> vec3<f32> {
     let y = (rgb.r / 4.0) + (rgb.g / 2.0) + (rgb.b / 4.0);
@@ -43,19 +56,13 @@ fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, 
     let v_clip = history_color - p_clip;
     let v_unit = v_clip / e_clip;
     let a_unit = abs(v_unit);
-    let ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
-    return select(history_color, p_clip + v_clip / ma_unit, ma_unit > 1.0);
+    let ma_unit = max3(a_unit);
+    if ma_unit > 1.0 {
+        return p_clip + (v_clip / ma_unit);
+    } else {
+        return history_color;
+    }
 }
-
-// TAA is ideally applied after tonemapping, but before post processing
-// Post processing wants to go before tonemapping, which conflicts
-// Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
-// https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
-// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve
-fn rcp(x: f32) -> f32 { return 1.0 / x; }
-fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
-fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
-fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
 
 fn sample_history(u: f32, v: f32) -> vec3<f32> {
     return textureSample(history, linear_sampler, vec2(u, v)).rgb;
@@ -114,10 +121,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
-    // https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
-    // https://vec3.ca/bicubic-filtering-in-fewer-taps
-    // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
-    // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
+    // Catmull-Rom filtering: https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
+    // Ignoring corners: https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
+    // Technically we should renormalize the weights since we're skipping the corners, but it's basically the same result
     let history_uv = uv - closest_motion_vector;
     let sample_position = history_uv * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
@@ -171,7 +177,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
-    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, HISTORY_BLEND_RATE);
+    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
     current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 

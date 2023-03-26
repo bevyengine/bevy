@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     core_pipeline::{
         experimental::taa::{
-            TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings,
+            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
         },
         fxaa::{Fxaa, Sensitivity},
     },
@@ -21,9 +21,9 @@ fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntialiasPlugin)
-        .add_startup_system(setup)
-        .add_systems((modify_aa, update_ui))
+        .add_plugin(TemporalAntiAliasPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (modify_aa, update_ui))
         .run();
 }
 
@@ -33,7 +33,7 @@ fn modify_aa(
         (
             Entity,
             Option<&mut Fxaa>,
-            Option<&TemporalAntialiasSettings>,
+            Option<&TemporalAntiAliasSettings>,
         ),
         With<Camera>,
     >,
@@ -47,13 +47,13 @@ fn modify_aa(
     if keys.just_pressed(KeyCode::Key1) {
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
-        camera.remove::<TemporalAntialiasBundle>();
+        camera.remove::<TemporalAntiAliasBundle>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Key2) && *msaa == Msaa::Off {
         camera.remove::<Fxaa>();
-        camera.remove::<TemporalAntialiasBundle>();
+        camera.remove::<TemporalAntiAliasBundle>();
 
         *msaa = Msaa::Sample4;
     }
@@ -74,7 +74,7 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Key3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<TemporalAntialiasBundle>();
+        camera.remove::<TemporalAntiAliasBundle>();
 
         camera.insert(Fxaa::default());
     }
@@ -108,12 +108,12 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
 
-        camera.insert(TemporalAntialiasBundle::default());
+        camera.insert(TemporalAntiAliasBundle::default());
     }
 }
 
 fn update_ui(
-    camera: Query<(Option<&Fxaa>, Option<&TemporalAntialiasSettings>), With<Camera>>,
+    camera: Query<(Option<&Fxaa>, Option<&TemporalAntiAliasSettings>), With<Camera>>,
     msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
 ) {
@@ -282,11 +282,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

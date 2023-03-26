@@ -6,7 +6,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
@@ -36,8 +36,6 @@ pub struct MainPass3dNode {
 }
 
 impl MainPass3dNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             query: world.query_filtered(),
@@ -46,10 +44,6 @@ impl MainPass3dNode {
 }
 
 impl Node for MainPass3dNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -60,7 +54,7 @@ impl Node for MainPass3dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let Ok((
             camera,
             opaque_phase,

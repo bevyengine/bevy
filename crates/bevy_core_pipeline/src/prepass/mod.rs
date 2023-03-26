@@ -40,7 +40,7 @@ use bevy_utils::FloatOrd;
 
 pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
-pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg32Float; // PERFORMANCE TODO: Rg16Float?
+pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect)]
