@@ -102,7 +102,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 #[cfg(feature = "trace")]
                 system_span.exit();
                 if res.is_err() {
-                    println!("Panic occurred in system `{}`", &*system.name());
+                    println!("System `{}` panicked!", &*system.name());
                     return;
                 }
                 self.unapplied_systems.insert(system_index);
