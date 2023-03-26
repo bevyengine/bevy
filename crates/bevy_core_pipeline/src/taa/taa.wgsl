@@ -34,9 +34,8 @@ fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
 fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
 fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
 
-// The following 3 functions are from Playdead
+// The following 3 functions are from Playdead (MIT-licensed)
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
-// MIT-licensed
 fn RGB_to_YCoCg(rgb: vec3<f32>) -> vec3<f32> {
     let y = (rgb.r / 4.0) + (rgb.g / 2.0) + (rgb.b / 4.0);
     let co = (rgb.r / 2.0) - (rgb.b / 2.0);
