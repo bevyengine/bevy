@@ -7,6 +7,11 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
+pub mod a11y {
+    //! Integrate with platform accessibility APIs.
+    pub use bevy_a11y::*;
+}
+
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
     pub use bevy_app::*;
@@ -165,6 +170,12 @@ pub mod ui {
 pub mod winit {
     //! Window creation, configuration, and handling
     pub use bevy_winit::*;
+}
+
+#[cfg(feature = "bevy_gizmos")]
+pub mod gizmos {
+    //! Immediate mode debug drawing.
+    pub use bevy_gizmos::*;
 }
 
 #[cfg(feature = "bevy_dynamic_plugin")]

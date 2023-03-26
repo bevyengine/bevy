@@ -18,7 +18,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 /// Useful as a container for a variety of child nodes.
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -64,7 +64,7 @@ impl Default for NodeBundle {
 /// A UI node that is an image
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct ImageBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -100,7 +100,7 @@ pub struct ImageBundle {
 /// A UI node that is text
 #[derive(Bundle, Clone, Debug)]
 pub struct TextBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -194,7 +194,7 @@ impl TextBundle {
 /// A UI node that is a button
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,

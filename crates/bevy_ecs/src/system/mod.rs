@@ -55,14 +55,18 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut app = Schedule::new();
-//! // Prints "Hello, World!" each frame.
-//! app
-//!     .add_system(print_first.before(print_mid))
-//!     .add_system(print_mid)
-//!     .add_system(print_last.after(print_mid));
+//! # let mut schedule = Schedule::new();
 //! # let mut world = World::new();
-//! # app.run(&mut world);
+//! // Configure these systems to run in order using `chain()`.
+//! schedule.add_systems((print_first, print_last).chain());
+//! // Prints "HelloWorld!"
+//! schedule.run(&mut world);
+//!
+//! // Configure this system to run in between the other two systems
+//! // using explicit dependencies.
+//! schedule.add_systems(print_mid.after(print_first).before(print_last));
+//! // Prints "Hello, World!"
+//! schedule.run(&mut world);
 //!
 //! fn print_first() {
 //!     print!("Hello");
@@ -119,17 +123,40 @@ pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
 
+use crate::world::World;
+
 /// Ensure that a given function is a [system](System).
 ///
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S) {
-    if false {
-        // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
-        IntoSystem::into_system(sys);
-    }
+///
+/// # Examples
+///
+/// The following example will panic when run since the
+/// system's parameters mutably access the same component
+/// multiple times.
+///
+/// ```should_panic
+/// # use bevy_ecs::{prelude::*, system::assert_is_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query1: Query<&mut Transform>, query2: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_system(my_system);
+/// ```
+pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
+    system: impl IntoSystem<In, Out, Marker>,
+) {
+    let mut system = IntoSystem::into_system(system);
+
+    // Initialize the system, which will panic if the system has access conflicts.
+    let mut world = World::new();
+    system.initialize(&mut world);
 }
 
 /// Ensure that a given function is a [read-only system](ReadOnlySystem).
@@ -137,15 +164,30 @@ pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_read_only_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
+///
+/// # Examples
+///
+/// The following example will fail to compile
+/// since the system accesses a component mutably.
+///
+/// ```compile_fail
+/// # use bevy_ecs::{prelude::*, system::assert_is_read_only_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_read_only_system(my_system);
+/// ```
+pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
 where
+    S: IntoSystem<In, Out, Marker>,
     S::System: ReadOnlySystem,
 {
-    if false {
-        // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
-        IntoSystem::into_system(sys);
-    }
+    assert_is_system(system);
 }
 
 #[cfg(test)]
@@ -157,12 +199,12 @@ mod tests {
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components},
+        component::{Component, Components, Tick},
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule::{apply_system_buffers, IntoSystemConfig, Schedule},
+        schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             Res, ResMut, Resource, System, SystemState,
@@ -210,7 +252,7 @@ mod tests {
 
     fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
-        schedule.add_system(system);
+        schedule.add_systems(system);
         schedule.run(world);
     }
 
@@ -269,6 +311,60 @@ mod tests {
 
         run_system(&mut world, query_system);
 
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+    }
+
+    #[test]
+    fn get_many_is_ordered() {
+        use crate::system::Resource;
+        const ENTITIES_COUNT: usize = 1000;
+
+        #[derive(Resource)]
+        struct EntitiesArray(Vec<Entity>);
+
+        fn query_system(
+            mut ran: ResMut<SystemRan>,
+            entities_array: Res<EntitiesArray>,
+            q: Query<&W<usize>>,
+        ) {
+            let entities_array: [Entity; ENTITIES_COUNT] =
+                entities_array.0.clone().try_into().unwrap();
+
+            for (i, w) in (0..ENTITIES_COUNT).zip(q.get_many(entities_array).unwrap()) {
+                assert_eq!(i, w.0);
+            }
+
+            *ran = SystemRan::Yes;
+        }
+
+        fn query_system_mut(
+            mut ran: ResMut<SystemRan>,
+            entities_array: Res<EntitiesArray>,
+            mut q: Query<&mut W<usize>>,
+        ) {
+            let entities_array: [Entity; ENTITIES_COUNT] =
+                entities_array.0.clone().try_into().unwrap();
+
+            #[allow(unused_mut)]
+            for (i, mut w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
+                assert_eq!(i, w.0);
+            }
+
+            *ran = SystemRan::Yes;
+        }
+
+        let mut world = World::default();
+        world.insert_resource(SystemRan::No);
+        let entity_ids = (0..ENTITIES_COUNT)
+            .map(|i| world.spawn(W(i)).id())
+            .collect();
+        world.insert_resource(EntitiesArray(entity_ids));
+
+        run_system(&mut world, query_system);
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+
+        world.insert_resource(SystemRan::No);
+        run_system(&mut world, query_system_mut);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
@@ -334,9 +430,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_system(incr_e_on_flip);
-        schedule.add_system(apply_system_buffers.after(incr_e_on_flip));
-        schedule.add_system(World::clear_trackers.after(apply_system_buffers));
+        schedule.add_systems((incr_e_on_flip, apply_system_buffers, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
@@ -1227,7 +1321,7 @@ mod tests {
         let world2 = World::new();
         let qstate = world1.query::<()>();
         // SAFETY: doesnt access anything
-        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
+        let query = unsafe { Query::new(&world2, &qstate, Tick::new(0), Tick::new(0), false) };
         query.iter();
     }
 

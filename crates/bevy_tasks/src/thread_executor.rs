@@ -77,11 +77,16 @@ impl<'task> ThreadExecutor<'task> {
     pub fn ticker<'ticker>(&'ticker self) -> Option<ThreadExecutorTicker<'task, 'ticker>> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
-                executor: &self.executor,
+                executor: self,
                 _marker: PhantomData::default(),
             });
         }
         None
+    }
+
+    /// Returns true if `self` and `other`'s executor is same
+    pub fn is_same(&self, other: &Self) -> bool {
+        std::ptr::eq(self, other)
     }
 }
 
@@ -90,20 +95,20 @@ impl<'task> ThreadExecutor<'task> {
 /// created on.
 #[derive(Debug)]
 pub struct ThreadExecutorTicker<'task, 'ticker> {
-    executor: &'ticker Executor<'task>,
+    executor: &'ticker ThreadExecutor<'task>,
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
 impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     /// Tick the thread executor.
     pub async fn tick(&self) {
-        self.executor.tick().await;
+        self.executor.executor.tick().await;
     }
 
     /// Synchronously try to tick a task on the executor.
     /// Returns false if if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
-        self.executor.try_tick()
+        self.executor.executor.try_tick()
     }
 }
 
