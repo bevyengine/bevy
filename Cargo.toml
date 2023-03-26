@@ -1040,6 +1040,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "fallible_system_param"
+path = "examples/ecs/fallible_system_param.rs"
+
+[package.metadata.example.fallible_system_param]
+name = "Fallible System Parameter"
+description = "Illustrates creating custom system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
 
