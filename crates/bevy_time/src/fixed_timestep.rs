@@ -101,7 +101,7 @@ pub enum FixedUpdateError {
 /// Ticks the [`FixedTime`] resource then runs the [`FixedUpdate`].
 pub fn run_fixed_update_schedule(world: &mut World) {
     // Tick the time
-    let delta_time = world.resource::<Time>().delta();
+    let delta_time = world.resource::<Time>().raw_delta();
     let mut fixed_time = world.resource_mut::<FixedTime>();
     fixed_time.tick(delta_time);
 
