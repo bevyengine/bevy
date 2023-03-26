@@ -126,7 +126,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
-/// struct Foo<T: Reflect>(T);
+/// struct Foo<T>(T);
 ///
 /// impl<T: Reflect> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
@@ -162,12 +162,12 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath};
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///
-/// struct Foo<T: Reflect>(T);
+/// struct Foo<T>(T);
 ///
-/// impl<T: Reflect> TypePath for Foo<T> {
+/// impl<T: Reflect + TypePath> TypePath for Foo<T> {
 ///     fn type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
