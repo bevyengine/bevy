@@ -341,6 +341,7 @@ pub struct StandardMaterialUniform {
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
     /// and any below means fully transparent.
     pub alpha_cutoff: f32,
+    pub depth_bias: f32,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -407,6 +408,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             reflectance: self.reflectance,
             flags: flags.bits(),
             alpha_cutoff,
+            depth_bias: self.depth_bias,
         }
     }
 }
