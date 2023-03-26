@@ -88,7 +88,7 @@ pub trait Reflect: Any + Send + Sync {
 
     /// Returns the [`TypePath`] implementation for the underlying type.
     ///
-    /// This method suffers the same performance concerns as [`get_type_info`].
+    /// Methods on [`DynamicTypePath`] suffer the same performance concerns as [`get_type_info`].
     ///
     /// [`get_type_info`]: Reflect::get_type_info
     fn get_type_path(&self) -> &dyn DynamicTypePath;

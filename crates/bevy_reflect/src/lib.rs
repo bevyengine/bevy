@@ -1167,7 +1167,7 @@ mod tests {
             "DerivePathG<Param, 10>"
         );
         assert_eq!(
-            DerivePathNameG::<Derive>::short_type_path(),
+            DerivePathNameG::<Param>::short_type_path(),
             "MyDerivePathNameG<Param>"
         );
 

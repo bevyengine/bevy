@@ -159,9 +159,10 @@ pub(crate) fn extend_where_clause(
         quote!()
     };
     generic_where_clause.extend(quote! {
-        #(#parameter_types: #parameter_trait_bounds,)*
         #(#active_types: #active_trait_bounds,)*
         #(#ignored_types: #ignored_trait_bounds,)*
+        // Leave parameter bounds to the end for more sane error messages.
+        #(#parameter_types: #parameter_trait_bounds,)*
     });
     generic_where_clause
 }

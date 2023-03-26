@@ -470,7 +470,7 @@ impl<'a> ReflectStruct<'a> {
         let bevy_reflect_path = &self.meta().bevy_reflect_path;
         WhereClauseOptions {
             active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath },
+            active_trait_bounds: quote! { #bevy_reflect_path::Reflect },
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
             ..WhereClauseOptions::type_path_bounds(self.meta())
@@ -529,7 +529,7 @@ impl<'a> ReflectEnum<'a> {
         let bevy_reflect_path = &self.meta().bevy_reflect_path;
         WhereClauseOptions {
             active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect + #bevy_reflect_path::TypePath },
+            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect },
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
             ..WhereClauseOptions::type_path_bounds(self.meta())
