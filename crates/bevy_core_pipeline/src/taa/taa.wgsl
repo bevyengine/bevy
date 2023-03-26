@@ -4,8 +4,11 @@
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
-const HISTORY_BLEND_RATE: f32 = 0.1;
-const MIN_HISTORY_BLEND_RATE: f32 = 0.015;
+// Controls how much to blend between the current and past samples
+// Lower numbers = less of the current sample and more of the past sample = more smoothing
+// Values chosen empirically
+const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
+const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
@@ -176,7 +179,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
-    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, HISTORY_BLEND_RATE);
+    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
     current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 
