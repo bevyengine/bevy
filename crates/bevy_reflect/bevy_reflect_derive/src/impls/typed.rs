@@ -44,9 +44,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
 
     if let ReflectTypePath::Primitive(name) = path_to_type {
         let name = LitStr::new(&name.to_string(), name.span());
-        return quote! {
-            #bevy_reflect_path::utility::TypePathStorage::new_primitive(#name)
-        };
+        return quote!(#name);
     }
 
     let ty_generic_paths: Vec<_> = generics

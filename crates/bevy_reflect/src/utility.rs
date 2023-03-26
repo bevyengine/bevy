@@ -9,19 +9,36 @@ use std::{
     hash::BuildHasher,
 };
 
+/// A type that can be stored in a ([`Non`])[`GenericTypeInfoCell`].
+///
+/// [Non]: NonGenericTypeInfoCell
+pub trait TypedProperty: sealed::Sealed {
+    type Stored: 'static;
+}
+
+/// Used to store a [`String`] in a [`GenericTypeInfoCell`] as part of a [`TypePath`] implementation.
+///
+/// [TypePath]: crate::TypePath
+pub struct TypePathComponent;
+
 mod sealed {
-    use super::TypeInfo;
+    use super::{TypeInfo, TypePathComponent, TypedProperty};
 
     pub trait Sealed {}
 
     impl Sealed for TypeInfo {}
-    impl Sealed for String {}
+    impl Sealed for TypePathComponent {}
+
+    impl TypedProperty for TypeInfo {
+        type Stored = Self;
+    }
+
+    impl TypedProperty for TypePathComponent {
+        type Stored = String;
+    }
 }
 
-pub trait TypedProperty: sealed::Sealed + 'static {}
-impl<T: sealed::Sealed + 'static> TypedProperty for T {}
-
-/// A container for [`TypeInfo`] or [`TypePathStorage`] over non-generic types, allowing instances to be stored statically.
+/// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with _non_-generic types. If your type _is_ generic,
 /// then use [`GenericTypedCell`] instead. Otherwise, it will not take into account all
@@ -67,7 +84,7 @@ impl<T: sealed::Sealed + 'static> TypedProperty for T {}
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
-pub struct NonGenericTypedCell<T: TypedProperty>(OnceBox<T>);
+pub struct NonGenericTypedCell<T: TypedProperty>(OnceBox<T::Stored>);
 
 pub type NonGenericTypeInfoCell = NonGenericTypedCell<TypeInfo>;
 
@@ -77,18 +94,18 @@ impl<T: TypedProperty> NonGenericTypedCell<T> {
         Self(OnceBox::new())
     }
 
-    /// Returns a reference to the [`TypeInfo`]/[`TypePathStorage`] stored in the cell.
+    /// Returns a reference to the [`TypeInfo`] stored in the cell.
     ///
     /// If there is no entry found, a new one will be generated from the given function.
-    pub fn get_or_set<F>(&self, f: F) -> &T
+    pub fn get_or_set<F>(&self, f: F) -> &T::Stored
     where
-        F: FnOnce() -> T,
+        F: FnOnce() -> T::Stored,
     {
         self.0.get_or_init(|| Box::new(f()))
     }
 }
 
-/// A container for [`TypeInfo`] or [`TypePathStorage`] over generic types, allowing instances to be stored statically.
+/// A container for [`TypeInfo`] or [`TypePath` components] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
 /// then use [`NonGenericTypedCell`] instead as it should be much more performant.
@@ -131,10 +148,12 @@ impl<T: TypedProperty> NonGenericTypedCell<T> {
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
-pub struct GenericTypedCell<T: TypedProperty>(OnceBox<RwLock<HashMap<TypeId, &'static T>>>);
+///
+/// [`TypePath` components]: TypePathComponent
+pub struct GenericTypedCell<T: TypedProperty>(OnceBox<RwLock<HashMap<TypeId, &'static T::Stored>>>);
 
 pub type GenericTypeInfoCell = GenericTypedCell<TypeInfo>;
-pub type GenericTypePathCell = GenericTypedCell<String>;
+pub type GenericTypePathCell = GenericTypedCell<TypePathComponent>;
 
 impl<T: TypedProperty> GenericTypedCell<T> {
     /// Initialize a [`GenericTypedCell`] for generic types.
@@ -142,14 +161,16 @@ impl<T: TypedProperty> GenericTypedCell<T> {
         Self(OnceBox::new())
     }
 
-    /// Returns a reference to the [`TypeInfo`]/[`TypePathStorage`] stored in the cell.
+    /// Returns a reference to the [`TypeInfo`]/[`TypePath` component] stored in the cell.
     ///
-    /// This method will then return the correct [`TypeInfo`]/[`TypePathStorage`] reference for the given type `T`.
+    /// This method will then return the correct [`TypeInfo`]/[`TypePath` component] reference for the given type `T`.
     /// If there is no entry found, a new one will be generated from the given function.
-    pub fn get_or_insert<G, F>(&self, f: F) -> &T
+    ///
+    /// [`TypePath` component]: TypePathComponent
+    pub fn get_or_insert<G, F>(&self, f: F) -> &T::Stored
     where
         G: Any + ?Sized,
-        F: FnOnce() -> T,
+        F: FnOnce() -> T::Stored,
     {
         let type_id = TypeId::of::<G>();
         // let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
