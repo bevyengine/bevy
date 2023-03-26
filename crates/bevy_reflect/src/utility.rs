@@ -90,6 +90,7 @@ mod sealed {
 /// [`TypePath`]: crate::TypePath
 pub struct NonGenericTypeCell<T: TypedProperty>(OnceBox<T::Stored>);
 
+/// See [`NonGenericTypeCell`].
 pub type NonGenericTypeInfoCell = NonGenericTypeCell<TypeInfo>;
 
 impl<T: TypedProperty> NonGenericTypeCell<T> {
@@ -201,7 +202,9 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// [`TypePath`]: crate::TypePath
 pub struct GenericTypeCell<T: TypedProperty>(OnceBox<RwLock<HashMap<TypeId, &'static T::Stored>>>);
 
+/// See [`GenericTypeCell`].
 pub type GenericTypeInfoCell = GenericTypeCell<TypeInfo>;
+/// See [`GenericTypeCell`].
 pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 
 impl<T: TypedProperty> GenericTypeCell<T> {
