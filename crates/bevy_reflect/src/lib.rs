@@ -1091,6 +1091,9 @@ mod tests {
     #[test]
     fn reflect_type_path() {
         #[derive(TypePath)]
+        struct Param;
+
+        #[derive(TypePath)]
         struct Derive;
 
         #[derive(TypePath)]
@@ -1131,22 +1134,50 @@ mod tests {
         assert_eq!(DerivePathName::type_path(), "my_alias::MyDerivePathName");
 
         assert_eq!(
-            DeriveG::<()>::type_path(),
-            "bevy_reflect::tests::DeriveG<()>"
+            DeriveG::<Param>::type_path(),
+            "bevy_reflect::tests::DeriveG<bevy_reflect::tests::Param>"
         );
         assert_eq!(
-            DerivePathG::<(), 10>::type_path(),
-            "my_alias::DerivePathG<(), 10>"
+            DerivePathG::<Param, 10>::type_path(),
+            "my_alias::DerivePathG<bevy_reflect::tests::Param, 10>"
         );
         assert_eq!(
-            DerivePathNameG::<()>::type_path(),
-            "my_alias::MyDerivePathNameG<()>"
+            DerivePathNameG::<Param>::type_path(),
+            "my_alias::MyDerivePathNameG<bevy_reflect::tests::Param>"
         );
 
         assert_eq!(Macro::type_path(), "my_alias::Macro");
         assert_eq!(MacroName::type_path(), "my_alias::MyMacroName");
-        assert_eq!(MacroG::<(), 10>::type_path(), "my_alias::MacroG<(), 10>");
-        assert_eq!(MacroNameG::<()>::type_path(), "my_alias::MyMacroNameG<()>");
+        assert_eq!(
+            MacroG::<Param, 10>::type_path(),
+            "my_alias::MacroG<bevy_reflect::tests::Param, 10>"
+        );
+        assert_eq!(
+            MacroNameG::<Param>::type_path(),
+            "my_alias::MyMacroNameG<bevy_reflect::tests::Param>"
+        );
+
+        assert_eq!(Derive::short_type_path(), "Derive");
+        assert_eq!(DerivePath::short_type_path(), "DerivePath");
+        assert_eq!(DerivePathName::short_type_path(), "MyDerivePathName");
+
+        assert_eq!(DeriveG::<Param>::short_type_path(), "DeriveG<Param>");
+        assert_eq!(
+            DerivePathG::<Param, 10>::short_type_path(),
+            "DerivePathG<Param, 10>"
+        );
+        assert_eq!(
+            DerivePathNameG::<Derive>::short_type_path(),
+            "MyDerivePathNameG<Param>"
+        );
+
+        assert_eq!(Macro::short_type_path(), "Macro");
+        assert_eq!(MacroName::short_type_path(), "MyMacroName");
+        assert_eq!(MacroG::<Param, 10>::short_type_path(), "MacroG<Param, 10>");
+        assert_eq!(
+            MacroNameG::<Param>::short_type_path(),
+            "MyMacroNameG<Param>"
+        );
     }
 
     #[test]
