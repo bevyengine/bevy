@@ -45,6 +45,8 @@ const TAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
 
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
+///
+/// See [`TemporalAntiAliasSettings`] for more details.
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
