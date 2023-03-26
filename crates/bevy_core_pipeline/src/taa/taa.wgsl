@@ -55,7 +55,11 @@ fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, 
     let v_unit = v_clip / e_clip;
     let a_unit = abs(v_unit);
     let ma_unit = max3(a_unit);
-    return select(history_color, p_clip + v_clip / ma_unit, ma_unit > 1.0);
+    if ma_unit > 1.0 {
+        return p_clip + (v_clip / ma_unit);
+    } else {
+        return history_color;
+    }
 }
 
 fn sample_history(u: f32, v: f32) -> vec3<f32> {
