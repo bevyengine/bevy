@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
@@ -99,6 +102,8 @@ pub struct MultiThreadedExecutor {
     unapplied_systems: FixedBitSet,
     /// Setting when true applies system buffers after all systems have run
     apply_final_buffers: bool,
+    /// When set, tells the executor that a thread has panicked.
+    panic_payload: Arc<Mutex<Option<Box<dyn Any + Send>>>>,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -193,8 +198,6 @@ impl SystemExecutor for MultiThreadedExecutor {
                             let Ok(index) =
                                 self.receiver.recv().await else {
                                     // the thread panicked, so stop running
-                                    self.ready_systems.clear();
-                                    self.running_systems.clear();
                                     return;
                                 };
 
@@ -222,9 +225,19 @@ impl SystemExecutor for MultiThreadedExecutor {
             // SAFETY: all systems have completed, and so no outstanding accesses remain
             let world = unsafe { &mut *world.get() };
             // Commands should be applied while on the scope's thread, not the executor's thread
-            apply_system_buffers(&self.unapplied_systems, systems, world);
+            let res = apply_system_buffers(&self.unapplied_systems, systems, world);
+            if let Err(payload) = res {
+                let mut panic_payload = self.panic_payload.lock().unwrap();
+                *panic_payload = Some(payload);
+            }
             self.unapplied_systems.clear();
             debug_assert!(self.unapplied_systems.is_clear());
+        }
+
+        // check to see if there was a panic
+        let mut payload = self.panic_payload.lock().unwrap();
+        if let Some(payload) = payload.take() {
+            std::panic::resume_unwind(payload);
         }
 
         debug_assert!(self.ready_systems.is_clear());
@@ -257,6 +270,7 @@ impl MultiThreadedExecutor {
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
             apply_final_buffers: true,
+            panic_payload: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -443,6 +457,7 @@ impl MultiThreadedExecutor {
         let system_span = info_span!("system", name = &*system.name());
 
         let sender = self.sender.clone();
+        let panic_payload = self.panic_payload.clone();
         let task = async move {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
@@ -452,12 +467,15 @@ impl MultiThreadedExecutor {
             }));
             #[cfg(feature = "trace")]
             drop(system_guard);
-            if res.is_err() {
-                println!("System `{}` panicked!", &*system.name());
+            if let Err(payload) = res {
+                println!("Encountered a panic in system `{}`!", &*system.name());
                 // close the channel to propagate the error to the
                 // multithreaded executor
                 sender.close();
-                return;
+                {
+                    let mut panic_payload = panic_payload.lock().unwrap();
+                    *panic_payload = Some(payload);
+                }
             } else {
                 sender
                     .try_send(system_index)
@@ -498,6 +516,7 @@ impl MultiThreadedExecutor {
         let system_span = info_span!("system", name = &*system.name());
 
         let sender = self.sender.clone();
+        let panic_payload = self.panic_payload.clone();
         if is_apply_system_buffers(system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
@@ -505,17 +524,15 @@ impl MultiThreadedExecutor {
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    apply_system_buffers(&unapplied_systems, systems, world);
-                }));
+                let res = apply_system_buffers(&unapplied_systems, systems, world);
                 #[cfg(feature = "trace")]
                 drop(system_guard);
-                if res.is_err() {
-                    println!("Exclusive system `{}` panicked!", &*system.name());
+                if let Err(payload) = res {
                     // close the channel to propagate the error to the
                     // multithreaded executor
                     sender.close();
-                    return;
+                    let mut panic_payload = panic_payload.lock().unwrap();
+                    *panic_payload = Some(payload);
                 } else {
                     sender
                         .try_send(system_index)
@@ -535,12 +552,16 @@ impl MultiThreadedExecutor {
                 }));
                 #[cfg(feature = "trace")]
                 drop(system_guard);
-                if res.is_err() {
-                    println!("Exclusive system `{}` panicked!", &*system.name());
+                if let Err(payload) = res {
+                    println!(
+                        "Encountered a panic in exclusive system `{}`!",
+                        &*system.name()
+                    );
                     // close the channel to propagate the error to the
                     // multithreaded executor
                     sender.close();
-                    return;
+                    let mut panic_payload = panic_payload.lock().unwrap();
+                    *panic_payload = Some(payload);
                 } else {
                     sender
                         .try_send(system_index)
@@ -606,12 +627,22 @@ fn apply_system_buffers(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
-) {
+) -> Result<(), Box<dyn std::any::Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };
-        system.apply_buffers(world);
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            system.apply_buffers(world);
+        }));
+        if let Err(payload) = res {
+            println!(
+                "Encountered a panic when applying buffers for system `{}`!",
+                &*system.name()
+            );
+            return Err(payload);
+        }
     }
+    Ok(())
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {

@@ -101,9 +101,9 @@ impl SystemExecutor for SingleThreadedExecutor {
                 }));
                 #[cfg(feature = "trace")]
                 system_span.exit();
-                if res.is_err() {
-                    println!("System `{}` panicked!", &*system.name());
-                    return;
+                if let Err(payload) = res {
+                    println!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
                 }
                 self.unapplied_systems.insert(system_index);
             }

@@ -373,7 +373,9 @@ impl TaskPool {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
-                        results.push(task.await.unwrap());
+                        if let Some(res) = task.await {
+                            results.push(res);
+                        }
                     }
                     results
                 };
