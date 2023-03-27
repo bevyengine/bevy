@@ -296,12 +296,12 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let path_to_type = if def.type_path.leading_colon.is_none() && def.alias.is_empty() {
+    let path_to_type = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
         ReflectTypePath::Primitive(default_name)
     } else {
         ReflectTypePath::External {
             path: &def.type_path,
-            custom_path: def.alias.into_path(default_name),
+            custom_path: def.custom_path.map(|path| path.into_path(default_name)),
         }
     };
 
@@ -409,12 +409,12 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let path_to_type = if def.type_path.leading_colon.is_none() && def.alias.is_empty() {
+    let path_to_type = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
         ReflectTypePath::Primitive(default_name)
     } else {
         ReflectTypePath::External {
             path: &def.type_path,
-            custom_path: def.alias.into_path(default_name),
+            custom_path: def.custom_path.map(|alias| alias.into_path(default_name)),
         }
     };
 
@@ -432,14 +432,14 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
     let (path_to_type, generics) = match def {
         NamedTypePathDef::External {
             ref path,
-            custom_path: alias,
+            custom_path,
             generics,
         } => {
             let default_name = &path.segments.last().unwrap().ident;
             (
                 ReflectTypePath::External {
                     path,
-                    custom_path: alias.into_path(default_name),
+                    custom_path: custom_path.map(|path| path.into_path(default_name)),
                 },
                 generics,
             )

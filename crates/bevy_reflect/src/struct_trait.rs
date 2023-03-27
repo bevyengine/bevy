@@ -492,7 +492,7 @@ impl Typed for DynamicStruct {
     }
 }
 
-impl_type_path!(DynamicStruct in bevy_reflect);
+impl_type_path!((in bevy_reflect) DynamicStruct);
 
 /// Compares a [`Struct`] with a [`Reflect`] value.
 ///

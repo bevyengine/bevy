@@ -382,7 +382,7 @@ impl Typed for DynamicMap {
     }
 }
 
-impl_type_path!(DynamicMap in bevy_reflect);
+impl_type_path!((in bevy_reflect) DynamicMap);
 
 /// An iterator over the key-value pairs of a [`Map`].
 pub struct MapIter<'a> {

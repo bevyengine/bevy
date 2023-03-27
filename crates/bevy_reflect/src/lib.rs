@@ -1118,16 +1118,16 @@ mod tests {
         struct DerivePathNameG<T>(PhantomData<T>);
 
         struct Macro;
-        impl_type_path!(Macro in my_alias);
+        impl_type_path!((in my_alias) Macro);
 
         struct MacroName;
-        impl_type_path!(MacroName in my_alias as MyMacroName);
+        impl_type_path!((in my_alias as MyMacroName) MacroName);
 
         struct MacroG<T, const N: usize>(PhantomData<T>);
-        impl_type_path!(MacroG<T, const N: usize> in my_alias);
+        impl_type_path!((in my_alias) MacroG<T, const N: usize>);
 
         struct MacroNameG<T>(PhantomData<T>);
-        impl_type_path!(MacroNameG<T> in my_alias as MyMacroNameG);
+        impl_type_path!((in my_alias as MyMacroNameG) MacroNameG<T>);
 
         assert_eq!(Derive::type_path(), "bevy_reflect::tests::Derive");
         assert_eq!(DerivePath::type_path(), "my_alias::DerivePath");

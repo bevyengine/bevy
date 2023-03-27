@@ -388,7 +388,7 @@ impl Typed for DynamicTuple {
     }
 }
 
-impl_type_path!(DynamicTuple in bevy_reflect);
+impl_type_path!((in bevy_reflect) DynamicTuple);
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///

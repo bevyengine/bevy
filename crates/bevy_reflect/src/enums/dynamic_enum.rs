@@ -433,4 +433,4 @@ impl Typed for DynamicEnum {
     }
 }
 
-impl_type_path!(DynamicEnum in bevy_reflect);
+impl_type_path!((in bevy_reflect) DynamicEnum);

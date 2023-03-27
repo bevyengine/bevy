@@ -366,7 +366,7 @@ impl Typed for DynamicList {
     }
 }
 
-impl_type_path!(DynamicList in bevy_reflect);
+impl_type_path!((in bevy_reflect) DynamicList);
 
 impl IntoIterator for DynamicList {
     type Item = Box<dyn Reflect>;

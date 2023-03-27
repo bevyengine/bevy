@@ -26,7 +26,7 @@ pub(crate) struct ReflectValueDef {
     pub type_path: Path,
     pub generics: Generics,
     pub traits: Option<ReflectTraits>,
-    pub alias: CustomPathDef,
+    pub custom_path: Option<CustomPathDef>,
 }
 
 impl Parse for ReflectValueDef {
@@ -43,14 +43,14 @@ impl Parse for ReflectValueDef {
             traits = Some(content.parse::<ReflectTraits>()?);
         }
 
-        let alias: CustomPathDef = input.parse()?;
+        let custom_path = CustomPathDef::parse_parenthesized(input)?;
 
         Ok(ReflectValueDef {
             attrs,
             type_path,
             generics: Generics { ..generics },
             traits,
-            alias,
+            custom_path,
         })
     }
 }

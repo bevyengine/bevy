@@ -1,6 +1,8 @@
 use proc_macro2::Ident;
 use syn::{
+    parenthesized,
     parse::{Parse, ParseStream},
+    token::Paren,
     Generics, Path, PathSegment, Token,
 };
 
@@ -18,43 +20,40 @@ pub fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {
     }
 }
 
+/// An alias for a `TypePath`.
+///
+/// This is the parenthesized part of `(in my_crate::foo as MyType) SomeType`.
 pub struct CustomPathDef {
-    custom_path: Option<Path>,
-    custom_name: Option<Ident>,
+    path: Path,
+    name: Option<Ident>,
 }
 
 impl CustomPathDef {
-    pub fn is_empty(&self) -> bool {
-        self.custom_path.is_none()
+    pub fn into_path(mut self, default_name: &Ident) -> Path {
+        let name = PathSegment::from(self.name.unwrap_or_else(|| default_name.clone()));
+        self.path.segments.push(name);
+        self.path
     }
 
-    pub fn into_path(self, default_name: &Ident) -> Option<Path> {
-        if let Some(mut path) = self.custom_path {
-            let name = PathSegment::from(self.custom_name.unwrap_or_else(|| default_name.clone()));
-            path.segments.push(name);
-            Some(path)
+    pub fn parse_parenthesized(input: ParseStream) -> syn::Result<Option<Self>> {
+        if input.peek(Paren) {
+            let path;
+            parenthesized!(path in input);
+            Ok(Some(path.call(Self::parse)?))
         } else {
-            None
+            Ok(None)
         }
     }
-}
 
-impl Parse for CustomPathDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        if !input.peek(Token![in]) {
-            return Ok(Self {
-                custom_path: None,
-                custom_name: None,
-            });
-        }
-
         input.parse::<Token![in]>()?;
+
         let custom_path = parse_path_no_leading_colon(input)?;
 
         if !input.peek(Token![as]) {
             return Ok(Self {
-                custom_path: Some(custom_path),
-                custom_name: None,
+                path: custom_path,
+                name: None,
             });
         }
 
@@ -62,8 +61,8 @@ impl Parse for CustomPathDef {
         let custom_name: Ident = input.parse()?;
 
         Ok(Self {
-            custom_path: Some(custom_path),
-            custom_name: Some(custom_name),
+            path: custom_path,
+            name: Some(custom_name),
         })
     }
 }
@@ -72,20 +71,20 @@ pub enum NamedTypePathDef {
     External {
         path: Path,
         generics: Generics,
-        custom_path: CustomPathDef,
+        custom_path: Option<CustomPathDef>,
     },
     Primtive(Ident),
 }
 
 impl Parse for NamedTypePathDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let custom_path = CustomPathDef::parse_parenthesized(input)?;
+
         let path = Path::parse_mod_style(input)?;
         let mut generics = input.parse::<Generics>()?;
         generics.where_clause = input.parse()?;
 
-        let custom_path: CustomPathDef = input.parse()?;
-
-        if path.leading_colon.is_none() && custom_path.is_empty() {
+        if path.leading_colon.is_none() && custom_path.is_none() {
             if path.segments.len() == 1 {
                 let ident = path.segments.into_iter().next().unwrap().ident;
                 Ok(NamedTypePathDef::Primtive(ident))

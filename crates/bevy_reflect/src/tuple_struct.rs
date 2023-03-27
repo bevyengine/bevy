@@ -394,7 +394,7 @@ impl Typed for DynamicTupleStruct {
     }
 }
 
-impl_type_path!(DynamicTupleStruct in bevy_reflect);
+impl_type_path!((in bevy_reflect) DynamicTupleStruct);
 
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///
