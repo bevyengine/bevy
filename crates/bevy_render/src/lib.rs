@@ -46,7 +46,7 @@ pub use once_cell;
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
+    render_resource::{BaseShaderDefs, PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -242,6 +242,7 @@ impl Plugin for RenderPlugin {
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(BaseShaderDefs::new(&device))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)

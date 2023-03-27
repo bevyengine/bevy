@@ -161,6 +161,7 @@ pub struct PrepassPipeline<M: Material> {
     pub material_vertex_shader: Option<Handle<Shader>>,
     pub material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
+    pub shader_defs: Vec<ShaderDefVal>,
     _marker: PhantomData<M>,
 }
 
@@ -215,6 +216,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             },
             material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            shader_defs: mesh_pipeline.shader_defs.clone(),
             _marker: PhantomData,
         }
     }
@@ -232,7 +234,7 @@ where
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layout = vec![self.view_layout.clone()];
-        let mut shader_defs = Vec::new();
+        let mut shader_defs = self.shader_defs.clone();
         let mut vertex_attributes = Vec::new();
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
