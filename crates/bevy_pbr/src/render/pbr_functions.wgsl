@@ -158,7 +158,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
-#ifndef NORMAL_PREPASS
+#ifndef PREPASS_FRAGMENT
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -268,9 +268,9 @@ fn pbr(
 
     return output_color;
 }
-#endif // NORMAL_PREPASS
+#endif // PREPASS_FRAGMENT
 
-#ifndef NORMAL_PREPASS
+#ifndef PREPASS_FRAGMENT
 fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
@@ -308,7 +308,7 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
         return input_color;
     }
 }
-#endif
+#endif // PREPASS_FRAGMENT
 
 #ifdef PREMULTIPLY_ALPHA
 fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {

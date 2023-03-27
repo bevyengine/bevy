@@ -1,7 +1,7 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
-    prepass::{DepthPrepass, NormalPrepass},
+    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -29,6 +29,7 @@ pub struct MainPass3dNode {
             &'static ViewDepthTexture,
             Option<&'static DepthPrepass>,
             Option<&'static NormalPrepass>,
+            Option<&'static MotionVectorPrepass>,
         ),
         With<ExtractedView>,
     >,
@@ -64,6 +65,7 @@ impl Node for MainPass3dNode {
             depth,
             depth_prepass,
             normal_prepass,
+            motion_vector_prepass,
         )) = self.query.get_manual(world, view_entity) else {
             // No window
             return Ok(());
@@ -94,7 +96,10 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        load: if depth_prepass.is_some() || normal_prepass.is_some() {
+                        load: if depth_prepass.is_some()
+                            || normal_prepass.is_some()
+                            || motion_vector_prepass.is_some()
+                        {
                             // if any prepass runs, it will generate a depth buffer so we should use it,
                             // even if only the normal_prepass is used.
                             Camera3dDepthLoadOp::Load

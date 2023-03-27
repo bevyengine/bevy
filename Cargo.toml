@@ -415,6 +415,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "anti_aliasing"
+path = "examples/3d/anti_aliasing.rs"
+
+[package.metadata.example.anti_aliasing]
+name = "Anti-aliasing"
+description = "Compares different anti-aliasing methods"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "3d_gizmos"
 path = "examples/3d/3d_gizmos.rs"
 
@@ -512,26 +522,6 @@ required-features = ["ktx2", "zstd"]
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
 description = "Compares tonemapping options"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "fxaa"
-path = "examples/3d/fxaa.rs"
-
-[package.metadata.example.fxaa]
-name = "FXAA"
-description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "msaa"
-path = "examples/3d/msaa.rs"
-
-[package.metadata.example.msaa]
-name = "MSAA"
-description = "Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges"
 category = "3D Rendering"
 wasm = true
 
