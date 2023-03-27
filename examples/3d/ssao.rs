@@ -1,7 +1,7 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    core_pipeline::experimental::taa::{TemporalAntialiasBundle, TemporalAntialiasPlugin},
+    core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
     prelude::*,
     render::camera::TemporalJitter,
@@ -15,9 +15,9 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntialiasPlugin)
-        .add_startup_system(setup)
-        .add_system(update)
+        .add_plugin(TemporalAntiAliasPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, update)
         .run();
 }
 
@@ -37,7 +37,7 @@ fn setup(
             ..default()
         })
         .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntialiasBundle::default());
+        .insert(TemporalAntiAliasBundle::default());
 
     let material = materials.add(StandardMaterial {
         base_color: Color::rgb(0.5, 0.5, 0.5),
@@ -106,11 +106,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );

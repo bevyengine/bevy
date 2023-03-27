@@ -1,5 +1,5 @@
 use crate::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -8,7 +8,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
-    schedule::IntoSystemConfig,
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -18,7 +18,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::{
         AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
         BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{prelude::default, tracing::warn};
 use std::{mem, num::NonZeroU32};
@@ -102,10 +102,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         render_app
             .init_resource::<SSAOPipelines>()
             .init_resource::<SpecializedComputePipelines<SSAOPipelines>>()
-            .add_system(extract_ssao_settings.in_schedule(ExtractSchedule))
-            .add_system(prepare_ssao_textures.in_set(RenderSet::Prepare))
-            .add_system(prepare_ssao_pipelines.in_set(RenderSet::Prepare))
-            .add_system(queue_ssao_bind_groups.in_set(RenderSet::Queue));
+            .add_systems(ExtractSchedule, extract_ssao_settings)
+            .add_systems(Render, prepare_ssao_textures.in_set(RenderSet::Prepare))
+            .add_systems(Render, prepare_ssao_pipelines.in_set(RenderSet::Prepare))
+            .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue));
 
         let ssao_node = SSAONode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -115,12 +115,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         draw_3d_graph.add_node(
             draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
             ssao_node,
-        );
-        draw_3d_graph.add_slot_edge(
-            draw_3d_graph.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-            SSAONode::IN_VIEW,
         );
         // PREPASS -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
         draw_3d_graph.add_node_edge(
@@ -157,7 +151,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// and add the [`DepthPrepass`] and [`NormalPrepass`] components to your camera.
 ///
 /// It strongly recommended that you use SSAO in conjunction with
-/// TAA ([`bevy_core_pipeline::taa::TemporalAntialiasSettings`]).
+/// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings`]).
 /// Doing so greatly reduces SSAO noise.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
 pub enum ScreenSpaceAmbientOcclusionSettings {
@@ -199,8 +193,6 @@ struct SSAONode {
 }
 
 impl SSAONode {
-    const IN_VIEW: &'static str = "view";
-
     fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
@@ -209,10 +201,6 @@ impl SSAONode {
 }
 
 impl Node for SSAONode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.view_query.update_archetypes(world);
     }
@@ -225,13 +213,12 @@ impl Node for SSAONode {
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<SSAOPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, pipeline_id, bind_groups, view_uniform_offset)),
             Some(preprocess_depth_pipeline),
             Some(spatial_denoise_pipeline),
         ) = (
-            self.view_query.get_manual(world, view_entity),
+            self.view_query.get_manual(world, graph.view_entity()),
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         ) else {
