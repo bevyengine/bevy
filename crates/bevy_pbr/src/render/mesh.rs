@@ -658,7 +658,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = Vec::new();
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            shader_defs.push("NORMAL_PREPASS_ENABLED".into());
+            shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
