@@ -10,7 +10,7 @@ use syn::Fields;
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
-    let enum_path = reflect_enum.meta().path_to_type();
+    let enum_path = reflect_enum.meta().type_path();
 
     let ref_name = Ident::new("__name_param", Span::call_site());
     let ref_index = Ident::new("__index_param", Span::call_site());

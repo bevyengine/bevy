@@ -42,7 +42,7 @@ pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
     traits: ReflectTraits,
     /// The name of this type.
-    path_to_type: ReflectTypePath<'a>,
+    type_path: ReflectTypePath<'a>,
     /// The generics defined on this type.
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
@@ -225,12 +225,12 @@ impl<'a> ReflectDerive<'a> {
             ));
         }
 
-        let path_to_type = ReflectTypePath::Internal {
+        let type_path = ReflectTypePath::Internal {
             ident: &input.ident,
             custom_path,
         };
 
-        let meta = ReflectMeta::new(path_to_type, &input.generics, traits);
+        let meta = ReflectMeta::new(type_path, &input.generics, traits);
 
         #[cfg(feature = "documentation")]
         let meta = meta.with_docs(doc);
@@ -338,13 +338,13 @@ impl<'a> ReflectDerive<'a> {
 
 impl<'a> ReflectMeta<'a> {
     pub fn new(
-        path_to_type: ReflectTypePath<'a>,
+        type_path: ReflectTypePath<'a>,
         generics: &'a Generics,
         traits: ReflectTraits,
     ) -> Self {
         Self {
             traits,
-            path_to_type,
+            type_path,
             generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
@@ -364,8 +364,8 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The name of this struct.
-    pub fn path_to_type(&self) -> &'a ReflectTypePath {
-        &self.path_to_type
+    pub fn type_path(&self) -> &'a ReflectTypePath {
+        &self.type_path
     }
 
     /// The generics associated with this struct.
@@ -486,7 +486,7 @@ impl<'a> ReflectEnum<'a> {
 
     /// Returns the given ident as a qualified unit variant of this enum.
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
-        let name = self.meta.path_to_type();
+        let name = self.meta.type_path();
         quote! {
             #name::#variant
         }

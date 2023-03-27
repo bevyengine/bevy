@@ -38,11 +38,11 @@ fn combine_generics(
 /// [long path]: ReflectTypePath::non_generic_type_path
 /// [short path]: ReflectTypePath::non_generic_short_path
 fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::TokenStream {
-    let path_to_type = meta.path_to_type();
+    let type_path = meta.type_path();
     let generics = meta.generics();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    if let ReflectTypePath::Primitive(name) = path_to_type {
+    if let ReflectTypePath::Primitive(name) = type_path {
         let name = LitStr::new(&name.to_string(), name.span());
         return quote!(#name);
     }
@@ -67,7 +67,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
             })
             .collect();
 
-        (path_to_type.non_generic_type_path(), ty_generics)
+        (type_path.non_generic_type_path(), ty_generics)
     } else {
         let ty_generics: Vec<_> = ty_generic_paths
             .iter()
@@ -78,7 +78,7 @@ fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::Toke
             })
             .collect();
 
-        (path_to_type.non_generic_short_path(), ty_generics)
+        (type_path.non_generic_short_path(), ty_generics)
     };
 
     let generics = combine_generics(ty_generics, generics);
@@ -136,10 +136,10 @@ pub(crate) fn impl_type_path(
     meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
 ) -> proc_macro2::TokenStream {
-    let path_to_type = meta.path_to_type();
+    let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    let (type_path, short_type_path) = if meta.impl_is_generic() {
+    let (long_type_path, short_type_path) = if meta.impl_is_generic() {
         let long_path_cell = static_typed_cell(
             meta,
             TypedProperty::TypePath,
@@ -156,21 +156,21 @@ pub(crate) fn impl_type_path(
         )
     } else {
         (
-            path_to_type.non_generic_type_path(),
-            path_to_type.non_generic_short_path(),
+            type_path.non_generic_type_path(),
+            type_path.non_generic_short_path(),
         )
     };
 
-    let type_ident = wrap_in_option(path_to_type.type_ident());
-    let module_path = wrap_in_option(path_to_type.module_path());
-    let crate_name = wrap_in_option(path_to_type.crate_name());
+    let type_ident = wrap_in_option(type_path.type_ident());
+    let module_path = wrap_in_option(type_path.module_path());
+    let crate_name = wrap_in_option(type_path.crate_name());
 
-    let primitive_assert = if let ReflectTypePath::Primitive(_) = path_to_type {
+    let primitive_assert = if let ReflectTypePath::Primitive(_) = type_path {
         Some(quote! {
             const _: () = {
                 mod private_scope {
                     // Compiles if it can be named when there are no imports.
-                    type AssertIsPrimitive = #path_to_type;
+                    type AssertIsPrimitive = #type_path;
                 }
             };
         })
@@ -186,9 +186,9 @@ pub(crate) fn impl_type_path(
     quote! {
         #primitive_assert
 
-        impl #impl_generics #bevy_reflect_path::TypePath for #path_to_type #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
             fn type_path() -> &'static str {
-                #type_path
+                #long_type_path
             }
 
             fn short_type_path() -> &'static str {
@@ -215,7 +215,7 @@ pub(crate) fn impl_typed(
     where_clause_options: &WhereClauseOptions,
     type_info_generator: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let path_to_type = meta.path_to_type();
+    let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
     let type_info_cell = static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
@@ -225,7 +225,7 @@ pub(crate) fn impl_typed(
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
-        impl #impl_generics #bevy_reflect_path::Typed for #path_to_type #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
                 #type_info_cell
             }

@@ -10,7 +10,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
-    let struct_path = reflect_struct.meta().path_to_type();
+    let struct_path = reflect_struct.meta().type_path();
 
     let field_names = reflect_struct
         .active_fields()

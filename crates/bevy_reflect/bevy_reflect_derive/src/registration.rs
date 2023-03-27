@@ -13,7 +13,7 @@ pub(crate) fn impl_get_type_registration(
     where_clause_options: &WhereClauseOptions,
     serialization_denylist: Option<&BitSet<u32>>,
 ) -> proc_macro2::TokenStream {
-    let path_to_type = meta.path_to_type();
+    let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let registration_data = meta.traits().idents();
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
@@ -29,7 +29,7 @@ pub(crate) fn impl_get_type_registration(
 
     quote! {
         #[allow(unused_mut)]
-        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #path_to_type #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_path #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
                 registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<Self>::from_type());

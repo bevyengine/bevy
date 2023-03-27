@@ -296,7 +296,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let path_to_type = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
+    let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
         ReflectTypePath::Primitive(default_name)
     } else {
         ReflectTypePath::External {
@@ -305,7 +305,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    let meta = ReflectMeta::new(path_to_type, &def.generics, def.traits.unwrap_or_default());
+    let meta = ReflectMeta::new(type_path, &def.generics, def.traits.unwrap_or_default());
 
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
@@ -351,9 +351,9 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
     match derive_data {
         ReflectDerive::Struct(struct_data) => {
-            if !struct_data.meta().path_to_type().has_custom_path() {
+            if !struct_data.meta().type_path().has_custom_path() {
                 return syn::Error::new(
-                    struct_data.meta().path_to_type().span(),
+                    struct_data.meta().type_path().span(),
                     format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using `impl_reflect_struct`")
                 )
                     .into_compile_error()
@@ -409,7 +409,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let path_to_type = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
+    let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
         ReflectTypePath::Primitive(default_name)
     } else {
         ReflectTypePath::External {
@@ -419,7 +419,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     };
 
     from_reflect::impl_value(&ReflectMeta::new(
-        path_to_type,
+        type_path,
         &def.generics,
         def.traits.unwrap_or_default(),
     ))
@@ -429,7 +429,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 pub fn impl_type_path(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as NamedTypePathDef);
 
-    let (path_to_type, generics) = match def {
+    let (type_path, generics) = match def {
         NamedTypePathDef::External {
             ref path,
             custom_path,
@@ -449,7 +449,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         }
     };
 
-    let meta = ReflectMeta::new(path_to_type, &generics, ReflectTraits::default());
+    let meta = ReflectMeta::new(type_path, &generics, ReflectTraits::default());
 
     impls::impl_type_path(&meta, &WhereClauseOptions::type_path_bounds(&meta)).into()
 }

@@ -8,7 +8,7 @@ use quote::quote;
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
 pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let path_to_type = meta.path_to_type();
+    let type_path = meta.type_path();
 
     let hash_fn = meta.traits().get_hash_impl(bevy_reflect_path);
     let partial_eq_fn = meta.traits().get_partial_eq_impl(bevy_reflect_path);
@@ -45,7 +45,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
         #typed_impl
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #path_to_type #ty_generics #where_reflect_clause  {
+        impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
             fn type_name(&self) -> &str {
                 ::core::any::type_name::<Self>()
