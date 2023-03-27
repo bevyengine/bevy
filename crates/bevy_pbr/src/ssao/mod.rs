@@ -227,6 +227,8 @@ impl Node for SSAONode {
         let Some(gtao_pipeline) = pipeline_cache.get_compute_pipeline(pipeline_id.0) else { return Ok(()) };
         let Some(camera_size) = camera.physical_viewport_size else { return Ok(()) };
 
+        render_context.command_encoder().push_debug_group("ssao");
+
         {
             let mut preprocess_depth_pass =
                 render_context
@@ -286,6 +288,7 @@ impl Node for SSAONode {
             );
         }
 
+        render_context.command_encoder().pop_debug_group();
         Ok(())
     }
 }
