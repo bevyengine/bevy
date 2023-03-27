@@ -82,7 +82,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         );
 #endif // NORMAL_PREPASS_ENABLED
 
-
         pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
         pbr_input.N = apply_normal_mapping(
