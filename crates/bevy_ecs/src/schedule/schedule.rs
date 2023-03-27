@@ -23,6 +23,8 @@ use crate::{
     world::World,
 };
 
+pub use stepping::Stepping;
+
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
@@ -280,6 +282,11 @@ impl Schedule {
         &mut self.graph
     }
 
+    /// Returns the [`SystemSchedule`].
+    pub fn executable(&self) -> &SystemSchedule {
+        &self.executable
+    }
+
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
@@ -312,6 +319,36 @@ impl Schedule {
     pub fn apply_system_buffers(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
             system.apply_buffers(world);
+        }
+    }
+
+    /// Returns an iterator over all systems in this schedule.
+    ///
+    /// Note: this method will return [`ScheduleNotInitialized`] if the
+    /// schedule has never been initialized or run.
+    pub fn systems(
+        &self,
+    ) -> Result<impl Iterator<Item = (NodeId, &BoxedSystem)> + Sized, ScheduleNotInitialized> {
+        if !self.executor_initialized {
+            return Err(ScheduleNotInitialized);
+        }
+
+        let iter = self
+            .executable
+            .system_ids
+            .iter()
+            .zip(&self.executable.systems)
+            .map(|(node_id, system)| (*node_id, system));
+
+        Ok(iter)
+    }
+
+    /// Returns the number of systems in this schedule.
+    pub fn systems_len(&self) -> usize {
+        if !self.executor_initialized {
+            self.graph.systems.len()
+        } else {
+            self.executable.systems.len()
         }
     }
 }
@@ -1576,3 +1613,9 @@ impl ScheduleBuildSettings {
         }
     }
 }
+
+/// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
+/// this schedule.
+#[derive(Error, Debug)]
+#[error("executable schedule has not been built")]
+pub struct ScheduleNotInitialized;

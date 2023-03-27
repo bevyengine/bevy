@@ -6,6 +6,7 @@ mod graph_utils;
 mod schedule;
 mod set;
 mod state;
+mod stepping;
 
 pub use self::condition::*;
 pub use self::config::*;
