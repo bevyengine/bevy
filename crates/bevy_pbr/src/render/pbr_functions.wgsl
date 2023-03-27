@@ -257,7 +257,7 @@ fn pbr(
     // Transmitted Light
     var transmitted_light: vec3<f32> = vec3<f32>(0.0);
     if transmission > 0.0 {
-        transmitted_light = transmissive_light(in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color).rgb;
+        transmitted_light = transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color).rgb;
     }
 
     // Total light

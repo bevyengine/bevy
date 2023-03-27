@@ -281,7 +281,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     return (specular_light + diffuse) * (*light).color.rgb * NoL;
 }
 
-fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
+fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
     // Calculate view aspect ratio, used later to scale offset so that it's proportionate
     let aspect = view.viewport.z / view.viewport.w;
 
@@ -296,12 +296,14 @@ fn transmissive_light(frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f3
     let k = 1.0 - eta * eta * (1.0 - NdotI * NdotI);
     let T = eta * I - (eta * NdotI + sqrt(k)) * N;
 
-    // Transform refracted direction into view space
-    let view_T = (view.inverse_view * vec4<f32>(T.xyz, 0.0)).xyz;
+    // Calculate the exit position of the refracted ray, by propagating refacted direction through thickness
+    let exit_position = world_position.xyz + T * thickness;
 
-    // Calculate an offset position, by multiplying the refracted direction by the thickness and adding it to
-    // the fragment position scaled by viewport size. Use the aspect ratio calculated earlier stay proportionate
-    let offset_position = frag_coord.xy / view.viewport.zw + view_T.xy * thickness * vec2<f32>(1.0, -aspect) ;
+    // Transform exit_position into clip space
+    let clip_exit_position = view.view_proj * vec4<f32>(exit_position, 1.0);
+
+    // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
+    let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
 
     // Fetch background color
     let background_color = fetch_transmissive_background(offset_position, frag_coord, aspect, perceptual_roughness);
