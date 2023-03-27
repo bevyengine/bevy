@@ -282,8 +282,8 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
 }
 
 fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
-    // Calculate view aspect ratio, used later to scale offset so that it's proportionate
-    let aspect = view.viewport.z / view.viewport.w;
+    // Calculate distance, used to scale roughness transmission blur
+    let distance = length(view.world_position - world_position.xyz);
 
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
@@ -306,22 +306,36 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
 
     // Fetch background color
-    let background_color = fetch_transmissive_background(offset_position, frag_coord, aspect, perceptual_roughness);
+    let background_color = fetch_transmissive_background(offset_position, frag_coord, perceptual_roughness, distance);
 
     // Calculate final color by applying transmissive color to background
     // TODO: Add support for attenuationColor and attenuationDistance
     return transmissive_color * background_color;
 }
 
-fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, aspect: f32, perceptual_roughness: f32) -> vec3<f32> {
-    // Number of taps scale with perceptual roughness
+fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec3<f32> {
+    // Calculate view aspect ratio, used to scale offset so that it's proportionate
+    let aspect = view.viewport.z / view.viewport.w;
+
+    // Calculate how “blurry” the transmission should be.
+    // Blur is more or less eyeballed to look approximately “right”, since the “correct”
+    // approach would involve projecting many scattered rays and figuring out their individual
+    // exit positions. IRL, light rays can be scattered when entering/exiting a material (due to
+    // roughness) or inside the material (due to subsurface scattering). Here, we only consider
+    // the first scenario.
+    //
+    // - Higher `perceptual_roughness` produces more blur
+    // - Objects produce blur proportional to their distance to the view
+    let blur_intensity = perceptual_roughness / distance;
+
+    // Number of taps scale with blur intensity
     // Minimum: 1, Maximum: 9
-    let num_taps = i32(max(perceptual_roughness * 80.0, 8.0)) + 1;
+    let num_taps = i32(max(blur_intensity * 300.0, 8.0)) + 1;
     var result = vec3<f32>(0.0, 0.0, 0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
         // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
         let dither = screen_space_dither(frag_coord.xy + vec2<f32>(f32(i) * 4773.0, f32(i) * 1472.0));
-        let dither_offset = perceptual_roughness * (30.0 * dither.yz + 0.03 * normalize(dither).xy) * vec2<f32>(1.0, -aspect);
+        let dither_offset = (blur_intensity * 7.0) * (blur_intensity * 7.0) * (30.0 * dither.yz + 0.03 * normalize(dither).xy) * vec2<f32>(1.0, -aspect);
 
         // Sample the view transmission texture at the offset position + dither offset, to get the background color
         // TODO: Use depth prepass data to reject values that are in front of the current fragment
