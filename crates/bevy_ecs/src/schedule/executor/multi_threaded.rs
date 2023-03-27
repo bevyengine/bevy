@@ -536,7 +536,7 @@ impl MultiThreadedExecutor {
                 #[cfg(feature = "trace")]
                 drop(system_guard);
                 if res.is_err() {
-                    println!("Eclusive system `{}` panicked!", &*system.name());
+                    println!("Exclusive system `{}` panicked!", &*system.name());
                     // close the channel to propagate the error to the
                     // multithreaded executor
                     sender.close();
