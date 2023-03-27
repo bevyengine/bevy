@@ -1711,7 +1711,11 @@ impl World {
     /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
     /// The [`Schedule`] is fetched from the
-    pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
+    pub fn add_schedule<Label>(&mut self, mut schedule: Schedule, label: Label)
+    where
+        Label: ScheduleLabel + Clone,
+    {
+        schedule.set_label(label.clone());
         let mut schedules = self.resource_mut::<Schedules>();
         schedules.insert(label, schedule);
     }

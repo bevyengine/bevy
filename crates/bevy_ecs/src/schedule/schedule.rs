@@ -151,6 +151,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
+    label: Option<BoxedScheduleLabel>,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
@@ -167,11 +168,24 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new() -> Self {
         Self {
+            label: None,
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         }
+    }
+
+    /// Get the label for this schedule
+    pub fn label(&self) -> &Option<BoxedScheduleLabel> {
+        &self.label
+    }
+
+    /// Set the label for this schedule
+    pub fn set_label(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        debug_assert!(self.label.is_none());
+        self.label = Some(Box::new(label));
+        self
     }
 
     /// Add a system to the schedule.

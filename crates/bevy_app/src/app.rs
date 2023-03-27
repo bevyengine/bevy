@@ -875,7 +875,11 @@ impl App {
     /// # Warning
     /// This method will overwrite any existing schedule at that label.
     /// To avoid this behavior, use the `init_schedule` method instead.
-    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+    pub fn add_schedule<Label>(&mut self, label: Label, mut schedule: Schedule) -> &mut Self
+    where
+        Label: ScheduleLabel + Clone,
+    {
+        schedule.set_label(label.clone());
         let mut schedules = self.world.resource_mut::<Schedules>();
         schedules.insert(label, schedule);
 
