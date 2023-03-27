@@ -3,18 +3,24 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resizable: false,
-                mode: WindowMode::BorderlessFullscreen,
-                ..default()
-            }),
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            resizable: false,
+            mode: WindowMode::BorderlessFullscreen,
             ..default()
-        }))
-        .add_systems(Startup, (setup_scene, setup_music))
-        .add_systems(Update, (touch_camera, button_handler))
-        .run();
+        }),
+        ..default()
+    }))
+    .add_systems(Startup, (setup_scene, setup_music))
+    .add_systems(Update, (touch_camera, button_handler));
+
+    // MSAA makes some Android devices panic, this is under investigation
+    // https://github.com/bevyengine/bevy/issues/8229
+    #[cfg(target_os = "android")]
+    app.insert_resource(Msaa::Off);
+
+    app.run();
 }
 
 fn touch_camera(
