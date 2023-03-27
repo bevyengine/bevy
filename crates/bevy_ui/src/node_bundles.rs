@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex,
+    widget::Button, BackgroundColor, Border, CalculatedSize, CornerRadius, FocusPolicy,
+    Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -42,6 +42,10 @@ pub struct NodeBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Describes the radius of corners for the node
+    pub corner_radius: CornerRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 impl Default for NodeBundle {
@@ -57,6 +61,8 @@ impl Default for NodeBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            corner_radius: Default::default(),
+            border: Default::default(),
         }
     }
 }
@@ -94,6 +100,10 @@ pub struct ImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Describes the radius of corners for the node
+    pub corner_radius: CornerRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 #[cfg(feature = "bevy_text")]

@@ -1,3 +1,5 @@
+use std::mem::size_of;
+
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::*,
@@ -63,7 +65,9 @@ impl FromWorld for UiPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(UiUniform::std140_size_static() as u64),
+                        min_binding_size: BufferSize::new(
+                          size_of::<UiUniform>() as u64
+                        ),
                     },
 
                     count: None,
@@ -125,11 +129,11 @@ impl SpecializedRenderPipeline for UiPipeline {
 
             push_constant_ranges: Vec::new(),
 
-            layout: Some(vec![
+            layout: vec![
                 self.view_layout.clone(),
                 self.image_layout.clone(),
                 self.ui_uniform_layout.clone(),
-            ]),
+            ],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

@@ -167,16 +167,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     }
 }
 pub struct SetUiUniformBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetUiUniformBindGroup<I> {
+impl<const I: usize, P> RenderCommand<P> for SetUiUniformBindGroup<I>
+where
+    P: PhaseItem,
+{
     type Param = (SRes<UiMeta>, SQuery<Read<UiBatch>>);
 
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
+        item: &P,
+        view: (),
+        entity: (),
         (ui_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let batch = query_batch.get(item).unwrap();
+        let batch = query_batch.get(item.entity()).unwrap();
 
         pass.set_bind_group(
             I,
@@ -185,6 +189,10 @@ impl<const I: usize> EntityRenderCommand for SetUiUniformBindGroup<I> {
         );
         RenderCommandResult::Success
     }
+
+    type ViewWorldQuery = ();
+
+    type ItemWorldQuery = ();
 }
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
