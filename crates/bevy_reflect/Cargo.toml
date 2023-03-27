@@ -38,7 +38,6 @@ smallvec = { version = "1.6", features = [
     "const_generics",
 ], optional = true }
 glam = { version = "0.23", features = ["serde"], optional = true }
-ahash = "0.7.6"
 
 [dev-dependencies]
 ron = "0.8.0"

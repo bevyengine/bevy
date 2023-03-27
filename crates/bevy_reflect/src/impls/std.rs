@@ -14,6 +14,7 @@ use crate::utility::{
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::HashSet;
 use bevy_utils::{Duration, Instant};
+use std::collections::hash_map::RandomState;
 use std::{
     any::Any,
     borrow::Cow,
@@ -662,7 +663,8 @@ macro_rules! impl_reflect_for_hashmap {
     };
 }
 
-impl_type_path!(ahash::RandomState in ahash::random_state);
+impl_type_path!(::std::collections::hash_map::RandomState);
+impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 
 impl_reflect_for_hashmap!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
