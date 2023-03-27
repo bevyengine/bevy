@@ -53,18 +53,18 @@ pub struct InputSystem;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_set(InputSystem.in_base_set(CoreSet::PreUpdate))
+        app
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
             .init_resource::<Input<ScanCode>>()
-            .add_system(keyboard_input_system.in_set(InputSystem))
+            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
-            .add_system(mouse_button_input_system.in_set(InputSystem))
+            .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
@@ -76,6 +76,7 @@ impl Plugin for InputPlugin {
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
             .add_systems(
+                PreUpdate,
                 (
                     gamepad_event_system,
                     gamepad_connection_system.after(gamepad_event_system),
@@ -91,7 +92,7 @@ impl Plugin for InputPlugin {
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
-            .add_system(touch_screen_input_system.in_set(InputSystem));
+            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
 
         // Register common types
         app.register_type::<ButtonState>();

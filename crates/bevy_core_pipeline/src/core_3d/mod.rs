@@ -23,13 +23,13 @@ use std::cmp::Reverse;
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;
 
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         RenderPhase,
@@ -41,7 +41,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{FloatOrd, HashMap};
 
@@ -68,15 +68,18 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_systems((
-                extract_core_3d_camera_phases.in_schedule(ExtractSchedule),
-                prepare_core_3d_depth_textures
-                    .in_set(RenderSet::Prepare)
-                    .after(bevy_render::view::prepare_windows),
-                sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
-                sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
-                sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
-            ));
+            .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
+            .add_systems(
+                Render,
+                (
+                    prepare_core_3d_depth_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
+                    sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
+                ),
+            );
 
         let prepass_node = PrepassNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
@@ -91,34 +94,6 @@ impl Plugin for Core3dPlugin {
         draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
 
-        let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_3d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::PREPASS,
-            PrepassNode::IN_VIEW,
-        );
-        draw_3d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::MAIN_PASS,
-            MainPass3dNode::IN_VIEW,
-        );
-        draw_3d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::TONEMAPPING,
-            TonemappingNode::IN_VIEW,
-        );
-        draw_3d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::UPSCALING,
-            UpscalingNode::IN_VIEW,
-        );
         draw_3d_graph.add_node_edge(graph::node::PREPASS, graph::node::MAIN_PASS);
         draw_3d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
         draw_3d_graph.add_node_edge(

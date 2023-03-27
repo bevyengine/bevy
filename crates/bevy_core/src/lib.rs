@@ -102,12 +102,12 @@ pub struct TaskPoolPlugin {
 }
 
 impl Plugin for TaskPoolPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(tick_global_task_pools.in_base_set(bevy_app::CoreSet::Last));
+        _app.add_systems(Last, tick_global_task_pools);
     }
 }
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
@@ -124,7 +124,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 
 /// Maintains a count of frames rendered since the start of the application.
 ///
-/// [`FrameCount`] is incremented during [`CoreSet::Last`], providing predictable
+/// [`FrameCount`] is incremented during [`Last`], providing predictable
 /// behaviour: it will be 0 during the first update, 1 during the next, and so forth.
 ///
 /// # Overflows
@@ -142,7 +142,7 @@ pub struct FrameCountPlugin;
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
-        app.add_system(update_frame_count.in_base_set(CoreSet::Last));
+        app.add_systems(Last, update_frame_count);
     }
 }
 

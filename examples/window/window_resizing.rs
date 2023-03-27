@@ -9,8 +9,8 @@ fn main() {
             small: Vec2::new(640.0, 360.0),
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_systems((setup_camera, setup_ui))
-        .add_systems((on_resize_system, toggle_resolution))
+        .add_systems(Startup, (setup_camera, setup_ui))
+        .add_systems(Update, (on_resize_system, toggle_resolution))
         .run();
 }
 

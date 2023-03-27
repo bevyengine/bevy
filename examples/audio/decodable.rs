@@ -87,7 +87,7 @@ fn main() {
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins)
         .add_audio_source::<SineAudio>()
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 

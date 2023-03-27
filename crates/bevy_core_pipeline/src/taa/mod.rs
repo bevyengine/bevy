@@ -3,13 +3,13 @@ use crate::{
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
-    schedule::IntoSystemConfig,
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -18,7 +18,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
 mod draw_3d_graph {
@@ -45,28 +45,33 @@ const TAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
 
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
-pub struct TemporalAntialiasPlugin;
+///
+/// See [`TemporalAntiAliasSettings`] for more details.
+pub struct TemporalAntiAliasPlugin;
 
-impl Plugin for TemporalAntialiasPlugin {
+impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
         app.insert_resource(Msaa::Off)
-            .register_type::<TemporalAntialiasSettings>();
+            .register_type::<TemporalAntiAliasSettings>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
-            .add_systems((
-                extract_taa_settings.in_schedule(ExtractSchedule),
-                prepare_taa_jitter
-                    .before(prepare_view_uniforms)
-                    .in_set(RenderSet::Prepare),
-                prepare_taa_history_textures.in_set(RenderSet::Prepare),
-                prepare_taa_pipelines.in_set(RenderSet::Prepare),
-            ));
+            .add_systems(ExtractSchedule, extract_taa_settings)
+            .add_systems(
+                Render,
+                (
+                    prepare_taa_jitter
+                        .before(prepare_view_uniforms)
+                        .in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_pipelines.in_set(RenderSet::Prepare),
+                ),
+            );
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -74,12 +79,6 @@ impl Plugin for TemporalAntialiasPlugin {
             .get_sub_graph_mut(crate::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::TAA, taa_node);
-        draw_3d_graph.add_slot_edge(
-            draw_3d_graph.input_node().id,
-            crate::core_3d::graph::input::VIEW_ENTITY,
-            draw_3d_graph::node::TAA,
-            TAANode::IN_VIEW,
-        );
         // MAIN_PASS -> TAA -> BLOOM -> TONEMAPPING
         draw_3d_graph.add_node_edge(
             crate::core_3d::graph::node::MAIN_PASS,
@@ -95,8 +94,8 @@ impl Plugin for TemporalAntialiasPlugin {
 
 /// Bundle to apply temporal anti-aliasing.
 #[derive(Bundle, Default)]
-pub struct TemporalAntialiasBundle {
-    pub settings: TemporalAntialiasSettings,
+pub struct TemporalAntiAliasBundle {
+    pub settings: TemporalAntiAliasSettings,
     pub jitter: TemporalJitter,
     pub depth_prepass: DepthPrepass,
     pub motion_vector_prepass: MotionVectorPrepass,
@@ -113,7 +112,7 @@ pub struct TemporalAntialiasBundle {
 /// Pros:
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
 /// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques, such as SSAO, SSR, and shadow mapping (WIP)
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, shadow mapping, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
@@ -127,7 +126,7 @@ pub struct TemporalAntialiasBundle {
 ///
 /// # Usage Notes
 ///
-/// Requires that you add [`TemporalAntialiasPlugin`] to your app,
+/// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
@@ -142,7 +141,7 @@ pub struct TemporalAntialiasBundle {
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
-pub struct TemporalAntialiasSettings {
+pub struct TemporalAntiAliasSettings {
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
@@ -153,7 +152,7 @@ pub struct TemporalAntialiasSettings {
     pub reset: bool,
 }
 
-impl Default for TemporalAntialiasSettings {
+impl Default for TemporalAntiAliasSettings {
     fn default() -> Self {
         Self { reset: true }
     }
@@ -170,8 +169,6 @@ struct TAANode {
 }
 
 impl TAANode {
-    const IN_VIEW: &'static str = "view";
-
     fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
@@ -180,10 +177,6 @@ impl TAANode {
 }
 
 impl Node for TAANode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.view_query.update_archetypes(world);
     }
@@ -194,13 +187,12 @@ impl Node for TAANode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
             Some(pipelines),
             Some(pipeline_cache),
         ) = (
-            self.view_query.get_manual(world, view_entity),
+            self.view_query.get_manual(world, graph.view_entity()),
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
@@ -439,7 +431,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world
-        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntialiasSettings), (
+        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntiAliasSettings), (
             With<Camera3d>,
             With<TemporalJitter>,
             With<DepthPrepass>,
@@ -459,7 +451,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 
 fn prepare_taa_jitter(
     frame_count: Res<FrameCount>,
-    mut query: Query<&mut TemporalJitter, With<TemporalAntialiasSettings>>,
+    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasSettings>>,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
@@ -491,7 +483,7 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntialiasSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
@@ -545,7 +537,7 @@ fn prepare_taa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntialiasSettings)>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TAAPipelineKey {

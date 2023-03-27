@@ -22,6 +22,25 @@ use taffy::{
     Taffy,
 };
 
+pub struct LayoutContext {
+    pub scale_factor: f64,
+    pub physical_size: Vec2,
+    pub min_size: f32,
+    pub max_size: f32,
+}
+
+impl LayoutContext {
+    /// create new a [`LayoutContext`] from the window's physical size and scale factor
+    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+        Self {
+            scale_factor,
+            physical_size,
+            min_size: physical_size.x.min(physical_size.y),
+            max_size: physical_size.x.max(physical_size.y),
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
@@ -59,19 +78,17 @@ impl Default for FlexSurface {
 }
 
 impl FlexSurface {
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
+    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
         let mut added = false;
         let taffy = &mut self.taffy;
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy
-                .new_leaf(convert::from_style(scale_factor, style))
-                .unwrap()
+            taffy.new_leaf(convert::from_style(context, style)).unwrap()
         });
 
         if !added {
             self.taffy
-                .set_style(*taffy_node, convert::from_style(scale_factor, style))
+                .set_style(*taffy_node, convert::from_style(context, style))
                 .unwrap();
         }
     }
@@ -81,10 +98,11 @@ impl FlexSurface {
         entity: Entity,
         style: &Style,
         calculated_size: CalculatedSize,
-        scale_factor: f64,
+        context: &LayoutContext,
     ) {
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, style);
+        let taffy_style = convert::from_style(context, style);
+        let scale_factor = context.scale_factor;
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
                 let mut size = Size {
@@ -229,6 +247,7 @@ pub fn flex_node_system(
     windows: Query<(Entity, &Window)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
+    mut resize_events: EventReader<bevy_window::WindowResized>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
@@ -244,12 +263,23 @@ pub fn flex_node_system(
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let (primary_window_entity, logical_to_physical_factor) =
+    let (primary_window_entity, logical_to_physical_factor, physical_size) =
         if let Ok((entity, primary_window)) = primary_window.get_single() {
-            (entity, primary_window.resolution.scale_factor())
+            (
+                entity,
+                primary_window.resolution.scale_factor(),
+                Vec2::new(
+                    primary_window.resolution.physical_width() as f32,
+                    primary_window.resolution.physical_height() as f32,
+                ),
+            )
         } else {
             return;
         };
+
+    let resized = resize_events
+        .iter()
+        .any(|resized_window| resized_window.window == primary_window_entity);
 
     // update window root nodes
     for (entity, window) in windows.iter() {
@@ -258,31 +288,33 @@ pub fn flex_node_system(
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
+    let viewport_values = LayoutContext::new(scale_factor, physical_size);
+
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
-        scaling_factor: f64,
+        viewport_values: &LayoutContext,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(entity, style, *calculated_size, viewport_values);
             } else {
-                flex_surface.upsert_node(entity, style, scaling_factor);
+                flex_surface.upsert_node(entity, style, viewport_values);
             }
         }
     }
 
-    if !scale_factor_events.is_empty() || ui_scale.is_changed() {
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
-        update_changed(&mut flex_surface, scale_factor, full_node_query);
+        update_changed(&mut flex_surface, &viewport_values, full_node_query);
     } else {
-        update_changed(&mut flex_surface, scale_factor, node_query);
+        update_changed(&mut flex_surface, &viewport_values, node_query);
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, &viewport_values);
     }
 
     // clean up removed nodes

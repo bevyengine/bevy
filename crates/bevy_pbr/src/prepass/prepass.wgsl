@@ -117,6 +117,12 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
+    // These motion vectors are used as offsets to UV positions and are stored
+    // in the range -1,1 to allow offsetting from the one corner to the
+    // diagonally-opposite corner in UV coordinates, in either direction.
+    // A difference between diagonally-opposite corners of clip space is in the
+    // range -2,2, so this needs to be scaled by 0.5. And the V direction goes
+    // down where clip space y goes up, so y needs to be flipped.
     out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 #endif // MOTION_VECTOR_PREPASS
 
