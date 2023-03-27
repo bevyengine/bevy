@@ -6,7 +6,9 @@ mod set;
 mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
-use bevy_macro_utils::{derive_boxed_label, get_named_struct_fields, BevyManifest};
+use bevy_macro_utils::{
+    derive_boxed_label, ensure_no_collision, get_named_struct_fields, BevyManifest,
+};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -260,6 +262,7 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
+    let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
     let syn::Data::Struct(syn::DataStruct { fields: field_definitions, ..}) = ast.data else {
         return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
@@ -394,6 +397,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
+    let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
@@ -401,7 +405,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             #[doc(hidden)]
-            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*>
+            #state_struct_visibility struct #state_struct_name <'w, 's, #(#lifetimeless_generics,)*>
             #where_clause {
                 state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
@@ -411,11 +415,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
 
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = FetchState<'static, 'static, #punctuated_generic_idents>;
+                type State = #state_struct_name<'static, 'static, #punctuated_generic_idents>;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
-                    FetchState {
+                    #state_struct_name {
                         state: <(#(#tuple_types,)*) as #path::system::SystemParam>::init_state(world, system_meta),
                         marker: std::marker::PhantomData,
                     }
@@ -454,8 +458,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 /// Implement `WorldQuery` to use a struct as a parameter in a query
 #[proc_macro_derive(WorldQuery, attributes(world_query))]
 pub fn derive_world_query(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-    derive_world_query_impl(ast)
+    derive_world_query_impl(input)
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.

@@ -762,7 +762,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 }
 
-/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] at the end of a stage.
+/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
+/// [`apply_system_buffers`](crate::schedule::apply_system_buffers).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -805,7 +806,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm at the end of the current stage.
+///     /// Sounds the alarm the next time buffers are applied via apply_system_buffers.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -813,7 +814,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called at the end of the system's stage.
+///     // called the next time buffers are applied via apply_system_buffers.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -1625,7 +1626,7 @@ mod tests {
     #[derive(SystemParam)]
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
-    // regression test for https://github.com/bevyengine/bevy/issues/7103.
+    // Regression test for https://github.com/bevyengine/bevy/issues/7103.
     #[derive(SystemParam)]
     pub struct WhereParam<'w, 's, Q>
     where
@@ -1633,4 +1634,13 @@ mod tests {
     {
         _q: Query<'w, 's, Q, ()>,
     }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/1727.
+    #[derive(SystemParam)]
+    pub struct Collide<'w> {
+        _x: Res<'w, FetchState>,
+    }
+
+    #[derive(Resource)]
+    pub struct FetchState;
 }

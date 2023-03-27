@@ -1780,12 +1780,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "text_layout"
-path = "examples/ui/text_layout.rs"
+name = "flex_layout"
+path = "examples/ui/flex_layout.rs"
 
-[package.metadata.example.text_layout]
-name = "Text Layout"
-description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+[package.metadata.example.flex_layout]
+name = "Flex Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
 category = "UI (User Interface)"
 wasm = false
 
