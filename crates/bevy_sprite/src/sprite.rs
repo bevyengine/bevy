@@ -1,9 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{
-    prelude::{FromReflect, ReflectDefault},
-    Reflect,
-};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_render::color::Color;
 
 #[derive(Component, Debug, Default, Clone, Reflect, FromReflect)]
