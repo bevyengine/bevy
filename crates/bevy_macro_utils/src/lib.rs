@@ -8,10 +8,11 @@ pub use attrs::*;
 pub use shape::*;
 pub use symbol::*;
 
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
+use rustc_hash::FxHashSet;
 use std::{env, path::PathBuf};
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, Ident};
 use toml_edit::{Document, Item};
 
 pub struct BevyManifest {
@@ -106,6 +107,48 @@ impl BevyManifest {
             })
             .or_else(|| self.maybe_get_path(&format!("bevy_{subcrate}")))
     }
+}
+
+/// Finds an identifier that will not conflict with the specified set of tokens.
+/// If the identifier is present in `haystack`, extra characters will be added
+/// to it until it no longer conflicts with anything.
+///
+/// Note that the returned identifier can still conflict in niche cases,
+/// such as if an identifier in `haystack` is hidden behind an un-expanded macro.
+pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
+    // Collect all the identifiers in `haystack` into a set.
+    let idents = {
+        // List of token streams that will be visited in future loop iterations.
+        let mut unvisited = vec![haystack];
+        // Identifiers we have found while searching tokens.
+        let mut found = FxHashSet::default();
+        while let Some(tokens) = unvisited.pop() {
+            for t in tokens {
+                match t {
+                    // Collect any identifiers we encounter.
+                    TokenTree::Ident(ident) => {
+                        found.insert(ident.to_string());
+                    }
+                    // Queue up nested token streams to be visited in a future loop iteration.
+                    TokenTree::Group(g) => unvisited.push(g.stream()),
+                    TokenTree::Punct(_) | TokenTree::Literal(_) => {}
+                }
+            }
+        }
+
+        found
+    };
+
+    let span = value.span();
+
+    // If there's a collision, add more characters to the identifier
+    // until it doesn't collide with anything anymore.
+    let mut value = value.to_string();
+    while idents.contains(&value) {
+        value.push('X');
+    }
+
+    Ident::new(&value, span)
 }
 
 /// Derive a label trait

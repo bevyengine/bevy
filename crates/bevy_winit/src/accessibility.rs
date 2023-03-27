@@ -1,3 +1,5 @@
+//! Helpers for mapping window entities to accessibility types
+
 use std::{
     collections::VecDeque,
     sync::{atomic::Ordering, Arc, Mutex},

@@ -15,7 +15,7 @@ use bevy::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
         render_resource::{
             BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -88,16 +88,6 @@ impl Plugin for PostProcessPlugin {
         // Register the post process node in the 3d render graph
         core_3d_graph.add_node(PostProcessNode::NAME, node);
 
-        // A slot edge tells the render graph which input/output value should be passed to the node.
-        // In this case, the view entity, which is the entity associated with the
-        // camera on which the graph is running.
-        core_3d_graph.add_slot_edge(
-            core_3d_graph.input_node().id,
-            core_3d::graph::input::VIEW_ENTITY,
-            PostProcessNode::NAME,
-            PostProcessNode::IN_VIEW,
-        );
-
         // We now need to add an edge between our node and the nodes from bevy
         // to make sure our node is ordered correctly relative to other nodes.
         //
@@ -118,7 +108,6 @@ struct PostProcessNode {
 }
 
 impl PostProcessNode {
-    pub const IN_VIEW: &str = "view";
     pub const NAME: &str = "post_process";
 
     fn new(world: &mut World) -> Self {
@@ -129,14 +118,6 @@ impl PostProcessNode {
 }
 
 impl Node for PostProcessNode {
-    // This defines the input slot of the node and tells the render graph what
-    // we will need when running the node.
-    fn input(&self) -> Vec<SlotInfo> {
-        // In this case we tell the graph that our node will use the view entity.
-        // Currently, every node in bevy uses this pattern, so it's safe to just copy it.
-        vec![SlotInfo::new(PostProcessNode::IN_VIEW, SlotType::Entity)]
-    }
-
     // This will run every frame before the run() method
     // The important difference is that `self` is `mut` here
     fn update(&mut self, world: &mut World) {
@@ -158,7 +139,7 @@ impl Node for PostProcessNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the entity of the view for the render graph where this node is running
-        let view_entity = graph_context.get_input_entity(PostProcessNode::IN_VIEW)?;
+        let view_entity = graph_context.view_entity();
 
         // We get the data we need from the world based on the view entity passed to the node.
         // The data is the query that was defined earlier in the [`PostProcessNode`]

@@ -57,16 +57,38 @@ impl Default for Node {
     }
 }
 
-/// An enum that describes possible types of value in flexbox layout options
+/// Represents the possible value types for layout properties.
+///
+/// This enum allows specifying values for various [`Style`] properties in different units,
+/// such as logical pixels, percentages, or automatically determined values.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// Automatically determine this value
+    /// Automatically determine the value based on the context and other `Style` properties.
     Auto,
-    /// Set this value in pixels
+    /// Set this value in logical pixels.
     Px(f32),
-    /// Set this value in percent
+    /// Set the value as a percentage of its parent node's length along a specific axis.
+    ///
+    /// If the UI node has no parent, the percentage is calculated based on the window's length
+    /// along the corresponding axis.
+    ///
+    /// The chosen axis depends on the `Style` field set:
+    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+    /// * For `gap`, `min_size`, `size`, and `max_size`:
+    ///   - `width` is relative to the parent's width.
+    ///   - `height` is relative to the parent's height.
+    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
+    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
     Percent(f32),
+    /// Set this value in percent of the viewport width
+    Vw(f32),
+    /// Set this value in percent of the viewport height
+    Vh(f32),
+    /// Set this value in percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Set this value in percent of the viewport's larger dimension.
+    VMax(f32),
 }
 
 impl Val {
@@ -87,6 +109,10 @@ impl Mul<f32> for Val {
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value * rhs),
             Val::Percent(value) => Val::Percent(value * rhs),
+            Val::Vw(value) => Val::Vw(value * rhs),
+            Val::Vh(value) => Val::Vh(value * rhs),
+            Val::VMin(value) => Val::VMin(value * rhs),
+            Val::VMax(value) => Val::VMax(value * rhs),
         }
     }
 }
@@ -95,7 +121,12 @@ impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
             Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value *= rhs,
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value *= rhs,
         }
     }
 }
@@ -108,6 +139,10 @@ impl Div<f32> for Val {
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value / rhs),
             Val::Percent(value) => Val::Percent(value / rhs),
+            Val::Vw(value) => Val::Vw(value / rhs),
+            Val::Vh(value) => Val::Vh(value / rhs),
+            Val::VMin(value) => Val::VMin(value / rhs),
+            Val::VMax(value) => Val::VMax(value / rhs),
         }
     }
 }
@@ -116,7 +151,12 @@ impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
             Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value /= rhs,
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value /= rhs,
         }
     }
 }
