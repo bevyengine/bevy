@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use bevy_app::App;
+use bevy_app::{App, Startup, Update};
 use bevy_ecs::{
     prelude::{Component, ResMut},
     query::With,
@@ -31,13 +31,16 @@ struct SourceD;
 fn main() {
     App::new()
         .add_plugin(EntropyPlugin::<ChaCha8Rng>::new().with_seed([2; 32]))
-        .add_startup_system(setup_sources)
-        .add_systems((
-            random_output_a,
-            random_output_b,
-            random_output_c,
-            random_output_d,
-        ))
+        .add_systems(Startup, setup_sources)
+        .add_systems(
+            Update,
+            (
+                random_output_a,
+                random_output_b,
+                random_output_c,
+                random_output_d,
+            ),
+        )
         .run();
 }
 
