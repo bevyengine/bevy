@@ -122,8 +122,9 @@ pub(crate) fn extend_where_clause(
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
 
-    let mut generic_where_clause = if where_clause.is_some() {
-        quote! {#where_clause}
+    let mut generic_where_clause = if let Some(where_clause) = where_clause {
+        let predicates = where_clause.predicates.iter();
+        quote! {where #(#predicates,)*}
     } else if !(active_types.is_empty() && ignored_types.is_empty()) {
         quote! {where}
     } else {
