@@ -13,7 +13,7 @@ use crate::component::EntropyComponent;
 ///
 /// ```
 /// use bevy_ecs::prelude::ResMut;
-/// use bevy_app::App;
+/// use bevy_app::{App, Update};
 /// use bevy_entropy::prelude::*;
 /// use rand_core::RngCore;
 /// use rand_chacha::{ChaCha8Rng, ChaCha12Rng};
@@ -22,7 +22,7 @@ use crate::component::EntropyComponent;
 ///  App::new()
 ///    .add_plugin(EntropyPlugin::<ChaCha8Rng>::default())
 ///    .add_plugin(EntropyPlugin::<ChaCha12Rng>::default())
-///    .add_system(print_random_value)
+///    .add_systems(Update, print_random_value)
 ///    .run();
 /// }
 ///
