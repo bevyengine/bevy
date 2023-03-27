@@ -270,12 +270,6 @@ fn pbr(
 }
 #endif // NORMAL_PREPASS
 
-#ifdef DEBAND_DITHER
-fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
-    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
-}
-#endif // DEBAND_DITHER
-
 #ifndef NORMAL_PREPASS
 fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
