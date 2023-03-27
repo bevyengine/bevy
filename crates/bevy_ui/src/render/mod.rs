@@ -12,7 +12,10 @@ use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiIm
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
+
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+
+use bevy_math::{Vec3Swizzles, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -37,6 +40,8 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
+
+use crate::{Border, CornerRadius};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -155,6 +160,9 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub border_color: Option<Color>,
+    pub border_width: Option<f32>,
+    pub corner_radius: Option<[f32; 4]>,
 }
 
 #[derive(Resource, Default)]
@@ -174,13 +182,24 @@ pub fn extract_uinodes(
             Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
+            Option<&CornerRadius>,
+            Option<&Border>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            uinode,
+            transform,
+            color,
+            maybe_image,
+            visibility,
+            clip,
+            corner_radius,
+            border,
+        )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
             if !visibility.is_visible() || color.0.a() == 0.0 {
@@ -210,6 +229,9 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
+                border_color: border.map(|border| border.color),
+                border_width: border.map(|border| border.width),
+                corner_radius: corner_radius.map(|corner_radius| corner_radius.to_array()),
             });
         }
     }
@@ -336,6 +358,10 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+
+                    border_color: None,
+                    border_width: None,
+                    corner_radius: None,
                 });
             }
         }
@@ -348,19 +374,44 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    pub uniform_index: u32,
+}
+
+const MAX_UI_UNIFORM_ENTRIES: usize = 256;
+
+#[repr(C)]
+#[derive(Copy, Clone, ShaderType, Debug)]
+pub struct UiUniform {
+    entries: [UiUniformEntry; MAX_UI_UNIFORM_ENTRIES],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, ShaderType, Debug, Default)]
+pub struct UiUniformEntry {
+    pub color: u32,
+    pub size: Vec2,
+    pub center: Vec2,
+    pub border_color: u32,
+    pub border_width: f32,
+    /// NOTE: This is a Vec4 because using [f32; 4] with AsShaderType results in a 16-bytes alignment.
+    pub corner_radius: Vec4,
 }
 
 #[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
     view_bind_group: Option<BindGroup>,
+    ui_uniforms: DynamicUniformBuffer<UiUniform>,
+    ui_uniform_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
+            ui_uniforms: Default::default(),
             view_bind_group: None,
+            ui_uniform_bind_group: None,
         }
     }
 }
@@ -374,10 +425,11 @@ const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
 
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
+    pub ui_uniform_offset: u32,
     pub z: f32,
 }
 
@@ -389,6 +441,8 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
     ui_meta.vertices.clear();
+    ui_meta.ui_uniforms.clear();
+    ui_meta.ui_uniforms.clear();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
@@ -399,14 +453,26 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
+    let mut current_batch_uniform: UiUniform = UiUniform {
+        entries: [UiUniformEntry::default(); MAX_UI_UNIFORM_ENTRIES],
+    };
+    let mut current_uniform_index: u32 = 0;
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_handle != extracted_uinode.image
+            || current_uniform_index >= MAX_UI_UNIFORM_ENTRIES as u32
+        {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
+                    ui_uniform_offset: ui_meta.ui_uniforms.push(current_batch_uniform),
                     z: last_z,
                 });
+
+                current_uniform_index = 0;
+                current_batch_uniform = UiUniform {
+                    entries: [UiUniformEntry::default(); MAX_UI_UNIFORM_ENTRIES],
+                };
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
@@ -501,28 +567,56 @@ pub fn prepare_uinodes(
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
+        fn encode_color_as_u32(color: Color) -> u32 {
+            let color = color.as_linear_rgba_f32();
+            // encode color as a single u32 to save space
+            (color[0] * 255.0) as u32
+                | ((color[1] * 255.0) as u32) << 8
+                | ((color[2] * 255.0) as u32) << 16
+                | ((color[3] * 255.0) as u32) << 24
+        }
+
+        current_batch_uniform.entries[current_uniform_index as usize] = UiUniformEntry {
+            color: encode_color_as_u32(extracted_uinode.color),
+            size: Vec2::new(rect_size.x, rect_size.y),
+            center: ((positions[0] + positions[2]) / 2.0).xy(),
+            border_color: extracted_uinode.border_color.map_or(0, encode_color_as_u32),
+            border_width: extracted_uinode.border_width.unwrap_or(0.0),
+            corner_radius: extracted_uinode
+                .corner_radius
+                .map_or(Vec4::default(), |c| c.into()),
+        };
+
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
+                uniform_index: current_uniform_index,
                 color,
             });
         }
 
+        current_uniform_index += 1;
         last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
     }
 
     // if start != end, there is one last batch to process
     if start != end {
+        let offset = ui_meta.ui_uniforms.push(current_batch_uniform);
+
         commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_handle,
+            ui_uniform_offset: offset,
             z: last_z,
         });
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
+    ui_meta
+        .ui_uniforms
+        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Resource, Default)]
@@ -600,5 +694,17 @@ pub fn queue_uinodes(
                 });
             }
         }
+    }
+
+    if let Some(uniforms_binding) = ui_meta.ui_uniforms.binding() {
+        ui_meta.ui_uniform_bind_group =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: uniforms_binding,
+                }],
+                label: Some("ui_uniforms_bind_group"),
+                layout: &ui_pipeline.ui_uniform_layout,
+            }));
     }
 }

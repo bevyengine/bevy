@@ -39,45 +39,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(Val::Px(200.)),
-                        border: UiRect::all(Val::Px(2.)),
+                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        border: Rect::all(Val::Px(2.0)),
+                        align_items: AlignItems::FlexEnd,
                         ..default()
                     },
-                    background_color: Color::rgb(0.65, 0.65, 0.65).into(),
+                    background_color: BackgroundColor(Color::rgb(0.15, 0.15, 0.15).into()),
+                    border: Border {
+                        color: Color::rgb(0.65, 0.65, 0.65),
+                        width: 2.0,
+                    },
                     ..default()
                 })
                 .with_children(|parent| {
-                    // left vertical fill (content)
-                    parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                size: Size::width(Val::Percent(100.)),
-                                ..default()
-                            },
-                            background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                    // text
+                    parent.spawn_bundle(TextBundle {
+                        style: Style {
+                            margin: Rect::all(Val::Px(5.0)),
                             ..default()
-                        })
-                        .with_children(|parent| {
-                            // text
-                            parent.spawn((
-                                TextBundle::from_section(
-                                    "Text Example",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 30.0,
-                                        color: Color::WHITE,
-                                    },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
-                                    ..default()
-                                }),
-                                // Because this is a distinct label widget and
-                                // not button/list item text, this is necessary
-                                // for accessibility to treat the text accordingly.
-                                Label,
-                            ));
-                        });
+                        },
+                        text: Text::with_section(
+                            "Text Example",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 30.0,
+                                color: Color::WHITE,
+                            },
+                            Default::default(),
+                        ),
+                        ..default()
+                    });
                 });
             // right vertical fill
             parent

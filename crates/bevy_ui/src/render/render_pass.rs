@@ -122,6 +122,7 @@ pub type DrawUi = (
     SetItemPipeline,
     SetUiViewBindGroup<0>,
     SetUiTextureBindGroup<1>,
+    SetUiUniformBindGroup<2>,
     DrawUiNode,
 );
 
@@ -162,6 +163,26 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
+        RenderCommandResult::Success
+    }
+}
+pub struct SetUiUniformBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetUiUniformBindGroup<I> {
+    type Param = (SRes<UiMeta>, SQuery<Read<UiBatch>>);
+
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (ui_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let batch = query_batch.get(item).unwrap();
+
+        pass.set_bind_group(
+            I,
+            ui_meta.into_inner().ui_uniform_bind_group.as_ref().unwrap(),
+            &[batch.ui_uniform_offset],
+        );
         RenderCommandResult::Success
     }
 }
