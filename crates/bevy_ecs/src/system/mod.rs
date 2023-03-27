@@ -123,17 +123,40 @@ pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
 
+use crate::world::World;
+
 /// Ensure that a given function is a [system](System).
 ///
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S) {
-    if false {
-        // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
-        IntoSystem::into_system(sys);
-    }
+///
+/// # Examples
+///
+/// The following example will panic when run since the
+/// system's parameters mutably access the same component
+/// multiple times.
+///
+/// ```should_panic
+/// # use bevy_ecs::{prelude::*, system::assert_is_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query1: Query<&mut Transform>, query2: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_system(my_system);
+/// ```
+pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
+    system: impl IntoSystem<In, Out, Marker>,
+) {
+    let mut system = IntoSystem::into_system(system);
+
+    // Initialize the system, which will panic if the system has access conflicts.
+    let mut world = World::new();
+    system.initialize(&mut world);
 }
 
 /// Ensure that a given function is a [read-only system](ReadOnlySystem).
@@ -141,15 +164,30 @@ pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_read_only_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
+///
+/// # Examples
+///
+/// The following example will fail to compile
+/// since the system accesses a component mutably.
+///
+/// ```compile_fail
+/// # use bevy_ecs::{prelude::*, system::assert_is_read_only_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_read_only_system(my_system);
+/// ```
+pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
 where
+    S: IntoSystem<In, Out, Marker>,
     S::System: ReadOnlySystem,
 {
-    if false {
-        // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
-        IntoSystem::into_system(sys);
-    }
+    assert_is_system(system);
 }
 
 #[cfg(test)]
