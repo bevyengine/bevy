@@ -16,8 +16,9 @@ use bevy::{
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            RenderPipelineDescriptor, ShaderDefVal, SpecializedRenderPipeline,
+            SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
@@ -133,7 +134,11 @@ impl FromWorld for ColoredMesh2dPipeline {
 impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         // Customize how to store the meshes' vertex attributes in the vertex buffer
         // Our meshes only have position and color
         let formats = vec![
@@ -156,14 +161,14 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
-                shader_defs: Vec::new(),
+                shader_defs: shader_defs.clone(),
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: Vec::new(),
+                shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,

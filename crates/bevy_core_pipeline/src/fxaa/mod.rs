@@ -177,17 +177,24 @@ pub struct FxaaPipelineKey {
 impl SpecializedRenderPipeline for FxaaPipeline {
     type Key = FxaaPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: fullscreen_shader_vertex_state(shader_defs.clone()),
             fragment: Some(FragmentState {
                 shader: FXAA_SHADER_HANDLE.typed(),
-                shader_defs: vec![
-                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
-                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
-                ],
+                shader_defs: shader_defs
+                    .into_iter()
+                    .chain([
+                        format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
+                        format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
+                    ])
+                    .collect(),
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,

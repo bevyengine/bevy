@@ -41,6 +41,7 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let vertex_buffer_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
@@ -57,12 +58,12 @@ impl SpecializedMeshPipeline for GizmoLinePipeline {
             vertex: VertexState {
                 shader: self.shader.clone_weak(),
                 entry_point: "vertex".into(),
-                shader_defs: vec![],
+                shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone_weak(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,

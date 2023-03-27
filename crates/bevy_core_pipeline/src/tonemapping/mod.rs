@@ -184,8 +184,11 @@ pub struct TonemappingPipelineKey {
 impl SpecializedRenderPipeline for TonemappingPipeline {
     type Key = TonemappingPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = Vec::new();
+    fn specialize(
+        &self,
+        key: Self::Key,
+        mut shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }
@@ -208,7 +211,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: fullscreen_shader_vertex_state(shader_defs.clone()),
             fragment: Some(FragmentState {
                 shader: TONEMAPPING_SHADER_HANDLE.typed(),
                 shader_defs,

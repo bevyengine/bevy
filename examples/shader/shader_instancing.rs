@@ -190,8 +190,9 @@ impl SpecializedMeshPipeline for CustomPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
+        shader_defs: Vec<ShaderDefVal>,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout, shader_defs)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
