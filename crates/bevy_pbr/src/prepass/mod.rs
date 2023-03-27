@@ -18,8 +18,8 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::MeshVertexBufferLayout,
-    prelude::{Camera, Mesh},
+    mesh::{GpuMesh, Mesh, MeshVertexBufferLayout},
+    prelude::Camera,
     render_asset::RenderAssets,
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
@@ -45,7 +45,7 @@ use bevy_utils::{tracing::error, HashMap};
 
 use crate::{
     AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
-    MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
+    MeshPipelineKey, MeshUniform, PreparedMaterial, SetMaterialBindGroup, SetMeshBindGroup,
     MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
@@ -621,8 +621,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
         &ExtractedView,

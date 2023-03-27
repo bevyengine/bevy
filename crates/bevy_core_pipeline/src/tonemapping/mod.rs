@@ -8,7 +8,7 @@ use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
@@ -317,7 +317,7 @@ pub enum DebandDither {
 }
 
 pub fn get_lut_bindings<'a>(
-    images: &'a RenderAssets<Image>,
+    images: &'a RenderAssets<GpuImage>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     bindings: [u32; 2],

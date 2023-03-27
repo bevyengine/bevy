@@ -7,7 +7,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{GpuMesh, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
@@ -100,7 +100,7 @@ pub(crate) fn queue_gizmos_2d(
     pipeline: Res<GizmoLinePipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
-    gpu_meshes: Res<RenderAssets<Mesh>>,
+    gpu_meshes: Res<RenderAssets<GpuMesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoMesh>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent2d>)>,

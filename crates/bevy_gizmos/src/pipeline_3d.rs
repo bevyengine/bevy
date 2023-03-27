@@ -8,17 +8,17 @@ use bevy_ecs::{
 };
 use bevy_pbr::*;
 use bevy_render::{
-    mesh::Mesh,
-    render_resource::Shader,
-    view::{ExtractedView, ViewTarget},
-};
-use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
     render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
     view::Msaa,
+};
+use bevy_render::{
+    mesh::{GpuMesh, Mesh},
+    render_resource::Shader,
+    view::{ExtractedView, ViewTarget},
 };
 
 use crate::{GizmoConfig, GizmoMesh, LINE_SHADER_HANDLE};
@@ -131,7 +131,7 @@ pub(crate) fn queue_gizmos_3d(
     pipeline: Res<GizmoPipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoMesh>>,
     config: Res<GizmoConfig>,

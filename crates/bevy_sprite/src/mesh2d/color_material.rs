@@ -3,7 +3,8 @@ use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_math::Vec4;
 use bevy_reflect::{prelude::*, TypeUuid};
 use bevy_render::{
-    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
+    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*,
+    texture::GpuImage, texture::Image,
 };
 
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
@@ -95,7 +96,7 @@ pub struct ColorMaterialUniform {
 }
 
 impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
-    fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> ColorMaterialUniform {
+    fn as_bind_group_shader_type(&self, _images: &RenderAssets<GpuImage>) -> ColorMaterialUniform {
         let mut flags = ColorMaterialFlags::NONE;
         if self.texture.is_some() {
             flags |= ColorMaterialFlags::TEXTURE;

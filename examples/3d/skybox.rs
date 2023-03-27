@@ -19,7 +19,7 @@ use bevy::{
             TextureViewDescriptor, TextureViewDimension,
         },
         renderer::RenderDevice,
-        texture::{CompressedImageFormats, FallbackImage},
+        texture::{CompressedImageFormats, FallbackImage, GpuImage},
     },
 };
 
@@ -230,7 +230,7 @@ impl AsBindGroup for CubemapMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         _fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let base_color_texture = self
