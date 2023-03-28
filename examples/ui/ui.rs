@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Val::Px(2.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         align_items: AlignItems::FlexEnd,
                         ..default()
                     },
@@ -53,19 +53,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // text
-                    parent.spawn_bundle(TextBundle {
+                    parent.spawn(TextBundle {
                         style: Style {
-                            margin: Rect::all(Val::Px(5.0)),
+                            margin: UiRect::all(Val::Px(5.0)),
                             ..default()
                         },
-                        text: Text::with_section(
+                        text: Text::from_section(
                             "Text Example",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
                             },
-                            Default::default(),
                         ),
                         ..default()
                     });

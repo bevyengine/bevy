@@ -175,8 +175,8 @@ where
 
     fn render<'w>(
         item: &P,
-        view: (),
-        entity: (),
+        _view: (),
+        _entity: (),
         (ui_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
