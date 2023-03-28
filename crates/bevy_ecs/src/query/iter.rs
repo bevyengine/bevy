@@ -348,7 +348,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
                 Some(_) => {
                     for j in (i + 1)..K {
-                        self.cursors[j] = self.cursors[j - 1].clone_cursor();
+                        self.cursors[j] = self.cursors[j - 1].clone();
                         match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
@@ -460,14 +460,8 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
-    /// This function is safe to call if `(Q, F): ReadOnlyWorldQuery` holds.
-    ///
-    /// # Safety
-    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
-    /// that the returned value is not used in any way that would cause two `QueryItem<Q>` for the same
-    /// `archetype_row` or `table_row` to be alive at the same time.
-    unsafe fn clone_cursor(&self) -> Self {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> Clone for QueryIterationCursor<'_, '_, Q, F> {
+    fn clone(&self) -> Self {
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
