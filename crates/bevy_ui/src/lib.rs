@@ -36,7 +36,6 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
@@ -143,10 +142,9 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 flex_node_system
-                    .in_set(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
+                    .in_set(UiSystem::Flex),
                 ui_stack_system.in_set(UiSystem::Stack),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+                update_clipping_system,
             ),
         );
 
