@@ -632,12 +632,9 @@ pub struct ResError<T: Resource> {
 
 impl<T: Resource> std::fmt::Debug for ResError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "ResError<{}> {{ system_name: {} }}",
-            std::any::type_name::<T>(),
-            self.system_name
-        )
+        f.debug_struct(&format!("ResError<{}>", std::any::type_name::<T>()))
+            .field("system_name', &self.system_name)
+            .finish()
     }
 }
 
