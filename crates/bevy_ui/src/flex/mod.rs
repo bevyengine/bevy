@@ -359,23 +359,26 @@ pub fn flex_node_system(
                 Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
             let new_position = Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
 
-            // only trigger change detection when the new value is different
-            if node.calculated_size != new_size {
-                node.calculated_size = new_size;
-            }
+            
+            let relative_position = new_position + 0.5 * new_size;
 
-            let calculated_position = inherited_position + new_position + 0.5 * new_size;
+            let calculated_position = inherited_position + relative_position;
 
             // only trigger change detection when the new value is different
             if position.calculated != calculated_position {
                 position.calculated = calculated_position;
             }
 
+            // only trigger change detection when the new value is different
+            if node.calculated_size != new_size {
+                node.calculated_size = new_size;
+            }
+
             if let Ok((_, children)) = children_query.get(node_id) {
                 for child in children.iter() {
                     update_node_geometry_recursively(
                         flex_surface,
-                        calculated_position,
+                        calculated_position - 0.5 * new_size,
                         *child,
                         node_geometry_query,
                         children_query,
@@ -386,11 +389,11 @@ pub fn flex_node_system(
         }
     }
 
-    for node in root_node_query.iter() {
+    for node_id in root_node_query.iter() {
         update_node_geometry_recursively(
             &flex_surface,
             Vec2::ZERO,
-            node,
+            node_id,
             &mut node_geometry_query,
             &children_query,
             physical_to_logical_factor,
