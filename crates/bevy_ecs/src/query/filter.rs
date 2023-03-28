@@ -396,7 +396,7 @@ macro_rules! impl_tick_filter {
         #[derive(Clone)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w> {
-            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_run: Tick,
             this_run: Tick,
