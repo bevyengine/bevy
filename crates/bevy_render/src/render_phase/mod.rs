@@ -74,10 +74,10 @@ impl<I: PhaseItem> RenderPhase<I> {
     }
 
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
-    pub fn render<'w>(
+    pub fn render<'world>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
-        world: &'w World,
+        render_pass: &mut TrackedRenderPass<'world>,
+        world: &'world World,
         view: Entity,
     ) {
         let draw_functions = world.resource::<DrawFunctions<I>>();
@@ -183,12 +183,12 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type ViewWorldQuery = ();
     type ItemWorldQuery = ();
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         item: &P,
         _view: (),
         _entity: (),
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pipeline_cache: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         if let Some(pipeline) = pipeline_cache
             .into_inner()

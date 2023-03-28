@@ -538,12 +538,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     type ItemWorldQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'world, Self::ViewWorldQuery>,
         _view: (),
-        _param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        _param: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
@@ -558,12 +558,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     type ItemWorldQuery = Read<DynamicUniformIndex<Mesh2dUniform>>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
         mesh2d_index: &'_ DynamicUniformIndex<Mesh2dUniform>,
-        mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        mesh2d_bind_group: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         pass.set_bind_group(
             I,
@@ -581,12 +581,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     type ItemWorldQuery = Read<Mesh2dHandle>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
-        mesh_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        mesh_handle: ROQueryItem<'world, Self::ItemWorldQuery>,
+        meshes: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         if let Some(gpu_mesh) = meshes.into_inner().get(&mesh_handle.0) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));

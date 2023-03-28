@@ -40,11 +40,11 @@ use std::ops::{Deref, DerefMut};
 ///
 /// [`ExtractSchedule`]: crate::ExtractSchedule
 /// [Window]: bevy_window::Window
-pub struct Extract<'w, 's, P>
+pub struct Extract<'world, 'state, P>
 where
     P: ReadOnlySystemParam + 'static,
 {
-    item: SystemParamItem<'w, 's, P>,
+    item: SystemParamItem<'world, 'state, P>,
 }
 
 #[doc(hidden)]
@@ -63,7 +63,7 @@ where
     P: ReadOnlySystemParam,
 {
     type State = ExtractState<P>;
-    type Item<'w, 's> = Extract<'w, 's, P>;
+    type Item<'world, 'state> = Extract<'world, 'state, P>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
@@ -73,12 +73,12 @@ where
         }
     }
 
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &'world World,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Self::Item<'world, 'state> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
@@ -93,11 +93,11 @@ where
     }
 }
 
-impl<'w, 's, P> Deref for Extract<'w, 's, P>
+impl<'world, 'state, P> Deref for Extract<'world, 'state, P>
 where
     P: ReadOnlySystemParam,
 {
-    type Target = SystemParamItem<'w, 's, P>;
+    type Target = SystemParamItem<'world, 'state, P>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -105,7 +105,7 @@ where
     }
 }
 
-impl<'w, 's, P> DerefMut for Extract<'w, 's, P>
+impl<'world, 'state, P> DerefMut for Extract<'world, 'state, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -115,13 +115,13 @@ where
     }
 }
 
-impl<'a, 'w, 's, P> IntoIterator for &'a Extract<'w, 's, P>
+impl<'a, 'world, 'state, P> IntoIterator for &'a Extract<'world, 'state, P>
 where
     P: ReadOnlySystemParam,
-    &'a SystemParamItem<'w, 's, P>: IntoIterator,
+    &'a SystemParamItem<'world, 'state, P>: IntoIterator,
 {
-    type Item = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::Item;
-    type IntoIter = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::IntoIter;
+    type Item = <&'a SystemParamItem<'world, 'state, P> as IntoIterator>::Item;
+    type IntoIter = <&'a SystemParamItem<'world, 'state, P> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         (&self.item).into_iter()

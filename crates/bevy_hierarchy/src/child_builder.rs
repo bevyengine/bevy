@@ -241,21 +241,21 @@ impl Command for RemoveParent {
 }
 
 /// Struct for building children onto an entity
-pub struct ChildBuilder<'w, 's, 'a> {
-    commands: &'a mut Commands<'w, 's>,
+pub struct ChildBuilder<'world, 'state, 'a> {
+    commands: &'a mut Commands<'world, 'state>,
     push_children: PushChildren,
 }
 
-impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
+impl<'world, 'state, 'a> ChildBuilder<'world, 'state, 'a> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'world, 'state, '_> {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
     /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`ChildBuilder`] which adds the [`Parent`] component to it.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'w, 's, '_> {
+    pub fn spawn_empty(&mut self) -> EntityCommands<'world, 'state, '_> {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
@@ -310,7 +310,7 @@ pub trait BuildChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
+impl<'world, 'state, 'a> BuildChildren for EntityCommands<'world, 'state, 'a> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let mut builder = ChildBuilder {
@@ -391,12 +391,12 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
 /// Struct for adding children to an entity directly through the [`World`] for use in exclusive systems
 #[derive(Debug)]
-pub struct WorldChildBuilder<'w> {
-    world: &'w mut World,
+pub struct WorldChildBuilder<'world> {
+    world: &'world mut World,
     parent: Entity,
 }
 
-impl<'w> WorldChildBuilder<'w> {
+impl<'world> WorldChildBuilder<'world> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
     pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
@@ -459,7 +459,7 @@ pub trait BuildWorldChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w> BuildWorldChildren for EntityMut<'w> {
+impl<'world> BuildWorldChildren for EntityMut<'world> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {

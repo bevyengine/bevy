@@ -755,12 +755,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
     type ViewWorldQuery = Read<ViewUniformOffset>;
     type ItemWorldQuery = ();
 
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         view_uniform: &'_ ViewUniformOffset,
         _entity: (),
-        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        sprite_meta: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         pass.set_bind_group(
             I,
@@ -776,12 +776,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<SpriteBatch>;
 
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
         sprite_batch: &'_ SpriteBatch,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        image_bind_groups: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
 
@@ -803,12 +803,12 @@ impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<SpriteBatch>;
 
-    fn render<'w>(
+    fn render<'world>(
         item: &P,
         _view: (),
         sprite_batch: &'_ SpriteBatch,
-        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        sprite_meta: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
         if sprite_batch.colored {

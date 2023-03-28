@@ -229,12 +229,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type ItemWorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         _view: (),
-        (mesh_handle, instance_buffer): (&'w Handle<Mesh>, &'w InstanceBuffer),
-        meshes: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        (mesh_handle, instance_buffer): (&'world Handle<Mesh>, &'world InstanceBuffer),
+        meshes: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,

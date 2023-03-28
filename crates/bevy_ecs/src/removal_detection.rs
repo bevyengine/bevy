@@ -129,10 +129,10 @@ impl RemovedComponentEvents {
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
 #[derive(SystemParam)]
-pub struct RemovedComponents<'w, 's, T: Component> {
-    component_id: Local<'s, ComponentIdFor<T>>,
-    reader: Local<'s, RemovedComponentReader<T>>,
-    event_sets: &'w RemovedComponentEvents,
+pub struct RemovedComponents<'world, 'state, T: Component> {
+    component_id: Local<'state, ComponentIdFor<T>>,
+    reader: Local<'state, RemovedComponentReader<T>>,
+    event_sets: &'world RemovedComponentEvents,
 }
 
 /// Iterator over entities that had a specific component removed.
@@ -161,7 +161,7 @@ fn map_id_events(
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `EventReader<T>` to reduce confusion.
-impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
+impl<'world, 'state, T: Component> RemovedComponents<'world, 'state, T> {
     /// Fetch underlying [`ManualEventReader`].
     pub fn reader(&self) -> &ManualEventReader<RemovedComponentEntity> {
         &self.reader
@@ -238,7 +238,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     }
 }
 
-impl<'a, 'w, 's: 'a, T> IntoIterator for &'a mut RemovedComponents<'w, 's, T>
+impl<'a, 'world, 'state: 'a, T> IntoIterator for &'a mut RemovedComponents<'world, 'state, T>
 where
     T: Component,
 {
@@ -256,17 +256,17 @@ unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
 // never mutably borrowed during system execution
 unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
-    type Item<'w, 's> = &'w RemovedComponentEvents;
+    type Item<'world, 'state> = &'world RemovedComponentEvents;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
-        _state: &'s mut Self::State,
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &'world World,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Self::Item<'world, 'state> {
         world.removed_components()
     }
 }

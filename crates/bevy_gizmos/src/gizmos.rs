@@ -20,7 +20,7 @@ pub(crate) struct GizmoStorage {
     pub strip_colors: Vec<ColorItem>,
 }
 
-pub type Gizmos<'s> = Deferred<'s, GizmoBuffer>;
+pub type Gizmos<'state> = Deferred<'state, GizmoBuffer>;
 
 #[derive(Default)]
 pub struct GizmoBuffer {

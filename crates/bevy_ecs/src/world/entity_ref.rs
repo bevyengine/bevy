@@ -16,13 +16,13 @@ use super::unsafe_world_cell::UnsafeEntityCell;
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
-pub struct EntityRef<'w> {
-    world: &'w World,
+pub struct EntityRef<'world> {
+    world: &'world World,
     entity: Entity,
     location: EntityLocation,
 }
 
-impl<'w> EntityRef<'w> {
+impl<'world> EntityRef<'world> {
     /// # Safety
     ///
     ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
@@ -30,7 +30,11 @@ impl<'w> EntityRef<'w> {
     ///
     ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
     #[inline]
-    pub(crate) unsafe fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
+    pub(crate) unsafe fn new(
+        world: &'world World,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Self {
         debug_assert!(world.entities().contains(entity));
         debug_assert_eq!(world.entities().get(entity), Some(location));
 
@@ -41,7 +45,7 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'w> {
+    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'world> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
@@ -66,7 +70,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn world(&self) -> &'w World {
+    pub fn world(&self) -> &'world World {
         self.world
     }
 
@@ -88,7 +92,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'w T> {
+    pub fn get<T: Component>(&self) -> Option<&'world T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
@@ -117,7 +121,7 @@ impl<'w> EntityRef<'w> {
     }
 }
 
-impl<'w> EntityRef<'w> {
+impl<'world> EntityRef<'world> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
@@ -125,16 +129,16 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     ///
     /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
-    /// which is only valid while the `'w` borrow of the lifetime is active.
+    /// which is only valid while the `'world` borrow of the lifetime is active.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'world>> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
     }
 }
 
-impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
-    fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
+impl<'world> From<EntityMut<'world>> for EntityRef<'world> {
+    fn from(entity_mut: EntityMut<'world>) -> EntityRef<'world> {
         // SAFETY: the safety invariants on EntityMut and EntityRef are identical
         // and EntityMut is promised to be valid by construction.
         unsafe { EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location) }
@@ -142,13 +146,13 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
 }
 
 /// A mutable reference to a particular [`Entity`] and all of its components
-pub struct EntityMut<'w> {
-    world: &'w mut World,
+pub struct EntityMut<'world> {
+    world: &'world mut World,
     entity: Entity,
     location: EntityLocation,
 }
 
-impl<'w> EntityMut<'w> {
+impl<'world> EntityMut<'world> {
     fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
@@ -172,7 +176,7 @@ impl<'w> EntityMut<'w> {
     ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
     #[inline]
     pub(crate) unsafe fn new(
-        world: &'w mut World,
+        world: &'world mut World,
         entity: Entity,
         location: EntityLocation,
     ) -> Self {
@@ -665,7 +669,7 @@ impl<'w> EntityMut<'w> {
 
     /// Return this `EntityMut`'s [`World`], consuming itself.
     #[inline]
-    pub fn into_world_mut(self) -> &'w mut World {
+    pub fn into_world_mut(self) -> &'world mut World {
         self.world
     }
 
@@ -694,8 +698,8 @@ impl<'w> EntityMut<'w> {
     /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
-        struct Guard<'w, 'a> {
-            entity_mut: &'a mut EntityMut<'w>,
+        struct Guard<'world, 'a> {
+            entity_mut: &'a mut EntityMut<'world>,
         }
 
         impl Drop for Guard<'_, '_> {
@@ -722,7 +726,7 @@ impl<'w> EntityMut<'w> {
     }
 }
 
-impl<'w> EntityMut<'w> {
+impl<'world> EntityMut<'world> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only

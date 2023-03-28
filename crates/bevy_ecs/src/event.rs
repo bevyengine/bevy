@@ -184,12 +184,12 @@ impl<E: Event> DerefMut for EventSequence<E> {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam, Debug)]
-pub struct EventReader<'w, 's, E: Event> {
-    reader: Local<'s, ManualEventReader<E>>,
-    events: Res<'w, Events<E>>,
+pub struct EventReader<'world, 'state, E: Event> {
+    reader: Local<'state, ManualEventReader<E>>,
+    events: Res<'world, Events<E>>,
 }
 
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
+impl<'world, 'state, E: Event> EventReader<'world, 'state, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
@@ -241,7 +241,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
-impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
+impl<'a, 'world, 'state, E: Event> IntoIterator for &'a mut EventReader<'world, 'state, E> {
     type Item = &'a E;
     type IntoIter = ManualEventIterator<'a, E>;
     fn into_iter(self) -> Self::IntoIter {
@@ -292,11 +292,11 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, E: Event> {
-    events: ResMut<'w, Events<E>>,
+pub struct EventWriter<'world, E: Event> {
+    events: ResMut<'world, Events<E>>,
 }
 
-impl<'w, E: Event> EventWriter<'w, E> {
+impl<'world, E: Event> EventWriter<'world, E> {
     /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {

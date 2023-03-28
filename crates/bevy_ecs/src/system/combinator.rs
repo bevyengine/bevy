@@ -169,10 +169,10 @@ where
         )
     }
 
-    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
+    fn run<'world>(&mut self, input: Self::In, world: &'world mut World) -> Self::Out {
         // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
         // is explicitly allowed in the docs for `UnsafeCell`.
-        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
+        let world: &'world UnsafeCell<World> = unsafe { std::mem::transmute(world) };
         Func::combine(
             input,
             // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never

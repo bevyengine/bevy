@@ -167,7 +167,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    pub fn get<'world, 'state>(
+        &'state mut self,
+        world: &'world World,
+    ) -> SystemParamItem<'world, 'state, Param>
     where
         Param: ReadOnlySystemParam,
     {
@@ -179,7 +182,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
+    pub fn get_mut<'world, 'state>(
+        &'state mut self,
+        world: &'world mut World,
+    ) -> SystemParamItem<'world, 'state, Param> {
         self.validate_world(world);
         self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
@@ -236,7 +242,10 @@ impl<Param: SystemParam> SystemState<Param> {
     ///
     /// Users should strongly prefer to use [`SystemState::get`] over this function.
     #[inline]
-    pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    pub fn get_manual<'world, 'state>(
+        &'state mut self,
+        world: &'world World,
+    ) -> SystemParamItem<'world, 'state, Param>
     where
         Param: ReadOnlySystemParam,
     {
@@ -254,10 +263,10 @@ impl<Param: SystemParam> SystemState<Param> {
     ///
     /// Users should strongly prefer to use [`SystemState::get_mut`] over this function.
     #[inline]
-    pub fn get_manual_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> SystemParamItem<'w, 's, Param> {
+    pub fn get_manual_mut<'world, 'state>(
+        &'state mut self,
+        world: &'world mut World,
+    ) -> SystemParamItem<'world, 'state, Param> {
         self.validate_world(world);
         let change_tick = world.change_tick();
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
@@ -271,10 +280,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
-    pub unsafe fn get_unchecked_manual<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> SystemParamItem<'w, 's, Param> {
+    pub unsafe fn get_unchecked_manual<'world, 'state>(
+        &'state mut self,
+        world: &'world World,
+    ) -> SystemParamItem<'world, 'state, Param> {
         let change_tick = world.increment_change_tick();
         self.fetch(world, change_tick)
     }
@@ -284,11 +293,11 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
-    unsafe fn fetch<'w, 's>(
-        &'s mut self,
-        world: &'w World,
+    unsafe fn fetch<'world, 'state>(
+        &'state mut self,
+        world: &'world World,
         change_tick: Tick,
-    ) -> SystemParamItem<'w, 's, Param> {
+    ) -> SystemParamItem<'world, 'state, Param> {
         let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
         self.meta.last_run = change_tick;
         param

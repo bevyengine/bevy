@@ -329,10 +329,10 @@ impl ReflectResource {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method with an [`UnsafeWorldCell`] which can be used to mutably access the resource.
     /// * Don't call this method more than once in the same scope for a given [`Resource`].
-    pub unsafe fn reflect_unchecked_mut<'w>(
+    pub unsafe fn reflect_unchecked_mut<'world>(
         &self,
-        world: UnsafeWorldCell<'w>,
-    ) -> Option<Mut<'w, dyn Reflect>> {
+        world: UnsafeWorldCell<'world>,
+    ) -> Option<Mut<'world, dyn Reflect>> {
         // SAFETY: caller promises to uphold uniqueness guarantees
         (self.0.reflect_unchecked_mut)(world)
     }

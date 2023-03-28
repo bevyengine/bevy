@@ -88,7 +88,7 @@ pub trait BuildChildrenTransformExt {
     /// (during [`apply_system_buffers`](bevy_ecs::schedule::apply_system_buffers)).
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
-impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
+impl<'world, 'state, 'a> BuildChildrenTransformExt for EntityCommands<'world, 'state, 'a> {
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
         self.commands().add(RemoveParentInPlace { child });

@@ -24,10 +24,10 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     fn prepare(&mut self, world: &'_ World) {}
 
     /// Draws a [`PhaseItem`] by issuing zero or more `draw` calls via the [`TrackedRenderPass`].
-    fn draw<'w>(
+    fn draw<'world>(
         &mut self,
-        world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
+        world: &'world World,
+        pass: &mut TrackedRenderPass<'world>,
         view: Entity,
         item: &P,
     );
@@ -182,12 +182,12 @@ pub trait RenderCommand<P: PhaseItem> {
 
     /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
-    fn render<'w>(
+    fn render<'world>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
-        param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        view: ROQueryItem<'world, Self::ViewWorldQuery>,
+        entity: ROQueryItem<'world, Self::ItemWorldQuery>,
+        param: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult;
 }
 
@@ -205,12 +205,12 @@ macro_rules! render_command_tuple_impl {
             type ItemWorldQuery = ($($name::ItemWorldQuery,)*);
 
             #[allow(non_snake_case)]
-            fn render<'w>(
+            fn render<'world>(
                 _item: &P,
-                ($($view,)*): ROQueryItem<'w, Self::ViewWorldQuery>,
-                ($($entity,)*): ROQueryItem<'w, Self::ItemWorldQuery>,
-                ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
-                _pass: &mut TrackedRenderPass<'w>,
+                ($($view,)*): ROQueryItem<'world, Self::ViewWorldQuery>,
+                ($($entity,)*): ROQueryItem<'world, Self::ItemWorldQuery>,
+                ($($name,)*): SystemParamItem<'world, '_, Self::Param>,
+                _pass: &mut TrackedRenderPass<'world>,
             ) -> RenderCommandResult {
                 $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
                     return RenderCommandResult::Failure;
@@ -257,10 +257,10 @@ where
     }
 
     /// Fetches the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
-    fn draw<'w>(
+    fn draw<'world>(
         &mut self,
-        world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
+        world: &'world World,
+        pass: &mut TrackedRenderPass<'world>,
         view: Entity,
         item: &P,
     ) {

@@ -1022,15 +1022,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     type ItemWorldQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'world>(
         _item: &P,
         (view_uniform_offset, previous_view_projection_uniform_offset): (
             &'_ ViewUniformOffset,
             Option<&'_ PreviousViewProjectionUniformOffset>,
         ),
         _entity: (),
-        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        prepass_view_bind_group: SystemParamItem<'world, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'world>,
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
 

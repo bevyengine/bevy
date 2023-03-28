@@ -364,12 +364,12 @@ impl<'a> From<TicksMut<'a>> for Ticks<'a> {
 /// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
 ///
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
-pub struct Res<'w, T: ?Sized + Resource> {
-    pub(crate) value: &'w T,
-    pub(crate) ticks: Ticks<'w>,
+pub struct Res<'world, T: ?Sized + Resource> {
+    pub(crate) value: &'world T,
+    pub(crate) ticks: Ticks<'world>,
 }
 
-impl<'w, T: Resource> Res<'w, T> {
+impl<'world, T: Resource> Res<'world, T> {
     // no it shouldn't clippy
     #[allow(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
@@ -380,15 +380,15 @@ impl<'w, T: Resource> Res<'w, T> {
     }
 
     /// Due to lifetime limitations of the `Deref` trait, this method can be used to obtain a
-    /// reference of the [`Resource`] with a lifetime bound to `'w` instead of the lifetime of the
+    /// reference of the [`Resource`] with a lifetime bound to `'world` instead of the lifetime of the
     /// struct itself.
-    pub fn into_inner(self) -> &'w T {
+    pub fn into_inner(self) -> &'world T {
         self.value
     }
 }
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
-    fn from(res: ResMut<'w, T>) -> Self {
+impl<'world, T: Resource> From<ResMut<'world, T>> for Res<'world, T> {
+    fn from(res: ResMut<'world, T>) -> Self {
         Self {
             value: res.value,
             ticks: res.ticks.into(),
@@ -396,7 +396,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
+impl<'world, 'a, T: Resource> IntoIterator for &'a Res<'world, T>
 where
     &'a T: IntoIterator,
 {
@@ -407,8 +407,8 @@ where
         self.value.into_iter()
     }
 }
-change_detection_impl!(Res<'w, T>, T, Resource);
-impl_debug!(Res<'w, T>, Resource);
+change_detection_impl!(Res<'world, T>, T, Resource);
+impl_debug!(Res<'world, T>, Resource);
 
 /// Unique mutable borrow of a [`Resource`].
 ///
@@ -426,7 +426,7 @@ pub struct ResMut<'a, T: ?Sized + Resource> {
     pub(crate) ticks: TicksMut<'a>,
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
+impl<'world, 'a, T: Resource> IntoIterator for &'a ResMut<'world, T>
 where
     &'a T: IntoIterator,
 {
@@ -438,7 +438,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
+impl<'world, 'a, T: Resource> IntoIterator for &'a mut ResMut<'world, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -513,7 +513,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
+impl<'world, 'a, T> IntoIterator for &'a Ref<'world, T>
 where
     &'a T: IntoIterator,
 {
@@ -577,7 +577,7 @@ impl<'a, T: ?Sized> From<Mut<'a, T>> for Ref<'a, T> {
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
+impl<'world, 'a, T> IntoIterator for &'a Mut<'world, T>
 where
     &'a T: IntoIterator,
 {
@@ -589,7 +589,7 @@ where
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
+impl<'world, 'a, T> IntoIterator for &'a mut Mut<'world, T>
 where
     &'a mut T: IntoIterator,
 {

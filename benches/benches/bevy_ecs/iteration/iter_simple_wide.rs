@@ -13,23 +13,23 @@ struct Rotation(Vec3);
 #[derive(Component, Copy, Clone)]
 struct Velocity<const X: usize>(Vec3);
 
-pub struct Benchmark<'w>(
+pub struct Benchmark<'world>(
     World,
     QueryState<(
-        &'w Velocity<0>,
-        &'w mut Position<0>,
-        &'w Velocity<1>,
-        &'w mut Position<1>,
-        &'w Velocity<2>,
-        &'w mut Position<2>,
-        &'w Velocity<3>,
-        &'w mut Position<3>,
-        &'w Velocity<4>,
-        &'w mut Position<4>,
+        &'world Velocity<0>,
+        &'world mut Position<0>,
+        &'world Velocity<1>,
+        &'world mut Position<1>,
+        &'world Velocity<2>,
+        &'world mut Position<2>,
+        &'world Velocity<3>,
+        &'world mut Position<3>,
+        &'world Velocity<4>,
+        &'world mut Position<4>,
     )>,
 );
 
-impl<'w> Benchmark<'w> {
+impl<'world> Benchmark<'world> {
     pub fn new() -> Self {
         let mut world = World::new();
 

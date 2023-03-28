@@ -37,9 +37,9 @@ fn single_mut_query(mut query: Query<&mut Foo>) {
 
         // This solves "temporary value dropped while borrowed"
         let readonly_query = query.to_readonly();
-        
+
         let ref_foo = readonly_query.single();
-    
+
         *mut_foo = Foo;
 
         println!("{ref_foo:?}");

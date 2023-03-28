@@ -36,17 +36,17 @@ use std::collections::BTreeMap;
 /// builder.extract_entity(entity);
 /// let dynamic_scene = builder.build();
 /// ```
-pub struct DynamicSceneBuilder<'w> {
+pub struct DynamicSceneBuilder<'world> {
     extracted_resources: BTreeMap<ComponentId, Box<dyn Reflect>>,
     extracted_scene: BTreeMap<u32, DynamicEntity>,
     type_registry: AppTypeRegistry,
-    original_world: &'w World,
+    original_world: &'world World,
 }
 
-impl<'w> DynamicSceneBuilder<'w> {
+impl<'world> DynamicSceneBuilder<'world> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
     /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
-    pub fn from_world(world: &'w World) -> Self {
+    pub fn from_world(world: &'world World) -> Self {
         Self {
             extracted_resources: default(),
             extracted_scene: default(),
@@ -57,7 +57,10 @@ impl<'w> DynamicSceneBuilder<'w> {
 
     /// Prepare a builder that will extract entities and their component from the given [`World`].
     /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
-    pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
+    pub fn from_world_with_type_registry(
+        world: &'world World,
+        type_registry: AppTypeRegistry,
+    ) -> Self {
         Self {
             extracted_resources: default(),
             extracted_scene: default(),

@@ -5,22 +5,22 @@ use crate::{
 };
 use std::iter::FusedIterator;
 
-pub struct SpawnBatchIter<'w, I>
+pub struct SpawnBatchIter<'world, I>
 where
     I: Iterator,
     I::Item: Bundle,
 {
     inner: I,
-    spawner: BundleSpawner<'w, 'w>,
+    spawner: BundleSpawner<'world, 'world>,
 }
 
-impl<'w, I> SpawnBatchIter<'w, I>
+impl<'world, I> SpawnBatchIter<'world, I>
 where
     I: Iterator,
     I::Item: Bundle,
 {
     #[inline]
-    pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
+    pub(crate) fn new(world: &'world mut World, iter: I) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
         world.flush();

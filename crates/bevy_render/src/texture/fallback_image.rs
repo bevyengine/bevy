@@ -133,14 +133,14 @@ pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
 
 #[derive(SystemParam)]
-pub struct FallbackImagesMsaa<'w> {
-    cache: ResMut<'w, FallbackImageMsaaCache>,
-    render_device: Res<'w, RenderDevice>,
-    render_queue: Res<'w, RenderQueue>,
-    default_sampler: Res<'w, DefaultImageSampler>,
+pub struct FallbackImagesMsaa<'world> {
+    cache: ResMut<'world, FallbackImageMsaaCache>,
+    render_device: Res<'world, RenderDevice>,
+    render_queue: Res<'world, RenderQueue>,
+    default_sampler: Res<'world, DefaultImageSampler>,
 }
 
-impl<'w> FallbackImagesMsaa<'w> {
+impl<'world> FallbackImagesMsaa<'world> {
     pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
         self.cache.entry(sample_count).or_insert_with(|| {
             fallback_image_new(
@@ -156,14 +156,14 @@ impl<'w> FallbackImagesMsaa<'w> {
 }
 
 #[derive(SystemParam)]
-pub struct FallbackImagesDepth<'w> {
-    cache: ResMut<'w, FallbackImageDepthCache>,
-    render_device: Res<'w, RenderDevice>,
-    render_queue: Res<'w, RenderQueue>,
-    default_sampler: Res<'w, DefaultImageSampler>,
+pub struct FallbackImagesDepth<'world> {
+    cache: ResMut<'world, FallbackImageDepthCache>,
+    render_device: Res<'world, RenderDevice>,
+    render_queue: Res<'world, RenderQueue>,
+    default_sampler: Res<'world, DefaultImageSampler>,
 }
 
-impl<'w> FallbackImagesDepth<'w> {
+impl<'world> FallbackImagesDepth<'world> {
     pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
         self.cache.entry(sample_count).or_insert_with(|| {
             fallback_image_new(

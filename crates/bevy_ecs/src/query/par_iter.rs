@@ -78,15 +78,17 @@ impl BatchingStrategy {
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    pub(crate) world: &'w World,
-    pub(crate) state: &'s QueryState<Q, F>,
+pub struct QueryParIter<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+    pub(crate) world: &'world World,
+    pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+impl<'world, 'state, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery>
+    QueryParIter<'world, 'state, Q, F>
+{
     /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for
@@ -98,7 +100,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, 
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
+    pub fn for_each<FN: Fn(ROQueryItem<'world, Q>) + Send + Sync + Clone>(&self, func: FN) {
         // SAFETY: query is read only
         unsafe {
             self.for_each_unchecked(func);
@@ -106,7 +108,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, 
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+impl<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'world, 'state, Q, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -124,7 +126,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
+    pub fn for_each_mut<FN: Fn(QueryItem<'world, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
         // SAFETY: query has unique world access
         unsafe {
             self.for_each_unchecked(func);
@@ -144,7 +146,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
+    pub unsafe fn for_each_unchecked<FN: Fn(QueryItem<'world, Q>) + Send + Sync + Clone>(
         &self,
         func: FN,
     ) {

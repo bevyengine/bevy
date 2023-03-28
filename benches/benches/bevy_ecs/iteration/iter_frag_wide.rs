@@ -28,24 +28,24 @@ macro_rules! create_entities {
 #[derive(Component)]
 struct Data<const X: usize>(f32);
 
-pub struct Benchmark<'w>(
+pub struct Benchmark<'world>(
     World,
     QueryState<(
-        &'w mut Data<0>,
-        &'w mut Data<1>,
-        &'w mut Data<2>,
-        &'w mut Data<3>,
-        &'w mut Data<4>,
-        &'w mut Data<5>,
-        &'w mut Data<6>,
-        &'w mut Data<7>,
-        &'w mut Data<8>,
-        &'w mut Data<9>,
-        &'w mut Data<10>,
+        &'world mut Data<0>,
+        &'world mut Data<1>,
+        &'world mut Data<2>,
+        &'world mut Data<3>,
+        &'world mut Data<4>,
+        &'world mut Data<5>,
+        &'world mut Data<6>,
+        &'world mut Data<7>,
+        &'world mut Data<8>,
+        &'world mut Data<9>,
+        &'world mut Data<10>,
     )>,
 );
 
-impl<'w> Benchmark<'w> {
+impl<'world> Benchmark<'world> {
     pub fn new() -> Self {
         let mut world = World::new();
 

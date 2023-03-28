@@ -217,30 +217,30 @@ where
 }
 
 #[derive(SystemParam)]
-struct WindowEvents<'w> {
-    window_resized: EventWriter<'w, WindowResized>,
-    window_close_requested: EventWriter<'w, WindowCloseRequested>,
-    window_scale_factor_changed: EventWriter<'w, WindowScaleFactorChanged>,
-    window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
-    window_focused: EventWriter<'w, WindowFocused>,
-    window_moved: EventWriter<'w, WindowMoved>,
+struct WindowEvents<'world> {
+    window_resized: EventWriter<'world, WindowResized>,
+    window_close_requested: EventWriter<'world, WindowCloseRequested>,
+    window_scale_factor_changed: EventWriter<'world, WindowScaleFactorChanged>,
+    window_backend_scale_factor_changed: EventWriter<'world, WindowBackendScaleFactorChanged>,
+    window_focused: EventWriter<'world, WindowFocused>,
+    window_moved: EventWriter<'world, WindowMoved>,
 }
 
 #[derive(SystemParam)]
-struct InputEvents<'w> {
-    keyboard_input: EventWriter<'w, KeyboardInput>,
-    character_input: EventWriter<'w, ReceivedCharacter>,
-    mouse_button_input: EventWriter<'w, MouseButtonInput>,
-    mouse_wheel_input: EventWriter<'w, MouseWheel>,
-    touch_input: EventWriter<'w, TouchInput>,
-    ime_input: EventWriter<'w, Ime>,
+struct InputEvents<'world> {
+    keyboard_input: EventWriter<'world, KeyboardInput>,
+    character_input: EventWriter<'world, ReceivedCharacter>,
+    mouse_button_input: EventWriter<'world, MouseButtonInput>,
+    mouse_wheel_input: EventWriter<'world, MouseWheel>,
+    touch_input: EventWriter<'world, TouchInput>,
+    ime_input: EventWriter<'world, Ime>,
 }
 
 #[derive(SystemParam)]
-struct CursorEvents<'w> {
-    cursor_moved: EventWriter<'w, CursorMoved>,
-    cursor_entered: EventWriter<'w, CursorEntered>,
-    cursor_left: EventWriter<'w, CursorLeft>,
+struct CursorEvents<'world> {
+    cursor_moved: EventWriter<'world, CursorMoved>,
+    cursor_entered: EventWriter<'world, CursorEntered>,
+    cursor_left: EventWriter<'world, CursorLeft>,
 }
 
 // #[cfg(any(
