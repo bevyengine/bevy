@@ -132,6 +132,9 @@ jpeg = ["bevy_internal/jpeg"]
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
 
+# WebP image format support
+webp = ["bevy_internal/webp"]
+
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
