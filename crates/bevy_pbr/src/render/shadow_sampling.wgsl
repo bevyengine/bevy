@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::shadow_sampling
 
-fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     // Do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
@@ -23,7 +23,7 @@ fn sample_cascade_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -
 }
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
-fn sample_cascade_the_witness(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_the_witness(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
     let inv_cascade_size = 1.0 / cascade_size;
 
@@ -52,17 +52,17 @@ fn sample_cascade_the_witness(light_local: vec2<f32>, depth: f32, array_index: i
 
     var sum = 0.0;
 
-    sum += uw0 * vw0 * sample_cascade_simple(base_uv + (vec2(u0, v0) * inv_cascade_size), depth, array_index);
-    sum += uw1 * vw0 * sample_cascade_simple(base_uv + (vec2(u1, v0) * inv_cascade_size), depth, array_index);
-    sum += uw2 * vw0 * sample_cascade_simple(base_uv + (vec2(u2, v0) * inv_cascade_size), depth, array_index);
+    sum += uw0 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u0, v0) * inv_cascade_size), depth, array_index);
+    sum += uw1 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u1, v0) * inv_cascade_size), depth, array_index);
+    sum += uw2 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u2, v0) * inv_cascade_size), depth, array_index);
 
-    sum += uw0 * vw1 * sample_cascade_simple(base_uv + (vec2(u0, v1) * inv_cascade_size), depth, array_index);
-    sum += uw1 * vw1 * sample_cascade_simple(base_uv + (vec2(u1, v1) * inv_cascade_size), depth, array_index);
-    sum += uw2 * vw1 * sample_cascade_simple(base_uv + (vec2(u2, v1) * inv_cascade_size), depth, array_index);
+    sum += uw0 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u0, v1) * inv_cascade_size), depth, array_index);
+    sum += uw1 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u1, v1) * inv_cascade_size), depth, array_index);
+    sum += uw2 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u2, v1) * inv_cascade_size), depth, array_index);
 
-    sum += uw0 * vw2 * sample_cascade_simple(base_uv + (vec2(u0, v2) * inv_cascade_size), depth, array_index);
-    sum += uw1 * vw2 * sample_cascade_simple(base_uv + (vec2(u1, v2) * inv_cascade_size), depth, array_index);
-    sum += uw2 * vw2 * sample_cascade_simple(base_uv + (vec2(u2, v2) * inv_cascade_size), depth, array_index);
+    sum += uw0 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u0, v2) * inv_cascade_size), depth, array_index);
+    sum += uw1 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u1, v2) * inv_cascade_size), depth, array_index);
+    sum += uw2 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u2, v2) * inv_cascade_size), depth, array_index);
 
     return sum / 144.0;
 }
@@ -75,7 +75,7 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 }
 
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
     let sample_offsets = array(
         vec2(-0.7071,  0.7071),
@@ -103,22 +103,22 @@ fn sample_cascade_stochastic(light_local: vec2<f32>, depth: f32, array_index: i3
     let sample_offset8 = (rotation_matrix * sample_offsets[7]) * scale;
 
     var sum = 0.0;
-    sum += sample_cascade_simple(light_local + sample_offset1, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset2, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset3, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset4, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset5, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset6, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset7, depth, array_index);
-    sum += sample_cascade_simple(light_local + sample_offset8, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset1, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset2, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset3, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset4, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset5, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset6, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset7, depth, array_index);
+    sum += sample_shadow_map_simple(light_local + sample_offset8, depth, array_index);
     return sum / 8.0;
 }
 
-fn sample_cascade(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
 #ifdef STOCHASTIC_SAMPLING
-    return sample_cascade_stochastic(light_local, depth, array_index);
+    return sample_shadow_map_stochastic(light_local, depth, array_index);
 #else
-    return sample_cascade_the_witness(light_local, depth, array_index);
+    return sample_shadow_map_the_witness(light_local, depth, array_index);
 #endif
 }
 
@@ -150,5 +150,5 @@ fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: 
     let depth = offset_position_ndc.z;
 
     let array_index = i32((*light).depth_texture_base_index + cascade_index);
-    return sample_cascade(light_local, depth, array_index);
+    return sample_shadow_map(light_local, depth, array_index);
 }
