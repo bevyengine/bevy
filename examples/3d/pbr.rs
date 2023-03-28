@@ -91,46 +91,19 @@ fn setup(
         }),
     );
 
-    // commands.spawn(TextBundle {
-    //     text: Text::from_section(
-    //         "Metallic",
-    //         TextStyle {
-    //             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-    //             font_size: 36.0,
-    //             color: Color::WHITE,
-    //         },
-    //     ),
-    //     style: Style {
-    //         position_type: PositionType::Absolute,
-    //         top: Val::Px(130.0),
-    //         right: Val::Px(0.0),
-    //         ..default()
-    //     },
-    //     transform: Transform {
-    //         rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-    //         ..default()
-    //     },
-    //     ..default()
-    // });
-
-    commands.spawn(Text2dBundle {
+    commands.spawn(TextBundle {
         text: Text::from_section(
-            "Metallic",
+            "M\ne\nt\na\nl\nl\ni\nc",
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
             },
         ),
-        // style: Style {
-        //     position_type: PositionType::Absolute,
-        //     top: Val::Px(130.0),
-        //     right: Val::Px(0.0),
-        //     ..default()
-        // },
-        transform: Transform {
-            
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+        style: Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(100.0),
+            right: Val::Px(40.0),
             ..default()
         },
         ..default()
