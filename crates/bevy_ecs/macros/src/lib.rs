@@ -323,8 +323,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     // replace world and state lifetimes with their synonyms if they are used
     let synonyms_w = ["w", "world"];
     let synonyms_s = ["s", "state", "param", "cache", "query"];
-    let mut w_lt = None;
-    let mut s_lt = None;
+    let mut w_lt: Option<syn::Lifetime> = None;
+    let mut s_lt: Option<syn::Lifetime> = None;
     for lifetime_token in generics.lifetimes() {
         let ident_str = lifetime_token.lifetime.ident.to_string();
         let ident_str = ident_str;
@@ -333,32 +333,32 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 return syn::Error::new_spanned(
                     w_lt.clone(),
                     format!(
-                        "invalid lifetime name: already using {old_lt:?} for 'world lifetime;
+                        "invalid lifetime name: already using {:?} for 'world lifetime;
                         synonyms for 'world are {}",
+                        old_lt.to_string(),
                         synonyms_w.map(|lifetime| format!("'{lifetime}")).join(", ")
                     ),
                 )
                 .into_compile_error()
                 .into();
             }
-            *w_lt = Some(lifetime_token.lifetime.clone());
+            w_lt = Some(lifetime_token.lifetime.clone());
         }
         if synonyms_s.contains(&ident_str.as_str()) {
-            if s_lt.is_none() {
-                let _ = s_lt.insert(lifetime_token.lifetime.clone());
-            } else {
+            if let Some(old_lt) = s_lt.as_ref() {
                 return syn::Error::new_spanned(
                     s_lt.clone(),
                     format!(
                         "invalid lifetime name: already using {:?} for 'state lifetime;
                         synonyms for 'state are {}",
-                        s_lt.unwrap().to_string(),
+                        old_lt.to_string(),
                         synonyms_s.map(|lifetime| format!("'{lifetime}")).join(", ")
                     ),
                 )
                 .into_compile_error()
                 .into();
             }
+            s_lt = Some(lifetime_token.lifetime.clone());
         }
     }
     let w_lt = w_lt.unwrap_or(syn::Lifetime::new("'w", Span::call_site()));
