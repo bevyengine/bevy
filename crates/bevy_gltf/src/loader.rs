@@ -7,7 +7,7 @@ use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat3, Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial,
@@ -33,7 +33,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
-    texture::{MagFilter, MinFilter, WrappingMode},
+    texture::{MagFilter, MinFilter, TextureTransform, WrappingMode},
     Material, Node, Primitive,
 };
 use std::{collections::VecDeque, path::Path};
@@ -627,6 +627,15 @@ async fn load_texture<'a>(
     Ok((texture, texture_label(&gltf_texture)))
 }
 
+/// Converts [`TextureTransform`] to [`Mat3`].
+fn texture_transform_mat3(texture_transform: TextureTransform) -> Mat3 {
+    Mat3::from_scale_angle_translation(
+        texture_transform.scale().into(),
+        -texture_transform.rotation(),
+        texture_transform.offset().into(),
+    )
+}
+
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(material);
@@ -634,12 +643,19 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     let pbr = material.pbr_metallic_roughness();
 
     let color = pbr.base_color_factor();
-    let base_color_texture = pbr.base_color_texture().map(|info| {
-        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-        let label = texture_label(&info.texture());
-        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        load_context.get_handle(path)
-    });
+    let (base_color_texture, uv_transform) = pbr
+        .base_color_texture()
+        .map(|info| {
+            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+            let label = texture_label(&info.texture());
+            let path = AssetPath::new_ref(load_context.path(), Some(&label));
+            (
+                load_context.get_handle(path),
+                info.texture_transform().map(texture_transform_mat3),
+            )
+        })
+        .unzip();
+    let uv_transform = uv_transform.flatten().unwrap_or_default();
 
     let normal_map_texture: Option<Handle<Image>> =
         material.normal_texture().map(|normal_texture| {
@@ -654,6 +670,9 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
+            warn!("Only one texture transform is supported");
+        }
         load_context.get_handle(path)
     });
 
@@ -671,6 +690,9 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
+            warn!("Only one texture transform is supported");
+        }
         load_context.get_handle(path)
     });
 
@@ -694,6 +716,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
+            uv_transform,
             ..Default::default()
         }),
     )

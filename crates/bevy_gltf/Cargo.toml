@@ -31,6 +31,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 gltf = { version = "1.0.0", default-features = false, features = [
     "KHR_lights_punctual",
     "KHR_materials_unlit",
+    "KHR_texture_transform",
     "extras",
     "names",
     "utils",

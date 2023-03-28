@@ -3,7 +3,7 @@ use crate::{
     PBR_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
-use bevy_math::Vec4;
+use bevy_math::{Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
@@ -231,6 +231,9 @@ pub struct StandardMaterial {
     ///
     /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
     pub depth_bias: f32,
+
+    /// Texture UV transform.
+    pub uv_transform: Mat3,
 }
 
 impl Default for StandardMaterial {
@@ -260,6 +263,7 @@ impl Default for StandardMaterial {
             fog_enabled: true,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
+            uv_transform: Mat3::IDENTITY,
         }
     }
 }
@@ -341,6 +345,8 @@ pub struct StandardMaterialUniform {
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
     /// and any below means fully transparent.
     pub alpha_cutoff: f32,
+    /// Texture UV transform.
+    pub uv_transform: Mat3,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -407,6 +413,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             reflectance: self.reflectance,
             flags: flags.bits(),
             alpha_cutoff,
+            uv_transform: self.uv_transform,
         }
     }
 }
