@@ -110,7 +110,7 @@ pub struct GameState {
 }
 
 // SAFETY: The resource state is initialized.
-unsafe impl<'w, T: GameMode> FallibleSystemParam for Game<'w, T> {
+unsafe impl<T: GameMode> FallibleSystemParam for Game<'_, T> {
     type State = GameState;
     type Item<'world, 'state> = Game<'world, T>;
     type Error = GameError;
@@ -169,7 +169,7 @@ impl<'w, T: GameMode> DerefMut for GameMut<'w, T> {
 }
 
 // SAFETY: The resource state is initialized.
-unsafe impl<'w, T: GameMode> FallibleSystemParam for GameMut<'w, T> {
+unsafe impl<T: GameMode> FallibleSystemParam for GameMut<'_, T> {
     type State = GameState;
     type Item<'world, 'state> = GameMut<'world, T>;
     type Error = GameError;
