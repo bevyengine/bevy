@@ -56,20 +56,19 @@ fn setup(
 }
 
 fn system(mut gizmos: Gizmos, time: Res<Time>) {
-    gizmos.cuboid(
-        Vec3::Y * -0.5,
-        Quat::IDENTITY,
-        Vec3::new(5., 1., 2.),
+    gizmos.wire_cuboid(
+        Transform::from_translation(Vec3::Y * -0.5).with_scale(Vec3::new(5., 1., 2.)),
         Color::BLACK,
     );
-    gizmos.rect(
+
+    gizmos.wire_rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
         Vec2::splat(2.),
         Color::GREEN,
     );
 
-    gizmos.sphere(
+    gizmos.wire_sphere(
         Vec3::new(1., 0.5, 0.),
         Quat::IDENTITY,
         0.5,
@@ -91,7 +90,7 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
         .circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
         .segments(64);
     gizmos
-        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)
+        .wire_sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)
         .circle_segments(64);
 }
 

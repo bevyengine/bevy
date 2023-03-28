@@ -8,7 +8,7 @@ use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 type EntityIndex = u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SparseArray<I, V = I> {
     values: Vec<Option<V>>,
     marker: PhantomData<I>,
@@ -345,7 +345,7 @@ impl ComponentSparseSet {
 /// A data structure that blends dense and sparse storage
 ///
 /// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,

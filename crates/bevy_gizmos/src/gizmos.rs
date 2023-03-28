@@ -2,17 +2,20 @@
 
 use std::{f32::consts::TAU, iter};
 
+use bevy_asset::Handle;
 use bevy_ecs::{
     system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
-use bevy_render::prelude::Color;
+use bevy_render::{color::Color, mesh::Mesh};
+use bevy_transform::components::Transform;
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
 
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
+const DEFAULT_SPHERE_SUBDIVISIONS: usize = 6;
 
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage {
@@ -20,6 +23,11 @@ pub(crate) struct GizmoStorage {
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
+    pub meshes: Vec<(Handle<Mesh>, Transform, Color)>,
+    pub discs: Vec<(Vec3, Vec3, f32, Color, usize)>,
+    pub spheres: Vec<(Vec3, f32, Color, usize)>,
+    pub rectangles: Vec<(Vec3, Quat, Vec2, Color)>,
+    pub cubes: Vec<(Transform, Color)>,
 }
 
 /// A [`SystemParam`](bevy_ecs::system::SystemParam) for drawing gizmos.
@@ -34,6 +42,11 @@ struct GizmoBuffer {
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
     strip_colors: Vec<ColorItem>,
+    meshes: Vec<(Handle<Mesh>, Transform, Color)>,
+    discs: Vec<(Vec3, Vec3, f32, Color, usize)>,
+    spheres: Vec<(Vec3, f32, Color, usize)>,
+    rectangles: Vec<(Vec3, Quat, Vec2, Color)>,
+    cubes: Vec<(Transform, Color)>,
 }
 
 impl SystemBuffer for GizmoBuffer {
@@ -43,6 +56,11 @@ impl SystemBuffer for GizmoBuffer {
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
+        storage.meshes.append(&mut self.meshes);
+        storage.discs.append(&mut self.discs);
+        storage.spheres.append(&mut self.spheres);
+        storage.rectangles.append(&mut self.rectangles);
+        storage.cubes.append(&mut self.cubes);
     }
 }
 
@@ -180,8 +198,44 @@ impl<'s> Gizmos<'s> {
             strip_colors.push(color.as_linear_rgba_f32());
         }
 
-        strip_positions.push([f32::NAN; 3]);
-        strip_colors.push([f32::NAN; 4]);
+        self.buffer.strip_positions.push([f32::NAN; 3]);
+        self.buffer.strip_colors.push([f32::NAN; 4]);
+    }
+
+    /// Draw a disc at `position` with the flat side facing `normal`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.disc(Vec3::ZERO, Vec3::Z, 1., Color::GREEN);
+    ///
+    ///     // Discs have 32 segments by default.
+    ///     // You may want to increase this for larger discs.
+    ///     gizmos
+    ///         .disc(Vec3::ZERO, Vec3::Z, 5., Color::RED)
+    ///         .segments(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn disc(
+        &mut self,
+        position: Vec3,
+        normal: Vec3,
+        radius: f32,
+        color: Color,
+    ) -> DiscBuilder<'_, 's> {
+        DiscBuilder {
+            gizmos: self,
+            position,
+            normal,
+            radius,
+            color,
+            segments: DEFAULT_CIRCLE_SEGMENTS,
+        }
     }
 
     /// Draw a circle at `position` with the flat side facing `normal`.
@@ -220,6 +274,62 @@ impl<'s> Gizmos<'s> {
         }
     }
 
+    /// Draw a mesh.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_asset::prelude::*;
+    /// fn system(
+    ///     mut gizmos: Gizmos,
+    ///     asset_server: Res<AssetServer>,
+    /// ) {
+    ///     gizmos.mesh(
+    ///         asset_server.load("my_mesh.gltf#Mesh0/Primitive0"),
+    ///         Transform::IDENTITY,
+    ///         Color::GREEN,
+    ///     );
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn mesh(&mut self, mesh: &Handle<Mesh>, transform: Transform, color: Color) {
+        self.buffer
+            .meshes
+            .push((mesh.clone_weak(), transform, color))
+    }
+
+    /// Draw a sphere.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
+    ///
+    ///     // The sphere is subdivided 6 times by default.
+    ///     // You may want to increase this for larger spheres.
+    ///     gizmos
+    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
+    ///         .subdivisions(8);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn sphere(&mut self, position: Vec3, radius: f32, color: Color) -> SphereBuilder<'_, 's> {
+        SphereBuilder {
+            gizmos: self,
+            position,
+            radius,
+            color,
+            subdivisions: DEFAULT_SPHERE_SUBDIVISIONS,
+        }
+    }
+
     /// Draw a wireframe sphere made out of 3 circles.
     ///
     /// # Example
@@ -239,14 +349,14 @@ impl<'s> Gizmos<'s> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn sphere(
+    pub fn wire_sphere(
         &mut self,
         position: Vec3,
         rotation: Quat,
         radius: f32,
         color: Color,
-    ) -> SphereBuilder<'_, 's> {
-        SphereBuilder {
+    ) -> WireSphereBuilder<'_, 's> {
+        WireSphereBuilder {
             gizmos: self,
             position,
             rotation,
@@ -256,7 +366,7 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw a wireframe rectangle.
+    /// Draw a rectangle.
     ///
     /// # Example
     /// ```
@@ -268,13 +378,31 @@ impl<'s> Gizmos<'s> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    #[inline]
     pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
+        self.buffer
+            .rectangles
+            .push((position, rotation, size, color));
+    }
+
+    /// Draw a wireframe rectangle.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.wire_rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn wire_rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
-    /// Draw a wireframe cube.
+    /// Draw a box.
     ///
     /// # Example
     /// ```
@@ -286,13 +414,37 @@ impl<'s> Gizmos<'s> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
+    pub fn cuboid(&mut self, transform: Transform, color: Color) {
+        self.buffer.cubes.push((transform, color));
+    }
+
+    /// Draw a wireframe box.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.wire_cuboid(Vec3::ZERO, Quat::IDENTITY, Vec3::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
-    pub fn cuboid(&mut self, position: Vec3, rotation: Quat, size: Vec3, color: Color) {
-        let rect = rect_inner(size.truncate());
+    pub fn wire_cuboid(&mut self, transform: Transform, color: Color) {
+        let Transform {
+            translation,
+            rotation,
+            scale,
+        } = transform;
+
+        let rect = rect_inner(scale.truncate());
         // Front
-        let [tlf, trf, brf, blf] = rect.map(|vec2| position + rotation * vec2.extend(size.z / 2.));
+        let [tlf, trf, brf, blf] =
+            rect.map(|vec2| translation + rotation * vec2.extend(scale.z / 2.));
         // Back
-        let [tlb, trb, brb, blb] = rect.map(|vec2| position + rotation * vec2.extend(-size.z / 2.));
+        let [tlb, trb, brb, blb] =
+            rect.map(|vec2| translation + rotation * vec2.extend(-scale.z / 2.));
 
         let positions = [
             tlf, trf, trf, brf, brf, blf, blf, tlf, // Front
@@ -459,7 +611,7 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw a wireframe rectangle.
+    /// Draw a rectangle.
     ///
     /// # Example
     /// ```
@@ -473,6 +625,24 @@ impl<'s> Gizmos<'s> {
     /// ```
     #[inline]
     pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
+        let rotation = Quat::from_rotation_z(rotation);
+        self.rect(position.extend(0.), rotation, size, color);
+    }
+
+    /// Draw a wireframe rectangle.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.wire_rect_2d(Vec2::ZERO, 0., Vec2::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn wire_rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
         let rotation = Mat2::from_angle(rotation);
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
@@ -510,6 +680,36 @@ impl<'s> Gizmos<'s> {
     }
 }
 
+/// A builder returned by [`Gizmos::disc`].
+pub struct DiscBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+    position: Vec3,
+    normal: Vec3,
+    radius: f32,
+    color: Color,
+    segments: usize,
+}
+
+impl DiscBuilder<'_, '_> {
+    /// Set the number of segements for this disc.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl Drop for DiscBuilder<'_, '_> {
+    fn drop(&mut self) {
+        self.gizmos.buffer.discs.push((
+            self.position,
+            self.normal,
+            self.radius,
+            self.color,
+            self.segments,
+        ));
+    }
+}
+
 /// A builder returned by [`Gizmos::circle`].
 pub struct CircleBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
@@ -537,34 +737,6 @@ impl Drop for CircleBuilder<'_, '_> {
     }
 }
 
-/// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
-    position: Vec3,
-    rotation: Quat,
-    radius: f32,
-    color: Color,
-    circle_segments: usize,
-}
-
-impl SphereBuilder<'_, '_> {
-    /// Set the number of line-segements per circle for this sphere.
-    pub fn circle_segments(mut self, segments: usize) -> Self {
-        self.circle_segments = segments;
-        self
-    }
-}
-
-impl Drop for SphereBuilder<'_, '_> {
-    fn drop(&mut self) {
-        for axis in Vec3::AXES {
-            self.gizmos
-                .circle(self.position, self.rotation * axis, self.radius, self.color)
-                .segments(self.circle_segments);
-        }
-    }
-}
-
 /// A builder returned by [`Gizmos::circle_2d`].
 pub struct Circle2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
@@ -586,6 +758,62 @@ impl Drop for Circle2dBuilder<'_, '_> {
     fn drop(&mut self) {
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
+    }
+}
+
+/// A builder returned by [`Gizmos::wire_sphere`].
+pub struct WireSphereBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+    position: Vec3,
+    rotation: Quat,
+    radius: f32,
+    color: Color,
+    circle_segments: usize,
+}
+
+impl WireSphereBuilder<'_, '_> {
+    /// Set the number of line-segements per circle for this sphere.
+    pub fn circle_segments(mut self, segments: usize) -> Self {
+        self.circle_segments = segments;
+        self
+    }
+}
+
+impl Drop for WireSphereBuilder<'_, '_> {
+    fn drop(&mut self) {
+        for axis in Vec3::AXES {
+            self.gizmos
+                .circle(self.position, self.rotation * axis, self.radius, self.color)
+                .segments(self.circle_segments);
+        }
+    }
+}
+
+/// A builder returned by [`Gizmos::sphere`].
+pub struct SphereBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+    position: Vec3,
+    radius: f32,
+    color: Color,
+    subdivisions: usize,
+}
+
+impl SphereBuilder<'_, '_> {
+    /// Set the number of subdivisions.
+    pub fn subdivisions(mut self, subdivisions: usize) -> Self {
+        self.subdivisions = subdivisions;
+        self
+    }
+}
+
+impl Drop for SphereBuilder<'_, '_> {
+    fn drop(&mut self) {
+        self.gizmos.buffer.spheres.push((
+            self.position,
+            self.radius,
+            self.color,
+            self.subdivisions,
+        ));
     }
 }
 

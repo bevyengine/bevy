@@ -27,7 +27,7 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
         (Vec2::Y * 300., Color::BLUE),
     ]);
 
-    gizmos.rect_2d(
+    gizmos.wire_rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
