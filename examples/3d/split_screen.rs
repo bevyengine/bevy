@@ -3,15 +3,15 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::Viewport,
-    window::WindowResized,
+    core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
+    render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(set_camera_viewports)
+        .add_systems(Startup, setup)
+        .add_systems(Update, set_camera_viewports)
         .run();
 }
 
@@ -24,7 +24,7 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -41,6 +41,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 2,
+            first_cascade_far_bound: 200.0,
+            maximum_distance: 280.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

@@ -5,18 +5,10 @@
 use std::ops::Deref;
 use std::time::Duration;
 
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::{
-    change_detection::{DetectChanges, Mut},
-    entity::Entity,
-    prelude::Component,
-    query::With,
-    reflect::ReflectComponent,
-    schedule::IntoSystemDescriptor,
-    system::{Query, Res},
-};
+use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
@@ -558,8 +550,8 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_systems(
+                PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
             );
     }

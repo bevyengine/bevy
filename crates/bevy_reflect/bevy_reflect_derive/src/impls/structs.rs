@@ -1,10 +1,9 @@
 use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::impl_typed;
-use crate::utility::extend_where_clause;
+use crate::utility::{extend_where_clause, ident_or_index};
 use crate::ReflectStruct;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Index, Member};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
@@ -26,14 +25,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         .collect::<Vec<String>>();
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| {
-            field
-                .data
-                .ident
-                .as_ref()
-                .map(|ident| Member::Named(ident.clone()))
-                .unwrap_or_else(|| Member::Unnamed(Index::from(field.index)))
-        })
+        .map(|field| ident_or_index(field.data.ident.as_ref(), field.index))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();

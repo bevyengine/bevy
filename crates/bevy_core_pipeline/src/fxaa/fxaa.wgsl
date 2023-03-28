@@ -77,7 +77,6 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(screenTexture));
-    let fragCoord = in.position.xy;
     let inverseScreenSize = 1.0 / resolution.xy;
     let texCoord = in.position.xy * inverseScreenSize;
 

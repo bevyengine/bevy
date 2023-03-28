@@ -1,10 +1,12 @@
-mod fixed_timestep;
+/// Common run conditions
+pub mod common_conditions;
+pub mod fixed_timestep;
 mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
 mod timer;
 
-pub use fixed_timestep::*;
+use fixed_timestep::FixedTime;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -16,17 +18,19 @@ use crossbeam_channel::{Receiver, Sender};
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{Time, Timer, TimerMode};
+    pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, RunFixedUpdateLoop};
 use bevy_ecs::prelude::*;
+
+use crate::fixed_timestep::run_fixed_update_schedule;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
 pub struct TimePlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 /// Updates the elapsed time. Any system that interacts with [Time] component should run after
 /// this.
 pub struct TimeSystem;
@@ -35,13 +39,12 @@ impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
             .init_resource::<TimeUpdateStrategy>()
-            .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()
             .register_type::<Time>()
             .register_type::<Stopwatch>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems
-            // in CoreStage::First
-            .add_system_to_stage(CoreStage::First, time_system.at_start().label(TimeSystem));
+            .init_resource::<FixedTime>()
+            .add_systems(First, time_system.in_set(TimeSystem))
+            .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
     }
 }
 

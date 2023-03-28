@@ -3,11 +3,12 @@ use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
+use crate::utility::{extend_where_clause, ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{Field, Ident, Index, Lit, LitInt, LitStr, Member};
+use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
@@ -48,8 +49,20 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();
+
+    // Add FromReflect bound for each active field
+    let where_from_reflect_clause = extend_where_clause(
+        where_clause,
+        &WhereClauseOptions {
+            active_types: reflect_enum.active_types().into_boxed_slice(),
+            ignored_types: reflect_enum.ignored_types().into_boxed_slice(),
+            active_trait_bounds: quote!(#bevy_reflect_path::FromReflect),
+            ignored_trait_bounds: quote!(#FQDefault),
+        },
+    );
+
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
+        impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_from_reflect_clause  {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
@@ -88,11 +101,11 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
         Ident::new("Struct", Span::call_site())
     };
 
-    let field_types = reflect_struct.active_types();
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let constructor = if reflect_struct.meta().traits().contains(REFLECT_DEFAULT) {
+    let is_defaultable = reflect_struct.meta().traits().contains(REFLECT_DEFAULT);
+    let constructor = if is_defaultable {
         quote!(
             let mut __this: Self = #FQDefault::default();
             #(
@@ -104,8 +117,7 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
             #FQOption::Some(__this)
         )
     } else {
-        let MemberValuePair(ignored_members, ignored_values) =
-            get_ignored_fields(reflect_struct, is_tuple);
+        let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
 
         quote!(
             #FQOption::Some(
@@ -120,16 +132,19 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     // Add FromReflect bound for each active field
-    let mut where_from_reflect_clause = if where_clause.is_some() {
-        quote! {#where_clause}
-    } else if !active_members.is_empty() {
-        quote! {where}
-    } else {
-        quote! {}
-    };
-    where_from_reflect_clause.extend(quote! {
-        #(#field_types: #bevy_reflect_path::FromReflect,)*
-    });
+    let where_from_reflect_clause = extend_where_clause(
+        where_clause,
+        &WhereClauseOptions {
+            active_types: reflect_struct.active_types().into_boxed_slice(),
+            ignored_types: reflect_struct.ignored_types().into_boxed_slice(),
+            active_trait_bounds: quote!(#bevy_reflect_path::FromReflect),
+            ignored_trait_bounds: if is_defaultable {
+                quote!()
+            } else {
+                quote!(#FQDefault)
+            },
+        },
+    );
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
@@ -149,12 +164,12 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// a default value for the ignored field.
-fn get_ignored_fields(reflect_struct: &ReflectStruct, is_tuple: bool) -> MemberValuePair {
+fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = get_ident(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -183,7 +198,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = get_ident(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.index);
                 let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
@@ -219,19 +234,6 @@ fn get_active_fields(
             })
             .unzip(),
     )
-}
-
-/// Returns the member for a given field of a struct or tuple struct.
-fn get_ident(field: &Field, index: usize, is_tuple: bool) -> Member {
-    if is_tuple {
-        Member::Unnamed(Index::from(index))
-    } else {
-        field
-            .ident
-            .as_ref()
-            .map(|ident| Member::Named(ident.clone()))
-            .unwrap_or_else(|| Member::Unnamed(Index::from(index)))
-    }
 }
 
 /// Returns the accessor for a given field of a struct or tuple struct.

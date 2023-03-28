@@ -3,7 +3,7 @@ use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
-use bevy_core_pipeline::prelude::Camera3d;
+use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
@@ -13,21 +13,17 @@ use bevy_pbr::{
     SpotLight, SpotLightBundle, StandardMaterial,
 };
 use bevy_render::{
-    camera::{
-        Camera, CameraRenderGraph, OrthographicProjection, PerspectiveProjection, Projection,
-        ScalingMode,
-    },
+    camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     color::Color,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, VertexAttributeValues,
     },
     prelude::SpatialBundle,
-    primitives::{Aabb, Frustum},
+    primitives::Aabb,
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
-    view::VisibleEntities,
 };
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
@@ -43,7 +39,7 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::{Gltf, GltfNode};
+use crate::{Gltf, GltfExtras, GltfNode};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -329,12 +325,17 @@ async fn load_gltf<'a, 'b>(
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
+                extras: get_gltf_extras(primitive.extras()),
+                material_extras: get_gltf_extras(primitive.material().extras()),
             });
         }
 
         let handle = load_context.set_labeled_asset(
             &mesh_label(&mesh),
-            LoadedAsset::new(super::GltfMesh { primitives }),
+            LoadedAsset::new(super::GltfMesh {
+                primitives,
+                extras: get_gltf_extras(mesh.extras()),
+            }),
         );
         if let Some(name) = mesh.name() {
             named_meshes.insert(name.to_string(), handle.clone());
@@ -368,6 +369,7 @@ async fn load_gltf<'a, 'b>(
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
+                extras: get_gltf_extras(node.extras()),
             },
             node.children()
                 .map(|child| child.index())
@@ -544,6 +546,12 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
+fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
+    extras.as_ref().map(|extras| super::GltfExtras {
+        value: extras.get().to_string(),
+    })
+}
+
 fn node_name(node: &Node) -> Name {
     let name = node
         .name()
@@ -702,9 +710,8 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn(SpatialBundle::from(Transform::from_matrix(
-        Mat4::from_cols_array_2d(&transform.matrix()),
-    )));
+    let transform = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
+    let mut node = world_builder.spawn(SpatialBundle::from(transform));
 
     node.insert(node_name(gltf_node));
 
@@ -719,9 +726,9 @@ fn load_node(
         let projection = match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
-                let orthographic_projection: OrthographicProjection = OrthographicProjection {
-                    far: orthographic.zfar(),
+                let orthographic_projection = OrthographicProjection {
                     near: orthographic.znear(),
+                    far: orthographic.zfar(),
                     scaling_mode: ScalingMode::FixedHorizontal(1.0),
                     scale: xmag,
                     ..Default::default()
@@ -744,18 +751,15 @@ fn load_node(
                 Projection::Perspective(perspective_projection)
             }
         };
-
-        node.insert((
+        node.insert(Camera3dBundle {
             projection,
-            Camera {
+            transform,
+            camera: Camera {
                 is_active: !*active_camera_found,
                 ..Default::default()
             },
-            VisibleEntities::default(),
-            Frustum::default(),
-            Camera3d::default(),
-            CameraRenderGraph::new(bevy_core_pipeline::core_3d::graph::NAME),
-        ));
+            ..Default::default()
+        });
 
         *active_camera_found = true;
     }
@@ -1166,6 +1170,7 @@ mod test {
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
+                extras: None,
             }
         }
     }
