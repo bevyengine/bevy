@@ -40,17 +40,3 @@ struct MixLifetimes<'w, 'state> {
     player_name: Res<'w, PlayerName>,
     companions: Query<'w, 'state, &'static Companion>,
 }
-
-// must fail to compile
-// #[allow(dead_code)]
-// #[derive(Debug, SystemParam)]
-// struct DuplicateWorldLifetime<'w, 'world> {
-//     player_name: Res<'w, PlayerName>
-// }
-
-// must fail to compile
-// #[allow(dead_code)]
-// #[derive(Debug, SystemParam)]
-// struct DuplicateStateLifetime<'s, 'cache> {
-//     player_name: Local<'cache, String>
-// }

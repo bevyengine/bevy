@@ -1,0 +1,35 @@
+error: invalid lifetime name: already using "'w" for 'world lifetime;
+                               synonyms for 'world are 'w, 'world
+  --> tests/ui/system_param_lifetime_duplicate.rs:11:31
+   |
+11 | struct DuplicateWorldLifetime<'w, 'world> {
+   |                               ^^
+
+error: invalid lifetime name: already using "'s" for 'state lifetime;
+                               synonyms for 'state are 's, 'state, 'param, 'cache, 'query
+  --> tests/ui/system_param_lifetime_duplicate.rs:18:31
+   |
+18 | struct DuplicateStateLifetime<'s, 'cache> {
+   |                               ^^
+
+error[E0601]: `main` function not found in crate `$CRATE`
+  --> tests/ui/system_param_lifetime_duplicate.rs:20:2
+   |
+20 | }
+   |  ^ consider adding a `main` function to `$DIR/tests/ui/system_param_lifetime_duplicate.rs`
+
+error[E0392]: parameter `'world` is never used
+  --> tests/ui/system_param_lifetime_duplicate.rs:11:35
+   |
+11 | struct DuplicateWorldLifetime<'w, 'world> {
+   |                                   ^^^^^^ unused parameter
+   |
+   = help: consider removing `'world`, referring to it in a field, or using a marker such as `PhantomData`
+
+error[E0392]: parameter `'s` is never used
+  --> tests/ui/system_param_lifetime_duplicate.rs:18:31
+   |
+18 | struct DuplicateStateLifetime<'s, 'cache> {
+   |                               ^^ unused parameter
+   |
+   = help: consider removing `'s`, referring to it in a field, or using a marker such as `PhantomData`
