@@ -45,7 +45,7 @@ impl Plugin for MsaaWritebackPlugin {
             );
             core_3d.add_node_edge(
                 crate::core_3d::graph::node::MSAA_WRITEBACK,
-                crate::core_3d::graph::node::MAIN_PASS,
+                crate::core_3d::graph::node::START_MAIN_PASS,
             );
         }
     }

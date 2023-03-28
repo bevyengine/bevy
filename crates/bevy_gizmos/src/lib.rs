@@ -170,6 +170,7 @@ fn extract_gizmo_data(
                 MeshUniform {
                     flags: 0,
                     transform,
+                    previous_transform: transform,
                     inverse_transpose_model,
                 },
             ),
