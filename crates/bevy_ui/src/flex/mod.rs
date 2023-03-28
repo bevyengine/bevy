@@ -261,7 +261,8 @@ pub fn flex_node_system(
         (Entity, &Style, &CalculatedSize),
         (With<Node>, With<NodePosition>, Changed<CalculatedSize>),
     >,
-    children_query: Query<(Entity, &Children), (With<Node>, With<NodePosition>, Changed<Children>)>,
+    changed_children_query: Query<(Entity, &Children), (With<Node>, With<NodePosition>, Changed<Children>)>,
+    children_query: Query<&Children, (With<Node>, With<NodePosition>)>,
     mut removed_children: RemovedComponents<Children>,
     mut node_geometry_query: Query<(&mut Node, &mut NodePosition)>,
     mut removed_nodes: RemovedComponents<Node>,
@@ -332,7 +333,7 @@ pub fn flex_node_system(
     for entity in removed_children.iter() {
         flex_surface.try_remove_children(entity);
     }
-    for (entity, children) in &children_query {
+    for (entity, children) in &changed_children_query {
         flex_surface.update_children(entity, children);
     }
 
@@ -347,8 +348,8 @@ pub fn flex_node_system(
         node_id: Entity,
         node_geometry_query: &mut Query<(&mut Node, &mut NodePosition)>,
         children_query: &Query<
-            (Entity, &Children),
-            (With<Node>, With<NodePosition>, Changed<Children>),
+            &Children,
+            (With<Node>, With<NodePosition>),
         >,
         physical_to_logical_factor: f32,
     ) {
@@ -373,7 +374,7 @@ pub fn flex_node_system(
                 node.calculated_size = new_size;
             }
 
-            if let Ok((_, children)) = children_query.get(node_id) {
+            if let Ok(children) = children_query.get(node_id) {
                 for child in children.iter() {
                     update_node_geometry_recursively(
                         flex_surface,

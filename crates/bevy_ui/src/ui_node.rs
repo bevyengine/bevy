@@ -61,13 +61,13 @@ impl Default for Node {
 #[reflect(Component, Default)]
 pub struct NodePosition {
     /// The position of the node in logical pixels
-    /// automatically calculated by [`super::flex::update_node_positions`]
+    /// automatically calculated by [`super::flex::flex_node_system`]
     pub(crate) calculated: Vec2,
 }
 
 impl NodePosition {
     /// The calculated node position in logical pixels
-    /// automatically calculated by [`super::flex::update_node_positions`]
+    /// automatically calculated by [`super::flex::flex_node_system`]
     pub fn calculated(&self) -> Vec2 {
         self.calculated
     }
