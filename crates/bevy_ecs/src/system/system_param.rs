@@ -43,11 +43,6 @@ use std::{
 /// will be created with the default value upon realisation.
 /// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
-/// ## `PhantomData`
-///
-/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
-/// This is useful for constraining generic types or lifetimes.
-///
 /// # Example
 ///
 /// ```
@@ -70,6 +65,11 @@ use std::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
+///
+/// ## `PhantomData`
+///
+/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
+/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Generic `SystemParam`s
 ///
