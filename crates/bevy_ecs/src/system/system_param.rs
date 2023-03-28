@@ -718,12 +718,9 @@ pub struct ResMutError<T: Resource> {
 
 impl<T: Resource> std::fmt::Debug for ResMutError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "ResMutError<{}> {{ system_name: {} }}",
-            std::any::type_name::<T>(),
-            self.system_name
-        )
+        f.debug_struct(&format!("ResMutError<{}>", std::any::type_name::<T>()))
+            .field("system_name", &self.system_name)
+            .finish()
     }
 }
 
@@ -1207,12 +1204,9 @@ pub struct NonSendError<T: 'static> {
 
 impl<T: 'static> std::fmt::Debug for NonSendError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "NonSendError<{}> {{ system_name: {} }}",
-            std::any::type_name::<T>(),
-            self.system_name
-        )
+        f.debug_struct(&format!("NonSendError<{}>", std::any::type_name::<T>()))
+            .field("system_name", &self.system_name)
+            .finish()
     }
 }
 
@@ -1292,12 +1286,9 @@ pub struct NonSendMutError<T: 'static> {
 
 impl<T: 'static> std::fmt::Debug for NonSendMutError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "NonSendMutError<{}> {{ system_name: {} }}",
-            std::any::type_name::<T>(),
-            self.system_name
-        )
+        f.debug_struct(&format!("NonSendMutError<{}>", std::any::type_name::<T>()))
+            .field("system_name", &self.system_name)
+            .finish()
     }
 }
 
