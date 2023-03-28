@@ -141,8 +141,7 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                flex_node_system
-                    .in_set(UiSystem::Flex),
+                flex_node_system.in_set(UiSystem::Flex),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system,
             ),

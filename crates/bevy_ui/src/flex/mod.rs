@@ -261,7 +261,10 @@ pub fn flex_node_system(
         (Entity, &Style, &CalculatedSize),
         (With<Node>, With<NodePosition>, Changed<CalculatedSize>),
     >,
-    changed_children_query: Query<(Entity, &Children), (With<Node>, With<NodePosition>, Changed<Children>)>,
+    changed_children_query: Query<
+        (Entity, &Children),
+        (With<Node>, With<NodePosition>, Changed<Children>),
+    >,
     children_query: Query<&Children, (With<Node>, With<NodePosition>)>,
     mut removed_children: RemovedComponents<Children>,
     mut node_geometry_query: Query<(&mut Node, &mut NodePosition)>,
@@ -347,10 +350,7 @@ pub fn flex_node_system(
         inherited_position: Vec2,
         node_id: Entity,
         node_geometry_query: &mut Query<(&mut Node, &mut NodePosition)>,
-        children_query: &Query<
-            &Children,
-            (With<Node>, With<NodePosition>),
-        >,
+        children_query: &Query<&Children, (With<Node>, With<NodePosition>)>,
         physical_to_logical_factor: f32,
     ) {
         if let Ok((mut node, mut position)) = node_geometry_query.get_mut(node_id) {
