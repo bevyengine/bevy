@@ -1648,7 +1648,7 @@ mod tests {
 
     // Testing of lifetime synonyms
 
-    #[derive(Debug, Component)]
+    #[derive(Component)]
     struct Companion;
 
     #[allow(dead_code)]
