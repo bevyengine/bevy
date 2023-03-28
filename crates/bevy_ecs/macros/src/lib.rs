@@ -384,6 +384,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
     let mut tuple_patterns: Vec<_> = field_locals.iter().map(|x| quote! { #x }).collect();
 
+    tuple_types.extend(
+        ignored_field_types
+            .iter()
+            .map(|ty| parse_quote!(::std::marker::PhantomData::<#ty>)),
+    );
+    tuple_patterns.extend(ignored_field_types.iter().map(|_| parse_quote!(_)));
+
     // If the number of fields exceeds the 16-parameter limit,
     // fold the fields into tuples of tuples until we are below the limit.
     const LIMIT: usize = 16;
@@ -394,13 +401,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
         tuple_patterns.push(parse_quote!( (#(#end,)*) ));
     }
-
-    tuple_types.extend(
-        ignored_field_types
-            .iter()
-            .map(|ty| parse_quote!(::std::marker::PhantomData::<#ty>)),
-    );
-    tuple_patterns.extend(ignored_field_types.iter().map(|_| parse_quote!(_)));
 
     // Create a where clause for the `ReadOnlySystemParam` impl.
     // Ensure that each field implements `ReadOnlySystemParam`.
