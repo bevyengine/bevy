@@ -152,7 +152,6 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Positions)
                     .after(UiSystem::Flex),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
-                
             ),
         );
 

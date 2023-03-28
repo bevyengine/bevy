@@ -1,6 +1,6 @@
 use crate::{
     prelude::{Button, Label},
-    Node, UiImage, NodePosition,
+    Node, NodePosition, UiImage,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},

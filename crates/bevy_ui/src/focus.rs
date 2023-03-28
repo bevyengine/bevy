@@ -1,4 +1,4 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack, NodePosition};
+use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, NodePosition, UiStack};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -12,8 +12,6 @@ use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
-use bevy_transform::components::GlobalTransform;
-
 use bevy_window::{PrimaryWindow, Window};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;

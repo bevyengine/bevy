@@ -1,18 +1,18 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style, UiScale, NodePosition};
+use crate::{CalculatedSize, Node, NodePosition, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
+    prelude::DetectChangesMut,
     query::{Changed, ReadOnlyWorldQuery, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource}, prelude::DetectChangesMut,
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
@@ -363,7 +363,7 @@ pub fn flex_node_system(
         // Don't trigger change detection for this component.
         // This is because changes to the node's `relative_position` may not be reflected in a change to the node's corresponding `calculated_position`.
         // For instance if the parent node is translated 1 pixel left and its child is translated 1 pixel right, the child's `calculated_position` will not change.
-        node_position.bypass_change_detection().relative = new_position; 
+        node_position.bypass_change_detection().relative = new_position;
     }
 }
 
@@ -374,7 +374,12 @@ pub fn update_node_positions(
     children_query: Query<&Children>,
 ) {
     for node in root_node_query.iter() {
-        update_node_positions_recursive(Vec2::ZERO, node, &mut node_position_query, &children_query);
+        update_node_positions_recursive(
+            Vec2::ZERO,
+            node,
+            &mut node_position_query,
+            &children_query,
+        );
     }
 }
 
@@ -393,7 +398,12 @@ fn update_node_positions_recursive(
 
         if let Ok(children) = children_query.get(node_id) {
             for child in children.iter() {
-                update_node_positions_recursive(calculated_position, *child, node_position_query, children_query);
+                update_node_positions_recursive(
+                    calculated_position,
+                    *child,
+                    node_position_query,
+                    children_query,
+                );
             }
         }
     }

@@ -308,9 +308,9 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let transform = 
-                Mat4::from_translation((uinode_position.calculated -0.5 * uinode.size()).extend(0.))
-                * scaling;
+            let transform = Mat4::from_translation(
+                (uinode_position.calculated - 0.5 * uinode.size()).extend(0.),
+            ) * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;

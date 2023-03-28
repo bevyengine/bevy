@@ -91,7 +91,29 @@ fn setup(
         }),
     );
 
-    commands.spawn(TextBundle {
+    // commands.spawn(TextBundle {
+    //     text: Text::from_section(
+    //         "Metallic",
+    //         TextStyle {
+    //             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+    //             font_size: 36.0,
+    //             color: Color::WHITE,
+    //         },
+    //     ),
+    //     style: Style {
+    //         position_type: PositionType::Absolute,
+    //         top: Val::Px(130.0),
+    //         right: Val::Px(0.0),
+    //         ..default()
+    //     },
+    //     transform: Transform {
+    //         rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+    //         ..default()
+    //     },
+    //     ..default()
+    // });
+
+    commands.spawn(Text2dBundle {
         text: Text::from_section(
             "Metallic",
             TextStyle {
@@ -100,13 +122,14 @@ fn setup(
                 color: Color::WHITE,
             },
         ),
-        style: Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
-            right: Val::Px(0.0),
-            ..default()
-        },
+        // style: Style {
+        //     position_type: PositionType::Absolute,
+        //     top: Val::Px(130.0),
+        //     right: Val::Px(0.0),
+        //     ..default()
+        // },
         transform: Transform {
+            
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },

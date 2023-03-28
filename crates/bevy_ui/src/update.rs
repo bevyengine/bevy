@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Overflow, Style, NodePosition};
+use crate::{CalculatedClip, NodePosition, Overflow, Style};
 
 use super::Node;
 use bevy_ecs::{

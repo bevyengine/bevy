@@ -56,16 +56,15 @@ impl Default for Node {
     }
 }
 
-
 /// Describes the logical position of the center of a UI node
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct NodePosition {
     /// The position of the node in logical pixels relative to its parent node
-    pub (crate) relative: Vec2,
+    pub(crate) relative: Vec2,
     /// The position of the node in logical pixels
     /// automatically calculated by [`super::flex::update_node_positions`]
-    pub (crate) calculated: Vec2,
+    pub(crate) calculated: Vec2,
 }
 
 impl NodePosition {
