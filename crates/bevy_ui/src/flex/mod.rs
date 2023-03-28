@@ -5,7 +5,6 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
-    prelude::DetectChangesMut,
     query::{Changed, ReadOnlyWorldQuery, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, Resource},
@@ -357,9 +356,9 @@ pub fn flex_node_system(
             let layout = flex_surface.get_layout(node_id).unwrap();
             let new_size =
                 Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
-            let new_position = Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
+            let new_position =
+                Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
 
-            
             let relative_position = new_position + 0.5 * new_size;
 
             let calculated_position = inherited_position + relative_position;
