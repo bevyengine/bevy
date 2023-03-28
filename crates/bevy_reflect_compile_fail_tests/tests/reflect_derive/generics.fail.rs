@@ -1,4 +1,4 @@
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{GetField, Reflect, Struct};
 
 #[derive(Reflect)]
 #[reflect(from_reflect = false)]
@@ -11,7 +11,7 @@ struct Foo<T> {
 struct NoReflect(f32);
 
 fn main() {
-    let mut foo: Box<dyn Reflect> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
+    let mut foo: Box<dyn Struct> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
     // foo doesn't implement Reflect because NoReflect doesn't implement Reflect
     foo.get_field::<NoReflect>("a").unwrap();
 }
