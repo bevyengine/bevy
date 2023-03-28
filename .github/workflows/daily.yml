@@ -119,6 +119,6 @@ jobs:
       - name: Wait for screenshots comparison
         run: |
           npm install -g @percy/cli@latest
-          npx percy build:wait --project 80a5aff7/Bevy --commit ${{ github.sha }} --fail-on-changes --pass-if-approved
+          npx percy build:wait --project dede4209/Bevy-Mobile-Example --commit ${{ github.sha }} --fail-on-changes --pass-if-approved
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
