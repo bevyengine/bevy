@@ -1479,10 +1479,17 @@ mod tests {
     fn world_query_phantom_data() {
         #[derive(WorldQuery)]
         pub struct IgnoredQuery<Marker> {
+            id: Entity,
+            #[world_query(ignore)]
             _marker: PhantomData<Marker>,
         }
 
-        fn ignored_system(_: Query<IgnoredQuery<()>>) {}
+        #[derive(WorldQuery)]
+        pub struct PhantomQuery<Marker> {
+            _marker: PhantomData<Marker>,
+        }
+
+        fn ignored_system(_: Query<IgnoredQuery<()>>, _: Query<PhantomQuery<()>>) {}
 
         crate::system::assert_is_system(ignored_system);
     }

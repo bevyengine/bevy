@@ -14,7 +14,7 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
-    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
+    ConstParam, DeriveInput,  GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
     TypeParam,
 };
 
