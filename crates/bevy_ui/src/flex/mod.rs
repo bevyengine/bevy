@@ -1,13 +1,13 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style, UiScale};
+use crate::{CalculatedSize, Node, Style, UiScale, NodePosition};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
     query::{Changed, ReadOnlyWorldQuery, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource}, prelude::DetectChangesMut,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -258,7 +258,7 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    mut node_transform_query: Query<(Entity, &mut Node, &mut NodePosition, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -339,7 +339,7 @@ pub fn flex_node_system(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
+    for (entity, mut node, mut node_position, mut transform, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
@@ -349,6 +349,7 @@ pub fn flex_node_system(
         if node.calculated_size != new_size {
             node.calculated_size = new_size;
         }
+
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
@@ -358,9 +359,47 @@ pub fn flex_node_system(
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
         }
+
+        // Don't trigger change detection for this component.
+        // This is because changes to the node's `relative_position` may not be reflected in a change to the node's corresponding `calculated_position`.
+        // For instance if the parent node is translated 1 pixel left and its child is translated 1 pixel right, the child's `calculated_position` will not change.
+        node_position.bypass_change_detection().relative_position = new_position.truncate();
+
         // only trigger change detection when the new value is different
         if transform.translation != new_position {
             transform.translation = new_position;
+        }   
+    }
+}
+
+/// Walk the node tree to calculate the position of each node
+pub fn update_node_positions(
+    root_node_query: Query<Entity, (Without<Parent>, With<Node>, With<NodePosition>)>,
+    mut node_position_query: Query<&mut NodePosition, With<Node>>,
+    children_query: Query<&Children>,
+) {
+    for node in root_node_query.iter() {
+        update_node_positions_recursive(Vec2::ZERO, node, &mut node_position_query, &children_query);
+    }
+}
+
+/// Traverse tree recursively updating the node positions
+fn update_node_positions_recursive(
+    inherited_position: Vec2,
+    node_id: Entity,
+    node_position_query: &mut Query<&mut NodePosition, With<Node>>,
+    children_query: &Query<&Children>,
+) {
+    if let Ok(mut position) = node_position_query.get_mut(node_id) {
+        let calculated_position = inherited_position + position.relative_position;
+        if position.calculated_position != calculated_position {
+            position.calculated_position = calculated_position;
+        }
+
+        if let Ok(children) = children_query.get(node_id) {
+            for child in children.iter() {
+                update_node_positions_recursive(calculated_position, *child, node_position_query, children_query);
+            }
         }
     }
 }

@@ -57,6 +57,37 @@ impl Default for Node {
     }
 }
 
+
+/// Describes the position of a UI node
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct NodePosition {
+    /// The position of the node in logical pixels relative to its parent node
+    pub (crate) relative_position: Vec2,
+    /// The position of the node in logical pixels
+    /// automatically calculated by [`super::flex::update_node_positions`]
+    pub (crate) calculated_position: Vec2,
+}
+
+impl NodePosition {
+    /// The calculated node position in logical pixels
+    /// automatically calculated by [`super::flex::update_node_positions`]
+    pub fn calculated_position(&self) -> Vec2 {
+        self.calculated_position
+    }
+
+    pub const DEFAULT: Self = Self {
+        relative_position: Vec2::ZERO,
+        calculated_position: Vec2::ZERO,
+    };
+}
+
+impl Default for NodePosition {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Style`] properties in different units,
