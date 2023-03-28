@@ -1065,7 +1065,7 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl<T: FromReflect + Clone> Array for Cow<'static, [T]> {
+impl<T: FromReflect + Clone> List for Cow<'static, [T]> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.as_ref().get(index).map(|x| x as &dyn Reflect)
     }
@@ -1078,8 +1078,8 @@ impl<T: FromReflect + Clone> Array for Cow<'static, [T]> {
         self.as_ref().len()
     }
 
-    fn iter(&self) -> ArrayIter {
-        ArrayIter::new(self)
+    fn iter(&self) -> crate::ListIter {
+        crate::ListIter::new(self)
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
@@ -1089,9 +1089,7 @@ impl<T: FromReflect + Clone> Array for Cow<'static, [T]> {
             .map(|value| value.clone_value())
             .collect()
     }
-}
 
-impl<T: FromReflect + Clone> List for Cow<'static, [T]> {
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         let value = element.take::<T>().unwrap_or_else(|value| {
             T::from_reflect(&*value).unwrap_or_else(|| {
@@ -1184,7 +1182,7 @@ impl<T: FromReflect + Clone> Reflect for Cow<'static, [T]> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        crate::list_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
