@@ -1620,6 +1620,13 @@ mod tests {
     #[derive(SystemParam)]
     struct IgnoredParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
+        #[system_param(ignore)]
+        marker: PhantomData<&'w Marker>,
+    }
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/8030.
+    #[derive(SystemParam)]
+    struct PhantomParam<'w, Marker: 'static> {
         marker: PhantomData<&'w Marker>,
     }
 
