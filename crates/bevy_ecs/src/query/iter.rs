@@ -164,7 +164,9 @@ where
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
             if F::filter_fetch(&mut self.filter, entity, location.table_row) {
-                // SAFETY: set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // SAFETY:
+                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // - fetch is only called once for each entity.
                 return Some(Q::fetch(&mut self.fetch, entity, location.table_row));
             }
         }
@@ -592,8 +594,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     continue;
                 }
 
-                // SAFETY: set_table was called prior.
-                // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
+                // SAFETY:
+                // - set_table was called prior.
+                // - `current_row` must be a table row in range of the current table,
+                //   because if it was not, then the if above would have been executed.
+                // - fetch is only called once for each `entity`.
                 let item = Q::fetch(&mut self.fetch, *entity, row);
 
                 self.current_row += 1;
@@ -632,8 +637,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     continue;
                 }
 
-                // SAFETY: set_archetype was called prior, `current_row` is an archetype index in range of the current archetype
-                // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+                // SAFETY:
+                // - set_archetype was called prior.
+                // - `current_row` must be an archetype index row in range of the current archetype,
+                //   because if it was not, then the if above would have been executed.
+                // - fetch is only called once for each `archetype_entity`.
                 let item = Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity(),
