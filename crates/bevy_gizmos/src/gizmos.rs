@@ -1,7 +1,9 @@
+//! A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
+
 use std::{f32::consts::TAU, iter};
 
 use bevy_ecs::{
-    system::{Deferred, Resource, SystemBuffer, SystemMeta},
+    system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
@@ -20,10 +22,14 @@ pub(crate) struct GizmoStorage {
     pub strip_colors: Vec<ColorItem>,
 }
 
-pub type Gizmos<'s> = Deferred<'s, GizmoBuffer>;
+/// A [`SystemParam`](bevy_ecs::system::SystemParam) for drawing gizmos.
+#[derive(SystemParam)]
+pub struct Gizmos<'s> {
+    buffer: Deferred<'s, GizmoBuffer>,
+}
 
 #[derive(Default)]
-pub struct GizmoBuffer {
+struct GizmoBuffer {
     list_positions: Vec<PositionItem>,
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
@@ -40,14 +46,37 @@ impl SystemBuffer for GizmoBuffer {
     }
 }
 
-impl GizmoBuffer {
+impl<'s> Gizmos<'s> {
+    /// Draw a line from `start` to `end`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
         self.extend_list_positions([start, end]);
         self.add_list_color(color, 2);
     }
 
-    /// Draw a line from `start` to `end`.
+    /// Draw a line with a color gradient from `start` to `end`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, Color::GREEN, Color::RED);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
         self.extend_list_positions([start, end]);
@@ -55,12 +84,34 @@ impl GizmoBuffer {
     }
 
     /// Draw a line from `start` to `start + vector`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.ray(Vec3::Y, Vec3::X, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
         self.line(start, start + vector, color);
     }
 
-    /// Draw a line from `start` to `start + vector`.
+    /// Draw a line with a color gradient from `start` to `start + vector`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, Color::GREEN, Color::RED);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn ray_gradient(
         &mut self,
@@ -72,32 +123,85 @@ impl GizmoBuffer {
         self.line_gradient(start, start + vector, start_color, end_color);
     }
 
+    /// Draw lines between a list of points.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
         self.extend_strip_positions(positions.into_iter());
-        self.strip_colors
-            .resize(self.strip_positions.len() - 1, color.as_linear_rgba_f32());
-        self.strip_colors.push([f32::NAN; 4]);
+        let len = self.buffer.strip_positions.len();
+        self.buffer
+            .strip_colors
+            .resize(len - 1, color.as_linear_rgba_f32());
+        self.buffer.strip_colors.push([f32::NAN; 4]);
     }
 
+    /// Draw lines between a list of points with a color gradient.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.linestrip_gradient([
+    ///         (Vec3::ZERO, Color::GREEN),
+    ///         (Vec3::X, Color::RED),
+    ///         (Vec3::Y, Color::BLUE)
+    ///     ]);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
         let points = points.into_iter();
 
+        let GizmoBuffer {
+            strip_positions,
+            strip_colors,
+            ..
+        } = &mut *self.buffer;
+
         let (min, _) = points.size_hint();
-        self.strip_positions.reserve(min);
-        self.strip_colors.reserve(min);
+        strip_positions.reserve(min);
+        strip_colors.reserve(min);
 
         for (position, color) in points {
-            self.strip_positions.push(position.to_array());
-            self.strip_colors.push(color.as_linear_rgba_f32());
+            strip_positions.push(position.to_array());
+            strip_colors.push(color.as_linear_rgba_f32());
         }
 
-        self.strip_positions.push([f32::NAN; 3]);
-        self.strip_colors.push([f32::NAN; 4]);
+        strip_positions.push([f32::NAN; 3]);
+        strip_colors.push([f32::NAN; 4]);
     }
 
     /// Draw a circle at `position` with the flat side facing `normal`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.circle(Vec3::ZERO, Vec3::Z, 1., Color::GREEN);
+    ///
+    ///     // Circles have 32 line-segments by default.
+    ///     // You may want to increase this for larger circles.
+    ///     gizmos
+    ///         .circle(Vec3::ZERO, Vec3::Z, 5., Color::RED)
+    ///         .segments(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn circle(
         &mut self,
@@ -105,9 +209,9 @@ impl GizmoBuffer {
         normal: Vec3,
         radius: f32,
         color: Color,
-    ) -> CircleBuilder {
+    ) -> CircleBuilder<'_, 's> {
         CircleBuilder {
-            buffer: self,
+            gizmos: self,
             position,
             normal,
             radius,
@@ -116,7 +220,24 @@ impl GizmoBuffer {
         }
     }
 
-    /// Draw a sphere.
+    /// Draw a wireframe sphere made out of 3 circles.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
+    ///
+    ///     // Each circle has 32 line-segments by default.
+    ///     // You may want to increase this for larger spheres.
+    ///     gizmos
+    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
+    ///         .circle_segments(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn sphere(
         &mut self,
@@ -124,9 +245,9 @@ impl GizmoBuffer {
         rotation: Quat,
         radius: f32,
         color: Color,
-    ) -> SphereBuilder {
+    ) -> SphereBuilder<'_, 's> {
         SphereBuilder {
-            buffer: self,
+            gizmos: self,
             position,
             rotation,
             radius,
@@ -135,14 +256,36 @@ impl GizmoBuffer {
         }
     }
 
-    /// Draw a rectangle.
+    /// Draw a wireframe rectangle.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
-    /// Draw a box.
+    /// Draw a wireframe cube.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.cuboid(Vec3::ZERO, Quat::IDENTITY, Vec3::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn cuboid(&mut self, position: Vec3, rotation: Quat, size: Vec3, color: Color) {
         let rect = rect_inner(size.truncate());
@@ -161,12 +304,34 @@ impl GizmoBuffer {
     }
 
     /// Draw a line from `start` to `end`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
         self.line(start.extend(0.), end.extend(0.), color);
     }
 
-    /// Draw a line from `start` to `end`.
+    /// Draw a line with a color gradient from `start` to `end`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, Color::GREEN, Color::RED);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn line_gradient_2d(
         &mut self,
@@ -178,11 +343,39 @@ impl GizmoBuffer {
         self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
     }
 
+    /// Draw lines between a list of points.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: Color) {
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
+    /// Draw lines between a list of points with a color gradient.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.linestrip_gradient_2d([
+    ///         (Vec2::ZERO, Color::GREEN),
+    ///         (Vec2::X, Color::RED),
+    ///         (Vec2::Y, Color::BLUE)
+    ///     ]);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn linestrip_gradient_2d(&mut self, positions: impl IntoIterator<Item = (Vec2, Color)>) {
         self.linestrip_gradient(
@@ -193,12 +386,34 @@ impl GizmoBuffer {
     }
 
     /// Draw a line from `start` to `start + vector`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
         self.line_2d(start, start + vector, color);
     }
 
-    /// Draw a line from `start` to `start + vector`.
+    /// Draw a line with a color gradient from `start` to `start + vector`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, Color::GREEN, Color::RED);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn ray_gradient_2d(
         &mut self,
@@ -210,11 +425,33 @@ impl GizmoBuffer {
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
-    // Draw a circle.
+    /// Draw a circle.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.circle_2d(Vec2::ZERO, 1., Color::GREEN);
+    ///
+    ///     // Circles have 32 line-segments by default.
+    ///     // You may want to increase this for larger circles.
+    ///     gizmos
+    ///         .circle_2d(Vec2::ZERO, 5., Color::RED)
+    ///         .segments(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
-    pub fn circle_2d(&mut self, position: Vec2, radius: f32, color: Color) -> Circle2dBuilder {
+    pub fn circle_2d(
+        &mut self,
+        position: Vec2,
+        radius: f32,
+        color: Color,
+    ) -> Circle2dBuilder<'_, 's> {
         Circle2dBuilder {
-            buffer: self,
+            gizmos: self,
             position,
             radius,
             color,
@@ -222,7 +459,18 @@ impl GizmoBuffer {
         }
     }
 
-    /// Draw a rectangle.
+    /// Draw a wireframe rectangle.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     #[inline]
     pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
         let rotation = Mat2::from_angle(rotation);
@@ -232,25 +480,28 @@ impl GizmoBuffer {
 
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.list_positions
+        self.buffer
+            .list_positions
             .extend(positions.into_iter().map(|vec3| vec3.to_array()));
     }
 
     #[inline]
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = Color>) {
-        self.list_colors
+        self.buffer
+            .list_colors
             .extend(colors.into_iter().map(|color| color.as_linear_rgba_f32()));
     }
 
     #[inline]
     fn add_list_color(&mut self, color: Color, count: usize) {
-        self.list_colors
+        self.buffer
+            .list_colors
             .extend(iter::repeat(color.as_linear_rgba_f32()).take(count));
     }
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.strip_positions.extend(
+        self.buffer.strip_positions.extend(
             positions
                 .into_iter()
                 .map(|vec3| vec3.to_array())
@@ -259,8 +510,9 @@ impl GizmoBuffer {
     }
 }
 
-pub struct CircleBuilder<'a> {
-    buffer: &'a mut GizmoBuffer,
+/// A builder returned by [`Gizmos::circle`].
+pub struct CircleBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
     position: Vec3,
     normal: Vec3,
     radius: f32,
@@ -268,24 +520,26 @@ pub struct CircleBuilder<'a> {
     segments: usize,
 }
 
-impl<'a> CircleBuilder<'a> {
+impl CircleBuilder<'_, '_> {
+    /// Set the number of line-segements for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self
     }
 }
 
-impl<'a> Drop for CircleBuilder<'a> {
+impl Drop for CircleBuilder<'_, '_> {
     fn drop(&mut self) {
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = circle_inner(self.radius, self.segments)
             .map(|vec2| (self.position + rotation * vec2.extend(0.)));
-        self.buffer.linestrip(positions, self.color);
+        self.gizmos.linestrip(positions, self.color);
     }
 }
 
-pub struct SphereBuilder<'a> {
-    buffer: &'a mut GizmoBuffer,
+/// A builder returned by [`Gizmos::sphere`].
+pub struct SphereBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
     position: Vec3,
     rotation: Quat,
     radius: f32,
@@ -293,42 +547,45 @@ pub struct SphereBuilder<'a> {
     circle_segments: usize,
 }
 
-impl SphereBuilder<'_> {
+impl SphereBuilder<'_, '_> {
+    /// Set the number of line-segements per circle for this sphere.
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
         self
     }
 }
 
-impl Drop for SphereBuilder<'_> {
+impl Drop for SphereBuilder<'_, '_> {
     fn drop(&mut self) {
         for axis in Vec3::AXES {
-            self.buffer
+            self.gizmos
                 .circle(self.position, self.rotation * axis, self.radius, self.color)
                 .segments(self.circle_segments);
         }
     }
 }
 
-pub struct Circle2dBuilder<'a> {
-    buffer: &'a mut GizmoBuffer,
+/// A builder returned by [`Gizmos::circle_2d`].
+pub struct Circle2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
     radius: f32,
     color: Color,
     segments: usize,
 }
 
-impl Circle2dBuilder<'_> {
+impl Circle2dBuilder<'_, '_> {
+    /// Set the number of line-segements for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self
     }
 }
 
-impl Drop for Circle2dBuilder<'_> {
+impl Drop for Circle2dBuilder<'_, '_> {
     fn drop(&mut self) {
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
-        self.buffer.linestrip_2d(positions, self.color);
+        self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
