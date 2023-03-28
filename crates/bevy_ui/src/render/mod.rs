@@ -442,7 +442,6 @@ pub fn prepare_uinodes(
 ) {
     ui_meta.vertices.clear();
     ui_meta.ui_uniforms.clear();
-    ui_meta.ui_uniforms.clear();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
