@@ -55,7 +55,6 @@ struct MixLifetimes<'w, 'state> {
 //     player_name: Local<'cache, String>
 // }
 
-
 // UNIMPLEMENTED, but should succeed
 // #[allow(dead_code)]
 // #[derive(Debug, SystemParam)]
