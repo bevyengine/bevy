@@ -250,15 +250,21 @@ pub fn flex_node_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, With<NodePosition>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, With<NodePosition>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, With<NodePosition>)>,
+    node_query: Query<
+        (Entity, &Style, Option<&CalculatedSize>),
+        (With<Node>, With<NodePosition>, Changed<Style>),
+    >,
+    full_node_query: Query<
+        (Entity, &Style, Option<&CalculatedSize>),
+        (With<Node>, With<NodePosition>),
+    >,
     changed_size_query: Query<
         (Entity, &Style, &CalculatedSize),
         (With<Node>, With<NodePosition>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, With<NodePosition>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut NodePosition, Option<&Parent>)>,
+    mut node_geometry_query: Query<(&mut Node, &mut NodePosition)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -334,77 +340,60 @@ pub fn flex_node_system(
     // compute layouts
     flex_surface.compute_window_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    let physical_to_logical_factor = (1. / logical_to_physical_factor) as f32;
 
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+    fn update_node_geometry_recursively(
+        flex_surface: &FlexSurface,
+        inherited_position: Vec2,
+        node_id: Entity,
+        node_geometry_query: &mut Query<(&mut Node, &mut NodePosition)>,
+        children_query: &Query<
+            (Entity, &Children),
+            (With<Node>, With<NodePosition>, Changed<Children>),
+        >,
+        physical_to_logical_factor: f32,
+    ) {
+        if let Ok((mut node, mut position)) = node_geometry_query.get_mut(node_id) {
+            let layout = flex_surface.get_layout(node_id).unwrap();
+            let new_size =
+                Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
+            let new_position = Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
 
-    // PERF: try doing this incrementally
-    for (entity, mut node, mut node_position, parent) in &mut node_transform_query {
-        let layout = flex_surface.get_layout(entity).unwrap();
-        let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
-        // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
-        }
+            // only trigger change detection when the new value is different
+            if node.calculated_size != new_size {
+                node.calculated_size = new_size;
+            }
 
-        let mut new_position = node_position.calculated;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+            let calculated_position = inherited_position + new_position + 0.5 * new_size;
+
+            // only trigger change detection when the new value is different
+            if position.calculated != calculated_position {
+                position.calculated = calculated_position;
+            }
+
+            if let Ok((_, children)) = children_query.get(node_id) {
+                for child in children.iter() {
+                    update_node_geometry_recursively(
+                        flex_surface,
+                        calculated_position,
+                        *child,
+                        node_geometry_query,
+                        children_query,
+                        physical_to_logical_factor,
+                    );
+                }
             }
         }
-
-        // Don't trigger change detection for this component.
-        // This is because changes to the node's `relative_position` may not be reflected in a change to the node's corresponding `calculated_position`.
-        // For instance if the parent node is translated 1 pixel left and its child is translated 1 pixel right, the child's `calculated_position` will not change.
-        node_position.bypass_change_detection().relative = new_position;
     }
-}
 
-/// Walk the node tree to calculate the position of each node
-pub fn update_node_positions(
-    root_node_query: Query<Entity, (Without<Parent>, With<Node>, With<NodePosition>)>,
-    mut node_position_query: Query<&mut NodePosition, With<Node>>,
-    children_query: Query<&Children>,
-) {
     for node in root_node_query.iter() {
-        update_node_positions_recursive(
+        update_node_geometry_recursively(
+            &flex_surface,
             Vec2::ZERO,
             node,
-            &mut node_position_query,
+            &mut node_geometry_query,
             &children_query,
+            physical_to_logical_factor,
         );
-    }
-}
-
-/// Traverse tree recursively updating the node positions
-fn update_node_positions_recursive(
-    inherited_position: Vec2,
-    node_id: Entity,
-    node_position_query: &mut Query<&mut NodePosition, With<Node>>,
-    children_query: &Query<&Children>,
-) {
-    if let Ok(mut position) = node_position_query.get_mut(node_id) {
-        let calculated_position = inherited_position + position.relative;
-        if position.calculated != calculated_position {
-            position.calculated = calculated_position;
-        }
-
-        if let Ok(children) = children_query.get(node_id) {
-            for child in children.iter() {
-                update_node_positions_recursive(
-                    calculated_position,
-                    *child,
-                    node_position_query,
-                    children_query,
-                );
-            }
-        }
     }
 }
