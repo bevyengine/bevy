@@ -54,12 +54,3 @@ struct MixLifetimes<'w, 'state> {
 // struct DuplicateStateLifetime<'s, 'cache> {
 //     player_name: Local<'cache, String>
 // }
-
-// UNIMPLEMENTED, but should succeed
-// #[allow(dead_code)]
-// #[derive(Debug, SystemParam)]
-// struct ExtraLifetimes<'w, 'a, 'b> {
-//     player_name: Res<'w, PlayerName>,
-//     // companions: Query<'w, 'state, &'static Companion>,
-//     _s: PhantomData<&'b &'a ()>,
-// }
