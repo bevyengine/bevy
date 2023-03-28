@@ -320,23 +320,59 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }
 
     let generics = ast.generics;
-
-    // Emit an error if there's any unrecognized lifetime names.
-    for lt in generics.lifetimes() {
-        let ident = &lt.lifetime.ident;
-        let w = format_ident!("w");
-        let s = format_ident!("s");
-        if ident != &w && ident != &s {
-            return syn::Error::new_spanned(
-                lt,
-                r#"invalid lifetime name: expected `'w` or `'s`
- 'w -- refers to data stored in the World.
- 's -- refers to data stored in the SystemParam's state.'"#,
-            )
-            .into_compile_error()
-            .into();
+    // replace world and state lifetimes with their synonyms if they are used
+    let synonyms_w = ["w", "world"];
+    let synonyms_s = ["s", "state", "param", "cache", "query"];
+    let mut w_lt = None;
+    let mut s_lt = None;
+    for lifetime_token in generics.lifetimes() {
+        let ident_str = lifetime_token.lifetime.ident.to_string();
+        let ident_str = ident_str;
+        if synonyms_w.contains(&ident_str.as_str()) {
+            if w_lt.is_none() {
+                let _ = w_lt.insert(lifetime_token.lifetime.clone());
+            } else {
+                return syn::Error::new_spanned(
+                    w_lt.clone(),
+                    format!(
+                        "invalid lifetime name: already using {:?} for 'world lifetime;
+                        synonyms for 'world are {}",
+                        w_lt.unwrap().to_string(),
+                        synonyms_w.map(|lifetime| format!("'{lifetime}")).join(", ")
+                    ),
+                )
+                .into_compile_error()
+                .into();
+            }
+        }
+        if synonyms_s.contains(&ident_str.as_str()) {
+            if s_lt.is_none() {
+                let _ = s_lt.insert(lifetime_token.lifetime.clone());
+            } else {
+                return syn::Error::new_spanned(
+                    s_lt.clone(),
+                    format!(
+                        "invalid lifetime name: already using {:?} for 'state lifetime;
+                        synonyms for 'state are {}",
+                        s_lt.unwrap().to_string(),
+                        synonyms_s.map(|lifetime| format!("'{lifetime}")).join(", ")
+                    ),
+                )
+                .into_compile_error()
+                .into();
+            }
         }
     }
+    let w_lt = w_lt.unwrap_or(syn::Lifetime::new("'w", Span::call_site()));
+    let s_lt = s_lt.unwrap_or(syn::Lifetime::new("'s", Span::call_site()));
+
+    let mut w_lt_shadowed = w_lt.clone();
+    w_lt_shadowed.ident = format_ident!("_{}", w_lt_shadowed.ident);
+    let w_lt_shadowed = w_lt_shadowed;
+
+    let mut s_lt_shadowed = s_lt.clone();
+    s_lt_shadowed.ident = format_ident!("_{}", s_lt_shadowed.ident);
+    let s_lt_shadowed = s_lt_shadowed;
 
     let (_impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -405,18 +441,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             #[doc(hidden)]
-            #state_struct_visibility struct #state_struct_name <'w, 's, #(#lifetimeless_generics,)*>
+            #state_struct_visibility struct #state_struct_name <#w_lt, #s_lt, #(#lifetimeless_generics,)*>
             #where_clause {
                 state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
-                    <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
+                    <#path::prelude::Query<#w_lt, #s_lt, ()> as #path::system::SystemParam>::State,
                     #(fn() -> #ignored_field_types,)*
                 )>,
             }
 
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+            unsafe impl<#w_lt, #s_lt, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
                 type State = #state_struct_name<'static, 'static, #punctuated_generic_idents>;
-                type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
+                type Item<#w_lt_shadowed, #s_lt_shadowed> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
@@ -450,7 +486,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
+            unsafe impl<#w_lt, #s_lt, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
         };
     })
 }
