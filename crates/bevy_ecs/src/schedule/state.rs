@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::mem;
 
 use crate as bevy_ecs;
@@ -9,6 +10,7 @@ use crate::system::Resource;
 use crate::world::World;
 
 pub use bevy_ecs_macros::States;
+use bevy_utils::all_tuples;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -132,3 +134,37 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         world.try_run_schedule(OnEnter(entered)).ok();
     }
 }
+
+#[derive(ScheduleLabel)]
+pub struct SubstateLabel<Func, Ret, Args>(pub Func, PhantomData<(Ret, Args)>)
+where
+    Func: VariadicFn<Ret, Args>;
+///
+/// A trait which most variadic functions should technically implement?
+/// The issue with Fn trait types is that it doesn't support variadic functions.  This one should
+pub trait VariadicFn<Ret, Args> {}
+
+impl<Func, Ret, Args> Into<SubstateLabel<Func, Ret, Args>> for (Func,)
+where
+    Func: VariadicFn<Ret, Args>,
+{
+    fn into(self) -> SubstateLabel<Func, Ret, Args> {
+        SubstateLabel(self.0, PhantomData)
+    }
+}
+macro_rules! impl_substate_tuple {
+    ($($name: tt),*)  => {
+        impl<Function, Ret, $( $name, )* >  VariadicFn<Ret, ($($name,)*)> for Function where Function: Fn($($name,)*) -> Ret {}
+    }
+}
+
+pub trait Arguments {}
+macro_rules! impl_args_tuple {
+    ($($name: tt),*) => {
+        impl< $( $name, )* > Arguments for  ($( $name, )* ) {
+
+        }
+    }
+}
+all_tuples!(impl_args_tuple, 0, 16, A);
+all_tuples!(impl_substate_tuple, 0, 16, S);
