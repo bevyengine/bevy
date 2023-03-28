@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
+        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
         experimental::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
         },
@@ -23,7 +24,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, (modify_aa, update_ui))
+        .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
 }
 
@@ -109,6 +110,59 @@ fn modify_aa(
         camera.remove::<Fxaa>();
 
         camera.insert(TemporalAntiAliasBundle::default());
+    }
+}
+
+fn modify_sharpening(
+    keys: Res<Input<KeyCode>>,
+    mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
+) {
+    let toggle_sharpening = keys.just_pressed(KeyCode::Key0);
+    let contrast_up = keys.just_pressed(KeyCode::Equals);
+    let contrast_down = keys.just_pressed(KeyCode::Minus);
+    let sharpen_up = keys.just_pressed(KeyCode::Apostrophe);
+    let sharpen_down = keys.just_pressed(KeyCode::Semicolon);
+    for mut cas in &mut query {
+        if toggle_sharpening {
+            cas.enabled = !cas.enabled;
+            if cas.enabled {
+                info!("CAS Enabled");
+            } else {
+                info!("CAS Disabled");
+            }
+        }
+        if contrast_up {
+            cas.contrast_adaption += 0.1;
+            cas.contrast_adaption = cas.contrast_adaption.clamp(0.0, 1.0);
+            info!(
+                "CAS contrast adaption increased to {}",
+                cas.contrast_adaption
+            );
+        }
+        if contrast_down {
+            cas.contrast_adaption -= 0.1;
+            cas.contrast_adaption = cas.contrast_adaption.clamp(0.0, 1.0);
+            info!(
+                "CAS contrast adaption decreased to {}",
+                cas.contrast_adaption
+            );
+        }
+        if sharpen_up {
+            cas.sharpening_intensity += 0.1;
+            cas.sharpening_intensity = cas.sharpening_intensity.clamp(0.0, 1.0);
+            info!(
+                "CAS sharpening intensity increased to {}",
+                cas.sharpening_intensity
+            );
+        }
+        if sharpen_down {
+            cas.sharpening_intensity -= 0.1;
+            cas.sharpening_intensity = cas.sharpening_intensity.clamp(0.0, 1.0);
+            info!(
+                "CAS sharpening intensity decreased to {}",
+                cas.sharpening_intensity
+            );
+        }
     }
 }
 
@@ -261,14 +315,18 @@ fn setup(
     });
 
     // Camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
-            hdr: true,
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(0.7, 0.7, 1.0)
+                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..default()
-    });
+        ContrastAdaptiveSharpeningSettings::default(),
+    ));
 
     // UI
     commands.spawn(

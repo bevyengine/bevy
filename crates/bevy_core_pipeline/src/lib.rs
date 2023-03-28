@@ -1,6 +1,7 @@
 pub mod blit;
 pub mod bloom;
 pub mod clear_color;
+pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
@@ -8,7 +9,6 @@ pub mod fxaa;
 pub mod msaa_writeback;
 pub mod prepass;
 mod taa;
-pub mod contrast_adaptive_sharpening;
 pub mod tonemapping;
 pub mod upscaling;
 
