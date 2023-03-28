@@ -53,14 +53,14 @@ impl Stepping {
             assert_eq!(state.next, 0);
         }
 
-        self.action = StepAction::Waiting;
+        self.pending_action = Some(StepAction::Waiting);
         self
     }
 
     /// Disable stepping, resume normal systems execution
     pub fn disable(&mut self) -> &mut Self {
         self.clear_schedule_progress();
-        self.action = StepAction::RunAll;
+        self.pending_action = Some(StepAction::RunAll);
         self
     }
 
@@ -144,11 +144,12 @@ impl Stepping {
     pub fn r#continue(&mut self) {}
 
     /// run the next system
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> &mut Self {
         self.pending_action = Some(StepAction::Step);
+        self
     }
 
-    fn next_frame(&mut self) {
+    pub(crate) fn next_frame(&mut self) {
         match self.action {
             StepAction::RunAll => {
                 if self.pending_action.is_none() {
@@ -379,7 +380,7 @@ enum StepAction {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::prelude::*;
     use crate::{schedule::ScheduleLabel, world::World};

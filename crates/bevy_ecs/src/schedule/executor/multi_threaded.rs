@@ -146,7 +146,12 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        skip_systems: Option<FixedBitSet>,
+        world: &mut World,
+    ) {
         // reset counts
         let num_systems = schedule.systems.len();
         if num_systems == 0 {
@@ -162,6 +167,29 @@ impl SystemExecutor for MultiThreadedExecutor {
             if *dependencies == 0 {
                 self.ready_systems.insert(system_index);
             }
+        }
+
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        if let Some(mut skipped_systems) = skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= &skipped_systems;
+            self.num_completed_systems = self.completed_systems.count_ones(..);
+
+            // signal the dependencies for each of the skipped systems, as
+            // though they had run
+            for system_index in skipped_systems.ones() {
+                self.signal_dependents(system_index);
+            }
+
+            // Finally, we need to clear all skipped systems from the ready
+            // list.
+            //
+            // We invert the skipped system mask to get the list of systems
+            // that should be run.  Then we bitwise AND it with the ready list,
+            // resulting in a list of ready systems that aren't skipped.
+            skipped_systems.toggle_range(..);
+            self.ready_systems &= skipped_systems;
         }
 
         let thread_executor = world

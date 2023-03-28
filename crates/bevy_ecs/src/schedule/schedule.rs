@@ -248,7 +248,13 @@ impl Schedule {
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
-        self.executor.run(&mut self.executable, world);
+
+        let skip_systems = match world.get_resource_mut::<Stepping>() {
+            None => None,
+            Some(mut stepping) => stepping.build_skip_list(self),
+        };
+
+        self.executor.run(&mut self.executable, skip_systems, world);
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
