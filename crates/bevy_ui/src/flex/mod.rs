@@ -258,7 +258,7 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut NodePosition, &mut Transform, Option<&Parent>)>,
+    mut node_transform_query: Query<(Entity, &mut Node, &mut NodePosition, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -339,7 +339,7 @@ pub fn flex_node_system(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut node_position, mut transform, parent) in &mut node_transform_query {
+    for (entity, mut node, mut node_position, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
@@ -350,7 +350,7 @@ pub fn flex_node_system(
             node.calculated_size = new_size;
         }
 
-        let mut new_position = transform.translation;
+        let mut new_position = node_position.calculated_position;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
@@ -363,12 +363,7 @@ pub fn flex_node_system(
         // Don't trigger change detection for this component.
         // This is because changes to the node's `relative_position` may not be reflected in a change to the node's corresponding `calculated_position`.
         // For instance if the parent node is translated 1 pixel left and its child is translated 1 pixel right, the child's `calculated_position` will not change.
-        node_position.bypass_change_detection().relative_position = new_position.truncate();
-
-        // only trigger change detection when the new value is different
-        if transform.translation != new_position {
-            transform.translation = new_position;
-        }   
+        node_position.bypass_change_detection().relative_position = new_position; 
     }
 }
 

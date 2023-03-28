@@ -11,7 +11,6 @@ use bevy_render::{
 };
 #[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
-use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
 ///
@@ -28,16 +27,6 @@ pub struct NodeBundle {
     pub background_color: BackgroundColor,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `nodebundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -55,8 +44,6 @@ impl Default for NodeBundle {
             node_position: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
@@ -83,16 +70,6 @@ pub struct ImageBundle {
     pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -117,16 +94,6 @@ pub struct TextBundle {
     pub calculated_size: CalculatedSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -149,8 +116,6 @@ impl Default for TextBundle {
             node_position: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
@@ -220,16 +185,6 @@ pub struct ButtonBundle {
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -249,8 +204,6 @@ impl Default for ButtonBundle {
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
