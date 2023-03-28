@@ -92,6 +92,9 @@ accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_math/glam_assert"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.11.0-dev" }

@@ -51,6 +51,7 @@ The default feature set enables most of the expected features of a game engine, 
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
 |flac|FLAC audio format support|
+|glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|

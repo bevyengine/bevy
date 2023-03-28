@@ -13,6 +13,8 @@ glam = { version = "0.23", features = ["bytemuck"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
+serialize = ["dep:serde", "glam/serde"]
 # Enable interoperation of glam types with mint-compatible libraries
 mint = ["glam/mint"]
-serialize = ["dep:serde", "glam/serde"]
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["glam/glam-assert"]
