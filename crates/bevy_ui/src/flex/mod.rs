@@ -350,7 +350,7 @@ pub fn flex_node_system(
             node.calculated_size = new_size;
         }
 
-        let mut new_position = node_position.calculated_position;
+        let mut new_position = node_position.calculated;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
@@ -363,7 +363,7 @@ pub fn flex_node_system(
         // Don't trigger change detection for this component.
         // This is because changes to the node's `relative_position` may not be reflected in a change to the node's corresponding `calculated_position`.
         // For instance if the parent node is translated 1 pixel left and its child is translated 1 pixel right, the child's `calculated_position` will not change.
-        node_position.bypass_change_detection().relative_position = new_position; 
+        node_position.bypass_change_detection().relative = new_position; 
     }
 }
 
@@ -386,9 +386,9 @@ fn update_node_positions_recursive(
     children_query: &Query<&Children>,
 ) {
     if let Ok(mut position) = node_position_query.get_mut(node_id) {
-        let calculated_position = inherited_position + position.relative_position;
-        if position.calculated_position != calculated_position {
-            position.calculated_position = calculated_position;
+        let calculated_position = inherited_position + position.relative;
+        if position.calculated != calculated_position {
+            position.calculated = calculated_position;
         }
 
         if let Ok(children) = children_query.get(node_id) {

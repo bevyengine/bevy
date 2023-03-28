@@ -30,7 +30,7 @@ impl Node {
     /// Returns the logical pixel coordinates of the UI node.
     #[inline]
     pub fn logical_rect(&self, node_position: &NodePosition) -> Rect {
-        Rect::from_center_size(node_position.calculated_position, self.size())
+        Rect::from_center_size(node_position.calculated, self.size())
     }
 
     /// Returns the physical pixel coordinates of the UI node.
@@ -57,27 +57,27 @@ impl Default for Node {
 }
 
 
-/// Describes the position of a UI node
+/// Describes the logical position of the center of a UI node
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct NodePosition {
     /// The position of the node in logical pixels relative to its parent node
-    pub (crate) relative_position: Vec2,
+    pub (crate) relative: Vec2,
     /// The position of the node in logical pixels
     /// automatically calculated by [`super::flex::update_node_positions`]
-    pub (crate) calculated_position: Vec2,
+    pub (crate) calculated: Vec2,
 }
 
 impl NodePosition {
     /// The calculated node position in logical pixels
     /// automatically calculated by [`super::flex::update_node_positions`]
-    pub fn calculated_position(&self) -> Vec2 {
-        self.calculated_position
+    pub fn calculated(&self) -> Vec2 {
+        self.calculated
     }
 
     pub const DEFAULT: Self = Self {
-        relative_position: Vec2::ZERO,
-        calculated_position: Vec2::ZERO,
+        relative: Vec2::ZERO,
+        calculated: Vec2::ZERO,
     };
 }
 

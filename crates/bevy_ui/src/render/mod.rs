@@ -200,7 +200,7 @@ pub fn extract_uinodes(
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
-                transform: Mat4::from_translation(uinode_position.calculated_position.extend(0.0)),
+                transform: Mat4::from_translation(uinode_position.calculated.extend(0.0)),
                 color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
@@ -309,7 +309,7 @@ pub fn extract_text_uinodes(
             }
 
             let transform = 
-                Mat4::from_translation((uinode_position.calculated_position -0.5 * uinode.size()).extend(0.))
+                Mat4::from_translation((uinode_position.calculated -0.5 * uinode.size()).extend(0.))
                 * scaling;
 
             let mut color = Color::WHITE;
