@@ -76,7 +76,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [nonce, build-for-iOS, build-for-android]
+    needs: [nonce, build-for-iOS, build-for-Android]
     env: 
       PERCY_PARALLEL_NONCE: ${{ needs.nonce.outputs.result }}
       PERCY_PARALLEL_TOTAL: ${{ strategy.job-total }}
