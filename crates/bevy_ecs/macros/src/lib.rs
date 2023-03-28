@@ -329,21 +329,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let ident_str = lifetime_token.lifetime.ident.to_string();
         let ident_str = ident_str;
         if synonyms_w.contains(&ident_str.as_str()) {
-            if w_lt.is_none() {
-                let _ = w_lt.insert(lifetime_token.lifetime.clone());
-            } else {
+            if let Some(old_lt) = w_lt.as_ref() {
                 return syn::Error::new_spanned(
                     w_lt.clone(),
                     format!(
-                        "invalid lifetime name: already using {:?} for 'world lifetime;
+                        "invalid lifetime name: already using {old_lt:?} for 'world lifetime;
                         synonyms for 'world are {}",
-                        w_lt.unwrap().to_string(),
                         synonyms_w.map(|lifetime| format!("'{lifetime}")).join(", ")
                     ),
                 )
                 .into_compile_error()
                 .into();
             }
+            *w_lt = Some(lifetime_token.lifetime.clone());
         }
         if synonyms_s.contains(&ident_str.as_str()) {
             if s_lt.is_none() {
