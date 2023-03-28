@@ -208,6 +208,16 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 #(#ignored_field_idents: #ignored_field_types,)*
             }
 
+            impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
+            #user_where_clauses_with_world {
+                fn clone(&self) -> Self {
+                    Self {
+                        #(#field_idents: self.#field_idents.clone(),)*
+                        #(#ignored_field_idents: Default::default(),)*
+                    }
+                }
+            }
+
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
             unsafe impl #user_impl_generics #path::query::WorldQuery
                 for #struct_name #user_ty_generics #user_where_clauses {
@@ -246,19 +256,6 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                             ),
                         )*
                         #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-
-                unsafe fn clone_fetch<'__w>(
-                    _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>
-                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
-                    #fetch_struct_name {
-                        #(
-                            #field_idents: <#field_types>::clone_fetch(& _fetch. #field_idents),
-                        )*
-                        #(
-                            #ignored_field_idents: Default::default(),
-                        )*
                     }
                 }
 
