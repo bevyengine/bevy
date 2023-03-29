@@ -376,8 +376,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 g.bounds.clear();
                 GenericParam::Type(g)
             }
-            g @ GenericParam::Const(_) => g,
-            _ => unreachable!(),
+            g => g,
         })
         .collect();
 
