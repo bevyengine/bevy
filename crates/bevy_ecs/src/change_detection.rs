@@ -131,7 +131,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
     ///
-    /// fn reset_scores(mut score: ResMut<Score>) {
+    /// fn reset_score(mut score: ResMut<Score>) {
     ///     // Set the score to zero, unless it is already zero.
     ///     score.set_if_neq(Score(0));
     /// }
