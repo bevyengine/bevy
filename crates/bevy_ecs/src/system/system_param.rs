@@ -24,6 +24,34 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+macro_rules! system_param_common {
+    () => {
+        /// Used to store data which persists across invocations of a system.
+        type State: Send + Sync + 'static;
+
+        /// Registers any [`World`] access used by this [`SystemParam`]
+        /// and creates a new instance of this param's [`State`](Self::State).
+        fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
+
+        /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
+        #[inline]
+        fn new_archetype(
+            _state: &mut Self::State,
+            _archetype: &Archetype,
+            _system_meta: &mut SystemMeta,
+        ) {
+        }
+
+        /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
+        /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
+        ///
+        /// [`Commands`]: crate::prelude::Commands
+        #[inline]
+        #[allow(unused_variables)]
+        fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+    };
+}
+
 /// A parameter that can be used in a [`System`](super::System).
 ///
 /// # Derive
@@ -115,35 +143,13 @@ use std::{
 /// - None of the world accesses may conflict with any prior accesses registered
 ///   on `system_meta`.
 pub unsafe trait SystemParam: Sized {
-    /// Used to store data which persists across invocations of a system.
-    type State: Send + Sync + 'static;
-
     /// The item type returned when constructing this system param.
     /// The value of this associated type should be `Self`, instantiated with new lifetimes.
     ///
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
-    /// Registers any [`World`] access used by this [`SystemParam`]
-    /// and creates a new instance of this param's [`State`](Self::State).
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
-
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
-    #[inline]
-    fn new_archetype(
-        _state: &mut Self::State,
-        _archetype: &Archetype,
-        _system_meta: &mut SystemMeta,
-    ) {
-    }
-
-    /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
-    ///
-    /// [`Commands`]: crate::prelude::Commands
-    #[inline]
-    #[allow(unused_variables)]
-    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+    system_param_common!();
 
     /// # Safety
     ///
@@ -218,9 +224,6 @@ pub unsafe trait SystemParam: Sized {
 /// - None of the world accesses may conflict with any prior accesses registered
 ///   on `system_meta`.
 pub unsafe trait FallibleSystemParam: Sized {
-    /// Used to store data which persists across invocations of a system.
-    type State: Send + Sync + 'static;
-
     /// The item type returned when constructing this system param succeeds.
     /// The value of this associated type should be `Self`, instantiated with new lifetimes.
     ///
@@ -230,26 +233,7 @@ pub unsafe trait FallibleSystemParam: Sized {
     /// The error type returned when constructing this system param fails.
     type Error: Error;
 
-    /// Registers any [`World`] access used by this [`SystemParam`]
-    /// and creates a new instance of this param's [`State`](Self::State).
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
-
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
-    #[inline]
-    fn new_archetype(
-        _state: &mut Self::State,
-        _archetype: &Archetype,
-        _system_meta: &mut SystemMeta,
-    ) {
-    }
-
-    /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] at the end of a stage.
-    ///
-    /// [`Commands`]: crate::prelude::Commands
-    #[inline]
-    #[allow(unused_variables)]
-    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+    system_param_common!();
 
     /// # Safety
     ///
@@ -633,7 +617,7 @@ pub struct ResError<T: Resource> {
 impl<T: Resource> std::fmt::Debug for ResError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&format!("ResError<{}>", std::any::type_name::<T>()))
-            .field("system_name', &self.system_name)
+            .field("system_name", &self.system_name)
             .finish()
     }
 }
