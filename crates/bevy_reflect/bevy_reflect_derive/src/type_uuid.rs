@@ -103,7 +103,7 @@ impl Parse for TypeUuidDef {
         let generics = input.parse::<Generics>()?;
         input.parse::<Token![,]>()?;
         let uuid = input.parse::<LitStr>()?.value();
-        let uuid = Uuid::parse_str(&uuid).map_err(|err| input.error(format!("{}", err)))?;
+        let uuid = Uuid::parse_str(&uuid).map_err(|err| input.error(format!("{err}")))?;
 
         Ok(Self {
             type_ident,

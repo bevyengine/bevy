@@ -241,6 +241,14 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
+impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
+    type Item = &'a E;
+    type IntoIter = ManualEventIterator<'a, E>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 /// Sends events of type `T`.
 ///
 /// # Usage
@@ -275,8 +283,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///     // which allows one to do all kinds of clever things with type erasure, such as sending
 ///     // custom events to unknown 3rd party plugins (modding API).
 ///     //
-///     // NOTE: the event won't actually be sent until commands get flushed
-///     // at the end of the current stage.
+///     // NOTE: the event won't actually be sent until commands get applied during
+///     // apply_system_buffers.
 ///     commands.add(|w: &mut World| {
 ///         w.send_event(MyEvent);
 ///     });
@@ -628,6 +636,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
     where
         I: IntoIterator<Item = E>,
     {
+        let old_count = self.event_count;
         let mut event_count = self.event_count;
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
@@ -640,11 +649,14 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
         self.events_b.extend(events);
 
-        detailed_trace!(
-            "Events::extend() -> ids: ({}..{})",
-            self.event_count,
-            event_count
-        );
+        if old_count != event_count {
+            detailed_trace!(
+                "Events::extend() -> ids: ({}..{})",
+                self.event_count,
+                event_count
+            );
+        }
+
         self.event_count = event_count;
     }
 }
@@ -923,7 +935,7 @@ mod tests {
         world.send_event(TestEvent { i: 4 });
 
         let mut schedule = Schedule::new();
-        schedule.add_system(|mut events: EventReader<TestEvent>| {
+        schedule.add_systems(|mut events: EventReader<TestEvent>| {
             let mut iter = events.iter();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
