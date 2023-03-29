@@ -444,7 +444,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R>::default());
+        self.queue.push(InitResource::<R>::new());
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -497,7 +497,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R>::default());
+        self.queue.push(RemoveResource::<R>::new());
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -744,7 +744,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T>::from(self.entity));
+        self.commands.add(Remove::<T>::new(self.entity));
         self
     }
 
@@ -949,8 +949,8 @@ where
     }
 }
 
-impl<T> From<Entity> for Remove<T> {
-    fn from(entity: Entity) -> Self {
+impl<T> Remove<T> {
+    fn new(entity: Entity) -> Self {
         Self {
             entity,
             _phantom: PhantomData::<T>,
@@ -968,8 +968,8 @@ impl<R: Resource + FromWorld> Command for InitResource<R> {
     }
 }
 
-impl<R: Resource + FromWorld> Default for InitResource<R> {
-    fn default() -> Self {
+impl<R: Resource + FromWorld> InitResource<R> {
+    fn new() -> Self {
         Self {
             _phantom: PhantomData::<R>,
         }
@@ -996,8 +996,8 @@ impl<R: Resource> Command for RemoveResource<R> {
     }
 }
 
-impl<R: Resource> Default for RemoveResource<R> {
-    fn default() -> Self {
+impl<R: Resource> RemoveResource<R> {
+    fn new() -> Self {
         Self {
             _phantom: PhantomData::<R>,
         }
