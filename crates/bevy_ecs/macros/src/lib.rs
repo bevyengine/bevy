@@ -26,6 +26,7 @@ enum BundleFieldKind {
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
+#[doc = include_str!("../../doc/bundle.md")]
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -457,12 +458,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 }
 
 /// Implement `WorldQuery` to use a struct as a parameter in a query
+#[doc = include_str!("../../doc/world_query.md")]
 #[proc_macro_derive(WorldQuery, attributes(world_query))]
 pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(input)
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
+#[doc = include_str!("../../doc/schedule_label.md")]
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -475,6 +478,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
+#[doc = include_str!("../../doc/system_set.md")]
 #[proc_macro_derive(SystemSet)]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -493,11 +497,13 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+#[doc = include_str!("../../doc/component.md")]
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
+#[doc = include_str!("../../doc/states.md")]
 #[proc_macro_derive(States)]
 pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
