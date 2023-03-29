@@ -373,12 +373,12 @@ pub fn flex_node_system(
             let layout = flex_surface.get_layout(node_id).unwrap();
             let new_size =
                 Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
-            let new_position = Vec2::new(layout.location.x, layout.location.y)
-                * physical_to_logical_factor;
-            
+            let new_position =
+                Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
+
             let size_displacement = 0.5 * new_size.extend(0.);
             let new_transform = Mat4::from_translation(new_position.extend(0.) + size_displacement);
-            
+
             let mut calculated_transform = inherited_transform * new_transform;
 
             if let Some(translation) = maybe_translation {
@@ -397,8 +397,8 @@ pub fn flex_node_system(
             }
 
             // only trigger change detection when the new value is different
-            if transform.calculated != calculated_transform {
-                transform.calculated = calculated_transform;
+            if transform.matrix != calculated_transform {
+                transform.matrix = calculated_transform;
             }
 
             if let Ok(children) = children_query.get(node_id) {

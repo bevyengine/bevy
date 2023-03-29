@@ -1745,6 +1745,18 @@ description = "Illustrates how FontAtlases are populated (used to optimize text 
 category = "UI (User Interface)"
 wasm = true
 
+
+[[example]]
+name = "node_rotation"
+path = "examples/ui/node_rotation.rs"
+
+[package.metadata.example.node_rotation]
+name = "Node Rotation"
+description = "An example demonstrating how to rotate a UI element."
+category = "UI (User Interface)"
+wasm = true
+
+
 [[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"

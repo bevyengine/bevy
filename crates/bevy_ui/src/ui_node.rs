@@ -2,7 +2,7 @@ use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Mat4, Rect, Vec2, Vec3};
+use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -31,11 +31,8 @@ impl Node {
     /// Returns the logical pixel coordinates of the UI node.
     #[inline]
     pub fn logical_rect(&self, node_transform: &NodeTransform) -> Rect {
-        let t = node_transform
-            .calculated
-            .transform_point3(Vec3::ZERO)
-            .truncate();
-        Rect::from_center_size(t, self.size())
+        let size = self.size() * node_transform.scale();
+        Rect::from_center_size(node_transform.translation(), size)
     }
 
     /// Returns the physical pixel coordinates of the UI node.
@@ -46,6 +43,29 @@ impl Node {
             min: rect.min / scale_factor,
             max: rect.max / scale_factor,
         }
+    }
+
+    /// Checks if the given point is inside the UI node.
+    #[inline]
+    pub fn contains_point(&self, node_transform: &NodeTransform, point: Vec2) -> bool {
+        //let d = (node_transform.translation() - point).abs();
+        let d = node_transform
+            .matrix
+            .inverse()
+            .transform_point3(point.extend(0.))
+            .truncate();
+        let s = self.size() / 2.;
+        d.x.abs() <= s.x && d.y.abs() <= s.y
+    }
+
+    #[inline]
+    pub fn relative_position(&self, node_transform: &NodeTransform, point: Vec2) -> Vec2 {
+        let d = node_transform
+            .matrix
+            .inverse()
+            .transform_point3(point.extend(0.))
+            .truncate();
+        d / self.size() + Vec2::new(0.5, 0.5)
     }
 }
 
@@ -67,33 +87,56 @@ impl Default for Node {
 pub struct NodeTransform {
     /// The position of the node in logical pixels
     /// automatically calculated by [`super::flex::flex_node_system`]
-    pub(crate) calculated: Mat4,
+    pub(crate) matrix: Mat4,
 }
 
 impl NodeTransform {
     /// The calculated node position in logical pixels
     /// automatically calculated by [`super::flex::flex_node_system`]
-    pub fn calculated(&self) -> Mat4 {
-        self.calculated
+    pub fn matrix(&self) -> Mat4 {
+        self.matrix
     }
 
     pub const DEFAULT: Self = Self {
-        calculated: Mat4::IDENTITY,
+        matrix: Mat4::IDENTITY,
     };
 
+    /// Returns the translation of the node.
+    /// This is the position of the center of the node in logical pixels.
     pub fn translation(&self) -> Vec2 {
-        self.calculated.transform_point3(Vec3::ZERO).truncate()
+        self.matrix.to_scale_rotation_translation().2.truncate()
     }
 
+    /// Returns the horizontal and vertical scaling of the node.
     pub fn scale(&self) -> Vec2 {
-        let x = self.calculated.transform_point3(Vec3::X).truncate();
-        let y = self.calculated.transform_point3(Vec3::Y).truncate();
-        Vec2::new(x.length(), y.length())
+        self.matrix.to_scale_rotation_translation().0.truncate()
     }
 
+    /// Returns the rotation of the node in radians.
     pub fn rotation(&self) -> f32 {
-        let x = self.calculated.transform_point3(Vec3::X).truncate();
-        Vec2::X.angle_between(x)
+        self.matrix
+            .to_scale_rotation_translation()
+            .1
+            .to_axis_angle()
+            .1
+    }
+
+    /// Returns the rotation of the node in degrees.
+    pub fn rotation_degrees(&self) -> f32 {
+        self.rotation() * 180. / std::f32::consts::PI
+    }
+
+    pub fn relative_vector(&self, point: Vec2) -> Vec2 {
+        self.transform_vector(point) - self.translation()
+    }
+
+    pub fn transform_point(&self, point: Vec2) -> Vec2 {
+        self.matrix.transform_point3(point.extend(0.)).truncate()
+    }
+
+    /// Transforms the vector from the UI's coordinate space to the node's coordinate space.
+    pub fn transform_vector(&self, vector: Vec2) -> Vec2 {
+        self.matrix.transform_vector3(vector.extend(0.)).truncate()
     }
 }
 
@@ -891,6 +934,12 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::Mat4;
+    use bevy_math::Vec2;
+    use bevy_math::Vec3;
+
+    use crate::Node;
+    use crate::NodeTransform;
     use crate::ValArithmeticError;
 
     use super::Val;
@@ -1038,5 +1087,74 @@ mod tests {
     #[test]
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn relative_position_translated() {
+        let n1 = Node {
+            calculated_size: Vec2::new(10., 10.),
+        };
+        let n2 = Node {
+            calculated_size: Vec2::new(30., 20.),
+        };
+
+        let t1 = NodeTransform {
+            matrix: Mat4::from_translation(Vec3::new(0., 0., 0.))
+                * Mat4::from_scale(Vec3::new(1., 1., 1.)),
+        };
+
+        let t2 = NodeTransform {
+            matrix: Mat4::from_translation(Vec3::new(5., 5., 0.))
+                * Mat4::from_scale(Vec3::new(1., 1., 1.)),
+        };
+
+        assert_eq!(n1.relative_position(&t1, Vec2::ZERO), Vec2::splat(0.5));
+        assert_eq!(
+            n1.relative_position(&t1, Vec2::new(2.5, 5.)),
+            Vec2::new(0.75, 1.)
+        );
+        assert_eq!(n2.relative_position(&t1, Vec2::ZERO), Vec2::splat(0.5));
+        assert_eq!(
+            n2.relative_position(&t1, Vec2::new(7.5, 10.)),
+            Vec2::new(0.75, 1.)
+        );
+
+        assert_eq!(n1.relative_position(&t2, Vec2::ZERO), Vec2::ZERO);
+        assert_eq!(
+            n1.relative_position(&t2, Vec2::new(2.5, 5.)),
+            Vec2::new(0.25, 0.5)
+        );
+        assert!(n2
+            .relative_position(&t2, Vec2::ZERO)
+            .abs_diff_eq(Vec2::new(1. / 3., 0.25), 0.001));
+        println!("n2: {:}", (n2.relative_position(&t2, Vec2::new(7.5, 10.))));
+        assert!(n2
+            .relative_position(&t2, Vec2::new(7.5, 10.))
+            .abs_diff_eq(Vec2::new(17.5 / 30., 0.75), 0.001));
+    }
+
+    #[test]
+    fn relative_position_scaled() {
+        let n1 = Node {
+            calculated_size: Vec2::new(10., 10.),
+        };
+
+        let t1 = NodeTransform {
+            matrix: Mat4::from_translation(Vec3::new(10., 10., 0.))
+                * Mat4::from_scale(Vec3::new(2., 2., 1.)),
+        };
+
+        assert_eq!(
+            n1.relative_position(&t1, Vec2::new(10., 10.)),
+            Vec2::splat(0.5)
+        );
+        assert_eq!(
+            n1.relative_position(&t1, Vec2::new(20., 20.)),
+            Vec2::new(1., 1.)
+        );
+        assert_eq!(
+            n1.relative_position(&t1, Vec2::new(0., 0.)),
+            Vec2::new(0., 0.)
+        );
     }
 }

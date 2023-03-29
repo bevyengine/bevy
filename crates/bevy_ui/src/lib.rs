@@ -92,6 +92,9 @@ impl Plugin for UiPlugin {
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             .register_type::<NodeTransform>()
+            .register_type::<NodeTranslation>()
+            .register_type::<NodeRotation>()
+            .register_type::<NodeScale>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
