@@ -140,8 +140,6 @@ pub trait DetectChangesMut: DetectChanges {
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
-    /// # assert!(score_changed.run(&mut world));
-    /// #
     /// # let mut schedule = Schedule::new();
     /// # schedule.add_systems(reset_scores);
     /// #
