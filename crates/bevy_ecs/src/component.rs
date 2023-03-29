@@ -9,6 +9,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use serde::{Deserialize, Serialize};
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -588,7 +589,7 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Tick {
     tick: u32,
 }
