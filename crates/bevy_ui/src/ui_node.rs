@@ -2,7 +2,7 @@ use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2, Affine2};
+use bevy_math::{Affine2, Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -48,18 +48,14 @@ impl Node {
     /// Checks if the given point is inside the UI node.
     #[inline]
     pub fn contains_point(&self, node_transform: &NodeTransform, point: Vec2) -> bool {
-        let d = node_transform
-            .inverse()
-            .transform_point2(point);
+        let d = node_transform.inverse().transform_point2(point);
         let s = self.size() / 2.;
         d.x.abs() <= s.x && d.y.abs() <= s.y
     }
 
     #[inline]
     pub fn relative_position(&self, node_transform: &NodeTransform, point: Vec2) -> Vec2 {
-        let d = node_transform
-            .inverse()
-            .transform_point2(point);
+        let d = node_transform.inverse().transform_point2(point);
         d / self.size() + Vec2::new(0.5, 0.5)
     }
 }
@@ -79,7 +75,7 @@ impl Default for Node {
 /// Describes the logical position of the center of a UI node
 #[derive(Component, Debug, Clone, Deref, Reflect)]
 #[reflect(Component, Default)]
-pub struct NodeTransform(pub (crate) Affine2);
+pub struct NodeTransform(pub(crate) Affine2);
 
 impl NodeTransform {
     pub const DEFAULT: Self = Self(Affine2::IDENTITY);

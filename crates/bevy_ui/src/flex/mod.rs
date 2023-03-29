@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::{Vec2, Affine2};
+use bevy_math::{Affine2, Vec2};
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
@@ -377,9 +377,10 @@ pub fn flex_node_system(
                 Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
 
             let half_size = 0.5 * new_size;
-            
+
             let mut calculated_transform = inherited_transform;
-            calculated_transform = calculated_transform * Affine2::from_translation(new_position + half_size);
+            calculated_transform =
+                calculated_transform * Affine2::from_translation(new_position + half_size);
 
             let other = Affine2::from_scale_angle_translation(
                 maybe_scale.map_or(Vec2::ONE, |scale| scale.0),

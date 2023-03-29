@@ -13,7 +13,7 @@ use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiIm
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Affine2};
+use bevy_math::{Affine2, Mat4, Rect, UVec4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -308,9 +308,8 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let transform = node_transform.0
-                * Affine2::from_translation(-0.5 * uinode.size())
-                * scaling;
+            let transform =
+                node_transform.0 * Affine2::from_translation(-0.5 * uinode.size()) * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
