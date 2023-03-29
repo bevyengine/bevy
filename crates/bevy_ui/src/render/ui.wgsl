@@ -24,10 +24,10 @@ struct UiUniformEntry {
 
 struct UiUniform {
     // NOTE: this array size must be kept in sync with the constants defined bevy_ui/src/render/mod.rs
-    entries: array<UiUniformEntry, 256u>;
+    entries: array<UiUniformEntry, 256u>,
 };
 
-[[group(2), binding(0)]]
+@group(2) @binding(0)
 var<uniform> ui_uniform: UiUniform;
 
 
@@ -45,20 +45,8 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    var node = ui_uniform.entries[ui_uniform_index];
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.color = unpack_color_from_u32(node.color);
-    out.size = node.size;
-    out.point = vertex_position.xy - node.center;
-    out.border_width = node.border_width;
-    out.border_color = unpack_color_from_u32(node.border_color);
-
-    // get radius for this specific corner
-    var corner_index = select(0, 1, out.position.y > 0.0) + select(0, 2, out.position.x > 0.0);
-    out.radius = node.corner_radius[corner_index];
-
-    // clamp radius between (0.0) and (shortest side / 2.0)
-    out.radius = clamp(out.radius, 0.0, min(out.size.x, out.size.y) / 2.0);
+    out.color = vertex_color;
     return out;
 }
 
@@ -75,13 +63,5 @@ fn distance_round_border(point: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
     color = in.color * color;
-
-    if (in.radius > 0.0 || in.border_width > 0.0) {
-        var distance = distance_round_border(in.point, in.size * 0.5, in.radius);
-
-        var inner_alpha = 1.0 - smoothStep(0.0, 0.0, distance);
-        var border_alpha = 1.0 - smoothStep(in.border_width, in.border_width, abs(distance));
-        color = mix(vec4<f32>(0.0), mix(color, in.border_color, border_alpha), inner_alpha);
-    }
     return color;
 }
