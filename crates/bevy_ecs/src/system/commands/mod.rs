@@ -444,9 +444,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R> {
-            _phantom: PhantomData::<R>::default(),
-        });
+        self.queue.push(InitResource::<R>::default());
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -499,9 +497,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R> {
-            phantom: PhantomData,
-        });
+        self.queue.push(RemoveResource::<R>::default());
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -748,10 +744,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
+        self.commands.add(Remove::<T>::from(self.entity));
         self
     }
 
@@ -942,7 +935,7 @@ where
 #[derive(Debug)]
 pub struct Remove<T> {
     pub entity: Entity,
-    pub phantom: PhantomData<T>,
+    pub _phantom: PhantomData<T>,
 }
 
 impl<T> Command for Remove<T>
@@ -952,6 +945,15 @@ where
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
+        }
+    }
+}
+
+impl<T> From<Entity> for Remove<T> {
+    fn from(entity: Entity) -> Self {
+        Self {
+            entity,
+            _phantom: PhantomData::<T>,
         }
     }
 }
@@ -966,6 +968,14 @@ impl<R: Resource + FromWorld> Command for InitResource<R> {
     }
 }
 
+impl<R: Resource + FromWorld> Default for InitResource<R> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData::<R>,
+        }
+    }
+}
+
 pub struct InsertResource<R: Resource> {
     pub resource: R,
 }
@@ -977,12 +987,20 @@ impl<R: Resource> Command for InsertResource<R> {
 }
 
 pub struct RemoveResource<R: Resource> {
-    pub phantom: PhantomData<R>,
+    pub _phantom: PhantomData<R>,
 }
 
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+impl<R: Resource> Default for RemoveResource<R> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData::<R>,
+        }
     }
 }
 
