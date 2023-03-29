@@ -63,7 +63,7 @@ fn vertex(
 
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.color = vertex_color;
+    out.color = unpack_color_from_u32(node.color);
     return out;
 }
 
