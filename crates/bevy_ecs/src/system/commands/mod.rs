@@ -1000,7 +1000,7 @@ impl<R: Resource> Command for RemoveResource<R> {
 
 impl<R: Resource> RemoveResource<R> {
     /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
-    fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             _phantom: PhantomData::<R>,
         }
