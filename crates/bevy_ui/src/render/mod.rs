@@ -307,10 +307,10 @@ pub fn extract_text_uinodes(
             if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
-
-            let transform = Mat4::from_translation(
-                (node_transform.translation() - 0.5 * uinode.size()).extend(0.),
-            ) * scaling;
+            
+            let transform = node_transform.calculated 
+                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+                * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;

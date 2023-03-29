@@ -36,8 +36,7 @@ fn update_clipping(
     entity: Entity,
     maybe_inherited_clip: Option<Rect>,
 ) {
-    let (node, node_position, style, maybe_calculated_clip) =
-        node_query.get_mut(entity).unwrap();
+    let (node, node_transform, style, maybe_calculated_clip) = node_query.get_mut(entity).unwrap();
 
     // Update current node's CalculatedClip component
     match (maybe_calculated_clip, maybe_inherited_clip) {
@@ -67,7 +66,7 @@ fn update_clipping(
         // be used; otherwise this will be `None`.
         Overflow::Visible => maybe_inherited_clip,
         Overflow::Hidden => {
-            let node_clip = node.logical_rect(node_position);
+            let node_clip = node.logical_rect(node_transform);
 
             // If `maybe_inherited_clip` is `Some`, use the intersection between
             // current node's clip and the inherited clip. This handles the case

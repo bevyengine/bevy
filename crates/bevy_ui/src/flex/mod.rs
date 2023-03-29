@@ -1,6 +1,8 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, NodeTransform, Style, UiScale};
+use crate::{
+    CalculatedSize, Node, NodeRotation, NodeScale, NodeTransform, NodeTranslation, Style, UiScale,
+};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -11,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::{Vec2, Mat4};
+use bevy_math::{Mat4, Vec2};
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
@@ -267,7 +269,13 @@ pub fn flex_node_system(
     >,
     children_query: Query<&Children, (With<Node>, With<NodeTransform>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut node_geometry_query: Query<(&mut Node, &mut NodeTransform)>,
+    mut node_geometry_query: Query<(
+        &mut Node,
+        &mut NodeTransform,
+        Option<&NodeTranslation>,
+        Option<&NodeRotation>,
+        Option<&NodeScale>,
+    )>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -347,20 +355,41 @@ pub fn flex_node_system(
 
     fn update_node_geometry_recursively(
         flex_surface: &FlexSurface,
-        inherited_position: Vec2,
+        inherited_transform: Mat4,
         node_id: Entity,
-        node_geometry_query: &mut Query<(&mut Node, &mut NodeTransform)>,
+        node_geometry_query: &mut Query<(
+            &mut Node,
+            &mut NodeTransform,
+            Option<&NodeTranslation>,
+            Option<&NodeRotation>,
+            Option<&NodeScale>,
+        )>,
         children_query: &Query<&Children, (With<Node>, With<NodeTransform>)>,
         physical_to_logical_factor: f32,
     ) {
-        if let Ok((mut node, mut transform)) = node_geometry_query.get_mut(node_id) {
+        if let Ok((mut node, mut transform, maybe_translation, maybe_rotation, maybe_scale)) =
+            node_geometry_query.get_mut(node_id)
+        {
             let layout = flex_surface.get_layout(node_id).unwrap();
             let new_size =
                 Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
             let new_position = Vec2::new(layout.location.x, layout.location.y)
-                * physical_to_logical_factor
-                + inherited_position;
-            let calculated_transform = Mat4::from_translation((new_position + 0.5 * new_size).extend(0.));
+                * physical_to_logical_factor;
+            
+            let size_displacement = 0.5 * new_size.extend(0.);
+            let new_transform = Mat4::from_translation(new_position.extend(0.) + size_displacement);
+            
+            let mut calculated_transform = inherited_transform * new_transform;
+
+            if let Some(translation) = maybe_translation {
+                calculated_transform *= Mat4::from_translation(translation.0.extend(0.));
+            }
+            if let Some(rotation) = maybe_rotation {
+                calculated_transform *= Mat4::from_rotation_z(rotation.0);
+            }
+            if let Some(scale) = maybe_scale {
+                calculated_transform *= Mat4::from_scale(scale.0.extend(1.));
+            }
 
             // only trigger change detection when the new value is different
             if node.calculated_size != new_size {
@@ -376,7 +405,7 @@ pub fn flex_node_system(
                 for child in children.iter() {
                     update_node_geometry_recursively(
                         flex_surface,
-                        new_position,
+                        calculated_transform * Mat4::from_translation(-size_displacement),
                         *child,
                         node_geometry_query,
                         children_query,
@@ -390,7 +419,7 @@ pub fn flex_node_system(
     for node_id in root_node_query.iter() {
         update_node_geometry_recursively(
             &flex_surface,
-            Vec2::ZERO,
+            Mat4::IDENTITY,
             node_id,
             &mut node_geometry_query,
             &children_query,

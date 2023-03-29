@@ -19,8 +19,8 @@ use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the logical position of the node
-    pub node_position: NodeTransform,
+    /// The logical coordinates transform of the node.
+    pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
@@ -41,7 +41,7 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             node: Default::default(),
-            node_position: Default::default(),
+            node_transform: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             visibility: Default::default(),
@@ -56,8 +56,8 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the logical position of the node
-    pub node_position: NodeTransform,
+    /// The logical coordinates transform of the node.
+    pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The calculated size based on the given image
@@ -84,8 +84,8 @@ pub struct ImageBundle {
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the logical position of the node
-    pub node_position: NodeTransform,
+    /// The logical coordinates transform of the node.
+    pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// Contains the text of the node
@@ -113,7 +113,7 @@ impl Default for TextBundle {
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
             node: Default::default(),
-            node_position: Default::default(),
+            node_transform: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             visibility: Default::default(),
@@ -169,8 +169,8 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the logical position of the node
-    pub node_position: NodeTransform,
+    /// The logical coordinates transform of the node.
+    pub node_transform: NodeTransform,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Describes the style including flexbox settings
@@ -198,7 +198,7 @@ impl Default for ButtonBundle {
         Self {
             focus_policy: FocusPolicy::Block,
             node: Default::default(),
-            node_position: Default::default(),
+            node_transform: Default::default(),
             button: Default::default(),
             style: Default::default(),
             interaction: Default::default(),

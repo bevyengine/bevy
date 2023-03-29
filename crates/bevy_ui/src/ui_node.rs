@@ -1,8 +1,8 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::{DerefMut, Deref};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2, Mat4, Vec3};
+use bevy_math::{Mat4, Rect, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -30,16 +30,18 @@ impl Node {
 
     /// Returns the logical pixel coordinates of the UI node.
     #[inline]
-    pub fn logical_rect(&self, node_position: &NodeTransform) -> Rect {
-        let t = node_position.calculated.transform_point3(Vec3::ZERO).truncate();
+    pub fn logical_rect(&self, node_transform: &NodeTransform) -> Rect {
+        let t = node_transform
+            .calculated
+            .transform_point3(Vec3::ZERO)
+            .truncate();
         Rect::from_center_size(t, self.size())
-        
     }
 
     /// Returns the physical pixel coordinates of the UI node.
     #[inline]
-    pub fn physical_rect(&self, node_position: &NodeTransform, scale_factor: f32) -> Rect {
-        let rect = self.logical_rect(node_position);
+    pub fn physical_rect(&self, node_transform: &NodeTransform, scale_factor: f32) -> Rect {
+        let rect = self.logical_rect(node_transform);
         Rect {
             min: rect.min / scale_factor,
             max: rect.max / scale_factor,
@@ -89,7 +91,7 @@ impl NodeTransform {
         Vec2::new(x.length(), y.length())
     }
 
-    pub fn rotation(&self) -> f32 {    
+    pub fn rotation(&self) -> f32 {
         let x = self.calculated.transform_point3(Vec3::X).truncate();
         Vec2::X.angle_between(x)
     }
@@ -104,9 +106,9 @@ impl Default for NodeTransform {
 /// Translation in logical pixels that is applied to the UI node and it's children
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
-pub struct Translation(pub Vec2);
+pub struct NodeTranslation(pub Vec2);
 
-impl Translation {
+impl NodeTranslation {
     pub fn new(x: f32, y: f32) -> Self {
         Self(Vec2::new(x, y))
     }
@@ -115,9 +117,9 @@ impl Translation {
 /// Rotation in radians that is applied to the UI node and it's children
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
-pub struct Rotation(pub f32);
+pub struct NodeRotation(pub f32);
 
-impl Rotation {
+impl NodeRotation {
     pub fn degrees(self) -> f32 {
         self.0 * 180. / std::f32::consts::PI
     }
@@ -130,9 +132,9 @@ impl Rotation {
 /// Scaling that is applied to the UI node and it's children
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
-pub struct Scale(pub Vec2);
+pub struct NodeScale(pub Vec2);
 
-impl Scale {
+impl NodeScale {
     pub fn all(scalar: f32) -> Self {
         Self(Vec2::splat(scalar))
     }
