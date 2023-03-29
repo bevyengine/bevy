@@ -514,12 +514,10 @@ pub struct ReadFetch<'w, T> {
 
 impl<T> Clone for ReadFetch<'_, T> {
     fn clone(&self) -> Self {
-        Self {
-            table_components: self.table_components,
-            sparse_set: self.sparse_set,
-        }
+        *self
     }
 }
+impl<T> Copy for ReadFetch<'_, T> {}
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> WorldQuery for &T {
@@ -661,14 +659,10 @@ pub struct RefFetch<'w, T> {
 
 impl<T> Clone for RefFetch<'_, T> {
     fn clone(&self) -> Self {
-        Self {
-            table_data: self.table_data,
-            sparse_set: self.sparse_set,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
+        *self
     }
 }
+impl<T> Copy for RefFetch<'_, T> {}
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
@@ -824,14 +818,10 @@ pub struct WriteFetch<'w, T> {
 
 impl<T> Clone for WriteFetch<'_, T> {
     fn clone(&self) -> Self {
-        Self {
-            table_data: self.table_data,
-            sparse_set: self.sparse_set,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
+        *self
     }
 }
+impl<T> Copy for WriteFetch<'_, T> {}
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
