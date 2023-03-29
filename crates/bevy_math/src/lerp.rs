@@ -1,5 +1,4 @@
 /// Provides a trait to implement the linear interpolation function.
-///
 pub trait Lerp {
     /// The Scalar type used in the linear interpolation function.
     type Scalar;
@@ -12,7 +11,6 @@ pub trait Lerp {
     fn lerp(self, rhs: Self, s: Self::Scalar) -> Self;
 }
 
-// implementation for floats
 macro_rules! impl_lerp_for_floats {
     ($type:ident) => {
         impl Lerp for $type {
@@ -29,7 +27,6 @@ macro_rules! impl_lerp_for_floats {
 impl_lerp_for_floats!(f32);
 impl_lerp_for_floats!(f64);
 
-// implementation for integers
 macro_rules! impl_lerp_for_integers {
     ($type: ident, $scalar: ident) => {
         impl Lerp for $type {
@@ -43,7 +40,6 @@ macro_rules! impl_lerp_for_integers {
     };
 }
 
-// implementation for unsigned integers
 macro_rules! impl_lerp_for_unsigned_integers {
     ($type: ident, $scalar: ident) => {
         impl Lerp for $type {
