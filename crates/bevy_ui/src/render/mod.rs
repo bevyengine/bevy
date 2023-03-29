@@ -8,7 +8,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::NodePosition;
+use crate::NodeTransform;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -170,7 +170,7 @@ pub fn extract_uinodes(
     uinode_query: Extract<
         Query<(
             &Node,
-            &NodePosition,
+            &NodeTransform,
             &BackgroundColor,
             Option<&UiImage>,
             &ComputedVisibility,
@@ -180,7 +180,7 @@ pub fn extract_uinodes(
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, uinode_position, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, uinode_transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -200,7 +200,7 @@ pub fn extract_uinodes(
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
-                transform: Mat4::from_translation(uinode_position.calculated.extend(0.0)),
+                transform: uinode_transform.calculated,
                 color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
@@ -283,7 +283,7 @@ pub fn extract_text_uinodes(
     uinode_query: Extract<
         Query<(
             &Node,
-            &NodePosition,
+            &NodeTransform,
             &Text,
             &TextLayoutInfo,
             &ComputedVisibility,
@@ -300,7 +300,7 @@ pub fn extract_text_uinodes(
     let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, uinode_position, text, text_layout_info, visibility, clip)) =
+        if let Ok((uinode, node_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
         {
             // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -309,7 +309,7 @@ pub fn extract_text_uinodes(
             }
 
             let transform = Mat4::from_translation(
-                (uinode_position.calculated - 0.5 * uinode.size()).extend(0.),
+                (node_transform.translation() - 0.5 * uinode.size()).extend(0.),
             ) * scaling;
 
             let mut color = Color::WHITE;

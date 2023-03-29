@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, NodePosition, Style, UiScale};
+use crate::{CalculatedSize, Node, NodeTransform, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Mat4};
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
@@ -248,26 +248,26 @@ pub fn flex_node_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut flex_surface: ResMut<FlexSurface>,
-    root_node_query: Query<Entity, (With<Node>, With<NodePosition>, Without<Parent>)>,
+    root_node_query: Query<Entity, (With<Node>, With<NodeTransform>, Without<Parent>)>,
     node_query: Query<
         (Entity, &Style, Option<&CalculatedSize>),
-        (With<Node>, With<NodePosition>, Changed<Style>),
+        (With<Node>, With<NodeTransform>, Changed<Style>),
     >,
     full_node_query: Query<
         (Entity, &Style, Option<&CalculatedSize>),
-        (With<Node>, With<NodePosition>),
+        (With<Node>, With<NodeTransform>),
     >,
     changed_size_query: Query<
         (Entity, &Style, &CalculatedSize),
-        (With<Node>, With<NodePosition>, Changed<CalculatedSize>),
+        (With<Node>, With<NodeTransform>, Changed<CalculatedSize>),
     >,
     changed_children_query: Query<
         (Entity, &Children),
-        (With<Node>, With<NodePosition>, Changed<Children>),
+        (With<Node>, With<NodeTransform>, Changed<Children>),
     >,
-    children_query: Query<&Children, (With<Node>, With<NodePosition>)>,
+    children_query: Query<&Children, (With<Node>, With<NodeTransform>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut node_geometry_query: Query<(&mut Node, &mut NodePosition)>,
+    mut node_geometry_query: Query<(&mut Node, &mut NodeTransform)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -349,18 +349,18 @@ pub fn flex_node_system(
         flex_surface: &FlexSurface,
         inherited_position: Vec2,
         node_id: Entity,
-        node_geometry_query: &mut Query<(&mut Node, &mut NodePosition)>,
-        children_query: &Query<&Children, (With<Node>, With<NodePosition>)>,
+        node_geometry_query: &mut Query<(&mut Node, &mut NodeTransform)>,
+        children_query: &Query<&Children, (With<Node>, With<NodeTransform>)>,
         physical_to_logical_factor: f32,
     ) {
-        if let Ok((mut node, mut position)) = node_geometry_query.get_mut(node_id) {
+        if let Ok((mut node, mut transform)) = node_geometry_query.get_mut(node_id) {
             let layout = flex_surface.get_layout(node_id).unwrap();
             let new_size =
                 Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
             let new_position = Vec2::new(layout.location.x, layout.location.y)
                 * physical_to_logical_factor
                 + inherited_position;
-            let calculated_position = new_position + 0.5 * new_size;
+            let calculated_transform = Mat4::from_translation((new_position + 0.5 * new_size).extend(0.));
 
             // only trigger change detection when the new value is different
             if node.calculated_size != new_size {
@@ -368,8 +368,8 @@ pub fn flex_node_system(
             }
 
             // only trigger change detection when the new value is different
-            if position.calculated != calculated_position {
-                position.calculated = calculated_position;
+            if transform.calculated != calculated_transform {
+                transform.calculated = calculated_transform;
             }
 
             if let Ok(children) = children_query.get(node_id) {

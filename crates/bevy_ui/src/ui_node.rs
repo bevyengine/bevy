@@ -1,7 +1,8 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
+use bevy_derive::{DerefMut, Deref};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Rect, Vec2, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -29,13 +30,15 @@ impl Node {
 
     /// Returns the logical pixel coordinates of the UI node.
     #[inline]
-    pub fn logical_rect(&self, node_position: &NodePosition) -> Rect {
-        Rect::from_center_size(node_position.calculated, self.size())
+    pub fn logical_rect(&self, node_position: &NodeTransform) -> Rect {
+        let t = node_position.calculated.transform_point3(Vec3::ZERO).truncate();
+        Rect::from_center_size(t, self.size())
+        
     }
 
     /// Returns the physical pixel coordinates of the UI node.
     #[inline]
-    pub fn physical_rect(&self, node_position: &NodePosition, scale_factor: f32) -> Rect {
+    pub fn physical_rect(&self, node_position: &NodeTransform, scale_factor: f32) -> Rect {
         let rect = self.logical_rect(node_position);
         Rect {
             min: rect.min / scale_factor,
@@ -59,27 +62,83 @@ impl Default for Node {
 /// Describes the logical position of the center of a UI node
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
-pub struct NodePosition {
+pub struct NodeTransform {
     /// The position of the node in logical pixels
     /// automatically calculated by [`super::flex::flex_node_system`]
-    pub(crate) calculated: Vec2,
+    pub(crate) calculated: Mat4,
 }
 
-impl NodePosition {
+impl NodeTransform {
     /// The calculated node position in logical pixels
     /// automatically calculated by [`super::flex::flex_node_system`]
-    pub fn calculated(&self) -> Vec2 {
+    pub fn calculated(&self) -> Mat4 {
         self.calculated
     }
 
     pub const DEFAULT: Self = Self {
-        calculated: Vec2::ZERO,
+        calculated: Mat4::IDENTITY,
     };
+
+    pub fn translation(&self) -> Vec2 {
+        self.calculated.transform_point3(Vec3::ZERO).truncate()
+    }
+
+    pub fn scale(&self) -> Vec2 {
+        let x = self.calculated.transform_point3(Vec3::X).truncate();
+        let y = self.calculated.transform_point3(Vec3::Y).truncate();
+        Vec2::new(x.length(), y.length())
+    }
+
+    pub fn rotation(&self) -> f32 {    
+        let x = self.calculated.transform_point3(Vec3::X).truncate();
+        Vec2::X.angle_between(x)
+    }
 }
 
-impl Default for NodePosition {
+impl Default for NodeTransform {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+/// Translation in logical pixels that is applied to the UI node and it's children
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct Translation(pub Vec2);
+
+impl Translation {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
+    }
+}
+
+/// Rotation in radians that is applied to the UI node and it's children
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct Rotation(pub f32);
+
+impl Rotation {
+    pub fn degrees(self) -> f32 {
+        self.0 * 180. / std::f32::consts::PI
+    }
+
+    pub fn from_degrees(degrees: f32) -> Self {
+        Self(degrees * std::f32::consts::PI / 180.)
+    }
+}
+
+/// Scaling that is applied to the UI node and it's children
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct Scale(pub Vec2);
+
+impl Scale {
+    pub fn all(scalar: f32) -> Self {
+        Self(Vec2::splat(scalar))
+    }
+
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
     }
 }
 

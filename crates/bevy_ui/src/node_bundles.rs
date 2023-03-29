@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodePosition,
+    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeTransform,
     Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -20,7 +20,7 @@ pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
     /// Describes the logical position of the node
-    pub node_position: NodePosition,
+    pub node_position: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
@@ -57,7 +57,7 @@ pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
     /// Describes the logical position of the node
-    pub node_position: NodePosition,
+    pub node_position: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The calculated size based on the given image
@@ -85,7 +85,7 @@ pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
     /// Describes the logical position of the node
-    pub node_position: NodePosition,
+    pub node_position: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// Contains the text of the node
@@ -170,7 +170,7 @@ pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
     /// Describes the logical position of the node
-    pub node_position: NodePosition,
+    pub node_position: NodeTransform,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Describes the style including flexbox settings
