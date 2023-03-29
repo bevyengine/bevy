@@ -1,5 +1,14 @@
 use std::{io::Write, path::PathBuf, process::Command};
 
+// - [ ] Bundle
+// - [ ] SystemParam
+// - [ ] WorldQuery
+// - [ ] ScheduleLabel
+// - [ ] SystemSet
+// - [ ] Optional: Resource
+// - [ ] Component
+// - [ ] States
+
 fn main() {
     println!("cargo:rerun-if-changed=../src/");
     // TODO: this needs to run once
@@ -21,14 +30,6 @@ fn main() {
         .output()
         //TODO
         .expect("failed to generate json rustdocs -- did you install `rustup component add --toolchain nightly rust-docs-json`");
-    // Bundle
-    // SystemParam
-    // WorldQuery
-    // ScheduleLabel
-    // SystemSet
-    // Optional: Resource
-    // Component
-    // States
 
     // jq -r '.. | objects | select(.name == "SystemParam" and has("docs")) | .docs' target/doc/bevy_ecs.json > system_param.md
     let traits_to_document = [
