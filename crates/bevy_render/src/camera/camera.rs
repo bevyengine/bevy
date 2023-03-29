@@ -115,7 +115,7 @@ pub struct Camera {
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.  
+    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
 }
 
@@ -361,8 +361,8 @@ impl CameraRenderGraph {
         Self(name.into())
     }
 
-    #[inline]
     /// Sets the graph name.
+    #[inline]
     pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
         self.0 = name.into();
     }
@@ -574,19 +574,28 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             Option<&ColorGrading>,
+            Option<&TemporalJitter>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
 ) {
     let primary_window = primary_window.iter().next();
-    for (entity, camera, camera_render_graph, transform, visible_entities, color_grading) in
-        query.iter()
+    for (
+        entity,
+        camera,
+        camera_render_graph,
+        transform,
+        visible_entities,
+        color_grading,
+        temporal_jitter,
+    ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
 
         if !camera.is_active {
             continue;
         }
+
         if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -595,7 +604,10 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
-            commands.get_or_spawn(entity).insert((
+
+            let mut commands = commands.get_or_spawn(entity);
+
+            commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -623,6 +635,10 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
             ));
+
+            if let Some(temporal_jitter) = temporal_jitter {
+                commands.insert(temporal_jitter.clone());
+            }
         }
     }
 }
@@ -684,5 +700,34 @@ pub fn sort_cameras(
             ambiguities could result in unpredictable render results.",
             ambiguities
         );
+    }
+}
+
+/// A subpixel offset to jitter a perspective camera's fustrum by.
+///
+/// Useful for temporal rendering techniques.
+///
+/// Do not use with [`OrthographicProjection`].
+///
+/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
+#[derive(Component, Clone, Default)]
+pub struct TemporalJitter {
+    /// Offset is in range [-0.5, 0.5].
+    pub offset: Vec2,
+}
+
+impl TemporalJitter {
+    pub fn jitter_projection(&self, projection: &mut Mat4, view_size: Vec2) {
+        if projection.w_axis.w == 1.0 {
+            warn!(
+                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
+            );
+            return;
+        }
+
+        let jitter = self.offset / view_size;
+
+        projection.z_axis.x += jitter.x;
+        projection.z_axis.y += jitter.y;
     }
 }
