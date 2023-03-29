@@ -1315,7 +1315,7 @@ impl World {
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
+            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             std::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
