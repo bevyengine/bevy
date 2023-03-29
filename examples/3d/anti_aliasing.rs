@@ -117,61 +117,39 @@ fn modify_sharpening(
     keys: Res<Input<KeyCode>>,
     mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
 ) {
-    let toggle_sharpening = keys.just_pressed(KeyCode::Key0);
-    let contrast_up = keys.just_pressed(KeyCode::Equals);
-    let contrast_down = keys.just_pressed(KeyCode::Minus);
-    let sharpen_up = keys.just_pressed(KeyCode::Apostrophe);
-    let sharpen_down = keys.just_pressed(KeyCode::Semicolon);
     for mut cas in &mut query {
-        if toggle_sharpening {
+        if keys.just_pressed(KeyCode::Key0) {
             cas.enabled = !cas.enabled;
-            if cas.enabled {
-                info!("CAS Enabled");
-            } else {
-                info!("CAS Disabled");
+        }
+        if cas.enabled {
+            if keys.just_pressed(KeyCode::A) {
+                cas.sharpening_strength -= 0.1;
+                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 4.0);
             }
-        }
-        if contrast_up {
-            cas.contrast_adaption += 0.1;
-            cas.contrast_adaption = cas.contrast_adaption.clamp(0.0, 1.0);
-            info!(
-                "CAS contrast adaption increased to {}",
-                cas.contrast_adaption
-            );
-        }
-        if contrast_down {
-            cas.contrast_adaption -= 0.1;
-            cas.contrast_adaption = cas.contrast_adaption.clamp(0.0, 1.0);
-            info!(
-                "CAS contrast adaption decreased to {}",
-                cas.contrast_adaption
-            );
-        }
-        if sharpen_up {
-            cas.sharpening_intensity += 0.1;
-            cas.sharpening_intensity = cas.sharpening_intensity.clamp(0.0, 1.0);
-            info!(
-                "CAS sharpening intensity increased to {}",
-                cas.sharpening_intensity
-            );
-        }
-        if sharpen_down {
-            cas.sharpening_intensity -= 0.1;
-            cas.sharpening_intensity = cas.sharpening_intensity.clamp(0.0, 1.0);
-            info!(
-                "CAS sharpening intensity decreased to {}",
-                cas.sharpening_intensity
-            );
+            if keys.just_pressed(KeyCode::S) {
+                cas.sharpening_strength += 0.1;
+                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 4.0);
+            }
+            if keys.just_pressed(KeyCode::D) {
+                cas.denoise = !cas.denoise;
+            }
         }
     }
 }
 
 fn update_ui(
-    camera: Query<(Option<&Fxaa>, Option<&TemporalAntiAliasSettings>), With<Camera>>,
+    camera: Query<
+        (
+            Option<&Fxaa>,
+            Option<&TemporalAntiAliasSettings>,
+            &ContrastAdaptiveSharpeningSettings,
+        ),
+        With<Camera>,
+    >,
     msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, taa) = camera.single();
+    let (fxaa, taa, cas_settings) = camera.single();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
@@ -254,6 +232,23 @@ fn update_ui(
         } else {
             ui.push_str("(T) Extreme");
         }
+    }
+
+    if cas_settings.enabled {
+        ui.push_str("\n\n----------\n\n(0) Sharpening Enabled\n");
+        ui.push_str(&format!(
+            "Sharpening Strength: {}\n",
+            cas_settings.sharpening_strength
+        ));
+        ui.push_str("(A) Increase Strength\n");
+        ui.push_str("(S) Decrease Strength\n");
+        if cas_settings.denoise {
+            ui.push_str("(D) Denoising Enabled\n");
+        } else {
+            ui.push_str("(D) Denoising Disabled\n");
+        }
+    } else {
+        ui.push_str("\n\n----------\n\n(0) Sharpening Disabled\n");
     }
 }
 

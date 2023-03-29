@@ -18,6 +18,10 @@ mod node;
 
 pub use node::CASNode;
 
+const SHARPEN_MIN: f32 = 0.0;
+// I didn't really notice a difference after 2.0, but it might just be the scene I tested it on.
+const SHARPEN_MAX: f32 = 4.0;
+
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
 /// CAS is usually used in combination with shader based anti-aliasing methods
@@ -33,49 +37,58 @@ pub use node::CASNode;
 pub struct ContrastAdaptiveSharpeningSettings {
     /// Enable or disable sharpening.
     pub enabled: bool,
-    /// Adjusts how the shader adapts to high contrast.
-    /// Higher values = more high contrast sharpening.
+    /// Adjusts sharpening strength. Higher values reduce the amount of sharpening.
     ///
-    /// Range of 0.0 to 1.0, with 0.0 not being fully off.
-    pub contrast_adaption: f32,
-    /// Adjusts sharpening intensity by averaging original pixels to the sharpened result.
+    /// 0.0 is full strength, 1.0 is half strength, 2.0 is quarter strength, etc.
+    /// Clamped between 0.0 and 4.0.
     ///
-    /// Range of 0.0 to 1.0, with 0.0 being fully off.
-    pub sharpening_intensity: f32,
-}
-
-/// The uniform struct extracted from [`ContrastAdaptiveSharpeningSettings`] attached to a [`Camera`].
-/// Will be available for use in the CAS shader.
-#[doc(hidden)]
-#[derive(Component, ShaderType, Clone)]
-pub struct CASUniform {
-    contrast_adaption: f32,
-    sharpening_intensity: f32,
+    /// The default value is 0.2.
+    pub sharpening_strength: f32,
+    /// Whether to try and avoid sharpening areas that are already noisy.
+    ///
+    /// You probably shouldn't use this, and just leave it set to false.
+    /// You should generally apply any sort of film grain or similar effects after CAS
+    /// and upscaling to avoid artifacts.
+    pub denoise: bool,
 }
 
 impl Default for ContrastAdaptiveSharpeningSettings {
     fn default() -> Self {
         ContrastAdaptiveSharpeningSettings {
             enabled: true,
-            contrast_adaption: 0.1,
-            sharpening_intensity: 1.0,
+            sharpening_strength: 0.2,
+            denoise: false,
         }
     }
+}
+
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component)]
+pub struct DenoiseCAS(bool);
+
+/// The uniform struct extracted from [`ContrastAdaptiveSharpeningSettings`] attached to a [`Camera`].
+/// Will be available for use in the CAS shader.
+#[doc(hidden)]
+#[derive(Component, ShaderType, Clone)]
+pub struct CASUniform {
+    sharpness: f32,
 }
 
 impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
     type Query = &'static Self;
     type Filter = With<Camera>;
-    type Out = CASUniform;
+    type Out = (DenoiseCAS, CASUniform);
 
     fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
         if !item.enabled {
             return None;
         }
-        Some(CASUniform {
-            contrast_adaption: item.contrast_adaption.clamp(0.0, 1.0),
-            sharpening_intensity: item.sharpening_intensity.clamp(0.0, 1.0),
-        })
+        Some((
+            DenoiseCAS(item.denoise),
+            CASUniform {
+                sharpness: (-(item.sharpening_strength.clamp(SHARPEN_MIN, SHARPEN_MAX))).exp2(),
+            },
+        ))
     }
 }
 
@@ -90,7 +103,7 @@ impl Plugin for CASPlugin {
         load_internal_asset!(
             app,
             CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
-            "contrast_adaptive_sharpening.wgsl",
+            "robust_contrast_adaptive_sharpening.wgsl",
             Shader::from_wgsl
         );
 
@@ -114,6 +127,10 @@ impl Plugin for CASPlugin {
             graph.add_node(core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING, cas_node);
 
             graph.add_node_edge(
+                core_3d::graph::node::TONEMAPPING,
+                core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
+            );
+            graph.add_node_edge(
                 core_3d::graph::node::FXAA,
                 core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
             );
@@ -129,6 +146,10 @@ impl Plugin for CASPlugin {
 
             graph.add_node(core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING, cas_node);
 
+            graph.add_node_edge(
+                core_2d::graph::node::TONEMAPPING,
+                core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
+            );
             graph.add_node_edge(
                 core_2d::graph::node::FXAA,
                 core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
@@ -196,19 +217,24 @@ impl FromWorld for CASPipeline {
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CASPipelineKey {
     texture_format: TextureFormat,
+    denoise: bool,
 }
 
 impl SpecializedRenderPipeline for CASPipeline {
     type Key = CASPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = vec![];
+        if key.denoise {
+            shader_defs.push("RCAS_DENOISE".into());
+        }
         RenderPipelineDescriptor {
             label: Some("contrast_adaptive_sharpening".into()),
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
@@ -224,21 +250,19 @@ impl SpecializedRenderPipeline for CASPipeline {
     }
 }
 
-pub fn prepare_cas_pipelines(
+fn prepare_cas_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CASPipeline>>,
     sharpening_pipeline: Res<CASPipeline>,
-    views: Query<(Entity, &ExtractedView, &CASUniform)>,
+    views: Query<(Entity, &ExtractedView, &DenoiseCAS), With<CASUniform>>,
 ) {
-    for (entity, view, sharpening) in &views {
-        if sharpening.sharpening_intensity == 0.0 {
-            continue;
-        }
+    for (entity, view, cas_settings) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
             CASPipelineKey {
+                denoise: cas_settings.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
