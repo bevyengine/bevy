@@ -23,17 +23,11 @@ fn setup(
     // These points will define the curve
     // You can learn more about bezier curves here
     // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-    let control_point1 = Vec3::new(-6., 2., 0.);
-    let control_point2 = Vec3::new(12., 8., 0.);
-
-    let control_point3 = Vec3::new(-12., 8., 0.);
-    let control_point4 = Vec3::new(6., 2., 0.);
-
     let points = [[
-        control_point1,
-        control_point2,
-        control_point3,
-        control_point4,
+        vec3(-6., 2., 0.),
+        vec3(12., 8., 0.),
+        vec3(-12., 8., 0.),
+        vec3(6., 2., 0.),
     ]];
 
     // Make a CubicCurve
