@@ -126,10 +126,6 @@ impl NodeTransform {
         self.rotation() * 180. / std::f32::consts::PI
     }
 
-    pub fn relative_vector(&self, point: Vec2) -> Vec2 {
-        self.transform_vector(point) - self.translation()
-    }
-
     pub fn transform_point(&self, point: Vec2) -> Vec2 {
         self.matrix.transform_point3(point.extend(0.)).truncate()
     }

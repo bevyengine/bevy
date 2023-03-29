@@ -331,8 +331,8 @@ Example | Description
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Node Rotation](../examples/ui/node_rotation.rs) | An example demonstrating how to rotate a UI element.
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
-[Node Rotation](../examples/ui/node_rotation.rs) | An example demonstrating rotation of UI elements.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
