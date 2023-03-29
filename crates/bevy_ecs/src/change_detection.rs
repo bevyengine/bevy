@@ -124,6 +124,8 @@ pub trait DetectChangesMut: DetectChanges {
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
+    /// # Examples
+    ///
     /// ```
     /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
     /// #[derive(Resource, PartialEq, Eq)]
