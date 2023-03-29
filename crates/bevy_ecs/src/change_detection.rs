@@ -119,12 +119,39 @@ pub trait DetectChangesMut: DetectChanges {
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn bypass_change_detection(&mut self) -> &mut Self::Inner;
 
-    /// Sets `self` to `value`, if and only if `*self != *value`
-    ///
-    /// `T` is the type stored within the smart pointer (e.g. [`Mut`] or [`ResMut`]).
+    /// Overwrites this smart pointer with the given value, if and only if `*self != value`
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
-    /// changes, instead of every time [`DerefMut`] is used.
+    /// changes, instead of every time it is mutably accessed.
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
+    /// #[derive(Resource, PartialEq, Eq)]
+    /// pub struct Score(u32);
+    ///
+    /// fn reset_scores(mut score: ResMut<Score>) {
+    ///     // Set the score to zero, unless it is already zero.
+    ///     score.set_if_neq(Score(0));
+    /// }
+    /// # let mut world = World::new();
+    /// # let score_id = world.spawn(Score(1)).id();
+    /// # // System that checks if scores have changed since the last time it ran
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # score_changed.initialize(&mut world);
+    /// # score_changed.run(&mut world);
+    /// #
+    /// # assert!(score_changed.run(&mut world));
+    /// #
+    /// # let mut schedule = Schedule::new();
+    /// # schedule.add_system(reset_scores);
+    /// #
+    /// # // first time `reset_scores` runs, the score is changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(score_changed.run(&mut world));
+    /// # // second time `reset_scores` runs, the score is not changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(!score_changed.run(&mut world));
+    /// ```
     #[inline]
     fn set_if_neq(&mut self, value: Self::Inner)
     where
