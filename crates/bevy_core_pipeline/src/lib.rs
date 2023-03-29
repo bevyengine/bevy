@@ -7,8 +7,16 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
 pub mod prepass;
+mod taa;
 pub mod tonemapping;
 pub mod upscaling;
+
+/// Experimental features that are not yet finished. Please report any issues you encounter!
+pub mod experimental {
+    pub mod taa {
+        pub use crate::taa::*;
+    }
+}
 
 pub mod prelude {
     #[doc(hidden)]

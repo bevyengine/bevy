@@ -105,8 +105,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
 
 #ifdef TONEMAP_IN_SHADER
-        output_color = tone_mapping(output_color);
-#endif
+    output_color = tone_mapping(output_color);
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = powsafe(output_rgb, 1.0 / 2.2);
@@ -116,8 +115,9 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     output_rgb = powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
 #endif
+#endif
 #ifdef PREMULTIPLY_ALPHA
-        output_color = premultiply_alpha(material.flags, output_color);
+    output_color = premultiply_alpha(material.flags, output_color);
 #endif
     return output_color;
 }
