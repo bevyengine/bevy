@@ -935,7 +935,7 @@ where
 #[derive(Debug)]
 pub struct Remove<T> {
     pub entity: Entity,
-    pub _phantom: PhantomData<T>,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for Remove<T>
@@ -954,7 +954,7 @@ impl<T> Remove<T> {
     pub const fn new(entity: Entity) -> Self {
         Self {
             entity,
-            _phantom: PhantomData::<T>,
+            phantom: PhantomData::<T>,
         }
     }
 }
@@ -989,7 +989,7 @@ impl<R: Resource> Command for InsertResource<R> {
 }
 
 pub struct RemoveResource<R: Resource> {
-    pub _phantom: PhantomData<R>,
+    pub phantom: PhantomData<R>,
 }
 
 impl<R: Resource> Command for RemoveResource<R> {
@@ -1002,7 +1002,7 @@ impl<R: Resource> RemoveResource<R> {
     /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
     pub const fn new() -> Self {
         Self {
-            _phantom: PhantomData::<R>,
+            phantom: PhantomData::<R>,
         }
     }
 }
