@@ -142,12 +142,12 @@ pub trait DetectChangesMut: DetectChanges {
     /// # score_changed.run((), &mut world);
     /// #
     /// # let mut schedule = Schedule::new();
-    /// # schedule.add_systems(reset_scores);
+    /// # schedule.add_systems(reset_score);
     /// #
-    /// # // first time `reset_scores` runs, the score is changed.
+    /// # // first time `reset_score` runs, the score is changed.
     /// # schedule.run(&mut world);
     /// # assert!(score_changed.run((), &mut world));
-    /// # // second time `reset_scores` runs, the score is not changed.
+    /// # // second time `reset_score` runs, the score is not changed.
     /// # schedule.run(&mut world);
     /// # assert!(!score_changed.run((), &mut world));
     /// ```
