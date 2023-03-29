@@ -75,13 +75,13 @@ pub fn animate_cube(
     mut query: Query<(&mut Transform, &Curve)>,
     mut gizmos: Gizmos,
 ) {
-    let step = (time.elapsed_seconds().sin() + 1.) / 2.;
+    let t = (time.elapsed_seconds().sin() + 1.) / 2.;
 
     for (mut transform, cubic_curve) in &mut query {
         // Draw the curve
         gizmos.linestrip(cubic_curve.0.iter_positions(50), Color::WHITE);
         // position takes a point from the curve where 0 is the initial point
         // and 1 is the last point
-        transform.translation = cubic_curve.0.position(step);
+        transform.translation = cubic_curve.0.position(t);
     }
 }
